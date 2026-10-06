@@ -1,7 +1,3 @@
-# Local AI scratch — never committed.
-.superpowers/
-docs/superpowers/
-
 # Maven build output.
 backend/target/
 target/
@@ -26,6 +22,8 @@ dist/
 build/
 .next/
 out/
+.superpowers/
+docs/superpowers/
 
 # OS files.
 .DS_Store
