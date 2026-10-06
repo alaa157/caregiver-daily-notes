@@ -1,8 +1,16 @@
+# LLM provider configuration (Member 1 — Task 1 foundation).
+# Tests never touch the network: they script HttpExchange / FakeLlmClient.
 llm:
+  # Inference API base. Requests go to POST {base-url}/models/{model}.
   base-url: https://api-inference.huggingface.co
+  # Default model id; override per environment. Never hit by tests.
   model: HuggingFaceTB/SmolLM2-1.7B-Instruct
+  # Per-attempt HTTP timeout. Mirrors HfLlmClient.REQUEST_TIMEOUT.
   timeout: 30s
+  # Total attempts per call: initial try + 2 retries with exponential backoff.
   max-attempts: 3
+  # Backoff base in ms; delay before retry N is base * 2^(N-1) (200, 400).
   backoff-base-ms: 200
   # Provider key comes from the environment only. Never commit a real key.
+  # Empty = unauthenticated requests (no Authorization header sent).
   api-key: ${HF_API_KEY:}
