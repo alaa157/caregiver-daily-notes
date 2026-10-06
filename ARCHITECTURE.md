@@ -25,7 +25,7 @@ caregiver-daily-notes/
 The backend is organized by feature/domain rather than by global controller/service/repository folders.
 
 ```
-backend/src/main/java/com/example/caregiver/
+backend/src/main/java/com/caregiver/
 ├── CaregiverApplication.java
 ├── auth/
 ├── recipient/
@@ -37,7 +37,7 @@ backend/src/main/java/com/example/caregiver/
 └── config/
 ```
 
-The package name is intentionally generic and does not contain a person's name. Spring Boot recommends a reversed-domain package rooted above the application components; the final package should be chosen as a project-owned namespace before production implementation begins.
+The package namespace is intentionally generic and does not contain a person's name. The project uses `com.caregiver` as its application package namespace.
 
 Each feature owns its controllers, services, repositories, DTOs, domain models, and feature-specific validation unless a concern is explicitly shared.
 
