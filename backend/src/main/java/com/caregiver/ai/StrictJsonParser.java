@@ -25,11 +25,16 @@ public final class StrictJsonParser {
    * Parses sanitized text into a JSON tree. Malformed input throws.
    */
   public static JsonNode parseTree(String raw) {
+    JsonNode tree;
     try {
-      return MAPPER.readTree(ModelSanitizer.strip(raw));
+      tree = MAPPER.readTree(ModelSanitizer.strip(raw));
     } catch (JsonProcessingException e) {
       throw new InvalidModelOutputException("Model output is not valid JSON", e);
     }
+    if (tree == null || tree.isNull() || tree.isMissingNode()) {
+      throw new InvalidModelOutputException("Model output is empty");
+    }
+    return tree;
   }
 
   /**
