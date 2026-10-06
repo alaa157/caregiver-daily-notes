@@ -1,0 +1,41 @@
+# Local AI scratch — never committed.
+.superpowers/
+docs/superpowers/
+
+# Maven build output.
+backend/target/
+target/
+*.class
+*.jar
+*.war
+*.ear
+
+# Eclipse / IntelliJ.
+.classpath
+.project
+.settings/
+.idea/
+*.iml
+
+# VS Code.
+.vscode/
+
+# Node (web/, mobile/).
+node_modules/
+dist/
+build/
+.next/
+out/
+
+# OS files.
+.DS_Store
+Thumbs.db
+
+# Env and secrets — never committed.
+.env
+.env.local
+.env.*.local
+
+# Logs.
+*.log
+logs/
