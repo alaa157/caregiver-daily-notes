@@ -19,13 +19,21 @@ public final class EvidenceValidator {
       throw new IllegalArgumentException("summary and noteTextsById must be non-null");
     }
     List<SummaryObservation> observations = summary.observations();
+    Map<String, String> normalized = new java.util.HashMap<>();
+    for (Map.Entry<String, String> entry : noteTextsById.entrySet()) {
+      normalized.put(entry.getKey(), ArabicNormalizer.normalize(entry.getValue()));
+    }
     for (int i = 0; i < observations.size(); i++) {
       SummaryObservation observation = observations.get(i);
-      if (!noteTextsById.containsKey(observation.noteId())) {
+      if (!normalized.containsKey(observation.noteId())) {
         throw new InvalidModelOutputException("Observation " + i + " cites unknown note: " + observation.noteId());
       }
       if (observation.quote().isBlank()) {
         throw new InvalidModelOutputException("Observation " + i + " has empty quote");
+      }
+      String quote = ArabicNormalizer.normalize(observation.quote());
+      if (quote.isEmpty() || !normalized.get(observation.noteId()).contains(quote)) {
+        throw new InvalidModelOutputException("Observation " + i + " quote not found in note: " + observation.noteId());
       }
     }
     return summary;
