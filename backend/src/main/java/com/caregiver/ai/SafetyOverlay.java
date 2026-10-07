@@ -39,7 +39,8 @@ public class SafetyOverlay {
       }
     }
 
-    boolean banner = merged.stream().anyMatch(s -> s.severity() == Severity.HIGH)
+    boolean banner = deterministic.needsDoctorBanner()
+        || merged.stream().anyMatch(s -> s.severity() == Severity.HIGH)
         || Boolean.TRUE.equals(suggestion.suggestsDoctorBanner());
     return new SafetyEvaluation(merged, banner);
   }
