@@ -16,7 +16,9 @@ public final class AuthContext {
 
   public static UUID currentCaregiverId() {
     Authentication authentication = SecurityContextHolder.getContext().getAuthentication();
-    if (authentication != null && authentication.getPrincipal() instanceof CaregiverPrincipal principal) {
+    if (authentication != null
+        && authentication.isAuthenticated()
+        && authentication.getPrincipal() instanceof CaregiverPrincipal principal) {
       return principal.id();
     }
     throw new InvalidTokenException("Authentication required.");

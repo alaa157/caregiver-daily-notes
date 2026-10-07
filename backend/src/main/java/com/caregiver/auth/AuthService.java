@@ -51,8 +51,12 @@ public class AuthService {
     try {
       caregiver = repository.saveAndFlush(caregiver);
     } catch (DataIntegrityViolationException e) {
-      // Lost a concurrent registration race on uk_caregivers_email.
-      throw new DuplicateEmailException("Email is already registered.");
+      // Lost a concurrent registration race — but only an email conflict
+      // becomes a duplicate; anything else is an unexpected failure.
+      if (isEmailConflict(e)) {
+        throw new DuplicateEmailException("Email is already registered.");
+      }
+      throw e;
     }
     return new AuthResponse(jwtService.issue(caregiver.getId()));
   }
@@ -67,9 +71,11 @@ public class AuthService {
     }
     var caregiver = repository.findByEmail(normalized);
     // Always verify: the dummy hash keeps unknown-email logins as expensive
-    // as wrong-password ones.
-    String hash = caregiver.map(Caregiver::getPasswordHash).orElse(SecurityBeans.DUMMY_HASH);
-    if (!encoder.matches(password, hash)) {
+    // as wrong-password ones. Require both presence and match — a matching
+    // dummy hash must never authenticate a missing caregiver.
+    boolean matched = encoder.matches(
+        password, caregiver.map(Caregiver::getPasswordHash).orElse(SecurityBeans.DUMMY_HASH));
+    if (caregiver.isEmpty() || !matched) {
       throw new BadCredentialsException();
     }
     return new AuthResponse(jwtService.issue(caregiver.get().getId()));
@@ -77,5 +83,32 @@ public class AuthService {
 
   static String normalize(String email) {
     return email == null ? "" : email.trim().toLowerCase(Locale.ROOT);
+  }
+
+  /**
+   * True only for violations of {@code uk_caregivers_email}, identified via
+   * Hibernate's structured constraint name — never broad message matching.
+   * H2 reports the backing index, which it derives from the constraint name
+   * with an {@code _INDEX_n} suffix; Postgres reports the exact name.
+   */
+  static boolean isEmailConflict(DataIntegrityViolationException e) {
+    Throwable cause = e;
+    while (cause != null) {
+      if (cause instanceof org.hibernate.exception.ConstraintViolationException cve
+          && matchesEmailConstraint(cve.getConstraintName())) {
+        return true;
+      }
+      cause = cause.getCause();
+    }
+    return false;
+  }
+
+  private static boolean matchesEmailConstraint(String name) {
+    if (name == null) {
+      return false;
+    }
+    String simple = name.contains(".") ? name.substring(name.lastIndexOf('.') + 1) : name;
+    String upper = simple.toUpperCase(Locale.ROOT);
+    return upper.equals("UK_CAREGIVERS_EMAIL") || upper.startsWith("UK_CAREGIVERS_EMAIL_INDEX");
   }
 }

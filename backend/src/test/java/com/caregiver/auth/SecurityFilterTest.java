@@ -7,6 +7,8 @@ import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.autoconfigure.web.servlet.AutoConfigureMockMvc;
 import org.springframework.boot.test.context.SpringBootTest;
+import org.springframework.boot.web.servlet.FilterRegistrationBean;
+import org.springframework.context.ApplicationContext;
 import org.springframework.context.annotation.Import;
 import org.springframework.test.web.servlet.MockMvc;
 import org.springframework.test.web.servlet.MvcResult;
@@ -25,6 +27,8 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
     properties = {
       "spring.datasource.url=jdbc:h2:mem:securitytest;MODE=PostgreSQL;DB_CLOSE_DELAY=-1",
       "spring.datasource.driver-class-name=org.h2.Driver",
+      "spring.datasource.username=sa",
+      "spring.datasource.password=",
       "spring.flyway.enabled=true",
       "spring.flyway.placeholder-replacement=false",
       "spring.jpa.hibernate.ddl-auto=validate",
@@ -43,6 +47,9 @@ class SecurityFilterTest {
   private MockMvc mvc;
 
   @Autowired
+  private ApplicationContext context;
+
+  @Autowired
   private JwtService jwtService;
 
   private String tokenFor(UUID id) {
@@ -56,6 +63,17 @@ class SecurityFilterTest {
         .expiration(new Date(1000))
         .signWith(Keys.hmacShaKeyFor(SECRET.getBytes(StandardCharsets.UTF_8)))
         .compact();
+  }
+
+  @Test
+  void jwtFilterRunsOnlyInsideTheSecurityChain() {
+    var matches =
+        context.getBeansOfType(FilterRegistrationBean.class).values().stream()
+            .filter(reg -> reg.getFilter() instanceof JwtAuthenticationFilter)
+            .toList();
+
+    assertThat(matches).hasSize(1);
+    assertThat(matches.get(0).isEnabled()).isFalse();
   }
 
   @Test

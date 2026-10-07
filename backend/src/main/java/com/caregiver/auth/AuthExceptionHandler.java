@@ -9,10 +9,11 @@ import org.springframework.web.bind.annotation.ExceptionHandler;
 import org.springframework.web.bind.annotation.RestControllerAdvice;
 
 /**
- * MVC auth errors. Bodies carry codes and safe messages only — never request
- * bodies, passwords, tokens, secrets, or exception details.
+ * MVC auth errors, scoped to the auth controllers so other domains keep
+ * their own handling. Bodies carry codes and safe messages only — never
+ * request bodies, passwords, tokens, secrets, or exception details.
  */
-@RestControllerAdvice
+@RestControllerAdvice(basePackageClasses = AuthController.class)
 public class AuthExceptionHandler {
 
   private static final Logger log = LoggerFactory.getLogger(AuthExceptionHandler.class);

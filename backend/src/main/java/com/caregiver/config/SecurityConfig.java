@@ -4,6 +4,7 @@ import com.caregiver.auth.AuthErrorResponseFactory;
 import com.caregiver.auth.JwtAuthenticationFilter;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import jakarta.servlet.http.HttpServletResponse;
+import org.springframework.boot.web.servlet.FilterRegistrationBean;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.http.HttpMethod;
@@ -29,6 +30,19 @@ public class SecurityConfig {
       response.setContentType(MediaType.APPLICATION_JSON_VALUE);
       objectMapper.writeValue(response.getWriter(), error.body());
     };
+  }
+
+  /**
+   * The JWT filter runs once, inside the security chain. Without this,
+   * Spring Boot would also register the {@code @Component} filter directly
+   * with the servlet container and it would execute twice per request.
+   */
+  @Bean
+  public FilterRegistrationBean<JwtAuthenticationFilter> jwtFilterRegistration(
+      JwtAuthenticationFilter filter) {
+    var registration = new FilterRegistrationBean<>(filter);
+    registration.setEnabled(false);
+    return registration;
   }
 
   @Bean

@@ -20,6 +20,8 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
     properties = {
       "spring.datasource.url=jdbc:h2:mem:logintest;MODE=PostgreSQL;DB_CLOSE_DELAY=-1",
       "spring.datasource.driver-class-name=org.h2.Driver",
+      "spring.datasource.username=sa",
+      "spring.datasource.password=",
       "spring.flyway.enabled=true",
       "spring.flyway.placeholder-replacement=false",
       "spring.jpa.hibernate.ddl-auto=validate",
@@ -60,6 +62,66 @@ class LoginTest {
     var stored = repository.findByEmail("sam@example.com");
     assertThat(stored).isPresent();
     assertThat(jwtService.parse(token).caregiverId()).isEqualTo(stored.get().getId());
+  }
+
+  @Test
+  void loginAcceptsPaddedEmailForm() throws Exception {
+    mvc.perform(
+            post("/api/auth/register")
+                .contentType(MediaType.APPLICATION_JSON)
+                .content("{\"email\":\"pad@example.com\",\"password\":\"password123\"}"))
+        .andExpect(status().isCreated());
+
+    String token =
+        mvc.perform(
+                post("/api/auth/login")
+                    .contentType(MediaType.APPLICATION_JSON)
+                    .content("{\"email\":\"  PAD@example.com  \",\"password\":\"password123\"}"))
+            .andExpect(status().isOk())
+            .andExpect(jsonPath("$.token").isString())
+            .andReturn()
+            .getResponse()
+            .getContentAsString()
+            .replaceAll(".*\"token\"\\s*:\\s*\"([^\"]+)\".*", "$1");
+
+    var stored = repository.findByEmail("pad@example.com");
+    assertThat(stored).isPresent();
+    assertThat(jwtService.parse(token).caregiverId()).isEqualTo(stored.get().getId());
+  }
+
+  @Test
+  void sentinelPasswordWithUnknownEmailMatchesWrongPasswordResponse() throws Exception {
+    mvc.perform(
+            post("/api/auth/register")
+                .contentType(MediaType.APPLICATION_JSON)
+                .content("{\"email\":\"sam3@example.com\",\"password\":\"password123\"}"))
+        .andExpect(status().isCreated());
+
+    String wrong =
+        mvc.perform(
+                post("/api/auth/login")
+                    .contentType(MediaType.APPLICATION_JSON)
+                    .content(
+                        "{\"email\":\"sam3@example.com\",\"password\":\"nope-nope-nope\"}"))
+            .andExpect(status().isUnauthorized())
+            .andReturn()
+            .getResponse()
+            .getContentAsString();
+
+    String sentinel =
+        mvc.perform(
+                post("/api/auth/login")
+                    .contentType(MediaType.APPLICATION_JSON)
+                    .content(
+                        "{\"email\":\"ghost@example.com\","
+                            + "\"password\":\"dummy-password-for-timing-parity\"}"))
+            .andExpect(status().isUnauthorized())
+            .andExpect(jsonPath("$.code").value("INVALID_CREDENTIALS"))
+            .andReturn()
+            .getResponse()
+            .getContentAsString();
+
+    assertThat(sentinel).isEqualTo(wrong);
   }
 
   @Test
