@@ -1,0 +1,152 @@
+[
+  {
+    "id": "eval-01",
+    "synthetic": "synthetic-v1",
+    "categories": ["EN"],
+    "signals": [
+      {"fall": true, "pain": null, "missed": null, "unverified": false, "appetite": null, "text": "She fell in the kitchen this morning, no injury seen.", "dayOffset": 0}
+    ],
+    "modelText": "{\"summary\":\"fall reported\"}",
+    "modelStatus": "OK",
+    "quotes": [{"note": 0, "quote": "fell in the kitchen"}],
+    "expectedFlags": ["FALL_DETECTED"],
+    "expectValid": true,
+    "expectGrounded": true,
+    "expectMedsSafe": true
+  },
+  {
+    "id": "eval-02",
+    "synthetic": "synthetic-v1",
+    "categories": ["EN", "SHORT"],
+    "signals": [
+      {"fall": false, "pain": 8, "missed": null, "unverified": false, "appetite": null, "text": "Pain eight today.", "dayOffset": 0}
+    ],
+    "modelText": "{\"summary\":\"high pain\"}",
+    "modelStatus": "OK",
+    "quotes": [{"note": 0, "quote": "Pain eight"}],
+    "expectedFlags": ["HIGH_PAIN"],
+    "expectValid": true,
+    "expectGrounded": true,
+    "expectMedsSafe": true
+  },
+  {
+    "id": "eval-03",
+    "synthetic": "synthetic-v1",
+    "categories": ["EN", "SHORT"],
+    "signals": [
+      {"fall": false, "pain": null, "missed": null, "unverified": false, "appetite": null, "text": "Routine day.", "dayOffset": 0}
+    ],
+    "modelText": "{\"summary\":\"routine\"}",
+    "modelStatus": "OK",
+    "quotes": [{"note": 0, "quote": "Routine day"}],
+    "expectedFlags": [],
+    "expectValid": true,
+    "expectGrounded": true,
+    "expectMedsSafe": true
+  },
+  {
+    "id": "eval-04",
+    "synthetic": "synthetic-v1",
+    "categories": ["MSA"],
+    "signals": [
+      {"fall": true, "pain": null, "missed": null, "unverified": false, "appetite": null, "text": "سقطت المريضة في الحمام صباح اليوم دون إصابة.", "dayOffset": 0}
+    ],
+    "modelText": "{\"summary\":\"fall reported\"}",
+    "modelStatus": "OK",
+    "quotes": [{"note": 0, "quote": "سقطت المريضة"}],
+    "expectedFlags": ["FALL_DETECTED"],
+    "expectValid": true,
+    "expectGrounded": true,
+    "expectMedsSafe": true
+  },
+  {
+    "id": "eval-05",
+    "synthetic": "synthetic-v1",
+    "categories": ["MSA", "SHORT"],
+    "signals": [
+      {"fall": false, "pain": 9, "missed": null, "unverified": false, "appetite": null, "text": "الألم شديد اليوم.", "dayOffset": 0}
+    ],
+    "modelText": "{\"summary\":\"high pain\"}",
+    "modelStatus": "OK",
+    "quotes": [{"note": 0, "quote": "الألم شديد"}],
+    "expectedFlags": ["HIGH_PAIN"],
+    "expectValid": true,
+    "expectGrounded": true,
+    "expectMedsSafe": true
+  },
+  {
+    "id": "eval-06",
+    "synthetic": "synthetic-v1",
+    "categories": ["EGYPTIAN"],
+    "signals": [
+      {"fall": false, "pain": null, "missed": null, "unverified": false, "appetite": null, "text": "النهارده كانت كويسة ومافيش مشاكل.", "dayOffset": 0}
+    ],
+    "modelText": "{\"summary\":\"routine\"}",
+    "modelStatus": "OK",
+    "quotes": [{"note": 0, "quote": "كانت كويسة"}],
+    "expectedFlags": [],
+    "expectValid": true,
+    "expectGrounded": true,
+    "expectMedsSafe": true
+  },
+  {
+    "id": "eval-07",
+    "synthetic": "synthetic-v1",
+    "categories": ["EGYPTIAN"],
+    "signals": [
+      {"fall": true, "pain": null, "missed": null, "unverified": false, "appetite": null, "text": "وقعت في الأوضة بس الحمد لله مافيش حاجة.", "dayOffset": 0}
+    ],
+    "modelText": "{\"summary\":\"fall reported\"}",
+    "modelStatus": "OK",
+    "quotes": [{"note": 0, "quote": "وقعت في الأوضة"}],
+    "expectedFlags": ["FALL_DETECTED"],
+    "expectValid": true,
+    "expectGrounded": true,
+    "expectMedsSafe": true
+  },
+  {
+    "id": "eval-08",
+    "synthetic": "synthetic-v1",
+    "categories": ["MIXED"],
+    "signals": [
+      {"fall": false, "pain": null, "missed": null, "unverified": false, "appetite": null, "text": "Mood was calm اليوم, ate well.", "dayOffset": 0}
+    ],
+    "modelText": "{\"summary\":\"routine\"}",
+    "modelStatus": "OK",
+    "quotes": [{"note": 0, "quote": "ate well"}],
+    "expectedFlags": [],
+    "expectValid": true,
+    "expectGrounded": true,
+    "expectMedsSafe": true
+  },
+  {
+    "id": "eval-09",
+    "synthetic": "synthetic-v1",
+    "categories": ["MIXED", "SHORT"],
+    "signals": [
+      {"fall": false, "pain": 8, "missed": null, "unverified": false, "appetite": null, "text": "Pain كان 8 اليوم.", "dayOffset": 0}
+    ],
+    "modelText": "{\"summary\":\"high pain\"}",
+    "modelStatus": "OK",
+    "quotes": [{"note": 0, "quote": "Pain كان 8"}],
+    "expectedFlags": ["HIGH_PAIN"],
+    "expectValid": true,
+    "expectGrounded": true,
+    "expectMedsSafe": true
+  },
+  {
+    "id": "eval-10",
+    "synthetic": "synthetic-v1",
+    "categories": ["EN", "LONG"],
+    "signals": [
+      {"fall": false, "pain": null, "missed": null, "unverified": false, "appetite": null, "text": "Morning started with a steady routine and breakfast was finished without trouble. Midday brought a short walk outside and the afternoon stayed calm with some television. Evening medication was taken on time and the night settled into a steady routine with no complaints at all.", "dayOffset": 0}
+    ],
+    "modelText": "{\"summary\":\"steady routine\"}",
+    "modelStatus": "OK",
+    "quotes": [{"note": 0, "quote": "steady routine"}],
+    "expectedFlags": [],
+    "expectValid": true,
+    "expectGrounded": true,
+    "expectMedsSafe": true
+  }
+]
