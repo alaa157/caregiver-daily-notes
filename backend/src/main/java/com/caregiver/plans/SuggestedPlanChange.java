@@ -23,11 +23,13 @@ public record SuggestedPlanChange(
       if (entry.getValue() == null) {
         throw new IllegalArgumentException("param values must be non-null");
       }
+      PlanTextSafety.requireSafe(entry.getValue());
     }
     params = Map.copyOf(params);
     if (reason == null || reason.isBlank()) {
       throw new IllegalArgumentException("reason must be non-blank");
     }
+    PlanTextSafety.requireSafe(reason);
     if (evidenceNoteIds == null || evidenceNoteIds.isEmpty()) {
       throw new IllegalArgumentException("at least one evidence note id is required");
     }
