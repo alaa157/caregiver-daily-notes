@@ -126,4 +126,16 @@ class FailoverLlmClientTest {
     assertThat(result.text()).isEmpty();
     assertThat(events).containsExactly("fallback");
   }
+
+  @Test
+  void throwingEventConsumer_doesNotBreakProviderResult() {
+    var primary = scripted(new LlmResult(LlmStatus.OK, "{\"a\":1}", null));
+    var client = new FailoverLlmClient(primary, scripted(), token -> {
+      throw new IllegalStateException("observer unavailable");
+    });
+
+    var result = client.complete(request());
+
+    assertThat(result).isEqualTo(new LlmResult(LlmStatus.OK, "{\"a\":1}", null));
+  }
 }

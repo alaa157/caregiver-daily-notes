@@ -118,7 +118,9 @@ public class ChatCompletionsLlmClient implements LlmClient {
         Thread.currentThread().interrupt();
         return fallback("interrupted");
       } catch (IOException | RuntimeException e) {
-        lastError = describe(e);
+        // Transport exception messages may contain request details; never
+        // expose them through the result returned to callers.
+        lastError = "transport failure";
         if (!backoff(attempt, attempts, backoffBase)) {
           return fallback("interrupted during backoff");
         }
@@ -271,11 +273,6 @@ public class ChatCompletionsLlmClient implements LlmClient {
 
   private LlmResult fallback(String reason) {
     return new LlmResult(LlmStatus.FALLBACK, "", FALLBACK_MARKER + ": " + reason);
-  }
-
-  private static String describe(Exception e) {
-    String message = e.getMessage();
-    return e.getClass().getSimpleName() + (message != null ? ": " + message : "");
   }
 
   /** Real HTTP exchange for production composition roots. */
