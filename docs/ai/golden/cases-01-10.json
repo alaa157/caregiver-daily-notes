@@ -6,7 +6,7 @@
     "signals": [
       {"fall": true, "pain": null, "missed": null, "unverified": false, "appetite": null, "text": "She fell in the kitchen this morning, no injury seen.", "dayOffset": 0}
     ],
-    "modelText": "{\"summary\":\"fall reported\"}",
+    "modelText": "{\"observations\":[{\"text\":\"fell in the kitchen\",\"noteId\":\"n0\",\"quote\":\"fell in the kitchen\"}],\"uncertainties\":[]}",
     "modelStatus": "OK",
     "quotes": [{"note": 0, "quote": "fell in the kitchen"}],
     "expectedFlags": ["FALL_DETECTED"],
@@ -21,7 +21,7 @@
     "signals": [
       {"fall": false, "pain": 8, "missed": null, "unverified": false, "appetite": null, "text": "Pain eight today.", "dayOffset": 0}
     ],
-    "modelText": "{\"summary\":\"high pain\"}",
+    "modelText": "{\"observations\":[{\"text\":\"Pain eight\",\"noteId\":\"n0\",\"quote\":\"Pain eight\"}],\"uncertainties\":[]}",
     "modelStatus": "OK",
     "quotes": [{"note": 0, "quote": "Pain eight"}],
     "expectedFlags": ["HIGH_PAIN"],
@@ -36,7 +36,7 @@
     "signals": [
       {"fall": false, "pain": null, "missed": null, "unverified": false, "appetite": null, "text": "Routine day.", "dayOffset": 0}
     ],
-    "modelText": "{\"summary\":\"routine\"}",
+    "modelText": "{\"observations\":[{\"text\":\"Routine day\",\"noteId\":\"n0\",\"quote\":\"Routine day\"}],\"uncertainties\":[]}",
     "modelStatus": "OK",
     "quotes": [{"note": 0, "quote": "Routine day"}],
     "expectedFlags": [],
@@ -51,7 +51,7 @@
     "signals": [
       {"fall": true, "pain": null, "missed": null, "unverified": false, "appetite": null, "text": "سقطت المريضة في الحمام صباح اليوم دون إصابة.", "dayOffset": 0}
     ],
-    "modelText": "{\"summary\":\"fall reported\"}",
+    "modelText": "{\"observations\":[{\"text\":\"سقطت المريضة\",\"noteId\":\"n0\",\"quote\":\"سقطت المريضة\"}],\"uncertainties\":[]}",
     "modelStatus": "OK",
     "quotes": [{"note": 0, "quote": "سقطت المريضة"}],
     "expectedFlags": ["FALL_DETECTED"],
@@ -66,7 +66,7 @@
     "signals": [
       {"fall": false, "pain": 9, "missed": null, "unverified": false, "appetite": null, "text": "الألم شديد اليوم.", "dayOffset": 0}
     ],
-    "modelText": "{\"summary\":\"high pain\"}",
+    "modelText": "{\"observations\":[{\"text\":\"الألم شديد\",\"noteId\":\"n0\",\"quote\":\"الألم شديد\"}],\"uncertainties\":[]}",
     "modelStatus": "OK",
     "quotes": [{"note": 0, "quote": "الألم شديد"}],
     "expectedFlags": ["HIGH_PAIN"],
@@ -81,7 +81,7 @@
     "signals": [
       {"fall": false, "pain": null, "missed": null, "unverified": false, "appetite": null, "text": "النهارده كانت كويسة ومافيش مشاكل.", "dayOffset": 0}
     ],
-    "modelText": "{\"summary\":\"routine\"}",
+    "modelText": "{\"observations\":[{\"text\":\"كانت كويسة\",\"noteId\":\"n0\",\"quote\":\"كانت كويسة\"}],\"uncertainties\":[]}",
     "modelStatus": "OK",
     "quotes": [{"note": 0, "quote": "كانت كويسة"}],
     "expectedFlags": [],
@@ -96,7 +96,7 @@
     "signals": [
       {"fall": true, "pain": null, "missed": null, "unverified": false, "appetite": null, "text": "وقعت في الأوضة بس الحمد لله مافيش حاجة.", "dayOffset": 0}
     ],
-    "modelText": "{\"summary\":\"fall reported\"}",
+    "modelText": "{\"observations\":[{\"text\":\"وقعت في الأوضة\",\"noteId\":\"n0\",\"quote\":\"وقعت في الأوضة\"}],\"uncertainties\":[]}",
     "modelStatus": "OK",
     "quotes": [{"note": 0, "quote": "وقعت في الأوضة"}],
     "expectedFlags": ["FALL_DETECTED"],
@@ -111,7 +111,7 @@
     "signals": [
       {"fall": false, "pain": null, "missed": null, "unverified": false, "appetite": null, "text": "Mood was calm اليوم, ate well.", "dayOffset": 0}
     ],
-    "modelText": "{\"summary\":\"routine\"}",
+    "modelText": "{\"observations\":[{\"text\":\"ate well\",\"noteId\":\"n0\",\"quote\":\"ate well\"}],\"uncertainties\":[]}",
     "modelStatus": "OK",
     "quotes": [{"note": 0, "quote": "ate well"}],
     "expectedFlags": [],
@@ -126,7 +126,7 @@
     "signals": [
       {"fall": false, "pain": 8, "missed": null, "unverified": false, "appetite": null, "text": "Pain كان 8 اليوم.", "dayOffset": 0}
     ],
-    "modelText": "{\"summary\":\"high pain\"}",
+    "modelText": "{\"observations\":[{\"text\":\"Pain كان 8\",\"noteId\":\"n0\",\"quote\":\"Pain كان 8\"}],\"uncertainties\":[]}",
     "modelStatus": "OK",
     "quotes": [{"note": 0, "quote": "Pain كان 8"}],
     "expectedFlags": ["HIGH_PAIN"],
@@ -141,7 +141,7 @@
     "signals": [
       {"fall": false, "pain": null, "missed": null, "unverified": false, "appetite": null, "text": "Morning started with a steady routine and breakfast was finished without trouble. Midday brought a short walk outside and the afternoon stayed calm with some television. Evening medication was taken on time and the night settled into a steady routine with no complaints at all.", "dayOffset": 0}
     ],
-    "modelText": "{\"summary\":\"steady routine\"}",
+    "modelText": "{\"observations\":[{\"text\":\"steady routine\",\"noteId\":\"n0\",\"quote\":\"steady routine\"}],\"uncertainties\":[]}",
     "modelStatus": "OK",
     "quotes": [{"note": 0, "quote": "steady routine"}],
     "expectedFlags": [],

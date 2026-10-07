@@ -47,9 +47,15 @@ public class AiEvaluator {
 
     boolean schemaOk;
     try {
-      StrictJsonParser.parseTree(c.modelText());
-      schemaOk = true;
-    } catch (InvalidModelOutputException e) {
+      SummaryService.ModelSummary parsed = StrictJsonParser.parse(
+          c.modelText(), SummaryService.ModelSummary.class, Set.of("observations", "uncertainties"));
+      schemaOk = parsed.observations() != null
+          && parsed.uncertainties() != null
+          && parsed.observations().stream().allMatch(observation -> observation != null
+              && observation.text() != null && observation.noteId() != null && observation.quote() != null)
+          && parsed.uncertainties().stream().allMatch(uncertainty -> uncertainty != null
+              && uncertainty.topic() != null && uncertainty.detail() != null);
+    } catch (RuntimeException e) {
       schemaOk = false;
     }
     boolean schemaValid = schemaOk == c.expectValid();
