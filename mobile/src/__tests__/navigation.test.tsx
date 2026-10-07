@@ -2,6 +2,7 @@ import {fireEvent, render} from '@testing-library/react-native';
 import React from 'react';
 import RootNavigator from '../app/RootNavigator';
 import {AuthProvider} from '../features/auth/AuthContext';
+import {setLanguage} from '../i18n/i18n';
 import {ApiClient} from '../lib/ApiClient';
 import {FakeTransport} from '../lib/FakeTransport';
 
@@ -23,6 +24,20 @@ describe('navigation', () => {
     for (const label of ['Notes', 'History', 'Plans', 'More']) {
       expect(screen.getAllByText(label).length).toBeGreaterThan(0);
     }
+  });
+
+  it('updates tab labels when the active language changes', async () => {
+    await setLanguage('en');
+    const screen = await render(withAuth(<RootNavigator signedIn={true} />));
+
+    await setLanguage('ar');
+
+    // Header title + tab label both render the route label.
+    for (const label of ['الملاحظات', 'السجل', 'الخطط', 'المزيد']) {
+      expect(screen.getAllByText(label).length).toBeGreaterThan(0);
+    }
+
+    await setLanguage('en');
   });
 
   it('reaches the server-URL screen from the More tab', async () => {

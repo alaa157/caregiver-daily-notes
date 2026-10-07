@@ -2,19 +2,20 @@ import {useNavigation} from '@react-navigation/native';
 import {createNativeStackNavigator} from '@react-navigation/native-stack';
 import React from 'react';
 import {Button, View} from 'react-native';
+import {useTranslation} from 'react-i18next';
 import AppText from '../components/AppText';
 import {useAuth} from '../features/auth/AuthContext';
 import ServerUrlScreen from '../features/auth/ServerUrlScreen';
-import {t} from '../i18n/i18n';
 
 const Stack = createNativeStackNavigator();
 
 function MoreHome(): React.JSX.Element {
   const navigation = useNavigation<any>();
   const {signOut} = useAuth();
+  const {t} = useTranslation();
   return (
     <View testID="more-home">
-      <AppText>More</AppText>
+      <AppText>{t('tabs.more')}</AppText>
       <Button
         testID="more-settings-button"
         title={t('settings.title')}

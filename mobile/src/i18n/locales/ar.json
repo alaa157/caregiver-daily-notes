@@ -27,12 +27,15 @@
     "retry": "إعادة المحاولة",
     "loading": "جارٍ التحميل…",
     "empty": "لا يوجد شيء هنا بعد.",
-    "back": "رجوع"
+    "back": "رجوع",
+    "rtlRestartRequired": "أعد فتح التطبيق لتطبيق اتجاه الكتابة."
   },
   "settings": {
     "title": "الإعدادات",
     "serverUrl": "رابط الخادم",
+    "resetServerUrl": "استعادة رابط الخادم الافتراضي",
     "serverUrlSaved": "تم حفظ رابط الخادم.",
+    "serverUrlReset": "تمت استعادة رابط الخادم الافتراضي.",
     "serverUrlInvalid": "أدخل رابط http(s) صحيحًا."
   },
   "states": {
