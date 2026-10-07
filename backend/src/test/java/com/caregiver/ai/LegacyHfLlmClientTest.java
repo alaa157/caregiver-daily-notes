@@ -14,7 +14,7 @@ import java.util.Queue;
 
 import static org.assertj.core.api.Assertions.assertThat;
 
-class HfLlmClientTest {
+class LegacyHfLlmClientTest {
 
   static final String VALID_BODY = "[{\"generated_text\": \"{\\\"summary\\\":\\\"ok\\\"}\"}]";
   static final String TRUNCATED_BODY = "[{\"generated_text\": \"{\\\"summary\\\":\"}]";
@@ -71,7 +71,7 @@ class HfLlmClientTest {
     exchange.addFailure(new IOException("HTTP 500"));
     exchange.addFailure(new IOException("HTTP 500"));
     var delays = new ArrayList<Long>();
-    var client = new HfLlmClient(props(""), exchange, delays::add);
+    var client = new LegacyHfLlmClient(props(""), exchange, delays::add);
 
     var result = client.complete(request());
 
@@ -87,7 +87,7 @@ class HfLlmClientTest {
     var exchange = new FakeExchange();
     exchange.addBody(TRUNCATED_BODY);
     exchange.addBody(VALID_BODY);
-    var client = new HfLlmClient(props(""), exchange, ms -> {
+    var client = new LegacyHfLlmClient(props(""), exchange, ms -> {
     });
 
     var result = client.complete(request());
@@ -105,7 +105,7 @@ class HfLlmClientTest {
     exchange.addBody(TRUNCATED_BODY);
     exchange.addFailure(new IOException("HTTP 500"));
     exchange.addFailure(new IOException("HTTP 500"));
-    var client = new HfLlmClient(props(""), exchange, ms -> {
+    var client = new LegacyHfLlmClient(props(""), exchange, ms -> {
     });
 
     var result = client.complete(request());
@@ -119,7 +119,7 @@ class HfLlmClientTest {
     var exchange = new FakeExchange();
     exchange.addTimeout();
     exchange.addBody(VALID_BODY);
-    var client = new HfLlmClient(props(""), exchange, ms -> {
+    var client = new LegacyHfLlmClient(props(""), exchange, ms -> {
     });
 
     var result = client.complete(request());
@@ -133,7 +133,7 @@ class HfLlmClientTest {
     var exchange = new FakeExchange();
     exchange.addBody("");
     exchange.addBody(VALID_BODY);
-    var client = new HfLlmClient(props(""), exchange, ms -> {
+    var client = new LegacyHfLlmClient(props(""), exchange, ms -> {
     });
 
     var result = client.complete(request());
@@ -146,14 +146,14 @@ class HfLlmClientTest {
   void skipsAuthHeaderWhenKeyBlank() {
     var anonExchange = new FakeExchange();
     anonExchange.addBody(VALID_BODY);
-    var anon = new HfLlmClient(props(""), anonExchange, ms -> {
+    var anon = new LegacyHfLlmClient(props(""), anonExchange, ms -> {
     });
     assertThat(anon.complete(request()).status()).isEqualTo(LlmStatus.OK);
     assertThat(anonExchange.calls.get(0).headers()).doesNotContainKey("Authorization");
 
     var keyedExchange = new FakeExchange();
     keyedExchange.addBody(VALID_BODY);
-    var keyed = new HfLlmClient(props("secret"), keyedExchange, ms -> {
+    var keyed = new LegacyHfLlmClient(props("secret"), keyedExchange, ms -> {
     });
     assertThat(keyed.complete(request()).status()).isEqualTo(LlmStatus.OK);
     assertThat(keyedExchange.calls.get(0).headers()).containsEntry("Authorization", "Bearer secret");
