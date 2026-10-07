@@ -1,11 +1,25 @@
 import React from 'react';
 import {Text, View} from 'react-native';
+import ApiStateView, {ApiViewState} from '../../components/ApiStateView';
 import AppText from '../../components/AppText';
 import SafetyBanner from '../../components/SafetyBanner';
+import {ApiError} from '../../lib/errors';
 import {Summary} from '../../types/api';
 
-export default function SummaryCard({summary}: {summary: Summary}): React.JSX.Element {
-  return (
+export interface SummaryCardProps {
+  summary: Summary;
+  state?: ApiViewState;
+  error?: ApiError | null;
+  onRetry?: () => void;
+}
+
+export default function SummaryCard({
+  summary,
+  state = 'content',
+  error = null,
+  onRetry,
+}: SummaryCardProps): React.JSX.Element {
+  const content = (
     <View testID="summary-card">
       <SafetyBanner flags={summary.redFlags} />
       <AppText>{summary.text}</AppText>
@@ -20,5 +34,17 @@ export default function SummaryCard({summary}: {summary: Summary}): React.JSX.El
         </View>
       ))}
     </View>
+  );
+  if (state === 'error') {
+    return (
+      <ApiStateView state="error" error={error} onRetry={onRetry}>
+        {content}
+      </ApiStateView>
+    );
+  }
+  return (
+    <ApiStateView state={state} onRetry={onRetry}>
+      {content}
+    </ApiStateView>
   );
 }

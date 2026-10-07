@@ -1,4 +1,5 @@
 import {fireEvent, render} from '@testing-library/react-native';
+import {NavigationContainer} from '@react-navigation/native';
 import {setLanguage} from '../i18n/i18n';
 import {ApiClient} from '../lib/ApiClient';
 import {FakeTransport} from '../lib/FakeTransport';
@@ -9,7 +10,9 @@ import NoteEditorScreen from '../features/notes/NoteEditorScreen';
 import PlanDetailScreen, {PlansScreen} from '../features/plans/PlansScreen';
 import {PlanAction} from '../types/api';
 import RecipientForm from '../features/recipients/RecipientForm';
+import RecipientDetailScreen from '../features/recipients/RecipientDetailScreen';
 import RecipientsScreen from '../features/recipients/RecipientsScreen';
+import RecipientsStack from '../features/recipients/RecipientsStack';
 import SummaryCard from '../features/ai/SummaryCard';
 import {listRecipients} from '../features/recipients/api';
 import {createNote} from '../features/notes/api';
@@ -41,13 +44,84 @@ describe('features', () => {
     expect(await form.findByTestId('recipient-name-error')).toBeTruthy();
   });
 
-  it('note editor rejects out-of-range pain with a localized error', async () => {
-    const screen = await render(<NoteEditorScreen recipientId="r1" onSubmit={() => {}} />);
+  it('note editor submits the full field payload', async () => {
+    let submitted: unknown = null;
+    const screen = await render(
+      <NoteEditorScreen
+        recipientId="r1"
+        onSubmit={draft => {
+          submitted = draft;
+        }}
+      />,
+    );
 
-    await fireEvent.changeText(screen.getByTestId('note-pain'), '11');
+    await fireEvent.changeText(screen.getByTestId('note-mood'), 'good');
+    await fireEvent.changeText(screen.getByTestId('note-appetite'), 'poor');
+    await fireEvent.changeText(screen.getByTestId('note-sleep'), 'fair');
+    await fireEvent.changeText(screen.getByTestId('note-mobility'), 'limited');
+    await fireEvent.changeText(screen.getByTestId('note-medication'), 'missed');
+    await fireEvent.changeText(screen.getByTestId('note-pain'), '7');
+    await fireEvent.changeText(screen.getByTestId('note-text'), 'Free text note.');
     await fireEvent.press(screen.getByTestId('note-submit'));
 
+    expect(submitted).toEqual({
+      recipientId: 'r1',
+      mood: 'good',
+      appetite: 'poor',
+      sleep: 'fair',
+      mobility: 'limited',
+      medicationTaken: 'missed',
+      pain: 7,
+      fall: false,
+      text: 'Free text note.',
+    });
+  });
+
+  it('note editor rejects non-integer and out-of-range pain', async () => {
+    const screen = await render(<NoteEditorScreen recipientId="r1" onSubmit={() => {}} />);
+
+    await fireEvent.changeText(screen.getByTestId('note-mood'), 'good');
+    await fireEvent.changeText(screen.getByTestId('note-pain'), '3.5');
+    await fireEvent.press(screen.getByTestId('note-submit'));
     expect(await screen.findByTestId('note-pain-error')).toBeTruthy();
+
+    await fireEvent.changeText(screen.getByTestId('note-pain'), '-1');
+    await fireEvent.press(screen.getByTestId('note-submit'));
+    expect(await screen.findByTestId('note-pain-error')).toBeTruthy();
+  });
+
+  it('note editor requires mood with a localized error', async () => {
+    const screen = await render(<NoteEditorScreen recipientId="r1" onSubmit={() => {}} />);
+
+    await fireEvent.changeText(screen.getByTestId('note-pain'), '5');
+    await fireEvent.press(screen.getByTestId('note-submit'));
+
+    expect(await screen.findByTestId('note-mood-error')).toBeTruthy();
+  });
+
+  it('fall toggle is included in the payload with localized labels', async () => {
+    let submitted: unknown = null;
+    const screen = await render(
+      <NoteEditorScreen
+        recipientId="r1"
+        onSubmit={draft => {
+          submitted = draft;
+        }}
+      />,
+    );
+    expect(screen.getByText('Appetite')).toBeTruthy();
+
+    await fireEvent.changeText(screen.getByTestId('note-mood'), 'good');
+    await fireEvent.changeText(screen.getByTestId('note-pain'), '2');
+    await fireEvent(screen.getByTestId('note-fall'), 'onValueChange', true);
+    await fireEvent.press(screen.getByTestId('note-submit'));
+
+    expect((submitted as {fall: boolean}).fall).toBe(true);
+
+    await setLanguage('ar');
+    const arScreen = await render(<NoteEditorScreen recipientId="r1" onSubmit={() => {}} />);
+    expect(arScreen.getByText('الشهية')).toBeTruthy();
+    await setLanguage('en');
   });
 
   it('Arabic note text renders byte-identical', async () => {
@@ -121,6 +195,29 @@ describe('features', () => {
   it('plans list renders fixture plans', async () => {
     const screen = await render(<PlansScreen plans={[PLAN]} />);
     expect(screen.getAllByTestId('plan-row').length).toBe(1);
+  });
+
+  it('recipient rows open the detail screen with the selected recipient', async () => {
+    const screen = await render(
+      <NavigationContainer>
+        <RecipientsStack recipients={[RECIPIENT]} />
+      </NavigationContainer>,
+    );
+
+    await fireEvent.press(screen.getByTestId('recipient-row-r1'));
+
+    expect(await screen.findByTestId('recipient-detail-name')).toBeTruthy();
+    expect(screen.getByText('Fatma Hassan')).toBeTruthy();
+    expect(screen.getByTestId('recipient-detail-status')).toBeTruthy();
+    expect(screen.getByText('Active')).toBeTruthy();
+  });
+
+  it('recipient detail renders Arabic status copy', async () => {
+    await setLanguage('ar');
+    const screen = await render(<RecipientDetailScreen recipient={RECIPIENT} />);
+
+    expect(screen.getByText('نشط')).toBeTruthy();
+    await setLanguage('en');
   });
 
   it('feature api wrappers call the provisional endpoints', async () => {

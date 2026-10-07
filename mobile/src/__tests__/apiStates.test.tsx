@@ -85,4 +85,12 @@ describe('API states', () => {
 
     expect(screen.getByTestId('api-empty')).toBeTruthy();
   });
+
+  it('error state without an error object renders a safe generic error', async () => {
+    const screen = await render(<ApiStateView state="error" error={null} onRetry={() => {}} />);
+
+    expect(screen.getByTestId('api-error')).toBeTruthy();
+    expect(screen.queryByTestId('api-retry')).toBeNull();
+    expect(screen.queryByTestId('api-content')).toBeNull();
+  });
 });

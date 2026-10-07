@@ -22,18 +22,39 @@ function copyFor(error: ApiError): string {
   }
 }
 
-/** Unified data-screen states. Retry is offered only when retrying can help. */
-export default function ApiStateView({
-  state,
-  error,
-  onRetry,
-  children,
-}: {
-  state: ApiViewState;
-  error?: ApiError | null;
+type BaseProps = {
   onRetry?: () => void;
   children?: React.ReactNode;
-}): React.JSX.Element {
+};
+
+/**
+ * Unified data-screen states. The discriminated union requires an error in
+ * the error state; if one is somehow missing at runtime, a safe generic
+ * error renders instead of the content. Retry is offered only when
+ * retrying can help.
+ */
+export type ApiStateViewProps =
+  | (BaseProps & {state: 'loading' | 'content' | 'empty'})
+  | (BaseProps & {state: 'error'; error: ApiError | null});
+
+function isErrorProps(props: ApiStateViewProps): props is BaseProps & {
+  state: 'error';
+  error: ApiError | null;
+} {
+  return props.state === 'error';
+}
+
+/** Safe generic error for the missing-error case. Never offers retry. */
+function MissingErrorState(): React.JSX.Element {
+  return (
+    <View testID="api-error">
+      <Text testID="api-error-message">{t('states.serverError')}</Text>
+    </View>
+  );
+}
+
+export default function ApiStateView(props: ApiStateViewProps): React.JSX.Element {
+  const {state, onRetry, children} = props;
   if (state === 'loading') {
     return (
       <View testID="api-loading">
@@ -48,7 +69,11 @@ export default function ApiStateView({
       </View>
     );
   }
-  if (state === 'error' && error) {
+  if (isErrorProps(props)) {
+    if (!props.error) {
+      return <MissingErrorState />;
+    }
+    const error = props.error;
     const retryable = RETRYABLE.has(error.code) && onRetry !== undefined;
     return (
       <View testID="api-error">

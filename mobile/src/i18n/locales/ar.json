@@ -47,10 +47,20 @@
   "recipients": {
     "title": "المتلقون",
     "name": "الاسم",
-    "nameRequired": "الاسم مطلوب."
+    "nameRequired": "الاسم مطلوب.",
+    "status": "الحالة",
+    "active": "نشط",
+    "inactive": "غير نشط"
   },
   "notes": {
     "title": "الملاحظات",
+    "mood": "المزاج",
+    "appetite": "الشهية",
+    "sleep": "النوم",
+    "mobility": "الحركة",
+    "medication": "الدواء",
+    "fall": "تم الإبلاغ عن سقوط",
+    "text": "ملاحظة",
     "pain": "الألم (0–10)",
     "painInvalid": "يجب أن يكون الألم رقمًا من 0 إلى 10.",
     "moodRequired": "المزاج مطلوب."
