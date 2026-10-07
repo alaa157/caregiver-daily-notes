@@ -73,6 +73,17 @@ describe('auth', () => {
     await setLanguage('en');
   });
 
+  it('shows a restart notice when RTL direction changes', async () => {
+    const h = harness({});
+    const screen = await render(h.ui);
+    expect(await screen.findByTestId('login-screen')).toBeTruthy();
+
+    await setLanguage('ar');
+
+    expect(await screen.findByText('أعد فتح التطبيق لتطبيق اتجاه الكتابة.')).toBeTruthy();
+    await setLanguage('en');
+  });
+
   it('signOut clears the token and shows login', async () => {
     const h = harness({});
     await h.seed('tok123');

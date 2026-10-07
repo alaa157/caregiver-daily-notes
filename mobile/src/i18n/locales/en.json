@@ -27,12 +27,15 @@
     "retry": "Retry",
     "loading": "Loading…",
     "empty": "Nothing here yet.",
-    "back": "Back"
+    "back": "Back",
+    "rtlRestartRequired": "Close and reopen the app to apply the text direction."
   },
   "settings": {
     "title": "Settings",
     "serverUrl": "Server URL",
+    "resetServerUrl": "Restore default server URL",
     "serverUrlSaved": "Server URL saved.",
+    "serverUrlReset": "Server URL restored to default.",
     "serverUrlInvalid": "Enter a valid http(s) URL."
   },
   "states": {

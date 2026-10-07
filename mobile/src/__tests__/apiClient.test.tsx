@@ -113,4 +113,29 @@ describe('API client', () => {
     expect(url).toBe('https://test.tunnel/api/ping');
     expect((init.headers as Record<string, string>)['Authorization']).toBe('Bearer tok123');
   });
+
+  it('uses a changed server URL on the next request and preserves the token', async () => {
+    await TokenStore.set('tok123');
+    const {ServerUrlStore} = jest.requireMock('../lib/ServerUrlStore') as {
+      ServerUrlStore: {get: jest.Mock};
+    };
+    ServerUrlStore.get
+      .mockResolvedValueOnce('https://first.tunnel')
+      .mockResolvedValueOnce('https://second.tunnel');
+    const fetchMock: jest.Mock = jest.fn(async () => okJson({ok: true}));
+    globalThis.fetch = fetchMock as unknown as typeof fetch;
+    const transport = new FetchTransport();
+
+    await transport.request('GET', '/api/first');
+    await transport.request('GET', '/api/second');
+
+    const calls = fetchMock.mock.calls as unknown as Array<[string, RequestInit]>;
+    expect(calls.map(([url]) => url)).toEqual([
+      'https://first.tunnel/api/first',
+      'https://second.tunnel/api/second',
+    ]);
+    for (const [, init] of calls) {
+      expect((init.headers as Record<string, string>)['Authorization']).toBe('Bearer tok123');
+    }
+  });
 });

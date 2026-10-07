@@ -1,7 +1,7 @@
 import {useNavigation} from '@react-navigation/native';
 import React, {useState} from 'react';
 import {Button, Text, TextInput, View} from 'react-native';
-import {t} from '../../i18n/i18n';
+import {useTranslation} from 'react-i18next';
 import {ApiError} from '../../lib/errors';
 import {useAuth} from './AuthContext';
 
@@ -12,6 +12,7 @@ function isEmail(value: string): boolean {
 export default function RegisterScreen(): React.JSX.Element {
   const navigation = useNavigation<any>();
   const {signUp} = useAuth();
+  const {t} = useTranslation();
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [confirm, setConfirm] = useState('');

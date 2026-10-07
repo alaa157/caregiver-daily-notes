@@ -8,6 +8,7 @@ import en from './locales/en.json';
 export type AppLanguage = 'ar' | 'en';
 
 const LANGUAGE_KEY = 'app.language';
+let rtlRestartPending = false;
 
 void i18n.use(initReactI18next).init({
   resources: {
@@ -32,11 +33,16 @@ export function dir(): 'rtl' | 'ltr' {
   return isRTL() ? 'rtl' : 'ltr';
 }
 
+export function isRtlRestartPending(): boolean {
+  return rtlRestartPending;
+}
+
 export function t(key: string, options?: Record<string, unknown>): string {
   return i18n.t(key, options) as string;
 }
 
 export async function setLanguage(lang: AppLanguage): Promise<void> {
+  rtlRestartPending = I18nManager.isRTL !== (lang === 'ar');
   await i18n.changeLanguage(lang);
   I18nManager.allowRTL(true);
   I18nManager.forceRTL(lang === 'ar');

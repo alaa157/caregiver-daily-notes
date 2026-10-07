@@ -66,4 +66,14 @@ describe('server URL', () => {
 
     await setLanguage('en');
   });
+
+  it('reset restores the default URL with confirmation', async () => {
+    await ServerUrlStore.set('https://custom.tunnel');
+    const screen = await render(<ServerUrlScreen />);
+
+    await fireEvent.press(screen.getByTestId('server-url-reset'));
+
+    expect(await screen.findByTestId('server-url-reset-done')).toBeTruthy();
+    expect(await ServerUrlStore.get()).toBe('https://CHANGE-ME');
+  });
 });

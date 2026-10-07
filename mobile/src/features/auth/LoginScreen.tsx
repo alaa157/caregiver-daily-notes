@@ -1,7 +1,8 @@
 import {useNavigation} from '@react-navigation/native';
 import React, {useState} from 'react';
 import {Button, Text, TextInput, View} from 'react-native';
-import {t} from '../../i18n/i18n';
+import {useTranslation} from 'react-i18next';
+import {isRtlRestartPending} from '../../i18n/i18n';
 import {ApiError} from '../../lib/errors';
 import {useAuth} from './AuthContext';
 
@@ -12,6 +13,7 @@ function isEmail(value: string): boolean {
 export default function LoginScreen(): React.JSX.Element {
   const navigation = useNavigation<any>();
   const {signIn} = useAuth();
+  const {t} = useTranslation();
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [error, setError] = useState<string | null>(null);
@@ -67,6 +69,9 @@ export default function LoginScreen(): React.JSX.Element {
         secureTextEntry
       />
       {error ? <Text testID="login-error">{error}</Text> : null}
+      {isRtlRestartPending() ? (
+        <Text testID="rtl-restart-notice">{t('common.rtlRestartRequired')}</Text>
+      ) : null}
       <Button testID="login-submit" title={t('auth.submit')} onPress={onSubmit} disabled={busy} />
       <Button
         testID="login-register-link"
