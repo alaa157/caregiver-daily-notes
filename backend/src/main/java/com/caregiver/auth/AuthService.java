@@ -1,5 +1,6 @@
 package com.caregiver.auth;
 
+import com.caregiver.config.SecurityBeans;
 import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
@@ -54,6 +55,24 @@ public class AuthService {
       throw new DuplicateEmailException("Email is already registered.");
     }
     return new AuthResponse(jwtService.issue(caregiver.getId()));
+  }
+
+  @Transactional
+  public AuthResponse login(String email, String password) {
+    String normalized = normalize(email);
+    if (password == null
+        || password.isEmpty()
+        || password.getBytes(StandardCharsets.UTF_8).length > MAX_PASSWORD_BYTES) {
+      throw new ValidationException("Invalid email or password.");
+    }
+    var caregiver = repository.findByEmail(normalized);
+    // Always verify: the dummy hash keeps unknown-email logins as expensive
+    // as wrong-password ones.
+    String hash = caregiver.map(Caregiver::getPasswordHash).orElse(SecurityBeans.DUMMY_HASH);
+    if (!encoder.matches(password, hash)) {
+      throw new BadCredentialsException();
+    }
+    return new AuthResponse(jwtService.issue(caregiver.get().getId()));
   }
 
   static String normalize(String email) {
