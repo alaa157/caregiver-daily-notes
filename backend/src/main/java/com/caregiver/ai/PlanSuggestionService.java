@@ -71,7 +71,7 @@ public class PlanSuggestionService {
     SuggestedPlan plan =
         new SuggestedPlan(changes, request.currentMedications(), proposed, basedOn);
     MedicationHardLock.checkUnchanged(request.currentMedications(), plan.proposedMedications());
-    return new PlanSuggestionResult(store.save(plan), false);
+    return new PlanSuggestionResult(store.save(request.recipientId(), plan), false);
   }
 
   private static SuggestedPlanChange toChange(int index, RawChange raw) {
