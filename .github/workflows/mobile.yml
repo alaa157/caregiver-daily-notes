@@ -54,6 +54,13 @@ jobs:
       - name: Set up Android SDK
         uses: android-actions/setup-android@v3
 
+      - name: Install required SDK packages
+        # Must match mobile/android/build.gradle: compileSdk 37, buildTools 37.0.0.
+        # Never request the deprecated "tools" package; cmdline-tools ships with the action.
+        run: |
+          yes | sdkmanager --licenses > /dev/null
+          sdkmanager --install "platform-tools" "platforms;android-37" "build-tools;37.0.0"
+
       - run: npm ci
         working-directory: mobile
 
