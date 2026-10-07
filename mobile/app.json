@@ -1,4 +1,5 @@
 {
   "name": "CaregiverMobile",
-  "displayName": "CaregiverMobile"
+  "displayName": "CaregiverMobile",
+  "serverUrlDefault": "https://CHANGE-ME"
 }
