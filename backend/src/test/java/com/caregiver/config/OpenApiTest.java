@@ -19,6 +19,8 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
     properties = {
       "spring.datasource.url=jdbc:h2:mem:openapitest;MODE=PostgreSQL;DB_CLOSE_DELAY=-1",
       "spring.datasource.driver-class-name=org.h2.Driver",
+      "spring.datasource.username=sa",
+      "spring.datasource.password=",
       "spring.flyway.enabled=true",
       "spring.flyway.placeholder-replacement=false",
       "spring.jpa.hibernate.ddl-auto=validate",
@@ -38,15 +40,15 @@ class OpenApiTest {
         .andExpect(status().isOk())
         .andExpect(jsonPath("$.info.title").value("Caregiver Daily Notes API"))
         .andExpect(jsonPath("$.info.version").value("0.0.1"))
-        .andExpect(jsonPath("$.paths./api/auth/register").exists())
-        .andExpect(jsonPath("$.paths./api/auth/login").exists())
+        .andExpect(jsonPath("$['paths']['/api/auth/register']").exists())
+        .andExpect(jsonPath("$['paths']['/api/auth/login']").exists())
         .andExpect(jsonPath("$.components.securitySchemes.bearerAuth.type").value("http"))
         .andExpect(jsonPath("$.components.securitySchemes.bearerAuth.scheme").value("bearer"))
-        .andExpect(jsonPath("$.paths./api/auth/register.post.security").doesNotExist())
-        .andExpect(jsonPath("$.paths./api/auth/login.post.security").doesNotExist())
+        .andExpect(jsonPath("$['paths']['/api/auth/register']['post']['security']").doesNotExist())
+        .andExpect(jsonPath("$['paths']['/api/auth/login']['post']['security']").doesNotExist())
         // Protected operations inherit the document-level requirement: no
         // per-operation key, and the global one names bearerAuth.
-        .andExpect(jsonPath("$.paths./api/test/whoami.get.security").doesNotExist())
+        .andExpect(jsonPath("$['paths']['/api/test/whoami']['get']['security']").doesNotExist())
         .andExpect(jsonPath("$.security[0].bearerAuth").exists())
         .andExpect(jsonPath("$.components.schemas.RegisterRequest").exists())
         .andExpect(jsonPath("$.components.schemas.LoginRequest").exists())

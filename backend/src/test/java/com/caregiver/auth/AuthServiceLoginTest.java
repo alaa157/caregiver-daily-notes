@@ -3,6 +3,7 @@ package com.caregiver.auth;
 import com.caregiver.config.AuthProperties;
 import com.caregiver.config.SecurityBeans;
 import org.junit.jupiter.api.Test;
+import org.springframework.security.crypto.bcrypt.BCryptPasswordEncoder;
 import org.springframework.security.crypto.password.PasswordEncoder;
 
 import java.time.Clock;
@@ -36,6 +37,22 @@ class AuthServiceLoginTest {
     assertThatThrownBy(() -> service.login("ghost@example.com", "whatever"))
         .isInstanceOf(BadCredentialsException.class);
     verify(encoder).matches("whatever", SecurityBeans.DUMMY_HASH);
+  }
+
+  @Test
+  void sentinelPasswordWithUnknownEmailStillRejected() {
+    // The dummy hash matches this sentinel by design; the login must still fail
+    // with BadCredentialsException (never NoSuchElementException), and the
+    // dummy matches() call must still happen for timing parity.
+    PasswordEncoder encoder = new BCryptPasswordEncoder();
+    var repository = mock(CaregiverRepository.class);
+    when(repository.findByEmail("ghost@example.com")).thenReturn(Optional.empty());
+    var service = new AuthService(repository, encoder, jwtService());
+
+    assertThatThrownBy(
+            () -> service.login("ghost@example.com", "dummy-password-for-timing-parity"))
+        .isInstanceOf(BadCredentialsException.class)
+        .hasMessage("Invalid email or password.");
   }
 
   @Test

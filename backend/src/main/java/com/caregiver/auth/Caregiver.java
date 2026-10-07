@@ -10,6 +10,7 @@ import org.hibernate.annotations.CreationTimestamp;
 import org.hibernate.annotations.UuidGenerator;
 
 import java.time.Instant;
+import java.util.Locale;
 import java.util.UUID;
 
 /** Registered caregiver. Email is stored normalized (trimmed, lowercased). */
@@ -39,7 +40,9 @@ public class Caregiver {
   @PreUpdate
   void normalizeEmail() {
     if (email != null) {
-      email = email.trim().toLowerCase();
+      // Locale.ROOT: the no-arg toLowerCase() turns INFO into ınfo under a
+      // Turkish default locale, breaking the canonical form.
+      email = email.trim().toLowerCase(Locale.ROOT);
     }
   }
 

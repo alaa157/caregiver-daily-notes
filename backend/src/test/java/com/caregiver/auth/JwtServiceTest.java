@@ -1,6 +1,8 @@
 package com.caregiver.auth;
 
 import com.caregiver.config.AuthProperties;
+import io.jsonwebtoken.Jwts;
+import io.jsonwebtoken.security.Keys;
 import org.junit.jupiter.api.Test;
 
 import java.nio.charset.StandardCharsets;
@@ -9,6 +11,7 @@ import java.time.Duration;
 import java.time.Instant;
 import java.time.ZoneOffset;
 import java.util.Base64;
+import java.util.Date;
 import java.util.UUID;
 
 import static org.assertj.core.api.Assertions.assertThat;
@@ -77,5 +80,48 @@ class JwtServiceTest {
     assertThatThrownBy(() -> new JwtService(
         new AuthProperties("too-short", Duration.ofHours(24)), Clock.systemUTC()))
         .isInstanceOf(IllegalArgumentException.class);
+  }
+
+  @Test
+  void issuedTokensAlwaysUseHS256() {
+    for (int bytes : new int[] {32, 48, 64}) {
+      var svc = new JwtService(
+          new AuthProperties("s".repeat(bytes), Duration.ofHours(24)),
+          Clock.fixed(NOW, ZoneOffset.UTC));
+      UUID id = UUID.randomUUID();
+
+      String token = svc.issue(id);
+      String header = new String(
+          Base64.getUrlDecoder().decode(token.split("\\.")[0]), StandardCharsets.UTF_8);
+
+      assertThat(header).contains("\"alg\":\"HS256\"");
+      assertThat(svc.parse(token).caregiverId()).isEqualTo(id);
+    }
+  }
+
+  @Test
+  void nonHS256TokensRejected() {
+    // A 64-byte key could verify HS384/HS512 — the parser must still refuse them.
+    String secret = "s".repeat(64);
+    var svc = new JwtService(
+        new AuthProperties(secret, Duration.ofHours(24)),
+        Clock.fixed(NOW, ZoneOffset.UTC));
+    var key = Keys.hmacShaKeyFor(secret.getBytes(StandardCharsets.UTF_8));
+    UUID id = UUID.randomUUID();
+    String hs384 = Jwts.builder()
+        .subject(id.toString())
+        .issuedAt(Date.from(NOW))
+        .expiration(Date.from(NOW.plus(Duration.ofHours(1))))
+        .signWith(key, Jwts.SIG.HS384)
+        .compact();
+    String hs512 = Jwts.builder()
+        .subject(id.toString())
+        .issuedAt(Date.from(NOW))
+        .expiration(Date.from(NOW.plus(Duration.ofHours(1))))
+        .signWith(key, Jwts.SIG.HS512)
+        .compact();
+
+    assertThatThrownBy(() -> svc.parse(hs384)).isInstanceOf(InvalidTokenException.class);
+    assertThatThrownBy(() -> svc.parse(hs512)).isInstanceOf(InvalidTokenException.class);
   }
 }

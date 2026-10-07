@@ -9,6 +9,14 @@ import org.springframework.http.MediaType;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.test.web.servlet.MockMvc;
 
+import java.util.ArrayList;
+import java.util.List;
+import java.util.concurrent.CountDownLatch;
+import java.util.concurrent.ExecutorService;
+import java.util.concurrent.Executors;
+import java.util.concurrent.Future;
+import java.util.concurrent.TimeUnit;
+
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
@@ -21,6 +29,8 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
     properties = {
       "spring.datasource.url=jdbc:h2:mem:authtest;MODE=PostgreSQL;DB_CLOSE_DELAY=-1",
       "spring.datasource.driver-class-name=org.h2.Driver",
+      "spring.datasource.username=sa",
+      "spring.datasource.password=",
       "spring.flyway.enabled=true",
       "spring.flyway.placeholder-replacement=false",
       "spring.jpa.hibernate.ddl-auto=validate",
@@ -60,6 +70,59 @@ class RegistrationTest {
     assertThat(jwtService.parse(token).caregiverId()).isEqualTo(stored.get().getId());
     assertThat(stored.get().getPasswordHash()).isNotEqualTo("password123");
     assertThat(encoder.matches("password123", stored.get().getPasswordHash())).isTrue();
+  }
+
+  @Test
+  void registrationAcceptsPaddedEmailAndStoresCanonicalForm() throws Exception {
+    mvc.perform(
+            post("/api/auth/register")
+                .contentType(MediaType.APPLICATION_JSON)
+                .content("{\"email\":\"  Pad@Example.COM  \",\"password\":\"password123\"}"))
+        .andExpect(status().isCreated())
+        .andExpect(jsonPath("$.token").isString());
+
+    assertThat(repository.findByEmail("pad@example.com")).isPresent();
+
+    mvc.perform(
+            post("/api/auth/register")
+                .contentType(MediaType.APPLICATION_JSON)
+                .content("{\"email\":\"pad@example.com\",\"password\":\"password123\"}"))
+        .andExpect(status().isUnprocessableEntity())
+        .andExpect(jsonPath("$.code").value("DUPLICATE_EMAIL"));
+  }
+
+  @Test
+  void concurrentDuplicateRegistrationsYieldOneCreated() throws Exception {
+    int racers = 4;
+    ExecutorService pool = Executors.newFixedThreadPool(racers);
+    CountDownLatch gun = new CountDownLatch(1);
+    try {
+      List<Future<Integer>> futures = new ArrayList<>();
+      for (int i = 0; i < racers; i++) {
+        futures.add(
+            pool.submit(
+                () -> {
+                  gun.await(10, TimeUnit.SECONDS);
+                  return mvc.perform(
+                          post("/api/auth/register")
+                              .contentType(MediaType.APPLICATION_JSON)
+                              .content(
+                                  "{\"email\":\"race-burst@example.com\",\"password\":\"password123\"}"))
+                      .andReturn()
+                      .getResponse()
+                      .getStatus();
+                }));
+      }
+      gun.countDown();
+      List<Integer> statuses = new ArrayList<>();
+      for (Future<Integer> future : futures) {
+        statuses.add(future.get(30, TimeUnit.SECONDS));
+      }
+      assertThat(statuses.stream().filter(s -> s == 201).count()).isEqualTo(1);
+      assertThat(statuses.stream().filter(s -> s == 422).count()).isEqualTo(racers - 1);
+    } finally {
+      pool.shutdownNow();
+    }
   }
 
   @Test

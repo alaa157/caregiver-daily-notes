@@ -11,6 +11,8 @@ import org.springframework.test.context.ContextConfiguration;
 
 import com.caregiver.config.CaregiverApplication;
 
+import java.util.Locale;
+
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
@@ -23,9 +25,13 @@ import static org.assertj.core.api.Assertions.assertThatThrownBy;
 @DataJpaTest(properties = {
     "spring.datasource.url=jdbc:h2:mem:authdb;MODE=PostgreSQL;DB_CLOSE_DELAY=-1",
     "spring.datasource.driver-class-name=org.h2.Driver",
+    "spring.datasource.username=sa",
+    "spring.datasource.password=",
     "spring.flyway.enabled=true",
     "spring.flyway.placeholder-replacement=false",
-    "spring.jpa.hibernate.ddl-auto=validate"})
+    "spring.jpa.hibernate.ddl-auto=validate",
+    "auth.jwt.secret=test-secret-that-is-definitely-32-bytes-long",
+    "auth.jwt.expiry=24h"})
 class CaregiverRepositoryTest {
 
   @Autowired
@@ -63,6 +69,22 @@ class CaregiverRepositoryTest {
     repository.saveAndFlush(caregiver("someone@example.com"));
 
     assertThat(repository.existsByEmail("someone@example.com")).isTrue();
+  }
+
+  @Test
+  void normalizationIsLocaleIndependent() {
+    // Turkish dotted/dotless I: no-arg toLowerCase() turns INFO into ınfo.
+    Locale previous = Locale.getDefault();
+    synchronized (CaregiverRepositoryTest.class) {
+      Locale.setDefault(Locale.forLanguageTag("tr-TR"));
+      try {
+        repository.saveAndFlush(caregiver("INFO@example.com"));
+
+        assertThat(repository.findByEmail("info@example.com")).isPresent();
+      } finally {
+        Locale.setDefault(previous);
+      }
+    }
   }
 
   @Test
