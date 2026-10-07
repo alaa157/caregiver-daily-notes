@@ -16,7 +16,8 @@ import java.util.Set;
 public final class StrictJsonParser {
 
   private static final ObjectMapper MAPPER = new ObjectMapper()
-      .configure(DeserializationFeature.FAIL_ON_UNKNOWN_PROPERTIES, true);
+      .configure(DeserializationFeature.FAIL_ON_UNKNOWN_PROPERTIES, true)
+      .configure(DeserializationFeature.FAIL_ON_TRAILING_TOKENS, true);
 
   private StrictJsonParser() {
   }

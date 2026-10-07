@@ -25,10 +25,10 @@ public class HfLlmClient implements LlmClient {
   /** Request timeout mirror; the {@code llm.timeout} property wins at runtime. */
   public static final Duration REQUEST_TIMEOUT = Duration.ofSeconds(30);
 
-  /** Total attempts per call: initial try + 2 retries. */
+  /** Default total attempts when configuration supplies a non-positive value. */
   public static final int MAX_ATTEMPTS = 3;
 
-  /** Base backoff in ms; delay before retry N is {@code base * 2^(N-1)}. */
+  /** Default backoff base in ms when configuration supplies a negative value. */
   public static final long BACKOFF_BASE_MS = 200;
 
   /** JSON-repair retries per call, spent only on malformed output. */
@@ -80,9 +80,9 @@ public class HfLlmClient implements LlmClient {
     if (request == null) {
       throw new IllegalArgumentException("request");
     }
-    int attempts = Math.max(1, props.maxAttempts());
+    int attempts = props.maxAttempts() > 0 ? props.maxAttempts() : MAX_ATTEMPTS;
     Duration timeout = props.timeout() != null ? props.timeout() : REQUEST_TIMEOUT;
-    long backoffBase = Math.max(0, props.backoffBaseMs());
+    long backoffBase = props.backoffBaseMs() >= 0 ? props.backoffBaseMs() : BACKOFF_BASE_MS;
     String url = baseUrl() + "/models/" + props.model();
     Map<String, String> headers = headers();
     String inputs = request.systemPrompt() + "\n" + DATA_BEGIN + "\n" + request.dataBlock() + "\n" + DATA_END;
@@ -125,7 +125,13 @@ public class HfLlmClient implements LlmClient {
       }
       if (repairs < REPAIR_ATTEMPTS) {
         repairs++;
-        String repaired = tryRepair(url, headers, repairBody, timeout);
+        String repaired;
+        try {
+          repaired = tryRepair(url, headers, repairBody, timeout);
+        } catch (InterruptedException e) {
+          Thread.currentThread().interrupt();
+          return fallback("interrupted");
+        }
         if (repaired != null) {
           return new LlmResult(LlmStatus.REPAIRED, repaired, null);
         }
@@ -140,13 +146,11 @@ public class HfLlmClient implements LlmClient {
     return fallback(lastError);
   }
 
-  private String tryRepair(String url, Map<String, String> headers, String inputs, Duration timeout) {
+  private String tryRepair(String url, Map<String, String> headers, String inputs, Duration timeout)
+      throws InterruptedException {
     String raw;
     try {
       raw = exchange.post(url, headers, requestBody(inputs), timeout);
-    } catch (InterruptedException e) {
-      Thread.currentThread().interrupt();
-      return null;
     } catch (IOException | RuntimeException e) {
       return null;
     }
