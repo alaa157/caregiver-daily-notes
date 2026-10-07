@@ -17,7 +17,9 @@ class SafetyRegressionTest {
   static HfLlmClient client(HttpExchange exchange) {
     return new HfLlmClient(
         new com.caregiver.config.LlmProperties(
-            "https://inference.example.com", "test-model", Duration.ofSeconds(30), 3, 200, ""),
+            "https://inference.example.com", "test-model", Duration.ofSeconds(30), 3, 200, "",
+            10000, null,
+            "https://backup.example.com", "backup-model", "", 10000, 500L),
         exchange,
         ms -> {
         });

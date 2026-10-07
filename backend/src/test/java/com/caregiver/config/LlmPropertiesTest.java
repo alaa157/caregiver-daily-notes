@@ -35,6 +35,20 @@ class LlmPropertiesTest {
   }
 
   @Test
+  void properties_bindsBackupEndpoint() {
+    runner.run(ctx -> {
+      var props = ctx.getBean(LlmProperties.class);
+      assertThat(props.backupBaseUrl()).isEqualTo("https://openrouter.ai/api/v1");
+      assertThat(props.backupModel()).isEqualTo("liquid/lfm-2.5-2.6b:free");
+      assertThat(props.backupApiKey()).isEmpty();
+      assertThat(props.maxTokens()).isEqualTo(10000);
+      assertThat(props.reasoningMaxTokens()).isNull();
+      assertThat(props.backupMaxTokens()).isEqualTo(10000);
+      assertThat(props.backupReasoningMaxTokens()).isEqualTo(500L);
+    });
+  }
+
+  @Test
   void properties_defaultApiKeyToEmpty() {
     runner.run(ctx -> {
       var props = ctx.getBean(LlmProperties.class);
