@@ -1,9 +1,12 @@
 package com.caregiver.config;
 
+import com.caregiver.auth.JwtService;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.security.crypto.bcrypt.BCryptPasswordEncoder;
 import org.springframework.security.crypto.password.PasswordEncoder;
+
+import java.time.Clock;
 
 /** Password hashing beans. Plaintext passwords are never stored. */
 @Configuration
@@ -21,5 +24,15 @@ public class SecurityBeans {
   @Bean
   public PasswordEncoder passwordEncoder() {
     return new BCryptPasswordEncoder();
+  }
+
+  @Bean
+  public Clock systemClock() {
+    return Clock.systemUTC();
+  }
+
+  @Bean
+  public JwtService jwtService(AuthProperties properties, Clock systemClock) {
+    return new JwtService(properties, systemClock);
   }
 }
