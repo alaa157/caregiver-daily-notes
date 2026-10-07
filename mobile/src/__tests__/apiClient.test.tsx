@@ -21,6 +21,14 @@ function okJson(body: unknown, status = 200): Response {
   } as Response;
 }
 
+function okJsonRaw(json: () => Promise<unknown>, status = 200): Response {
+  return {
+    ok: status >= 200 && status < 300,
+    status,
+    json,
+  } as Response;
+}
+
 describe('API client', () => {
   beforeEach(async () => {
     await TokenStore.clear();
@@ -150,6 +158,53 @@ describe('API client', () => {
     const err = await client.get('/api/slow').catch(e => e);
     expect(err).toBeInstanceOf(ApiError);
     expect((err as ApiError).code).toBe('NETWORK');
+  });
+
+  it('rejects NETWORK (never null) when the body read times out', async () => {
+    jest.useFakeTimers();
+    const clearSpy = jest.spyOn(globalThis, 'clearTimeout');
+    try {
+      const fetchMock: jest.Mock = jest.fn(async (_url: string, init?: RequestInit) => {
+        // Successful headers, but the body stays pending until abort fires —
+        // exactly what a stalled body read looks like to response.json().
+        const pending = new Promise<unknown>((_resolve, reject) => {
+          init?.signal?.addEventListener('abort', () => {
+            reject(Object.assign(new Error('Body read aborted'), {name: 'AbortError'}));
+          });
+        });
+        return {ok: true, status: 200, json: () => pending} as Response;
+      });
+      globalThis.fetch = fetchMock as unknown as typeof fetch;
+
+      const pending = new ApiClient(new FetchTransport()).get('/api/slow-body');
+      // Attach the settlement handler before advancing: the abort fires while
+      // timers drain, and a handler-free window would surface as unhandled.
+      const settled = pending.then(
+        value => ({value}),
+        error => ({error}),
+      );
+      await jest.advanceTimersByTimeAsync(30000);
+
+      const outcome = await settled;
+      expect('error' in outcome && outcome.error).toBeInstanceOf(ApiError);
+      expect((outcome as {error: ApiError}).error.code).toBe('NETWORK');
+      expect(clearSpy).toHaveBeenCalled();
+    } finally {
+      clearSpy.mockRestore();
+      jest.useRealTimers();
+    }
+  });
+
+  it('treats malformed JSON as an empty body, not a network failure', async () => {
+    const fetchMock: jest.Mock = jest.fn(async () =>
+      okJsonRaw(async () => {
+        throw new SyntaxError('Unexpected token');
+      }),
+    );
+    globalThis.fetch = fetchMock as unknown as typeof fetch;
+
+    const body = await new ApiClient(new FetchTransport()).get<unknown>('/api/odd');
+    expect(body).toBeNull();
   });
 
   it('always clears the timeout timer', async () => {

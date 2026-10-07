@@ -3,8 +3,8 @@ import {Button, Text, TextInput, View} from 'react-native';
 import {useTranslation} from 'react-i18next';
 import {InvalidServerUrlError, ServerUrlStore} from '../../lib/ServerUrlStore';
 
-// Server URL editor. Reachable from the More tab; the login-screen footer
-// link lands with Task A6's LoginScreen.
+// Server URL editor. Reachable from the More tab (signed in) and from the
+// login-screen Server URL link (before sign-in).
 export default function ServerUrlScreen(): React.JSX.Element {
   const {t} = useTranslation();
   const [current, setCurrent] = useState<string>('');

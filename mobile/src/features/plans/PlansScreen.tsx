@@ -1,5 +1,6 @@
 import React from 'react';
 import {View} from 'react-native';
+import {useTranslation} from 'react-i18next';
 import ApiStateView, {ApiViewState} from '../../components/ApiStateView';
 import AppButton from '../../components/AppButton';
 import AppText from '../../components/AppText';
@@ -43,11 +44,11 @@ export function PlansScreen({
   );
 }
 
-const ACTIONS: Array<{testID: string; action: PlanAction; label: string}> = [
-  {testID: 'plan-action-accept', action: 'accept', label: 'Accept'},
-  {testID: 'plan-action-edit-accept', action: 'edit-accept', label: 'Edit & accept'},
-  {testID: 'plan-action-dismiss', action: 'dismiss', label: 'Dismiss'},
-  {testID: 'plan-action-archive', action: 'archive', label: 'Archive'},
+const ACTION_DEFS: Array<{testID: string; action: PlanAction; key: string}> = [
+  {testID: 'plan-action-accept', action: 'accept', key: 'plans.actions.accept'},
+  {testID: 'plan-action-edit-accept', action: 'edit-accept', key: 'plans.actions.editAccept'},
+  {testID: 'plan-action-dismiss', action: 'dismiss', key: 'plans.actions.dismiss'},
+  {testID: 'plan-action-archive', action: 'archive', key: 'plans.actions.archive'},
 ];
 
 export interface PlanDetailProps {
@@ -65,13 +66,15 @@ export default function PlanDetailScreen({
   error = null,
   onRetry,
 }: PlanDetailProps): React.JSX.Element {
+  // Hook (not the module-level t) so the bar re-renders on language change.
+  const {t: tc} = useTranslation();
   const content = (
     <View testID="plan-detail">
-      {ACTIONS.map(a => (
+      {ACTION_DEFS.map(a => (
         <AppButton
           key={a.testID}
           testID={a.testID}
-          title={a.label}
+          title={tc(a.key)}
           onPress={() => onAction(a.action)}
         />
       ))}
