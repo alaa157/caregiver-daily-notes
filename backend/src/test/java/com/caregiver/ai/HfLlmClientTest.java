@@ -55,7 +55,9 @@ class HfLlmClientTest {
 
   static LlmProperties props(String apiKey) {
     return new LlmProperties(
-        "https://inference.example.com", "test-model", Duration.ofSeconds(30), 3, 200, apiKey);
+        "https://inference.example.com", "test-model", Duration.ofSeconds(30), 3, 200, apiKey,
+        10000, null,
+        "https://backup.example.com", "backup-model", "", 10000, 500L);
   }
 
   static LlmRequest request() {

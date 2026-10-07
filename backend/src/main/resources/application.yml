@@ -1,7 +1,7 @@
 # LLM provider configuration (Member 1 — Task 1 foundation).
 # Tests never touch the network: they script HttpExchange / FakeLlmClient.
 llm:
-  # Inference API base. Requests go to POST {base-url}/models/{model}.
+  # Chat-completions base. Requests go to POST {base-url}/chat/completions.
   # Primary provider: Gemini (OpenAI-compatible). Backup: OpenRouter LFM (see below).
   # Chain: Gemini -> OpenRouter -> template fallback -> "AI unavailable".
   base-url: https://generativelanguage.googleapis.com/v1beta/openai
@@ -21,6 +21,17 @@ llm:
   max-attempts: 3
   # Backoff base in ms; delay before retry N is base * 2^(N-1) (200, 400).
   backoff-base-ms: 200
-  # Provider key comes from the environment only. Never commit a real key.
+  # Per-request output token budget for the primary provider.
+  max-tokens: 10000
+  # Primary reasoning cap (null = omit). Gemini needs none.
+  reasoning-max-tokens:
+  # Backup endpoint: repo defaults (they change with updates); key from env only.
+  backup-base-url: https://openrouter.ai/api/v1
+  backup-model: liquid/lfm-2.5-2.6b:free
+  backup-max-tokens: 10000
+  # LFM reasoning is mandatory: cap the trace so the answer fits the budget.
+  backup-reasoning-max-tokens: 500
+  backup-api-key: ${OPENROUTER_API_KEY:}
+  # Primary key comes from the environment only. Never commit a real key.
   # Empty = unauthenticated requests (no Authorization header sent).
-  api-key: ${HF_API_KEY:}
+  api-key: ${GEMINI_API_KEY:}
