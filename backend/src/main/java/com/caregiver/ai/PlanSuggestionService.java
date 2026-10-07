@@ -60,6 +60,11 @@ public class PlanSuggestionService {
     }
     List<MedicationEntry> proposed =
         parsed.proposedMedications() != null ? parsed.proposedMedications() : List.of();
+    for (int i = 0; i < proposed.size(); i++) {
+      if (proposed.get(i) == null) {
+        throw new InvalidModelOutputException("Medication entry " + i + " is missing");
+      }
+    }
     for (int i = 0; i < changes.size(); i++) {
       for (String noteId : changes.get(i).evidenceNoteIds()) {
         if (!request.noteTextsById().containsKey(noteId)) {
