@@ -49,7 +49,7 @@ public class SummaryService {
         inRange(safeSignals, end.minusDays(6), end),
         inRange(safeSignals, end.minusDays(13), end.minusDays(7)));
 
-    LlmResult result = llm.complete(new LlmRequest(SummaryPrompts.SYSTEM_PROMPT, SummaryPrompts.userInput(block)));
+    LlmResult result = llm.complete(new LlmRequest(SummaryPrompts.SYSTEM_PROMPT, block));
     if (result.status() == LlmStatus.FALLBACK) {
       return new SummaryResult(
           new GroundedSummary(
