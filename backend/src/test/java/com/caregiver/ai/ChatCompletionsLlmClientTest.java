@@ -139,6 +139,52 @@ class ChatCompletionsLlmClientTest {
   }
 
   @Test
+  void transportExceptionDetails_areNotReturnedInFallback() {
+    var exchange = new FakeExchange();
+    exchange.addFailure(new IOException("request contained private note and secret key"));
+    exchange.addFailure(new IOException("request contained private note and secret key"));
+    exchange.addFailure(new IOException("request contained private note and secret key"));
+    var client = client("secret", null, exchange, ms -> {
+    });
+
+    var result = client.complete(request());
+
+    assertThat(result.status()).isEqualTo(LlmStatus.FALLBACK);
+    assertThat(result.error()).isEqualTo("AI_UNAVAILABLE: transport failure");
+    assertThat(result.error()).doesNotContain("private note", "secret key");
+  }
+
+  @Test
+  void malformedJson_yieldsFallbackAfterRetries() {
+    var exchange = new FakeExchange();
+    exchange.addBody("not-json");
+    exchange.addBody("not-json");
+    exchange.addBody("not-json");
+    var client = client("", null, exchange, ms -> {
+    });
+
+    var result = client.complete(request());
+
+    assertThat(result.status()).isEqualTo(LlmStatus.FALLBACK);
+    assertThat(exchange.calls).hasSize(3);
+  }
+
+  @Test
+  void rateLimitAndServiceUnavailable_areRetried() {
+    var exchange = new FakeExchange();
+    exchange.addFailure(new IOException("HTTP 429"));
+    exchange.addFailure(new IOException("HTTP 503"));
+    exchange.addBody(VALID_BODY);
+    var client = client("", null, exchange, ms -> {
+    });
+
+    var result = client.complete(request());
+
+    assertThat(result.status()).isEqualTo(LlmStatus.OK);
+    assertThat(exchange.calls).hasSize(3);
+  }
+
+  @Test
   void blankKey_sendsNoAuthHeader() {
     var exchange = new FakeExchange();
     exchange.addBody(VALID_BODY);

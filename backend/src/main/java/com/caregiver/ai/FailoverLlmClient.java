@@ -43,26 +43,34 @@ public class FailoverLlmClient implements LlmClient {
       first = null;
     }
     if (first != null && first.status() != LlmStatus.FALLBACK) {
-      events.accept("primary-ok");
+      emit("primary-ok");
       return first;
     }
     if (backup == null) {
-      events.accept("fallback");
+      emit("fallback");
       return first != null ? first : fallback("primary failed");
     }
     LlmResult second;
     try {
       second = backup.complete(request);
     } catch (RuntimeException e) {
-      events.accept("fallback");
+      emit("fallback");
       return fallback("backup failed");
     }
     if (second == null || second.status() == LlmStatus.FALLBACK) {
-      events.accept("fallback");
+      emit("fallback");
       return second != null ? second : fallback("backup failed");
     }
-    events.accept("backup-ok");
+    emit("backup-ok");
     return second;
+  }
+
+  private void emit(String token) {
+    try {
+      events.accept(token);
+    } catch (RuntimeException ignored) {
+      // Metrics/attribution callbacks must not break the provider result.
+    }
   }
 
   private static LlmResult fallback(String reason) {
