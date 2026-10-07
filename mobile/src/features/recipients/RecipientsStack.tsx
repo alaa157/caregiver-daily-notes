@@ -1,28 +1,42 @@
-import {createNativeStackNavigator} from '@react-navigation/native-stack';
-import React, {useState} from 'react';
+import {createNativeStackNavigator, NativeStackScreenProps} from '@react-navigation/native-stack';
+import React from 'react';
+import ApiStateView from '../../components/ApiStateView';
 import RecipientDetailScreen from './RecipientDetailScreen';
 import RecipientsScreen from './RecipientsScreen';
 import {Recipient} from '../../types/api';
 
-const Stack = createNativeStackNavigator();
+export type RecipientsStackParamList = {
+  RecipientsList: undefined;
+  RecipientDetail: {recipientId: string};
+};
+
+const Stack = createNativeStackNavigator<RecipientsStackParamList>();
+
+type ListProps = NativeStackScreenProps<RecipientsStackParamList, 'RecipientsList'>;
+type DetailProps = NativeStackScreenProps<RecipientsStackParamList, 'RecipientDetail'>;
 
 export default function RecipientsStack({
   recipients,
 }: {
   recipients: Recipient[];
 }): React.JSX.Element {
-  const [selected, setSelected] = useState<Recipient | null>(null);
+  const renderList = ({navigation}: ListProps): React.JSX.Element => (
+    <RecipientsScreen
+      recipients={recipients}
+      onSelect={r => navigation.navigate('RecipientDetail', {recipientId: r.id})}
+    />
+  );
+  const renderDetail = ({navigation, route}: DetailProps): React.JSX.Element => {
+    const recipient = recipients.find(r => r.id === route.params.recipientId);
+    if (!recipient) {
+      return <ApiStateView state="empty" />;
+    }
+    return <RecipientDetailScreen recipient={recipient} onBack={() => navigation.goBack()} />;
+  };
   return (
     <Stack.Navigator screenOptions={{headerShown: false}}>
-      {selected ? (
-        <Stack.Screen name="RecipientDetail">
-          {() => <RecipientDetailScreen recipient={selected} />}
-        </Stack.Screen>
-      ) : (
-        <Stack.Screen name="RecipientsList">
-          {() => <RecipientsScreen recipients={recipients} onSelect={setSelected} />}
-        </Stack.Screen>
-      )}
+      <Stack.Screen name="RecipientsList">{renderList}</Stack.Screen>
+      <Stack.Screen name="RecipientDetail">{renderDetail}</Stack.Screen>
     </Stack.Navigator>
   );
 }

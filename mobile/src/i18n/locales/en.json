@@ -69,7 +69,13 @@
     "title": "History"
   },
   "plans": {
-    "title": "Plans"
+    "title": "Plans",
+    "actions": {
+      "accept": "Accept",
+      "editAccept": "Edit & accept",
+      "dismiss": "Dismiss",
+      "archive": "Archive"
+    }
   },
   "ai": {
     "title": "Summary"

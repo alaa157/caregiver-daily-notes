@@ -1,5 +1,6 @@
 import {fireEvent, render} from '@testing-library/react-native';
 import {NavigationContainer} from '@react-navigation/native';
+import React from 'react';
 import {setLanguage} from '../i18n/i18n';
 import {ApiClient} from '../lib/ApiClient';
 import {FakeTransport} from '../lib/FakeTransport';
@@ -192,6 +193,23 @@ describe('features', () => {
     expect(screen.getByTestId('plan-version-0')).toBeTruthy();
   });
 
+  it('plan actions are localized in English and Arabic', async () => {
+    await setLanguage('en');
+    const english = await render(<PlanDetailScreen plan={PLAN} onAction={() => {}} />);
+    for (const label of ['Accept', 'Edit & accept', 'Dismiss', 'Archive']) {
+      expect(english.getByText(label)).toBeTruthy();
+    }
+    await english.unmount();
+
+    await setLanguage('ar');
+    const arabic = await render(<PlanDetailScreen plan={PLAN} onAction={() => {}} />);
+    for (const label of ['قبول', 'تعديل وقبول', 'رفض', 'أرشفة']) {
+      expect(arabic.getByText(label)).toBeTruthy();
+    }
+    await arabic.unmount();
+    await setLanguage('en');
+  });
+
   it('plans list renders fixture plans', async () => {
     const screen = await render(<PlansScreen plans={[PLAN]} />);
     expect(screen.getAllByTestId('plan-row').length).toBe(1);
@@ -210,6 +228,21 @@ describe('features', () => {
     expect(screen.getByText('Fatma Hassan')).toBeTruthy();
     expect(screen.getByTestId('recipient-detail-status')).toBeTruthy();
     expect(screen.getByText('Active')).toBeTruthy();
+  });
+
+  it('recipient detail offers a back action that returns to the list', async () => {
+    const screen = await render(
+      <NavigationContainer>
+        <RecipientsStack recipients={[RECIPIENT]} />
+      </NavigationContainer>,
+    );
+
+    await fireEvent.press(screen.getByTestId('recipient-row-r1'));
+    expect(await screen.findByTestId('recipient-detail-name')).toBeTruthy();
+
+    await fireEvent.press(screen.getByTestId('recipient-detail-back'));
+    expect(await screen.findByTestId('recipient-row-r1')).toBeTruthy();
+    expect(screen.queryByTestId('recipient-detail-name')).toBeNull();
   });
 
   it('recipient detail renders Arabic status copy', async () => {

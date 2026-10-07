@@ -69,7 +69,13 @@
     "title": "السجل"
   },
   "plans": {
-    "title": "الخطط"
+    "title": "الخطط",
+    "actions": {
+      "accept": "قبول",
+      "editAccept": "تعديل وقبول",
+      "dismiss": "رفض",
+      "archive": "أرشفة"
+    }
   },
   "ai": {
     "title": "الملخص"

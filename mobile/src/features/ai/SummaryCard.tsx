@@ -20,8 +20,7 @@ export default function SummaryCard({
   onRetry,
 }: SummaryCardProps): React.JSX.Element {
   const content = (
-    <View testID="summary-card">
-      <SafetyBanner flags={summary.redFlags} />
+    <View testID="summary-content">
       <AppText>{summary.text}</AppText>
       {summary.evidence.map((e, i) => (
         <View key={`${e.noteId}-${i}`} testID={`evidence-quote-${i}`}>
@@ -35,16 +34,25 @@ export default function SummaryCard({
       ))}
     </View>
   );
+  // The safety banner sits above the state machine: red flags stay visible
+  // in loading/error states too, alongside the state message. SafetyBanner
+  // renders nothing when there are no flags.
   if (state === 'error') {
     return (
-      <ApiStateView state="error" error={error} onRetry={onRetry}>
-        {content}
-      </ApiStateView>
+      <View testID="summary-card">
+        <SafetyBanner flags={summary.redFlags} />
+        <ApiStateView state="error" error={error} onRetry={onRetry}>
+          {content}
+        </ApiStateView>
+      </View>
     );
   }
   return (
-    <ApiStateView state={state} onRetry={onRetry}>
-      {content}
-    </ApiStateView>
+    <View testID="summary-card">
+      <SafetyBanner flags={summary.redFlags} />
+      <ApiStateView state={state} onRetry={onRetry}>
+        {content}
+      </ApiStateView>
+    </View>
   );
 }

@@ -1,19 +1,22 @@
 import React from 'react';
-import {Text, View} from 'react-native';
+import {Button, Text, View} from 'react-native';
 import {useTranslation} from 'react-i18next';
-import ApiStateView, {ApiViewState} from '../../components/ApiStateView';
 import AppText from '../../components/AppText';
-import {ApiError} from '../../lib/errors';
 import {Recipient} from '../../types/api';
 
 export default function RecipientDetailScreen({
   recipient,
+  onBack,
 }: {
   recipient: Recipient;
+  onBack?: () => void;
 }): React.JSX.Element {
   const {t} = useTranslation();
   return (
     <View testID="recipient-detail">
+      {onBack ? (
+        <Button testID="recipient-detail-back" title={t('common.back')} onPress={onBack} />
+      ) : null}
       <Text testID="recipient-detail-name">{recipient.name}</Text>
       <AppText>{t('recipients.status')}</AppText>
       <Text testID="recipient-detail-status">

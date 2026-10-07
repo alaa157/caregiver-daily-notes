@@ -58,6 +58,23 @@ describe('data screens', () => {
     expect(screen.queryByTestId('note-text')).toBeNull();
   });
 
+  it('summary card keeps the non-dismissible safety banner in degraded states', async () => {
+    const loading = await render(<SummaryCard summary={SUMMARY_WITH_FLAGS} state="loading" />);
+    expect(loading.getByTestId('api-loading')).toBeTruthy();
+    expect(loading.getByTestId('safety-banner')).toBeTruthy();
+    expect(loading.queryByTestId('safety-banner-dismiss')).toBeNull();
+    expect(loading.queryByTestId('safety-banner-close')).toBeNull();
+
+    const error = await render(
+      <SummaryCard summary={SUMMARY_WITH_FLAGS} state="error" error={aiDown()} />,
+    );
+    expect(error.getByTestId('api-error')).toBeTruthy();
+    expect(error.getByText('AI summary is unavailable right now. Your notes are saved.')).toBeTruthy();
+    expect(error.getByTestId('safety-banner')).toBeTruthy();
+    expect(error.queryByTestId('safety-banner-dismiss')).toBeNull();
+    expect(error.queryByTestId('safety-banner-close')).toBeNull();
+  });
+
   it('summary card shows the degraded copy on AI failure', async () => {
     const screen = await render(
       <SummaryCard summary={SUMMARY_WITH_FLAGS} state="error" error={aiDown()} />,

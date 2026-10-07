@@ -42,21 +42,31 @@ rotate per session — re-paste, never rebuild.
 
 ## Demo procedure (local backend + tunnel)
 
-Only the flows below are reachable in the current app. Feature screens
-(recipients, note editor, history, summaries, plans) exist in code with
-fixture data and tests, and get mounted into navigation in Part B — do not
-demo them as working flows yet.
+Backend dependency: steps 1–2 and 6–8 need a running backend. The backend
+has no runnable entrypoint yet (Member 3 #12), so until it lands only steps
+3–5 (offline validation + Server URL editor) are exercisable.
+
+Production vs tests: `mobile/App.tsx` wires `ApiClient(new
+FetchTransport())` — every request reads the runtime server URL and the
+stored token. Tests (and only tests) inject `FakeTransport` with scripted
+responses; no live network in tests.
 
 1. Start the backend once its entrypoint exists: `mvn -f backend/pom.xml spring-boot:run`
 2. Open the tunnel: `cloudflared tunnel --url http://localhost:8080` → copy the `https://…trycloudflare.com` URL
-3. Launch the app → login screen renders (English default)
-4. Validation: submit blank/short credentials → localized errors
-5. Register screen via the register link; back to login via its link
-6. More tab → Settings → paste the tunnel URL → Save → confirmation shows;
-   Reset restores the default with confirmation
-7. More tab → Logout → back to login, token cleared
-8. Tabs Notes/History/Plans show localized shell titles; language content
-   beyond the shell arrives with Part B screens
+3. Fresh install → launch → login screen renders (English default). There
+   are no tabs yet: the More tab and its Settings live behind sign-in.
+4. Validation (no backend needed): submit blank/short credentials →
+   localized errors
+5. Server URL first: login screen → Server URL link → paste the tunnel URL
+   → Save → confirmation shows; back to login. (The production client
+   needs this URL to reach the backend — set it before registering.)
+6. Register via the register link → signed in → Notes/History/Plans/More
+   tabs appear. The tabs are title-only shells for now; the feature
+   screens in `mobile/src/features/*` run in tests with fixtures and get
+   mounted into navigation in Part B — do not demo them as working flows.
+7. More tab → Settings shows the saved URL; Reset restores the default
+   with confirmation
+8. More tab → Logout → back to login, token cleared
 
 ## Emulator networking notes
 

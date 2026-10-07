@@ -26,8 +26,26 @@ export class FetchTransport implements Transport {
       let body: unknown = null;
       try {
         body = await response.json();
-      } catch {
-        body = null;
+      } catch (e) {
+        if (controller.signal.aborted) {
+          // The timeout (or another abort) fired mid-body: the response is
+          // incomplete, so this is a network failure — never a null success.
+          throw new ApiError(
+            'NETWORK',
+            e instanceof Error ? e.message : 'Response body read timed out',
+          );
+        }
+        if (e instanceof SyntaxError) {
+          // Malformed JSON with headers intact: treat as an empty body and
+          // keep the existing HTTP-status mapping below.
+          body = null;
+        } else {
+          // Any other body-read failure (dropped connection, stream error).
+          throw new ApiError(
+            'NETWORK',
+            e instanceof Error ? e.message : 'Response body read failed',
+          );
+        }
       }
       if (!response.ok) {
         throw toApiError(response.status, body);
