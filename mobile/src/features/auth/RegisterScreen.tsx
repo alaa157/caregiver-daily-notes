@@ -43,6 +43,8 @@ export default function RegisterScreen(): React.JSX.Element {
     } catch (e) {
       if (e instanceof ApiError && e.code === 'VALIDATION') {
         setError(e.message);
+      } else if (e instanceof ApiError && e.code === 'SERVER') {
+        setError(t('states.serverError'));
       } else {
         setError(t('states.networkError'));
       }

@@ -142,4 +142,41 @@ describe('auth', () => {
     );
     expect(inn.getByTestId('notes-home')).toBeTruthy();
   });
+
+  it('login shows the localized server-error copy on 500', async () => {
+    const h = harness({'POST /api/auth/login': {status: 500, body: {message: 'boom'}}});
+    const screen = await render(h.ui);
+
+    await fireEvent.changeText(screen.getByTestId('login-email'), 'a@b.c');
+    await fireEvent.changeText(screen.getByTestId('login-password'), 'password123');
+    await fireEvent.press(screen.getByTestId('login-submit'));
+
+    expect(await screen.findByText('Something went wrong. Please retry.')).toBeTruthy();
+    expect(screen.queryByTestId('notes-home')).toBeNull();
+  });
+
+  it('register shows the localized server-error copy on 500', async () => {
+    const h = harness({'POST /api/auth/register': {status: 500, body: {message: 'boom'}}});
+    const screen = await render(h.ui);
+
+    await fireEvent.press(screen.getByTestId('login-register-link'));
+    expect(await screen.findByTestId('register-email')).toBeTruthy();
+    await fireEvent.changeText(screen.getByTestId('register-email'), 'a@b.c');
+    await fireEvent.changeText(screen.getByTestId('register-password'), 'password123');
+    await fireEvent.changeText(screen.getByTestId('register-confirm'), 'password123');
+    await fireEvent.press(screen.getByTestId('register-submit'));
+
+    expect(await screen.findByText('Something went wrong. Please retry.')).toBeTruthy();
+  });
+
+  it('storage failure during bootstrap exits loading signed out', async () => {
+    const storage = jest.requireMock('@react-native-async-storage/async-storage')
+      .default as {getItem: jest.Mock};
+    storage.getItem.mockRejectedValueOnce(new Error('disk gone'));
+    const h = harness({});
+    const screen = await render(h.ui);
+
+    expect(await screen.findByTestId('login-email')).toBeTruthy();
+    expect(screen.queryByTestId('auth-loading')).toBeNull();
+  });
 });

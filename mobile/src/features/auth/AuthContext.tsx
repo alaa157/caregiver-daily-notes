@@ -35,12 +35,20 @@ export function AuthProvider({
 
   useEffect(() => {
     let live = true;
-    TokenStore.get().then(stored => {
-      if (live) {
-        setToken(stored);
-        setLoading(false);
-      }
-    });
+    TokenStore.get().then(
+      stored => {
+        if (live) {
+          setToken(stored);
+          setLoading(false);
+        }
+      },
+      () => {
+        if (live) {
+          setToken(null);
+          setLoading(false);
+        }
+      },
+    );
     return () => {
       live = false;
     };

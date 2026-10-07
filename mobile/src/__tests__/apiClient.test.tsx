@@ -138,4 +138,37 @@ describe('API client', () => {
       expect((init.headers as Record<string, string>)['Authorization']).toBe('Bearer tok123');
     }
   });
+
+  it('maps an aborted request (timeout) to NETWORK', async () => {
+    const abortError = Object.assign(new Error('Aborted'), {name: 'AbortError'});
+    const fetchMock: jest.Mock = jest.fn(async () => {
+      throw abortError;
+    });
+    globalThis.fetch = fetchMock as unknown as typeof fetch;
+    const client = new ApiClient(new FetchTransport());
+
+    const err = await client.get('/api/slow').catch(e => e);
+    expect(err).toBeInstanceOf(ApiError);
+    expect((err as ApiError).code).toBe('NETWORK');
+  });
+
+  it('always clears the timeout timer', async () => {
+    const clearSpy = jest.spyOn(globalThis, 'clearTimeout');
+    try {
+      const okFetch = jest.fn(async () => okJson({ok: true}));
+      globalThis.fetch = okFetch as unknown as typeof fetch;
+      await new ApiClient(new FetchTransport()).get('/api/ok');
+      expect(clearSpy).toHaveBeenCalled();
+
+      clearSpy.mockClear();
+      const badFetch = jest.fn(async () => {
+        throw new Error('down');
+      });
+      globalThis.fetch = badFetch as unknown as typeof fetch;
+      await new ApiClient(new FetchTransport()).get('/api/down').catch(() => {});
+      expect(clearSpy).toHaveBeenCalled();
+    } finally {
+      clearSpy.mockRestore();
+    }
+  });
 });
