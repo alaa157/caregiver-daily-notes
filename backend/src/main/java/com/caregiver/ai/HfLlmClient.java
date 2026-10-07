@@ -85,7 +85,8 @@ public class HfLlmClient implements LlmClient {
     long backoffBase = props.backoffBaseMs() >= 0 ? props.backoffBaseMs() : BACKOFF_BASE_MS;
     String url = baseUrl() + "/models/" + props.model();
     Map<String, String> headers = headers();
-    String inputs = request.systemPrompt() + "\n" + DATA_BEGIN + "\n" + request.dataBlock() + "\n" + DATA_END;
+    String inputs = request.systemPrompt() + "\n" + DATA_BEGIN + "\n"
+        + escapeDataMarkers(request.dataBlock()) + "\n" + DATA_END;
 
     String lastError = "no attempts made";
     int repairs = 0;
@@ -181,6 +182,13 @@ public class HfLlmClient implements LlmClient {
       base = base.substring(0, base.length() - 1);
     }
     return base;
+  }
+
+  /** Prevent note content from being mistaken for the provider's data boundaries. */
+  private static String escapeDataMarkers(String dataBlock) {
+    return dataBlock
+        .replace(DATA_BEGIN, "\\u003c\\u003c\\u003cNOTES_DATA\\u003e\\u003e\\u003e")
+        .replace(DATA_END, "\\u003c\\u003c\\u003cEND_NOTES_DATA\\u003e\\u003e\\u003e");
   }
 
   private Map<String, String> headers() {
