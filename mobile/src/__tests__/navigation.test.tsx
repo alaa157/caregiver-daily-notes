@@ -1,15 +1,14 @@
 import {fireEvent, render} from '@testing-library/react-native';
 import React from 'react';
 import RootNavigator from '../app/RootNavigator';
+import {createPartAClient} from '../app/partAClient';
 import {AuthProvider} from '../features/auth/AuthContext';
 import {setLanguage} from '../i18n/i18n';
-import {ApiClient} from '../lib/ApiClient';
-import {FakeTransport} from '../lib/FakeTransport';
 
 jest.mock('@react-native-async-storage/async-storage', () => require('../test-utils/inMemoryStorage').mock);
 
 function withAuth(ui: React.JSX.Element): React.JSX.Element {
-  return <AuthProvider client={new ApiClient(new FakeTransport({}))}>{ui}</AuthProvider>;
+  return <AuthProvider client={createPartAClient()}>{ui}</AuthProvider>;
 }
 
 describe('navigation', () => {

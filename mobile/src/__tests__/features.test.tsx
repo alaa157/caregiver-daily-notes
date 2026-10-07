@@ -212,7 +212,7 @@ describe('features', () => {
 
   it('plans list renders fixture plans', async () => {
     const screen = await render(<PlansScreen plans={[PLAN]} />);
-    expect(screen.getAllByTestId('plan-row').length).toBe(1);
+    expect(screen.getByTestId('plan-row-p1')).toBeTruthy();
   });
 
   it('recipient rows open the detail screen with the selected recipient', async () => {
