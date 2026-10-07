@@ -8,5 +8,5 @@ package com.caregiver.plans;
  */
 public interface SuggestedPlanStore {
 
-  StoredPlanVersion save(SuggestedPlan plan);
+  StoredPlanVersion save(String recipientId, SuggestedPlan plan);
 }

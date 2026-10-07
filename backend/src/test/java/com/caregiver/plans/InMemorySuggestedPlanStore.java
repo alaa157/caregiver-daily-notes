@@ -12,9 +12,14 @@ public class InMemorySuggestedPlanStore implements SuggestedPlanStore {
   private final List<SuggestedPlan> saved = new ArrayList<>();
 
   @Override
-  public StoredPlanVersion save(SuggestedPlan plan) {
+  public StoredPlanVersion save(String recipientId, SuggestedPlan plan) {
     saved.add(plan);
     return new StoredPlanVersion("v" + saved.size(), plan);
+  }
+
+  /** Convenience overload for port-level tests that do not model ownership. */
+  public StoredPlanVersion save(SuggestedPlan plan) {
+    return save("test-recipient", plan);
   }
 
   public int saves() {
