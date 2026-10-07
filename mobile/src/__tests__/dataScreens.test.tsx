@@ -87,7 +87,7 @@ describe('data screens', () => {
   it('plans screens forward error state without content flash', async () => {
     const list = await render(<PlansScreen plans={[]} state="loading" />);
     expect(list.getByTestId('api-loading')).toBeTruthy();
-    expect(list.queryByTestId('plan-row')).toBeNull();
+    expect(list.queryByTestId('plan-row-p1')).toBeNull();
 
     const detail = await render(
       <PlanDetailScreen plan={PLAN} onAction={() => {}} state="error" error={networkError()} />,

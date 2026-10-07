@@ -50,7 +50,8 @@
     "nameRequired": "Name is required.",
     "status": "Status",
     "active": "Active",
-    "inactive": "Inactive"
+    "inactive": "Inactive",
+    "add": "Add recipient"
   },
   "notes": {
     "title": "Notes",
@@ -63,7 +64,8 @@
     "text": "Note",
     "pain": "Pain (0–10)",
     "painInvalid": "Pain must be a number from 0 to 10.",
-    "moodRequired": "Mood is required."
+    "moodRequired": "Mood is required.",
+    "newNote": "Write note"
   },
   "history": {
     "title": "History"
@@ -78,6 +80,7 @@
     }
   },
   "ai": {
-    "title": "Summary"
+    "title": "Summary",
+    "viewSummary": "View summary"
   }
 }

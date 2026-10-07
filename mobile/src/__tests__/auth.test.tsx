@@ -42,7 +42,7 @@ describe('auth', () => {
     await fireEvent.changeText(screen.getByTestId('login-password'), 'password123');
     await fireEvent.press(screen.getByTestId('login-submit'));
 
-    expect(await screen.findByTestId('notes-home')).toBeTruthy();
+    expect(await screen.findByTestId('recipients-container')).toBeTruthy();
     expect(await TokenStore.get()).toBe('tok123');
   });
 
@@ -55,7 +55,7 @@ describe('auth', () => {
     await fireEvent.press(screen.getByTestId('login-submit'));
 
     expect(await screen.findByTestId('login-error')).toBeTruthy();
-    expect(screen.queryByTestId('notes-home')).toBeNull();
+    expect(screen.queryByTestId('recipients-container')).toBeNull();
     expect(await TokenStore.get()).toBeNull();
   });
 
@@ -89,7 +89,7 @@ describe('auth', () => {
     await h.seed('tok123');
     const screen = await render(h.ui);
 
-    expect(await screen.findByTestId('notes-home')).toBeTruthy();
+    expect(await screen.findByTestId('recipients-container')).toBeTruthy();
     const moreTabs = screen.getAllByText('More');
     await fireEvent.press(moreTabs[moreTabs.length - 1]);
     await fireEvent.press(await screen.findByTestId('more-signout-button'));
@@ -120,7 +120,7 @@ describe('auth', () => {
         <Probe />
       </AuthProvider>,
     );
-    expect(await screen.findByTestId('notes-home')).toBeTruthy();
+    expect(await screen.findByTestId('recipients-container')).toBeTruthy();
     await fireEvent.press(screen.getByTestId('probe-fetch'));
 
     expect(await screen.findByTestId('login-email')).toBeTruthy();
@@ -140,7 +140,7 @@ describe('auth', () => {
         <RootNavigator signedIn={true} />
       </AuthProvider>,
     );
-    expect(inn.getByTestId('notes-home')).toBeTruthy();
+    expect(inn.getByTestId('recipients-container')).toBeTruthy();
   });
 
   it('login shows the localized server-error copy on 500', async () => {
@@ -152,7 +152,7 @@ describe('auth', () => {
     await fireEvent.press(screen.getByTestId('login-submit'));
 
     expect(await screen.findByText('Something went wrong. Please retry.')).toBeTruthy();
-    expect(screen.queryByTestId('notes-home')).toBeNull();
+    expect(screen.queryByTestId('recipients-container')).toBeNull();
   });
 
   it('register shows the localized server-error copy on 500', async () => {

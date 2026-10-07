@@ -1,5 +1,5 @@
 import React from 'react';
-import {View} from 'react-native';
+import {Pressable, View} from 'react-native';
 import {useTranslation} from 'react-i18next';
 import ApiStateView, {ApiViewState} from '../../components/ApiStateView';
 import AppButton from '../../components/AppButton';
@@ -13,6 +13,7 @@ export interface PlansScreenProps {
   state?: ApiViewState;
   error?: ApiError | null;
   onRetry?: () => void;
+  onSelect?: (plan: Plan) => void;
 }
 
 export function PlansScreen({
@@ -20,14 +21,28 @@ export function PlansScreen({
   state = 'content',
   error = null,
   onRetry,
+  onSelect,
 }: PlansScreenProps): React.JSX.Element {
   const content = (
     <View testID="plans-screen">
-      {plans.map(p => (
-        <View key={p.id} testID="plan-row">
-          <AppText>{p.id}</AppText>
-        </View>
-      ))}
+      {plans.map(p => {
+        const row = (
+          <View testID={`plan-row-${p.id}`}>
+            <AppText>{p.id}</AppText>
+          </View>
+        );
+        return onSelect ? (
+          <Pressable
+            key={p.id}
+            testID={`plan-press-${p.id}`}
+            accessibilityRole="button"
+            onPress={() => onSelect(p)}>
+            {row}
+          </Pressable>
+        ) : (
+          row
+        );
+      })}
     </View>
   );
   if (state === 'error') {

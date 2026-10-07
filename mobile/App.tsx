@@ -1,12 +1,16 @@
 import React, {useEffect, useState} from 'react';
 import {ActivityIndicator, View} from 'react-native';
-import {ApiClient} from './src/lib/ApiClient';
-import {FetchTransport} from './src/lib/FetchTransport';
 import GatedRoot from './src/app/GatedRoot';
 import {AuthProvider} from './src/features/auth/AuthContext';
 import {loadSavedLanguage} from './src/i18n/i18n';
+import {createPartAClient} from './src/app/partAClient';
 
-const prodClient = new ApiClient(new FetchTransport());
+// Part A runs backend-less: the injected client is FakeTransport-backed with
+// scripted fixture responses, so login/register and all feature flows work
+// with no backend. Part B (Task B1) rebinds this to
+// `new ApiClient(new FetchTransport())`; the FetchTransport class stays in
+// lib for that phase.
+const partAClient = createPartAClient();
 
 export default function App(): React.JSX.Element {
   const [languageReady, setLanguageReady] = useState(false);
@@ -28,7 +32,7 @@ export default function App(): React.JSX.Element {
   return (
     <View testID="app-root" style={{flex: 1}}>
       {languageReady ? (
-        <AuthProvider client={prodClient}>
+        <AuthProvider client={partAClient}>
           <GatedRoot />
         </AuthProvider>
       ) : (
