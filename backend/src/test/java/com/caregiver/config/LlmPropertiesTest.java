@@ -26,8 +26,8 @@ class LlmPropertiesTest {
     runner.run(ctx -> {
       assertThat(ctx).hasSingleBean(LlmProperties.class);
       var props = ctx.getBean(LlmProperties.class);
-      assertThat(props.baseUrl()).isEqualTo("https://api-inference.huggingface.co");
-      assertThat(props.model()).isEqualTo("HuggingFaceTB/SmolLM2-1.7B-Instruct");
+      assertThat(props.baseUrl()).isEqualTo("https://generativelanguage.googleapis.com/v1beta/openai");
+      assertThat(props.model()).isEqualTo("gemini-3.5-flash-lite");
       assertThat(props.timeout()).isEqualTo(Duration.ofSeconds(30));
       assertThat(props.maxAttempts()).isEqualTo(3);
       assertThat(props.backoffBaseMs()).isEqualTo(200);
