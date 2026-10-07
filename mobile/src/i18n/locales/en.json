@@ -40,5 +40,25 @@
     "serverError": "Something went wrong. Please retry.",
     "unauthorized": "Session expired. Please log in again.",
     "aiUnavailable": "AI summary is unavailable right now. Your notes are saved."
+  },
+  "recipients": {
+    "title": "Recipients",
+    "name": "Name",
+    "nameRequired": "Name is required."
+  },
+  "notes": {
+    "title": "Notes",
+    "pain": "Pain (0–10)",
+    "painInvalid": "Pain must be a number from 0 to 10.",
+    "moodRequired": "Mood is required."
+  },
+  "history": {
+    "title": "History"
+  },
+  "plans": {
+    "title": "Plans"
+  },
+  "ai": {
+    "title": "Summary"
   }
 }
