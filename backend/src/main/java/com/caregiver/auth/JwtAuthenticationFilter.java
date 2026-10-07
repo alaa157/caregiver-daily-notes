@@ -59,8 +59,9 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
   }
 
   private void deny(HttpServletResponse response) throws IOException {
-    response.setStatus(HttpServletResponse.SC_UNAUTHORIZED);
+    var error = AuthErrorResponseFactory.unauthorized();
+    response.setStatus(error.status().value());
     response.setContentType(MediaType.APPLICATION_JSON_VALUE);
-    objectMapper.writeValue(response.getWriter(), ErrorResponse.unauthorized());
+    objectMapper.writeValue(response.getWriter(), error.body());
   }
 }

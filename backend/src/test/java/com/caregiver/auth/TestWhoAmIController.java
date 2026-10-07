@@ -15,4 +15,9 @@ public class TestWhoAmIController {
   public Map<String, String> whoami() {
     return Map.of("caregiverId", AuthContext.currentCaregiverId().toString());
   }
+
+  @GetMapping("/boom")
+  public Map<String, String> boom() {
+    throw new IllegalStateException("sensitive failure: JWT_SECRET=db-password token-abc-123");
+  }
 }
