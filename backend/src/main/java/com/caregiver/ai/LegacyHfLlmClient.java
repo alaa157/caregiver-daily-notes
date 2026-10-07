@@ -15,12 +15,16 @@ import java.util.Map;
 import java.util.Objects;
 
 /**
- * Hugging Face inference provider behind {@link LlmClient}. Retries failed
+ * Retired Hugging Face inference provider behind {@link LlmClient} (legacy
+ * {@code POST {base-url}/models/{model}} wire shape; the api-inference host
+ * is dead and live traffic uses {@code ChatCompletionsLlmClient} instead).
+ * Kept because {@code SummaryPrompts} reuses its note delimiters and its
+ * test suite pins the retry/backoff contract. Retries failed
  * attempts with exponential backoff, spends one JSON-repair retry on malformed
  * output, then falls back to an explicit {@code AI_UNAVAILABLE} result.
  * {@code complete} never throws (except on a null request).
  */
-public class HfLlmClient implements LlmClient {
+public class LegacyHfLlmClient implements LlmClient {
 
   /** Request timeout mirror; the {@code llm.timeout} property wins at runtime. */
   public static final Duration REQUEST_TIMEOUT = Duration.ofSeconds(30);
@@ -50,13 +54,13 @@ public class HfLlmClient implements LlmClient {
   private final HttpExchange exchange;
   private final Sleeper sleeper;
 
-  public HfLlmClient(LlmProperties props, HttpExchange exchange, Sleeper sleeper) {
+  public LegacyHfLlmClient(LlmProperties props, HttpExchange exchange, Sleeper sleeper) {
     this.props = Objects.requireNonNull(props, "props");
     this.exchange = Objects.requireNonNull(exchange, "exchange");
     this.sleeper = Objects.requireNonNull(sleeper, "sleeper");
   }
 
-  public HfLlmClient(LlmProperties props) {
+  public LegacyHfLlmClient(LlmProperties props) {
     this(props, defaultExchange(), Thread::sleep);
   }
 

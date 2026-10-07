@@ -20,6 +20,6 @@ public final class SummaryPrompts {
   }
 
   public static String userInput(String dataBlock) {
-    return HfLlmClient.DATA_BEGIN + "\n" + (dataBlock != null ? dataBlock : "") + "\n" + HfLlmClient.DATA_END;
+    return LegacyHfLlmClient.DATA_BEGIN + "\n" + (dataBlock != null ? dataBlock : "") + "\n" + LegacyHfLlmClient.DATA_END;
   }
 }

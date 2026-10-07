@@ -36,7 +36,7 @@ class SummaryPromptsTest {
 
     assertThat(SummaryPrompts.SYSTEM_PROMPT).doesNotContain(fixture);
     assertThat(input).containsOnlyOnce(fixture);
-    assertThat(input).startsWith(HfLlmClient.DATA_BEGIN);
-    assertThat(input).endsWith(HfLlmClient.DATA_END);
+    assertThat(input).startsWith(LegacyHfLlmClient.DATA_BEGIN);
+    assertThat(input).endsWith(LegacyHfLlmClient.DATA_END);
   }
 }

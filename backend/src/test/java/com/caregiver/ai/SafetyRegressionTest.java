@@ -14,8 +14,8 @@ import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
 class SafetyRegressionTest {
 
-  static HfLlmClient client(HttpExchange exchange) {
-    return new HfLlmClient(
+  static LegacyHfLlmClient client(HttpExchange exchange) {
+    return new LegacyHfLlmClient(
         new com.caregiver.config.LlmProperties(
             "https://inference.example.com", "test-model", Duration.ofSeconds(30), 3, 200, "",
             10000, null,
