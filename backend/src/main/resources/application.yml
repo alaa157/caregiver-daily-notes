@@ -2,9 +2,17 @@
 # Tests never touch the network: they script HttpExchange / FakeLlmClient.
 llm:
   # Inference API base. Requests go to POST {base-url}/models/{model}.
-  base-url: https://api-inference.huggingface.co
+  # Primary provider: OpenRouter (OpenAI-compatible). Model id lives in LLM_MODEL
+  # env/secret — the :free roster rotates, so never hardcode it here.
+  base-url: https://openrouter.ai/api/v1
   # Default model id; override per environment. Never hit by tests.
-  model: HuggingFaceTB/SmolLM2-1.7B-Instruct
+  # Locked 2026-10-07: LFM-2.5-2.6b via OpenRouter :free. Mandatory reasoning:
+  # send max_tokens = 10000 with reasoning.max_tokens = 5000, read `content`
+  # only, strip fences, treat `length` as retry-never-success (see Member 1 AI
+  # track). NOTE: 10k-token generations on the free shared pool can exceed the
+  # 30s llm.timeout below -> timeout falls back to the template summary. If
+  # live calls time out routinely, raise llm.timeout or lower these caps.
+  model: liquid/lfm-2.5-2.6b:free
   # Per-attempt HTTP timeout. Mirrors HfLlmClient.REQUEST_TIMEOUT.
   timeout: 30s
   # Total attempts per call: initial try + 2 retries with exponential backoff.
