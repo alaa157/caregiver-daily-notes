@@ -17,6 +17,7 @@
       "emailInvalid": "Enter a valid email address.",
       "passwordRequired": "Password is required.",
       "passwordTooShort": "Password must be at least 8 characters.",
+      "passwordMismatch": "Passwords do not match.",
       "invalidCredentials": "Wrong email or password."
     }
   },
