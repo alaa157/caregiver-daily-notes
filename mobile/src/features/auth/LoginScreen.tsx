@@ -43,6 +43,8 @@ export default function LoginScreen(): React.JSX.Element {
     } catch (e) {
       if (e instanceof ApiError && e.code === 'UNAUTHORIZED') {
         setError(t('auth.errors.invalidCredentials'));
+      } else if (e instanceof ApiError && e.code === 'SERVER') {
+        setError(t('states.serverError'));
       } else {
         setError(t('states.networkError'));
       }
