@@ -14,7 +14,7 @@ llm:
   # fences, and treat `length` as retry-never-success. Large generations on the
   # free shared pool can exceed the 30s timeout and fall back to the template.
   model: gemini-3.5-flash-lite
-  # Per-attempt HTTP timeout. Mirrors LegacyHfLlmClient.REQUEST_TIMEOUT.
+  # Per-attempt HTTP timeout. Mirrors ChatCompletionsLlmClient.REQUEST_TIMEOUT.
   timeout: 30s
   # Total attempts per call: initial try + 2 retries with exponential backoff.
   max-attempts: 3
