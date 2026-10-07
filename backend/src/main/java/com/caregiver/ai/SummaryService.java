@@ -59,9 +59,14 @@ public class SummaryService {
           safety,
           trendResults);
     }
-    GroundedSummary parsed =
-        StrictJsonParser.parse(result.text(), GroundedSummary.class, Set.of("observations", "uncertainties"));
-    return new SummaryResult(EvidenceValidator.validate(parsed, noteTextsById), safety, trendResults);
+    ModelSummary parsed =
+        StrictJsonParser.parse(result.text(), ModelSummary.class, Set.of("observations", "uncertainties"));
+    GroundedSummary summary = new GroundedSummary(parsed.observations(), parsed.uncertainties(), false);
+    return new SummaryResult(EvidenceValidator.validate(summary, noteTextsById), safety, trendResults);
+  }
+
+  /** The model's permitted JSON shape; provider status is owned by this service. */
+  public record ModelSummary(List<SummaryObservation> observations, List<SummaryUncertainty> uncertainties) {
   }
 
   private static List<SummaryNote> windowed(List<SummaryNote> notes, LocalDate end, int days) {
