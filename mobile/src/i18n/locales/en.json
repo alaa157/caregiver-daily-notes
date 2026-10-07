@@ -1,0 +1,43 @@
+{
+  "tabs": {
+    "notes": "Notes",
+    "history": "History",
+    "plans": "Plans",
+    "more": "More"
+  },
+  "auth": {
+    "login": "Login",
+    "register": "Register",
+    "email": "Email",
+    "password": "Password",
+    "submit": "Submit",
+    "logout": "Logout",
+    "errors": {
+      "emailRequired": "Email is required.",
+      "emailInvalid": "Enter a valid email address.",
+      "passwordRequired": "Password is required.",
+      "passwordTooShort": "Password must be at least 8 characters.",
+      "invalidCredentials": "Wrong email or password."
+    }
+  },
+  "common": {
+    "save": "Save",
+    "cancel": "Cancel",
+    "retry": "Retry",
+    "loading": "Loading…",
+    "empty": "Nothing here yet.",
+    "back": "Back"
+  },
+  "settings": {
+    "title": "Settings",
+    "serverUrl": "Server URL",
+    "serverUrlSaved": "Server URL saved.",
+    "serverUrlInvalid": "Enter a valid http(s) URL."
+  },
+  "states": {
+    "networkError": "No connection. Check your network and retry.",
+    "serverError": "Something went wrong. Please retry.",
+    "unauthorized": "Session expired. Please log in again.",
+    "aiUnavailable": "AI summary is unavailable right now. Your notes are saved."
+  }
+}
