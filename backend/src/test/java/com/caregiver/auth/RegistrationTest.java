@@ -61,4 +61,70 @@ class RegistrationTest {
     assertThat(stored.get().getPasswordHash()).isNotEqualTo("password123");
     assertThat(encoder.matches("password123", stored.get().getPasswordHash())).isTrue();
   }
+
+  @Test
+  void duplicateEmailMapsTo422() throws Exception {
+    String body = "{\"email\":\"dup@example.com\",\"password\":\"password123\"}";
+    mvc.perform(
+            post("/api/auth/register").contentType(MediaType.APPLICATION_JSON).content(body))
+        .andExpect(status().isCreated());
+
+    mvc.perform(
+            post("/api/auth/register").contentType(MediaType.APPLICATION_JSON).content(body))
+        .andExpect(status().isUnprocessableEntity())
+        .andExpect(jsonPath("$.code").value("DUPLICATE_EMAIL"))
+        .andExpect(jsonPath("$.message").value("Email is already registered."));
+  }
+
+  @Test
+  void normalizedDuplicateMapsTo422() throws Exception {
+    mvc.perform(
+            post("/api/auth/register")
+                .contentType(MediaType.APPLICATION_JSON)
+                .content("{\"email\":\"Case@Example.COM\",\"password\":\"password123\"}"))
+        .andExpect(status().isCreated());
+
+    mvc.perform(
+            post("/api/auth/register")
+                .contentType(MediaType.APPLICATION_JSON)
+                .content("{\"email\":\"case@example.com\",\"password\":\"password123\"}"))
+        .andExpect(status().isUnprocessableEntity())
+        .andExpect(jsonPath("$.code").value("DUPLICATE_EMAIL"));
+  }
+
+  @Test
+  void invalidBodiesMapTo422() throws Exception {
+    String[] badBodies = {
+      "{\"email\":\"not-an-email\",\"password\":\"password123\"}",
+      "{\"email\":\"ok@example.com\",\"password\":\"\"}",
+      "{\"email\":\"ok@example.com\"}",
+      "{\"password\":\"password123\"}",
+      "{}",
+      "not-json-at-all{"
+    };
+    for (String bad : badBodies) {
+      mvc.perform(
+              post("/api/auth/register").contentType(MediaType.APPLICATION_JSON).content(bad))
+          .andExpect(status().isUnprocessableEntity())
+          .andExpect(jsonPath("$.code").value("VALIDATION_ERROR"));
+    }
+  }
+
+  @Test
+  void passwordByteBoundaryAcceptedThenRejected() throws Exception {
+    String ok72 = "é".repeat(36);
+    assertThat(ok72.getBytes(java.nio.charset.StandardCharsets.UTF_8)).hasSize(72);
+    mvc.perform(
+            post("/api/auth/register")
+                .contentType(MediaType.APPLICATION_JSON)
+                .content("{\"email\":\"bytes@example.com\",\"password\":\"" + ok72 + "\"}"))
+        .andExpect(status().isCreated());
+
+    mvc.perform(
+            post("/api/auth/register")
+                .contentType(MediaType.APPLICATION_JSON)
+                .content("{\"email\":\"other@example.com\",\"password\":\"" + ok72 + "x\"}"))
+        .andExpect(status().isUnprocessableEntity())
+        .andExpect(jsonPath("$.code").value("VALIDATION_ERROR"));
+  }
 }

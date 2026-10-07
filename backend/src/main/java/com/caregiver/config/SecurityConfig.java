@@ -1,6 +1,6 @@
 package com.caregiver.config;
 
-import com.caregiver.auth.ErrorResponse;
+import com.caregiver.auth.AuthErrorResponseFactory;
 import com.caregiver.auth.JwtAuthenticationFilter;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import jakarta.servlet.http.HttpServletResponse;
@@ -24,9 +24,10 @@ public class SecurityConfig {
   @Bean
   public AuthenticationEntryPoint authenticationEntryPoint(ObjectMapper objectMapper) {
     return (request, response, exception) -> {
-      response.setStatus(HttpServletResponse.SC_UNAUTHORIZED);
+      var error = AuthErrorResponseFactory.unauthorized();
+      response.setStatus(error.status().value());
       response.setContentType(MediaType.APPLICATION_JSON_VALUE);
-      objectMapper.writeValue(response.getWriter(), ErrorResponse.unauthorized());
+      objectMapper.writeValue(response.getWriter(), error.body());
     };
   }
 

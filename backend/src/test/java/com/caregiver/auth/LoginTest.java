@@ -61,4 +61,46 @@ class LoginTest {
     assertThat(stored).isPresent();
     assertThat(jwtService.parse(token).caregiverId()).isEqualTo(stored.get().getId());
   }
+
+  @Test
+  void wrongPasswordAndUnknownEmailShareOne401Body() throws Exception {
+    mvc.perform(
+            post("/api/auth/register")
+                .contentType(MediaType.APPLICATION_JSON)
+                .content("{\"email\":\"sam2@example.com\",\"password\":\"password123\"}"))
+        .andExpect(status().isCreated());
+
+    String wrong =
+        mvc.perform(
+                post("/api/auth/login")
+                    .contentType(MediaType.APPLICATION_JSON)
+                    .content("{\"email\":\"sam2@example.com\",\"password\":\"nope-nope-nope\"}"))
+            .andExpect(status().isUnauthorized())
+            .andExpect(jsonPath("$.code").value("INVALID_CREDENTIALS"))
+            .andReturn()
+            .getResponse()
+            .getContentAsString();
+
+    String unknown =
+        mvc.perform(
+                post("/api/auth/login")
+                    .contentType(MediaType.APPLICATION_JSON)
+                    .content("{\"email\":\"ghost@example.com\",\"password\":\"nope-nope-nope\"}"))
+            .andExpect(status().isUnauthorized())
+            .andReturn()
+            .getResponse()
+            .getContentAsString();
+
+    assertThat(unknown).isEqualTo(wrong);
+  }
+
+  @Test
+  void oversizedPasswordRejected() throws Exception {
+    mvc.perform(
+            post("/api/auth/login")
+                .contentType(MediaType.APPLICATION_JSON)
+                .content("{\"email\":\"sam2@example.com\",\"password\":\"" + "x".repeat(73) + "\"}"))
+        .andExpect(status().isUnprocessableEntity())
+        .andExpect(jsonPath("$.code").value("VALIDATION_ERROR"));
+  }
 }
