@@ -79,7 +79,7 @@ All application infrastructure is hosted online. Team members do not need to ins
 | Source code | GitHub |
 | PostgreSQL database | Supabase |
 | Redis cache | Upstash Redis |
-| Spring Boot API | Render |
+| Spring Boot API | Local JVM (+ Cloudflare Tunnel for shared/demo access) |
 | Web application | Cloudflare |
 | AI/LLM API | Hugging Face |
 | Android APK distribution | GitHub Releases |
@@ -118,9 +118,13 @@ Redis must never be treated as the source of truth for application records.
 
 The application should continue to behave safely when cached data is unavailable.
 
-### Render
+### Backend runtime (local + tunnel)
 
-Render hosts the Spring Boot backend.
+The Spring Boot backend runs locally on the owner's machine for development and
+demos. Shared access (phone, other machines, evaluators) goes through a
+Cloudflare quick-tunnel `https://` URL pointed at the local backend, created
+fresh per session. Hosted deployment is deferred until a card-backed host is
+available.
 
 The backend provides:
 
@@ -188,7 +192,7 @@ The repository should provide a clear release artifact for evaluators to downloa
 
 - Supabase PostgreSQL
 - Upstash Redis
-- Render
+- Local JVM runtime + Cloudflare Tunnel (dev/demo backend access)
 - Cloudflare
 - Hugging Face
 - GitHub Actions
@@ -650,7 +654,7 @@ Release automation will build and publish the Android APK through GitHub Release
 Deployment targets:
 
 - Web → Cloudflare
-- Backend → Render
+- Backend → local JVM; shared over HTTPS via Cloudflare Tunnel
 - Database → Supabase
 - Redis → Upstash
 
@@ -664,7 +668,11 @@ The web application is deployed through Cloudflare.
 
 ### Backend
 
-The Spring Boot API is deployed through Render.
+The Spring Boot API runs locally (`mvn -f backend/pom.xml spring-boot:run`, once the
+application entrypoint exists) and is shared over HTTPS through a Cloudflare
+Tunnel URL created at session/demo time. Both clients read the backend base URL
+from a single runtime-editable setting so a fresh tunnel URL never requires a
+rebuild.
 
 ### Database
 
@@ -682,7 +690,8 @@ LLM requests are made from the backend to the configured Hugging Face provider.
 
 The Android application is packaged as an APK and published through GitHub Releases.
 
-The mobile application communicates with the deployed backend over HTTPS.
+The mobile application communicates with the backend over HTTPS — directly on the
+host machine, or via the tunnel URL from other devices.
 
 ## Project Scope
 

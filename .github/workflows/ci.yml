@@ -1,0 +1,57 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+
+jobs:
+  backend:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up Java 21
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: "21"
+          cache: maven
+
+      - name: Run backend tests with coverage
+        run: >
+          mvn -B -f backend/pom.xml
+          org.jacoco:jacoco-maven-plugin:0.8.12:prepare-agent test
+          org.jacoco:jacoco-maven-plugin:0.8.12:report
+
+      - name: Upload coverage report
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: backend-coverage
+          path: |
+            backend/target/site/jacoco/jacoco.xml
+            backend/target/site/jacoco/index.html
+          if-no-files-found: error
+
+      - name: Upload test reports
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: backend-surefire-reports
+          path: backend/target/surefire-reports/
+
+  docker:
+    needs: backend
+    runs-on: ubuntu-latest
+    # No @SpringBootApplication main class exists yet (foundation work pending,
+    # Member 3 #12), so `mvn package` fails at spring-boot:repackage and this
+    # job fails too. Non-blocking until the entrypoint lands; then delete the
+    # `continue-on-error` line to make image builds enforcing.
+    continue-on-error: true
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Build backend image (no push)
+        run: docker build backend -f backend/Dockerfile

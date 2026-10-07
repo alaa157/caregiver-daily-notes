@@ -104,7 +104,10 @@ The mobile application is separate from the web application. It may mirror featu
 
 ## Infrastructure boundaries
 
-- Backend hosting: Render.
+- Backend runtime: local JVM for development and demos, shared over HTTPS via a
+  Cloudflare Tunnel URL created per session. Hosted backend deployment is
+  deferred (no card-backed PaaS is in use); clients must therefore read the
+  backend base URL from a single runtime-editable setting, never a build-time constant.
 - Web hosting: Cloudflare.
 - Database: Supabase PostgreSQL.
 - Cache: Upstash Redis.
