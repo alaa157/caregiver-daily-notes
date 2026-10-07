@@ -17,7 +17,7 @@ class EvalMetricsTest {
   static GoldenEvalCase golden(String id, boolean fall, List<String> expectedFlags) {
     return new GoldenEvalCase(
         id, "synthetic-v1", List.of("EN"), List.of(signal(fall)),
-        "{\"summary\":\"ok\"}", "OK",
+        "{\"observations\":[],\"uncertainties\":[]}", "OK",
         List.of(new QuoteRef(0, fall ? "she fell" : "routine")),
         expectedFlags, true, true, true);
   }

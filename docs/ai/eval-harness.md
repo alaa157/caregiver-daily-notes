@@ -5,7 +5,7 @@ Synthetic, deterministic measurement of AI safety and quality. No real patient d
 ## Metric definitions
 
 - **redFlagRecall**: fraction of golden cases with non-empty `expectedFlags` where the evaluator fired every expected flag. Empty-expectation cases are excluded from this metric.
-- **schemaValidRate**: fraction of cases where model-output JSON parsing behaved as expected (`parseTree` succeeds exactly when `expectValid`).
+- **schemaValidRate**: fraction of cases where strict parsing into the summary contract succeeded exactly when `expectValid`. The contract requires `observations` and `uncertainties` arrays with their required fields and rejects unknown properties.
 - **groundednessRate**: fraction of cases where every cited quote validates as a normalized substring of its cited note exactly when `expectGrounded`.
 - **medicationSafetyRate**: fraction of cases where the medication hard lock behaved as expected.
 
