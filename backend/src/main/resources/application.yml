@@ -2,17 +2,19 @@
 # Tests never touch the network: they script HttpExchange / FakeLlmClient.
 llm:
   # Inference API base. Requests go to POST {base-url}/models/{model}.
-  # Primary provider: OpenRouter (OpenAI-compatible). Model id lives in LLM_MODEL
-  # env/secret — the :free roster rotates, so never hardcode it here.
-  base-url: https://openrouter.ai/api/v1
+  # Primary provider: Gemini (OpenAI-compatible). Backup: OpenRouter LFM (see below).
+  # Chain: Gemini -> OpenRouter -> template fallback -> "AI unavailable".
+  base-url: https://generativelanguage.googleapis.com/v1beta/openai
   # Default model id; override per environment. Never hit by tests.
-  # Locked 2026-10-07: LFM-2.5-2.6b via OpenRouter :free. Mandatory reasoning:
+  # Locked 2026-10-07: gemini-3.5-flash-lite (free tier, 1000 RPD). Prompts must
+  # constrain mood to an English enum (good/neutral/poor/...) — the model
+  # otherwise returns Arabic values (see #29 probe).
+  # Backup: liquid/lfm-2.5-2.6b:free via OpenRouter :free. Mandatory reasoning:
   # send max_tokens = 10000 with reasoning.max_tokens = 5000, read `content`
   # only, strip fences, treat `length` as retry-never-success (see Member 1 AI
   # track). NOTE: 10k-token generations on the free shared pool can exceed the
-  # 30s llm.timeout below -> timeout falls back to the template summary. If
-  # live calls time out routinely, raise llm.timeout or lower these caps.
-  model: liquid/lfm-2.5-2.6b:free
+  # 30s llm.timeout below -> timeout falls back to the template summary.
+  model: gemini-3.5-flash-lite
   # Per-attempt HTTP timeout. Mirrors HfLlmClient.REQUEST_TIMEOUT.
   timeout: 30s
   # Total attempts per call: initial try + 2 retries with exponential backoff.
