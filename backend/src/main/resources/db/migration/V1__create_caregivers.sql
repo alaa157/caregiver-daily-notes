@@ -1,0 +1,7 @@
+CREATE TABLE caregivers (
+  id UUID PRIMARY KEY,
+  email VARCHAR(320) NOT NULL,
+  password_hash VARCHAR(100) NOT NULL,
+  created_at TIMESTAMP WITH TIME ZONE NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  CONSTRAINT uk_caregivers_email UNIQUE (email)
+);
