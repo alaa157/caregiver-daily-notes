@@ -14,12 +14,10 @@ import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
 class SafetyRegressionTest {
 
-  static LegacyHfLlmClient client(HttpExchange exchange) {
-    return new LegacyHfLlmClient(
-        new com.caregiver.config.LlmProperties(
-            "https://inference.example.com", "test-model", Duration.ofSeconds(30), 3, 200, "",
-            10000, null,
-            "https://backup.example.com", "backup-model", "", 10000, 500L),
+  static ChatCompletionsLlmClient client(HttpExchange exchange) {
+    return new ChatCompletionsLlmClient(
+        "https://inference.example.com", "test-model", "", 10000, null,
+        Duration.ofSeconds(30), 3, 200L,
         exchange,
         ms -> {
         });

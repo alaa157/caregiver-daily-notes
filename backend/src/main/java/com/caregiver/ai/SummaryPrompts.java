@@ -16,10 +16,14 @@ public final class SummaryPrompts {
           + "Mark unclear or conflicting information as uncertainty, never guess. "
           + "No diagnoses, no prescriptions.";
 
+  /** Delimiters wrapping caregiver notes as untrusted data (ex-client constant, now owned here). */
+  public static final String DATA_BEGIN = "<<<NOTES_DATA>>>";
+  public static final String DATA_END = "<<<END_NOTES_DATA>>>";
+
   private SummaryPrompts() {
   }
 
   public static String userInput(String dataBlock) {
-    return LegacyHfLlmClient.DATA_BEGIN + "\n" + (dataBlock != null ? dataBlock : "") + "\n" + LegacyHfLlmClient.DATA_END;
+    return DATA_BEGIN + "\n" + (dataBlock != null ? dataBlock : "") + "\n" + DATA_END;
   }
 }
