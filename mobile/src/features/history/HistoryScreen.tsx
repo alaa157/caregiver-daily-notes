@@ -1,16 +1,26 @@
 import React, {useState} from 'react';
 import {Text, View} from 'react-native';
+import ApiStateView, {ApiViewState} from '../../components/ApiStateView';
 import AppText from '../../components/AppText';
 import AppTextInput from '../../components/AppTextInput';
+import {ApiError} from '../../lib/errors';
 import {Note} from '../../types/api';
+
+export interface HistoryScreenProps {
+  notes: Note[];
+  recipientIds: string[];
+  state?: ApiViewState;
+  error?: ApiError | null;
+  onRetry?: () => void;
+}
 
 export default function HistoryScreen({
   notes,
   recipientIds,
-}: {
-  notes: Note[];
-  recipientIds: string[];
-}): React.JSX.Element {
+  state = 'content',
+  error = null,
+  onRetry,
+}: HistoryScreenProps): React.JSX.Element {
   // recipientIds feeds the recipient picker in Part B; filtering is free-text until then.
   void recipientIds;
   const [recipientFilter, setRecipientFilter] = useState('');
@@ -30,7 +40,7 @@ export default function HistoryScreen({
     return true;
   });
 
-  return (
+  const content = (
     <View testID="history-screen">
       <AppTextInput
         testID="history-recipient-filter"
@@ -46,5 +56,17 @@ export default function HistoryScreen({
         </View>
       ))}
     </View>
+  );
+  if (state === 'error') {
+    return (
+      <ApiStateView state="error" error={error} onRetry={onRetry}>
+        {content}
+      </ApiStateView>
+    );
+  }
+  return (
+    <ApiStateView state={state} onRetry={onRetry}>
+      {content}
+    </ApiStateView>
   );
 }
