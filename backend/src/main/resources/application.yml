@@ -1,3 +1,22 @@
+# Auth/JWT configuration (Member 3 — Task 1 foundation).
+# Signing secret comes from the environment only. Never commit a real secret.
+auth:
+  jwt:
+    secret: ${JWT_SECRET}
+    expiry: 24h
+
+# Postgres via environment (DATABASE_URL must be a full jdbc:postgresql://… URL).
+spring:
+  datasource:
+    url: ${DATABASE_URL}
+    username: ${DATABASE_USERNAME}
+    password: ${DATABASE_PASSWORD}
+  jpa:
+    hibernate:
+      ddl-auto: validate
+  flyway:
+    enabled: true
+
 # LLM provider configuration (Member 1 — Task 1 foundation).
 # Tests never touch the network: they script HttpExchange / FakeLlmClient.
 llm:
