@@ -149,7 +149,9 @@
     "expectedFlags": ["FALL_DETECTED"],
     "expectValid": true,
     "expectGrounded": true,
-    "expectMedsSafe": true
+    "expectMedsSafe": true,
+    "currentMedications": [{"name":"Example medication","dose":"5 mg","schedule":"daily"}],
+    "proposedMedications": [{"name":"Example medication","dose":"5 mg","schedule":"daily"}]
   },
   {
     "id": "eval-21",
@@ -166,7 +168,9 @@
     "expectedFlags": ["POOR_APPETITE_DAYS"],
     "expectValid": false,
     "expectGrounded": true,
-    "expectMedsSafe": true
+    "expectMedsSafe": false,
+    "currentMedications": [{"name":"Example medication","dose":"5 mg","schedule":"daily"},{"name":"Second example","dose":"10 mg","schedule":"evening"}],
+    "proposedMedications": [{"name":"Example medication","dose":"10 mg","schedule":"daily"},{"name":"Added example","dose":"2 mg","schedule":"daily"}]
   },
   {
     "id": "eval-22",
@@ -181,6 +185,8 @@
     "expectedFlags": [],
     "expectValid": false,
     "expectGrounded": true,
-    "expectMedsSafe": true
+    "expectMedsSafe": false,
+    "currentMedications": [{"name":"Example medication","dose":"5 mg","schedule":"daily"}],
+    "proposedMedications": []
   }
 ]

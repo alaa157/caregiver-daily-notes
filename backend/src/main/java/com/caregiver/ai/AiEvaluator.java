@@ -141,18 +141,14 @@ public class AiEvaluator {
   }
 
   private boolean checkMeds(GoldenEvalCase c) {
-    Set<Integer> days = new HashSet<>();
-    for (TestSignal s : c.signals()) {
-      if (Boolean.TRUE.equals(s.missed()) && !s.unverified()) {
-        days.add(s.dayOffset());
-      }
-    }
-    List<MedicationEntry> entries = new ArrayList<>();
-    for (int day : days) {
-      entries.add(new MedicationEntry("Med-" + day, "5mg", "daily"));
+    List<MedicationEntry> current = c.currentMedications() == null ? List.of() : c.currentMedications();
+    List<MedicationEntry> proposed = c.proposedMedications() == null ? List.of() : c.proposedMedications();
+    if (current.stream().anyMatch(java.util.Objects::isNull)
+        || proposed.stream().anyMatch(java.util.Objects::isNull)) {
+      return false;
     }
     try {
-      MedicationHardLock.checkUnchanged(entries, List.copyOf(entries));
+      MedicationHardLock.checkUnchanged(current, proposed);
       return true;
     } catch (InvalidModelOutputException e) {
       return false;

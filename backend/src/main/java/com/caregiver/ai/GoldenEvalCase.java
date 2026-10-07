@@ -1,5 +1,7 @@
 package com.caregiver.ai;
 
+import com.caregiver.plans.MedicationEntry;
+
 import java.util.List;
 
 /**
@@ -18,7 +20,17 @@ public record GoldenEvalCase(
     List<String> expectedFlags,
     boolean expectValid,
     boolean expectGrounded,
-    boolean expectMedsSafe) {
+    boolean expectMedsSafe,
+    List<MedicationEntry> currentMedications,
+    List<MedicationEntry> proposedMedications) {
+
+  public GoldenEvalCase(
+      String id, String synthetic, List<String> categories, List<TestSignal> signals,
+      String modelText, String modelStatus, List<QuoteRef> quotes, List<String> expectedFlags,
+      boolean expectValid, boolean expectGrounded, boolean expectMedsSafe) {
+    this(id, synthetic, categories, signals, modelText, modelStatus, quotes, expectedFlags,
+        expectValid, expectGrounded, expectMedsSafe, List.of(), List.of());
+  }
 
   public record TestSignal(
       boolean fall,
