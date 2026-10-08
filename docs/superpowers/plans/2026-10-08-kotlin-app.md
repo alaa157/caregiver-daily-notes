@@ -185,17 +185,6 @@ Tabs (4): `الرئيسية` Home, `الأشخاص` People, `الملاحظات`
 - [x] **Step 3.** Search the repository and review the diff for scope and wording; record unavailable/untracked residue as a migration gap. Done: remaining RN mentions are this plan file (task definition) plus the standing "No Expo" rule.
 - [x] **Step 4. Commit.** `git commit -m "chore(android): remove React Native residue and update docs"`. Landed as `51cbf5a`.
 
-### Task 10: Visual polish vs the decoded boards (follow-up, not in #27 scope)
+### Task 10: Visual polish vs the decoded boards
 
-**Why:** Tasks 1–9 deliver behavior with stock Material3 components in the design palette. The decoded boards (`android/android_rtl.html`, see Design source) specify more: the app has no launcher icon, empty tab icons, system-default font, and several composition/copy deltas. CI has no emulator/screenshots, so verify with on-device screenshots in both locales.
-
-**Files:**
-- Add: launcher icon + tab icons in the design language, bundled Arabic font (boards ship IBM Plex Sans Arabic woff2 — check its license before bundling; fallback: downloadable font), board-15 empty-state art if cheap.
-- Modify: theme typography (Plex), button/chip shapes to board styling, auth screens (pre-auth English toggle per board 1), period chips copy (`آخر 7 أيام` / `آخر 14 يومًا` / `آخر 30 يومًا`), pain 0–10 numbered stepper with teal selection, plans/proposal/edit composition per boards 12–13, addendum copy (`ملحق` per board 8 vs current `تصحيح` — confirm with owner before renaming strings).
-- Test: screenshot/manual walkthrough per board (1–15) in `ar` + `en`; no behavior or contract changes — any functional gap found becomes a new issue instead of scope creep here.
-
-**Constraints:**
-- No string-key renames without updating both locales + `StringsParityTest`; no backend changes; no new product features.
-- Keep `release` buildType minify-off; verify the `minified` R8 build on device after any resource/theme change.
-
-- [ ] Steps 1–5: same TDD cycle where testable (unit-test what is unit-testable; visual deltas verified by screenshots, recorded in the PR).
+Moved to its own plan: `docs/superpowers/plans/2026-10-08-android-visual-polish.md` (Tasks 1–8: font/identity, component language, auth toggle, home/recipients, notes, history/summary, plans/settings composition, states catalog + release screenshots). This section is intentionally left as a pointer so the two plans don't drift.
