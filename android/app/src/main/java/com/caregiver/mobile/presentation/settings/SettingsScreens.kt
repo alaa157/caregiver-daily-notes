@@ -59,7 +59,7 @@ fun SettingsScreen(graph: AppGraph, navController: NavController) {
         )
         OutlinedButton(
             onClick = { navController.navigate("server-url") },
-            modifier = Modifier.fillMaxWidth(),
+            modifier = Modifier.fillMaxWidth().height(48.dp),
         ) {
             Text(stringResource(R.string.settings_server))
         }
@@ -110,7 +110,7 @@ fun SettingsScreen(graph: AppGraph, navController: NavController) {
             onClick = {
                 scope.launch { graph.auth.signOut() }
             },
-            modifier = Modifier.fillMaxWidth(),
+            modifier = Modifier.fillMaxWidth().height(48.dp),
         ) {
             Text(stringResource(R.string.settings_logout))
         }
@@ -186,7 +186,7 @@ fun ServerUrlScreen(graph: AppGraph, navController: NavController) {
                     notice = R.string.settings_server_reset_done
                 }
             },
-            modifier = Modifier.fillMaxWidth(),
+            modifier = Modifier.fillMaxWidth().height(48.dp),
         ) {
             Text(stringResource(R.string.settings_server_reset))
         }

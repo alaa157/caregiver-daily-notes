@@ -240,7 +240,7 @@ fun NoteDetailScreen(noteId: String, graph: AppGraph, navController: NavControll
                 }
                 OutlinedButton(
                     onClick = { navController.navigate("addendum/$noteId") },
-                    modifier = Modifier.fillMaxWidth(),
+                    modifier = Modifier.fillMaxWidth().height(48.dp),
                 ) {
                     Text(stringResource(R.string.detail_add_correction))
                 }

@@ -174,7 +174,7 @@ private fun SummaryBody(summary: SummaryDto, navController: NavController) {
         )
         Button(
             onClick = { navController.navigate(AppDestinations.Plans.base) },
-            modifier = Modifier.fillMaxWidth(),
+            modifier = Modifier.fillMaxWidth().height(48.dp),
         ) {
             Text(stringResource(R.string.summary_proposals))
         }

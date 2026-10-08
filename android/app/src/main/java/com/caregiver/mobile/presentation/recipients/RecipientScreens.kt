@@ -176,7 +176,7 @@ private fun DetailContent(detail: RecipientDetail, navController: NavController)
 @Composable
 private fun ActionButton(label: Int, onClick: () -> Unit) {
     Row(Modifier.fillMaxWidth().padding(vertical = 4.dp)) {
-        OutlinedButton(onClick = onClick, modifier = Modifier.fillMaxWidth()) {
+        OutlinedButton(onClick = onClick, modifier = Modifier.fillMaxWidth().height(48.dp)) {
             Text(stringResource(label))
         }
     }
