@@ -95,6 +95,20 @@ Member 3 #12.)
 Debug builds use the template debug keystore (public `android` credentials,
 safe to commit). Release signing is Part B with owner-held secrets.
 
+## Preview backend demo (preview/full-stack branch only, provisional)
+
+> Not run end-to-end from the build box (no Android SDK/emulator there);
+> steps below need a machine that can boot the backend and run the app.
+
+1. On the branch: `JWT_SECRET=<32+ chars> DATABASE_URL=<jdbc:postgresql://…> DATABASE_USERNAME=<user> DATABASE_PASSWORD=<pass> mvn -f backend/pom.xml spring-boot:run`
+2. Tunnel: `cloudflared tunnel --url http://localhost:8080` → copy the `https://…trycloudflare.com` URL
+3. App (once bound to `FetchTransport` in Part B): login screen → Server URL
+   link → paste the tunnel URL → Save → back
+4. Register → Notes tab → Add recipient → detail → Write note → Save →
+   addendum → View summary (banner shows on flagged summaries)
+5. History tab → seeded notes + filters; Plans tab → list → Accept/Dismiss;
+   More → Settings/Logout as before
+
 ## Android build requirements
 
 Must match `mobile/android/build.gradle`: compile SDK 37
