@@ -43,6 +43,7 @@
     <string name="add_save">Save</string>
     <string name="add_error_name">Name is required</string>
     <string name="common_retry">Retry</string>
+    <string name="common_ok">OK</string>
     <string name="common_loading_failed">Could not load</string>
     <string name="editor_title">Today\'s note</string>
     <string name="editor_mood">Mood</string>
@@ -67,4 +68,25 @@
     <string name="addendum_text">Correction text</string>
     <string name="addendum_save">Save correction</string>
     <string name="addendum_error">Enter the correction text</string>
+    <string name="history_filter_person">Person</string>
+    <string name="history_filter_all">All</string>
+    <string name="history_from">From</string>
+    <string name="history_to">To</string>
+    <string name="history_corrections">%1$d corrections</string>
+    <string name="history_empty">No notes</string>
+    <string name="notes_today">Today\'s notes</string>
+    <string name="summary_title">Smart summary</string>
+    <string name="summary_period">Period</string>
+    <string name="summary_days_7">7 days</string>
+    <string name="summary_days_14">14 days</string>
+    <string name="summary_days_30">30 days</string>
+    <string name="summary_generate">Generate summary</string>
+    <string name="summary_evidence">Evidence</string>
+    <string name="summary_uncertain">Uncertain</string>
+    <string name="summary_disclaimer">This summary is indicative and does not replace medical advice</string>
+    <string name="summary_ai_down">Could not generate the summary — your notes are saved and safe</string>
+    <string name="summary_proposals">View proposals</string>
+    <string name="flag_fall">Reported fall</string>
+    <string name="flag_pain">High pain</string>
+    <string name="flag_meds">Medication unclear</string>
 </resources>

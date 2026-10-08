@@ -43,6 +43,7 @@
     <string name="add_save">حفظ</string>
     <string name="add_error_name">الاسم مطلوب</string>
     <string name="common_retry">إعادة المحاولة</string>
+    <string name="common_ok">موافق</string>
     <string name="common_loading_failed">تعذر التحميل</string>
     <string name="editor_title">ملاحظة اليوم</string>
     <string name="editor_mood">الحالة المزاجية</string>
@@ -67,4 +68,25 @@
     <string name="addendum_text">نص التصحيح</string>
     <string name="addendum_save">حفظ التصحيح</string>
     <string name="addendum_error">اكتب نص التصحيح</string>
+    <string name="history_filter_person">الشخص</string>
+    <string name="history_filter_all">الكل</string>
+    <string name="history_from">من</string>
+    <string name="history_to">إلى</string>
+    <string name="history_corrections">%1$d تصحيح</string>
+    <string name="history_empty">لا توجد ملاحظات</string>
+    <string name="notes_today">ملاحظات اليوم</string>
+    <string name="summary_title">ملخص ذكي</string>
+    <string name="summary_period">الفترة</string>
+    <string name="summary_days_7">7 أيام</string>
+    <string name="summary_days_14">14 يوم</string>
+    <string name="summary_days_30">30 يوم</string>
+    <string name="summary_generate">إنشاء الملخص</string>
+    <string name="summary_evidence">الأدلة</string>
+    <string name="summary_uncertain">غير مؤكد</string>
+    <string name="summary_disclaimer">هذا الملخص استرشادي ولا يغني عن الاستشارة الطبية</string>
+    <string name="summary_ai_down">تعذر إنشاء الملخص — ملاحظاتك محفوظة وآمنة</string>
+    <string name="summary_proposals">عرض المقترحات</string>
+    <string name="flag_fall">سقوط مبلغ عنه</string>
+    <string name="flag_pain">ألم عال</string>
+    <string name="flag_meds">الدواء غير مؤكد</string>
 </resources>

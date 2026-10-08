@@ -54,7 +54,7 @@ class AppRoutesTest {
                     "addendum/{noteId}",
                     // Summary (boards 10-11).
                     "summary/{recipientId}",
-                    "summary-result",
+                    "summary-result/{recipientId}/{periodDays}",
                     // Plans (boards 12-14 + missing plans list).
                     "plans",
                     "plan-proposal/{planId}",

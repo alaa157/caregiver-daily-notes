@@ -36,7 +36,7 @@ object AppDestinations {
     val Addendum = Destination("addendum/{noteId}")
 
     val Summary = Destination("summary/{recipientId}")
-    val SummaryResult = Destination("summary-result")
+    val SummaryResult = Destination("summary-result/{recipientId}/{periodDays}")
 
     val Plans = Destination("plans")
     val PlanProposal = Destination("plan-proposal/{planId}")

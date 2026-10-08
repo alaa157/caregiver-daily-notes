@@ -24,6 +24,7 @@ import androidx.navigation.compose.rememberNavController
 import androidx.navigation.navArgument
 import com.caregiver.mobile.core.navigation.AppDestinations
 import com.caregiver.mobile.core.navigation.MainTab
+import com.caregiver.mobile.presentation.history.HistoryScreen
 import com.caregiver.mobile.presentation.home.HomeScreen
 import com.caregiver.mobile.presentation.notes.AddendumScreen
 import com.caregiver.mobile.presentation.notes.NoteDetailScreen
@@ -32,6 +33,9 @@ import com.caregiver.mobile.presentation.notes.NoteSavedScreen
 import com.caregiver.mobile.presentation.recipients.AddRecipientScreen
 import com.caregiver.mobile.presentation.recipients.RecipientDetailScreen
 import com.caregiver.mobile.presentation.recipients.RecipientsScreen
+import com.caregiver.mobile.presentation.summary.SummaryPeriodScreen
+import com.caregiver.mobile.presentation.summary.SummaryResultScreen
+import java.time.LocalDate
 
 /**
  * Tab shell: 4 tabs plus the add-note action. Home and People are live
@@ -75,8 +79,18 @@ fun MainScaffold(graph: AppGraph) {
         ) {
             composable(MainTab.Home.route) { HomeScreen(graph, navController) }
             composable(MainTab.People.route) { RecipientsScreen(graph, navController) }
-            composable(MainTab.Notes.route) { Placeholder(MainTab.Notes.route) }
-            composable(MainTab.History.route) { Placeholder(MainTab.History.route) }
+            composable(MainTab.Notes.route) {
+                val today = LocalDate.now()
+                HistoryScreen(
+                    graph = graph,
+                    navController = navController,
+                    initialFrom = today,
+                    initialTo = today,
+                    showFilters = false,
+                    title = stringResource(R.string.notes_today),
+                )
+            }
+            composable(MainTab.History.route) { HistoryScreen(graph, navController) }
             composable(
                 AppDestinations.RecipientDetail.base,
                 arguments = listOf(navArgument("recipientId") { type = NavType.StringType }),
@@ -110,9 +124,27 @@ fun MainScaffold(graph: AppGraph) {
             ) { entry ->
                 AddendumScreen(entry.arguments!!.getString("noteId")!!, graph, navController)
             }
-            // Task 6 replaces these bodies; routes stay identical.
-            future(AppDestinations.Summary.base)
-            future(AppDestinations.SummaryResult.base)
+            composable(
+                AppDestinations.Summary.base,
+                arguments = listOf(navArgument("recipientId") { type = NavType.StringType }),
+            ) { entry ->
+                SummaryPeriodScreen(entry.arguments!!.getString("recipientId")!!, graph, navController)
+            }
+            composable(
+                AppDestinations.SummaryResult.base,
+                arguments = listOf(
+                    navArgument("recipientId") { type = NavType.StringType },
+                    navArgument("periodDays") { type = NavType.IntType },
+                ),
+            ) { entry ->
+                SummaryResultScreen(
+                    entry.arguments!!.getString("recipientId")!!,
+                    entry.arguments!!.getInt("periodDays"),
+                    graph,
+                    navController,
+                )
+            }
+            // Task 7 replaces these bodies; routes stay identical.
             future(AppDestinations.Plans.base)
             future(AppDestinations.PlanProposal.base)
             future(AppDestinations.PlanEdit.base)
