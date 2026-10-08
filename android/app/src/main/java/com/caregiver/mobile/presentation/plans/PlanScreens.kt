@@ -17,6 +17,7 @@ import androidx.compose.material3.AssistChip
 import androidx.compose.material3.AssistChipDefaults
 import androidx.compose.material3.Button
 import androidx.compose.material3.Card
+import androidx.compose.material3.LinearProgressIndicator
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.OutlinedTextField
@@ -32,6 +33,7 @@ import androidx.navigation.NavController
 import com.caregiver.mobile.AppGraph
 import com.caregiver.mobile.R
 import com.caregiver.mobile.core.navigation.AppRoutes
+import com.caregiver.mobile.core.navigation.MainTab
 import com.caregiver.mobile.core.theme.CaregiverColors
 import com.caregiver.mobile.data.api.PlanVersionDto
 import com.caregiver.mobile.presentation.common.assistedViewModel
@@ -55,10 +57,16 @@ fun PlansScreen(graph: AppGraph, navController: NavController) {
             PlansState.Loading -> LoadingRow()
             PlansState.Error -> LoadFailed(onRetry = vm::refresh)
             is PlansState.Content -> {
+                if (s.refreshing) {
+                    LinearProgressIndicator(modifier = Modifier.fillMaxWidth())
+                }
                 if (s.plans.isEmpty()) {
                     Text(stringResource(R.string.plans_empty))
                     Spacer(Modifier.height(8.dp))
-                    OutlinedButton(onClick = { navController.navigate("people") }) {
+                    // No plan exists yet, so there is nothing to propose from:
+                    // point at People, where a recipient (and then a summary)
+                    // is the entry point to future plans.
+                    OutlinedButton(onClick = { navController.navigate(MainTab.People.route) }) {
                         Text(stringResource(R.string.plans_view_proposals))
                     }
                 } else {
@@ -97,6 +105,8 @@ fun PlansScreen(graph: AppGraph, navController: NavController) {
 @Composable
 fun StatusChip(status: String) {
     val label = PlanStatusText.res(status)?.let { stringResource(it) } ?: status
+    // Archived is terminal with no further action, so it deliberately keeps
+    // the default neutral chip instead of a semantic success/danger color.
     val colors = when (status) {
         "Accepted", "Edited-and-Accepted" -> AssistChipDefaults.assistChipColors(
             containerColor = CaregiverColors.SuccessContainer,
@@ -207,7 +217,7 @@ fun PlanEditScreen(planId: String, graph: AppGraph, navController: NavController
     }
     when (val s = state) {
         PlanEditState.Loading -> LoadingRow()
-        PlanEditState.Error -> LoadFailed(onRetry = { navController.popBackStack() })
+        PlanEditState.Error -> LoadFailed(onRetry = vm::refresh)
         is PlanEditState.Content -> Column(
             modifier = Modifier.fillMaxSize().verticalScroll(rememberScrollState()).padding(16.dp),
             verticalArrangement = Arrangement.spacedBy(8.dp),

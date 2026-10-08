@@ -99,6 +99,9 @@ class PlanDetailViewModel(
 
     private suspend fun load() {
         try {
+            // Deliberately served from one bounded list() call (shared with the
+            // plans list) instead of the per-plan versions(id) endpoint: one
+            // round trip covers both screens at preview scale.
             val plans = repository.authorized { apis.plans().list() }
             val plan = plans.firstOrNull { it.id == planId }
             if (plan == null) {

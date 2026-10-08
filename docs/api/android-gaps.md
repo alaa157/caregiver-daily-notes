@@ -35,6 +35,17 @@ edit screen therefore sends the edited items with the
 edited-and-accepted status and omits the design's reason field. A
 `reason` request field would close this gap.
 
+## Plan version appends skip transition validation
+
+`POST /api/plans/{id}/versions` (`append`) persists any status string
+with no transition check — including onto `Archived` plans, which the
+`accept`/`dismiss`/`edit-accept` transitions would reject with a 422.
+The client saves edits through `append` (the dedicated `editAccept`
+endpoint copies the latest items instead of accepting edited ones, so no
+client calls it), meaning edited statuses can land where the transition
+state machine would forbid them. Either route edits through the guarded
+transition or validate `status` in `append`.
+
 ## No bounded home safety aggregate
 
 `GET /api/recipients/{id}/signals` is per-recipient only, so the home

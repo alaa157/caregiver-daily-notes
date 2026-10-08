@@ -22,7 +22,7 @@ data class PlanRow(
 
 sealed interface PlansState {
     data object Loading : PlansState
-    data class Content(val plans: List<PlanRow>) : PlansState
+    data class Content(val plans: List<PlanRow>, val refreshing: Boolean = false) : PlansState
     data object Error : PlansState
 }
 
@@ -46,7 +46,14 @@ class PlansViewModel(
     }
 
     fun refresh() {
-        _state.value = PlansState.Loading
+        // Keep the visible list with a progress marker instead of flashing
+        // back to full-screen loading (same convention as Home/Summary).
+        val current = (_state.value as? PlansState.Content)?.plans
+        _state.value = if (current != null) {
+            PlansState.Content(current, refreshing = true)
+        } else {
+            PlansState.Loading
+        }
         exec.launch { load() }
     }
 

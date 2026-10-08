@@ -135,7 +135,5 @@
     <string name="common_offline">You\'re offline. Your work is kept — retry when connected.</string>
     <string name="people_empty">No people yet. Add your first person.</string>
     <string name="notes_empty">No notes for this day.</string>
-    <string name="plans_empty_title">No active care plan</string>
-    <string name="plans_empty_action">View proposals</string>
     <string name="safety_banner_cd">Safety alert</string>
 </resources>

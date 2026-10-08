@@ -19,7 +19,6 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
-import androidx.compose.runtime.remember
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.runtime.rememberCoroutineScope
@@ -62,6 +61,8 @@ fun SettingsScreen(graph: AppGraph, navController: NavController) {
         }
         Text(text = stringResource(R.string.settings_language))
         Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+            // Language names are intentionally literal, not string resources:
+            // each language must be recognizable no matter which locale is active.
             FilterChip(
                 selected = language == "ar",
                 onClick = {
@@ -114,8 +115,10 @@ fun ServerUrlScreen(graph: AppGraph, navController: NavController) {
         initial = SettingsStore.DEFAULT_BASE_URL,
     )
     var field by rememberSaveable(current) { mutableStateOf(current) }
-    var notice by remember { mutableStateOf<Int?>(null) }
-    var invalid by remember { mutableStateOf(false) }
+    // Saveable (not just remembered): rotation must not eat the invalid-URL
+    // line or the save/reset confirmation.
+    var notice by rememberSaveable { mutableStateOf<Int?>(null) }
+    var invalid by rememberSaveable { mutableStateOf(false) }
     Column(Modifier.fillMaxSize().padding(24.dp)) {
         Text(
             text = stringResource(R.string.settings_server),
