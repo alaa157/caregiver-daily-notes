@@ -5,4 +5,20 @@
     <string name="tab_people">People</string>
     <string name="tab_notes">Notes</string>
     <string name="tab_history">History</string>
+    <string name="auth_title_login">Sign in</string>
+    <string name="auth_title_register">Create account</string>
+    <string name="auth_email">Email</string>
+    <string name="auth_password">Password</string>
+    <string name="auth_confirm">Confirm password</string>
+    <string name="auth_submit_login">Sign in</string>
+    <string name="auth_submit_register">Create account</string>
+    <string name="auth_no_account">No account? Create one</string>
+    <string name="auth_have_account">Have an account? Sign in</string>
+    <string name="auth_error_email_required">Email is required</string>
+    <string name="auth_error_email_invalid">Enter a valid email address</string>
+    <string name="auth_error_password_required">Password is required</string>
+    <string name="auth_error_password_long">Password must be at most 72 bytes</string>
+    <string name="auth_error_confirm_mismatch">Passwords do not match</string>
+    <string name="auth_error_invalid_credentials">Invalid email or password</string>
+    <string name="auth_error_unreachable">Could not reach the server</string>
 </resources>

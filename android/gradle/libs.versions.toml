@@ -28,6 +28,7 @@ compose-material3 = { group = "androidx.compose.material3", name = "material3" }
 compose-tooling-preview = { group = "androidx.compose.ui", name = "ui-tooling-preview" }
 navigation-compose = { group = "androidx.navigation", name = "navigation-compose", version.ref = "navigation" }
 lifecycle-viewmodel-compose = { group = "androidx.lifecycle", name = "lifecycle-viewmodel-compose", version.ref = "lifecycle" }
+lifecycle-viewmodel = { group = "androidx.lifecycle", name = "lifecycle-viewmodel", version.ref = "lifecycle" }
 activity-compose = { group = "androidx.activity", name = "activity-compose", version.ref = "activityCompose" }
 core-ktx = { group = "androidx.core", name = "core-ktx", version.ref = "coreKtx" }
 coroutines-core = { group = "org.jetbrains.kotlinx", name = "kotlinx-coroutines-core", version.ref = "coroutines" }

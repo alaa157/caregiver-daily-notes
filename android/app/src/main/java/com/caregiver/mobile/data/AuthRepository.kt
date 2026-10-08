@@ -73,6 +73,11 @@ class AuthRepository(
             return SignInResult.Rejected(message)
         } catch (e: IOException) {
             return SignInResult.Unreachable
+        } catch (e: Exception) {
+            if (e is kotlinx.coroutines.CancellationException) {
+                throw e
+            }
+            return SignInResult.Rejected("Request failed. Please try again.")
         }
     }
 

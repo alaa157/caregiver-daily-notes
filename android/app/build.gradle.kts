@@ -55,6 +55,7 @@ dependencies {
     implementation(libs.compose.tooling.preview)
     implementation(libs.navigation.compose)
     implementation(libs.lifecycle.viewmodel.compose)
+    implementation(libs.lifecycle.viewmodel)
     implementation(libs.activity.compose)
 
     implementation(libs.coroutines.core)

@@ -10,7 +10,7 @@ class MainActivity : ComponentActivity() {
         super.onCreate(savedInstanceState)
         setContent {
             CaregiverTheme {
-                MainScaffold()
+                CaregiverRoot((application as CaregiverApp).graph)
             }
         }
     }
