@@ -1,0 +1,8 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="app_name">ملاحظات مقدم الرعاية</string>
+    <string name="tab_home">الرئيسية</string>
+    <string name="tab_people">الأشخاص</string>
+    <string name="tab_notes">الملاحظات</string>
+    <string name="tab_history">السجل</string>
+</resources>

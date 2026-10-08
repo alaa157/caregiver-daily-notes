@@ -6,7 +6,11 @@ target/
 *.war
 *.ear
 # Exception: the Gradle wrapper jar is meant to be committed.
-!mobile/android/gradle/wrapper/gradle-wrapper.jar
+!android/gradle/wrapper/gradle-wrapper.jar
+
+# Android local state (Gradle 8+ puts these under android/).
+android/.gradle/
+android/local.properties
 
 # Eclipse / IntelliJ.
 .classpath
