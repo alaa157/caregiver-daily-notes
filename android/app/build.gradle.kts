@@ -16,6 +16,9 @@ android {
         versionCode = 1
         versionName = "0.1.0"
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
+        // Only en + ar ship in the app; strip other locales' resources
+        // pulled in by dependencies.
+        resourceConfigurations += listOf("en", "ar")
     }
 
     buildTypes {
@@ -23,6 +26,18 @@ android {
             // Keep minify off: the old cross-platform app crashed on launch with
             // R8 enabled and was never diagnosed. Revisit only with a device proof.
             isMinifyEnabled = false
+        }
+        // Squeezed test distribution: R8 + resource shrink, debug-signed so it
+        // installs like the debug APK. `release` above stays minify-off until
+        // real release signing lands.
+        create("minified") {
+            isMinifyEnabled = true
+            isShrinkResources = true
+            proguardFiles(
+                getDefaultProguardFile("proguard-android-optimize.txt"),
+                "proguard-rules.pro",
+            )
+            signingConfig = signingConfigs.getByName("debug")
         }
     }
 
