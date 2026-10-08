@@ -90,3 +90,17 @@ jobs:
         with:
           name: android-debug-apk
           path: android/app/build/outputs/apk/debug/app-debug.apk
+
+      - name: Build squeezed APK (R8 + resource shrink, debug-signed)
+        # Separate `minified` buildType: `release` stays minify-off until real
+        # signing lands. First R8 build of the native app — smoke-test login
+        # on device before trusting it (the old cross-platform app once died
+        # under R8 and was never diagnosed).
+        run: ./gradlew :app:assembleMinified --no-daemon
+        working-directory: android
+
+      - name: Upload squeezed APK
+        uses: actions/upload-artifact@v4
+        with:
+          name: android-minified-apk
+          path: android/app/build/outputs/apk/minified/app-minified.apk
