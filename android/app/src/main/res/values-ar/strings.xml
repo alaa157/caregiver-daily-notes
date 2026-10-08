@@ -44,4 +44,27 @@
     <string name="add_error_name">الاسم مطلوب</string>
     <string name="common_retry">إعادة المحاولة</string>
     <string name="common_loading_failed">تعذر التحميل</string>
+    <string name="editor_title">ملاحظة اليوم</string>
+    <string name="editor_mood">الحالة المزاجية</string>
+    <string name="editor_appetite">الشهية</string>
+    <string name="editor_sleep">النوم</string>
+    <string name="editor_mobility">الحركة</string>
+    <string name="editor_medication">الدواء</string>
+    <string name="editor_fall">سقوط</string>
+    <string name="editor_pain">الألم</string>
+    <string name="editor_pain_caption">0 = لا ألم · 10 = أسوأ ألم</string>
+    <string name="editor_text">ملاحظات حرة</string>
+    <string name="editor_save">حفظ الملاحظة</string>
+    <string name="editor_save_note">الحفظ لا يعتمد على الذكاء الاصطناعي</string>
+    <string name="editor_error_mood">اختار الحالة المزاجية</string>
+    <string name="editor_error_text">اكتب نص الملاحظة</string>
+    <string name="saved_title">تم الحفظ</string>
+    <string name="saved_view">عرض الملاحظة</string>
+    <string name="saved_summarize">إنشاء ملخص</string>
+    <string name="detail_corrections">تصحيحات</string>
+    <string name="detail_add_correction">إضافة تصحيح</string>
+    <string name="addendum_title">إضافة تصحيح</string>
+    <string name="addendum_text">نص التصحيح</string>
+    <string name="addendum_save">حفظ التصحيح</string>
+    <string name="addendum_error">اكتب نص التصحيح</string>
 </resources>

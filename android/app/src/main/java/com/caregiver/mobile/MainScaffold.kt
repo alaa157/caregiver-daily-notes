@@ -25,6 +25,10 @@ import androidx.navigation.navArgument
 import com.caregiver.mobile.core.navigation.AppDestinations
 import com.caregiver.mobile.core.navigation.MainTab
 import com.caregiver.mobile.presentation.home.HomeScreen
+import com.caregiver.mobile.presentation.notes.AddendumScreen
+import com.caregiver.mobile.presentation.notes.NoteDetailScreen
+import com.caregiver.mobile.presentation.notes.NoteEditorScreen
+import com.caregiver.mobile.presentation.notes.NoteSavedScreen
 import com.caregiver.mobile.presentation.recipients.AddRecipientScreen
 import com.caregiver.mobile.presentation.recipients.RecipientDetailScreen
 import com.caregiver.mobile.presentation.recipients.RecipientsScreen
@@ -82,11 +86,31 @@ fun MainScaffold(graph: AppGraph) {
             composable(AppDestinations.AddRecipient.base) {
                 AddRecipientScreen(graph, navController)
             }
-            // Tasks 5-7 replace these bodies; routes stay identical.
-            future(AppDestinations.NoteEditor.base)
-            future(AppDestinations.NoteSaved.base)
-            future(AppDestinations.NoteDetail.base)
-            future(AppDestinations.Addendum.base)
+            composable(
+                AppDestinations.NoteEditor.base,
+                arguments = listOf(navArgument("recipientId") { type = NavType.StringType }),
+            ) { entry ->
+                NoteEditorScreen(entry.arguments!!.getString("recipientId")!!, graph, navController)
+            }
+            composable(
+                AppDestinations.NoteSaved.base,
+                arguments = listOf(navArgument("noteId") { type = NavType.StringType }),
+            ) { entry ->
+                NoteSavedScreen(entry.arguments!!.getString("noteId")!!, graph, navController)
+            }
+            composable(
+                AppDestinations.NoteDetail.base,
+                arguments = listOf(navArgument("noteId") { type = NavType.StringType }),
+            ) { entry ->
+                NoteDetailScreen(entry.arguments!!.getString("noteId")!!, graph, navController)
+            }
+            composable(
+                AppDestinations.Addendum.base,
+                arguments = listOf(navArgument("noteId") { type = NavType.StringType }),
+            ) { entry ->
+                AddendumScreen(entry.arguments!!.getString("noteId")!!, graph, navController)
+            }
+            // Task 6 replaces these bodies; routes stay identical.
             future(AppDestinations.Summary.base)
             future(AppDestinations.SummaryResult.base)
             future(AppDestinations.Plans.base)

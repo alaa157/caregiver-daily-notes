@@ -78,19 +78,38 @@ class FakeRecipientApi : RecipientApi {
 
 class FakeNoteApi : NoteApi {
     var historyHandler: suspend (String?, String?, String?) -> List<NoteDto> = { _, _, _ -> error("no history handler") }
+    var lastHistory: Triple<String?, String?, String?>? = null
+    var createHandler: suspend (CreateNoteRequest) -> NoteDto = { error("no create handler") }
+    var lastCreate: CreateNoteRequest? = null
+    var detailHandler: suspend (String) -> NoteDetailDto = { error("no detail handler") }
+    var appendHandler: suspend (String, CreateAddendumRequest) -> AddendumDto = { _, _ -> error("no append handler") }
+    var lastAppend: Pair<String, CreateAddendumRequest>? = null
 
-    override suspend fun create(body: CreateNoteRequest): NoteDto = error("unused")
-    override suspend fun detail(id: String): NoteDetailDto = error("unused")
-    override suspend fun append(id: String, body: CreateAddendumRequest): AddendumDto = error("unused")
-    override suspend fun history(recipientId: String?, from: String?, to: String?): List<NoteDto> =
-        historyHandler(recipientId, from, to)
+    override suspend fun create(body: CreateNoteRequest): NoteDto {
+        lastCreate = body
+        return createHandler(body)
+    }
+    override suspend fun detail(id: String): NoteDetailDto = detailHandler(id)
+    override suspend fun append(id: String, body: CreateAddendumRequest): AddendumDto {
+        lastAppend = id to body
+        return appendHandler(id, body)
+    }
+    override suspend fun history(recipientId: String?, from: String?, to: String?): List<NoteDto> {
+        lastHistory = Triple(recipientId, from, to)
+        return historyHandler(recipientId, from, to)
+    }
 }
 
 class FakeSummaryApi : SummaryApi {
     var signalsHandler: suspend (String, String?, String?) -> List<SignalDto> =
         { _, _, _ -> error("no signals handler") }
+    var summarizeHandler: suspend (SummaryRequest) -> SummaryDto = { error("no summarize handler") }
+    var lastSummarize: SummaryRequest? = null
 
     override suspend fun signals(id: String, from: String?, to: String?): List<SignalDto> =
         signalsHandler(id, from, to)
-    override suspend fun summarize(body: SummaryRequest): SummaryDto = error("unused")
+    override suspend fun summarize(body: SummaryRequest): SummaryDto {
+        lastSummarize = body
+        return summarizeHandler(body)
+    }
 }
