@@ -29,7 +29,7 @@ public class SummaryService {
     this.trends = Objects.requireNonNull(trends, "trends");
   }
 
-  public SummaryResult summarize(SummaryRequest request, List<SummaryNote> notes, List<NoteSignals> signals) {
+  public SummaryResult summarize(AiSummaryRequest request, List<SummaryNote> notes, List<NoteSignals> signals) {
     if (request == null) {
       throw new IllegalArgumentException("request");
     }

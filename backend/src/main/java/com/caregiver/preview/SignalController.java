@@ -32,7 +32,7 @@ public class SignalController {
   }
 
   @PostMapping("/api/summaries")
-  public SummaryDto summarize(@Valid @RequestBody SummaryRequest request) {
+  public SummaryDto summarize(@Valid @RequestBody PreviewSummaryRequest request) {
     return service.summarize(request.recipientId(), request.periodDays());
   }
 }

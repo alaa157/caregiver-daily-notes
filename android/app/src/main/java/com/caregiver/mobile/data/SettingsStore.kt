@@ -59,6 +59,6 @@ class SettingsStore(private val dataStore: DataStore<Preferences>) {
         private val LANGUAGE = stringPreferencesKey("language")
 
         fun create(context: Context, name: String = "settings"): SettingsStore =
-            SettingsStores.getOrCreate(name) { context.preferencesDataStoreFile(name) }
+            SettingsStoreRegistry.getOrCreate(name) { context.preferencesDataStoreFile(name) }
     }
 }

@@ -35,7 +35,7 @@ class SummaryServiceTest {
     var notes = List.of(new SummaryNote("n1", END, "she ate well today"));
     var signals = List.of(signal(END, true, null));
 
-    var result = svc.summarize(new SummaryRequest("r1", END, 7), notes, signals);
+    var result = svc.summarize(new AiSummaryRequest("r1", END, 7), notes, signals);
 
     assertThat(result.summary().observations()).hasSize(1);
     assertThat(result.safety().signals()).extracting(SafetySignal::ruleId).contains(SafetyRuleId.FALL_DETECTED);
@@ -48,7 +48,7 @@ class SummaryServiceTest {
     var svc = service(ok("{\"observations\":[{\"text\":\"slept\",\"noteId\":\"n1\",\"quote\":\"slept ten hours\"}],\"uncertainties\":[]}"));
     var notes = List.of(new SummaryNote("n1", END, "ate well"));
 
-    assertThatThrownBy(() -> svc.summarize(new SummaryRequest("r1", END, 7), notes, List.of()))
+    assertThatThrownBy(() -> svc.summarize(new AiSummaryRequest("r1", END, 7), notes, List.of()))
         .isInstanceOf(InvalidModelOutputException.class);
   }
 
@@ -57,7 +57,7 @@ class SummaryServiceTest {
     var svc = service(ok("{\"observations\":[{\"text\":\"ate\",\"noteId\":\"n9\",\"quote\":\"ate\"}],\"uncertainties\":[]}"));
     var notes = List.of(new SummaryNote("n1", END, "ate well"));
 
-    assertThatThrownBy(() -> svc.summarize(new SummaryRequest("r1", END, 7), notes, List.of()))
+    assertThatThrownBy(() -> svc.summarize(new AiSummaryRequest("r1", END, 7), notes, List.of()))
         .isInstanceOf(InvalidModelOutputException.class);
   }
 
@@ -67,7 +67,7 @@ class SummaryServiceTest {
     var notes = List.of(new SummaryNote("n1", END, "routine day"));
     var signals = List.of(signal(END, true, null));
 
-    var result = svc.summarize(new SummaryRequest("r1", END, 7), notes, signals);
+    var result = svc.summarize(new AiSummaryRequest("r1", END, 7), notes, signals);
 
     assertThat(result.summary().aiUnavailable()).isTrue();
     assertThat(result.summary().observations()).isEmpty();
@@ -82,7 +82,7 @@ class SummaryServiceTest {
         + injection + "\"}],\"uncertainties\":[]}"));
     var notes = List.of(new SummaryNote("n1", END, injection));
 
-    var result = svc.summarize(new SummaryRequest("r1", END, 7), notes, List.of());
+    var result = svc.summarize(new AiSummaryRequest("r1", END, 7), notes, List.of());
 
     assertThat(result.summary().observations()).hasSize(1);
     assertThat(result.safety().signals()).isEmpty();
@@ -97,7 +97,7 @@ class SummaryServiceTest {
         new SummaryNote("n1", END, "fresh news"));
 
     // n0 is outside the 7-day window, so citing it must fail as unknown.
-    assertThatThrownBy(() -> svc.summarize(new SummaryRequest("r1", END, 7), notes, List.of()))
+    assertThatThrownBy(() -> svc.summarize(new AiSummaryRequest("r1", END, 7), notes, List.of()))
         .isInstanceOf(InvalidModelOutputException.class)
         .hasMessageContaining("n0");
   }
@@ -108,7 +108,7 @@ class SummaryServiceTest {
     var notes = List.of(new SummaryNote("n1", END, "conflicting med report"));
     var signals = List.of(new NoteSignals("r1", END, false, null, null, true, null, ""));
 
-    var result = svc.summarize(new SummaryRequest("r1", END, 7), notes, signals);
+    var result = svc.summarize(new AiSummaryRequest("r1", END, 7), notes, signals);
 
     assertThat(result.summary().observations()).isEmpty();
     assertThat(result.summary().uncertainties()).hasSize(1);
