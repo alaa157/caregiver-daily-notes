@@ -28,6 +28,7 @@ import androidx.compose.ui.unit.dp
 import androidx.navigation.NavController
 import com.caregiver.mobile.AppGraph
 import com.caregiver.mobile.R
+import com.caregiver.mobile.core.i18n.Bidi
 import com.caregiver.mobile.core.navigation.AppDestinations
 import com.caregiver.mobile.core.theme.CaregiverColors
 import com.caregiver.mobile.data.api.SummaryDto
@@ -140,10 +141,10 @@ private fun SummaryBody(summary: SummaryDto, navController: NavController) {
             summary.evidence.forEach { item ->
                 Card(Modifier.fillMaxWidth()) {
                     Column(Modifier.padding(12.dp)) {
-                        Text(text = "“${item.quote}”")
+                        Text(text = "“${Bidi.isolate(item.quote)}”")
                         Text(
                             text = stringResource(R.string.person_last_note) +
-                                ": #${item.noteId.take(8)}",
+                                ": #${Bidi.isolate(item.noteId.take(8))}",
                             style = MaterialTheme.typography.bodySmall,
                         )
                     }

@@ -34,6 +34,7 @@ import androidx.compose.ui.unit.dp
 import androidx.navigation.NavController
 import com.caregiver.mobile.AppGraph
 import com.caregiver.mobile.R
+import com.caregiver.mobile.core.i18n.Bidi
 import com.caregiver.mobile.core.navigation.AppRoutes
 import com.caregiver.mobile.core.theme.CaregiverColors
 import com.caregiver.mobile.presentation.common.assistedViewModel
@@ -128,7 +129,7 @@ private fun SafetyBanner(flags: List<SafetyFlag>) {
             )
             flags.forEach { flag ->
                 Text(
-                    text = stringResource(R.string.home_safety_fall, flag.recipientName),
+                    text = stringResource(R.string.home_safety_fall, Bidi.isolate(flag.recipientName)),
                     color = CaregiverColors.Danger,
                 )
             }
@@ -141,7 +142,7 @@ private fun PersonCard(card: HomeCard, onOpen: () -> Unit) {
     val arabic = Locale.getDefault().language == "ar"
     Card(modifier = Modifier.fillMaxWidth().clickable(onClick = onOpen)) {
         Column(Modifier.padding(12.dp)) {
-            Text(text = card.name, style = MaterialTheme.typography.titleMedium)
+            Text(text = Bidi.isolate(card.name), style = MaterialTheme.typography.titleMedium)
             card.lastNote?.let {
                 Text(
                     text = stringResource(R.string.person_last_note) + ": " +
@@ -182,7 +183,7 @@ private fun ChipView(chip: RecipientChip) {
 
 @Composable
 private fun greetingText(greeting: Greeting): String {
-    val name = greeting.name
+    val name = greeting.name?.let { Bidi.isolate(it) }
     return if (greeting.morning) {
         if (name == null) {
             stringResource(R.string.home_greeting_morning_plain)

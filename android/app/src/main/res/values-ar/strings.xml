@@ -132,4 +132,10 @@
     <string name="settings_language_restart">أعد فتح التطبيق لتطبيق الاتجاه.</string>
     <string name="settings_logout">تسجيل الخروج</string>
     <string name="auth_server_link">إعدادات الخادم</string>
+    <string name="common_offline">أنت غير متصل. عملك محفوظ — أعد المحاولة عند الاتصال.</string>
+    <string name="people_empty">لا يوجد أشخاص بعد. أضف أول شخص.</string>
+    <string name="notes_empty">لا توجد ملاحظات لهذا اليوم.</string>
+    <string name="plans_empty_title">لا توجد خطة رعاية نشطة حالياً</string>
+    <string name="plans_empty_action">عرض المقترحات</string>
+    <string name="safety_banner_cd">تنبيه أمان</string>
 </resources>
