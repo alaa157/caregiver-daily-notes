@@ -65,6 +65,16 @@ public class ChatCompletionsLlmClient implements LlmClient {
   private final HttpExchange exchange;
   private final Sleeper sleeper;
 
+  /** Non-secret endpoint, exposed for wiring verification. */
+  public String baseUrl() {
+    return baseUrl;
+  }
+
+  /** Non-secret model id, exposed for wiring verification. */
+  public String model() {
+    return model;
+  }
+
   public ChatCompletionsLlmClient(
       String baseUrl,
       String model,

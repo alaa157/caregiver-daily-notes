@@ -59,6 +59,11 @@ public class LlmClientConfig {
         props.backoffBaseMs(),
         exchange,
         sleeper);
+    // Fail closed with no backup credentials: never send a backup request
+    // without a key. FailoverLlmClient skips a null backup.
+    if (props.backupApiKey() == null || props.backupApiKey().isBlank()) {
+      return new FailoverLlmClient(primary, null);
+    }
     var backup = new ChatCompletionsLlmClient(
         props.backupBaseUrl(),
         props.backupModel(),

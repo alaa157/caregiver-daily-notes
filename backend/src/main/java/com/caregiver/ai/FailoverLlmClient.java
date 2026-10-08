@@ -31,6 +31,20 @@ public class FailoverLlmClient implements LlmClient {
     this(primary, backup, null);
   }
 
+  /** The primary delegate. Never null. */
+  public LlmClient primary() {
+    return primary;
+  }
+
+  /**
+   * The backup delegate, or null when no backup is configured (fail closed).
+   * Exposed so composition-root wiring tests can verify the delegates
+   * without sending requests.
+   */
+  public LlmClient backup() {
+    return backup;
+  }
+
   @Override
   public LlmResult complete(LlmRequest request) {
     if (request == null) {
