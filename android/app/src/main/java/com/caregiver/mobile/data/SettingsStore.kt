@@ -18,6 +18,7 @@ class SettingsStore(private val dataStore: DataStore<Preferences>) {
 
     val baseUrl: Flow<String> = dataStore.data.map { it[BASE_URL] ?: DEFAULT_BASE_URL }
     val token: Flow<String?> = dataStore.data.map { it[TOKEN] }
+    val email: Flow<String?> = dataStore.data.map { it[EMAIL] }
     val language: Flow<String> = dataStore.data.map { it[LANGUAGE] ?: DEFAULT_LANGUAGE }
 
     suspend fun setBaseUrl(url: String) {
@@ -36,6 +37,14 @@ class SettingsStore(private val dataStore: DataStore<Preferences>) {
         dataStore.edit { it.remove(TOKEN) }
     }
 
+    suspend fun setEmail(email: String) {
+        dataStore.edit { it[EMAIL] = email }
+    }
+
+    suspend fun clearEmail() {
+        dataStore.edit { it.remove(EMAIL) }
+    }
+
     suspend fun setLanguage(code: String) {
         dataStore.edit { it[LANGUAGE] = code }
     }
@@ -46,6 +55,7 @@ class SettingsStore(private val dataStore: DataStore<Preferences>) {
 
         private val BASE_URL = stringPreferencesKey("base_url")
         private val TOKEN = stringPreferencesKey("auth_token")
+        private val EMAIL = stringPreferencesKey("auth_email")
         private val LANGUAGE = stringPreferencesKey("language")
 
         fun create(context: Context, name: String = "settings"): SettingsStore {

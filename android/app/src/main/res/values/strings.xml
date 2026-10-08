@@ -21,4 +21,27 @@
     <string name="auth_error_confirm_mismatch">Passwords do not match</string>
     <string name="auth_error_invalid_credentials">Invalid email or password</string>
     <string name="auth_error_unreachable">Could not reach the server</string>
+    <string name="home_greeting_morning">Good morning, %1$s</string>
+    <string name="home_greeting_morning_plain">Good morning</string>
+    <string name="home_greeting_evening">Good evening, %1$s</string>
+    <string name="home_greeting_evening_plain">Good evening</string>
+    <string name="home_today_progress">%1$d / %2$d done</string>
+    <string name="home_safety_title">Safety alert</string>
+    <string name="home_safety_fall">Reported fall — %1$s</string>
+    <string name="people_add">Add person</string>
+    <string name="person_last_note">Last note</string>
+    <string name="chip_done">Done today</string>
+    <string name="chip_high_pain">High pain</string>
+    <string name="chip_fall">Fall</string>
+    <string name="chip_no_note">No notes yet</string>
+    <string name="detail_add_note">Add note</string>
+    <string name="detail_history">View history</string>
+    <string name="detail_plan">Care plan</string>
+    <string name="detail_summary">Smart summary</string>
+    <string name="add_title">Add a person in care</string>
+    <string name="add_name">Name</string>
+    <string name="add_save">Save</string>
+    <string name="add_error_name">Name is required</string>
+    <string name="common_retry">Retry</string>
+    <string name="common_loading_failed">Could not load</string>
 </resources>

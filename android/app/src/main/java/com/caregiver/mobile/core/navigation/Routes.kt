@@ -29,6 +29,7 @@ object AppDestinations {
     val History = Destination("history")
 
     val RecipientDetail = Destination("recipient/{recipientId}")
+    val AddRecipient = Destination("add-recipient")
     val NoteEditor = Destination("note-editor/{recipientId}")
     val NoteSaved = Destination("note-saved/{noteId}")
     val NoteDetail = Destination("note/{noteId}")
@@ -47,7 +48,7 @@ object AppDestinations {
     val all: List<Destination> = listOf(
         Login, Register, ServerUrl,
         Home, People, Notes, History,
-        RecipientDetail, NoteEditor, NoteSaved, NoteDetail, Addendum,
+        RecipientDetail, AddRecipient, NoteEditor, NoteSaved, NoteDetail, Addendum,
         Summary, SummaryResult,
         Plans, PlanProposal, PlanEdit, PlanVersions,
         Settings,

@@ -2,6 +2,7 @@ package com.caregiver.mobile.data
 
 import androidx.datastore.preferences.core.PreferenceDataStoreFactory
 import com.caregiver.mobile.core.network.TokenHolder
+import com.caregiver.mobile.data.api.AuthResponse
 import com.caregiver.mobile.data.api.LoginRequest
 import java.io.File
 import java.io.IOException
@@ -51,7 +52,7 @@ class AuthRepositoryTest {
 
     @Test
     fun signInNormalizesEmailAndStoresToken() = runTest {
-        fakeAuth.loginHandler = { com.caregiver.mobile.data.api.AuthResponse("tok") }
+        fakeAuth.loginHandler = { AuthResponse("tok") }
 
         val result = repository.signIn("  ALI@Example.COM ", "pw")
 
@@ -59,6 +60,7 @@ class AuthRepositoryTest {
         assertEquals(LoginRequest("ali@example.com", "pw"), fakeAuth.lastLogin)
         assertEquals("tok", settings.token.first())
         assertEquals("tok", tokens.token)
+        assertEquals("ali@example.com", settings.email.first())
     }
 
     @Test
@@ -119,10 +121,12 @@ class AuthRepositoryTest {
     fun signOutClearsEverywhere() = runTest {
         settings.setToken("tok")
         tokens.token = "tok"
+        settings.setEmail("a@b.c")
 
         repository.signOut()
 
         assertNull(settings.token.first())
         assertNull(tokens.token)
+        assertNull(settings.email.first())
     }
 }

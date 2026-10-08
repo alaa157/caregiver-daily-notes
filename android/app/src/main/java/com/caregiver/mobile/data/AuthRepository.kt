@@ -33,14 +33,19 @@ class AuthRepository(
 ) {
     val token = settings.token
 
-    suspend fun signIn(email: String, password: String): SignInResult =
-        attempt { apis.auth().login(LoginRequest(normalize(email), password)) }
+    suspend fun signIn(email: String, password: String): SignInResult {
+        val normalized = normalize(email)
+        return attempt(normalized) { apis.auth().login(LoginRequest(normalized, password)) }
+    }
 
-    suspend fun signUp(email: String, password: String): SignInResult =
-        attempt { apis.auth().register(RegisterRequest(normalize(email), password)) }
+    suspend fun signUp(email: String, password: String): SignInResult {
+        val normalized = normalize(email)
+        return attempt(normalized) { apis.auth().register(RegisterRequest(normalized, password)) }
+    }
 
     suspend fun signOut() {
         settings.clearToken()
+        settings.clearEmail()
         tokens.token = null
     }
 
@@ -59,10 +64,11 @@ class AuthRepository(
         }
     }
 
-    private suspend fun attempt(call: suspend () -> AuthResponse): SignInResult {
+    private suspend fun attempt(email: String, call: suspend () -> AuthResponse): SignInResult {
         try {
             val response = call()
             settings.setToken(response.token)
+            settings.setEmail(email)
             tokens.token = response.token
             return SignInResult.SignedIn
         } catch (e: HttpException) {

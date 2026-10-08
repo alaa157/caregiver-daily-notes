@@ -47,6 +47,7 @@ class AppRoutesTest {
                     "home", "people", "notes", "history",
                     // Recipient + note flow (boards 4-8).
                     "recipient/{recipientId}",
+                    "add-recipient",
                     "note-editor/{recipientId}",
                     "note-saved/{noteId}",
                     "note/{noteId}",

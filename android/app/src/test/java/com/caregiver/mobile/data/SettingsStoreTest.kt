@@ -68,4 +68,13 @@ class SettingsStoreTest {
         store.setLanguage("ar")
         assertEquals("ar", store.language.first())
     }
+
+    @Test
+    fun emailStartsNullRoundTripsAndClears() = runTest {
+        assertNull(store.email.first())
+        store.setEmail("a@b.c")
+        assertEquals("a@b.c", store.email.first())
+        store.clearEmail()
+        assertNull(store.email.first())
+    }
 }

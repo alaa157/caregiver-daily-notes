@@ -21,4 +21,27 @@
     <string name="auth_error_confirm_mismatch">كلمتا المرور غير متطابقتين</string>
     <string name="auth_error_invalid_credentials">بيانات الدخول غير صحيحة</string>
     <string name="auth_error_unreachable">تعذر الوصول إلى الخادم</string>
+    <string name="home_greeting_morning">صباح الخير، %1$s</string>
+    <string name="home_greeting_morning_plain">صباح الخير</string>
+    <string name="home_greeting_evening">مساء الخير، %1$s</string>
+    <string name="home_greeting_evening_plain">مساء الخير</string>
+    <string name="home_today_progress">%1$d / %2$d مكتملة</string>
+    <string name="home_safety_title">تنبيه سلامة</string>
+    <string name="home_safety_fall">سقوط مبلغ عنه — %1$s</string>
+    <string name="people_add">إضافة شخص</string>
+    <string name="person_last_note">آخر ملاحظة</string>
+    <string name="chip_done">تم اليوم</string>
+    <string name="chip_high_pain">ألم عال</string>
+    <string name="chip_fall">سقوط</string>
+    <string name="chip_no_note">لا ملاحظات بعد</string>
+    <string name="detail_add_note">إضافة ملاحظة</string>
+    <string name="detail_history">عرض السجل</string>
+    <string name="detail_plan">خطة الرعاية</string>
+    <string name="detail_summary">ملخص ذكي</string>
+    <string name="add_title">إضافة شخص تحت الرعاية</string>
+    <string name="add_name">الاسم</string>
+    <string name="add_save">حفظ</string>
+    <string name="add_error_name">الاسم مطلوب</string>
+    <string name="common_retry">إعادة المحاولة</string>
+    <string name="common_loading_failed">تعذر التحميل</string>
 </resources>

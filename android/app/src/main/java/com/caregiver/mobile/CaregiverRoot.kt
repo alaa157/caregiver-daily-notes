@@ -29,6 +29,6 @@ fun CaregiverRoot(graph: AppGraph) {
             }
         }
     } else {
-        MainScaffold()
+        MainScaffold(graph)
     }
 }
