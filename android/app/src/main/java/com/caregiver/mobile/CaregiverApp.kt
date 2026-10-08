@@ -19,7 +19,9 @@ class CaregiverApp : Application() {
         // blocking prefs read at startup; the settings screen recreates
         // the activity so this re-runs on language change. Single small
         // read only — if StrictMode ever flags it, move to a splash-gated
-        // async load with the default locale as fallback.
+        // async load with the default locale as fallback. The read goes
+        // through SettingsStores, so this handle and AppGraph.settings
+        // share the single DataStore for the file.
         val language = try {
             runBlocking {
                 SettingsStore.create(base).language.first()

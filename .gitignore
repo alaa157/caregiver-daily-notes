@@ -22,7 +22,7 @@ android/local.properties
 # VS Code.
 .vscode/
 
-# Node (web/, mobile/).
+# Node (web/).
 node_modules/
 dist/
 build/

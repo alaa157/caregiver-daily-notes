@@ -58,11 +58,7 @@ class SettingsStore(private val dataStore: DataStore<Preferences>) {
         private val EMAIL = stringPreferencesKey("auth_email")
         private val LANGUAGE = stringPreferencesKey("language")
 
-        fun create(context: Context, name: String = "settings"): SettingsStore {
-            val store = androidx.datastore.preferences.core.PreferenceDataStoreFactory.create {
-                context.preferencesDataStoreFile(name)
-            }
-            return SettingsStore(store)
-        }
+        fun create(context: Context, name: String = "settings"): SettingsStore =
+            SettingsStores.getOrCreate(name) { context.preferencesDataStoreFile(name) }
     }
 }

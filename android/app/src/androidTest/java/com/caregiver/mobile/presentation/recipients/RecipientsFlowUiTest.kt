@@ -28,6 +28,7 @@ import org.junit.Before
 import org.junit.Rule
 import org.junit.Test
 import org.junit.runner.RunWith
+import com.caregiver.mobile.test.WithTestOwner
 
 /**
  * Task 4 visible flows against a fake server: list → add → create → return
@@ -63,7 +64,8 @@ class RecipientsFlowUiTest {
     private fun setNav() {
         compose.setContent {
             nav = rememberNavController()
-            NavHost(navController = nav, startDestination = "people") {
+            WithTestOwner {
+                NavHost(navController = nav, startDestination = "people") {
                 composable("people") { RecipientsScreen(graph, nav) }
                 composable("add-recipient") { AddRecipientScreen(graph, nav) }
                 composable("recipient/{recipientId}") {
@@ -90,6 +92,7 @@ class RecipientsFlowUiTest {
                 }
                 composable("plans") {
                     Text("plans")
+                }
                 }
             }
         }
