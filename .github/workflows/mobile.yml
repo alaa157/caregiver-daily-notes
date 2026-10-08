@@ -52,7 +52,9 @@ jobs:
           java-version: "17"
 
       - name: Set up Android SDK
-        uses: android-actions/setup-android@v3
+        # v4: installs cmdline-tools + platform-tools, accepts licenses, and
+        # no longer requests the removed "tools" package (v3 fails on it).
+        uses: android-actions/setup-android@v4
 
       - name: Install required SDK packages
         # Must match mobile/android/build.gradle: compileSdk 37, buildTools
