@@ -96,6 +96,11 @@ android {
     buildTypes {
         debug {
             signingConfig signingConfigs.debug
+            // Preview size squeeze only (never merge to main): minify +
+            // shrink the debug build. Release signing stays a Part B job.
+            minifyEnabled true
+            shrinkResources true
+            proguardFiles getDefaultProguardFile("proguard-android-optimize.txt"), "proguard-rules.pro"
         }
         release {
             // Caution! In production, you need to generate your own keystore file.
