@@ -74,4 +74,8 @@ public class PlanVersion {
   public List<String> getItems() {
     return items;
   }
+
+  public Instant getCreatedAt() {
+    return createdAt;
+  }
 }

@@ -258,6 +258,89 @@ class PreviewApiTest {
         .andExpect(jsonPath("$.uncertainties").isArray());
   }
 
+    @Test
+  void plansFlowWithLegalTransitions() throws Exception {
+    String token = tokenFor("preview-plans@example.com");
+    String stranger = tokenFor("preview-plans-stranger@example.com");
+    String recipientId = recipientFor(token, "Nadia");
+
+    String planId =
+        mvc.perform(
+                post("/api/plans/suggest")
+                    .header("Authorization", "Bearer " + token)
+                    .contentType(MediaType.APPLICATION_JSON)
+                    .content(
+                        "{\"recipientId\":\"" + recipientId + "\",\"items\":[\"Monitor pain daily\"]}"))
+            .andExpect(status().isCreated())
+            .andExpect(jsonPath("$.versions[0].status").value("Suggested"))
+            .andExpect(jsonPath("$.versions[0].items[0]").value("Monitor pain daily"))
+            .andReturn()
+            .getResponse()
+            .getContentAsString()
+            .replaceAll(".*\"id\"\\s*:\\s*\"([^\"]+)\".*", "$1");
+
+    mvc.perform(get("/api/plans").header("Authorization", "Bearer " + token))
+        .andExpect(status().isOk())
+        .andExpect(jsonPath("$.length()").value(1))
+        .andExpect(jsonPath("$[0].versions.length()").value(1));
+
+    // Foreign plan invisible.
+    mvc.perform(get("/api/plans").header("Authorization", "Bearer " + stranger))
+        .andExpect(status().isOk())
+        .andExpect(jsonPath("$.length()").value(0));
+
+    // Accept, then re-accept is illegal.
+    mvc.perform(
+            post("/api/plans/" + planId + "/accept")
+                .header("Authorization", "Bearer " + token)
+                .contentType(MediaType.APPLICATION_JSON)
+                .content("{}"))
+        .andExpect(status().isOk())
+        .andExpect(jsonPath("$.versions[0].status").value("Accepted"));
+    mvc.perform(
+            post("/api/plans/" + planId + "/accept")
+                .header("Authorization", "Bearer " + token)
+                .contentType(MediaType.APPLICATION_JSON)
+                .content("{}"))
+        .andExpect(status().isUnprocessableEntity());
+
+    // Edit-accept appends a version; archive closes it.
+    mvc.perform(
+            post("/api/plans/" + planId + "/edit-accept")
+                .header("Authorization", "Bearer " + token)
+                .contentType(MediaType.APPLICATION_JSON)
+                .content("{}"))
+        .andExpect(status().isOk())
+        .andExpect(jsonPath("$.versions[0].status").value("Edited-and-Accepted"))
+        .andExpect(jsonPath("$.versions.length()").value(2));
+    mvc.perform(
+            post("/api/plans/" + planId + "/archive")
+                .header("Authorization", "Bearer " + token)
+                .contentType(MediaType.APPLICATION_JSON)
+                .content("{}"))
+        .andExpect(status().isOk())
+        .andExpect(jsonPath("$.versions[0].status").value("Archived"));
+
+    // Version history newest-first (accept/archive mutate in place).
+    mvc.perform(get("/api/plans/" + planId + "/versions").header("Authorization", "Bearer " + token))
+        .andExpect(status().isOk())
+        .andExpect(jsonPath("$.length()").value(2));
+
+    // Dismiss after archive is illegal; stranger cannot act.
+    mvc.perform(
+            post("/api/plans/" + planId + "/dismiss")
+                .header("Authorization", "Bearer " + token)
+                .contentType(MediaType.APPLICATION_JSON)
+                .content("{}"))
+        .andExpect(status().isUnprocessableEntity());
+    mvc.perform(
+            post("/api/plans/" + planId + "/accept")
+                .header("Authorization", "Bearer " + stranger)
+                .contentType(MediaType.APPLICATION_JSON)
+                .content("{}"))
+        .andExpect(status().isForbidden());
+  }
+
   @Test
   void emptyRangeGivesCalmSummary() throws Exception {
     String token = tokenFor("preview-empty@example.com");
