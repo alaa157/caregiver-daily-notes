@@ -25,7 +25,7 @@ Each caregiver can manage only their own care recipients, with one caregiver ass
 The project contains two separate client applications:
 
 - **Web application** — React + TypeScript
-- **Android mobile application** — React Native
+- **Android mobile application** — Native Kotlin (Jetpack Compose)
 
 Both clients consume the same backend REST API. The mobile application is a real separate application and is distributed as an APK through GitHub Releases.
 
@@ -41,9 +41,9 @@ The web and mobile clients are not separate backends and do not maintain separat
                                │
                                │ HTTPS
                                │
-                    ┌──────────▼───────────┐
-                    │    Mobile Client     │
-                    │     React Native     │
+                     ┌──────────▼───────────┐
+                     │    Mobile Client     │
+                     │    Native Kotlin     │
                     └──────────┬───────────┘
                                │
                                │ HTTPS
@@ -182,8 +182,8 @@ The repository should provide a clear release artifact for evaluators to downloa
 
 ### Mobile
 
-- React Native
-- TypeScript
+- Native Kotlin (Jetpack Compose + Material3)
+- Gradle Android build (`android/`)
 - Android APK
 - Arabic/English
 - RTL support
@@ -239,9 +239,9 @@ The backend targets:
 - **Spring Boot 3**
 - **Maven**
 
-Maven is the project's build and dependency-management system.
+Maven is the backend's build and dependency-management system.
 
-Gradle is **not** used.
+Gradle is used for the Android app only (`android/`); the backend never uses Gradle.
 
 ## Environment Variables
 
@@ -557,7 +557,12 @@ Accessibility testing includes an axe scan.
 
 ### Mobile Testing
 
-The Android application must have automated tests appropriate to the selected React Native testing setup and must verify core user workflows and RTL behavior.
+The native Android app is tested with JUnit local unit tests plus Compose UI
+instrumentation tests (`android/README.md`). Unit tests run with
+`./gradlew :app:testDebugUnitTest`; UI tests need a booted emulator/device via
+`./gradlew :app:connectedDebugAndroidTest`. Tests must verify core user
+workflows, board-15 loading/error/empty/retry/AI-unavailable states, string
+parity, RTL/bidi rendering, and safety-banner retention.
 
 ### CI
 
@@ -688,7 +693,9 @@ LLM requests are made from the backend to the configured Hugging Face provider.
 
 ### Mobile
 
-The Android application is packaged as an APK and published through GitHub Releases.
+The native Kotlin Android app (`android/`, `com.caregiver.mobile`) is packaged
+as a universal debug APK by the `Android` GitHub workflow
+(`android-debug-apk` artifact) and published through GitHub Releases.
 
 The mobile application communicates with the backend over HTTPS — directly on the
 host machine, or via the tunnel URL from other devices.

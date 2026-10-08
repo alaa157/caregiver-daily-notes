@@ -20,7 +20,7 @@ android {
 
     buildTypes {
         release {
-            // Keep minify off: the old React Native app crashed on launch with
+            // Keep minify off: the old cross-platform app crashed on launch with
             // R8 enabled and was never diagnosed. Revisit only with a device proof.
             isMinifyEnabled = false
         }
