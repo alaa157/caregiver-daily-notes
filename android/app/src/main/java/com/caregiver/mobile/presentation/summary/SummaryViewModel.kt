@@ -17,15 +17,17 @@ import retrofit2.HttpException
 
 sealed interface SummaryState {
     data object Loading : SummaryState
-    data class Content(val summary: SummaryDto) : SummaryState
-    data object AiUnavailable : SummaryState
-    data class Rejected(val message: String) : SummaryState
+    data class Content(val summary: SummaryDto, val refreshing: Boolean = false) : SummaryState
+    data class AiUnavailable(val last: SummaryDto? = null) : SummaryState
+    data class Rejected(val code: String?, val last: SummaryDto? = null) : SummaryState
 }
 
 /**
- * Summary (boards 10-11): 7/14/30-day periods over stored notes. Any
- * transport failure surfaces AiUnavailable — the notes themselves were
- * never at risk, and the screen says so with a retry.
+ * Summary (boards 10-11): 7/14/30-day periods over stored notes. Known flags
+ * survive refresh and failure — clearing happens only when a successful
+ * response reports none, or when the session ends upstream. Transport
+ * failures surface AiUnavailable (notes-safe copy + retry); HTTP failures
+ * surface a localized generic error carrying the code, never raw text.
  */
 class SummaryViewModel(
     private val recipientId: String,
@@ -43,7 +45,7 @@ class SummaryViewModel(
     val state: StateFlow<SummaryState> = _state
 
     init {
-        exec.launch { load() }
+        exec.launch { load(preserve = false) }
     }
 
     fun setPeriod(days: Int) {
@@ -54,25 +56,36 @@ class SummaryViewModel(
     }
 
     fun refresh() {
-        _state.value = SummaryState.Loading
-        exec.launch { load() }
+        val current = (_state.value as? SummaryState.Content)?.summary
+        _state.value = if (current != null) {
+            SummaryState.Content(current, refreshing = true)
+        } else {
+            SummaryState.Loading
+        }
+        exec.launch { load(preserve = current != null) }
     }
 
-    private suspend fun load() {
+    private suspend fun load(preserve: Boolean) {
         try {
             val summary = repository.authorized {
                 apis.summaries().summarize(SummaryRequest(recipientId, _period.value))
             }
             _state.value = SummaryState.Content(summary)
         } catch (e: LoggedOutException) {
-            // Root nav flips to login; nothing to show here.
+            if (!preserve) {
+                _state.value = SummaryState.Loading
+            } else {
+                lastSummary()?.let { _state.value = SummaryState.Content(it) }
+            }
         } catch (e: HttpException) {
-            val message = ApiErrors.parse(e)?.message ?: "Request failed (${e.code()})."
-            _state.value = SummaryState.Rejected(message)
+            _state.value = SummaryState.Rejected(ApiErrors.parse(e)?.code, lastSummary())
         } catch (e: IOException) {
-            _state.value = SummaryState.AiUnavailable
+            _state.value = SummaryState.AiUnavailable(lastSummary())
         }
     }
+
+    private fun lastSummary(): SummaryDto? =
+        (_state.value as? SummaryState.Content)?.summary
 
     companion object {
         const val DEFAULT_PERIOD_DAYS = 7

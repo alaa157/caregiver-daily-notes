@@ -8,10 +8,12 @@ import com.caregiver.mobile.data.api.BackendApis
 import com.caregiver.mobile.data.api.CreateRecipientRequest
 import com.caregiver.mobile.data.api.RecipientDto
 import java.io.IOException
+import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.launch
+import retrofit2.HttpException
 
 sealed interface PeopleState {
     data object Loading : PeopleState
@@ -76,9 +78,15 @@ class RecipientsViewModel(
                 load()
             } catch (e: LoggedOutException) {
                 _addState.value = _addState.value.copy(busy = false)
+            } catch (e: HttpException) {
+                _addState.value = _addState.value.copy(busy = false)
+                _state.value = PeopleState.Error
             } catch (e: IOException) {
                 _addState.value = _addState.value.copy(busy = false, nameError = null)
                 _state.value = PeopleState.Error
+            } catch (e: CancellationException) {
+                _addState.value = _addState.value.copy(busy = false)
+                throw e
             }
         }
     }
@@ -93,6 +101,8 @@ class RecipientsViewModel(
             _state.value = PeopleState.Content(recipients)
         } catch (e: LoggedOutException) {
             // Root nav flips to login; nothing to show here.
+        } catch (e: HttpException) {
+            _state.value = PeopleState.Error
         } catch (e: IOException) {
             _state.value = PeopleState.Error
         }

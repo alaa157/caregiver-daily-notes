@@ -26,8 +26,7 @@ class ThemeTest {
     }
 
     @Test
-    fun statusColorsMatchDesign() {
-        assertEquals(Color(0xFF8B2B25), CaregiverColors.Danger)
+    fun statusColorsMatchDesign() {        assertEquals(Color(0xFF8B2B25), CaregiverColors.Danger)
         assertEquals(Color(0xFFF7E3E1), CaregiverColors.DangerContainer)
         assertEquals(Color(0xFF1F5C38), CaregiverColors.Success)
         assertEquals(Color(0xFFE3F1E8), CaregiverColors.SuccessContainer)
@@ -35,5 +34,16 @@ class ThemeTest {
         assertEquals(Color(0xFFE8F0F9), CaregiverColors.InfoContainer)
         assertEquals(Color(0xFF7A4B00), CaregiverColors.Warning)
         assertEquals(Color(0xFFFBF0D9), CaregiverColors.WarningContainer)
+    }
+
+    @Test
+    fun scaffoldVisibleRolesUsePaletteNotDefaults() {
+        // FAB: solid teal with white content.
+        assertEquals(CaregiverColors.Primary, AppLightScheme.primaryContainer)
+        assertEquals(Color.White, AppLightScheme.onPrimaryContainer)
+        // Selected tab pill: neutral surface with ink content; teal accent
+        // is applied at the call site.
+        assertEquals(CaregiverColors.BorderSoft, AppLightScheme.secondaryContainer)
+        assertEquals(CaregiverColors.Ink, AppLightScheme.onSecondaryContainer)
     }
 }

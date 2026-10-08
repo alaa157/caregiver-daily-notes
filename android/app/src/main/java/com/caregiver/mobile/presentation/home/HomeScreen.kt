@@ -17,6 +17,7 @@ import androidx.compose.material3.Button
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.CircularProgressIndicator
+import androidx.compose.material3.LinearProgressIndicator
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
@@ -29,8 +30,12 @@ import androidx.compose.ui.unit.dp
 import androidx.navigation.NavController
 import com.caregiver.mobile.AppGraph
 import com.caregiver.mobile.R
+import com.caregiver.mobile.core.navigation.AppRoutes
 import com.caregiver.mobile.core.theme.CaregiverColors
 import com.caregiver.mobile.presentation.common.assistedViewModel
+import com.caregiver.mobile.presentation.notes.OptionGroup
+import com.caregiver.mobile.presentation.notes.OptionLabels
+import java.util.Locale
 
 /** Home dashboard (board 2): greeting, today progress, safety banner, cards. */
 @Composable
@@ -41,8 +46,22 @@ fun HomeScreen(graph: AppGraph, navController: NavController) {
     val state by vm.state.collectAsState()
     when (val s = state) {
         HomeState.Loading, HomeState.Idle -> LoadingRow()
-        HomeState.Error -> LoadFailed(onRetry = vm::refresh)
-        is HomeState.Content -> HomeContent(s.content, navController)
+        is HomeState.Error -> {
+            // Known flags survive failures: the banner stays above the retry.
+            val flags = s.lastContent?.flags.orEmpty()
+            Column(Modifier.fillMaxSize().padding(16.dp)) {
+                if (flags.isNotEmpty()) {
+                    SafetyBanner(flags)
+                }
+                LoadFailed(onRetry = vm::refresh)
+            }
+        }
+        is HomeState.Content -> {
+            if (s.refreshing) {
+                LinearProgressIndicator(modifier = Modifier.fillMaxWidth())
+            }
+            HomeContent(s.content, navController)
+        }
     }
 }
 
@@ -71,15 +90,16 @@ private fun HomeContent(content: HomeContent, navController: NavController) {
         }
         items(content.cards, key = { it.recipientId }) { card ->
             PersonCard(card) {
-                navController.navigate("recipient/${card.recipientId}")
+                navController.navigate(AppRoutes.recipientDetail(card.recipientId))
             }
         }
     }
 }
 
 /**
- * Non-dismissible by construction: no close action exists anywhere in this
- * tree, including loading/error states (the banner only renders on content).
+ * Fall-only banner, labeled as such: it covers reported falls from the
+ * dashboard window, not every safety flag. Non-dismissible by construction —
+ * no close action exists anywhere in this tree.
  */
 @Composable
 private fun SafetyBanner(flags: List<SafetyFlag>) {
@@ -105,13 +125,15 @@ private fun SafetyBanner(flags: List<SafetyFlag>) {
 
 @Composable
 private fun PersonCard(card: HomeCard, onOpen: () -> Unit) {
+    val arabic = Locale.getDefault().language == "ar"
     Card(modifier = Modifier.fillMaxWidth().clickable(onClick = onOpen)) {
         Column(Modifier.padding(12.dp)) {
             Text(text = card.name, style = MaterialTheme.typography.titleMedium)
             card.lastNote?.let {
                 Text(
-                    text = stringResource(R.string.person_last_note) +
-                        ": ${it.appetite} · ${it.sleep}",
+                    text = stringResource(R.string.person_last_note) + ": " +
+                        OptionLabels.label(OptionGroup.Appetite, it.appetite, arabic) + " · " +
+                        OptionLabels.label(OptionGroup.Sleep, it.sleep, arabic),
                     style = MaterialTheme.typography.bodyMedium,
                 )
             }
@@ -126,6 +148,7 @@ private fun PersonCard(card: HomeCard, onOpen: () -> Unit) {
 private fun ChipView(chip: RecipientChip) {
     val label = when (chip) {
         RecipientChip.DoneToday -> stringResource(R.string.chip_done)
+        RecipientChip.MissedToday -> stringResource(R.string.chip_missed)
         RecipientChip.HighPain -> stringResource(R.string.chip_high_pain)
         RecipientChip.FallFlag -> stringResource(R.string.chip_fall)
         RecipientChip.NoNote -> stringResource(R.string.chip_no_note)
@@ -139,7 +162,7 @@ private fun ChipView(chip: RecipientChip) {
             containerColor = CaregiverColors.DangerContainer,
             labelColor = CaregiverColors.Danger,
         )
-        RecipientChip.NoNote -> AssistChipDefaults.assistChipColors()
+        RecipientChip.NoNote, RecipientChip.MissedToday -> AssistChipDefaults.assistChipColors()
     }
     AssistChip(onClick = {}, label = { Text(label) }, colors = colors)
 }

@@ -19,4 +19,24 @@ object DateFormats {
         val pattern = if (locale.language == "ar") "d MMMM" else "MMM d"
         return DateTimeFormatter.ofPattern(pattern, effective).format(date)
     }
+
+    /**
+     * Full day for history rows ("7 أكتوبر 2026", "Oct 7, 2026"). Query
+     * parameters always stay ISO — this is display only, with a raw
+     * fallback if the server ever sends a non-ISO date.
+     */
+    fun historyDay(isoDate: String, arabic: Boolean): String {
+        val parsed = try {
+            LocalDate.parse(isoDate)
+        } catch (e: java.time.format.DateTimeParseException) {
+            return isoDate
+        }
+        val locale = if (arabic) {
+            Locale.forLanguageTag("ar-u-nu-latn")
+        } else {
+            Locale.ENGLISH
+        }
+        val pattern = if (arabic) "d MMMM yyyy" else "MMM d, yyyy"
+        return DateTimeFormatter.ofPattern(pattern, locale).format(parsed)
+    }
 }

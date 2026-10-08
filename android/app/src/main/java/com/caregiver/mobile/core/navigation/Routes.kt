@@ -54,3 +54,34 @@ object AppDestinations {
         Settings,
     )
 }
+
+/**
+ * Typed route builders: the single place that turns destination templates
+ * into concrete routes, so callers never hand-concatenate argument strings.
+ * Templates in [AppDestinations] stay as the registration contract.
+ */
+object AppRoutes {
+    fun tab(tab: MainTab): String = tab.route
+
+    fun recipientDetail(recipientId: String): String = "recipient/$recipientId"
+    fun noteEditor(recipientId: String): String = "note-editor/$recipientId"
+    fun noteSaved(noteId: String): String = "note-saved/$noteId"
+    fun noteDetail(noteId: String): String = "note/$noteId"
+    fun addendum(noteId: String): String = "addendum/$noteId"
+
+    fun summary(recipientId: String): String = "summary/$recipientId"
+    fun summaryResult(recipientId: String, periodDays: Int): String =
+        "summary-result/$recipientId/$periodDays"
+
+    fun planProposal(planId: String): String = "plan-proposal/$planId"
+    fun planEdit(planId: String): String = "plan-edit/$planId"
+    fun planVersions(planId: String): String = "plan-versions/$planId"
+
+    /** Reads a required String argument; crashes loudly on a missing arg. */
+    fun arg(entry: androidx.navigation.NavBackStackEntry, name: String): String =
+        checkNotNull(entry.arguments?.getString(name)) { "missing navigation argument: $name" }
+
+    /** Reads a required Int argument; crashes loudly on a missing arg. */
+    fun argInt(entry: androidx.navigation.NavBackStackEntry, name: String): Int =
+        checkNotNull(entry.arguments?.getInt(name)) { "missing navigation argument: $name" }
+}

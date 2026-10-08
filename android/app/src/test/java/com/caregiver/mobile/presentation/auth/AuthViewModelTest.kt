@@ -73,6 +73,20 @@ class AuthViewModelTest {
     }
 
     @Test
+    fun malformedAddressesBlocked() = runTest {
+        listOf("x@", "@example.com", "plain", "a @b.c", "a@b..c", "a@.b.c").forEach { bad ->
+            val vm = AuthViewModel(AuthMode.Login, repository, this)
+            vm.onEmail(bad)
+            vm.onPassword("pw")
+
+            vm.submit()
+
+            assertEquals("expected Invalid for $bad", EmailError.Invalid, vm.state.value.emailError)
+        }
+        assertNull(fakeAuth.lastLogin)
+    }
+
+    @Test
     fun blankPasswordBlocksSubmit() = runTest {
         val vm = AuthViewModel(AuthMode.Login, repository, this)
         vm.onEmail("a@b.c")
@@ -140,7 +154,7 @@ class AuthViewModelTest {
     }
 
     @Test
-    fun registerDuplicateSurfacesServerMessage() = runTest {
+    fun registerDuplicateSurfacesLocalizedDuplicate() = runTest {
         fakeAuth.registerHandler = {
             throw FakeAuthApi.httpError(422, "DUPLICATE_EMAIL", "Email is already registered.")
         }
@@ -152,9 +166,23 @@ class AuthViewModelTest {
         vm.submit()
         vm.state.first { it.formError != null }
 
-        val error = vm.state.value.formError
-        assertTrue(error is FormError.Rejected)
-        assertEquals("Email is already registered.", (error as FormError.Rejected).message)
+        assertEquals(FormError.DuplicateEmail, vm.state.value.formError)
+    }
+
+    @Test
+    fun unknownServerCodeSurfacesGeneric() = runTest {
+        fakeAuth.registerHandler = {
+            throw FakeAuthApi.httpError(422, "SOME_FUTURE_CODE", "Some future English message.")
+        }
+        val vm = AuthViewModel(AuthMode.Register, repository, this)
+        vm.onEmail("a@b.c")
+        vm.onPassword("pw")
+        vm.onConfirm("pw")
+
+        vm.submit()
+        vm.state.first { it.formError != null }
+
+        assertEquals(FormError.Generic, vm.state.value.formError)
     }
 
     @Test

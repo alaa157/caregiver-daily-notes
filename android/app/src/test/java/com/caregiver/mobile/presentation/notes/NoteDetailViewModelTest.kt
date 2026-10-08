@@ -80,6 +80,24 @@ class NoteDetailViewModelTest {
     }
 
     @Test
+    fun allCapturedFieldsPassThroughSeparatelyFromAddenda() = runTest {
+        val original = testNote(
+            date = "2026-10-07", mood = "fair", appetite = "reduced", sleep = "broken",
+            mobility = "assisted", medicationTaken = "missed", pain = 6, fall = true,
+            text = "full",
+        )
+        notes.detailHandler = {
+            testNoteDetail(note = original, addenda = listOf(testAddendum(text = "fix")))
+        }
+        val vm = vm(this)
+
+        val c = content(vm)
+
+        assertEquals(original, c.note)
+        assertEquals(listOf("fix"), c.addenda.map { it.text })
+    }
+
+    @Test
     fun blankAddendumBlockedWithoutCallingApi() = runTest {
         notes.detailHandler = { testNoteDetail() }
         val vm = vm(this)
@@ -124,5 +142,62 @@ class NoteDetailViewModelTest {
         val state = vm.state.first { it is NoteDetailState.Error }
 
         assertTrue(state is NoteDetailState.Error)
+    }
+
+    @Test
+    fun serverErrorSurfacesError() = runTest {
+        notes.detailHandler = { throw FakeAuthApi.httpError(500, "SERVER_ERROR") }
+        val vm = vm(this)
+
+        val state = vm.state.first { it is NoteDetailState.Error }
+
+        assertTrue(state is NoteDetailState.Error)
+    }
+
+    @Test
+    fun failedAppendKeepsTextClearsBusyAndFlagsSendError() = runTest {
+        notes.detailHandler = { testNoteDetail() }
+        notes.appendHandler = { _, _ ->
+            throw FakeAuthApi.httpError(500, "SERVER_ERROR")
+        }
+        val vm = vm(this)
+        content(vm)
+
+        vm.onAddendumText("keep me")
+        vm.submitAddendum()
+        vm.addendum.first { it.sendFailed }
+
+        assertEquals("keep me", vm.addendum.value.text)
+        assertEquals(false, vm.addendum.value.busy)
+        assertEquals(true, vm.addendum.value.sendFailed)
+        assertEquals(false, vm.addendum.value.appended)
+    }
+
+    @Test
+    fun retryAfterFailureAppends() = runTest {
+        val stored = mutableListOf(testAddendum(id = "a1"))
+        notes.detailHandler = { testNoteDetail(addenda = stored.toList()) }
+        var fail = true
+        notes.appendHandler = { id, body ->
+            if (fail) {
+                throw FakeAuthApi.httpError(500, "SERVER_ERROR")
+            }
+            testAddendum(id = "a2", noteId = id, text = body.text).also(stored::add)
+        }
+        val vm = vm(this)
+        content(vm)
+
+        vm.onAddendumText("retry me")
+        vm.submitAddendum()
+        vm.addendum.first { it.sendFailed }
+
+        fail = false
+        vm.submitAddendum()
+        val reloaded = vm.state.first {
+            it is NoteDetailState.Content && it.content.addenda.size == 2
+        } as NoteDetailState.Content
+
+        assertEquals(listOf("a1", "a2"), reloaded.content.addenda.map { it.id })
+        assertEquals(true, vm.addendum.value.appended)
     }
 }

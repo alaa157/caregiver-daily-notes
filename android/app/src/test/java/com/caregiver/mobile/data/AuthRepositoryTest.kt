@@ -75,13 +75,14 @@ class AuthRepositoryTest {
     }
 
     @Test
-    fun signUpDuplicateMapsToRejectedWithServerMessage() = runTest {
+    fun signUpDuplicateMapsToRejectedWithServerCode() = runTest {
         fakeAuth.registerHandler = { throw FakeAuthApi.httpError(422, "DUPLICATE_EMAIL", "Email is already registered.") }
 
         val result = repository.signUp("a@b.c", "pw")
 
         assertTrue(result is SignInResult.Rejected)
-        assertEquals("Email is already registered.", (result as SignInResult.Rejected).message)
+        assertEquals("DUPLICATE_EMAIL", (result as SignInResult.Rejected).code)
+        assertEquals("Email is already registered.", result.message)
         assertNull(settings.token.first())
     }
 
@@ -99,6 +100,7 @@ class AuthRepositoryTest {
         val result = repository.signIn("a@b.c", "pw")
 
         assertTrue(result is SignInResult.Rejected)
+        assertNull((result as SignInResult.Rejected).code)
         assertNull(settings.token.first())
     }
 

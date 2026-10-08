@@ -132,7 +132,7 @@ class NoteEditorViewModelTest {
     }
 
     @Test
-    fun duplicateTodaySurfacesServerMessage() = runTest {
+    fun duplicateTodaySurfacesDuplicateDayCode() = runTest {
         notes.createHandler = {
             throw FakeAuthApi.httpError(422, "VALIDATION_ERROR", "A note already exists for this recipient today.")
         }
@@ -144,9 +144,23 @@ class NoteEditorViewModelTest {
         val error = vm.state.first { it.formError != null }.formError
 
         assertTrue(error is EditorError.Rejected)
+        assertEquals("VALIDATION_ERROR", (error as EditorError.Rejected).code)
+        assertEquals(false, vm.state.value.busy)
+    }
+
+    @Test
+    fun errorCodesMapToLocalizedCopy() {
         assertEquals(
-            "A note already exists for this recipient today.",
-            (error as EditorError.Rejected).message,
+            com.caregiver.mobile.R.string.editor_error_duplicate_day,
+            EditorErrorText.res("VALIDATION_ERROR"),
+        )
+        assertEquals(
+            com.caregiver.mobile.R.string.editor_error_generic,
+            EditorErrorText.res("SOME_FUTURE_CODE"),
+        )
+        assertEquals(
+            com.caregiver.mobile.R.string.editor_error_generic,
+            EditorErrorText.res(null),
         )
     }
 

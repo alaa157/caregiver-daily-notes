@@ -8,9 +8,7 @@ import com.caregiver.mobile.data.FakeNoteApi
 import com.caregiver.mobile.data.FakeRecipientApi
 import com.caregiver.mobile.data.SettingsStore
 import com.caregiver.mobile.data.api.RecipientDto
-import com.caregiver.mobile.data.testAddendum
 import com.caregiver.mobile.data.testNote
-import com.caregiver.mobile.data.testNoteDetail
 import androidx.datastore.preferences.core.PreferenceDataStoreFactory
 import java.io.File
 import java.io.IOException
@@ -29,7 +27,7 @@ import org.junit.Test
 
 /**
  * History (board 9): unfiltered load, recipient/date narrowing mapped to
- * exact query params, per-day entries with addendum counts.
+ * exact query params, and bounded loading without per-note fan-out.
  */
 @OptIn(ExperimentalCoroutinesApi::class)
 class HistoryViewModelTest {
@@ -56,7 +54,6 @@ class HistoryViewModelTest {
         repository = AuthRepository(apis, settings, TokenHolder())
         recipients.listHandler = { emptyList() }
         notes.historyHandler = { _, _, _ -> emptyList() }
-        notes.detailHandler = { testNoteDetail() }
     }
 
     @After
@@ -119,22 +116,29 @@ class HistoryViewModelTest {
     }
 
     @Test
-    fun entriesCarryAddendumCounts() = runTest {
+    fun loadingMakesOnlyBoundedListRequests() = runTest {
         notes.historyHandler = { _, _, _ ->
             listOf(testNote(id = "n1"), testNote(id = "n2"))
         }
-        notes.detailHandler = { id ->
-            if (id == "n1") {
-                testNoteDetail(note = testNote(id = "n1"), addenda = listOf(testAddendum(), testAddendum(id = "a2")))
-            } else {
-                testNoteDetail(note = testNote(id = "n2"))
-            }
+        val vm = HistoryViewModel(apis(), repository, this)
+
+        val entries = content(vm).entries
+
+        assertEquals(listOf("n1", "n2"), entries.map { it.note.id })
+        assertEquals(1, notes.historyCalls.size)
+        assertEquals(0, notes.detailCalls)
+    }
+
+    @Test
+    fun serverErrorSurfacesError() = runTest {
+        notes.historyHandler = { _, _, _ ->
+            throw FakeAuthApi.httpError(500, "SERVER_ERROR")
         }
         val vm = HistoryViewModel(apis(), repository, this)
 
-        val entries = content(vm).entries.associateBy({ it.note.id }, { it.addendumCount })
+        val state = vm.state.first { it is HistoryState.Error }
 
-        assertEquals(mapOf("n1" to 2, "n2" to 0), entries)
+        assertTrue(state is HistoryState.Error)
     }
 
     @Test

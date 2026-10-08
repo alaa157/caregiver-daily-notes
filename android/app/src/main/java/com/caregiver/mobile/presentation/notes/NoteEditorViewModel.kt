@@ -2,12 +2,14 @@ package com.caregiver.mobile.presentation.notes
 
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
+import com.caregiver.mobile.R
 import com.caregiver.mobile.data.AuthRepository
 import com.caregiver.mobile.data.LoggedOutException
 import com.caregiver.mobile.data.api.ApiErrors
 import com.caregiver.mobile.data.api.BackendApis
 import com.caregiver.mobile.data.api.CreateNoteRequest
 import java.io.IOException
+import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
@@ -17,8 +19,20 @@ import retrofit2.HttpException
 sealed interface EditorError {
     data object MoodRequired : EditorError
     data object TextRequired : EditorError
-    data class Rejected(val message: String) : EditorError
+    data class Rejected(val code: String?) : EditorError
     data object Unreachable : EditorError
+}
+
+/**
+ * Maps save-failure codes to localized copy. The only reachable 422 on note
+ * creation is the one-note-per-day rule (all field rules are enforced
+ * client-side first), so it gets specific copy; everything else is generic.
+ */
+object EditorErrorText {
+    fun res(code: String?): Int = when (code) {
+        "VALIDATION_ERROR" -> R.string.editor_error_duplicate_day
+        else -> R.string.editor_error_generic
+    }
 }
 
 data class EditorState(
@@ -102,10 +116,15 @@ class NoteEditorViewModel(
             } catch (e: LoggedOutException) {
                 _state.value = _state.value.copy(busy = false)
             } catch (e: HttpException) {
-                val message = ApiErrors.parse(e)?.message ?: "Request failed (${e.code()})."
-                _state.value = _state.value.copy(busy = false, formError = EditorError.Rejected(message))
+                _state.value = _state.value.copy(
+                    busy = false,
+                    formError = EditorError.Rejected(ApiErrors.parse(e)?.code),
+                )
             } catch (e: IOException) {
                 _state.value = _state.value.copy(busy = false, formError = EditorError.Unreachable)
+            } catch (e: CancellationException) {
+                _state.value = _state.value.copy(busy = false)
+                throw e
             }
         }
     }

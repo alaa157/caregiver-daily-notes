@@ -80,17 +80,43 @@ fun SummaryResultScreen(
     val state by vm.state.collectAsState()
     when (val s = state) {
         SummaryState.Loading -> LoadingRow()
-        SummaryState.AiUnavailable -> Column(Modifier.fillMaxSize().padding(24.dp)) {
+        is SummaryState.AiUnavailable -> Column(Modifier.fillMaxSize().padding(24.dp)) {
+            s.last?.let { FlagsBanner(it.redFlags) }
             Text(stringResource(R.string.summary_ai_down))
             Spacer(Modifier.height(8.dp))
             Button(onClick = vm::refresh) { Text(stringResource(R.string.common_retry)) }
         }
         is SummaryState.Rejected -> Column(Modifier.fillMaxSize().padding(24.dp)) {
-            Text(text = s.message, color = MaterialTheme.colorScheme.error)
+            s.last?.let { FlagsBanner(it.redFlags) }
+            Text(
+                text = stringResource(R.string.summary_error_generic),
+                color = MaterialTheme.colorScheme.error,
+            )
             Spacer(Modifier.height(8.dp))
             Button(onClick = vm::refresh) { Text(stringResource(R.string.common_retry)) }
         }
         is SummaryState.Content -> SummaryBody(s.summary, navController)
+    }
+}
+
+/**
+ * Known flags stay visible in every state. No dismiss action exists by
+ * construction — the banner is information, not a dialog.
+ */
+@Composable
+private fun FlagsBanner(redFlags: List<String>) {
+    if (redFlags.isEmpty()) {
+        return
+    }
+    Card(
+        colors = CardDefaults.cardColors(containerColor = CaregiverColors.DangerContainer),
+        modifier = Modifier.fillMaxWidth(),
+    ) {
+        Column(Modifier.padding(12.dp)) {
+            redFlags.forEach { flag ->
+                Text(text = flagText(flag), color = CaregiverColors.Danger)
+            }
+        }
     }
 }
 
@@ -101,16 +127,7 @@ private fun SummaryBody(summary: SummaryDto, navController: NavController) {
         verticalArrangement = Arrangement.spacedBy(12.dp),
     ) {
         if (summary.redFlags.isNotEmpty()) {
-            Card(
-                colors = CardDefaults.cardColors(containerColor = CaregiverColors.DangerContainer),
-                modifier = Modifier.fillMaxWidth(),
-            ) {
-                Column(Modifier.padding(12.dp)) {
-                    summary.redFlags.forEach { flag ->
-                        Text(text = flagText(flag), color = CaregiverColors.Danger)
-                    }
-                }
-            }
+            FlagsBanner(summary.redFlags)
         }
         // Server-composed body and quotes render verbatim: they are data, and
         // the preview backend only composes them in English.

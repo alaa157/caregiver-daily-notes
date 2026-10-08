@@ -5,8 +5,12 @@ import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.imePadding
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.text.KeyboardActions
 import androidx.compose.foundation.text.KeyboardOptions
+import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.Button
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedTextField
@@ -14,7 +18,9 @@ import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.res.stringResource
+import androidx.compose.ui.text.input.ImeAction
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.text.input.PasswordVisualTransformation
 import androidx.compose.ui.unit.dp
@@ -39,6 +45,11 @@ fun AuthForm(
     Column(
         modifier = modifier
             .fillMaxSize()
+            // Compact screens + open keyboard must never clip submit/switch:
+            // the form scrolls above the IME. Field state lives in the
+            // ViewModel, so scrolling, rotation, and tab switches keep input.
+            .verticalScroll(rememberScrollState())
+            .imePadding()
             .padding(24.dp),
     ) {
         Text(
@@ -56,9 +67,12 @@ fun AuthForm(
             label = { Text(stringResource(R.string.auth_email)) },
             isError = state.emailError != null,
             supportingText = { state.emailError?.let { Text(emailErrorText(it)) } },
-            keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Email),
+            keyboardOptions = KeyboardOptions(
+                keyboardType = KeyboardType.Email,
+                imeAction = ImeAction.Next,
+            ),
             singleLine = true,
-            modifier = Modifier.fillMaxWidth(),
+            modifier = Modifier.fillMaxWidth().testTag("auth_field_email"),
         )
         Spacer(Modifier.height(12.dp))
 
@@ -69,9 +83,13 @@ fun AuthForm(
             isError = state.passwordError != null,
             supportingText = { state.passwordError?.let { Text(passwordErrorText(it)) } },
             visualTransformation = PasswordVisualTransformation(),
-            keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Password),
+            keyboardOptions = KeyboardOptions(
+                keyboardType = KeyboardType.Password,
+                imeAction = ImeAction.Done,
+            ),
+            keyboardActions = KeyboardActions(onDone = { onSubmit() }),
             singleLine = true,
-            modifier = Modifier.fillMaxWidth(),
+            modifier = Modifier.fillMaxWidth().testTag("auth_field_password"),
         )
 
         if (mode == AuthMode.Register) {
@@ -87,9 +105,13 @@ fun AuthForm(
                     }
                 },
                 visualTransformation = PasswordVisualTransformation(),
-                keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Password),
+                keyboardOptions = KeyboardOptions(
+                    keyboardType = KeyboardType.Password,
+                    imeAction = ImeAction.Done,
+                ),
+                keyboardActions = KeyboardActions(onDone = { onSubmit() }),
                 singleLine = true,
-                modifier = Modifier.fillMaxWidth(),
+                modifier = Modifier.fillMaxWidth().testTag("auth_field_confirm"),
             )
         }
 
@@ -140,8 +162,11 @@ private fun passwordErrorText(error: PasswordError): String = stringResource(
 )
 
 @Composable
-private fun formErrorText(error: FormError): String = when (error) {
-    FormError.InvalidCredentials -> stringResource(R.string.auth_error_invalid_credentials)
-    FormError.Unreachable -> stringResource(R.string.auth_error_unreachable)
-    is FormError.Rejected -> error.message
-}
+private fun formErrorText(error: FormError): String = stringResource(
+    when (error) {
+        FormError.InvalidCredentials -> R.string.auth_error_invalid_credentials
+        FormError.DuplicateEmail -> R.string.auth_error_duplicate_email
+        FormError.Unreachable -> R.string.auth_error_unreachable
+        FormError.Generic -> R.string.auth_error_generic
+    },
+)

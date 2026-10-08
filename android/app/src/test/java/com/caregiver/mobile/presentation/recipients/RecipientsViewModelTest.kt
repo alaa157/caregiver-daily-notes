@@ -5,18 +5,23 @@ import com.caregiver.mobile.data.AuthRepository
 import com.caregiver.mobile.data.FakeAuthApi
 import com.caregiver.mobile.data.FakeBackendApis
 import com.caregiver.mobile.data.FakeRecipientApi
+import com.caregiver.mobile.data.LoggedOutException
 import com.caregiver.mobile.data.SettingsStore
 import com.caregiver.mobile.data.api.RecipientDto
 import androidx.datastore.preferences.core.PreferenceDataStoreFactory
 import java.io.File
 import java.io.IOException
+import kotlinx.coroutines.CompletableDeferred
 import kotlinx.coroutines.ExperimentalCoroutinesApi
+import kotlinx.coroutines.cancel
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.test.TestScope
 import kotlinx.coroutines.test.UnconfinedTestDispatcher
+import kotlinx.coroutines.test.runCurrent
 import kotlinx.coroutines.test.runTest
 import org.junit.After
 import org.junit.Assert.assertEquals
+import org.junit.Assert.assertFalse
 import org.junit.Assert.assertNull
 import org.junit.Assert.assertTrue
 import org.junit.Before
@@ -107,5 +112,89 @@ class RecipientsViewModelTest {
         val state = vm.state.first { it is PeopleState.Error }
 
         assertTrue(state is PeopleState.Error)
+    }
+
+    @Test
+    fun serverErrorSurfacesError() = runTest {
+        recipients.listHandler = { throw FakeAuthApi.httpError(500, "SERVER_ERROR") }
+        val vm = RecipientsViewModel(FakeBackendApis(FakeAuthApi()).also {
+            it.recipientApi = recipients
+        }, repository, this)
+
+        val state = vm.state.first { it is PeopleState.Error }
+
+        assertTrue(state is PeopleState.Error)
+    }
+
+    @Test
+    fun unauthorizedLoadLeavesLoadingWithoutCrashing() = runTest {
+        recipients.listHandler = { throw LoggedOutException() }
+        val vm = RecipientsViewModel(FakeBackendApis(FakeAuthApi()).also {
+            it.recipientApi = recipients
+        }, repository, this)
+
+        runCurrent()
+
+        assertTrue(vm.state.value is PeopleState.Loading)
+    }
+
+    @Test
+    fun failedCreateClearsBusyOnHttpError() = runTest {
+        recipients.listHandler = { emptyList() }
+        recipients.createHandler = { throw FakeAuthApi.httpError(422, "VALIDATION_ERROR", "bad") }
+        val vm = RecipientsViewModel(FakeBackendApis(FakeAuthApi()).also {
+            it.recipientApi = recipients
+        }, repository, this)
+        vm.state.first { it is PeopleState.Content }
+
+        vm.onName("Karim")
+        vm.add()
+        vm.state.first { it is PeopleState.Error }
+
+        assertFalse(vm.addState.value.busy)
+        assertNull(vm.addState.value.addedId)
+    }
+
+    @Test
+    fun cancelledCreateClearsBusyAndPropagates() = runTest {
+        recipients.listHandler = { emptyList() }
+        val gate = CompletableDeferred<RecipientDto>()
+        recipients.createHandler = { gate.await() }
+        val vmScope = TestScope(UnconfinedTestDispatcher())
+        val vm = RecipientsViewModel(FakeBackendApis(FakeAuthApi()).also {
+            it.recipientApi = recipients
+        }, repository, vmScope)
+        vm.state.first { it is PeopleState.Content }
+
+        vm.onName("Karim")
+        vm.add()
+        assertTrue(vm.addState.value.busy)
+        vmScope.cancel()
+
+        assertFalse(vm.addState.value.busy)
+    }
+
+    @Test
+    fun sharedInstanceRefreshBringsNewcomerToList() = runTest {
+        // Mirrors production: list and add screens share one VM instance, so
+        // the creation refresh lands in the visible list on return.
+        val people = mutableListOf<RecipientDto>()
+        recipients.listHandler = { people.toList() }
+        recipients.createHandler = { RecipientDto("9", it.name, true).also(people::add) }
+        val shared = RecipientsViewModel(FakeBackendApis(FakeAuthApi()).also {
+            it.recipientApi = recipients
+        }, repository, this)
+        shared.state.first { it is PeopleState.Content }
+
+        shared.onName("Karim")
+        shared.add()
+        val updated = shared.state.first {
+            it is PeopleState.Content && it.recipients.any { r -> r.id == "9" }
+        } as PeopleState.Content
+
+        assertEquals(listOf(RecipientDto("9", "Karim", true)), updated.recipients)
+        assertEquals("9", shared.addState.value.addedId)
+        shared.consumeAdded()
+        assertNull(shared.addState.value.addedId)
     }
 }

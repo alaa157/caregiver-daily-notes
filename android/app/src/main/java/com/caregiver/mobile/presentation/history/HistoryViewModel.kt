@@ -13,8 +13,9 @@ import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.launch
+import retrofit2.HttpException
 
-data class HistoryEntry(val note: NoteDto, val addendumCount: Int)
+data class HistoryEntry(val note: NoteDto)
 
 data class HistoryContent(val entries: List<HistoryEntry>, val recipients: List<RecipientDto>)
 
@@ -26,8 +27,11 @@ sealed interface HistoryState {
 
 /**
  * History (board 9): optional recipient + ISO date-range filters mapped to
- * exact query params. Addendum counts need one detail call per note — fine
- * at this scale, and a single failed count degrades to zero, not an error.
+ * exact query params. Exactly two bounded calls per load (recipients +
+ * history) — correction counts are intentionally omitted because the
+ * history response carries none and per-note detail calls would be
+ * unbounded fan-out (see docs/api/android-gaps.md). Unfiltered loads rely
+ * on the server's full-history response; narrow it with the filters.
  */
 class HistoryViewModel(
     private val apis: BackendApis,
@@ -85,17 +89,12 @@ class HistoryViewModel(
                     _to.value?.toString(),
                 )
             }
-            val entries = notes.map { note ->
-                val count = try {
-                    repository.authorized { apis.notes().detail(note.id) }.addenda.size
-                } catch (e: IOException) {
-                    0
-                }
-                HistoryEntry(note, count)
-            }
+            val entries = notes.map { HistoryEntry(it) }
             _state.value = HistoryState.Content(HistoryContent(entries, recipients))
         } catch (e: LoggedOutException) {
             // Root nav flips to login; nothing to show here.
+        } catch (e: HttpException) {
+            _state.value = HistoryState.Error
         } catch (e: IOException) {
             _state.value = HistoryState.Error
         }

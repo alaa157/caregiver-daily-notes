@@ -37,12 +37,14 @@ import androidx.compose.ui.unit.dp
 import androidx.navigation.NavController
 import com.caregiver.mobile.AppGraph
 import com.caregiver.mobile.R
+import com.caregiver.mobile.core.time.DateFormats
 import com.caregiver.mobile.presentation.common.assistedViewModel
 import com.caregiver.mobile.presentation.home.LoadFailed
 import com.caregiver.mobile.presentation.home.LoadingRow
 import java.time.Instant
 import java.time.LocalDate
 import java.time.ZoneId
+import java.util.Locale
 
 /**
  * History (board 9), also serving the Notes tab as today's list. Filters are
@@ -91,37 +93,34 @@ fun HistoryScreen(
         when (val s = state) {
             HistoryState.Loading -> LoadingRow()
             HistoryState.Error -> LoadFailed(onRetry = vm::refresh)
-            is HistoryState.Content -> {
-                if (s.content.entries.isEmpty()) {
-                    Text(stringResource(R.string.history_empty))
-                } else {
-                    LazyColumn(verticalArrangement = Arrangement.spacedBy(8.dp)) {
-                        items(s.content.entries, key = { it.note.id }) { entry ->
-                            Card(
-                                modifier = Modifier.fillMaxWidth()
-                                    .clickable { navController.navigate("note/${entry.note.id}") },
-                            ) {
-                                Column(Modifier.padding(12.dp)) {
-                                    Text(text = entry.note.date)
-                                    Text(
-                                        text = entry.note.text.take(120),
-                                        style = MaterialTheme.typography.bodyMedium,
-                                    )
-                                    if (entry.addendumCount > 0) {
-                                        Text(
-                                            text = stringResource(
-                                                R.string.history_corrections,
-                                                entry.addendumCount,
-                                            ),
-                                            style = MaterialTheme.typography.bodySmall,
-                                        )
+                    is HistoryState.Content -> {
+                        if (s.content.entries.isEmpty()) {
+                            Text(stringResource(R.string.history_empty))
+                        } else {
+                            val arabic = Locale.getDefault().language == "ar"
+                            LazyColumn(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                                items(s.content.entries, key = { it.note.id }) { entry ->
+                                    Card(
+                                        modifier = Modifier.fillMaxWidth()
+                                            .clickable { navController.navigate("note/${entry.note.id}") },
+                                    ) {
+                                        Column(Modifier.padding(12.dp)) {
+                                            Text(
+                                                text = DateFormats.historyDay(
+                                                    entry.note.date,
+                                                    arabic,
+                                                ),
+                                            )
+                                            Text(
+                                                text = entry.note.text.take(120),
+                                                style = MaterialTheme.typography.bodyMedium,
+                                            )
+                                        }
                                     }
                                 }
                             }
                         }
                     }
-                }
-            }
         }
     }
 }
@@ -163,8 +162,10 @@ private fun PersonFilter(
 @Composable
 private fun RowScope.DateField(label: Int, date: LocalDate?, onPick: (LocalDate?) -> Unit) {
     var open by remember { mutableStateOf(false) }
+    val arabic = Locale.getDefault().language == "ar"
     Button(onClick = { open = true }, modifier = Modifier.weight(1f)) {
-        Text(stringResource(label) + ": " + (date?.toString() ?: "—"))
+        val shown = date?.let { DateFormats.historyDay(it.toString(), arabic) } ?: "—"
+        Text(stringResource(label) + ": " + shown)
     }
     if (open) {
         val picker = rememberDatePickerState(

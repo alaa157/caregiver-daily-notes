@@ -14,6 +14,8 @@ okhttp = "4.12.0"
 serializationJson = "1.7.3"
 desugar = "2.1.4"
 junit = "4.13.2"
+testRunner = "1.6.1"
+testExtJunit = "1.2.1"
 
 [plugins]
 android-application = { id = "com.android.application", version.ref = "agp" }
@@ -24,6 +26,7 @@ kotlin-serialization = { id = "org.jetbrains.kotlin.plugin.serialization", versi
 [libraries]
 compose-bom = { group = "androidx.compose", name = "compose-bom", version.ref = "composeBom" }
 compose-ui = { group = "androidx.compose.ui", name = "ui" }
+compose-foundation = { group = "androidx.compose.foundation", name = "foundation" }
 compose-runtime-saveable = { group = "androidx.compose.runtime", name = "runtime-saveable" }
 compose-material3 = { group = "androidx.compose.material3", name = "material3" }
 compose-tooling-preview = { group = "androidx.compose.ui", name = "ui-tooling-preview" }
@@ -42,3 +45,7 @@ mockwebserver = { group = "com.squareup.okhttp3", name = "mockwebserver", versio
 serialization-json = { group = "org.jetbrains.kotlinx", name = "kotlinx-serialization-json", version.ref = "serializationJson" }
 desugar = { group = "com.android.tools", name = "desugar_jdk_libs", version.ref = "desugar" }
 junit = { group = "junit", name = "junit", version.ref = "junit" }
+compose-ui-test-junit4 = { group = "androidx.compose.ui", name = "ui-test-junit4" }
+compose-ui-test-manifest = { group = "androidx.compose.ui", name = "ui-test-manifest" }
+test-runner = { group = "androidx.test", name = "runner", version.ref = "testRunner" }
+test-ext-junit = { group = "androidx.test.ext", name = "junit", version.ref = "testExtJunit" }

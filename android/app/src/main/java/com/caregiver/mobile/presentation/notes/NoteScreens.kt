@@ -31,6 +31,7 @@ import androidx.compose.ui.unit.dp
 import androidx.navigation.NavController
 import com.caregiver.mobile.AppGraph
 import com.caregiver.mobile.R
+import com.caregiver.mobile.core.time.DateFormats
 import com.caregiver.mobile.presentation.common.assistedViewModel
 import com.caregiver.mobile.presentation.home.LoadFailed
 import com.caregiver.mobile.presentation.home.LoadingRow
@@ -111,7 +112,7 @@ fun NoteEditorScreen(recipientId: String, graph: AppGraph, navController: NavCon
         state.formError?.let {
             Text(
                 text = when (it) {
-                    is EditorError.Rejected -> it.message
+                    is EditorError.Rejected -> stringResource(EditorErrorText.res(it.code))
                     EditorError.Unreachable -> stringResource(R.string.auth_error_unreachable)
                     else -> ""
                 },
@@ -193,14 +194,28 @@ fun NoteDetailScreen(noteId: String, graph: AppGraph, navController: NavControll
             ) {
                 Card(Modifier.fillMaxWidth()) {
                     Column(Modifier.padding(12.dp)) {
+                        Text(
+                            text = stringResource(R.string.detail_date) + ": " +
+                                DateFormats.historyDay(s.content.note.date, arabic),
+                            style = MaterialTheme.typography.bodyMedium,
+                        )
+                        Spacer(Modifier.height(4.dp))
                         Text(text = s.content.note.text, style = MaterialTheme.typography.bodyLarge)
                         Spacer(Modifier.height(8.dp))
+                        FieldLine(R.string.editor_mood, s.content.note.mood, OptionGroup.Mood, arabic)
+                        FieldLine(R.string.editor_appetite, s.content.note.appetite, OptionGroup.Appetite, arabic)
+                        FieldLine(R.string.editor_sleep, s.content.note.sleep, OptionGroup.Sleep, arabic)
+                        FieldLine(R.string.editor_mobility, s.content.note.mobility, OptionGroup.Mobility, arabic)
+                        FieldLine(R.string.editor_medication, s.content.note.medicationTaken, OptionGroup.Medication, arabic)
                         Text(
-                            text = listOf(
-                                OptionLabels.label(OptionGroup.Mood, s.content.note.mood, arabic),
-                                OptionLabels.label(OptionGroup.Appetite, s.content.note.appetite, arabic),
-                                OptionLabels.label(OptionGroup.Sleep, s.content.note.sleep, arabic),
-                            ).joinToString(" · "),
+                            text = stringResource(R.string.editor_pain) + ": ${s.content.note.pain}",
+                            style = MaterialTheme.typography.bodyMedium,
+                        )
+                        Text(
+                            text = stringResource(R.string.editor_fall) + ": " + stringResource(
+                                if (s.content.note.fall) R.string.detail_fall_yes
+                                else R.string.detail_fall_no,
+                            ),
                             style = MaterialTheme.typography.bodyMedium,
                         )
                     }
@@ -223,6 +238,17 @@ fun NoteDetailScreen(noteId: String, graph: AppGraph, navController: NavControll
             }
         }
     }
+}
+
+@Composable
+private fun FieldLine(label: Int, value: String, group: OptionGroup, arabic: Boolean) {
+    if (value.isBlank()) {
+        return
+    }
+    Text(
+        text = stringResource(label) + ": " + OptionLabels.label(group, value, arabic),
+        style = MaterialTheme.typography.bodyMedium,
+    )
 }
 
 /** Addendum form (board 8): shares the detail VM so the list refreshes below. */
@@ -256,6 +282,13 @@ fun AddendumScreen(noteId: String, graph: AppGraph, navController: NavController
             modifier = Modifier.fillMaxWidth(),
         )
         Spacer(Modifier.height(16.dp))
+        if (form.sendFailed) {
+            Text(
+                text = stringResource(R.string.addendum_error_send),
+                color = MaterialTheme.colorScheme.error,
+            )
+            Spacer(Modifier.height(8.dp))
+        }
         Button(
             onClick = vm::submitAddendum,
             enabled = !form.busy,

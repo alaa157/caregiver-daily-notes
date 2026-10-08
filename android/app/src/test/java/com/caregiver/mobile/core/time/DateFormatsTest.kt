@@ -28,4 +28,20 @@ class DateFormatsTest {
             DateFormats.dayMonth(LocalDate.of(2026, 10, 7), Locale.ENGLISH),
         )
     }
+
+    @Test
+    fun historyDayArabicUsesLatinDigits() {
+        assertEquals("7 أكتوبر 2026", DateFormats.historyDay("2026-10-07", true))
+    }
+
+    @Test
+    fun historyDayEnglish() {
+        assertEquals("Oct 7, 2026", DateFormats.historyDay("2026-10-07", false))
+    }
+
+    @Test
+    fun historyDayFallsBackToRawOnGarbage() {
+        assertEquals("not-a-date", DateFormats.historyDay("not-a-date", true))
+        assertEquals("not-a-date", DateFormats.historyDay("not-a-date", false))
+    }
 }

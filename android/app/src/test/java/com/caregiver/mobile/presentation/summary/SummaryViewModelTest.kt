@@ -114,10 +114,11 @@ class SummaryViewModelTest {
         val state = vm.state.first { it is SummaryState.AiUnavailable }
 
         assertTrue(state is SummaryState.AiUnavailable)
+        assertEquals(null, (state as SummaryState.AiUnavailable).last)
     }
 
     @Test
-    fun validationFailureSurfacesServerMessage() = runTest {
+    fun httpFailureCarriesCodeNeverRawMessage() = runTest {
         summaries.summarizeHandler = {
             throw FakeAuthApi.httpError(422, "VALIDATION_ERROR", "No notes in range.")
         }
@@ -125,6 +126,53 @@ class SummaryViewModelTest {
 
         val state = vm.state.first { it is SummaryState.Rejected }
 
-        assertEquals("No notes in range.", (state as SummaryState.Rejected).message)
+        assertEquals("VALIDATION_ERROR", (state as SummaryState.Rejected).code)
+    }
+
+    @Test
+    fun refreshKeepsFlagsVisibleOnFailure() = runTest {
+        summaries.summarizeHandler = { summary() }
+        val vm = SummaryViewModel("r1", apis(), repository, this)
+        val before = content(vm)
+        assertEquals(2, before.redFlags.size)
+
+        summaries.summarizeHandler = { throw IOException("down") }
+        vm.refresh()
+        val state = vm.state.first { it is SummaryState.AiUnavailable }
+
+        assertEquals(before.redFlags, (state as SummaryState.AiUnavailable).last?.redFlags)
+    }
+
+    @Test
+    fun failedRefreshKeepsFlagsOnRejected() = runTest {
+        summaries.summarizeHandler = { summary() }
+        val vm = SummaryViewModel("r1", apis(), repository, this)
+        content(vm)
+
+        summaries.summarizeHandler = {
+            throw FakeAuthApi.httpError(500, "SERVER_ERROR")
+        }
+        vm.refresh()
+        val state = vm.state.first { it is SummaryState.Rejected }
+
+        assertEquals(
+            listOf("FALL_REPORTED", "MEDICATION_UNCLEAR"),
+            (state as SummaryState.Rejected).last?.redFlags,
+        )
+    }
+
+    @Test
+    fun successfulRefreshClearsFlagsWhenNoneReported() = runTest {
+        summaries.summarizeHandler = { summary() }
+        val vm = SummaryViewModel("r1", apis(), repository, this)
+        content(vm)
+
+        summaries.summarizeHandler = { summary().copy(redFlags = emptyList()) }
+        vm.refresh()
+        val state = vm.state.first {
+            it is SummaryState.Content && !it.refreshing
+        } as SummaryState.Content
+
+        assertTrue(state.summary.redFlags.isEmpty())
     }
 }

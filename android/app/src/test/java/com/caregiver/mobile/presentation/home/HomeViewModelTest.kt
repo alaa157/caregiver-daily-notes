@@ -10,10 +10,8 @@ import com.caregiver.mobile.data.FakeRecipientApi
 import com.caregiver.mobile.data.FakeSummaryApi
 import com.caregiver.mobile.data.LoggedOutException
 import com.caregiver.mobile.data.SettingsStore
-import com.caregiver.mobile.data.api.AuthResponse
 import com.caregiver.mobile.data.api.NoteDto
 import com.caregiver.mobile.data.api.RecipientDto
-import com.caregiver.mobile.data.api.SignalDto
 import java.io.File
 import java.io.IOException
 import java.time.Clock
@@ -31,10 +29,13 @@ import org.junit.Assert.assertNull
 import org.junit.Assert.assertTrue
 import org.junit.Before
 import org.junit.Test
+import retrofit2.HttpException
 
 /**
  * Home dashboard logic on the JVM: greeting, today progress over active
- * recipients only, status chips, safety flags, and failure mapping.
+ * recipients only, status chips, flag preservation, and failure mapping.
+ * Loading is one bounded window request grouped in memory — the tests pin
+ * the queried range and the absence of per-recipient fan-out.
  */
 @OptIn(ExperimentalCoroutinesApi::class)
 class HomeViewModelTest {
@@ -47,6 +48,7 @@ class HomeViewModelTest {
     private lateinit var repository: AuthRepository
 
     private val today = LocalDate.of(2026, 10, 8)
+    private val weekStart = "2026-10-02"
     private val morning = Clock.fixed(Instant.parse("2026-10-08T08:00:00Z"), ZoneOffset.UTC)
     private val evening = Clock.fixed(Instant.parse("2026-10-08T20:00:00Z"), ZoneOffset.UTC)
 
@@ -69,7 +71,6 @@ class HomeViewModelTest {
         repository = AuthRepository(apis, settings, TokenHolder())
         recipients.listHandler = { emptyList() }
         notes.historyHandler = { _, _, _ -> emptyList() }
-        signals.signalsHandler = { _, _, _ -> emptyList() }
     }
 
     @After
@@ -83,6 +84,14 @@ class HomeViewModelTest {
     private suspend fun content(vm: HomeViewModel): HomeContent {
         val state = vm.state.first { it is HomeState.Content || it is HomeState.Error }
         assertTrue("expected Content, was $state", state is HomeState.Content)
+        return (state as HomeState.Content).content
+    }
+
+    private suspend fun settledContent(vm: HomeViewModel): HomeContent {
+        val state = vm.state.first {
+            (it is HomeState.Content && !it.refreshing) || it is HomeState.Error
+        }
+        assertTrue("expected settled Content, was $state", state is HomeState.Content)
         return (state as HomeState.Content).content
     }
 
@@ -105,6 +114,16 @@ class HomeViewModelTest {
     }
 
     @Test
+    fun loadUsesSingleBoundedWindowRequest() = runTest {
+        recipients.listHandler = { listOf(RecipientDto("a", "A", true)) }
+
+        content(vm(scope = this))
+
+        assertEquals(listOf(Triple(null, weekStart, today.toString())), notes.historyCalls)
+        assertEquals(0, signals.signalsCalls)
+    }
+
+    @Test
     fun progressCountsActiveRecipientsWithNoteTodayOnly() = runTest {
         recipients.listHandler = {
             listOf(
@@ -113,9 +132,7 @@ class HomeViewModelTest {
                 RecipientDto("c", "C", false),
             )
         }
-        notes.historyHandler = { id, _, _ ->
-            if (id == "a") listOf(note("n1", "a", today.toString())) else emptyList()
-        }
+        notes.historyHandler = { _, _, _ -> listOf(note("n1", "a", today.toString())) }
 
         val c = content(vm(scope = this))
 
@@ -124,45 +141,45 @@ class HomeViewModelTest {
     }
 
     @Test
-    fun chipsCoverDonePainFallAndNoNote() = runTest {
+    fun chipsCoverDoneMissedPainFallAndNoNote() = runTest {
         recipients.listHandler = {
             listOf(
                 RecipientDto("done", "D", true),
+                RecipientDto("missed", "M", true),
                 RecipientDto("pain", "P", true),
                 RecipientDto("fall", "F", true),
                 RecipientDto("empty", "E", true),
             )
         }
-        notes.historyHandler = { id, _, _ ->
-            when (id) {
-                "done" -> listOf(note("n1", id, today.toString(), pain = 1))
-                "pain" -> listOf(note("n2", id, "2026-10-01", pain = 8))
-                "fall" -> listOf(note("n3", id, "2026-10-02", pain = 2))
-                else -> emptyList()
-            }
-        }
-        signals.signalsHandler = { id, _, _ ->
-            if (id == "fall") {
-                listOf(signal("n3", id, "2026-10-02", fall = true))
-            } else {
-                emptyList()
-            }
+        notes.historyHandler = { _, _, _ ->
+            listOf(
+                note("n1", "done", today.toString(), pain = 1),
+                note("n2", "missed", "2026-10-06", pain = 1),
+                note("n3", "pain", "2026-10-06", pain = 8),
+                note("n4", "fall", "2026-10-07", pain = 2, fall = true),
+            )
         }
 
         val cards = content(vm(scope = this)).cards.associateBy { it.recipientId }
 
         assertEquals(listOf(RecipientChip.DoneToday), cards["done"]!!.chips)
-        assertEquals(listOf(RecipientChip.HighPain), cards["pain"]!!.chips)
-        assertEquals(listOf(RecipientChip.FallFlag), cards["fall"]!!.chips)
+        assertEquals(listOf(RecipientChip.MissedToday), cards["missed"]!!.chips)
+        assertEquals(
+            listOf(RecipientChip.MissedToday, RecipientChip.HighPain),
+            cards["pain"]!!.chips,
+        )
+        assertEquals(
+            listOf(RecipientChip.MissedToday, RecipientChip.FallFlag),
+            cards["fall"]!!.chips,
+        )
         assertEquals(listOf(RecipientChip.NoNote), cards["empty"]!!.chips)
     }
 
     @Test
-    fun fallSignalsBecomeSafetyFlags() = runTest {
+    fun fallNotesBecomeSafetyFlags() = runTest {
         recipients.listHandler = { listOf(RecipientDto("f", "Ferial", true)) }
-        notes.historyHandler = { _, _, _ -> listOf(note("n9", "f", "2026-10-07")) }
-        signals.signalsHandler = { _, _, _ ->
-            listOf(signal("n9", "f", "2026-10-07", fall = true))
+        notes.historyHandler = { _, _, _ ->
+            listOf(note("n9", "f", "2026-10-07", fall = true))
         }
 
         val c = content(vm(scope = this))
@@ -175,7 +192,7 @@ class HomeViewModelTest {
         recipients.listHandler = { listOf(RecipientDto("a", "A", true)) }
         notes.historyHandler = { _, _, _ ->
             listOf(
-                note("old", "a", "2026-10-01", mood = "bad"),
+                note("old", "a", "2026-10-03", mood = "bad"),
                 note("new", "a", "2026-10-06", mood = "good", appetite = "ok", sleep = "fine"),
             )
         }
@@ -192,6 +209,16 @@ class HomeViewModelTest {
         val state = vm(scope = this).state.first { it is HomeState.Error }
 
         assertTrue(state is HomeState.Error)
+        assertNull((state as HomeState.Error).lastContent)
+    }
+
+    @Test
+    fun serverErrorSurfacesError() = runTest {
+        recipients.listHandler = { throw FakeAuthApi.httpError(500, "SERVER_ERROR") }
+
+        val state = vm(scope = this).state.first { it is HomeState.Error }
+
+        assertTrue(state is HomeState.Error)
     }
 
     @Test
@@ -201,6 +228,58 @@ class HomeViewModelTest {
         val state = vm(scope = this).state.first { it !is HomeState.Loading }
 
         assertTrue(state is HomeState.Idle)
+    }
+
+    @Test
+    fun refreshKeepsFlagsVisibleOnFailure() = runTest {
+        recipients.listHandler = { listOf(RecipientDto("f", "F", true)) }
+        notes.historyHandler = { _, _, _ ->
+            listOf(note("n1", "f", today.toString(), fall = true))
+        }
+        val viewModel = vm(scope = this)
+        val before = content(viewModel)
+        assertEquals(1, before.flags.size)
+
+        notes.historyHandler = { _, _, _ -> throw IOException("down") }
+        viewModel.refresh()
+        val state = viewModel.state.first {
+            it is HomeState.Error || (it is HomeState.Content && !it.refreshing)
+        }
+
+        assertTrue(state is HomeState.Error)
+        assertEquals(before.flags, (state as HomeState.Error).lastContent?.flags)
+    }
+
+    @Test
+    fun successfulRefreshClearsFlagsWhenBackendReportsNone() = runTest {
+        recipients.listHandler = { listOf(RecipientDto("f", "F", true)) }
+        notes.historyHandler = { _, _, _ ->
+            listOf(note("n1", "f", today.toString(), fall = true))
+        }
+        val viewModel = vm(scope = this)
+        assertEquals(1, content(viewModel).flags.size)
+
+        notes.historyHandler = { _, _, _ ->
+            listOf(note("n1", "f", today.toString()))
+        }
+        viewModel.refresh()
+        val after = settledContent(viewModel)
+
+        assertTrue(after.flags.isEmpty())
+    }
+
+    @Test
+    fun logoutDuringRefreshKeepsContent() = runTest {
+        recipients.listHandler = { listOf(RecipientDto("a", "A", true)) }
+        val viewModel = vm(scope = this)
+        content(viewModel)
+
+        recipients.listHandler = { throw LoggedOutException() }
+        viewModel.refresh()
+        // Root nav flips to login; the stale content must not be wiped here.
+        val state = viewModel.state.first { it !is HomeState.Loading }
+
+        assertTrue(state is HomeState.Content)
     }
 
     @Test
@@ -218,15 +297,10 @@ class HomeViewModelTest {
         mood: String = "good",
         appetite: String = "good",
         sleep: String = "ok",
+        fall: Boolean = false,
     ) = NoteDto(
         id = id, recipientId = recipientId, date = date, mood = mood,
         appetite = appetite, sleep = sleep, mobility = "walks",
-        medicationTaken = "taken", pain = pain, fall = false, text = "t",
-    )
-
-    private fun signal(id: String, recipientId: String, date: String, fall: Boolean) = SignalDto(
-        noteId = id, recipientId = recipientId, date = date, fallReported = fall,
-        pain = null, medication = "taken", medicationUnverified = false,
-        poorAppetite = false, text = "t",
+        medicationTaken = "taken", pain = pain, fall = fall, text = "t",
     )
 }

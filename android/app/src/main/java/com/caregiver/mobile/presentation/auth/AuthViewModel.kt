@@ -28,8 +28,9 @@ sealed interface ConfirmError {
 
 sealed interface FormError {
     data object InvalidCredentials : FormError
-    data class Rejected(val message: String) : FormError
+    data object DuplicateEmail : FormError
     data object Unreachable : FormError
+    data object Generic : FormError
 }
 
 data class AuthUiState(
@@ -107,7 +108,11 @@ class AuthViewModel(
                 formError = when (result) {
                     SignInResult.SignedIn -> null
                     SignInResult.InvalidCredentials -> FormError.InvalidCredentials
-                    is SignInResult.Rejected -> FormError.Rejected(result.message)
+                    is SignInResult.Rejected -> when (result.code) {
+                        "DUPLICATE_EMAIL" -> FormError.DuplicateEmail
+                        "INVALID_CREDENTIALS" -> FormError.InvalidCredentials
+                        else -> FormError.Generic
+                    }
                     SignInResult.Unreachable -> FormError.Unreachable
                 },
             )
@@ -123,7 +128,31 @@ class AuthViewModel(
             if (email.isEmpty()) {
                 return EmailError.Required
             }
-            return if ("@" in email) null else EmailError.Invalid
+            return if (isPlausibleEmail(email)) null else EmailError.Invalid
+        }
+
+        /**
+         * Backend-aligned shape check: the server enforces `@Email` on the
+         * trimmed, lowercased value. This rejects clearly malformed addresses
+         * early; anything plausible still goes to the server for the final
+         * word. No password minimum exists on either side — only the 72-byte
+         * maximum the backend enforces.
+         */
+        fun isPlausibleEmail(email: String): Boolean {
+            if (email.any { it.isWhitespace() }) {
+                return false
+            }
+            val parts = email.split("@")
+            if (parts.size != 2) {
+                return false
+            }
+            val (local, domain) = parts
+            if (local.isEmpty() || domain.isEmpty()) {
+                return false
+            }
+            // Empty labels (leading/trailing/double dots) are never valid;
+            // single-label domains are the server's call, not ours.
+            return domain.split(".").all { it.isNotEmpty() }
         }
 
         fun validatePassword(password: String): PasswordError? {

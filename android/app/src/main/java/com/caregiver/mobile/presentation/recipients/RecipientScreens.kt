@@ -22,23 +22,37 @@ import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.dp
 import androidx.navigation.NavController
 import com.caregiver.mobile.AppGraph
 import com.caregiver.mobile.R
 import com.caregiver.mobile.core.navigation.AppDestinations
+import com.caregiver.mobile.core.navigation.AppRoutes
+import com.caregiver.mobile.core.navigation.MainTab
 import com.caregiver.mobile.data.api.RecipientDto
 import com.caregiver.mobile.presentation.common.assistedViewModel
 import com.caregiver.mobile.presentation.home.LoadFailed
 import com.caregiver.mobile.presentation.home.LoadingRow
+import com.caregiver.mobile.presentation.notes.OptionGroup
+import com.caregiver.mobile.presentation.notes.OptionLabels
+import java.util.Locale
 
-/** Recipients list (board 3) with the add-person entry point. */
+/**
+ * Recipients list (board 3) with the add-person entry point. The list shares
+ * one activity-scoped [RecipientsViewModel] with the add form below, so a
+ * creation refreshes exactly the list the back stack returns to; entry
+ * refreshes cover sign-out/sign-in turnover on the same activity.
+ */
 @Composable
 fun RecipientsScreen(graph: AppGraph, navController: NavController) {
-    val vm: RecipientsViewModel = assistedViewModel("people") {
+    val activity = LocalContext.current as androidx.activity.ComponentActivity
+    val vm: RecipientsViewModel = assistedViewModel("people-shared", activity) {
         RecipientsViewModel(graph.apis, graph.auth)
     }
+    LaunchedEffect(Unit) { vm.refresh() }
     val state by vm.state.collectAsState()
     Column(Modifier.fillMaxSize().padding(16.dp)) {
         Button(onClick = { navController.navigate(AppDestinations.AddRecipient.base) }) {
@@ -51,7 +65,7 @@ fun RecipientsScreen(graph: AppGraph, navController: NavController) {
             is PeopleState.Content -> LazyColumn(verticalArrangement = Arrangement.spacedBy(8.dp)) {
                 items(s.recipients, key = { it.id }) { recipient ->
                     PersonRow(recipient) {
-                        navController.navigate("recipient/${recipient.id}")
+                        navController.navigate(AppRoutes.recipientDetail(recipient.id))
                     }
                 }
             }
@@ -73,7 +87,8 @@ private fun PersonRow(recipient: RecipientDto, onOpen: () -> Unit) {
 /** Add-person form (missing-page spec): name only, inline required error. */
 @Composable
 fun AddRecipientScreen(graph: AppGraph, navController: NavController) {
-    val vm: RecipientsViewModel = assistedViewModel("add-recipient") {
+    val activity = LocalContext.current as androidx.activity.ComponentActivity
+    val vm: RecipientsViewModel = assistedViewModel("people-shared", activity) {
         RecipientsViewModel(graph.apis, graph.auth)
     }
     val addState by vm.addState.collectAsState()
@@ -100,13 +115,13 @@ fun AddRecipientScreen(graph: AppGraph, navController: NavController) {
                 }
             },
             singleLine = true,
-            modifier = Modifier.fillMaxWidth(),
+            modifier = Modifier.fillMaxWidth().testTag("add_person_name"),
         )
         Spacer(Modifier.height(16.dp))
         Button(
             onClick = vm::add,
             enabled = !addState.busy,
-            modifier = Modifier.fillMaxWidth(),
+            modifier = Modifier.fillMaxWidth().testTag("add_person_save"),
         ) {
             Text(stringResource(R.string.add_save))
         }
@@ -122,34 +137,38 @@ fun RecipientDetailScreen(recipientId: String, graph: AppGraph, navController: N
     val state by vm.state.collectAsState()
     when (val s = state) {
         DetailState.Loading -> LoadingRow()
-        DetailState.Error -> LoadFailed(onRetry = { navController.popBackStack() })
+        DetailState.Error -> LoadFailed(onRetry = vm::refresh)
         is DetailState.Content -> DetailContent(s.detail, navController)
     }
 }
 
 @Composable
 private fun DetailContent(detail: RecipientDetail, navController: NavController) {
+    val arabic = Locale.getDefault().language == "ar"
     Column(Modifier.fillMaxSize().padding(16.dp)) {
         Text(text = detail.name, style = MaterialTheme.typography.headlineSmall)
         detail.lastNote?.let {
             Spacer(Modifier.height(8.dp))
             Text(
-                text = stringResource(R.string.person_last_note) +
-                    ": ${it.appetite} · ${it.sleep}",
+                text = stringResource(R.string.person_last_note) + ": " +
+                    OptionLabels.label(OptionGroup.Appetite, it.appetite, arabic) + " · " +
+                    OptionLabels.label(OptionGroup.Sleep, it.sleep, arabic),
                 style = MaterialTheme.typography.bodyMedium,
             )
         }
         Spacer(Modifier.height(16.dp))
-        // History lands on the tab for now; per-recipient filtering arrives in Task 6.
+        // History lands on the tab for now; per-recipient filtering is Task 6.
         ActionButton(R.string.detail_add_note) {
-            navController.navigate("note-editor/${detail.id}")
+            navController.navigate(AppRoutes.noteEditor(detail.id))
         }
-        ActionButton(R.string.detail_history) { navController.navigate("history") }
+        ActionButton(R.string.detail_history) {
+            navController.navigate(AppRoutes.tab(MainTab.History))
+        }
         ActionButton(R.string.detail_plan) {
             navController.navigate(AppDestinations.Plans.base)
         }
         ActionButton(R.string.detail_summary) {
-            navController.navigate("summary/${detail.id}")
+            navController.navigate(AppRoutes.summary(detail.id))
         }
     }
 }

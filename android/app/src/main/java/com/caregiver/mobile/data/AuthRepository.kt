@@ -17,7 +17,7 @@ class LoggedOutException : IOException("Session expired")
 sealed interface SignInResult {
     data object SignedIn : SignInResult
     data object InvalidCredentials : SignInResult
-    data class Rejected(val message: String) : SignInResult
+    data class Rejected(val code: String?, val message: String) : SignInResult
     data object Unreachable : SignInResult
 }
 
@@ -75,15 +75,20 @@ class AuthRepository(
             if (e.code() == 401) {
                 return SignInResult.InvalidCredentials
             }
-            val message = ApiErrors.parse(e)?.message ?: "Request failed (${e.code()})."
-            return SignInResult.Rejected(message)
+            // The code drives localized UI copy; the message is kept for
+            // debugging and never rendered.
+            val error = ApiErrors.parse(e)
+            return SignInResult.Rejected(
+                error?.code,
+                error?.message ?: "Request failed (${e.code()}).",
+            )
         } catch (e: IOException) {
             return SignInResult.Unreachable
         } catch (e: Exception) {
             if (e is kotlinx.coroutines.CancellationException) {
                 throw e
             }
-            return SignInResult.Rejected("Request failed. Please try again.")
+            return SignInResult.Rejected(null, "Request failed. Please try again.")
         }
     }
 

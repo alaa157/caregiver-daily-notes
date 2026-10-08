@@ -123,4 +123,35 @@ class RecipientDetailViewModelTest {
 
         assertTrue(state is DetailState.Error)
     }
+
+    @Test
+    fun serverErrorSurfacesError() = runTest {
+        recipients.listHandler = { listOf(RecipientDto("r1", "Aisha", true)) }
+        notes.historyHandler = { _, _, _ ->
+            throw com.caregiver.mobile.data.FakeAuthApi.httpError(500, "SERVER_ERROR")
+        }
+        val vm = vm(this)
+
+        val state = vm.state.first { it is DetailState.Error }
+
+        assertTrue(state is DetailState.Error)
+    }
+
+    @Test
+    fun retryReloadsAfterFailure() = runTest {
+        recipients.listHandler = { listOf(RecipientDto("r1", "Aisha", true)) }
+        var fail = true
+        notes.historyHandler = { _, _, _ ->
+            if (fail) throw IOException("down")
+            else listOf(com.caregiver.mobile.data.testNote(id = "n1"))
+        }
+        val vm = vm(this)
+        vm.state.first { it is DetailState.Error }
+
+        fail = false
+        vm.refresh()
+        val state = vm.state.first { it is DetailState.Content }
+
+        assertEquals("n1", (state as DetailState.Content).detail.lastNote?.id)
+    }
 }

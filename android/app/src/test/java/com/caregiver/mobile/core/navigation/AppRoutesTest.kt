@@ -26,7 +26,8 @@ class AppRoutesTest {
     fun tabTitlesHaveDistinctArabicAndEnglishStrings() {
         val en = readStrings("values")
         val ar = readStrings("values-ar")
-        listOf("tab_home", "tab_people", "tab_notes", "tab_history").forEach { key ->
+        (listOf("tab_home", "tab_people", "tab_notes", "tab_history") +
+            listOf("fab_add_note")).forEach { key ->
             val english = en[key]
             val arabic = ar[key]
             assertTrue("missing English string: $key", !english.isNullOrBlank())
@@ -62,6 +63,35 @@ class AppRoutesTest {
                     "plan-versions/{planId}",
                     // Missing settings page.
                     "settings",
+                ),
+            ),
+        )
+    }
+
+    @Test
+    fun routeBuildersProduceConcreteRoutes() {
+        assertEquals("home", AppRoutes.tab(MainTab.Home))
+        assertEquals("recipient/abc", AppRoutes.recipientDetail("abc"))
+        assertEquals("note-editor/abc", AppRoutes.noteEditor("abc"))
+        assertEquals("note/n1", AppRoutes.noteDetail("n1"))
+        assertEquals("summary/r1", AppRoutes.summary("r1"))
+        assertEquals("summary-result/r1/30", AppRoutes.summaryResult("r1", 30))
+        assertEquals("plan-edit/p1", AppRoutes.planEdit("p1"))
+    }
+
+    @Test
+    fun buildersMatchRegisteredTemplates() {
+        val templates = AppDestinations.all.map { it.base }
+        assertTrue(
+            templates.containsAll(
+                listOf(
+                    AppRoutes.recipientDetail("{recipientId}"),
+                    AppRoutes.noteEditor("{recipientId}"),
+                    AppRoutes.noteDetail("{noteId}"),
+                    AppRoutes.summary("{recipientId}"),
+                    AppRoutes.summaryResult("{recipientId}", 7)
+                        .replace("/7", "/{periodDays}"),
+                    AppRoutes.planEdit("{planId}"),
                 ),
             ),
         )

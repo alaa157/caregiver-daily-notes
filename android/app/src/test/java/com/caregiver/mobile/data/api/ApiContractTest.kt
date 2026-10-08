@@ -1,6 +1,7 @@
 package com.caregiver.mobile.data.api
 
 import org.junit.Assert.assertEquals
+import org.junit.Assert.assertTrue
 import org.junit.Test
 
 /**
@@ -72,6 +73,19 @@ class ApiContractTest {
     }
 
     @Test
+    fun emptySummarySectionsParse() {
+        // The contract has no trends/appetite/sleep/medication sections —
+        // only these fields. Empty lists must parse, not crash.
+        val parsed = ApiClient.json.decodeFromString<SummaryDto>(
+            SummaryDto.serializer(),
+            """{"id":"s1","recipientId":"r1","periodDays":7,"text":"No notes in range.","redFlags":[],"evidence":[],"uncertainties":[]}""",
+        )
+        assertTrue(parsed.redFlags.isEmpty())
+        assertTrue(parsed.evidence.isEmpty())
+        assertTrue(parsed.uncertainties.isEmpty())
+    }
+
+    @Test
     fun planVersionDtoParses() {
         val parsed = ApiClient.json.decodeFromString<PlanVersionDto>(
             PlanVersionDto.serializer(),
@@ -92,10 +106,67 @@ class ApiContractTest {
     }
 
     @Test
-    fun baseUrlNormalization() {
-        assertEquals("https://h.com/api/", ApiClient.normalizeBaseUrl("https://h.com/api/"))
-        assertEquals("https://h.com/api/", ApiClient.normalizeBaseUrl("https://h.com/api"))
-        assertEquals("https://h.com/", ApiClient.normalizeBaseUrl("  https://h.com "))
-        assertEquals("http://h.com:8080/", ApiClient.normalizeBaseUrl("h.com:8080"))
+    fun baseUrlValidation() {
+        assertEquals(
+            BaseUrlCheck.Valid("https://h.com/api/"),
+            ApiClient.checkBaseUrl("https://h.com/api"),
+        )
+        assertEquals(
+            BaseUrlCheck.Valid("https://h.com/api/"),
+            ApiClient.checkBaseUrl("https://h.com/api/"),
+        )
+        assertEquals(
+            BaseUrlCheck.Valid("https://h.com/"),
+            ApiClient.checkBaseUrl("  https://h.com "),
+        )
+        // Missing scheme defaults to HTTPS, never silently to HTTP.
+        assertEquals(
+            BaseUrlCheck.Valid("https://h.com:8080/"),
+            ApiClient.checkBaseUrl("h.com:8080"),
+        )
+        assertEquals(
+            BaseUrlCheck.Invalid(UrlProblem.Empty),
+            ApiClient.checkBaseUrl("   "),
+        )
+        assertEquals(
+            BaseUrlCheck.Invalid(UrlProblem.Unparsable),
+            ApiClient.checkBaseUrl("https://"),
+        )
+        assertEquals(
+            BaseUrlCheck.Invalid(UrlProblem.UnsupportedScheme),
+            ApiClient.checkBaseUrl("ftp://h.com/"),
+        )
+        assertEquals(
+            BaseUrlCheck.Invalid(UrlProblem.UserInfo),
+            ApiClient.checkBaseUrl("https://user@h.com/"),
+        )
+        assertEquals(
+            BaseUrlCheck.Invalid(UrlProblem.Query),
+            ApiClient.checkBaseUrl("https://h.com/?x=1"),
+        )
+        assertEquals(
+            BaseUrlCheck.Invalid(UrlProblem.Fragment),
+            ApiClient.checkBaseUrl("https://h.com/#f"),
+        )
+    }
+
+    @Test
+    fun httpAllowedOnlyForDevHosts() {
+        assertEquals(
+            BaseUrlCheck.Valid("http://localhost:8080/api/"),
+            ApiClient.checkBaseUrl("http://localhost:8080/api"),
+        )
+        assertEquals(
+            BaseUrlCheck.Valid("http://10.0.2.2:8080/"),
+            ApiClient.checkBaseUrl("http://10.0.2.2:8080/"),
+        )
+        assertEquals(
+            BaseUrlCheck.Valid("http://192.168.1.5/"),
+            ApiClient.checkBaseUrl("http://192.168.1.5/"),
+        )
+        assertEquals(
+            BaseUrlCheck.Invalid(UrlProblem.HttpNotAllowed),
+            ApiClient.checkBaseUrl("http://h.com/"),
+        )
     }
 }

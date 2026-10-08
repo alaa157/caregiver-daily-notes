@@ -15,6 +15,7 @@ android {
         targetSdk = 35
         versionCode = 1
         versionName = "0.1.0"
+        testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
     }
 
     buildTypes {
@@ -40,6 +41,11 @@ android {
     testOptions {
         unitTests.isIncludeAndroidResources = true
     }
+    // Shared fakes/fixtures for local JVM tests and instrumentation tests alike.
+    sourceSets {
+        getByName("test").java.srcDir("src/sharedTest/java")
+        getByName("androidTest").java.srcDir("src/sharedTest/java")
+    }
 }
 
 dependencies {
@@ -51,6 +57,7 @@ dependencies {
     androidTestImplementation(composeBom)
 
     implementation(libs.compose.ui)
+    implementation(libs.compose.foundation)
     implementation(libs.compose.runtime.saveable)
     implementation(libs.compose.material3)
     implementation(libs.compose.tooling.preview)
@@ -69,4 +76,11 @@ dependencies {
     testImplementation(libs.junit)
     testImplementation(libs.coroutines.test)
     testImplementation(libs.mockwebserver)
+
+    androidTestImplementation(libs.compose.ui.test.junit4)
+    androidTestImplementation(libs.test.runner)
+    androidTestImplementation(libs.test.ext.junit)
+    androidTestImplementation(libs.mockwebserver)
+    androidTestImplementation(libs.coroutines.core)
+    debugImplementation(libs.compose.ui.test.manifest)
 }

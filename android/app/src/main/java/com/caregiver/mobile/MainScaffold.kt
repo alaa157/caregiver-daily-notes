@@ -9,13 +9,16 @@ import androidx.compose.material3.FloatingActionButton
 import androidx.compose.material3.Icon
 import androidx.compose.material3.NavigationBar
 import androidx.compose.material3.NavigationBarItem
+import androidx.compose.material3.NavigationBarItemDefaults
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.res.stringResource
+import androidx.navigation.NavGraphBuilder
 import androidx.navigation.NavType
 import androidx.navigation.compose.NavHost
 import androidx.navigation.compose.composable
@@ -23,7 +26,9 @@ import androidx.navigation.compose.currentBackStackEntryAsState
 import androidx.navigation.compose.rememberNavController
 import androidx.navigation.navArgument
 import com.caregiver.mobile.core.navigation.AppDestinations
+import com.caregiver.mobile.core.navigation.AppRoutes
 import com.caregiver.mobile.core.navigation.MainTab
+import com.caregiver.mobile.core.theme.CaregiverColors
 import com.caregiver.mobile.presentation.history.HistoryScreen
 import com.caregiver.mobile.presentation.home.HomeScreen
 import com.caregiver.mobile.presentation.notes.AddendumScreen
@@ -62,13 +67,24 @@ fun MainScaffold(graph: AppGraph) {
                         },
                         label = { Text(stringResource(tab.titleRes)) },
                         icon = { /* Task 8: tab icons in the design language */ },
+                        // Explicit in-palette selection: teal icon/label on a
+                        // neutral pill. Test tags keep the UI tests offline-safe.
+                        colors = NavigationBarItemDefaults.colors(
+                            selectedIconColor = CaregiverColors.Primary,
+                            selectedTextColor = CaregiverColors.Primary,
+                            indicatorColor = CaregiverColors.BorderSoft,
+                        ),
+                        modifier = Modifier.testTag("tab_${tab.route}"),
                     )
                 }
             }
         },
         floatingActionButton = {
             FloatingActionButton(onClick = { navController.navigate(MainTab.Notes.route) }) {
-                Icon(Icons.Filled.Add, contentDescription = null)
+                Icon(
+                    Icons.Filled.Add,
+                    contentDescription = stringResource(R.string.fab_add_note),
+                )
             }
         },
     ) { innerPadding ->
@@ -95,7 +111,7 @@ fun MainScaffold(graph: AppGraph) {
                 AppDestinations.RecipientDetail.base,
                 arguments = listOf(navArgument("recipientId") { type = NavType.StringType }),
             ) { entry ->
-                RecipientDetailScreen(entry.arguments!!.getString("recipientId")!!, graph, navController)
+                RecipientDetailScreen(AppRoutes.arg(entry, "recipientId"), graph, navController)
             }
             composable(AppDestinations.AddRecipient.base) {
                 AddRecipientScreen(graph, navController)
@@ -104,31 +120,31 @@ fun MainScaffold(graph: AppGraph) {
                 AppDestinations.NoteEditor.base,
                 arguments = listOf(navArgument("recipientId") { type = NavType.StringType }),
             ) { entry ->
-                NoteEditorScreen(entry.arguments!!.getString("recipientId")!!, graph, navController)
+                NoteEditorScreen(AppRoutes.arg(entry, "recipientId"), graph, navController)
             }
             composable(
                 AppDestinations.NoteSaved.base,
                 arguments = listOf(navArgument("noteId") { type = NavType.StringType }),
             ) { entry ->
-                NoteSavedScreen(entry.arguments!!.getString("noteId")!!, graph, navController)
+                NoteSavedScreen(AppRoutes.arg(entry, "noteId"), graph, navController)
             }
             composable(
                 AppDestinations.NoteDetail.base,
                 arguments = listOf(navArgument("noteId") { type = NavType.StringType }),
             ) { entry ->
-                NoteDetailScreen(entry.arguments!!.getString("noteId")!!, graph, navController)
+                NoteDetailScreen(AppRoutes.arg(entry, "noteId"), graph, navController)
             }
             composable(
                 AppDestinations.Addendum.base,
                 arguments = listOf(navArgument("noteId") { type = NavType.StringType }),
             ) { entry ->
-                AddendumScreen(entry.arguments!!.getString("noteId")!!, graph, navController)
+                AddendumScreen(AppRoutes.arg(entry, "noteId"), graph, navController)
             }
             composable(
                 AppDestinations.Summary.base,
                 arguments = listOf(navArgument("recipientId") { type = NavType.StringType }),
             ) { entry ->
-                SummaryPeriodScreen(entry.arguments!!.getString("recipientId")!!, graph, navController)
+                SummaryPeriodScreen(AppRoutes.arg(entry, "recipientId"), graph, navController)
             }
             composable(
                 AppDestinations.SummaryResult.base,
@@ -138,8 +154,8 @@ fun MainScaffold(graph: AppGraph) {
                 ),
             ) { entry ->
                 SummaryResultScreen(
-                    entry.arguments!!.getString("recipientId")!!,
-                    entry.arguments!!.getInt("periodDays"),
+                    AppRoutes.arg(entry, "recipientId"),
+                    AppRoutes.argInt(entry, "periodDays"),
                     graph,
                     navController,
                 )
@@ -154,7 +170,7 @@ fun MainScaffold(graph: AppGraph) {
     }
 }
 
-private fun androidx.navigation.NavGraphBuilder.future(route: String) {
+private fun NavGraphBuilder.future(route: String) {
     composable(route) { Placeholder(route) }
 }
 
