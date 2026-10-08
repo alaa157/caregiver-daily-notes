@@ -69,14 +69,14 @@ jobs:
       - run: npm ci
         working-directory: mobile
 
-      - name: Build debug APK (no signing; debug keystore only)
+      - name: Build debug APK, arm64 only (preview size squeeze)
         run: |
           chmod +x gradlew
-          ./gradlew assembleDebug --no-daemon
+          ./gradlew assembleArm64V8aDebug --no-daemon
         working-directory: mobile/android
 
       - name: Upload debug APK
         uses: actions/upload-artifact@v4
         with:
           name: mobile-debug-apk
-          path: mobile/android/app/build/outputs/apk/debug/app-debug.apk
+          path: mobile/android/app/build/outputs/apk/debug/app-arm64-v8a-debug.apk
