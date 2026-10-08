@@ -19,6 +19,7 @@ import java.util.Locale
 import org.junit.Rule
 import org.junit.Test
 import org.junit.runner.RunWith
+import com.caregiver.mobile.test.WithTestOwner
 
 /**
  * Task 1 scaffold coverage on a real renderer: the four tab labels in both
@@ -41,8 +42,10 @@ class ScaffoldUiTest {
         val graph = AppGraph(localized)
         compose.setContent {
             CompositionLocalProvider(LocalContext provides localized) {
-                CaregiverTheme {
-                    MainScaffold(graph)
+                WithTestOwner {
+                    CaregiverTheme {
+                        MainScaffold(graph)
+                    }
                 }
             }
         }

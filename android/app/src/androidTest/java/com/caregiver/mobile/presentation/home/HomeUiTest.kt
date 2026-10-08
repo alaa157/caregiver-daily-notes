@@ -13,6 +13,7 @@ import androidx.navigation.compose.rememberNavController
 import androidx.test.core.app.ApplicationProvider
 import androidx.test.ext.junit.runners.AndroidJUnit4
 import com.caregiver.mobile.AppGraph
+import com.caregiver.mobile.core.i18n.Bidi
 import com.caregiver.mobile.core.theme.CaregiverTheme
 import java.time.LocalDate
 import java.util.Locale
@@ -24,6 +25,7 @@ import org.junit.Before
 import org.junit.Rule
 import org.junit.Test
 import org.junit.runner.RunWith
+import com.caregiver.mobile.test.WithTestOwner
 
 /**
  * Task 4 home behavior in Arabic against a fake server: translated greeting,
@@ -76,8 +78,10 @@ class HomeUiTest {
         val localized = base.withLocale("ar")
         compose.setContent {
             CompositionLocalProvider(LocalContext provides localized) {
-                CaregiverTheme {
-                    HomeScreen(graph, rememberNavController())
+                WithTestOwner {
+                    CaregiverTheme {
+                        HomeScreen(graph, rememberNavController())
+                    }
                 }
             }
         }
@@ -85,9 +89,9 @@ class HomeUiTest {
         compose.onNodeWithText("1 / 1 مكتملة").assertIsDisplayed()
         compose.onNodeWithText("تم اليوم").assertIsDisplayed()
         compose.onNodeWithText("آخر ملاحظة: جيدة · متقطع").assertIsDisplayed()
-        compose.onNodeWithText("ليلى Layla").assertIsDisplayed()
+        compose.onNodeWithText(Bidi.isolate("ليلى Layla")).assertIsDisplayed()
         compose.onNodeWithText("تنبيه سقوط").assertIsDisplayed()
-        compose.onNodeWithText("سقوط مبلغ عنه — ليلى Layla").assertIsDisplayed()
+        compose.onNodeWithText("سقوط مبلغ عنه — " + Bidi.isolate("ليلى Layla")).assertIsDisplayed()
         compose.onAllNodesWithText("good").assertCountEquals(0)
         compose.onAllNodesWithText("broken").assertCountEquals(0)
     }
