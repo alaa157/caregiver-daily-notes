@@ -37,6 +37,11 @@ public class RecipientService {
     return RecipientDto.of(owned(id));
   }
 
+  /** Shared ownership gate for the other preview services. */
+  public Recipient requireOwned(UUID id) {
+    return owned(id);
+  }
+
   @Transactional
   public RecipientDto update(UUID id, boolean active) {
     Recipient recipient = owned(id);

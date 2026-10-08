@@ -98,4 +98,119 @@ class PreviewApiTest {
     // No token at all.
     mvc.perform(get("/api/recipients")).andExpect(status().isUnauthorized());
   }
+
+  String recipientFor(String token, String name) throws Exception {
+    return mvc.perform(
+            post("/api/recipients")
+                .header("Authorization", "Bearer " + token)
+                .contentType(MediaType.APPLICATION_JSON)
+                .content("{\"name\":\"" + name + "\"}"))
+        .andExpect(status().isCreated())
+        .andReturn()
+        .getResponse()
+        .getContentAsString()
+        .replaceAll(".*\"id\"\\s*:\\s*\"([^\"]+)\".*", "$1");
+  }
+
+  String noteJson(String recipientId, int pain, boolean fall, String text) {
+    return "{\"recipientId\":\""
+        + recipientId
+        + "\",\"mood\":\"good\",\"appetite\":\"good\",\"sleep\":\"good\",\"mobility\":\"good\","
+        + "\"medicationTaken\":\"taken\",\"pain\":"
+        + pain
+        + ",\"fall\":"
+        + fall
+        + ",\"text\":\""
+        + text
+        + "\"}";
+  }
+
+  @Test
+  void noteFlowWithAddendumAndHistory() throws Exception {
+    String token = tokenFor("preview-notes@example.com");
+    String recipientId = recipientFor(token, "Karim");
+
+    String noteId =
+        mvc.perform(
+                post("/api/notes")
+                    .header("Authorization", "Bearer " + token)
+                    .contentType(MediaType.APPLICATION_JSON)
+                    .content(noteJson(recipientId, 3, false, "Evening check, all calm.")))
+            .andExpect(status().isCreated())
+            .andExpect(jsonPath("$.mood").value("good"))
+            .andExpect(jsonPath("$.pain").value(3))
+            .andReturn()
+            .getResponse()
+            .getContentAsString()
+            .replaceAll(".*\"id\"\\s*:\\s*\"([^\"]+)\".*", "$1");
+
+    // Duplicate same-day note rejected.
+    mvc.perform(
+            post("/api/notes")
+                .header("Authorization", "Bearer " + token)
+                .contentType(MediaType.APPLICATION_JSON)
+                .content(noteJson(recipientId, 2, false, "Again.")))
+        .andExpect(status().isUnprocessableEntity());
+
+    // Pain out of range rejected.
+    String otherRecipient = recipientFor(token, "Mona");
+    mvc.perform(
+            post("/api/notes")
+                .header("Authorization", "Bearer " + token)
+                .contentType(MediaType.APPLICATION_JSON)
+                .content(noteJson(otherRecipient, 11, false, "Bad pain.")))
+        .andExpect(status().isUnprocessableEntity());
+
+    // Note for a foreign recipient rejected.
+    String stranger = tokenFor("preview-stranger@example.com");
+    String foreignRecipient = recipientFor(stranger, "Foreign");
+    mvc.perform(
+            post("/api/notes")
+                .header("Authorization", "Bearer " + token)
+                .contentType(MediaType.APPLICATION_JSON)
+                .content(noteJson(foreignRecipient, 1, false, "Intrusion.")))
+        .andExpect(status().isForbidden());
+
+    // Detail embeds addenda; original stays read-only.
+    mvc.perform(
+            post("/api/notes/" + noteId + "/addenda")
+                .header("Authorization", "Bearer " + token)
+                .contentType(MediaType.APPLICATION_JSON)
+                .content("{\"text\":\"Late update: slept well.\"}"))
+        .andExpect(status().isCreated())
+        .andExpect(jsonPath("$.text").value("Late update: slept well."));
+    mvc.perform(get("/api/notes/" + noteId).header("Authorization", "Bearer " + token))
+        .andExpect(status().isOk())
+        .andExpect(jsonPath("$.text").value("Evening check, all calm."))
+        .andExpect(jsonPath("$.addenda.length()").value(1))
+        .andExpect(jsonPath("$.addenda[0].text").value("Late update: slept well."));
+
+    // History newest-first with recipient filter.
+    mvc.perform(
+            get("/api/notes").header("Authorization", "Bearer " + token).param("recipientId", recipientId))
+        .andExpect(status().isOk())
+        .andExpect(jsonPath("$.length()").value(1));
+    mvc.perform(get("/api/notes").header("Authorization", "Bearer " + token))
+        .andExpect(status().isOk())
+        .andExpect(jsonPath("$.length()").value(1));
+
+    // Date-range filters.
+    String today = java.time.LocalDate.now().toString();
+    String tomorrow = java.time.LocalDate.now().plusDays(1).toString();
+    mvc.perform(
+            get("/api/notes")
+                .header("Authorization", "Bearer " + token)
+                .param("from", today)
+                .param("to", today))
+        .andExpect(status().isOk())
+        .andExpect(jsonPath("$.length()").value(1));
+    mvc.perform(
+            get("/api/notes").header("Authorization", "Bearer " + token).param("from", tomorrow))
+        .andExpect(status().isOk())
+        .andExpect(jsonPath("$.length()").value(0));
+
+    // Foreign note unreadable.
+    mvc.perform(get("/api/notes/" + noteId).header("Authorization", "Bearer " + stranger))
+        .andExpect(status().isForbidden());
+  }
 }
