@@ -2,6 +2,7 @@ plugins {
     alias(libs.plugins.android.application)
     alias(libs.plugins.kotlin.android)
     alias(libs.plugins.kotlin.compose)
+    alias(libs.plugins.kotlin.serialization)
 }
 
 android {
@@ -56,5 +57,14 @@ dependencies {
     implementation(libs.lifecycle.viewmodel.compose)
     implementation(libs.activity.compose)
 
+    implementation(libs.coroutines.core)
+    implementation(libs.datastore.preferences)
+    implementation(libs.retrofit)
+    implementation(libs.retrofit.converter.kotlinx)
+    implementation(libs.okhttp)
+    implementation(libs.serialization.json)
+
     testImplementation(libs.junit)
+    testImplementation(libs.coroutines.test)
+    testImplementation(libs.mockwebserver)
 }
