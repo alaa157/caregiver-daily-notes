@@ -15,11 +15,15 @@ A cloud-hosted care-support system for caregivers to record structured daily obs
 
 ## Architecture
 
-```text
-Web (React + TS) ──┐
-                   ├─ HTTPS ─► Spring Boot API (Java 21) ─► Supabase PostgreSQL
-Android (Kotlin) ──┘                    │  └─► Upstash Redis (cache / rate-limit)
-                                        └─► LLM via LlmClient (Gemini → OpenRouter → template fallback)
+```mermaid
+flowchart LR
+  Web["Web<br/>React + TS"] -->|HTTPS| API["Spring Boot API<br/>Java 21 + JWT"]
+  Android["Android<br/>Kotlin + Compose"] -->|HTTPS| API
+  API -->|JPA / Flyway| DB[("Supabase PostgreSQL<br/>source of truth")]
+  API -.->|cache / rate-limit| Redis[("Upstash Redis<br/>ephemeral")]
+  API -->|LlmClient| Gemini["Gemini<br/>primary"]
+  Gemini -.->|failover| OpenRouter["OpenRouter<br/>backup"]
+  OpenRouter -.->|fallback| Template["Template summary<br/>AI unavailable"]
 ```
 
 - Backend is the source of truth for auth, business rules, AI validation, versioning, and audit.
@@ -118,6 +122,17 @@ cd android
 
 ## Core Workflows
 
+```mermaid
+flowchart TD
+  Login["Login<br/>JWT + ownership checks"] --> Recipients["Recipients<br/>caregiver-scoped CRUD"]
+  Recipients --> Note["Daily note<br/>structured + free text AR/EN"]
+  Note -->|immutable| Addendum["Addendum<br/>correction, original kept"]
+  Note --> History["History<br/>filter by recipient / date"]
+  History --> Summary["Summary<br/>7 / 14 / 30 days + flags + trends"]
+  Summary --> Plan["Plan<br/>suggest → accept / edit / dismiss"]
+  Plan -->|accept new| Archive["Archive previous<br/>v1 → v2 → …"]
+```
+
 1. **Login** → JWT, server-side ownership checks + IDOR protection on every request
 2. **Recipients** → caregiver-scoped CRUD
 3. **Daily note** → mood, appetite, sleep, mobility, meds taken, pain 0–10, falls + free text
@@ -125,6 +140,17 @@ cd android
 5. **History** → filter by recipient / date, full audit trail
 6. **Summary** → 7/14/30-day grounded summary + deterministic flags + trends + uncertainties
 7. **Plan** → Suggested → Accepted / Edited-and-Accepted / Dismissed → Archived, versioned `v1 → v2 → …`
+
+```mermaid
+stateDiagram-v2
+  [*] --> Suggested
+  Suggested --> Accepted : accept
+  Suggested --> EditedAccepted : edit then accept
+  Suggested --> Dismissed : dismiss
+  Accepted --> Archived : new plan accepted
+  EditedAccepted --> Archived : new plan accepted
+  Dismissed --> Archived : new plan accepted
+```
 
 ## AI Safety (enforced by backend)
 
