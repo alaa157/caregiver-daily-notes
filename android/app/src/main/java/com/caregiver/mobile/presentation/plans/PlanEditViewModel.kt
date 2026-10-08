@@ -50,6 +50,13 @@ class PlanEditViewModel(
         exec.launch { load() }
     }
 
+    /** Retry after a load failure: reload the latest items, keep the draft cleared. */
+    fun refresh() {
+        _state.value = PlanEditState.Loading
+        _saveFailed.value = false
+        exec.launch { load() }
+    }
+
     fun updateLine(index: Int, value: String) {
         val lines = (state.value as? PlanEditState.Content)?.lines ?: return
         if (index !in lines.indices) {

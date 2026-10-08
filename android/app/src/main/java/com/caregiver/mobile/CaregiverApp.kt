@@ -17,7 +17,9 @@ class CaregiverApp : Application() {
     override fun attachBaseContext(base: Context) {
         // Apply the stored language before any resource loads. A small
         // blocking prefs read at startup; the settings screen recreates
-        // the activity so this re-runs on language change.
+        // the activity so this re-runs on language change. Single small
+        // read only — if StrictMode ever flags it, move to a splash-gated
+        // async load with the default locale as fallback.
         val language = try {
             runBlocking {
                 SettingsStore.create(base).language.first()

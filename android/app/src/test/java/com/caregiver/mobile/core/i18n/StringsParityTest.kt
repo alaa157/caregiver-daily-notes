@@ -97,8 +97,8 @@ class StringsParityTest {
             "common_offline",
             "people_empty",
             "notes_empty",
-            "plans_empty_title",
-            "plans_empty_action",
+            "plans_empty",
+            "plans_view_proposals",
             "safety_banner_cd",
         )
         val missing = required.filter { it !in en }
