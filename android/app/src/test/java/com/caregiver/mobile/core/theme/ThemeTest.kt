@@ -46,4 +46,29 @@ class ThemeTest {
         assertEquals(CaregiverColors.BorderSoft, AppLightScheme.secondaryContainer)
         assertEquals(CaregiverColors.Ink, AppLightScheme.onSecondaryContainer)
     }
+
+    @Test
+    fun everyScaleSpeaksPlexArabic() {
+        // Bundled board typeface (res/font): one place, all screens change.
+        // Same-reference comparison — guards the wiring, not font equality.
+        val scales = listOf(
+            AppTypography.displayLarge,
+            AppTypography.displayMedium,
+            AppTypography.displaySmall,
+            AppTypography.headlineLarge,
+            AppTypography.headlineMedium,
+            AppTypography.headlineSmall,
+            AppTypography.titleLarge,
+            AppTypography.titleMedium,
+            AppTypography.titleSmall,
+            AppTypography.bodyLarge,
+            AppTypography.bodyMedium,
+            AppTypography.bodySmall,
+            AppTypography.labelLarge,
+            AppTypography.labelMedium,
+            AppTypography.labelSmall,
+        )
+        assertEquals(15, scales.size)
+        scales.forEach { assertEquals(PlexArabic, it.fontFamily) }
+    }
 }
