@@ -57,14 +57,14 @@ jobs:
         uses: android-actions/setup-android@v4
 
       - name: Install required SDK packages
-        # Must match mobile/android/build.gradle: compileSdk 37, buildTools
-        # 37.0.0, ndkVersion 27.1.12297006. setup-android already provides
+        # Must match mobile/android/build.gradle: compileSdk 36, buildTools
+        # 36.0.0, ndkVersion 27.1.12297006. setup-android already provides
         # cmdline-tools + platform-tools and accepts licenses (upstream
         # README); it never installs the deprecated "tools" package
         # (skipped with a warning even if requested), so don't ask for it.
         run: |
           yes | sdkmanager --licenses > /dev/null
-          sdkmanager --install "platform-tools" "platforms;android-37" "build-tools;37.0.0" "ndk;27.1.12297006"
+          sdkmanager --install "platform-tools" "platforms;android-36" "build-tools;36.0.0" "ndk;27.1.12297006"
 
       - run: npm ci
         working-directory: mobile

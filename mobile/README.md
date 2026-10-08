@@ -111,8 +111,8 @@ safe to commit). Release signing is Part B with owner-held secrets.
 
 ## Android build requirements
 
-Must match `mobile/android/build.gradle`: compile SDK 37
-(`platforms;android-37`), build-tools 37.0.0, JDK 17, Gradle wrapper
+Must match `mobile/android/build.gradle`: compile SDK 36
+(`platforms;android-36`), build-tools 36.0.0, JDK 17, Gradle wrapper
 (gradle-9.4.1). CI installs exactly these (`platform-tools` plus the two
 above; never the deprecated `tools` package). No Android SDK is installed
 on the dev box, so APK builds and emulator checks run in CI only.
