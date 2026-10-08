@@ -3,6 +3,10 @@ package com.caregiver.mobile
 import androidx.compose.foundation.layout.padding
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Add
+import androidx.compose.material.icons.filled.History
+import androidx.compose.material.icons.filled.Home
+import androidx.compose.material.icons.filled.NoteAdd
+import androidx.compose.material.icons.filled.People
 import androidx.compose.material3.FloatingActionButton
 import androidx.compose.material3.Icon
 import androidx.compose.material3.NavigationBar
@@ -66,7 +70,17 @@ fun MainScaffold(graph: AppGraph) {
                             }
                         },
                         label = { Text(stringResource(tab.titleRes)) },
-                        icon = { /* Task 8: tab icons in the design language */ },
+                        icon = {
+                            Icon(
+                                imageVector = when (tab) {
+                                    MainTab.Home -> Icons.Filled.Home
+                                    MainTab.People -> Icons.Filled.People
+                                    MainTab.Notes -> Icons.Filled.NoteAdd
+                                    MainTab.History -> Icons.Filled.History
+                                },
+                                contentDescription = null,
+                            )
+                        },
                         // Explicit in-palette selection: teal icon/label on a
                         // neutral pill. Test tags keep the UI tests offline-safe.
                         colors = NavigationBarItemDefaults.colors(

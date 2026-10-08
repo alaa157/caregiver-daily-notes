@@ -1,9 +1,12 @@
 package com.caregiver.mobile.core.theme
 
+import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.Shapes
 import androidx.compose.material3.lightColorScheme
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.unit.dp
 
 /**
  * Explicit roles for everything the scaffold visibly uses. Container colors
@@ -32,6 +35,18 @@ internal val AppLightScheme = lightColorScheme(
 )
 
 /**
+ * Board shapes: 12px cards/buttons/inputs, 14px large surfaces, 28px sheets.
+ * Applied app-wide — every themed component follows without call-site edits.
+ */
+internal val AppShapes = Shapes(
+    extraSmall = RoundedCornerShape(12.dp),
+    small = RoundedCornerShape(12.dp),
+    medium = RoundedCornerShape(12.dp),
+    large = RoundedCornerShape(14.dp),
+    extraLarge = RoundedCornerShape(28.dp),
+)
+
+/**
  * App theme. The design is light-only, so dynamic color is deliberately off:
  * fidelity to the boards beats wallpaper tinting on every device.
  */
@@ -39,6 +54,7 @@ internal val AppLightScheme = lightColorScheme(
 fun CaregiverTheme(content: @Composable () -> Unit) {
     MaterialTheme(
         colorScheme = AppLightScheme,
+        shapes = AppShapes,
         typography = AppTypography,
         content = content,
     )

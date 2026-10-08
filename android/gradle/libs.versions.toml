@@ -29,6 +29,7 @@ compose-ui = { group = "androidx.compose.ui", name = "ui" }
 compose-foundation = { group = "androidx.compose.foundation", name = "foundation" }
 compose-runtime-saveable = { group = "androidx.compose.runtime", name = "runtime-saveable" }
 compose-material3 = { group = "androidx.compose.material3", name = "material3" }
+compose-icons-extended = { group = "androidx.compose.material", name = "material-icons-extended" }
 compose-tooling-preview = { group = "androidx.compose.ui", name = "ui-tooling-preview" }
 navigation-compose = { group = "androidx.navigation", name = "navigation-compose", version.ref = "navigation" }
 lifecycle-viewmodel-compose = { group = "androidx.lifecycle", name = "lifecycle-viewmodel-compose", version.ref = "lifecycle" }

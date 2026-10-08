@@ -166,7 +166,7 @@ fun PlanProposalScreen(planId: String, graph: AppGraph, navController: NavContro
                     Button(
                         onClick = { vm.transition(PlanAction.Accept) },
                         enabled = !busy,
-                        modifier = Modifier.fillMaxWidth(),
+                        modifier = Modifier.fillMaxWidth().height(48.dp),
                     ) {
                         Text(stringResource(R.string.plan_accept))
                     }
@@ -251,7 +251,7 @@ fun PlanEditScreen(planId: String, graph: AppGraph, navController: NavController
             Button(
                 onClick = vm::save,
                 enabled = !busy,
-                modifier = Modifier.fillMaxWidth(),
+                modifier = Modifier.fillMaxWidth().height(48.dp),
             ) {
                 Text(stringResource(R.string.plan_edit_save))
             }

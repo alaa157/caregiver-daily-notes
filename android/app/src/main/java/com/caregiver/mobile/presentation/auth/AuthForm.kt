@@ -125,7 +125,7 @@ fun AuthForm(
         Button(
             onClick = onSubmit,
             enabled = !state.busy,
-            modifier = Modifier.fillMaxWidth(),
+            modifier = Modifier.fillMaxWidth().height(48.dp),
         ) {
             Text(
                 stringResource(
