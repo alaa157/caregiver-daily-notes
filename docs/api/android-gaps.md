@@ -27,6 +27,14 @@ quotes, and `uncertainties`. There are no dedicated trends, appetite,
 sleep, or medication sections, so the result screen renders exactly those
 fields with localized headings and no derived clinical conclusions.
 
+## Plan edits accept no reason
+
+`POST /api/plans/{id}/versions` takes only `status` and `items`; the
+version reason is server-generated (`"<status> via preview."`). The plan
+edit screen therefore sends the edited items with the
+edited-and-accepted status and omits the design's reason field. A
+`reason` request field would close this gap.
+
 ## No bounded home safety aggregate
 
 `GET /api/recipients/{id}/signals` is per-recipient only, so the home

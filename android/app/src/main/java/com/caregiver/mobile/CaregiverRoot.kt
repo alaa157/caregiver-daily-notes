@@ -9,6 +9,7 @@ import androidx.navigation.compose.rememberNavController
 import com.caregiver.mobile.core.navigation.AppDestinations
 import com.caregiver.mobile.presentation.auth.LoginScreen
 import com.caregiver.mobile.presentation.auth.RegisterScreen
+import com.caregiver.mobile.presentation.settings.ServerUrlScreen
 
 /**
  * Root gate: no token → auth graph (login/register); token present → tabs.
@@ -26,6 +27,9 @@ fun CaregiverRoot(graph: AppGraph) {
             }
             composable(AppDestinations.Register.base) {
                 RegisterScreen(graph.auth, navController)
+            }
+            composable(AppDestinations.ServerUrl.base) {
+                ServerUrlScreen(graph, navController)
             }
         }
     } else {

@@ -24,6 +24,7 @@ fun LoginScreen(repository: AuthRepository, navController: NavController) {
         onConfirm = vm::onConfirm,
         onSubmit = vm::submit,
         onSwitchMode = { navController.navigate(AppDestinations.Register.base) },
+        onServerSettings = { navController.navigate(AppDestinations.ServerUrl.base) },
         modifier = Modifier,
     )
 }
