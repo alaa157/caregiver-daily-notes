@@ -121,7 +121,7 @@ fun AddRecipientScreen(graph: AppGraph, navController: NavController) {
         Button(
             onClick = vm::add,
             enabled = !addState.busy,
-            modifier = Modifier.fillMaxWidth().testTag("add_person_save"),
+            modifier = Modifier.fillMaxWidth().height(48.dp).testTag("add_person_save"),
         ) {
             Text(stringResource(R.string.add_save))
         }

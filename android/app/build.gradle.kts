@@ -75,6 +75,7 @@ dependencies {
     implementation(libs.compose.foundation)
     implementation(libs.compose.runtime.saveable)
     implementation(libs.compose.material3)
+    implementation(libs.compose.icons.extended)
     implementation(libs.compose.tooling.preview)
     implementation(libs.navigation.compose)
     implementation(libs.lifecycle.viewmodel.compose)
