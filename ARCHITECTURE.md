@@ -12,7 +12,7 @@ The architecture is intentionally feature-oriented. Backend domains are grouped 
 caregiver-daily-notes/
 ├── backend/        # Spring Boot 3 / Java 21 / Maven REST API
 ├── web/            # React + TypeScript web application
-├── mobile/         # React Native CLI Android application
+├── android/        # Native Kotlin (Compose) Android application
 ├── docs/           # Architecture, API, AI, security, testing, privacy docs
 ├── .github/        # Repository-owned automation and CI configuration
 ├── ARCHITECTURE.md
@@ -81,23 +81,19 @@ The web client is a separate application and is deployed independently from the 
 
 ## Mobile
 
-The Android client uses React Native CLI and is built as an APK through GitHub Actions.
+The Android client is native Kotlin (Jetpack Compose + Material3, Gradle) and
+is built as a universal debug APK through the `Android` GitHub workflow
+(`android-debug-apk` artifact).
 
 ```
-mobile/src/
-├── app/
-├── features/
-│   ├── auth/
-│   ├── recipients/
-│   ├── notes/
-│   ├── history/
-│   ├── ai/
-│   └── plans/
-├── components/
-├── lib/
-├── i18n/
-├── styles/
-└── types/
+android/app/src/main/java/com/caregiver/mobile/
+├── core/theme/        # palette, type, theme
+├── core/navigation/   # tabs + typed routes
+├── core/i18n/         # bidi isolation
+├── core/network/      # auth interceptor
+├── core/time/         # locale-aware dates
+├── data/              # settings/token store, Retrofit APIs, repositories
+└── presentation/      # auth, home, recipients, notes, history, summary
 ```
 
 The mobile application is separate from the web application. It may mirror feature concepts and API contracts but must not become a shared frontend monorepo.
@@ -127,7 +123,7 @@ Infrastructure configuration and repository administration are owner-controlled.
 | `.../audit/` | Member 3 |
 | `.../notes/` | Member 2 |
 | `.../ai/` | Member A / Owner |
-| `mobile/` | Member A / Owner |
+| `android/` | Member A / Owner |
 | `web/` | Member 4 |
 | Frontend E2E/accessibility tests | Member 4 |
 | AI evaluation harness | Member A / Owner |
@@ -148,9 +144,9 @@ Initial foundation/setup work establishes application scaffolding first. Feature
 
 ## Cross-cutting rules
 
-- Backend: Maven, Java 21, Spring Boot 3.
-- Clients: TypeScript where applicable.
-- No Gradle for the backend.
+- Backend: Maven, Java 21, Spring Boot 3. No Gradle for the backend.
+- Android: Gradle (Kotlin/Compose) under `android/` only; Maven remains backend-only.
+- Clients: TypeScript where applicable (web).
 - No Expo-based mobile workflow.
 - No local database or Redis requirement for normal project work.
 - API contracts are owned by the backend and consumed by both clients.
