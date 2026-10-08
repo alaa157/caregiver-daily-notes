@@ -16,6 +16,13 @@ async function signIn(screen: Awaited<ReturnType<typeof render>>): Promise<void>
 describe('Part A backend-less flows', () => {
   beforeEach(async () => {
     await AsyncStorage.clear();
+    // Preview demo build defaults App to FetchTransport; tests opt back
+    // into the scripted Part A client. Must be set before App renders.
+    globalThis.__USE_PART_A_CLIENT__ = true;
+  });
+
+  afterEach(() => {
+    globalThis.__USE_PART_A_CLIENT__ = undefined;
   });
 
   it('signs in without touching the network', async () => {
