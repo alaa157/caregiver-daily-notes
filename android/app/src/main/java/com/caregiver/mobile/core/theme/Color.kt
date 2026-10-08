@@ -30,4 +30,14 @@ object CaregiverColors {
 
     val Warning = Color(0xFF7A4B00)
     val WarningContainer = Color(0xFFFBF0D9)
+
+    // Pills / avatar / lock bar — exact HTML values.
+    val PillGrayContainer = Color(0xFFE8EDF3)
+    val PillGrayContent = Color(0xFF34495E)
+    val PillLightBlueContainer = Color(0xFFE4EEF8)
+    val PillLightBlueContent = Color(0xFF1F4A86)
+    val AvatarContainer = Color(0xFFDCE9F5)
+    val AvatarContent = Color(0xFF24507E)
+    val LockBar = Color(0xFFEEF1F4)
+    val Skeleton = Color(0xFFE3E7EA)
 }

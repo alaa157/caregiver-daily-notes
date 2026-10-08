@@ -1,6 +1,7 @@
 package com.caregiver.mobile.presentation.settings
 
 import android.app.Activity
+import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
@@ -10,11 +11,10 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.shape.CircleShape
-import androidx.compose.material3.Button
+import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.FilterChip
 import androidx.compose.material3.FilterChipDefaults
 import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
@@ -33,10 +33,14 @@ import androidx.navigation.NavController
 import com.caregiver.mobile.AppGraph
 import com.caregiver.mobile.R
 import com.caregiver.mobile.core.theme.CaregiverColors
+import com.caregiver.mobile.core.theme.PlexArabic
 import com.caregiver.mobile.data.SettingsStore
 import com.caregiver.mobile.data.api.ApiClient
 import com.caregiver.mobile.data.api.BaseUrlCheck
 import com.caregiver.mobile.data.api.UrlProblem
+import com.caregiver.mobile.presentation.common.AppTopBar
+import com.caregiver.mobile.presentation.common.PrimaryButton
+import com.caregiver.mobile.presentation.common.SecondaryButton
 import kotlinx.coroutines.launch
 
 /**
@@ -50,19 +54,14 @@ fun SettingsScreen(graph: AppGraph, navController: NavController) {
     val activity = LocalContext.current as Activity
     val language by graph.settings.language.collectAsState(initial = SettingsStore.DEFAULT_LANGUAGE)
     Column(
-        modifier = Modifier.fillMaxSize().padding(24.dp),
-        verticalArrangement = Arrangement.spacedBy(16.dp),
+        modifier = Modifier.fillMaxSize().padding(horizontal = 16.dp),
+        verticalArrangement = Arrangement.spacedBy(14.dp),
     ) {
-        Text(
-            text = stringResource(R.string.settings_title),
-            style = MaterialTheme.typography.headlineSmall,
-        )
-        OutlinedButton(
+        AppTopBar(title = stringResource(R.string.settings_title))
+        SecondaryButton(
+            label = stringResource(R.string.settings_server),
             onClick = { navController.navigate("server-url") },
-            modifier = Modifier.fillMaxWidth().height(48.dp),
-        ) {
-            Text(stringResource(R.string.settings_server))
-        }
+        )
         Text(text = stringResource(R.string.settings_language))
         Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
             // Language names are intentionally literal, not string resources:
@@ -104,16 +103,15 @@ fun SettingsScreen(graph: AppGraph, navController: NavController) {
         }
         Text(
             text = stringResource(R.string.settings_language_restart),
+            fontFamily = PlexArabic,
             style = MaterialTheme.typography.bodySmall,
         )
-        Button(
+        PrimaryButton(
+            label = stringResource(R.string.settings_logout),
             onClick = {
                 scope.launch { graph.auth.signOut() }
             },
-            modifier = Modifier.fillMaxWidth().height(48.dp),
-        ) {
-            Text(stringResource(R.string.settings_logout))
-        }
+        )
     }
 }
 
@@ -133,12 +131,14 @@ fun ServerUrlScreen(graph: AppGraph, navController: NavController) {
     // line or the save/reset confirmation.
     var notice by rememberSaveable { mutableStateOf<Int?>(null) }
     var invalid by rememberSaveable { mutableStateOf(false) }
-    Column(Modifier.fillMaxSize().padding(24.dp)) {
-        Text(
-            text = stringResource(R.string.settings_server),
-            style = MaterialTheme.typography.headlineSmall,
+    Column(
+        Modifier.fillMaxSize().padding(horizontal = 16.dp),
+        verticalArrangement = Arrangement.spacedBy(14.dp),
+    ) {
+        AppTopBar(
+            title = stringResource(R.string.settings_server),
+            onBack = { navController.popBackStack() },
         )
-        Spacer(Modifier.height(16.dp))
         OutlinedTextField(
             value = field,
             onValueChange = { field = it; invalid = false; notice = null },
@@ -150,10 +150,11 @@ fun ServerUrlScreen(graph: AppGraph, navController: NavController) {
                 }
             },
             singleLine = true,
-            modifier = Modifier.fillMaxWidth(),
+            shape = RoundedCornerShape(12.dp),
+            modifier = Modifier.fillMaxWidth().height(52.dp),
         )
-        Spacer(Modifier.height(16.dp))
-        Button(
+        PrimaryButton(
+            label = stringResource(R.string.settings_server_save),
             onClick = {
                 when (val check = ApiClient.checkBaseUrl(field)) {
                     is BaseUrlCheck.Valid -> {
@@ -172,12 +173,9 @@ fun ServerUrlScreen(graph: AppGraph, navController: NavController) {
                     }
                 }
             },
-            modifier = Modifier.fillMaxWidth().height(48.dp),
-        ) {
-            Text(stringResource(R.string.settings_server_save))
-        }
-        Spacer(Modifier.height(8.dp))
-        OutlinedButton(
+        )
+        SecondaryButton(
+            label = stringResource(R.string.settings_server_reset),
             onClick = {
                 scope.launch {
                     graph.settings.resetBaseUrl()
@@ -186,10 +184,7 @@ fun ServerUrlScreen(graph: AppGraph, navController: NavController) {
                     notice = R.string.settings_server_reset_done
                 }
             },
-            modifier = Modifier.fillMaxWidth().height(48.dp),
-        ) {
-            Text(stringResource(R.string.settings_server_reset))
-        }
+        )
         notice?.let {
             Spacer(Modifier.height(8.dp))
             Text(text = stringResource(it))

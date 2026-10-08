@@ -1,24 +1,33 @@
 package com.caregiver.mobile
 
+import androidx.compose.foundation.BorderStroke
+import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Add
 import androidx.compose.material.icons.filled.History
 import androidx.compose.material.icons.filled.Home
 import androidx.compose.material.icons.filled.NoteAdd
 import androidx.compose.material.icons.filled.People
-import androidx.compose.material3.FloatingActionButton
+import androidx.compose.material3.ExtendedFloatingActionButton
 import androidx.compose.material3.Icon
 import androidx.compose.material3.NavigationBar
 import androidx.compose.material3.NavigationBarItem
 import androidx.compose.material3.NavigationBarItemDefaults
 import androidx.compose.material3.Scaffold
+import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.res.stringResource
+import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.unit.dp
+import androidx.compose.ui.unit.sp
 import androidx.navigation.NavType
 import androidx.navigation.compose.NavHost
 import androidx.navigation.compose.composable
@@ -58,8 +67,16 @@ fun MainScaffold(graph: AppGraph) {
     val currentRoute = backStack?.destination?.route
 
     Scaffold(
+        containerColor = CaregiverColors.Background,
         bottomBar = {
-            NavigationBar {
+            Surface(
+                color = Color.White,
+                border = BorderStroke(1.dp, CaregiverColors.BorderSoft),
+            ) {
+                NavigationBar(
+                    containerColor = Color.White,
+                    modifier = Modifier.height(72.dp),
+                ) {
                 MainTab.entries.forEach { tab ->
                     NavigationBarItem(
                         selected = currentRoute == tab.route,
@@ -79,27 +96,48 @@ fun MainScaffold(graph: AppGraph) {
                                     MainTab.History -> Icons.Filled.History
                                 },
                                 contentDescription = null,
+                                modifier = Modifier.size(22.dp),
                             )
                         },
                         // Explicit in-palette selection: teal icon/label on a
                         // neutral pill. Test tags keep the UI tests offline-safe.
+                        // HTML: item min-height 52dp, min-width 64dp, 12sp Bold,
+                        // active #0E6B66, inactive #5B6B70.
                         colors = NavigationBarItemDefaults.colors(
                             selectedIconColor = CaregiverColors.Primary,
                             selectedTextColor = CaregiverColors.Primary,
+                            unselectedIconColor = CaregiverColors.Muted,
+                            unselectedTextColor = CaregiverColors.Muted,
                             indicatorColor = CaregiverColors.BorderSoft,
                         ),
                         modifier = Modifier.testTag("tab_${tab.route}"),
                     )
                 }
+                }
             }
         },
         floatingActionButton = {
-            FloatingActionButton(onClick = { navController.navigate(MainTab.Notes.route) }) {
-                Icon(
-                    Icons.Filled.Add,
-                    contentDescription = stringResource(R.string.fab_add_note),
-                )
-            }
+            // HTML People/History FAB: pill 56dp, radius 28, teal, label + plus.
+            ExtendedFloatingActionButton(
+                onClick = { navController.navigate(MainTab.Notes.route) },
+                icon = {
+                    Icon(
+                        Icons.Filled.Add,
+                        contentDescription = null,
+                        modifier = Modifier.size(18.dp),
+                    )
+                },
+                text = {
+                    Text(
+                        stringResource(R.string.fab_add_note),
+                        fontWeight = FontWeight.Bold,
+                    )
+                },
+                containerColor = CaregiverColors.Primary,
+                contentColor = Color.White,
+                shape = RoundedCornerShape(28.dp),
+                modifier = Modifier.height(56.dp),
+            )
         },
     ) { innerPadding ->
         NavHost(

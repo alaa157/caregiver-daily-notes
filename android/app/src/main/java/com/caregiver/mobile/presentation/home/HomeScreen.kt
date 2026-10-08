@@ -11,32 +11,46 @@ import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
-import androidx.compose.material3.AssistChip
-import androidx.compose.material3.AssistChipDefaults
+import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.Add
+import androidx.compose.material.icons.filled.Check
+import androidx.compose.material.icons.filled.Settings
+import androidx.compose.material.icons.filled.Warning
 import androidx.compose.material3.Button
-import androidx.compose.material3.Card
-import androidx.compose.material3.CardDefaults
-import androidx.compose.material3.CircularProgressIndicator
+import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.LinearProgressIndicator
-import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
-import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.Settings
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.res.stringResource
+import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.unit.sp
 import androidx.navigation.NavController
 import com.caregiver.mobile.AppGraph
 import com.caregiver.mobile.R
 import com.caregiver.mobile.core.i18n.Bidi
 import com.caregiver.mobile.core.navigation.AppRoutes
 import com.caregiver.mobile.core.theme.CaregiverColors
+import com.caregiver.mobile.core.theme.PlexArabic
+import com.caregiver.mobile.presentation.common.AppCard
+import com.caregiver.mobile.presentation.common.AppEmptyState
+import com.caregiver.mobile.presentation.common.AppErrorState
+import com.caregiver.mobile.presentation.common.AppLoadingSkeleton
+import com.caregiver.mobile.presentation.common.Avatar
+import com.caregiver.mobile.presentation.common.BusyBar
+import com.caregiver.mobile.presentation.common.GreenPill
+import com.caregiver.mobile.presentation.common.GrayPill
+import com.caregiver.mobile.presentation.common.RedPill
+import com.caregiver.mobile.presentation.common.SafetyAlertCard
+import com.caregiver.mobile.presentation.common.YellowPill
 import com.caregiver.mobile.presentation.common.assistedViewModel
 import com.caregiver.mobile.presentation.notes.OptionGroup
 import com.caregiver.mobile.presentation.notes.OptionLabels
@@ -49,23 +63,31 @@ fun HomeScreen(graph: AppGraph, navController: NavController) {
         HomeViewModel(graph.auth, graph.settings)
     }
     val state by vm.state.collectAsState()
-    when (val s = state) {
-        HomeState.Loading, HomeState.Idle -> LoadingRow()
-        is HomeState.Error -> {
-            // Known flags survive failures: the banner stays above the retry.
-            val flags = s.lastContent?.flags.orEmpty()
-            Column(Modifier.fillMaxSize().padding(16.dp)) {
-                if (flags.isNotEmpty()) {
-                    SafetyBanner(flags)
+    Column(Modifier.fillMaxSize().padding(horizontal = 16.dp)) {
+        when (val s = state) {
+            HomeState.Loading, HomeState.Idle -> {
+                Spacer(Modifier.height(16.dp))
+                AppLoadingSkeleton()
+            }
+            is HomeState.Error -> {
+                Spacer(Modifier.height(16.dp))
+                val flags = s.lastContent?.flags.orEmpty()
+                Column(verticalArrangement = Arrangement.spacedBy(14.dp)) {
+                    if (flags.isNotEmpty()) {
+                        SafetyBanner(flags)
+                    }
+                    AppErrorState(
+                        message = stringResource(R.string.common_loading_failed),
+                        onRetry = vm::refresh,
+                    )
                 }
-                LoadFailed(onRetry = vm::refresh)
             }
-        }
-        is HomeState.Content -> {
-            if (s.refreshing) {
-                LinearProgressIndicator(modifier = Modifier.fillMaxWidth())
+            is HomeState.Content -> {
+                if (s.refreshing) {
+                    LinearProgressIndicator(modifier = Modifier.fillMaxWidth())
+                }
+                HomeContent(s.content, navController)
             }
-            HomeContent(s.content, navController)
         }
     }
 }
@@ -73,38 +95,117 @@ fun HomeScreen(graph: AppGraph, navController: NavController) {
 @Composable
 private fun HomeContent(content: HomeContent, navController: NavController) {
     LazyColumn(
-        modifier = Modifier.fillMaxSize().padding(16.dp),
-        verticalArrangement = Arrangement.spacedBy(12.dp),
+        modifier = Modifier.fillMaxSize(),
+        verticalArrangement = Arrangement.spacedBy(14.dp),
     ) {
         item {
-            Row(verticalAlignment = Alignment.CenterVertically) {
-                Text(
-                    text = greetingText(content.greeting),
-                    style = MaterialTheme.typography.headlineSmall,
-                    modifier = Modifier.weight(1f),
-                )
+            // Header: h1 22sp Bold + date 13sp muted, settings action.
+            Row(
+                verticalAlignment = Alignment.CenterVertically,
+                modifier = Modifier.padding(top = 16.dp),
+            ) {
+                Column(modifier = Modifier.weight(1f)) {
+                    Text(
+                        text = greetingText(content.greeting),
+                        fontFamily = PlexArabic,
+                        fontWeight = FontWeight.Bold,
+                        fontSize = 22.sp,
+                        lineHeight = 28.sp,
+                        color = CaregiverColors.Ink,
+                    )
+                    // Date line comes from the greeting content when available.
+                    Text(
+                        text = stringResource(
+                            R.string.home_today_progress,
+                            content.done,
+                            content.total,
+                        ),
+                        fontFamily = PlexArabic,
+                        fontSize = 13.sp,
+                        color = CaregiverColors.Muted,
+                    )
+                }
                 IconButton(onClick = { navController.navigate("settings") }) {
                     Icon(
                         Icons.Filled.Settings,
                         contentDescription = stringResource(R.string.settings_title),
+                        tint = CaregiverColors.Ink,
                     )
                 }
             }
-            Text(
-                text = stringResource(
-                    R.string.home_today_progress,
-                    content.done,
-                    content.total,
-                ),
-                style = MaterialTheme.typography.bodyLarge,
-            )
         }
         if (content.flags.isNotEmpty()) {
             item { SafetyBanner(content.flags) }
         }
-        items(content.cards, key = { it.recipientId }) { card ->
-            PersonCard(card) {
-                navController.navigate(AppRoutes.recipientDetail(card.recipientId))
+        item {
+            // Stats row: ملاحظات اليوم + تحتاج إلى الانتباه.
+            val attention = content.cards.count {
+                it.chips.contains(RecipientChip.HighPain) ||
+                    it.chips.contains(RecipientChip.FallFlag)
+            }
+            Row(horizontalArrangement = Arrangement.spacedBy(10.dp)) {
+                AppCard(
+                    modifier = Modifier.weight(1f),
+                    padding = 12.dp,
+                ) {
+                    Text(
+                        stringResource(R.string.home_notes_today),
+                        fontFamily = PlexArabic,
+                        fontSize = 13.sp,
+                        color = CaregiverColors.Muted,
+                    )
+                    Text(
+                        stringResource(R.string.home_today_progress, content.done, content.total),
+                        fontFamily = PlexArabic,
+                        fontWeight = FontWeight.Bold,
+                        fontSize = 18.sp,
+                        color = CaregiverColors.Ink,
+                    )
+                }
+                AppCard(
+                    modifier = Modifier.weight(1f),
+                    padding = 12.dp,
+                ) {
+                    Text(
+                        stringResource(R.string.home_needs_attention),
+                        fontFamily = PlexArabic,
+                        fontSize = 13.sp,
+                        color = CaregiverColors.Muted,
+                    )
+                    Text(
+                        "$attention",
+                        fontFamily = PlexArabic,
+                        fontWeight = FontWeight.Bold,
+                        fontSize = 18.sp,
+                        color = CaregiverColors.Ink,
+                    )
+                }
+            }
+        }
+        item {
+            Text(
+                stringResource(R.string.home_section_today),
+                fontFamily = PlexArabic,
+                fontWeight = FontWeight.Bold,
+                fontSize = 17.sp,
+                color = CaregiverColors.Ink,
+            )
+        }
+        if (content.cards.isEmpty()) {
+            item {
+                AppEmptyState(
+                    icon = "👤",
+                    title = stringResource(R.string.people_empty),
+                    subtitle = stringResource(R.string.home_section_today),
+                    actionLabel = stringResource(R.string.people_add),
+                    onAction = { navController.navigate("people") },
+                )
+            }
+        } else {
+            items(content.cards, key = { it.recipientId }) { card ->
+                PersonCard(card) {
+                    navController.navigate(AppRoutes.recipientDetail(card.recipientId))
+                }
             }
         }
     }
@@ -117,42 +218,71 @@ private fun HomeContent(content: HomeContent, navController: NavController) {
  */
 @Composable
 private fun SafetyBanner(flags: List<SafetyFlag>) {
-    Card(
-        colors = CardDefaults.cardColors(containerColor = CaregiverColors.DangerContainer),
-        modifier = Modifier.fillMaxWidth(),
-    ) {
-        Column(Modifier.padding(12.dp)) {
-            Text(
-                text = stringResource(R.string.home_safety_title),
-                style = MaterialTheme.typography.titleMedium,
-                color = CaregiverColors.Danger,
-            )
-            flags.forEach { flag ->
-                Text(
-                    text = stringResource(R.string.home_safety_fall, Bidi.isolate(flag.recipientName)),
-                    color = CaregiverColors.Danger,
-                )
-            }
-        }
-    }
+    val first = flags.firstOrNull()
+    SafetyAlertCard(
+        title = stringResource(R.string.home_safety_title),
+        body = if (first != null) {
+            stringResource(R.string.home_safety_fall, Bidi.isolate(first.recipientName))
+        } else {
+            ""
+        },
+    )
 }
 
 @Composable
 private fun PersonCard(card: HomeCard, onOpen: () -> Unit) {
     val arabic = Locale.getDefault().language == "ar"
-    Card(modifier = Modifier.fillMaxWidth().clickable(onClick = onOpen)) {
-        Column(Modifier.padding(12.dp)) {
-            Text(text = Bidi.isolate(card.name), style = MaterialTheme.typography.titleMedium)
-            card.lastNote?.let {
+    AppCard(modifier = Modifier.clickable(onClick = onOpen)) {
+        Row(
+            horizontalArrangement = Arrangement.spacedBy(12.dp),
+            verticalAlignment = Alignment.CenterVertically,
+        ) {
+            Avatar(Bidi.isolate(card.name).take(1))
+            Column(
+                modifier = Modifier.weight(1f),
+                verticalArrangement = Arrangement.spacedBy(4.dp),
+            ) {
                 Text(
-                    text = stringResource(R.string.person_last_note) + ": " +
-                        OptionLabels.label(OptionGroup.Appetite, it.appetite, arabic) + " · " +
-                        OptionLabels.label(OptionGroup.Sleep, it.sleep, arabic),
-                    style = MaterialTheme.typography.bodyMedium,
+                    text = Bidi.isolate(card.name),
+                    fontFamily = PlexArabic,
+                    fontWeight = FontWeight.Bold,
+                    fontSize = 16.sp,
+                    color = CaregiverColors.Ink,
                 )
+                card.lastNote?.let {
+                    Text(
+                        text = stringResource(R.string.person_last_note) + ": " +
+                            OptionLabels.label(OptionGroup.Appetite, it.appetite, arabic) + " · " +
+                            OptionLabels.label(OptionGroup.Sleep, it.sleep, arabic),
+                        fontFamily = PlexArabic,
+                        fontSize = 13.sp,
+                        color = CaregiverColors.Muted,
+                    )
+                }
+                Row(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
+                    card.chips.forEach { ChipView(it) }
+                }
             }
-            Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                card.chips.forEach { ChipView(it) }
+        }
+        // In-card primary action when today's note is missing (HTML board).
+        if (card.chips.contains(RecipientChip.MissedToday) ||
+            card.chips.contains(RecipientChip.NoNote)
+        ) {
+            Button(
+                onClick = onOpen,
+                shape = RoundedCornerShape(12.dp),
+                colors = ButtonDefaults.buttonColors(
+                    containerColor = CaregiverColors.Primary,
+                    contentColor = Color.White,
+                ),
+                modifier = Modifier.fillMaxWidth().height(48.dp),
+            ) {
+                Icon(Icons.Filled.Add, contentDescription = null)
+                Text(
+                    stringResource(R.string.detail_add_note),
+                    fontFamily = PlexArabic,
+                    fontWeight = FontWeight.Bold,
+                )
             }
         }
     }
@@ -167,18 +297,11 @@ private fun ChipView(chip: RecipientChip) {
         RecipientChip.FallFlag -> stringResource(R.string.chip_fall)
         RecipientChip.NoNote -> stringResource(R.string.chip_no_note)
     }
-    val colors = when (chip) {
-        RecipientChip.DoneToday -> AssistChipDefaults.assistChipColors(
-            containerColor = CaregiverColors.SuccessContainer,
-            labelColor = CaregiverColors.Success,
-        )
-        RecipientChip.HighPain, RecipientChip.FallFlag -> AssistChipDefaults.assistChipColors(
-            containerColor = CaregiverColors.DangerContainer,
-            labelColor = CaregiverColors.Danger,
-        )
-        RecipientChip.NoNote, RecipientChip.MissedToday -> AssistChipDefaults.assistChipColors()
+    when (chip) {
+        RecipientChip.DoneToday -> GreenPill(label)
+        RecipientChip.HighPain, RecipientChip.FallFlag -> RedPill(label)
+        RecipientChip.NoNote, RecipientChip.MissedToday -> GrayPill(label)
     }
-    AssistChip(onClick = {}, label = { Text(label) }, colors = colors)
 }
 
 @Composable
@@ -205,7 +328,7 @@ fun LoadingRow() {
         modifier = Modifier.fillMaxSize().padding(24.dp),
         horizontalAlignment = Alignment.CenterHorizontally,
     ) {
-        CircularProgressIndicator()
+        AppLoadingSkeleton()
     }
 }
 
@@ -215,8 +338,9 @@ fun LoadFailed(onRetry: () -> Unit) {
         modifier = Modifier.fillMaxSize().padding(24.dp),
         horizontalAlignment = Alignment.CenterHorizontally,
     ) {
-        Text(stringResource(R.string.common_loading_failed))
-        Spacer(Modifier.height(8.dp))
-        Button(onClick = onRetry) { Text(stringResource(R.string.common_retry)) }
+        AppErrorState(
+            message = stringResource(R.string.common_loading_failed),
+            onRetry = onRetry,
+        )
     }
 }
