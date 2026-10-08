@@ -13,7 +13,7 @@ import org.junit.Test
  * resolve it — this is what keeps `attachBaseContext` and `AppGraph` from
  * opening two DataStores on the same file.
  */
-class SettingsStoresTest {
+class SettingsStoreRegistryTest {
 
     private fun name() = "holder-${System.nanoTime()}"
 
@@ -22,13 +22,13 @@ class SettingsStoresTest {
         val dir = createTempDir()
         var productions = 0
         val key = name()
-        val first = SettingsStores.getOrCreate(key) {
+        val first = SettingsStoreRegistry.getOrCreate(key) {
             productions++
             File(dir, "s.preferences_pb")
         }
         // The file producer runs lazily on first store use, not on creation.
         first.language.first()
-        val second = SettingsStores.getOrCreate(key) {
+        val second = SettingsStoreRegistry.getOrCreate(key) {
             error("producer must run once")
         }
 
@@ -39,8 +39,8 @@ class SettingsStoresTest {
     @Test
     fun differentNamesReturnDifferentInstances() {
         val dir = createTempDir()
-        val first = SettingsStores.getOrCreate(name()) { File(dir, "a.preferences_pb") }
-        val second = SettingsStores.getOrCreate(name()) { File(dir, "b.preferences_pb") }
+        val first = SettingsStoreRegistry.getOrCreate(name()) { File(dir, "a.preferences_pb") }
+        val second = SettingsStoreRegistry.getOrCreate(name()) { File(dir, "b.preferences_pb") }
 
         assertNotSame(first, second)
     }
@@ -49,8 +49,8 @@ class SettingsStoresTest {
     fun writesThroughOneHandleReadThroughTheOther() = runTest {
         val dir = createTempDir()
         val key = name()
-        val first = SettingsStores.getOrCreate(key) { File(dir, "s.preferences_pb") }
-        val second = SettingsStores.getOrCreate(key) { File(dir, "s.preferences_pb") }
+        val first = SettingsStoreRegistry.getOrCreate(key) { File(dir, "s.preferences_pb") }
+        val second = SettingsStoreRegistry.getOrCreate(key) { File(dir, "s.preferences_pb") }
 
         first.setLanguage("en")
 

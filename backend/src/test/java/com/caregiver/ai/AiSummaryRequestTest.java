@@ -8,7 +8,7 @@ import java.util.List;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
-class SummaryRequestTest {
+class AiSummaryRequestTest {
 
   private static final LocalDate END = LocalDate.of(2026, 10, 30);
 
@@ -18,12 +18,12 @@ class SummaryRequestTest {
 
   @Test
   void periods7_14_30_accepted_othersRejected() {
-    assertThat(new SummaryRequest("r1", END, 7).periodDays()).isEqualTo(7);
-    assertThat(new SummaryRequest("r1", END, 14).periodDays()).isEqualTo(14);
-    assertThat(new SummaryRequest("r1", END, 30).periodDays()).isEqualTo(30);
-    assertThatThrownBy(() -> new SummaryRequest("r1", END, 10)).isInstanceOf(IllegalArgumentException.class);
-    assertThatThrownBy(() -> new SummaryRequest("r1", END, 0)).isInstanceOf(IllegalArgumentException.class);
-    assertThatThrownBy(() -> new SummaryRequest("  ", END, 7)).isInstanceOf(IllegalArgumentException.class);
+    assertThat(new AiSummaryRequest("r1", END, 7).periodDays()).isEqualTo(7);
+    assertThat(new AiSummaryRequest("r1", END, 14).periodDays()).isEqualTo(14);
+    assertThat(new AiSummaryRequest("r1", END, 30).periodDays()).isEqualTo(30);
+    assertThatThrownBy(() -> new AiSummaryRequest("r1", END, 10)).isInstanceOf(IllegalArgumentException.class);
+    assertThatThrownBy(() -> new AiSummaryRequest("r1", END, 0)).isInstanceOf(IllegalArgumentException.class);
+    assertThatThrownBy(() -> new AiSummaryRequest("  ", END, 7)).isInstanceOf(IllegalArgumentException.class);
   }
 
   @Test

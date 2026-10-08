@@ -12,7 +12,7 @@ import java.io.File
  * the calling context, so base-context and application-context callers share
  * the instance without touching `applicationContext` before attach.
  */
-object SettingsStores {
+object SettingsStoreRegistry {
     private val lock = Any()
     private val stores = mutableMapOf<String, SettingsStore>()
 
