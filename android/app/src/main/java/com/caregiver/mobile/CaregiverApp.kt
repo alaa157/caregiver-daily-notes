@@ -3,13 +3,30 @@ package com.caregiver.mobile
 import android.app.Application
 import android.content.Context
 import com.caregiver.mobile.core.network.TokenHolder
+import com.caregiver.mobile.core.util.LocaleHelper
 import com.caregiver.mobile.data.AuthRepository
 import com.caregiver.mobile.data.SettingsStore
 import com.caregiver.mobile.data.api.BackendApis
 import com.caregiver.mobile.data.api.RetrofitBackendApis
+import kotlinx.coroutines.flow.first
+import kotlinx.coroutines.runBlocking
 
 class CaregiverApp : Application() {
     val graph: AppGraph by lazy { AppGraph(this) }
+
+    override fun attachBaseContext(base: Context) {
+        // Apply the stored language before any resource loads. A small
+        // blocking prefs read at startup; the settings screen recreates
+        // the activity so this re-runs on language change.
+        val language = try {
+            runBlocking {
+                SettingsStore.create(base).language.first()
+            }
+        } catch (e: Exception) {
+            SettingsStore.DEFAULT_LANGUAGE
+        }
+        super.attachBaseContext(LocaleHelper.wrap(base, language))
+    }
 }
 
 /** Manual composition root: settings, token mirror, API provider, auth. */

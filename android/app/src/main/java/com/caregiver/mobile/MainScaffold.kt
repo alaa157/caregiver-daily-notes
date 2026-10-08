@@ -1,7 +1,5 @@
 package com.caregiver.mobile
 
-import androidx.compose.foundation.layout.Box
-import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.padding
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Add
@@ -14,11 +12,9 @@ import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
-import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.res.stringResource
-import androidx.navigation.NavGraphBuilder
 import androidx.navigation.NavType
 import androidx.navigation.compose.NavHost
 import androidx.navigation.compose.composable
@@ -35,17 +31,21 @@ import com.caregiver.mobile.presentation.notes.AddendumScreen
 import com.caregiver.mobile.presentation.notes.NoteDetailScreen
 import com.caregiver.mobile.presentation.notes.NoteEditorScreen
 import com.caregiver.mobile.presentation.notes.NoteSavedScreen
+import com.caregiver.mobile.presentation.plans.PlanEditScreen
+import com.caregiver.mobile.presentation.plans.PlanProposalScreen
+import com.caregiver.mobile.presentation.plans.PlanVersionsScreen
+import com.caregiver.mobile.presentation.plans.PlansScreen
 import com.caregiver.mobile.presentation.recipients.AddRecipientScreen
 import com.caregiver.mobile.presentation.recipients.RecipientDetailScreen
 import com.caregiver.mobile.presentation.recipients.RecipientsScreen
+import com.caregiver.mobile.presentation.settings.SettingsScreen
 import com.caregiver.mobile.presentation.summary.SummaryPeriodScreen
 import com.caregiver.mobile.presentation.summary.SummaryResultScreen
 import java.time.LocalDate
 
 /**
- * Tab shell: 4 tabs plus the add-note action. Home and People are live
- * (Task 4); every future destination is registered as a labeled placeholder
- * so detail actions can navigate today and feature tasks replace the body.
+ * Tab shell: 4 tabs plus the add-note action. All destinations are live;
+ * detail screens navigate with typed [AppRoutes] builders.
  */
 @Composable
 fun MainScaffold(graph: AppGraph) {
@@ -160,23 +160,31 @@ fun MainScaffold(graph: AppGraph) {
                     navController,
                 )
             }
-            // Task 7 replaces these bodies; routes stay identical.
-            future(AppDestinations.Plans.base)
-            future(AppDestinations.PlanProposal.base)
-            future(AppDestinations.PlanEdit.base)
-            future(AppDestinations.PlanVersions.base)
-            future(AppDestinations.Settings.base)
+            // Task 7 wired the plan and settings destinations; no placeholders remain.
+            composable(AppDestinations.Plans.base) {
+                PlansScreen(graph, navController)
+            }
+            composable(
+                AppDestinations.PlanProposal.base,
+                arguments = listOf(navArgument("planId") { type = NavType.StringType }),
+            ) { entry ->
+                PlanProposalScreen(AppRoutes.arg(entry, "planId"), graph, navController)
+            }
+            composable(
+                AppDestinations.PlanEdit.base,
+                arguments = listOf(navArgument("planId") { type = NavType.StringType }),
+            ) { entry ->
+                PlanEditScreen(AppRoutes.arg(entry, "planId"), graph, navController)
+            }
+            composable(
+                AppDestinations.PlanVersions.base,
+                arguments = listOf(navArgument("planId") { type = NavType.StringType }),
+            ) { entry ->
+                PlanVersionsScreen(AppRoutes.arg(entry, "planId"), graph, navController)
+            }
+            composable(AppDestinations.Settings.base) {
+                SettingsScreen(graph, navController)
+            }
         }
-    }
-}
-
-private fun NavGraphBuilder.future(route: String) {
-    composable(route) { Placeholder(route) }
-}
-
-@Composable
-private fun Placeholder(label: String) {
-    Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
-        Text(label)
     }
 }

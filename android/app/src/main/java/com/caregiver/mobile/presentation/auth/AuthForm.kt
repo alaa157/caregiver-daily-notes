@@ -41,6 +41,7 @@ fun AuthForm(
     onSubmit: () -> Unit,
     onSwitchMode: () -> Unit,
     modifier: Modifier = Modifier,
+    onServerSettings: (() -> Unit)? = null,
 ) {
     Column(
         modifier = modifier
@@ -141,6 +142,12 @@ fun AuthForm(
                     else R.string.auth_have_account,
                 ),
             )
+        }
+
+        if (onServerSettings != null) {
+            TextButton(onClick = onServerSettings) {
+                Text(stringResource(R.string.auth_server_link))
+            }
         }
     }
 }
