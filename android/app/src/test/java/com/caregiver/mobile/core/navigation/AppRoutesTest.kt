@@ -8,16 +8,17 @@ import org.junit.Assert.assertTrue
 import org.junit.Test
 
 /**
- * Navigation contract for Task 1: 4 tabs (home/people/notes/history) plus the
- * full destination set covering all 15 design boards and the missing pages.
- * Tab titles must resolve to real, distinct translations in both locales.
+ * Navigation contract per design/screens.md + components.md BottomNav:
+ * five tabs (home/people/history/saved/settings) in order, labels from the
+ * nav.* copy keys, plus the full destination set. Tab titles must resolve
+ * to real, distinct translations in both locales.
  */
 class AppRoutesTest {
 
     @Test
-    fun tabsAreHomePeopleNotesHistoryInOrder() {
+    fun tabsAreHomePeopleHistorySavedSettingsInOrder() {
         assertEquals(
-            listOf("home", "people", "notes", "history"),
+            listOf("home", "people", "history", "saved", "settings"),
             MainTab.entries.map { it.route },
         )
     }
@@ -26,8 +27,8 @@ class AppRoutesTest {
     fun tabTitlesHaveDistinctArabicAndEnglishStrings() {
         val en = readStrings("values")
         val ar = readStrings("values-ar")
-        (listOf("tab_home", "tab_people", "tab_notes", "tab_history") +
-            listOf("fab_add_note")).forEach { key ->
+        (listOf("nav_home", "nav_people", "nav_history", "nav_saved", "nav_settings") +
+            listOf("home_addNote")).forEach { key ->
             val english = en[key]
             val arabic = ar[key]
             assertTrue("missing English string: $key", !english.isNullOrBlank())
@@ -37,31 +38,31 @@ class AppRoutesTest {
     }
 
     @Test
-    fun allBoardAndMissingPageDestinationsRegistered() {
+    fun allSpecDestinationsRegistered() {
         val routes = AppDestinations.all.map { it.base }
         assertTrue(
             routes.containsAll(
                 listOf(
-                    // Auth (board 1 + missing register + server URL).
+                    // Auth + server URL.
                     "login", "register", "server-url",
-                    // Tabs (boards 2, 3, 9 + notes tab).
-                    "home", "people", "notes", "history",
-                    // Recipient + note flow (boards 4-8).
+                    // Tabs (spec BottomNav).
+                    "home", "people", "history", "saved",
+                    // Recipient + note flow.
                     "recipient/{recipientId}",
                     "add-recipient",
                     "note-editor/{recipientId}",
                     "note-saved/{noteId}",
                     "note/{noteId}",
                     "addendum/{noteId}",
-                    // Summary (boards 10-11).
+                    // Summary.
                     "summary/{recipientId}",
                     "summary-result/{recipientId}/{periodDays}",
-                    // Plans (boards 12-14 + missing plans list).
+                    // Plans.
                     "plans",
                     "plan-proposal/{planId}",
                     "plan-edit/{planId}",
                     "plan-versions/{planId}",
-                    // Missing settings page.
+                    // Settings tab.
                     "settings",
                 ),
             ),
@@ -71,6 +72,8 @@ class AppRoutesTest {
     @Test
     fun routeBuildersProduceConcreteRoutes() {
         assertEquals("home", AppRoutes.tab(MainTab.Home))
+        assertEquals("saved", AppRoutes.tab(MainTab.Saved))
+        assertEquals("settings", AppRoutes.tab(MainTab.Settings))
         assertEquals("recipient/abc", AppRoutes.recipientDetail("abc"))
         assertEquals("note-editor/abc", AppRoutes.noteEditor("abc"))
         assertEquals("note/n1", AppRoutes.noteDetail("n1"))

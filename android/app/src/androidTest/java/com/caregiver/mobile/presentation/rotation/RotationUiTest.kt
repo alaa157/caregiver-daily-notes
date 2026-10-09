@@ -79,14 +79,12 @@ class RotationUiTest {
 
     @Test
     fun fallBannerPresentBeforeAndAfterRecreation() {
-        compose.onNodeWithText("Fall alert").assertIsDisplayed()
-        compose.onNodeWithText("Reported fall — " + Bidi.isolate("Ferial")).assertIsDisplayed()
+        compose.onAllNodesWithText("A fall was recorded. Consider contacting a doctor.").assertCountEquals(2)
 
         generation.value = 1
         compose.waitForIdle()
 
-        compose.onNodeWithText("Fall alert").assertIsDisplayed()
-        compose.onNodeWithText("Reported fall — " + Bidi.isolate("Ferial")).assertIsDisplayed()
+        compose.onAllNodesWithText("A fall was recorded. Consider contacting a doctor.").assertCountEquals(2)
         // No dismiss control exists anywhere in the banner tree.
         compose.onAllNodesWithText("Close").assertCountEquals(0)
         compose.onAllNodesWithText("Dismiss").assertCountEquals(0)

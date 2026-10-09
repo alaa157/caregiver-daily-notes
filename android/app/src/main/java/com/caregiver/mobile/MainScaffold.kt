@@ -7,10 +7,11 @@ import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Add
+import androidx.compose.material.icons.filled.Favorite
 import androidx.compose.material.icons.filled.History
 import androidx.compose.material.icons.filled.Home
-import androidx.compose.material.icons.filled.NoteAdd
 import androidx.compose.material.icons.filled.People
+import androidx.compose.material.icons.filled.Settings
 import androidx.compose.material3.ExtendedFloatingActionButton
 import androidx.compose.material3.Icon
 import androidx.compose.material3.NavigationBar
@@ -56,11 +57,11 @@ import com.caregiver.mobile.presentation.recipients.RecipientsScreen
 import com.caregiver.mobile.presentation.settings.SettingsScreen
 import com.caregiver.mobile.presentation.summary.SummaryPeriodScreen
 import com.caregiver.mobile.presentation.summary.SummaryResultScreen
-import java.time.LocalDate
 
 /**
- * Tab shell: 4 tabs plus the add-note action. All destinations are live;
- * detail screens navigate with typed [AppRoutes] builders.
+ * Tab shell: five spec tabs (Home, Care recipients, History, Saved,
+ * Settings) plus the add-note action. Labels always visible; 72dp bar
+ * from the theme. Detail screens navigate with typed [AppRoutes] builders.
  */
 @Composable
 fun MainScaffold(graph: AppGraph) {
@@ -88,14 +89,17 @@ fun MainScaffold(graph: AppGraph) {
                                 launchSingleTop = true
                             }
                         },
+                        // Spec BottomNav: labels always visible.
+                        alwaysShowLabel = true,
                         label = { Text(stringResource(tab.titleRes)) },
                         icon = {
                             Icon(
                                 imageVector = when (tab) {
                                     MainTab.Home -> Icons.Filled.Home
                                     MainTab.People -> Icons.Filled.People
-                                    MainTab.Notes -> Icons.Filled.NoteAdd
                                     MainTab.History -> Icons.Filled.History
+                                    MainTab.Saved -> Icons.Filled.Favorite
+                                    MainTab.Settings -> Icons.Filled.Settings
                                 },
                                 contentDescription = null,
                                 modifier = Modifier.size(22.dp),
@@ -119,9 +123,11 @@ fun MainScaffold(graph: AppGraph) {
             }
         },
         floatingActionButton = {
-            // HTML People/History FAB: pill 56dp, radius 28, teal, label + plus.
+            // Interim target: the Care recipients list, where the add-note
+            // flow starts via recipient detail. Step 5 moves the add-note
+            // action into the Home primary button and recipients FAB.
             ExtendedFloatingActionButton(
-                onClick = { navController.navigate(MainTab.Notes.route) },
+                onClick = { navController.navigate(MainTab.People.route) },
                 icon = {
                     Icon(
                         Icons.Filled.Add,
@@ -131,7 +137,7 @@ fun MainScaffold(graph: AppGraph) {
                 },
                 text = {
                     Text(
-                        stringResource(R.string.fab_add_note),
+                        stringResource(R.string.home_addNote),
                         fontWeight = FontWeight.Bold,
                     )
                 },
@@ -149,18 +155,19 @@ fun MainScaffold(graph: AppGraph) {
         ) {
             composable(MainTab.Home.route) { HomeScreen(graph, navController) }
             composable(MainTab.People.route) { RecipientsScreen(graph, navController) }
-            composable(MainTab.Notes.route) {
-                val today = LocalDate.now()
+            composable(MainTab.History.route) { HistoryScreen(graph, navController) }
+            // Interim Saved: timeline of recorded notes until Step 5 builds
+            // the spec Saved screen. Saved notes stay immutable.
+            composable(MainTab.Saved.route) {
                 HistoryScreen(
                     graph = graph,
                     navController = navController,
-                    initialFrom = today,
-                    initialTo = today,
-                    showFilters = false,
-                    title = stringResource(R.string.notes_today),
+                    title = stringResource(R.string.nav_saved),
                 )
             }
-            composable(MainTab.History.route) { HistoryScreen(graph, navController) }
+            composable(MainTab.Settings.route) {
+                SettingsScreen(graph, navController)
+            }
             composable(
                 AppDestinations.RecipientDetail.base,
                 arguments = listOf(navArgument("recipientId") { type = NavType.StringType }),
@@ -235,9 +242,6 @@ fun MainScaffold(graph: AppGraph) {
                 arguments = listOf(navArgument("planId") { type = NavType.StringType }),
             ) { entry ->
                 PlanVersionsScreen(AppRoutes.arg(entry, "planId"), graph, navController)
-            }
-            composable(AppDestinations.Settings.base) {
-                SettingsScreen(graph, navController)
             }
         }
     }

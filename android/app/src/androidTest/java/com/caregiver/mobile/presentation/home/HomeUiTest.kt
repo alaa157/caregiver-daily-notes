@@ -86,12 +86,11 @@ class HomeUiTest {
             }
         }
 
-        compose.onNodeWithText("1 / 1 مكتملة").assertIsDisplayed()
-        compose.onNodeWithText("تم اليوم").assertIsDisplayed()
-        compose.onNodeWithText("آخر ملاحظة: جيدة · متقطع").assertIsDisplayed()
+        compose.onAllNodesWithText("عرض الملخص").assertCountEquals(2)
+        compose.onNodeWithText("تم حفظ الملاحظة").assertIsDisplayed()
+        compose.onNodeWithText("تم حفظ الملاحظة: جيدة · متقطع").assertIsDisplayed()
         compose.onNodeWithText(Bidi.isolate("ليلى Layla")).assertIsDisplayed()
-        compose.onNodeWithText("تنبيه سقوط").assertIsDisplayed()
-        compose.onNodeWithText("سقوط مبلغ عنه — " + Bidi.isolate("ليلى Layla")).assertIsDisplayed()
+        compose.onAllNodesWithText("تم تسجيل حالة سقوط. يُنصح بالتواصل مع الطبيب.").assertCountEquals(2)
         compose.onAllNodesWithText("good").assertCountEquals(0)
         compose.onAllNodesWithText("broken").assertCountEquals(0)
     }

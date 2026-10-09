@@ -116,13 +116,13 @@ class RecipientsFlowUiTest {
         setNav()
 
         compose.onNodeWithText("Aisha").assertIsDisplayed()
-        compose.onNodeWithText("Add person").performClick()
+        compose.onNodeWithText("Add care recipient").performClick()
         compose.onNodeWithTag("add_person_name").performTextInput("Karim")
         compose.onNodeWithTag("add_person_save").performClick()
 
         compose.onNodeWithText("Karim").assertIsDisplayed()
         compose.onNodeWithText("Aisha").assertIsDisplayed()
-        compose.onAllNodesWithText("Add a person in care").assertCountEquals(0)
+        compose.onAllNodesWithText("Add care recipient").assertCountEquals(0)
     }
 
     @Test
@@ -137,22 +137,22 @@ class RecipientsFlowUiTest {
         compose.onNodeWithText("Aisha").performClick()
 
         compose.onNodeWithText("Aisha").assertIsDisplayed()
-        compose.onNodeWithText("Add note").performClick()
+        compose.onNodeWithText("Add today’s note").performClick()
         assertEquals("note-editor/r1", nav.currentDestination?.route)
-        compose.onNodeWithText("Today's note").assertIsDisplayed()
+        compose.onNodeWithText("Daily note").assertIsDisplayed()
         compose.runOnUiThread { nav.popBackStack() }
 
-        compose.onNodeWithText("View history").performClick()
+        compose.onNodeWithText("History").performClick()
         assertEquals("history", nav.currentDestination?.route)
-        compose.onNodeWithText("No notes").assertIsDisplayed()
+        compose.onNodeWithText("No care recipients yet. Add one to start recording notes.").assertIsDisplayed()
         compose.runOnUiThread { nav.popBackStack() }
 
-        compose.onNodeWithText("Care plan").performClick()
+        compose.onNodeWithText("Edit, then accept").performClick()
         assertEquals("plans", nav.currentDestination?.route)
         compose.runOnUiThread { nav.popBackStack() }
 
-        compose.onNodeWithText("Smart summary").performClick()
+        compose.onNodeWithText("View summary").performClick()
         assertEquals("summary/{recipientId}", nav.currentDestination?.route)
-        compose.onNodeWithText("Smart summary").assertIsDisplayed()
+        compose.onNodeWithText("View summary").assertIsDisplayed()
     }
 }

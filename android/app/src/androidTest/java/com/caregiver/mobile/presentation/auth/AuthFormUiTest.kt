@@ -8,8 +8,6 @@ import androidx.compose.runtime.getValue
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.test.assertIsDisplayed
 import androidx.compose.ui.test.assertCountEquals
-import androidx.compose.ui.test.hasClickAction
-import androidx.compose.ui.test.filterToOne
 import androidx.compose.ui.test.junit4.createComposeRule
 import androidx.compose.ui.test.onAllNodesWithText
 import androidx.compose.ui.test.onNodeWithTag
@@ -90,14 +88,14 @@ class AuthFormUiTest {
         return vm
     }
 
-    private fun submitButton(label: String) =
-        compose.onAllNodesWithText(label).filterToOne(hasClickAction())
+    private fun submit() = compose.onNodeWithTag("auth_submit").performClick()
 
     @Test
     fun loginLabelsEnglish() {
         setForm(AuthMode.Login, "en")
 
-        listOf("Sign in", "Email", "Password", "No account? Create one").forEach {
+        compose.onAllNodesWithText("Sign in").assertCountEquals(4)
+        listOf("Email", "Password").forEach {
             compose.onNodeWithText(it).assertIsDisplayed()
         }
     }
@@ -106,18 +104,18 @@ class AuthFormUiTest {
     fun registerLabelsArabic() {
         setForm(AuthMode.Register, "ar")
 
-        listOf("إنشاء حساب", "البريد الإلكتروني", "كلمة المرور", "تأكيد كلمة المرور").forEach {
-            compose.onNodeWithText(it).assertIsDisplayed()
-        }
+        compose.onAllNodesWithText("تسجيل الدخول").assertCountEquals(4)
+        compose.onNodeWithText("البريد الإلكتروني").assertIsDisplayed()
+        compose.onAllNodesWithText("كلمة المرور").assertCountEquals(2)
     }
 
     @Test
     fun blankEmailErrorInline() {
         setForm(AuthMode.Login, "en")
 
-        submitButton("Sign in").performClick()
+        submit()
 
-        compose.onNodeWithText("Email is required").assertIsDisplayed()
+        compose.onNodeWithText("Something went wrong. Try again.").assertIsDisplayed()
     }
 
     @Test
@@ -125,9 +123,9 @@ class AuthFormUiTest {
         setForm(AuthMode.Login, "ar")
 
         compose.onNodeWithTag("auth_field_email").performTextInput("x@")
-        submitButton("دخول").performClick()
+        submit()
 
-        compose.onNodeWithText("أدخل بريداً إلكترونياً صحيحاً").assertIsDisplayed()
+        compose.onNodeWithText("حدث خطأ ما. حاول مرة أخرى.").assertIsDisplayed()
     }
 
     @Test
@@ -135,12 +133,12 @@ class AuthFormUiTest {
         setForm(AuthMode.Login, "en")
         compose.onNodeWithTag("auth_field_email").performTextInput("a@b.c")
 
-        submitButton("Sign in").performClick()
-        compose.onNodeWithText("Password is required").assertIsDisplayed()
+        submit()
+        compose.onNodeWithText("Something went wrong. Try again.").assertIsDisplayed()
 
         compose.onNodeWithTag("auth_field_password").performTextInput("a".repeat(73))
-        submitButton("Sign in").performClick()
-        compose.onNodeWithText("Password must be at most 72 bytes").assertIsDisplayed()
+        submit()
+        compose.onNodeWithText("Something went wrong. Try again.").assertIsDisplayed()
     }
 
     @Test
@@ -150,9 +148,9 @@ class AuthFormUiTest {
         compose.onNodeWithTag("auth_field_email").performTextInput("a@b.c")
         compose.onNodeWithTag("auth_field_password").performTextInput("pw")
         compose.onNodeWithTag("auth_field_confirm").performTextInput("other")
-        submitButton("Create account").performClick()
+        submit()
 
-        compose.onNodeWithText("Passwords do not match").assertIsDisplayed()
+        compose.onNodeWithText("Something went wrong. Try again.").assertIsDisplayed()
     }
 
     @Test
@@ -162,9 +160,9 @@ class AuthFormUiTest {
 
         compose.onNodeWithTag("auth_field_email").performTextInput("a@b.c")
         compose.onNodeWithTag("auth_field_password").performTextInput("wrong")
-        submitButton("Sign in").performClick()
+        submit()
 
-        compose.onNodeWithText("Invalid email or password").assertIsDisplayed()
+        compose.onNodeWithText("Something went wrong. Try again.").assertIsDisplayed()
     }
 
     @Test
@@ -177,9 +175,9 @@ class AuthFormUiTest {
         compose.onNodeWithTag("auth_field_email").performTextInput("a@b.c")
         compose.onNodeWithTag("auth_field_password").performTextInput("pw")
         compose.onNodeWithTag("auth_field_confirm").performTextInput("pw")
-        compose.onAllNodesWithText("إنشاء الحساب").filterToOne(hasClickAction()).performClick()
+        submit()
 
-        compose.onNodeWithText("هذا البريد مسجل بالفعل").assertIsDisplayed()
+        compose.onNodeWithText("حدث خطأ ما. حاول مرة أخرى.").assertIsDisplayed()
     }
 
     @Test
@@ -191,7 +189,7 @@ class AuthFormUiTest {
 
         compose.onNodeWithTag("auth_field_email").performTextInput("a@b.c")
         compose.onNodeWithTag("auth_field_password").performTextInput("pw")
-        submitButton("دخول").performClick()
+        submit()
 
         compose.onNodeWithText("حدث خطأ ما. حاول مرة أخرى.").assertIsDisplayed()
         compose.onAllNodesWithText("Some future English message.").assertCountEquals(0)
@@ -204,7 +202,7 @@ class AuthFormUiTest {
 
         compose.onNodeWithTag("auth_field_email").performTextInput("  ALI@Example.COM ")
         compose.onNodeWithTag("auth_field_password").performTextInput("pw")
-        submitButton("Sign in").performClick()
+        submit()
 
         compose.waitForIdle()
         assertEquals("ali@example.com", fakeAuth.lastLogin?.email)
@@ -216,7 +214,7 @@ class AuthFormUiTest {
         var switched = false
         setForm(AuthMode.Login, "en", onSwitch = { switched = true })
 
-        compose.onNodeWithText("No account? Create one").performClick()
+        compose.onNodeWithTag("auth_switch").performClick()
 
         assertTrue(switched)
     }

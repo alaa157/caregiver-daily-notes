@@ -22,7 +22,7 @@ import org.junit.runner.RunWith
 import com.caregiver.mobile.test.WithTestOwner
 
 /**
- * Task 1 scaffold coverage on a real renderer: the four tab labels in both
+ * Spec scaffold coverage on a real renderer: the five tab labels in both
  * locales, tab selection, and the localized add-note action. These are
  * instrumentation tests — they need a device or emulator and never run
  * under `testDebugUnitTest`.
@@ -55,20 +55,20 @@ class ScaffoldUiTest {
     fun englishTabLabelsRendered() {
         setScaffold("en")
 
-        listOf("Home", "People", "Notes", "History").forEach { label ->
+        listOf("Home", "Care recipients", "History", "Saved", "Settings").forEach { label ->
             compose.onNodeWithText(label).assertIsDisplayed()
         }
-        compose.onNodeWithContentDescription("Add note").assertIsDisplayed()
+        compose.onNodeWithText("Add today’s note").assertIsDisplayed()
     }
 
     @Test
     fun arabicTabLabelsRendered() {
         setScaffold("ar")
 
-        listOf("الرئيسية", "الأشخاص", "الملاحظات", "السجل").forEach { label ->
+        listOf("الرئيسية", "المرضى", "السجل", "المحفوظات", "الإعدادات").forEach { label ->
             compose.onNodeWithText(label).assertIsDisplayed()
         }
-        compose.onNodeWithContentDescription("إضافة ملاحظة").assertIsDisplayed()
+        compose.onNodeWithText("أضف ملاحظة اليوم").assertIsDisplayed()
     }
 
     @Test
@@ -82,11 +82,11 @@ class ScaffoldUiTest {
     }
 
     @Test
-    fun fabNavigatesToNotesTab() {
+    fun fabNavigatesToPeople() {
         setScaffold("en")
 
-        compose.onNodeWithContentDescription("Add note").performClick()
-        compose.onNodeWithTag("tab_notes").assertIsSelected()
+        compose.onNodeWithText("Add today’s note").performClick()
+        compose.onNodeWithTag("tab_people").assertIsSelected()
     }
 
     private fun Context.withLocale(language: String): Context {

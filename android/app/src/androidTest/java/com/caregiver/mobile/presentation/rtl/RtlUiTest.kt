@@ -7,8 +7,10 @@ import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalLayoutDirection
+import androidx.compose.ui.test.assertCountEquals
 import androidx.compose.ui.test.assertIsDisplayed
 import androidx.compose.ui.test.junit4.createComposeRule
+import androidx.compose.ui.test.onAllNodesWithText
 import androidx.compose.ui.test.onNodeWithText
 import androidx.compose.ui.unit.LayoutDirection
 import androidx.navigation.compose.rememberNavController
@@ -96,9 +98,8 @@ class RtlUiTest {
         renderAuth(AuthMode.Login, "ar") { switched = true }
 
         assertEquals(LayoutDirection.Rtl, capturedDirection)
-        compose.onNodeWithText("تسجيل الدخول").assertIsDisplayed()
+        compose.onAllNodesWithText("تسجيل الدخول").assertCountEquals(4)
         compose.onNodeWithText("البريد الإلكتروني").assertIsDisplayed()
-        compose.onNodeWithText("دخول").assertIsDisplayed()
     }
 
     @Test
@@ -106,7 +107,7 @@ class RtlUiTest {
         renderAuth(AuthMode.Login, "en") {}
 
         assertEquals(LayoutDirection.Ltr, capturedDirection)
-        compose.onNodeWithText("Sign in").assertIsDisplayed()
+        compose.onAllNodesWithText("Sign in").assertCountEquals(4)
         compose.onNodeWithText("Email").assertIsDisplayed()
     }
 
@@ -117,8 +118,8 @@ class RtlUiTest {
 
         assertEquals(LayoutDirection.Rtl, capturedDirection)
         compose.onNodeWithText(Bidi.isolate("Omar عمر")).assertIsDisplayed()
-        compose.onNodeWithText("0 / 1 مكتملة").assertIsDisplayed()
-        compose.onNodeWithText("لا ملاحظات بعد").assertIsDisplayed()
+        compose.onAllNodesWithText("عرض الملخص").assertCountEquals(2)
+        compose.onNodeWithText("لا يوجد أشخاص مسجلون لتلقي الرعاية بعد. أضف شخصًا لبدء تسجيل الملاحظات.").assertIsDisplayed()
     }
 
     @Test
@@ -128,8 +129,8 @@ class RtlUiTest {
 
         assertEquals(LayoutDirection.Ltr, capturedDirection)
         compose.onNodeWithText(Bidi.isolate("Omar عمر")).assertIsDisplayed()
-        compose.onNodeWithText("0 / 1 done").assertIsDisplayed()
-        compose.onNodeWithText("No notes yet").assertIsDisplayed()
+        compose.onAllNodesWithText("View summary").assertCountEquals(2)
+        compose.onNodeWithText("No care recipients yet. Add one to start recording notes.").assertIsDisplayed()
     }
 
     @Test
@@ -138,7 +139,7 @@ class RtlUiTest {
         render("ar") { RecipientsScreen(graph, rememberNavController()) }
 
         assertEquals(LayoutDirection.Rtl, capturedDirection)
-        compose.onNodeWithText("إضافة شخص").assertIsDisplayed()
+        compose.onNodeWithText("إضافة شخص لتلقي الرعاية").assertIsDisplayed()
         compose.onNodeWithText("Omar عمر").assertIsDisplayed()
     }
 
@@ -147,7 +148,7 @@ class RtlUiTest {
         render("ar") { NoteEditorScreen("r1", graph, rememberNavController()) }
 
         assertEquals(LayoutDirection.Rtl, capturedDirection)
-        compose.onNodeWithText("ملاحظة اليوم").assertIsDisplayed()
+        compose.onNodeWithText("الملاحظة اليومية").assertIsDisplayed()
         compose.onNodeWithText("الحالة المزاجية").assertIsDisplayed()
         compose.onNodeWithText("حفظ الملاحظة").assertIsDisplayed()
     }
@@ -157,7 +158,7 @@ class RtlUiTest {
         render("ar") { SummaryPeriodScreen("r1", graph, rememberNavController()) }
 
         assertEquals(LayoutDirection.Rtl, capturedDirection)
-        compose.onNodeWithText("ملخص ذكي").assertIsDisplayed()
+        compose.onNodeWithText("عرض الملخص").assertIsDisplayed()
         compose.onNodeWithText("إنشاء الملخص").assertIsDisplayed()
     }
 
@@ -167,8 +168,8 @@ class RtlUiTest {
         render("ar") { PlansScreen(graph, rememberNavController()) }
 
         assertEquals(LayoutDirection.Rtl, capturedDirection)
-        compose.onNodeWithText("الخطط").assertIsDisplayed()
-        compose.onNodeWithText("لا توجد خطة رعاية نشطة حالياً").assertIsDisplayed()
+        compose.onNodeWithText("اقتراحات للرعاية مبنية على ملاحظاتك. ليست نصيحة طبية.").assertIsDisplayed()
+        compose.onNodeWithText("لا يوجد أشخاص مسجلون لتلقي الرعاية بعد. أضف شخصًا لبدء تسجيل الملاحظات.").assertIsDisplayed()
     }
 
     @Test
@@ -177,7 +178,7 @@ class RtlUiTest {
         render("en") { PlansScreen(graph, rememberNavController()) }
 
         assertEquals(LayoutDirection.Ltr, capturedDirection)
-        compose.onNodeWithText("Plans").assertIsDisplayed()
+        compose.onNodeWithText("Care-support suggestions generated from your notes. Not medical advice.").assertIsDisplayed()
     }
 
     private fun renderAuth(mode: AuthMode, language: String, onSwitch: () -> Unit) {

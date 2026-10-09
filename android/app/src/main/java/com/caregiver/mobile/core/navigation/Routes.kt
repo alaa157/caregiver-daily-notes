@@ -4,15 +4,17 @@ import androidx.annotation.StringRes
 import com.caregiver.mobile.R
 
 /**
- * Bottom tabs, in design order: الرئيسية، الأشخاص، الملاحظات، السجل.
- * Plans deliberately have no tab: they live under recipient detail and the
- * summary follow-up, exactly like the design boards.
+ * Bottom tabs in spec order (screens.md + components.md BottomNav):
+ * Home, Care recipients, History, Saved, Settings. Labels come from the
+ * nav.* copy keys. The Notes tab is removed; adding a note is the Home
+ * primary button and the Care recipients FAB (Step 5 wires those).
  */
 enum class MainTab(val route: String, @StringRes val titleRes: Int) {
-    Home("home", R.string.tab_home),
-    People("people", R.string.tab_people),
-    Notes("notes", R.string.tab_notes),
-    History("history", R.string.tab_history),
+    Home("home", R.string.nav_home),
+    People("people", R.string.nav_people),
+    History("history", R.string.nav_history),
+    Saved("saved", R.string.nav_saved),
+    Settings("settings", R.string.nav_settings),
 }
 
 /** Every destination the app can navigate to. Feature tasks fill in screens. */
@@ -25,8 +27,8 @@ object AppDestinations {
 
     val Home = Destination("home")
     val People = Destination("people")
-    val Notes = Destination("notes")
     val History = Destination("history")
+    val Saved = Destination("saved")
 
     val RecipientDetail = Destination("recipient/{recipientId}")
     val AddRecipient = Destination("add-recipient")
@@ -47,7 +49,7 @@ object AppDestinations {
 
     val all: List<Destination> = listOf(
         Login, Register, ServerUrl,
-        Home, People, Notes, History,
+        Home, People, History, Saved,
         RecipientDetail, AddRecipient, NoteEditor, NoteSaved, NoteDetail, Addendum,
         Summary, SummaryResult,
         Plans, PlanProposal, PlanEdit, PlanVersions,
