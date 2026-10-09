@@ -5,51 +5,49 @@ import org.junit.Assert.assertEquals
 import org.junit.Test
 
 /**
- * Design truth: /workspaces/android_rtl.html palette.
- * Primary teal #0E6B66, ink #1F2A2E, background #F7F6F3.
+ * Design truth: design/tokens.json `color` + `typography`.
+ * Primary sage #4A6850, background cream #F5EEDF, surface #FBF8F1.
  */
 class ThemeTest {
 
     @Test
-    fun primaryMatchesDesignTeal() {
-        assertEquals(Color(0xFF0E6B66), CaregiverColors.Primary)
+    fun primaryMatchesTokenSage() {
+        assertEquals(Color(0xFF4A6850), CaregiverColors.Primary)
+        assertEquals(Color(0xFF3B5441), CaregiverColors.PrimaryPressed)
+        assertEquals(Color(0xFFDCE5D6), CaregiverColors.PrimarySoft)
+        assertEquals(Color(0xFFB8923F), CaregiverColors.AccentGold)
     }
 
     @Test
-    fun textAndBackgroundMatchDesign() {
-        assertEquals(Color(0xFF1F2A2E), CaregiverColors.Ink)
-        assertEquals(Color(0xFF5B6B70), CaregiverColors.Muted)
-        assertEquals(Color(0xFFF7F6F3), CaregiverColors.Background)
-        assertEquals(Color(0xFFFAF9F5), CaregiverColors.Surface)
-        assertEquals(Color(0xFFC5CDD1), CaregiverColors.Border)
-        assertEquals(Color(0xFFE3E7EA), CaregiverColors.BorderSoft)
+    fun textAndBackgroundMatchTokens() {
+        assertEquals(Color(0xFFF5EEDF), CaregiverColors.Background)
+        assertEquals(Color(0xFFFBF8F1), CaregiverColors.Surface)
+        assertEquals(Color(0xFFDDD5C2), CaregiverColors.Border)
+        assertEquals(Color(0xFF22302A), CaregiverColors.TextPrimary)
+        assertEquals(Color(0xFF5E6B62), CaregiverColors.TextSecondary)
     }
 
     @Test
-    fun statusColorsMatchDesign() {        assertEquals(Color(0xFF8B2B25), CaregiverColors.Danger)
-        assertEquals(Color(0xFFF7E3E1), CaregiverColors.DangerContainer)
-        assertEquals(Color(0xFF1F5C38), CaregiverColors.Success)
-        assertEquals(Color(0xFFE3F1E8), CaregiverColors.SuccessContainer)
-        assertEquals(Color(0xFF24507E), CaregiverColors.Info)
-        assertEquals(Color(0xFFE8F0F9), CaregiverColors.InfoContainer)
-        assertEquals(Color(0xFF7A4B00), CaregiverColors.Warning)
-        assertEquals(Color(0xFFFBF0D9), CaregiverColors.WarningContainer)
+    fun statusColorsMatchTokens() {
+        assertEquals(Color(0xFF3F7A4F), CaregiverColors.Success)
+        assertEquals(Color(0xFF9A6B1F), CaregiverColors.Warning)
+        assertEquals(Color(0xFFA3413A), CaregiverColors.Danger)
+        assertEquals(Color(0xFF2F6B7A), CaregiverColors.Info)
     }
 
     @Test
     fun scaffoldVisibleRolesUsePaletteNotDefaults() {
-        // FAB: solid teal with white content.
+        // FAB: solid sage with surface content.
         assertEquals(CaregiverColors.Primary, AppLightScheme.primaryContainer)
-        assertEquals(Color.White, AppLightScheme.onPrimaryContainer)
-        // Selected tab pill: neutral surface with ink content; teal accent
-        // is applied at the call site.
-        assertEquals(CaregiverColors.BorderSoft, AppLightScheme.secondaryContainer)
-        assertEquals(CaregiverColors.Ink, AppLightScheme.onSecondaryContainer)
+        assertEquals(CaregiverColors.Surface, AppLightScheme.onPrimaryContainer)
+        // Selected tab pill: soft sage with primary text (call-site accent).
+        assertEquals(CaregiverColors.PrimarySoft, AppLightScheme.secondaryContainer)
+        assertEquals(CaregiverColors.TextPrimary, AppLightScheme.onSecondaryContainer)
     }
 
     @Test
-    fun everyScaleSpeaksPlexArabic() {
-        // Bundled board typeface (res/font): one place, all screens change.
+    fun everyScaleSpeaksTokenFamily() {
+        // Bundled token typefaces (res/font): Inter + Noto Naskh Arabic.
         // Same-reference comparison — guards the wiring, not font equality.
         val scales = listOf(
             AppTypography.displayLarge,
@@ -69,6 +67,36 @@ class ThemeTest {
             AppTypography.labelSmall,
         )
         assertEquals(15, scales.size)
-        scales.forEach { assertEquals(PlexArabic, it.fontFamily) }
+        scales.forEach { assertEquals(AppFontFamily, it.fontFamily) }
+    }
+
+    @Test
+    fun tokenTypeScaleSizes() {
+        // display 28, title 22, heading 18, body 16, label 14, caption 12.
+        assertEquals(28, AppTypography.displayLarge.fontSize.value.toInt())
+        assertEquals(22, AppTypography.titleLarge.fontSize.value.toInt())
+        assertEquals(18, AppTypography.titleMedium.fontSize.value.toInt())
+        assertEquals(16, AppTypography.bodyLarge.fontSize.value.toInt())
+        assertEquals(14, AppTypography.labelLarge.fontSize.value.toInt())
+        assertEquals(12, AppTypography.bodySmall.fontSize.value.toInt())
+    }
+
+    @Test
+    fun tokenSpacingAndComponentSizes() {
+        assertEquals(4, AppSpacing.xxs.value.toInt())
+        assertEquals(8, AppSpacing.xs.value.toInt())
+        assertEquals(12, AppSpacing.sm.value.toInt())
+        assertEquals(16, AppSpacing.md.value.toInt())
+        assertEquals(24, AppSpacing.lg.value.toInt())
+        assertEquals(32, AppSpacing.xl.value.toInt())
+        assertEquals(48, AppSpacing.xxl.value.toInt())
+        assertEquals(48, AppSizes.buttonHeight.value.toInt())
+        assertEquals(56, AppSizes.buttonHeightLarge.value.toInt())
+        assertEquals(72, AppSizes.bottomNavHeight.value.toInt())
+        assertEquals(52, AppSizes.inputHeight.value.toInt())
+        assertEquals(24, AppSizes.iconSize.value.toInt())
+        assertEquals(8, AppRadius.sm.value.toInt())
+        assertEquals(14, AppRadius.md.value.toInt())
+        assertEquals(20, AppRadius.lg.value.toInt())
     }
 }

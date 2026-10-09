@@ -45,8 +45,11 @@ import androidx.compose.ui.unit.sp
 import androidx.navigation.NavController
 import com.caregiver.mobile.AppGraph
 import com.caregiver.mobile.R
+import com.caregiver.mobile.core.theme.AppRadius
+import com.caregiver.mobile.core.theme.AppSizes
+import com.caregiver.mobile.core.theme.AppSpacing
 import com.caregiver.mobile.core.theme.CaregiverColors
-import com.caregiver.mobile.core.theme.PlexArabic
+import com.caregiver.mobile.core.theme.AppFontFamily
 import com.caregiver.mobile.core.time.DateFormats
 import com.caregiver.mobile.presentation.common.AppCard
 import com.caregiver.mobile.presentation.common.AppTopBar
@@ -84,7 +87,7 @@ fun NoteEditorScreen(recipientId: String, graph: AppGraph, navController: NavCon
     Column(Modifier.fillMaxSize()) {
         Column(
             modifier = Modifier.weight(1f).verticalScroll(rememberScrollState())
-                .padding(horizontal = 16.dp),
+                .padding(horizontal = AppSpacing.md),
             verticalArrangement = Arrangement.spacedBy(14.dp),
         ) {
             AppTopBar(
@@ -147,19 +150,19 @@ fun NoteEditorScreen(recipientId: String, graph: AppGraph, navController: NavCon
                     val selected = state.pain == level
                     OutlinedButton(
                         onClick = { vm.setPain(level) },
-                        shape = RoundedCornerShape(12.dp),
+                        shape = RoundedCornerShape(AppSpacing.sm),
                         border = BorderStroke(
-                            1.dp,
+                            AppSizes.borderWidth,
                             if (selected) CaregiverColors.Primary else CaregiverColors.Border,
                         ),
                         colors = ButtonDefaults.outlinedButtonColors(
-                            containerColor = if (selected) CaregiverColors.Primary else Color.White,
-                            contentColor = if (selected) Color.White else CaregiverColors.Ink,
+                            containerColor = if (selected) CaregiverColors.Primary else CaregiverColors.Surface,
+                            contentColor = if (selected) CaregiverColors.Surface else CaregiverColors.TextPrimary,
                         ),
                         modifier = Modifier.size(44.dp),
                         contentPadding = androidx.compose.foundation.layout.PaddingValues(0.dp),
                     ) {
-                        Text("$level", fontFamily = PlexArabic, fontWeight = FontWeight.Bold)
+                        Text("$level", fontFamily = AppFontFamily, fontWeight = FontWeight.Bold)
                     }
                 }
             }
@@ -169,24 +172,24 @@ fun NoteEditorScreen(recipientId: String, graph: AppGraph, navController: NavCon
             OutlinedTextField(
                 value = state.text,
                 onValueChange = vm::onText,
-                placeholder = { Text(stringResource(R.string.editor_hint_extra), fontFamily = PlexArabic) },
+                placeholder = { Text(stringResource(R.string.editor_hint_extra), fontFamily = AppFontFamily) },
                 isError = state.textError != null,
                 supportingText = {
                     if (state.textError != null) {
                         Text(
                             stringResource(R.string.editor_error_text),
-                            fontFamily = PlexArabic,
+                            fontFamily = AppFontFamily,
                             color = CaregiverColors.Danger,
                         )
                     }
                 },
                 minLines = 5,
-                shape = RoundedCornerShape(12.dp),
+                shape = RoundedCornerShape(AppSpacing.sm),
                 colors = OutlinedTextFieldDefaults.colors(
                     focusedBorderColor = CaregiverColors.Primary,
                     unfocusedBorderColor = CaregiverColors.Border,
-                    focusedContainerColor = Color.White,
-                    unfocusedContainerColor = Color.White,
+                    focusedContainerColor = CaregiverColors.Surface,
+                    unfocusedContainerColor = CaregiverColors.Surface,
                 ),
                 modifier = Modifier.fillMaxWidth().height(130.dp),
             )
@@ -199,7 +202,7 @@ fun NoteEditorScreen(recipientId: String, graph: AppGraph, navController: NavCon
                     },
                 )
             }
-            Spacer(Modifier.height(4.dp))
+            Spacer(Modifier.height(AppSpacing.xxs))
         }
         // Footer action bar: primary 56dp + centered caption.
         BottomActionBar {
@@ -207,7 +210,7 @@ fun NoteEditorScreen(recipientId: String, graph: AppGraph, navController: NavCon
                 label = stringResource(R.string.editor_save),
                 onClick = vm::submit,
                 enabled = !state.busy,
-                height = 56.dp,
+                height = AppSizes.buttonHeightLarge,
                 large = true,
             )
             HelperCaption(
@@ -237,25 +240,25 @@ private fun HtmlChip(label: String, selected: Boolean, onClick: () -> Unit) {
         onClick = onClick,
         label = {
             Row(
-                horizontalArrangement = Arrangement.spacedBy(4.dp),
+                horizontalArrangement = Arrangement.spacedBy(AppSpacing.xxs),
                 verticalAlignment = Alignment.CenterVertically,
             ) {
                 if (selected) {
-                    Text("✓", fontFamily = PlexArabic, fontWeight = FontWeight.Bold)
+                    Text("✓", fontFamily = AppFontFamily, fontWeight = FontWeight.Bold)
                 }
-                Text(label, fontFamily = PlexArabic, fontWeight = FontWeight.Bold, fontSize = 14.sp)
+                Text(label, fontFamily = AppFontFamily, fontWeight = FontWeight.Bold, fontSize = 14.sp)
             }
         },
-        shape = RoundedCornerShape(999.dp),
+        shape = RoundedCornerShape(AppRadius.pill),
         border = BorderStroke(
-            1.dp,
+            AppSizes.borderWidth,
             if (selected) CaregiverColors.Primary else CaregiverColors.Border,
         ),
         colors = FilterChipDefaults.filterChipColors(
-            containerColor = Color.White,
-            labelColor = CaregiverColors.Ink,
+            containerColor = CaregiverColors.Surface,
+            labelColor = CaregiverColors.TextPrimary,
             selectedContainerColor = CaregiverColors.Primary,
-            selectedLabelColor = Color.White,
+            selectedLabelColor = CaregiverColors.Surface,
         ),
     )
 }
@@ -279,10 +282,10 @@ private fun GroupLabel(group: OptionGroup) {
 private fun GroupLabelText(text: String) {
     Text(
         text,
-        fontFamily = PlexArabic,
+        fontFamily = AppFontFamily,
         fontWeight = FontWeight.Bold,
         fontSize = 14.sp,
-        color = CaregiverColors.Ink,
+        color = CaregiverColors.TextPrimary,
     )
 }
 
@@ -299,18 +302,18 @@ fun NoteSavedScreen(noteId: String, graph: AppGraph, navController: NavControlle
     val detail by vm.state.collectAsState()
     val recipientId = (detail as? NoteDetailState.Content)?.content?.note?.recipientId
     Column(
-        modifier = Modifier.fillMaxSize().padding(horizontal = 16.dp),
-        verticalArrangement = Arrangement.spacedBy(12.dp),
+        modifier = Modifier.fillMaxSize().padding(horizontal = AppSpacing.md),
+        verticalArrangement = Arrangement.spacedBy(AppSpacing.sm),
         horizontalAlignment = Alignment.CenterHorizontally,
     ) {
-        Spacer(Modifier.height(120.dp))
+        Spacer(Modifier.height(AppSizes.multilineMinHeight))
         Box(
             contentAlignment = Alignment.Center,
             modifier = Modifier
-                .size(72.dp)
+                .size(AppSizes.bottomNavHeight)
                 .then(
                     Modifier.background(
-                        CaregiverColors.SuccessContainer,
+                        CaregiverColors.Success.copy(alpha = 0.12f),
                         RoundedCornerShape(36.dp),
                     ),
                 ),
@@ -319,26 +322,26 @@ fun NoteSavedScreen(noteId: String, graph: AppGraph, navController: NavControlle
         }
         Text(
             text = stringResource(R.string.saved_title),
-            fontFamily = PlexArabic,
+            fontFamily = AppFontFamily,
             fontWeight = FontWeight.Bold,
             fontSize = 24.sp,
             textAlign = TextAlign.Center,
-            color = CaregiverColors.Ink,
+            color = CaregiverColors.TextPrimary,
         )
         Column(
             verticalArrangement = Arrangement.spacedBy(10.dp),
-            modifier = Modifier.fillMaxWidth().padding(top = 16.dp),
+            modifier = Modifier.fillMaxWidth().padding(top = AppSpacing.md),
         ) {
             SecondaryButton(
                 label = stringResource(R.string.saved_view),
                 onClick = { navController.navigate("note/$noteId") },
-                height = 56.dp,
+                height = AppSizes.buttonHeightLarge,
             )
             PrimaryButton(
                 label = stringResource(R.string.saved_summarize),
                 onClick = { recipientId?.let { navController.navigate("summary/$it") } },
                 enabled = recipientId != null,
-                height = 56.dp,
+                height = AppSizes.buttonHeightLarge,
                 large = true,
             )
         }
@@ -365,7 +368,7 @@ fun NoteDetailScreen(noteId: String, graph: AppGraph, navController: NavControll
                 val arabic = Locale.getDefault().language == "ar"
                 Column(
                     modifier = Modifier.weight(1f).verticalScroll(rememberScrollState())
-                        .padding(horizontal = 16.dp),
+                        .padding(horizontal = AppSpacing.md),
                     verticalArrangement = Arrangement.spacedBy(14.dp),
                 ) {
                     AppTopBar(
@@ -417,17 +420,17 @@ fun NoteDetailScreen(noteId: String, graph: AppGraph, navController: NavControll
                         Text("🔒", fontSize = 16.sp)
                         Text(
                             stringResource(R.string.note_original_locked),
-                            fontFamily = PlexArabic,
+                            fontFamily = AppFontFamily,
                             fontSize = 13.sp,
-                            color = CaregiverColors.Muted,
+                            color = CaregiverColors.TextSecondary,
                         )
                     }
                     Text(
                         s.content.note.text,
-                        fontFamily = PlexArabic,
+                        fontFamily = AppFontFamily,
                         fontSize = 16.sp,
                         lineHeight = 29.sp,
-                        color = CaregiverColors.Ink,
+                        color = CaregiverColors.TextPrimary,
                     )
                     // Attachments timeline.
                     SectionTitle(stringResource(R.string.note_attachments))
@@ -435,28 +438,28 @@ fun NoteDetailScreen(noteId: String, graph: AppGraph, navController: NavControll
                         HelperCaption(stringResource(R.string.notes_empty))
                     } else {
                         Column(
-                            verticalArrangement = Arrangement.spacedBy(8.dp),
+                            verticalArrangement = Arrangement.spacedBy(AppSpacing.xs),
                             modifier = Modifier.padding(start = 14.dp),
                         ) {
                             s.content.addenda.forEach { addendum ->
                                 AppCard {
                                     Text(
                                         addendum.text,
-                                        fontFamily = PlexArabic,
+                                        fontFamily = AppFontFamily,
                                         fontSize = 14.sp,
-                                        color = CaregiverColors.Ink,
+                                        color = CaregiverColors.TextPrimary,
                                     )
                                 }
                             }
                         }
                     }
-                    Spacer(Modifier.height(4.dp))
+                    Spacer(Modifier.height(AppSpacing.xxs))
                 }
                 BottomActionBar {
                     SecondaryButton(
                         label = stringResource(R.string.detail_add_correction),
                         onClick = { navController.navigate("addendum/$noteId") },
-                        height = 52.dp,
+                        height = AppSizes.inputHeight,
                     )
                     PrimaryButton(
                         label = stringResource(R.string.summary_generate),
@@ -465,7 +468,7 @@ fun NoteDetailScreen(noteId: String, graph: AppGraph, navController: NavControll
                                 navController.navigate("summary/$it")
                             }
                         },
-                        height = 52.dp,
+                        height = AppSizes.inputHeight,
                     )
                 }
             }
@@ -476,13 +479,13 @@ fun NoteDetailScreen(noteId: String, graph: AppGraph, navController: NavControll
 @Composable
 private fun StatMini(label: String, value: String) {
     AppCard(modifier = Modifier.fillMaxWidth(0.48f)) {
-        Text(label, fontFamily = PlexArabic, fontSize = 13.sp, color = CaregiverColors.Muted)
+        Text(label, fontFamily = AppFontFamily, fontSize = 13.sp, color = CaregiverColors.TextSecondary)
         Text(
             value.ifBlank { "—" },
-            fontFamily = PlexArabic,
+            fontFamily = AppFontFamily,
             fontWeight = FontWeight.Bold,
             fontSize = 18.sp,
-            color = CaregiverColors.Ink,
+            color = CaregiverColors.TextPrimary,
         )
     }
 }
@@ -504,7 +507,7 @@ fun AddendumScreen(noteId: String, graph: AppGraph, navController: NavController
     Column(Modifier.fillMaxSize()) {
         Column(
             modifier = Modifier.weight(1f).verticalScroll(rememberScrollState())
-                .padding(horizontal = 16.dp),
+                .padding(horizontal = AppSpacing.md),
             verticalArrangement = Arrangement.spacedBy(14.dp),
         ) {
             AppTopBar(
@@ -519,24 +522,24 @@ fun AddendumScreen(noteId: String, graph: AppGraph, navController: NavController
             OutlinedTextField(
                 value = form.text,
                 onValueChange = vm::onAddendumText,
-                placeholder = { Text(stringResource(R.string.addendum_hint), fontFamily = PlexArabic) },
+                placeholder = { Text(stringResource(R.string.addendum_hint), fontFamily = AppFontFamily) },
                 isError = form.addendumError,
                 supportingText = {
                     if (form.addendumError) {
                         Text(
                             stringResource(R.string.addendum_error),
-                            fontFamily = PlexArabic,
+                            fontFamily = AppFontFamily,
                             color = CaregiverColors.Danger,
                         )
                     }
                 },
                 minLines = 6,
-                shape = RoundedCornerShape(12.dp),
+                shape = RoundedCornerShape(AppSpacing.sm),
                 colors = OutlinedTextFieldDefaults.colors(
                     focusedBorderColor = CaregiverColors.Primary,
                     unfocusedBorderColor = CaregiverColors.Border,
-                    focusedContainerColor = Color.White,
-                    unfocusedContainerColor = Color.White,
+                    focusedContainerColor = CaregiverColors.Surface,
+                    unfocusedContainerColor = CaregiverColors.Surface,
                 ),
                 modifier = Modifier.fillMaxWidth().height(150.dp),
             )
@@ -549,7 +552,7 @@ fun AddendumScreen(noteId: String, graph: AppGraph, navController: NavController
                 label = stringResource(R.string.addendum_save),
                 onClick = vm::submitAddendum,
                 enabled = !form.busy,
-                height = 56.dp,
+                height = AppSizes.buttonHeightLarge,
                 large = true,
             )
         }

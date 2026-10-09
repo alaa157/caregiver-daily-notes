@@ -38,8 +38,9 @@ import com.caregiver.mobile.AppGraph
 import com.caregiver.mobile.R
 import com.caregiver.mobile.core.i18n.Bidi
 import com.caregiver.mobile.core.navigation.AppRoutes
+import com.caregiver.mobile.core.theme.AppSpacing
 import com.caregiver.mobile.core.theme.CaregiverColors
-import com.caregiver.mobile.core.theme.PlexArabic
+import com.caregiver.mobile.core.theme.AppFontFamily
 import com.caregiver.mobile.presentation.common.AppCard
 import com.caregiver.mobile.presentation.common.AppEmptyState
 import com.caregiver.mobile.presentation.common.AppErrorState
@@ -63,14 +64,14 @@ fun HomeScreen(graph: AppGraph, navController: NavController) {
         HomeViewModel(graph.auth, graph.settings)
     }
     val state by vm.state.collectAsState()
-    Column(Modifier.fillMaxSize().padding(horizontal = 16.dp)) {
+    Column(Modifier.fillMaxSize().padding(horizontal = AppSpacing.md)) {
         when (val s = state) {
             HomeState.Loading, HomeState.Idle -> {
-                Spacer(Modifier.height(16.dp))
+                Spacer(Modifier.height(AppSpacing.md))
                 AppLoadingSkeleton()
             }
             is HomeState.Error -> {
-                Spacer(Modifier.height(16.dp))
+                Spacer(Modifier.height(AppSpacing.md))
                 val flags = s.lastContent?.flags.orEmpty()
                 Column(verticalArrangement = Arrangement.spacedBy(14.dp)) {
                     if (flags.isNotEmpty()) {
@@ -102,16 +103,16 @@ private fun HomeContent(content: HomeContent, navController: NavController) {
             // Header: h1 22sp Bold + date 13sp muted, settings action.
             Row(
                 verticalAlignment = Alignment.CenterVertically,
-                modifier = Modifier.padding(top = 16.dp),
+                modifier = Modifier.padding(top = AppSpacing.md),
             ) {
                 Column(modifier = Modifier.weight(1f)) {
                     Text(
                         text = greetingText(content.greeting),
-                        fontFamily = PlexArabic,
+                        fontFamily = AppFontFamily,
                         fontWeight = FontWeight.Bold,
                         fontSize = 22.sp,
                         lineHeight = 28.sp,
-                        color = CaregiverColors.Ink,
+                        color = CaregiverColors.TextPrimary,
                     )
                     // Date line comes from the greeting content when available.
                     Text(
@@ -120,16 +121,16 @@ private fun HomeContent(content: HomeContent, navController: NavController) {
                             content.done,
                             content.total,
                         ),
-                        fontFamily = PlexArabic,
+                        fontFamily = AppFontFamily,
                         fontSize = 13.sp,
-                        color = CaregiverColors.Muted,
+                        color = CaregiverColors.TextSecondary,
                     )
                 }
                 IconButton(onClick = { navController.navigate("settings") }) {
                     Icon(
                         Icons.Filled.Settings,
                         contentDescription = stringResource(R.string.settings_title),
-                        tint = CaregiverColors.Ink,
+                        tint = CaregiverColors.TextPrimary,
                     )
                 }
             }
@@ -146,38 +147,38 @@ private fun HomeContent(content: HomeContent, navController: NavController) {
             Row(horizontalArrangement = Arrangement.spacedBy(10.dp)) {
                 AppCard(
                     modifier = Modifier.weight(1f),
-                    padding = 12.dp,
+                    padding = AppSpacing.sm,
                 ) {
                     Text(
                         stringResource(R.string.home_notes_today),
-                        fontFamily = PlexArabic,
+                        fontFamily = AppFontFamily,
                         fontSize = 13.sp,
-                        color = CaregiverColors.Muted,
+                        color = CaregiverColors.TextSecondary,
                     )
                     Text(
                         stringResource(R.string.home_today_progress, content.done, content.total),
-                        fontFamily = PlexArabic,
+                        fontFamily = AppFontFamily,
                         fontWeight = FontWeight.Bold,
                         fontSize = 18.sp,
-                        color = CaregiverColors.Ink,
+                        color = CaregiverColors.TextPrimary,
                     )
                 }
                 AppCard(
                     modifier = Modifier.weight(1f),
-                    padding = 12.dp,
+                    padding = AppSpacing.sm,
                 ) {
                     Text(
                         stringResource(R.string.home_needs_attention),
-                        fontFamily = PlexArabic,
+                        fontFamily = AppFontFamily,
                         fontSize = 13.sp,
-                        color = CaregiverColors.Muted,
+                        color = CaregiverColors.TextSecondary,
                     )
                     Text(
                         "$attention",
-                        fontFamily = PlexArabic,
+                        fontFamily = AppFontFamily,
                         fontWeight = FontWeight.Bold,
                         fontSize = 18.sp,
-                        color = CaregiverColors.Ink,
+                        color = CaregiverColors.TextPrimary,
                     )
                 }
             }
@@ -185,10 +186,10 @@ private fun HomeContent(content: HomeContent, navController: NavController) {
         item {
             Text(
                 stringResource(R.string.home_section_today),
-                fontFamily = PlexArabic,
+                fontFamily = AppFontFamily,
                 fontWeight = FontWeight.Bold,
                 fontSize = 17.sp,
-                color = CaregiverColors.Ink,
+                color = CaregiverColors.TextPrimary,
             )
         }
         if (content.cards.isEmpty()) {
@@ -234,29 +235,29 @@ private fun PersonCard(card: HomeCard, onOpen: () -> Unit) {
     val arabic = Locale.getDefault().language == "ar"
     AppCard(modifier = Modifier.clickable(onClick = onOpen)) {
         Row(
-            horizontalArrangement = Arrangement.spacedBy(12.dp),
+            horizontalArrangement = Arrangement.spacedBy(AppSpacing.sm),
             verticalAlignment = Alignment.CenterVertically,
         ) {
             Avatar(Bidi.isolate(card.name).take(1))
             Column(
                 modifier = Modifier.weight(1f),
-                verticalArrangement = Arrangement.spacedBy(4.dp),
+                verticalArrangement = Arrangement.spacedBy(AppSpacing.xxs),
             ) {
                 Text(
                     text = Bidi.isolate(card.name),
-                    fontFamily = PlexArabic,
+                    fontFamily = AppFontFamily,
                     fontWeight = FontWeight.Bold,
                     fontSize = 16.sp,
-                    color = CaregiverColors.Ink,
+                    color = CaregiverColors.TextPrimary,
                 )
                 card.lastNote?.let {
                     Text(
                         text = stringResource(R.string.person_last_note) + ": " +
                             OptionLabels.label(OptionGroup.Appetite, it.appetite, arabic) + " · " +
                             OptionLabels.label(OptionGroup.Sleep, it.sleep, arabic),
-                        fontFamily = PlexArabic,
+                        fontFamily = AppFontFamily,
                         fontSize = 13.sp,
-                        color = CaregiverColors.Muted,
+                        color = CaregiverColors.TextSecondary,
                     )
                 }
                 Row(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
@@ -270,17 +271,17 @@ private fun PersonCard(card: HomeCard, onOpen: () -> Unit) {
         ) {
             Button(
                 onClick = onOpen,
-                shape = RoundedCornerShape(12.dp),
+                shape = RoundedCornerShape(AppSpacing.sm),
                 colors = ButtonDefaults.buttonColors(
                     containerColor = CaregiverColors.Primary,
-                    contentColor = Color.White,
+                    contentColor = CaregiverColors.Surface,
                 ),
-                modifier = Modifier.fillMaxWidth().height(48.dp),
+                modifier = Modifier.fillMaxWidth().height(AppSpacing.xxl),
             ) {
                 Icon(Icons.Filled.Add, contentDescription = null)
                 Text(
                     stringResource(R.string.detail_add_note),
-                    fontFamily = PlexArabic,
+                    fontFamily = AppFontFamily,
                     fontWeight = FontWeight.Bold,
                 )
             }
@@ -325,7 +326,7 @@ private fun greetingText(greeting: Greeting): String {
 @Composable
 fun LoadingRow() {
     Column(
-        modifier = Modifier.fillMaxSize().padding(24.dp),
+        modifier = Modifier.fillMaxSize().padding(AppSpacing.lg),
         horizontalAlignment = Alignment.CenterHorizontally,
     ) {
         AppLoadingSkeleton()
@@ -335,7 +336,7 @@ fun LoadingRow() {
 @Composable
 fun LoadFailed(onRetry: () -> Unit) {
     Column(
-        modifier = Modifier.fillMaxSize().padding(24.dp),
+        modifier = Modifier.fillMaxSize().padding(AppSpacing.lg),
         horizontalAlignment = Alignment.CenterHorizontally,
     ) {
         AppErrorState(

@@ -41,8 +41,10 @@ import com.caregiver.mobile.core.i18n.Bidi
 import com.caregiver.mobile.core.navigation.AppDestinations
 import com.caregiver.mobile.core.navigation.AppRoutes
 import com.caregiver.mobile.core.navigation.MainTab
+import com.caregiver.mobile.core.theme.AppSizes
+import com.caregiver.mobile.core.theme.AppSpacing
 import com.caregiver.mobile.core.theme.CaregiverColors
-import com.caregiver.mobile.core.theme.PlexArabic
+import com.caregiver.mobile.core.theme.AppFontFamily
 import com.caregiver.mobile.data.api.RecipientDto
 import com.caregiver.mobile.presentation.common.AppCard
 import com.caregiver.mobile.presentation.common.AppEmptyState
@@ -78,24 +80,24 @@ fun RecipientsScreen(graph: AppGraph, navController: NavController) {
     LaunchedEffect(Unit) { vm.refresh() }
     val state by vm.state.collectAsState()
     Column(
-        Modifier.fillMaxSize().padding(horizontal = 16.dp),
+        Modifier.fillMaxSize().padding(horizontal = AppSpacing.md),
         verticalArrangement = Arrangement.spacedBy(14.dp),
     ) {
         val count = (state as? PeopleState.Content)?.recipients?.size
-        Column(modifier = Modifier.padding(top = 16.dp)) {
+        Column(modifier = Modifier.padding(top = AppSpacing.md)) {
             Text(
                 text = stringResource(R.string.tab_people),
-                fontFamily = PlexArabic,
+                fontFamily = AppFontFamily,
                 fontWeight = FontWeight.Bold,
                 fontSize = 22.sp,
-                color = CaregiverColors.Ink,
+                color = CaregiverColors.TextPrimary,
             )
             if (count != null) {
                 Text(
                     text = "$count",
-                    fontFamily = PlexArabic,
+                    fontFamily = AppFontFamily,
                     fontSize = 13.sp,
-                    color = CaregiverColors.Muted,
+                    color = CaregiverColors.TextSecondary,
                 )
             }
         }
@@ -116,7 +118,7 @@ fun RecipientsScreen(graph: AppGraph, navController: NavController) {
                         onAction = { navController.navigate(AppDestinations.AddRecipient.base) },
                     )
                 } else {
-                    LazyColumn(verticalArrangement = Arrangement.spacedBy(12.dp)) {
+                    LazyColumn(verticalArrangement = Arrangement.spacedBy(AppSpacing.sm)) {
                         items(s.recipients, key = { it.id }) { recipient ->
                             PersonRow(recipient) {
                                 navController.navigate(AppRoutes.recipientDetail(recipient.id))
@@ -133,32 +135,32 @@ fun RecipientsScreen(graph: AppGraph, navController: NavController) {
 private fun PersonRow(recipient: RecipientDto, onOpen: () -> Unit) {
     AppCard(modifier = Modifier.clickable(onClick = onOpen)) {
         Row(
-            horizontalArrangement = Arrangement.spacedBy(12.dp),
+            horizontalArrangement = Arrangement.spacedBy(AppSpacing.sm),
             verticalAlignment = Alignment.CenterVertically,
         ) {
             Avatar(Bidi.isolate(recipient.name).take(1))
             Column(
                 modifier = Modifier.weight(1f),
-                verticalArrangement = Arrangement.spacedBy(4.dp),
+                verticalArrangement = Arrangement.spacedBy(AppSpacing.xxs),
             ) {
                 Text(
                     text = Bidi.isolate(recipient.name),
-                    fontFamily = PlexArabic,
+                    fontFamily = AppFontFamily,
                     fontWeight = FontWeight.Bold,
                     fontSize = 16.sp,
-                    color = CaregiverColors.Ink,
+                    color = CaregiverColors.TextPrimary,
                 )
                 Text(
                     text = stringResource(R.string.person_last_note),
-                    fontFamily = PlexArabic,
+                    fontFamily = AppFontFamily,
                     fontSize = 13.sp,
-                    color = CaregiverColors.Muted,
+                    color = CaregiverColors.TextSecondary,
                 )
             }
             Icon(
                 Icons.Filled.ChevronLeft,
                 contentDescription = null,
-                tint = CaregiverColors.Muted,
+                tint = CaregiverColors.TextSecondary,
                 modifier = Modifier.size(18.dp),
             )
         }
@@ -180,7 +182,7 @@ fun AddRecipientScreen(graph: AppGraph, navController: NavController) {
         }
     }
     Column(
-        Modifier.fillMaxSize().padding(horizontal = 16.dp),
+        Modifier.fillMaxSize().padding(horizontal = AppSpacing.md),
         verticalArrangement = Arrangement.spacedBy(14.dp),
     ) {
         AppTopBar(
@@ -189,10 +191,10 @@ fun AddRecipientScreen(graph: AppGraph, navController: NavController) {
         )
         Text(
             stringResource(R.string.add_name),
-            fontFamily = PlexArabic,
+            fontFamily = AppFontFamily,
             fontWeight = FontWeight.Bold,
             fontSize = 14.sp,
-            color = CaregiverColors.Ink,
+            color = CaregiverColors.TextPrimary,
         )
         OutlinedTextField(
             value = addState.name,
@@ -202,20 +204,20 @@ fun AddRecipientScreen(graph: AppGraph, navController: NavController) {
                 if (addState.nameError != null) {
                     Text(
                         stringResource(R.string.add_error_name),
-                        fontFamily = PlexArabic,
+                        fontFamily = AppFontFamily,
                         color = CaregiverColors.Danger,
                     )
                 }
             },
             singleLine = true,
-            shape = RoundedCornerShape(12.dp),
+            shape = RoundedCornerShape(AppSpacing.sm),
             colors = OutlinedTextFieldDefaults.colors(
                 focusedBorderColor = CaregiverColors.Primary,
                 unfocusedBorderColor = CaregiverColors.Border,
-                focusedContainerColor = Color.White,
-                unfocusedContainerColor = Color.White,
+                focusedContainerColor = CaregiverColors.Surface,
+                unfocusedContainerColor = CaregiverColors.Surface,
             ),
-            modifier = Modifier.fillMaxWidth().height(52.dp).testTag("add_person_name"),
+            modifier = Modifier.fillMaxWidth().height(AppSizes.inputHeight).testTag("add_person_name"),
         )
         PrimaryButton(
             label = stringResource(R.string.add_save),
@@ -237,7 +239,7 @@ fun RecipientDetailScreen(recipientId: String, graph: AppGraph, navController: N
         RecipientDetailViewModel(recipientId, graph.apis, graph.auth)
     }
     val state by vm.state.collectAsState()
-    Column(Modifier.fillMaxSize().padding(horizontal = 16.dp)) {
+    Column(Modifier.fillMaxSize().padding(horizontal = AppSpacing.md)) {
         when (val s = state) {
             DetailState.Loading -> LoadingRow()
             DetailState.Error -> LoadFailed(onRetry = vm::refresh)
@@ -260,7 +262,7 @@ private fun DetailContent(detail: RecipientDetail, navController: NavController)
         // Status card: pill + primary add-note 52dp.
         AppCard {
             Row(
-                horizontalArrangement = Arrangement.spacedBy(8.dp),
+                horizontalArrangement = Arrangement.spacedBy(AppSpacing.xs),
                 verticalAlignment = Alignment.CenterVertically,
             ) {
                 if (detail.lastNote == null) {
@@ -272,7 +274,7 @@ private fun DetailContent(detail: RecipientDetail, navController: NavController)
             PrimaryButton(
                 label = stringResource(R.string.detail_add_note),
                 onClick = { navController.navigate(AppRoutes.noteEditor(detail.id)) },
-                height = 52.dp,
+                height = AppSizes.inputHeight,
             )
         }
         // Latest note section.
@@ -282,32 +284,32 @@ private fun DetailContent(detail: RecipientDetail, navController: NavController)
                 text = OptionLabels.label(OptionGroup.Mood, note.mood, arabic) + " · " +
                     OptionLabels.label(OptionGroup.Appetite, note.appetite, arabic) + " · " +
                     OptionLabels.label(OptionGroup.Mobility, note.mobility, arabic),
-                fontFamily = PlexArabic,
+                fontFamily = AppFontFamily,
                 fontSize = 15.sp,
-                color = CaregiverColors.Ink,
+                color = CaregiverColors.TextPrimary,
             )
         }
         // 2-col stats: plan + summary.
         Row(horizontalArrangement = Arrangement.spacedBy(10.dp)) {
-            AppCard(modifier = Modifier.weight(1f), padding = 12.dp) {
+            AppCard(modifier = Modifier.weight(1f), padding = AppSpacing.sm) {
                 Text(
                     stringResource(R.string.detail_plan),
-                    fontFamily = PlexArabic,
+                    fontFamily = AppFontFamily,
                     fontSize = 13.sp,
-                    color = CaregiverColors.Muted,
+                    color = CaregiverColors.TextSecondary,
                 )
                 GreenPill(stringResource(R.string.plan_status_accepted))
             }
-            AppCard(modifier = Modifier.weight(1f), padding = 12.dp) {
+            AppCard(modifier = Modifier.weight(1f), padding = AppSpacing.sm) {
                 Text(
                     stringResource(R.string.detail_summary),
-                    fontFamily = PlexArabic,
+                    fontFamily = AppFontFamily,
                     fontSize = 13.sp,
-                    color = CaregiverColors.Muted,
+                    color = CaregiverColors.TextSecondary,
                 )
                 Text(
                     "✓",
-                    fontFamily = PlexArabic,
+                    fontFamily = AppFontFamily,
                     fontWeight = FontWeight.Bold,
                     color = CaregiverColors.Primary,
                 )
@@ -323,7 +325,7 @@ private fun DetailContent(detail: RecipientDetail, navController: NavController)
         ActionButton(R.string.detail_plan) {
             navController.navigate(AppDestinations.Plans.base)
         }
-        Spacer(Modifier.height(8.dp))
+        Spacer(Modifier.height(AppSpacing.xs))
     }
 }
 
@@ -331,13 +333,13 @@ private fun DetailContent(detail: RecipientDetail, navController: NavController)
 private fun ActionButton(label: Int, onClick: () -> Unit) {
     androidx.compose.material3.OutlinedButton(
         onClick = onClick,
-        shape = RoundedCornerShape(12.dp),
-        border = androidx.compose.foundation.BorderStroke(1.dp, CaregiverColors.Border),
+        shape = RoundedCornerShape(AppSpacing.sm),
+        border = androidx.compose.foundation.BorderStroke(AppSizes.borderWidth, CaregiverColors.Border),
         colors = androidx.compose.material3.ButtonDefaults.outlinedButtonColors(
-            containerColor = Color.White,
-            contentColor = CaregiverColors.Ink,
+            containerColor = CaregiverColors.Surface,
+            contentColor = CaregiverColors.TextPrimary,
         ),
-        modifier = Modifier.fillMaxWidth().height(48.dp),
+        modifier = Modifier.fillMaxWidth().height(AppSpacing.xxl),
     ) {
         Row(
             verticalAlignment = Alignment.CenterVertically,
@@ -345,14 +347,14 @@ private fun ActionButton(label: Int, onClick: () -> Unit) {
         ) {
             Text(
                 stringResource(label),
-                fontFamily = PlexArabic,
+                fontFamily = AppFontFamily,
                 fontWeight = FontWeight.Bold,
                 modifier = Modifier.weight(1f),
             )
             Icon(
                 Icons.Filled.ChevronLeft,
                 contentDescription = null,
-                tint = CaregiverColors.Muted,
+                tint = CaregiverColors.TextSecondary,
                 modifier = Modifier.size(18.dp),
             )
         }

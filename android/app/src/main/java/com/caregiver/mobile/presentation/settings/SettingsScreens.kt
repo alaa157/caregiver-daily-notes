@@ -32,8 +32,10 @@ import androidx.compose.ui.unit.dp
 import androidx.navigation.NavController
 import com.caregiver.mobile.AppGraph
 import com.caregiver.mobile.R
+import com.caregiver.mobile.core.theme.AppSizes
+import com.caregiver.mobile.core.theme.AppSpacing
 import com.caregiver.mobile.core.theme.CaregiverColors
-import com.caregiver.mobile.core.theme.PlexArabic
+import com.caregiver.mobile.core.theme.AppFontFamily
 import com.caregiver.mobile.data.SettingsStore
 import com.caregiver.mobile.data.api.ApiClient
 import com.caregiver.mobile.data.api.BaseUrlCheck
@@ -54,7 +56,7 @@ fun SettingsScreen(graph: AppGraph, navController: NavController) {
     val activity = LocalContext.current as Activity
     val language by graph.settings.language.collectAsState(initial = SettingsStore.DEFAULT_LANGUAGE)
     Column(
-        modifier = Modifier.fillMaxSize().padding(horizontal = 16.dp),
+        modifier = Modifier.fillMaxSize().padding(horizontal = AppSpacing.md),
         verticalArrangement = Arrangement.spacedBy(14.dp),
     ) {
         AppTopBar(title = stringResource(R.string.settings_title))
@@ -63,7 +65,7 @@ fun SettingsScreen(graph: AppGraph, navController: NavController) {
             onClick = { navController.navigate("server-url") },
         )
         Text(text = stringResource(R.string.settings_language))
-        Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+        Row(horizontalArrangement = Arrangement.spacedBy(AppSpacing.xs)) {
             // Language names are intentionally literal, not string resources:
             // each language must be recognizable no matter which locale is active.
             FilterChip(
@@ -80,7 +82,7 @@ fun SettingsScreen(graph: AppGraph, navController: NavController) {
                 shape = CircleShape,
                 colors = FilterChipDefaults.filterChipColors(
                     selectedContainerColor = CaregiverColors.Primary,
-                    selectedLabelColor = Color.White,
+                    selectedLabelColor = CaregiverColors.Surface,
                 ),
             )
             FilterChip(
@@ -97,13 +99,13 @@ fun SettingsScreen(graph: AppGraph, navController: NavController) {
                 shape = CircleShape,
                 colors = FilterChipDefaults.filterChipColors(
                     selectedContainerColor = CaregiverColors.Primary,
-                    selectedLabelColor = Color.White,
+                    selectedLabelColor = CaregiverColors.Surface,
                 ),
             )
         }
         Text(
             text = stringResource(R.string.settings_language_restart),
-            fontFamily = PlexArabic,
+            fontFamily = AppFontFamily,
             style = MaterialTheme.typography.bodySmall,
         )
         PrimaryButton(
@@ -132,7 +134,7 @@ fun ServerUrlScreen(graph: AppGraph, navController: NavController) {
     var notice by rememberSaveable { mutableStateOf<Int?>(null) }
     var invalid by rememberSaveable { mutableStateOf(false) }
     Column(
-        Modifier.fillMaxSize().padding(horizontal = 16.dp),
+        Modifier.fillMaxSize().padding(horizontal = AppSpacing.md),
         verticalArrangement = Arrangement.spacedBy(14.dp),
     ) {
         AppTopBar(
@@ -150,8 +152,8 @@ fun ServerUrlScreen(graph: AppGraph, navController: NavController) {
                 }
             },
             singleLine = true,
-            shape = RoundedCornerShape(12.dp),
-            modifier = Modifier.fillMaxWidth().height(52.dp),
+            shape = RoundedCornerShape(AppSpacing.sm),
+            modifier = Modifier.fillMaxWidth().height(AppSizes.inputHeight),
         )
         PrimaryButton(
             label = stringResource(R.string.settings_server_save),
@@ -186,7 +188,7 @@ fun ServerUrlScreen(graph: AppGraph, navController: NavController) {
             },
         )
         notice?.let {
-            Spacer(Modifier.height(8.dp))
+            Spacer(Modifier.height(AppSpacing.xs))
             Text(text = stringResource(it))
         }
     }

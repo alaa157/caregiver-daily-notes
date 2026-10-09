@@ -34,8 +34,11 @@ import com.caregiver.mobile.AppGraph
 import com.caregiver.mobile.R
 import com.caregiver.mobile.core.i18n.Bidi
 import com.caregiver.mobile.core.navigation.AppDestinations
+import com.caregiver.mobile.core.theme.AppRadius
+import com.caregiver.mobile.core.theme.AppSizes
+import com.caregiver.mobile.core.theme.AppSpacing
 import com.caregiver.mobile.core.theme.CaregiverColors
-import com.caregiver.mobile.core.theme.PlexArabic
+import com.caregiver.mobile.core.theme.AppFontFamily
 import com.caregiver.mobile.data.api.SummaryDto
 import com.caregiver.mobile.presentation.common.AppCard
 import com.caregiver.mobile.presentation.common.AppTopBar
@@ -63,7 +66,7 @@ fun SummaryPeriodScreen(recipientId: String, graph: AppGraph, navController: Nav
     Column(Modifier.fillMaxSize()) {
         Column(
             modifier = Modifier.weight(1f).verticalScroll(rememberScrollState())
-                .padding(horizontal = 16.dp),
+                .padding(horizontal = AppSpacing.md),
             verticalArrangement = Arrangement.spacedBy(14.dp),
         ) {
             AppTopBar(
@@ -77,10 +80,10 @@ fun SummaryPeriodScreen(recipientId: String, graph: AppGraph, navController: Nav
             SectionTitle(stringResource(R.string.summary_choose_period))
             Text(
                 stringResource(R.string.summary_period),
-                fontFamily = PlexArabic,
+                fontFamily = AppFontFamily,
                 fontWeight = FontWeight.Bold,
                 fontSize = 14.sp,
-                color = CaregiverColors.Ink,
+                color = CaregiverColors.TextPrimary,
             )
             Row(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
                 SummaryViewModel.PERIODS.forEach { days ->
@@ -89,29 +92,29 @@ fun SummaryPeriodScreen(recipientId: String, graph: AppGraph, navController: Nav
                         onClick = { period = days },
                         label = {
                             Row(
-                                horizontalArrangement = Arrangement.spacedBy(4.dp),
+                                horizontalArrangement = Arrangement.spacedBy(AppSpacing.xxs),
                                 verticalAlignment = Alignment.CenterVertically,
                             ) {
                                 if (period == days) {
-                                    Text("✓", fontFamily = PlexArabic, fontWeight = FontWeight.Bold)
+                                    Text("✓", fontFamily = AppFontFamily, fontWeight = FontWeight.Bold)
                                 }
                                 Text(
                                     periodLabel(days),
-                                    fontFamily = PlexArabic,
+                                    fontFamily = AppFontFamily,
                                     fontWeight = FontWeight.Bold,
                                 )
                             }
                         },
-                        shape = RoundedCornerShape(999.dp),
+                        shape = RoundedCornerShape(AppRadius.pill),
                         border = BorderStroke(
-                            1.dp,
+                            AppSizes.borderWidth,
                             if (period == days) CaregiverColors.Primary else CaregiverColors.Border,
                         ),
                         colors = FilterChipDefaults.filterChipColors(
-                            containerColor = Color.White,
-                            labelColor = CaregiverColors.Ink,
+                            containerColor = CaregiverColors.Surface,
+                            labelColor = CaregiverColors.TextPrimary,
                             selectedContainerColor = CaregiverColors.Primary,
-                            selectedLabelColor = Color.White,
+                            selectedLabelColor = CaregiverColors.Surface,
                         ),
                     )
                 }
@@ -121,7 +124,7 @@ fun SummaryPeriodScreen(recipientId: String, graph: AppGraph, navController: Nav
             PrimaryButton(
                 label = stringResource(R.string.summary_generate),
                 onClick = { navController.navigate("summary-result/$recipientId/$period") },
-                height = 56.dp,
+                height = AppSizes.buttonHeightLarge,
                 large = true,
             )
         }
@@ -144,15 +147,15 @@ fun SummaryResultScreen(
         SummaryViewModel(recipientId, graph.apis, graph.auth, null, periodDays)
     }
     val state by vm.state.collectAsState()
-    Column(Modifier.fillMaxSize().padding(horizontal = 16.dp)) {
+    Column(Modifier.fillMaxSize().padding(horizontal = AppSpacing.md)) {
         when (val s = state) {
             SummaryState.Loading -> {
-                Spacer(Modifier.height(16.dp))
+                Spacer(Modifier.height(AppSpacing.md))
                 BusyBar(stringResource(R.string.state_summary_loading))
             }
             is SummaryState.AiUnavailable -> Column(
                 verticalArrangement = Arrangement.spacedBy(14.dp),
-                modifier = Modifier.padding(top = 16.dp),
+                modifier = Modifier.padding(top = AppSpacing.md),
             ) {
                 s.last?.let { FlagsBanner(it.redFlags) }
                 AppWarningState(
@@ -166,12 +169,12 @@ fun SummaryResultScreen(
             }
             is SummaryState.Rejected -> Column(
                 verticalArrangement = Arrangement.spacedBy(14.dp),
-                modifier = Modifier.padding(top = 16.dp),
+                modifier = Modifier.padding(top = AppSpacing.md),
             ) {
                 s.last?.let { FlagsBanner(it.redFlags) }
                 Text(
                     text = stringResource(R.string.summary_error_generic),
-                    fontFamily = PlexArabic,
+                    fontFamily = AppFontFamily,
                     color = CaregiverColors.Danger,
                 )
                 PrimaryButton(
@@ -219,10 +222,10 @@ private fun SummaryBody(summary: SummaryDto, periodDays: Int, navController: Nav
         SectionTitle(stringResource(R.string.summary_overview))
         Text(
             text = summary.text,
-            fontFamily = PlexArabic,
+            fontFamily = AppFontFamily,
             fontSize = 16.sp,
             lineHeight = 29.sp,
-            color = CaregiverColors.Ink,
+            color = CaregiverColors.TextPrimary,
         )
         if (summary.evidence.isNotEmpty()) {
             SectionTitle(stringResource(R.string.summary_important))
@@ -230,9 +233,9 @@ private fun SummaryBody(summary: SummaryDto, periodDays: Int, navController: Nav
                 AppCard {
                     Text(
                         text = "“${Bidi.isolate(item.quote)}”",
-                        fontFamily = PlexArabic,
+                        fontFamily = AppFontFamily,
                         fontSize = 15.sp,
-                        color = CaregiverColors.Ink,
+                        color = CaregiverColors.TextPrimary,
                     )
                     GrayPill(stringResource(R.string.summary_source, Bidi.isolate(item.noteId.take(8))))
                 }
@@ -251,17 +254,17 @@ private fun SummaryBody(summary: SummaryDto, periodDays: Int, navController: Nav
             Text("🔒", fontSize = 16.sp)
             Text(
                 stringResource(R.string.summary_meds_locked),
-                fontFamily = PlexArabic,
+                fontFamily = AppFontFamily,
                 fontSize = 13.sp,
-                color = CaregiverColors.Muted,
+                color = CaregiverColors.TextSecondary,
             )
         }
         PrimaryButton(
             label = stringResource(R.string.summary_proposals),
             onClick = { navController.navigate(AppDestinations.Plans.base) },
-            height = 52.dp,
+            height = AppSizes.inputHeight,
         )
-        Spacer(Modifier.height(8.dp))
+        Spacer(Modifier.height(AppSpacing.xs))
     }
 }
 

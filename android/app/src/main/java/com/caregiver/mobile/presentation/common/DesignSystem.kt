@@ -36,48 +36,35 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.shadow
 import androidx.compose.ui.graphics.Color
-import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.Dp
-import androidx.compose.ui.unit.dp
-import androidx.compose.ui.unit.sp
 import com.caregiver.mobile.R
+import com.caregiver.mobile.core.theme.AppRadius
+import com.caregiver.mobile.core.theme.AppSizes
+import com.caregiver.mobile.core.theme.AppSpacing
 import com.caregiver.mobile.core.theme.CaregiverColors
-import com.caregiver.mobile.core.theme.PlexArabic
 
 /**
- * 1:1 HTML design system.
+ * Shared components per design/components.md. All colors from
+ * CaregiverColors (tokens.json), all sizes from AppSpacing/AppSizes/
+ * AppRadius, all type from MaterialTheme.typography (token scale voiced
+ * in AppFontFamily). No literal `.dp`/`.sp`/hex here.
  *
- * Reference: `android_rtl.html` (15 embedded pages, 390px width).
- * - Screen: bg #F7F6F3, padding 0 16px, gap 14px
- * - H1 22sp Bold (login 28, saved 24), H2 19sp Bold, subtitle 13sp #5B6B70
- * - Header: row gap 8px, padding-top 16px; back 48x48 white radius 12
- * - Card: white, 1px #E3E7EA, radius 14, shadow 0 1px 2px, padding 14px
- * - Primary: 48-56dp, radius 12, #0E6B66/white, 15sp Bold (large 17sp)
- * - Secondary: white, 1px #C5CDD1, ink text
- * - Pills: 3x10 padding, radius 999, 13sp Bold
- * - Inputs: 52dp, 1px #C5CDD1, radius 12
+ * Mapping notes:
+ * - Card: surface bg, border outline, radius md (14), card elevation.
+ * - PrimaryButton: primary fill, surface label, radius md; pressed uses
+ *   PrimaryPressed via ButtonDefaults? Kept as primary (pressed handled
+ *   by ripple); disabled at 40% opacity per components.md.
+ * - SecondaryButton: surface bg, border outline, textPrimary text.
+ * - DangerOutlineButton behavior = SecondaryButton(danger = true).
+ * - Pill 28 high, radius pill, label style; neutral/info/warning/danger.
+ * - Avatar 40 circle, primarySoft fill, primary text, initials only.
+ * - AlertSafety: danger border + danger at 10% bg, radius md.
+ * - AlertInfo: info border + info at 10% bg, radius md.
+ * - Skeleton blocks use border. No full-screen spinners.
  */
-object AppDimens {
-    val ScreenHPadding = 16.dp
-    val SectionGap = 14.dp
-    val CardPadding = 14.dp
-    val SectionPadding = 20.dp
-    val CardRadius = 14.dp
-    val ControlRadius = 12.dp
-    val BackSize = 48.dp
-    val InputHeight = 52.dp
-    val ButtonH = 48.dp
-    val ButtonLargeH = 56.dp
-    val BottomNavH = 72.dp
-    val LogoSize = 56.dp
-    val LogoRadius = 16.dp
-    val AvatarSize = 48.dp
-    val SuccessCircle = 72.dp
-}
-
 @Composable
 fun AppTopBar(
     title: String,
@@ -87,23 +74,23 @@ fun AppTopBar(
 ) {
     Row(
         verticalAlignment = Alignment.CenterVertically,
-        horizontalArrangement = Arrangement.spacedBy(8.dp),
+        horizontalArrangement = Arrangement.spacedBy(AppSpacing.xs),
         modifier = Modifier
             .fillMaxWidth()
-            .padding(top = 16.dp),
+            .padding(top = AppSpacing.md),
     ) {
         if (onBack != null) {
             Surface(
-                shape = RoundedCornerShape(12.dp),
-                color = Color.White,
-                modifier = Modifier.size(48.dp),
+                shape = RoundedCornerShape(AppRadius.md),
+                color = CaregiverColors.Surface,
+                modifier = Modifier.size(AppSizes.touchTargetMin),
             ) {
-                IconButton(onClick = onBack, modifier = Modifier.size(48.dp)) {
+                IconButton(onClick = onBack, modifier = Modifier.size(AppSizes.touchTargetMin)) {
                     Icon(
                         Icons.AutoMirrored.Filled.ArrowBack,
                         contentDescription = null,
-                        tint = CaregiverColors.Ink,
-                        modifier = Modifier.size(22.dp),
+                        tint = CaregiverColors.TextPrimary,
+                        modifier = Modifier.size(AppSizes.iconSize),
                     )
                 }
             }
@@ -111,18 +98,13 @@ fun AppTopBar(
         Column(modifier = Modifier.weight(1f)) {
             Text(
                 text = title,
-                fontFamily = PlexArabic,
-                fontWeight = FontWeight.Bold,
-                fontSize = 22.sp,
-                lineHeight = 28.sp,
-                color = CaregiverColors.Ink,
+                style = MaterialTheme.typography.titleLarge,
             )
             if (subtitle != null) {
                 Text(
                     text = subtitle,
-                    fontFamily = PlexArabic,
-                    fontSize = 13.sp,
-                    color = CaregiverColors.Muted,
+                    style = MaterialTheme.typography.bodySmall,
+                    color = CaregiverColors.TextSecondary,
                 )
             }
         }
@@ -134,10 +116,7 @@ fun AppTopBar(
 fun SectionTitle(text: String, modifier: Modifier = Modifier) {
     Text(
         text = text,
-        fontFamily = PlexArabic,
-        fontWeight = FontWeight.Bold,
-        fontSize = 19.sp,
-        color = CaregiverColors.Ink,
+        style = MaterialTheme.typography.titleMedium,
         modifier = modifier,
     )
 }
@@ -146,10 +125,7 @@ fun SectionTitle(text: String, modifier: Modifier = Modifier) {
 fun GroupLabel(text: String) {
     Text(
         text = text,
-        fontFamily = PlexArabic,
-        fontWeight = FontWeight.Bold,
-        fontSize = 14.sp,
-        color = CaregiverColors.Ink,
+        style = MaterialTheme.typography.labelLarge,
     )
 }
 
@@ -159,30 +135,29 @@ fun PrimaryButton(
     onClick: () -> Unit,
     modifier: Modifier = Modifier,
     enabled: Boolean = true,
-    height: Dp = 48.dp,
+    height: Dp = AppSizes.buttonHeight,
     large: Boolean = false,
     leading: @Composable (() -> Unit)? = null,
 ) {
     Button(
         onClick = onClick,
         enabled = enabled,
-        shape = RoundedCornerShape(12.dp),
+        shape = RoundedCornerShape(AppRadius.md),
         colors = ButtonDefaults.buttonColors(
             containerColor = CaregiverColors.Primary,
-            contentColor = Color.White,
-            disabledContainerColor = CaregiverColors.Primary.copy(alpha = 0.5f),
+            contentColor = CaregiverColors.Surface,
+            disabledContainerColor = CaregiverColors.Primary.copy(alpha = 0.4f),
         ),
         modifier = modifier
             .fillMaxWidth()
             .heightIn(min = height)
-            .height(height),
+            .height(if (large) AppSizes.buttonHeightLarge else height),
     ) {
-        leading?.let { it(); Spacer(Modifier.width(8.dp)) }
+        leading?.let { it(); Spacer(Modifier.width(AppSpacing.xs)) }
         Text(
             label,
-            fontFamily = PlexArabic,
-            fontWeight = FontWeight.Bold,
-            fontSize = if (large) 17.sp else 15.sp,
+            style = if (large) MaterialTheme.typography.titleMedium else MaterialTheme.typography.labelLarge,
+            fontWeight = FontWeight.SemiBold,
         )
     }
 }
@@ -193,17 +168,17 @@ fun SecondaryButton(
     onClick: () -> Unit,
     modifier: Modifier = Modifier,
     enabled: Boolean = true,
-    height: Dp = 48.dp,
+    height: Dp = AppSizes.buttonHeight,
     danger: Boolean = false,
 ) {
     OutlinedButton(
         onClick = onClick,
         enabled = enabled,
-        shape = RoundedCornerShape(12.dp),
-        border = BorderStroke(1.dp, CaregiverColors.Border),
+        shape = RoundedCornerShape(AppRadius.md),
+        border = BorderStroke(AppSizes.borderWidth, CaregiverColors.Border),
         colors = ButtonDefaults.outlinedButtonColors(
-            containerColor = Color.White,
-            contentColor = if (danger) CaregiverColors.Danger else CaregiverColors.Ink,
+            containerColor = CaregiverColors.Surface,
+            contentColor = if (danger) CaregiverColors.Danger else CaregiverColors.TextPrimary,
         ),
         modifier = modifier
             .fillMaxWidth()
@@ -212,9 +187,8 @@ fun SecondaryButton(
     ) {
         Text(
             label,
-            fontFamily = PlexArabic,
-            fontWeight = FontWeight.Bold,
-            fontSize = 15.sp,
+            style = MaterialTheme.typography.labelLarge,
+            fontWeight = FontWeight.SemiBold,
         )
     }
 }
@@ -222,39 +196,40 @@ fun SecondaryButton(
 @Composable
 fun AppCard(
     modifier: Modifier = Modifier,
-    padding: Dp = 14.dp,
+    padding: Dp = AppSpacing.md,
     content: @Composable ColumnScope.() -> Unit,
 ) {
     Card(
-        shape = RoundedCornerShape(14.dp),
-        border = BorderStroke(1.dp, CaregiverColors.BorderSoft),
-        colors = CardDefaults.cardColors(containerColor = Color.White),
+        shape = RoundedCornerShape(AppSizes.cardRadius),
+        border = BorderStroke(AppSizes.borderWidth, CaregiverColors.Border),
+        colors = CardDefaults.cardColors(containerColor = CaregiverColors.Surface),
+        elevation = CardDefaults.cardElevation(defaultElevation = AppSizes.cardElevation),
         modifier = modifier
             .fillMaxWidth()
-            .shadow(1.dp, RoundedCornerShape(14.dp), clip = false),
+            .shadow(AppSizes.cardElevation, RoundedCornerShape(AppSizes.cardRadius), clip = false),
     ) {
         Column(
             modifier = Modifier.padding(padding),
-            verticalArrangement = Arrangement.spacedBy(8.dp),
+            verticalArrangement = Arrangement.spacedBy(AppSpacing.xs),
             content = content,
         )
     }
 }
+
+private val AppTrendLabelWidth = AppSizes.trendLabelWidth
 
 @Composable
 fun Avatar(letter: String, modifier: Modifier = Modifier) {
     Box(
         contentAlignment = Alignment.Center,
         modifier = modifier
-            .size(48.dp)
-            .background(CaregiverColors.AvatarContainer, CircleShape),
+            .size(AppSizes.avatarSize)
+            .background(CaregiverColors.PrimarySoft, CircleShape),
     ) {
         Text(
             text = letter.take(1),
-            fontFamily = PlexArabic,
-            fontWeight = FontWeight.Bold,
-            fontSize = 18.sp,
-            color = CaregiverColors.AvatarContent,
+            style = MaterialTheme.typography.titleMedium,
+            color = CaregiverColors.Primary,
         )
     }
 }
@@ -266,61 +241,58 @@ fun Pill(
     content: Color,
 ) {
     Surface(
-        shape = RoundedCornerShape(999.dp),
+        shape = RoundedCornerShape(AppRadius.pill),
         color = container,
     ) {
         Text(
             text = text,
-            fontFamily = PlexArabic,
-            fontWeight = FontWeight.Bold,
-            fontSize = 13.sp,
+            style = MaterialTheme.typography.labelLarge,
+            fontWeight = FontWeight.SemiBold,
             color = content,
-            modifier = Modifier.padding(horizontal = 10.dp, vertical = 3.dp),
+            modifier = Modifier.padding(horizontal = AppSpacing.sm, vertical = AppSpacing.xxs),
         )
     }
 }
 
 @Composable
-fun GrayPill(text: String) = Pill(text, CaregiverColors.PillGrayContainer, CaregiverColors.PillGrayContent)
+fun GrayPill(text: String) = Pill(text, CaregiverColors.Border, CaregiverColors.TextPrimary)
 
 @Composable
-fun GreenPill(text: String) = Pill(text, CaregiverColors.SuccessContainer, CaregiverColors.Success)
+fun GreenPill(text: String) = Pill(text, CaregiverColors.Success.copy(alpha = 0.12f), CaregiverColors.Success)
 
 @Composable
-fun RedPill(text: String) = Pill(text, CaregiverColors.DangerContainer, CaregiverColors.Danger)
+fun RedPill(text: String) = Pill(text, CaregiverColors.Danger.copy(alpha = 0.1f), CaregiverColors.Danger)
 
 @Composable
-fun YellowPill(text: String) = Pill(text, CaregiverColors.WarningContainer, CaregiverColors.Warning)
+fun YellowPill(text: String) = Pill(text, CaregiverColors.Warning.copy(alpha = 0.12f), CaregiverColors.Warning)
 
 @Composable
 fun LightBluePill(text: String) =
-    Pill(text, CaregiverColors.PillLightBlueContainer, CaregiverColors.PillLightBlueContent)
+    Pill(text, CaregiverColors.Info.copy(alpha = 0.12f), CaregiverColors.Info)
 
 @Composable
 fun SafetyAlertCard(title: String, body: String) {
     Card(
-        shape = RoundedCornerShape(14.dp),
-        border = BorderStroke(1.dp, CaregiverColors.DangerBorder),
-        colors = CardDefaults.cardColors(containerColor = CaregiverColors.DangerContainer),
+        shape = RoundedCornerShape(AppRadius.md),
+        border = BorderStroke(AppSizes.borderWidth, CaregiverColors.Danger),
+        colors = CardDefaults.cardColors(containerColor = CaregiverColors.Danger.copy(alpha = 0.1f)),
         modifier = Modifier.fillMaxWidth(),
     ) {
         Row(
-            horizontalArrangement = Arrangement.spacedBy(12.dp),
-            modifier = Modifier.padding(16.dp),
+            horizontalArrangement = Arrangement.spacedBy(AppSpacing.sm),
+            modifier = Modifier.padding(AppSpacing.md),
         ) {
-            Text("⚠", fontSize = 24.sp)
-            Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
+            Text("⚠", style = MaterialTheme.typography.titleLarge)
+            Column(verticalArrangement = Arrangement.spacedBy(AppSpacing.xxs)) {
                 Text(
                     title,
-                    fontFamily = PlexArabic,
-                    fontWeight = FontWeight.Bold,
-                    fontSize = 16.sp,
+                    style = MaterialTheme.typography.bodyLarge,
+                    fontWeight = FontWeight.SemiBold,
                     color = CaregiverColors.Danger,
                 )
                 Text(
                     body,
-                    fontFamily = PlexArabic,
-                    fontSize = 15.sp,
+                    style = MaterialTheme.typography.bodyLarge,
                     color = CaregiverColors.Danger,
                 )
             }
@@ -331,29 +303,27 @@ fun SafetyAlertCard(title: String, body: String) {
 @Composable
 fun InfoAlertCard(title: String, body: String? = null) {
     Card(
-        shape = RoundedCornerShape(14.dp),
-        border = BorderStroke(1.dp, CaregiverColors.InfoBorder),
-        colors = CardDefaults.cardColors(containerColor = CaregiverColors.InfoContainer),
+        shape = RoundedCornerShape(AppRadius.md),
+        border = BorderStroke(AppSizes.borderWidth, CaregiverColors.Info),
+        colors = CardDefaults.cardColors(containerColor = CaregiverColors.Info.copy(alpha = 0.1f)),
         modifier = Modifier.fillMaxWidth(),
     ) {
         Row(
-            horizontalArrangement = Arrangement.spacedBy(12.dp),
-            modifier = Modifier.padding(16.dp),
+            horizontalArrangement = Arrangement.spacedBy(AppSpacing.sm),
+            modifier = Modifier.padding(AppSpacing.md),
         ) {
-            Text("ⓘ", fontSize = 24.sp)
+            Text("ⓘ", style = MaterialTheme.typography.titleLarge)
             Column {
                 Text(
                     title,
-                    fontFamily = PlexArabic,
-                    fontWeight = FontWeight.Bold,
-                    fontSize = 16.sp,
+                    style = MaterialTheme.typography.bodyLarge,
+                    fontWeight = FontWeight.SemiBold,
                     color = CaregiverColors.Info,
                 )
                 if (body != null) {
                     Text(
                         body,
-                        fontFamily = PlexArabic,
-                        fontSize = 15.sp,
+                        style = MaterialTheme.typography.bodyLarge,
                         color = CaregiverColors.Info,
                     )
                 }
@@ -365,15 +335,15 @@ fun InfoAlertCard(title: String, body: String? = null) {
 @Composable
 fun LockBar(text: String) {
     Row(
-        horizontalArrangement = Arrangement.spacedBy(8.dp),
+        horizontalArrangement = Arrangement.spacedBy(AppSpacing.xs),
         verticalAlignment = Alignment.CenterVertically,
         modifier = Modifier
             .fillMaxWidth()
-            .background(CaregiverColors.LockBar, RoundedCornerShape(12.dp))
-            .padding(14.dp),
+            .background(CaregiverColors.PrimarySoft, RoundedCornerShape(AppRadius.md))
+            .padding(AppSpacing.md),
     ) {
-        Text("🔒", fontSize = 20.sp)
-        Text(text, fontFamily = PlexArabic, fontSize = 14.sp, color = CaregiverColors.Ink)
+        Text("🔒", style = MaterialTheme.typography.titleMedium)
+        Text(text, style = MaterialTheme.typography.labelLarge, color = CaregiverColors.TextPrimary)
     }
 }
 
@@ -382,10 +352,10 @@ fun UnclearBox(text: String) {
     Box(
         modifier = Modifier
             .fillMaxWidth()
-            .border(2.dp, CaregiverColors.Border, RoundedCornerShape(12.dp))
-            .padding(14.dp),
+            .border(AppSizes.borderWidthStrong, CaregiverColors.Border, RoundedCornerShape(AppRadius.md))
+            .padding(AppSpacing.md),
     ) {
-        Text(text, fontFamily = PlexArabic, fontSize = 14.sp, color = CaregiverColors.Ink)
+        Text(text, style = MaterialTheme.typography.labelLarge, color = CaregiverColors.TextPrimary)
     }
 }
 
@@ -398,33 +368,31 @@ fun AppEmptyState(
     onAction: () -> Unit,
 ) {
     Card(
-        shape = RoundedCornerShape(14.dp),
-        border = BorderStroke(1.dp, CaregiverColors.BorderSoft),
-        colors = CardDefaults.cardColors(containerColor = Color.White),
+        shape = RoundedCornerShape(AppRadius.md),
+        border = BorderStroke(AppSizes.borderWidth, CaregiverColors.Border),
+        colors = CardDefaults.cardColors(containerColor = CaregiverColors.Surface),
         modifier = Modifier.fillMaxWidth(),
     ) {
         Column(
             horizontalAlignment = Alignment.CenterHorizontally,
-            verticalArrangement = Arrangement.spacedBy(8.dp),
+            verticalArrangement = Arrangement.spacedBy(AppSpacing.xs),
             modifier = Modifier
                 .fillMaxWidth()
-                .padding(24.dp),
+                .padding(AppSpacing.lg),
         ) {
-            Text(icon, fontSize = 30.sp, color = CaregiverColors.Primary)
+            Text(icon, style = MaterialTheme.typography.headlineSmall, color = CaregiverColors.Primary)
             Text(
                 title,
-                fontFamily = PlexArabic,
-                fontWeight = FontWeight.Bold,
-                fontSize = 16.sp,
+                style = MaterialTheme.typography.bodyLarge,
+                fontWeight = FontWeight.SemiBold,
                 textAlign = TextAlign.Center,
-                color = CaregiverColors.Ink,
+                color = CaregiverColors.TextPrimary,
             )
             Text(
                 subtitle,
-                fontFamily = PlexArabic,
-                fontSize = 14.sp,
+                style = MaterialTheme.typography.labelLarge,
                 textAlign = TextAlign.Center,
-                color = CaregiverColors.Muted,
+                color = CaregiverColors.TextSecondary,
             )
             SecondaryButton(label = actionLabel, onClick = onAction)
         }
@@ -434,26 +402,25 @@ fun AppEmptyState(
 @Composable
 fun AppErrorState(message: String, detail: String? = null, onRetry: () -> Unit) {
     Card(
-        shape = RoundedCornerShape(14.dp),
-        border = BorderStroke(1.dp, CaregiverColors.DangerBorder),
-        colors = CardDefaults.cardColors(containerColor = CaregiverColors.DangerContainer),
+        shape = RoundedCornerShape(AppRadius.md),
+        border = BorderStroke(AppSizes.borderWidth, CaregiverColors.Danger),
+        colors = CardDefaults.cardColors(containerColor = CaregiverColors.Danger.copy(alpha = 0.1f)),
         modifier = Modifier.fillMaxWidth(),
     ) {
         Column(
-            verticalArrangement = Arrangement.spacedBy(4.dp),
-            modifier = Modifier.padding(16.dp),
+            verticalArrangement = Arrangement.spacedBy(AppSpacing.xxs),
+            modifier = Modifier.padding(AppSpacing.md),
         ) {
             Text(
                 message,
-                fontFamily = PlexArabic,
-                fontWeight = FontWeight.Bold,
-                fontSize = 15.sp,
+                style = MaterialTheme.typography.bodyLarge,
+                fontWeight = FontWeight.SemiBold,
                 color = CaregiverColors.Danger,
             )
             if (detail != null) {
-                Text(detail, fontFamily = PlexArabic, fontSize = 14.sp, color = CaregiverColors.Danger)
+                Text(detail, style = MaterialTheme.typography.labelLarge, color = CaregiverColors.Danger)
             }
-            Spacer(Modifier.height(8.dp))
+            Spacer(Modifier.height(AppSpacing.xs))
             SecondaryButton(label = stringResource(R.string.common_retry), onClick = onRetry)
         }
     }
@@ -462,43 +429,42 @@ fun AppErrorState(message: String, detail: String? = null, onRetry: () -> Unit) 
 @Composable
 fun AppWarningState(message: String, detail: String? = null) {
     Card(
-        shape = RoundedCornerShape(14.dp),
-        border = BorderStroke(1.dp, CaregiverColors.WarningContainer),
-        colors = CardDefaults.cardColors(containerColor = CaregiverColors.WarningContainer),
+        shape = RoundedCornerShape(AppRadius.md),
+        border = BorderStroke(AppSizes.borderWidth, CaregiverColors.Warning),
+        colors = CardDefaults.cardColors(containerColor = CaregiverColors.Warning.copy(alpha = 0.12f)),
         modifier = Modifier.fillMaxWidth(),
     ) {
         Column(
-            verticalArrangement = Arrangement.spacedBy(4.dp),
-            modifier = Modifier.padding(16.dp),
+            verticalArrangement = Arrangement.spacedBy(AppSpacing.xxs),
+            modifier = Modifier.padding(AppSpacing.md),
         ) {
             Text(
                 message,
-                fontFamily = PlexArabic,
-                fontWeight = FontWeight.Bold,
-                fontSize = 15.sp,
+                style = MaterialTheme.typography.bodyLarge,
+                fontWeight = FontWeight.SemiBold,
                 color = CaregiverColors.Warning,
             )
             if (detail != null) {
-                Text(detail, fontFamily = PlexArabic, fontSize = 14.sp, color = CaregiverColors.Warning)
+                Text(detail, style = MaterialTheme.typography.labelLarge, color = CaregiverColors.Warning)
             }
         }
     }
 }
 
 @Composable
-fun SkeletonBar(widthFraction: Float, height: Dp = 14.dp) {
+fun SkeletonBar(widthFraction: Float, height: Dp = AppSpacing.sm) {
     Box(
         modifier = Modifier
             .fillMaxWidth(widthFraction)
             .height(height)
-            .background(CaregiverColors.Skeleton, RoundedCornerShape(8.dp)),
+            .background(CaregiverColors.Border, RoundedCornerShape(AppRadius.sm)),
     )
 }
 
 @Composable
 fun AppLoadingSkeleton() {
-    Column(verticalArrangement = Arrangement.spacedBy(8.dp), modifier = Modifier.fillMaxWidth()) {
-        SkeletonBar(0.6f, 20.dp)
+    Column(verticalArrangement = Arrangement.spacedBy(AppSpacing.xs), modifier = Modifier.fillMaxWidth()) {
+        SkeletonBar(0.6f, AppSpacing.md)
         SkeletonBar(0.9f)
         SkeletonBar(0.75f)
     }
@@ -506,22 +472,22 @@ fun AppLoadingSkeleton() {
 
 @Composable
 fun BusyBar(label: String, progress: Float = 0.6f) {
-    Column(verticalArrangement = Arrangement.spacedBy(8.dp), modifier = Modifier.fillMaxWidth()) {
-        Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-            CircularProgressIndicator(modifier = Modifier.size(20.dp), strokeWidth = 2.dp)
-            Text(label, fontFamily = PlexArabic, fontSize = 15.sp, color = CaregiverColors.Ink)
+    Column(verticalArrangement = Arrangement.spacedBy(AppSpacing.xs), modifier = Modifier.fillMaxWidth()) {
+        Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(AppSpacing.xs)) {
+            CircularProgressIndicator(modifier = Modifier.size(AppSizes.progressIndicator), strokeWidth = AppSizes.borderWidthStrong)
+            Text(label, style = MaterialTheme.typography.bodyLarge, color = CaregiverColors.TextPrimary)
         }
         Box(
             modifier = Modifier
                 .fillMaxWidth()
-                .height(6.dp)
-                .background(CaregiverColors.Skeleton, RoundedCornerShape(3.dp)),
+                .height(AppSizes.progressTrack)
+                .background(CaregiverColors.Border, RoundedCornerShape(AppRadius.sm)),
         ) {
             Box(
                 modifier = Modifier
                     .fillMaxWidth(progress)
-                    .height(6.dp)
-                    .background(CaregiverColors.Primary, RoundedCornerShape(3.dp)),
+                    .height(AppSizes.progressTrack)
+                    .background(CaregiverColors.Primary, RoundedCornerShape(AppRadius.sm)),
             )
         }
     }
@@ -530,13 +496,13 @@ fun BusyBar(label: String, progress: Float = 0.6f) {
 @Composable
 fun BottomActionBar(content: @Composable ColumnScope.() -> Unit) {
     Surface(
-        color = Color.White,
-        border = BorderStroke(1.dp, CaregiverColors.BorderSoft),
+        color = CaregiverColors.Surface,
+        border = BorderStroke(AppSizes.borderWidth, CaregiverColors.Border),
         modifier = Modifier.fillMaxWidth(),
     ) {
         Column(
-            verticalArrangement = Arrangement.spacedBy(8.dp),
-            modifier = Modifier.padding(horizontal = 16.dp, vertical = 12.dp),
+            verticalArrangement = Arrangement.spacedBy(AppSpacing.xs),
+            modifier = Modifier.padding(horizontal = AppSpacing.md, vertical = AppSpacing.sm),
             content = content,
         )
     }
@@ -546,8 +512,7 @@ fun BottomActionBar(content: @Composable ColumnScope.() -> Unit) {
 fun FieldError(text: String) {
     Text(
         text,
-        fontFamily = PlexArabic,
-        fontSize = 14.sp,
+        style = MaterialTheme.typography.labelLarge,
         color = CaregiverColors.Danger,
     )
 }
@@ -556,9 +521,8 @@ fun FieldError(text: String) {
 fun HelperCaption(text: String, align: TextAlign = TextAlign.Start) {
     Text(
         text,
-        fontFamily = PlexArabic,
-        fontSize = 12.sp,
-        color = CaregiverColors.Muted,
+        style = MaterialTheme.typography.bodySmall,
+        color = CaregiverColors.TextSecondary,
         textAlign = align,
         modifier = if (align == TextAlign.Center) Modifier.fillMaxWidth() else Modifier,
     )
@@ -568,20 +532,19 @@ fun HelperCaption(text: String, align: TextAlign = TextAlign.Start) {
 fun TrendRow(label: String, value: String, icon: String) {
     Row(
         verticalAlignment = Alignment.CenterVertically,
-        horizontalArrangement = Arrangement.spacedBy(8.dp),
+        horizontalArrangement = Arrangement.spacedBy(AppSpacing.xs),
         modifier = Modifier
             .fillMaxWidth()
-            .padding(vertical = 8.dp),
+            .padding(vertical = AppSpacing.xs),
     ) {
-        Text(icon, fontSize = 20.sp)
+        Text(icon, style = MaterialTheme.typography.titleMedium)
         Text(
             label,
-            fontFamily = PlexArabic,
-            fontWeight = FontWeight.Bold,
-            fontSize = 15.sp,
-            modifier = Modifier.width(80.dp),
-            color = CaregiverColors.Ink,
+            style = MaterialTheme.typography.bodyLarge,
+            fontWeight = FontWeight.SemiBold,
+            modifier = Modifier.width(AppTrendLabelWidth),
+            color = CaregiverColors.TextPrimary,
         )
-        Text(value, fontFamily = PlexArabic, fontSize = 15.sp, color = CaregiverColors.Ink)
+        Text(value, style = MaterialTheme.typography.bodyLarge, color = CaregiverColors.TextPrimary)
     }
 }

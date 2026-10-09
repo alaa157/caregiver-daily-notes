@@ -52,8 +52,10 @@ import androidx.navigation.NavController
 import com.caregiver.mobile.AppGraph
 import com.caregiver.mobile.R
 import com.caregiver.mobile.core.i18n.Bidi
+import com.caregiver.mobile.core.theme.AppSpacing
 import com.caregiver.mobile.core.theme.CaregiverColors
-import com.caregiver.mobile.core.theme.PlexArabic
+import com.caregiver.mobile.core.theme.AppFontFamily
+import com.caregiver.mobile.core.theme.AppSizes
 import com.caregiver.mobile.core.time.DateFormats
 import com.caregiver.mobile.presentation.common.AppCard
 import com.caregiver.mobile.presentation.common.AppEmptyState
@@ -93,16 +95,16 @@ fun HistoryScreen(
     val from by vm.from.collectAsState()
     val to by vm.to.collectAsState()
     Column(
-        Modifier.fillMaxSize().padding(horizontal = 16.dp),
+        Modifier.fillMaxSize().padding(horizontal = AppSpacing.md),
         verticalArrangement = Arrangement.spacedBy(14.dp),
     ) {
-        Column(modifier = Modifier.padding(top = 16.dp)) {
+        Column(modifier = Modifier.padding(top = AppSpacing.md)) {
             Text(
                 text = title ?: stringResource(R.string.tab_history),
-                fontFamily = PlexArabic,
+                fontFamily = AppFontFamily,
                 fontWeight = FontWeight.Bold,
                 fontSize = 22.sp,
-                color = CaregiverColors.Ink,
+                color = CaregiverColors.TextPrimary,
             )
         }
         if (showFilters) {
@@ -114,7 +116,7 @@ fun HistoryScreen(
                 )
                 else -> Unit
             }
-            Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+            Row(horizontalArrangement = Arrangement.spacedBy(AppSpacing.xs)) {
                 DateField(R.string.history_from, from) { vm.setFrom(it) }
                 DateField(R.string.history_to, to) { vm.setTo(it) }
             }
@@ -134,26 +136,26 @@ fun HistoryScreen(
                 } else {
                     val arabic = Locale.getDefault().language == "ar"
                     LazyColumn(
-                        verticalArrangement = Arrangement.spacedBy(12.dp),
+                        verticalArrangement = Arrangement.spacedBy(AppSpacing.sm),
                         modifier = Modifier
                             .fillMaxSize()
-                            .padding(start = 12.dp)
+                            .padding(start = AppSpacing.sm)
                             .drawBehind {
                                 drawLine(
-                                    CaregiverColors.BorderSoft,
+                                    CaregiverColors.Border,
                                     Offset(0f, 0f),
                                     Offset(0f, size.height),
-                                    strokeWidth = 2.dp.toPx(),
+                                    strokeWidth = AppSizes.borderWidthStrong.toPx(),
                                 )
                             }
-                            .padding(start = 12.dp),
+                            .padding(start = AppSpacing.sm),
                     ) {
                         items(s.content.entries, key = { it.note.id }) { entry ->
                             Box {
                                 // Timeline dot — HTML 12px teal circle.
                                 Box(
                                     modifier = Modifier
-                                        .size(12.dp)
+                                        .size(AppSpacing.sm)
                                         .background(CaregiverColors.Primary, CircleShape),
                                 )
                                 AppCard(
@@ -163,16 +165,16 @@ fun HistoryScreen(
                                 ) {
                                     Text(
                                         text = DateFormats.historyDay(entry.note.date, arabic),
-                                        fontFamily = PlexArabic,
+                                        fontFamily = AppFontFamily,
                                         fontWeight = FontWeight.Bold,
                                         fontSize = 16.sp,
-                                        color = CaregiverColors.Ink,
+                                        color = CaregiverColors.TextPrimary,
                                     )
                                     Text(
                                         text = entry.note.text.take(120),
-                                        fontFamily = PlexArabic,
+                                        fontFamily = AppFontFamily,
                                         fontSize = 14.sp,
-                                        color = CaregiverColors.Muted,
+                                        color = CaregiverColors.TextSecondary,
                                     )
                                     Row(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
                                         if (entry.note.fall) {
@@ -181,14 +183,14 @@ fun HistoryScreen(
                                     }
                                     Row(
                                         verticalAlignment = Alignment.CenterVertically,
-                                        horizontalArrangement = Arrangement.spacedBy(8.dp),
+                                        horizontalArrangement = Arrangement.spacedBy(AppSpacing.xs),
                                         modifier = Modifier
                                             .heightIn(min = 44.dp)
                                             .clickable { navController.navigate("note/${entry.note.id}") },
                                     ) {
                                         Text(
                                             stringResource(R.string.saved_view),
-                                            fontFamily = PlexArabic,
+                                            fontFamily = AppFontFamily,
                                             fontWeight = FontWeight.Bold,
                                             fontSize = 15.sp,
                                             color = CaregiverColors.Primary,
@@ -223,19 +225,19 @@ private fun PersonFilter(
                 ?: stringResource(R.string.history_filter_all),
             onValueChange = {},
             readOnly = true,
-            label = { Text(stringResource(R.string.history_filter_person), fontFamily = PlexArabic) },
+            label = { Text(stringResource(R.string.history_filter_person), fontFamily = AppFontFamily) },
             trailingIcon = { ExposedDropdownMenuDefaults.TrailingIcon(expanded) },
-            shape = RoundedCornerShape(12.dp),
-            modifier = Modifier.menuAnchor().fillMaxWidth().height(48.dp),
+            shape = RoundedCornerShape(AppSpacing.sm),
+            modifier = Modifier.menuAnchor().fillMaxWidth().height(AppSpacing.xxl),
         )
         ExposedDropdownMenu(expanded = expanded, onDismissRequest = { expanded = false }) {
             DropdownMenuItem(
-                text = { Text(stringResource(R.string.history_filter_all), fontFamily = PlexArabic) },
+                text = { Text(stringResource(R.string.history_filter_all), fontFamily = AppFontFamily) },
                 onClick = { onSelect(null); expanded = false },
             )
             people.forEach { person ->
                 DropdownMenuItem(
-                    text = { Text(Bidi.isolate(person.name), fontFamily = PlexArabic) },
+                    text = { Text(Bidi.isolate(person.name), fontFamily = AppFontFamily) },
                     onClick = { onSelect(person.id); expanded = false },
                 )
             }
@@ -250,18 +252,18 @@ private fun RowScope.DateField(label: Int, date: LocalDate?, onPick: (LocalDate?
     val arabic = Locale.getDefault().language == "ar"
     Button(
         onClick = { open = true },
-        shape = RoundedCornerShape(12.dp),
+        shape = RoundedCornerShape(AppSpacing.sm),
         colors = ButtonDefaults.outlinedButtonColors(
-            containerColor = Color.White,
-            contentColor = CaregiverColors.Ink,
+            containerColor = CaregiverColors.Surface,
+            contentColor = CaregiverColors.TextPrimary,
         ),
-        border = androidx.compose.foundation.BorderStroke(1.dp, CaregiverColors.Border),
+        border = androidx.compose.foundation.BorderStroke(AppSizes.borderWidth, CaregiverColors.Border),
         modifier = Modifier.weight(1f).height(44.dp),
     ) {
         val shown = date?.let { DateFormats.historyDay(it.toString(), arabic) } ?: "—"
         Text(
             stringResource(label) + ": " + shown,
-            fontFamily = PlexArabic,
+            fontFamily = AppFontFamily,
             fontWeight = FontWeight.Bold,
             fontSize = 14.sp,
         )
@@ -282,7 +284,7 @@ private fun RowScope.DateField(label: Int, date: LocalDate?, onPick: (LocalDate?
                     )
                     open = false
                 }) {
-                    Text(stringResource(R.string.common_ok), fontFamily = PlexArabic)
+                    Text(stringResource(R.string.common_ok), fontFamily = AppFontFamily)
                 }
             },
         ) {

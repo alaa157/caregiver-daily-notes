@@ -37,6 +37,8 @@ import androidx.navigation.navArgument
 import com.caregiver.mobile.core.navigation.AppDestinations
 import com.caregiver.mobile.core.navigation.AppRoutes
 import com.caregiver.mobile.core.navigation.MainTab
+import com.caregiver.mobile.core.theme.AppSizes
+import com.caregiver.mobile.core.theme.AppSpacing
 import com.caregiver.mobile.core.theme.CaregiverColors
 import com.caregiver.mobile.presentation.history.HistoryScreen
 import com.caregiver.mobile.presentation.home.HomeScreen
@@ -70,12 +72,12 @@ fun MainScaffold(graph: AppGraph) {
         containerColor = CaregiverColors.Background,
         bottomBar = {
             Surface(
-                color = Color.White,
-                border = BorderStroke(1.dp, CaregiverColors.BorderSoft),
+                color = CaregiverColors.Surface,
+                border = BorderStroke(AppSizes.borderWidth, CaregiverColors.Border),
             ) {
                 NavigationBar(
-                    containerColor = Color.White,
-                    modifier = Modifier.height(72.dp),
+                    containerColor = CaregiverColors.Surface,
+                    modifier = Modifier.height(AppSizes.bottomNavHeight),
                 ) {
                 MainTab.entries.forEach { tab ->
                     NavigationBarItem(
@@ -99,16 +101,16 @@ fun MainScaffold(graph: AppGraph) {
                                 modifier = Modifier.size(22.dp),
                             )
                         },
-                        // Explicit in-palette selection: teal icon/label on a
-                        // neutral pill. Test tags keep the UI tests offline-safe.
-                        // HTML: item min-height 52dp, min-width 64dp, 12sp Bold,
-                        // active #0E6B66, inactive #5B6B70.
+                        // Token selection: primary icon/label on a primarySoft
+                        // pill. Test tags keep the UI tests offline-safe.
+                        // Tokens: bottomNav 72dp, active primary, inactive
+                        // textSecondary.
                         colors = NavigationBarItemDefaults.colors(
                             selectedIconColor = CaregiverColors.Primary,
                             selectedTextColor = CaregiverColors.Primary,
-                            unselectedIconColor = CaregiverColors.Muted,
-                            unselectedTextColor = CaregiverColors.Muted,
-                            indicatorColor = CaregiverColors.BorderSoft,
+                            unselectedIconColor = CaregiverColors.TextSecondary,
+                            unselectedTextColor = CaregiverColors.TextSecondary,
+                            indicatorColor = CaregiverColors.PrimarySoft,
                         ),
                         modifier = Modifier.testTag("tab_${tab.route}"),
                     )
@@ -134,9 +136,9 @@ fun MainScaffold(graph: AppGraph) {
                     )
                 },
                 containerColor = CaregiverColors.Primary,
-                contentColor = Color.White,
+                contentColor = CaregiverColors.Surface,
                 shape = RoundedCornerShape(28.dp),
-                modifier = Modifier.height(56.dp),
+                modifier = Modifier.height(AppSizes.buttonHeightLarge),
             )
         },
     ) { innerPadding ->

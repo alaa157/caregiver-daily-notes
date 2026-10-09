@@ -3,41 +3,26 @@ package com.caregiver.mobile.core.theme
 import androidx.compose.ui.graphics.Color
 
 /**
- * Exact palette extracted from the Arabic design boards
- * (/workspaces/android_rtl.html). Do not improvise new brand colors;
- * later tasks reuse these tokens for every screen.
+ * Single source of truth: design/tokens.json `color`.
+ * Thirteen tokens only. Do not add new brand colors; soft container
+ * backgrounds are derived at the call site via 10% alpha (AlertSafety /
+ * AlertInfo) or primarySoft, per components.md — never new hex values.
  */
 object CaregiverColors {
-    val Primary = Color(0xFF0E6B66)
+    val Primary = Color(0xFF4A6850)
+    val PrimaryPressed = Color(0xFF3B5441)
+    val PrimarySoft = Color(0xFFDCE5D6)
+    val AccentGold = Color(0xFFB8923F)
 
-    val Ink = Color(0xFF1F2A2E)
-    val Muted = Color(0xFF5B6B70)
-    val Background = Color(0xFFF7F6F3)
-    val Surface = Color(0xFFFAF9F5)
-    val Border = Color(0xFFC5CDD1)
-    val BorderSoft = Color(0xFFE3E7EA)
+    val Background = Color(0xFFF5EEDF)
+    val Surface = Color(0xFFFBF8F1)
+    val Border = Color(0xFFDDD5C2)
 
-    val Danger = Color(0xFF8B2B25)
-    val DangerContainer = Color(0xFFF7E3E1)
-    val DangerBorder = Color(0xFFEBC3BF)
+    val TextPrimary = Color(0xFF22302A)
+    val TextSecondary = Color(0xFF5E6B62)
 
-    val Success = Color(0xFF1F5C38)
-    val SuccessContainer = Color(0xFFE3F1E8)
-
-    val Info = Color(0xFF24507E)
-    val InfoContainer = Color(0xFFE8F0F9)
-    val InfoBorder = Color(0xFFC9DAEC)
-
-    val Warning = Color(0xFF7A4B00)
-    val WarningContainer = Color(0xFFFBF0D9)
-
-    // Pills / avatar / lock bar — exact HTML values.
-    val PillGrayContainer = Color(0xFFE8EDF3)
-    val PillGrayContent = Color(0xFF34495E)
-    val PillLightBlueContainer = Color(0xFFE4EEF8)
-    val PillLightBlueContent = Color(0xFF1F4A86)
-    val AvatarContainer = Color(0xFFDCE9F5)
-    val AvatarContent = Color(0xFF24507E)
-    val LockBar = Color(0xFFEEF1F4)
-    val Skeleton = Color(0xFFE3E7EA)
+    val Success = Color(0xFF3F7A4F)
+    val Warning = Color(0xFF9A6B1F)
+    val Danger = Color(0xFFA3413A)
+    val Info = Color(0xFF2F6B7A)
 }

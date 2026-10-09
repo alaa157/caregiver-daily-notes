@@ -36,8 +36,10 @@ import com.caregiver.mobile.R
 import com.caregiver.mobile.core.i18n.Bidi
 import com.caregiver.mobile.core.navigation.AppRoutes
 import com.caregiver.mobile.core.navigation.MainTab
+import com.caregiver.mobile.core.theme.AppSizes
+import com.caregiver.mobile.core.theme.AppSpacing
 import com.caregiver.mobile.core.theme.CaregiverColors
-import com.caregiver.mobile.core.theme.PlexArabic
+import com.caregiver.mobile.core.theme.AppFontFamily
 import com.caregiver.mobile.data.api.PlanVersionDto
 import com.caregiver.mobile.presentation.common.AppCard
 import com.caregiver.mobile.presentation.common.AppEmptyState
@@ -65,7 +67,7 @@ fun PlansScreen(graph: AppGraph, navController: NavController) {
     }
     val state by vm.state.collectAsState()
     Column(
-        Modifier.fillMaxSize().padding(horizontal = 16.dp),
+        Modifier.fillMaxSize().padding(horizontal = AppSpacing.md),
         verticalArrangement = Arrangement.spacedBy(14.dp),
     ) {
         AppTopBar(title = stringResource(R.string.plans_title))
@@ -85,7 +87,7 @@ fun PlansScreen(graph: AppGraph, navController: NavController) {
                         onAction = { navController.navigate(MainTab.People.route) },
                     )
                 } else {
-                    LazyColumn(verticalArrangement = Arrangement.spacedBy(12.dp)) {
+                    LazyColumn(verticalArrangement = Arrangement.spacedBy(AppSpacing.sm)) {
                         items(s.plans, key = { it.id }) { row ->
                             AppCard(
                                 modifier = Modifier.clickable {
@@ -94,21 +96,21 @@ fun PlansScreen(graph: AppGraph, navController: NavController) {
                             ) {
                                 Text(
                                     text = Bidi.isolate(row.recipientName),
-                                    fontFamily = PlexArabic,
+                                    fontFamily = AppFontFamily,
                                     fontWeight = FontWeight.Bold,
                                     fontSize = 16.sp,
-                                    color = CaregiverColors.Ink,
+                                    color = CaregiverColors.TextPrimary,
                                 )
-                                Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                                Row(horizontalArrangement = Arrangement.spacedBy(AppSpacing.xs)) {
                                     StatusChip(row.latestStatus)
                                     Text(
                                         text = stringResource(
                                             R.string.plans_versions_count,
                                             row.versionCount,
                                         ),
-                                        fontFamily = PlexArabic,
+                                        fontFamily = AppFontFamily,
                                         fontSize = 13.sp,
-                                        color = CaregiverColors.Muted,
+                                        color = CaregiverColors.TextSecondary,
                                     )
                                 }
                             }
@@ -152,7 +154,7 @@ fun PlanProposalScreen(planId: String, graph: AppGraph, navController: NavContro
                 val latest = s.detail.versions.firstOrNull()
                 Column(
                     modifier = Modifier.weight(1f).verticalScroll(rememberScrollState())
-                        .padding(horizontal = 16.dp),
+                        .padding(horizontal = AppSpacing.md),
                     verticalArrangement = Arrangement.spacedBy(14.dp),
                 ) {
                     AppTopBar(
@@ -161,15 +163,15 @@ fun PlanProposalScreen(planId: String, graph: AppGraph, navController: NavContro
                     )
                     // Status line: pill + review caption.
                     Row(
-                        horizontalArrangement = Arrangement.spacedBy(8.dp),
+                        horizontalArrangement = Arrangement.spacedBy(AppSpacing.xs),
                         verticalAlignment = Alignment.CenterVertically,
                     ) {
                         latest?.let { StatusChip(it.status) }
                         Text(
                             stringResource(R.string.plan_suggested_review),
-                            fontFamily = PlexArabic,
+                            fontFamily = AppFontFamily,
                             fontSize = 13.sp,
-                            color = CaregiverColors.Muted,
+                            color = CaregiverColors.TextSecondary,
                         )
                     }
                     InfoAlertCard(
@@ -182,10 +184,10 @@ fun PlanProposalScreen(planId: String, graph: AppGraph, navController: NavContro
                             AppCard {
                                 Text(
                                     text = Bidi.isolate(item),
-                                    fontFamily = PlexArabic,
+                                    fontFamily = AppFontFamily,
                                     fontWeight = FontWeight.Bold,
                                     fontSize = 16.sp,
-                                    color = CaregiverColors.Ink,
+                                    color = CaregiverColors.TextPrimary,
                                 )
                                 LockBar(stringResource(R.string.plan_meds_locked))
                             }
@@ -212,9 +214,9 @@ fun PlanProposalScreen(planId: String, graph: AppGraph, navController: NavContro
                             label = stringResource(R.string.plan_accept_full),
                             onClick = { vm.transition(PlanAction.Accept) },
                             enabled = !busy,
-                            height = 52.dp,
+                            height = AppSizes.inputHeight,
                         )
-                        Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                        Row(horizontalArrangement = Arrangement.spacedBy(AppSpacing.xs)) {
                             SecondaryButton(
                                 label = stringResource(R.string.plan_edit_accept),
                                 onClick = { navController.navigate(AppRoutes.planEdit(planId)) },
@@ -269,7 +271,7 @@ fun PlanEditScreen(planId: String, graph: AppGraph, navController: NavController
             is PlanEditState.Content -> {
                 Column(
                     modifier = Modifier.weight(1f).verticalScroll(rememberScrollState())
-                        .padding(horizontal = 16.dp),
+                        .padding(horizontal = AppSpacing.md),
                     verticalArrangement = Arrangement.spacedBy(14.dp),
                 ) {
                     AppTopBar(
@@ -281,17 +283,17 @@ fun PlanEditScreen(planId: String, graph: AppGraph, navController: NavController
                         body = stringResource(R.string.plan_not_prescription_body),
                     )
                     s.lines.forEachIndexed { index, line ->
-                        Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                        Row(horizontalArrangement = Arrangement.spacedBy(AppSpacing.xs)) {
                             OutlinedTextField(
                                 value = line,
                                 onValueChange = { vm.updateLine(index, it) },
                                 singleLine = true,
-                                shape = RoundedCornerShape(12.dp),
+                                shape = RoundedCornerShape(AppSpacing.sm),
                                 colors = OutlinedTextFieldDefaults.colors(
                                     focusedBorderColor = CaregiverColors.Primary,
                                     unfocusedBorderColor = CaregiverColors.Border,
-                                    focusedContainerColor = Color.White,
-                                    unfocusedContainerColor = Color.White,
+                                    focusedContainerColor = CaregiverColors.Surface,
+                                    unfocusedContainerColor = CaregiverColors.Surface,
                                 ),
                                 modifier = Modifier.weight(1f).height(64.dp),
                             )
@@ -315,7 +317,7 @@ fun PlanEditScreen(planId: String, graph: AppGraph, navController: NavController
                         label = stringResource(R.string.plan_edit_save),
                         onClick = vm::save,
                         enabled = !busy,
-                        height = 56.dp,
+                        height = AppSizes.buttonHeightLarge,
                         large = true,
                     )
                 }
@@ -334,7 +336,7 @@ fun PlanVersionsScreen(planId: String, graph: AppGraph, navController: NavContro
     }
     val state by vm.state.collectAsState()
     Column(
-        Modifier.fillMaxSize().padding(horizontal = 16.dp),
+        Modifier.fillMaxSize().padding(horizontal = AppSpacing.md),
         verticalArrangement = Arrangement.spacedBy(14.dp),
     ) {
         AppTopBar(
@@ -345,24 +347,24 @@ fun PlanVersionsScreen(planId: String, graph: AppGraph, navController: NavContro
             PlanDetailState.Loading -> LoadingRow()
             PlanDetailState.Error -> LoadFailed(onRetry = vm::refresh)
             is PlanDetailState.Content -> LazyColumn(
-                verticalArrangement = Arrangement.spacedBy(8.dp),
+                verticalArrangement = Arrangement.spacedBy(AppSpacing.xs),
             ) {
                 items(s.detail.versions, key = { it.version }) { version ->
                     VersionRow(version)
                     Text(
                         "↓",
-                        fontFamily = PlexArabic,
+                        fontFamily = AppFontFamily,
                         textAlign = TextAlign.Center,
-                        color = CaregiverColors.Muted,
+                        color = CaregiverColors.TextSecondary,
                         modifier = Modifier.fillMaxWidth(),
                     )
                 }
                 item {
                     Text(
                         stringResource(R.string.plan_versions_hint),
-                        fontFamily = PlexArabic,
+                        fontFamily = AppFontFamily,
                         fontSize = 13.sp,
-                        color = CaregiverColors.Muted,
+                        color = CaregiverColors.TextSecondary,
                     )
                 }
             }
@@ -374,15 +376,15 @@ fun PlanVersionsScreen(planId: String, graph: AppGraph, navController: NavContro
 private fun VersionRow(version: PlanVersionDto) {
     AppCard {
         Row(
-            horizontalArrangement = Arrangement.spacedBy(8.dp),
+            horizontalArrangement = Arrangement.spacedBy(AppSpacing.xs),
             verticalAlignment = Alignment.CenterVertically,
         ) {
             Text(
                 text = stringResource(R.string.plan_version_label, version.version),
-                fontFamily = PlexArabic,
+                fontFamily = AppFontFamily,
                 fontWeight = FontWeight.Bold,
                 fontSize = 16.sp,
-                color = CaregiverColors.Ink,
+                color = CaregiverColors.TextPrimary,
                 modifier = Modifier.weight(1f),
             )
             StatusChip(version.status)
@@ -390,17 +392,17 @@ private fun VersionRow(version: PlanVersionDto) {
         version.items.forEach { item ->
             Text(
                 text = "• ${Bidi.isolate(item)}",
-                fontFamily = PlexArabic,
+                fontFamily = AppFontFamily,
                 fontSize = 15.sp,
-                color = CaregiverColors.Ink,
+                color = CaregiverColors.TextPrimary,
             )
         }
         if (version.reason.isNotBlank()) {
             Text(
                 text = Bidi.isolate(version.reason),
-                fontFamily = PlexArabic,
+                fontFamily = AppFontFamily,
                 fontSize = 14.sp,
-                color = CaregiverColors.Muted,
+                color = CaregiverColors.TextSecondary,
             )
         }
     }

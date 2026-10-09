@@ -39,8 +39,10 @@ import androidx.compose.ui.text.input.PasswordVisualTransformation
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.caregiver.mobile.R
+import com.caregiver.mobile.core.theme.AppSizes
+import com.caregiver.mobile.core.theme.AppSpacing
 import com.caregiver.mobile.core.theme.CaregiverColors
-import com.caregiver.mobile.core.theme.PlexArabic
+import com.caregiver.mobile.core.theme.AppFontFamily
 
 /**
  * Shared login/register form in the design language (board 1): hero logo,
@@ -70,7 +72,7 @@ fun AuthForm(
             .background(CaregiverColors.Background)
             .verticalScroll(rememberScrollState())
             .imePadding()
-            .padding(horizontal = 16.dp),
+            .padding(horizontal = AppSpacing.md),
     ) {
         // Top language row — HTML secondary small 44dp button.
         // Language switching lives in Settings; this mirrors the board
@@ -79,14 +81,14 @@ fun AuthForm(
             horizontalArrangement = Arrangement.Start,
             modifier = Modifier
                 .fillMaxWidth()
-                .padding(top = 16.dp),
+                .padding(top = AppSpacing.md),
         ) {
             OutlinedButton(
                 onClick = {},
                 modifier = Modifier.heightIn(min = 44.dp).height(44.dp),
-                shape = RoundedCornerShape(12.dp),
+                shape = RoundedCornerShape(AppSpacing.sm),
             ) {
-                Text("English", fontFamily = PlexArabic, fontWeight = FontWeight.Bold)
+                Text("English", fontFamily = AppFontFamily, fontWeight = FontWeight.Bold)
             }
         }
         // Hero — HTML margin-top 40px, gap 10px.
@@ -94,29 +96,29 @@ fun AuthForm(
             verticalArrangement = Arrangement.spacedBy(10.dp),
             modifier = Modifier
                 .fillMaxWidth()
-                .padding(top = 40.dp),
+                .padding(top = AppSizes.avatarSize),
         ) {
             Box(
                 contentAlignment = Alignment.Center,
                 modifier = Modifier
-                    .size(56.dp)
-                    .background(CaregiverColors.Primary, RoundedCornerShape(16.dp)),
+                    .size(AppSizes.buttonHeightLarge)
+                    .background(CaregiverColors.Primary, RoundedCornerShape(AppSpacing.md)),
             ) {
-                Text("♥", fontSize = 28.sp, color = Color.White)
+                Text("♥", fontSize = 28.sp, color = CaregiverColors.Surface)
             }
             Text(
                 text = stringResource(R.string.login_hero_title),
-                fontFamily = PlexArabic,
+                fontFamily = AppFontFamily,
                 fontWeight = FontWeight.Bold,
                 fontSize = 28.sp,
                 lineHeight = 34.sp,
-                color = CaregiverColors.Ink,
+                color = CaregiverColors.TextPrimary,
             )
             Text(
                 text = stringResource(R.string.login_hero_subtitle),
-                fontFamily = PlexArabic,
+                fontFamily = AppFontFamily,
                 fontSize = 15.sp,
-                color = CaregiverColors.Muted,
+                color = CaregiverColors.TextSecondary,
             )
         }
         // Form — HTML margin-top 24px, gap 14px.
@@ -124,17 +126,17 @@ fun AuthForm(
             verticalArrangement = Arrangement.spacedBy(14.dp),
             modifier = Modifier
                 .fillMaxWidth()
-                .padding(top = 24.dp, bottom = 24.dp),
+                .padding(top = AppSpacing.lg, bottom = AppSpacing.lg),
         ) {
             Text(
                 text = stringResource(
                     if (mode == AuthMode.Login) R.string.auth_title_login
                     else R.string.auth_title_register,
                 ),
-                fontFamily = PlexArabic,
+                fontFamily = AppFontFamily,
                 fontWeight = FontWeight.Bold,
                 fontSize = 22.sp,
-                color = CaregiverColors.Ink,
+                color = CaregiverColors.TextPrimary,
             )
 
             LabeledField(
@@ -189,7 +191,7 @@ fun AuthForm(
             state.formError?.let {
                 Text(
                     text = formErrorText(it),
-                    fontFamily = PlexArabic,
+                    fontFamily = AppFontFamily,
                     fontSize = 14.sp,
                     color = CaregiverColors.Danger,
                 )
@@ -198,19 +200,19 @@ fun AuthForm(
             Button(
                 onClick = onSubmit,
                 enabled = !state.busy,
-                shape = RoundedCornerShape(12.dp),
+                shape = RoundedCornerShape(AppSpacing.sm),
                 colors = ButtonDefaults.buttonColors(
                     containerColor = CaregiverColors.Primary,
-                    contentColor = Color.White,
+                    contentColor = CaregiverColors.Surface,
                 ),
-                modifier = Modifier.fillMaxWidth().heightIn(min = 56.dp).height(56.dp),
+                modifier = Modifier.fillMaxWidth().heightIn(min = AppSizes.buttonHeightLarge).height(AppSizes.buttonHeightLarge),
             ) {
                 Text(
                     stringResource(
                         if (mode == AuthMode.Login) R.string.auth_submit_login
                         else R.string.auth_submit_register,
                     ),
-                    fontFamily = PlexArabic,
+                    fontFamily = AppFontFamily,
                     fontWeight = FontWeight.Bold,
                     fontSize = 17.sp,
                 )
@@ -222,7 +224,7 @@ fun AuthForm(
                         if (mode == AuthMode.Login) R.string.auth_no_account
                         else R.string.auth_have_account,
                     ),
-                    fontFamily = PlexArabic,
+                    fontFamily = AppFontFamily,
                     color = CaregiverColors.Primary,
                     fontWeight = FontWeight.Bold,
                 )
@@ -232,12 +234,12 @@ fun AuthForm(
                 TextButton(onClick = onServerSettings) {
                     Text(
                         stringResource(R.string.auth_server_link),
-                        fontFamily = PlexArabic,
+                        fontFamily = AppFontFamily,
                         color = CaregiverColors.Primary,
                     )
                 }
             }
-            Spacer(Modifier.height(8.dp))
+            Spacer(Modifier.height(AppSpacing.xs))
         }
     }
 }
@@ -257,29 +259,29 @@ private fun LabeledField(
     Column(verticalArrangement = Arrangement.spacedBy(6.dp)) {
         Text(
             label,
-            fontFamily = PlexArabic,
+            fontFamily = AppFontFamily,
             fontWeight = FontWeight.Bold,
             fontSize = 14.sp,
-            color = CaregiverColors.Ink,
+            color = CaregiverColors.TextPrimary,
         )
         OutlinedTextField(
             value = value,
             onValueChange = onValueChange,
             isError = isError,
-            supportingText = { supporting?.let { Text(it, fontFamily = PlexArabic) } },
+            supportingText = { supporting?.let { Text(it, fontFamily = AppFontFamily) } },
             visualTransformation = if (visual) PasswordVisualTransformation() else androidx.compose.ui.text.input.VisualTransformation.None,
             keyboardOptions = keyboardOptions,
             keyboardActions = KeyboardActions(onDone = { onDone?.invoke() }),
             singleLine = true,
-            shape = RoundedCornerShape(12.dp),
+            shape = RoundedCornerShape(AppSpacing.sm),
             colors = OutlinedTextFieldDefaults.colors(
                 focusedBorderColor = CaregiverColors.Primary,
                 unfocusedBorderColor = CaregiverColors.Border,
                 errorBorderColor = CaregiverColors.Danger,
-                focusedContainerColor = Color.White,
-                unfocusedContainerColor = Color.White,
+                focusedContainerColor = CaregiverColors.Surface,
+                unfocusedContainerColor = CaregiverColors.Surface,
             ),
-            modifier = Modifier.fillMaxWidth().heightIn(min = 52.dp),
+            modifier = Modifier.fillMaxWidth().heightIn(min = AppSizes.inputHeight),
         )
     }
 }

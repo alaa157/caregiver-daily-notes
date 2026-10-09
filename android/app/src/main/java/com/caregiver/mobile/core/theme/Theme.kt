@@ -5,45 +5,44 @@ import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Shapes
 import androidx.compose.material3.lightColorScheme
 import androidx.compose.runtime.Composable
-import androidx.compose.ui.graphics.Color
-import androidx.compose.ui.unit.dp
 
 /**
- * Explicit roles for everything the scaffold visibly uses. Container colors
- * come from the design palette — no Material3 purple defaults survive:
- * the FAB is solid teal (primaryContainer) and the selected tab pill is a
- * neutral surface (secondaryContainer) with teal icon/label at the call site.
+ * Explicit roles from design/tokens.json. Primary buttons use primary fill
+ * with surface label; FAB is solid primary with surface content; selected
+ * tab pill is primarySoft with primary content. No Material3 defaults,
+ * no white, no gradients, no neon.
  */
 internal val AppLightScheme = lightColorScheme(
     primary = CaregiverColors.Primary,
-    onPrimary = Color.White,
+    onPrimary = CaregiverColors.Surface,
     primaryContainer = CaregiverColors.Primary,
-    onPrimaryContainer = Color.White,
-    secondaryContainer = CaregiverColors.BorderSoft,
-    onSecondaryContainer = CaregiverColors.Ink,
+    onPrimaryContainer = CaregiverColors.Surface,
+    secondaryContainer = CaregiverColors.PrimarySoft,
+    onSecondaryContainer = CaregiverColors.TextPrimary,
     background = CaregiverColors.Background,
-    onBackground = CaregiverColors.Ink,
+    onBackground = CaregiverColors.TextPrimary,
     surface = CaregiverColors.Surface,
-    onSurface = CaregiverColors.Ink,
-    surfaceVariant = CaregiverColors.BorderSoft,
-    onSurfaceVariant = CaregiverColors.Muted,
+    onSurface = CaregiverColors.TextPrimary,
+    surfaceVariant = CaregiverColors.PrimarySoft,
+    onSurfaceVariant = CaregiverColors.TextSecondary,
     outline = CaregiverColors.Border,
     error = CaregiverColors.Danger,
-    onError = Color.White,
-    errorContainer = CaregiverColors.DangerContainer,
-    onErrorContainer = CaregiverColors.Danger,
+    onError = CaregiverColors.Surface,
+    errorContainer = CaregiverColors.Danger,
+    onErrorContainer = CaregiverColors.Surface,
 )
 
 /**
- * Board shapes: 12px cards/buttons/inputs, 14px large surfaces, 28px sheets.
- * Applied app-wide — every themed component follows without call-site edits.
+ * Radii from tokens.json: sm 8, md 14, lg 20, pill 999.
+ * Buttons/inputs/cards use md (14); small elements sm (8);
+ * large sheets lg (20). Applied app-wide.
  */
 internal val AppShapes = Shapes(
-    extraSmall = RoundedCornerShape(12.dp),
-    small = RoundedCornerShape(12.dp),
-    medium = RoundedCornerShape(12.dp),
-    large = RoundedCornerShape(14.dp),
-    extraLarge = RoundedCornerShape(28.dp),
+    extraSmall = RoundedCornerShape(AppRadius.sm),
+    small = RoundedCornerShape(AppRadius.sm),
+    medium = RoundedCornerShape(AppRadius.md),
+    large = RoundedCornerShape(AppRadius.lg),
+    extraLarge = RoundedCornerShape(AppRadius.lg),
 )
 
 /**

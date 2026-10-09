@@ -1,8 +1,8 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
-    <!-- Pre-Compose startup theme: plain design background (#F7F6F3) behind
+    <!-- Pre-Compose startup theme: token background (#F5EEDF) behind
         the splash so launch never flashes white or a platform default. -->
     <style name="Theme.Caregiver.Startup" parent="@android:style/Theme.Material.Light.NoActionBar">
-        <item name="android:windowBackground">#F7F6F3</item>
+        <item name="android:windowBackground">#F5EEDF</item>
     </style>
 </resources>
