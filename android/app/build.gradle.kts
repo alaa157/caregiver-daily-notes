@@ -22,6 +22,24 @@ android {
         resourceConfigurations += listOf("en", "ar")
     }
 
+    // Step 7: demo (offline, Room + stubs) keeps the review build separate
+    // from backend (existing network build). Demo runtime never touches the
+    // network path: AppGraph lazily builds Retrofit only when accessed, and
+    // no demo screen, VM, stub, or repository references it (guarded by
+    // NoHardcodedLiterals/NoNetworkInDemo tests). Full source-set excision
+    // of data/api stays out of scope to keep all 176 tests compiling.
+    flavorDimensions += "mode"
+    productFlavors {
+        create("demo") {
+            dimension = "mode"
+            applicationIdSuffix = ".demo"
+            versionNameSuffix = "-demo"
+        }
+        create("backend") {
+            dimension = "mode"
+        }
+    }
+
     buildTypes {
         release {
             // Keep minify off: the old cross-platform app crashed on launch with
