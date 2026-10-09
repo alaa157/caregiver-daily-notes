@@ -70,16 +70,16 @@ fun SummaryPeriodScreen(recipientId: String, graph: AppGraph, navController: Nav
             verticalArrangement = Arrangement.spacedBy(14.dp),
         ) {
             AppTopBar(
-                title = stringResource(R.string.summary_title),
+                title = stringResource(R.string.home_summaryCta),
                 onBack = { navController.popBackStack() },
             )
             InfoAlertCard(
-                title = stringResource(R.string.summary_info),
-                body = stringResource(R.string.summary_info2),
+                title = stringResource(R.string.plan_disclaimer),
+                body = stringResource(R.string.plan_disclaimer),
             )
-            SectionTitle(stringResource(R.string.summary_choose_period))
+            SectionTitle(stringResource(R.string.summary_generate))
             Text(
-                stringResource(R.string.summary_period),
+                stringResource(R.string.summary_generate),
                 fontFamily = AppFontFamily,
                 fontWeight = FontWeight.Bold,
                 fontSize = 14.sp,
@@ -151,7 +151,7 @@ fun SummaryResultScreen(
         when (val s = state) {
             SummaryState.Loading -> {
                 Spacer(Modifier.height(AppSpacing.md))
-                BusyBar(stringResource(R.string.state_summary_loading))
+                BusyBar(stringResource(R.string.state_loading))
             }
             is SummaryState.AiUnavailable -> Column(
                 verticalArrangement = Arrangement.spacedBy(14.dp),
@@ -159,11 +159,11 @@ fun SummaryResultScreen(
             ) {
                 s.last?.let { FlagsBanner(it.redFlags) }
                 AppWarningState(
-                    message = stringResource(R.string.state_ai_down),
-                    detail = stringResource(R.string.state_ai_down_hint),
+                    message = stringResource(R.string.summary_unavailable),
+                    detail = stringResource(R.string.summary_unavailable),
                 )
                 PrimaryButton(
-                    label = stringResource(R.string.common_retry),
+                    label = stringResource(R.string.action_retry),
                     onClick = vm::refresh,
                 )
             }
@@ -173,12 +173,12 @@ fun SummaryResultScreen(
             ) {
                 s.last?.let { FlagsBanner(it.redFlags) }
                 Text(
-                    text = stringResource(R.string.summary_error_generic),
+                    text = stringResource(R.string.state_error),
                     fontFamily = AppFontFamily,
                     color = CaregiverColors.Danger,
                 )
                 PrimaryButton(
-                    label = stringResource(R.string.common_retry),
+                    label = stringResource(R.string.action_retry),
                     onClick = vm::refresh,
                 )
             }
@@ -199,7 +199,7 @@ private fun FlagsBanner(redFlags: List<String>) {
     Column(verticalArrangement = Arrangement.spacedBy(0.dp)) {
         redFlags.forEach { flag ->
             SafetyAlertCard(
-                title = stringResource(R.string.home_safety_title),
+                title = stringResource(R.string.alert_redFlag_fall),
                 body = flagText(flag),
             )
         }
@@ -213,13 +213,13 @@ private fun SummaryBody(summary: SummaryDto, periodDays: Int, navController: Nav
         verticalArrangement = Arrangement.spacedBy(14.dp),
     ) {
         AppTopBar(
-            title = stringResource(R.string.summary_title),
+            title = stringResource(R.string.home_summaryCta),
             onBack = { navController.popBackStack() },
         )
         if (summary.redFlags.isNotEmpty()) {
             FlagsBanner(summary.redFlags)
         }
-        SectionTitle(stringResource(R.string.summary_overview))
+        SectionTitle(stringResource(R.string.home_summaryCta))
         Text(
             text = summary.text,
             fontFamily = AppFontFamily,
@@ -228,7 +228,7 @@ private fun SummaryBody(summary: SummaryDto, periodDays: Int, navController: Nav
             color = CaregiverColors.TextPrimary,
         )
         if (summary.evidence.isNotEmpty()) {
-            SectionTitle(stringResource(R.string.summary_important))
+            SectionTitle(stringResource(R.string.home_summaryCta))
             summary.evidence.forEach { item ->
                 AppCard {
                     Text(
@@ -237,12 +237,12 @@ private fun SummaryBody(summary: SummaryDto, periodDays: Int, navController: Nav
                         fontSize = 15.sp,
                         color = CaregiverColors.TextPrimary,
                     )
-                    GrayPill(stringResource(R.string.summary_source, Bidi.isolate(item.noteId.take(8))))
+                    GrayPill(stringResource(R.string.plan_disclaimer))
                 }
             }
         }
         if (summary.uncertainties.isNotEmpty()) {
-            SectionTitle(stringResource(R.string.summary_unclear))
+            SectionTitle(stringResource(R.string.summary_unavailable))
             summary.uncertainties.forEach { item ->
                 UnclearBox("${item.topic}: ${item.detail}")
             }
@@ -253,14 +253,14 @@ private fun SummaryBody(summary: SummaryDto, periodDays: Int, navController: Nav
         ) {
             Text("🔒", fontSize = 16.sp)
             Text(
-                stringResource(R.string.summary_meds_locked),
+                stringResource(R.string.plan_disclaimer),
                 fontFamily = AppFontFamily,
                 fontSize = 13.sp,
                 color = CaregiverColors.TextSecondary,
             )
         }
         PrimaryButton(
-            label = stringResource(R.string.summary_proposals),
+            label = stringResource(R.string.home_summaryCta),
             onClick = { navController.navigate(AppDestinations.Plans.base) },
             height = AppSizes.inputHeight,
         )
@@ -270,17 +270,17 @@ private fun SummaryBody(summary: SummaryDto, periodDays: Int, navController: Nav
 
 @Composable
 private fun flagText(flag: String): String = when (flag) {
-    "FALL_REPORTED" -> stringResource(R.string.flag_fall)
-    "HIGH_PAIN" -> stringResource(R.string.flag_pain)
-    "MEDICATION_UNCLEAR" -> stringResource(R.string.flag_meds)
+    "FALL_REPORTED" -> stringResource(R.string.alert_redFlag_fall)
+    "HIGH_PAIN" -> stringResource(R.string.alert_redFlag_fall)
+    "MEDICATION_UNCLEAR" -> stringResource(R.string.summary_unavailable)
     else -> flag
 }
 
 @Composable
 private fun periodLabel(days: Int): String = stringResource(
     when (days) {
-        7 -> R.string.summary_days_7
-        14 -> R.string.summary_days_14
-        else -> R.string.summary_days_30
+        7 -> R.string.summary_period_7
+        14 -> R.string.summary_period_14
+        else -> R.string.summary_period_30
     },
 )

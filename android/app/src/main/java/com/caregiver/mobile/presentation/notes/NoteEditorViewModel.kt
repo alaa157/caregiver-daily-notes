@@ -24,15 +24,12 @@ sealed interface EditorError {
 }
 
 /**
- * Maps save-failure codes to localized copy. The only reachable 422 on note
- * creation is the one-note-per-day rule (all field rules are enforced
- * client-side first), so it gets specific copy; everything else is generic.
+ * Maps save-failure codes to localized copy. Spec copy owns a single generic
+ * error string, so every code maps to state_error until Step 5 rewrites the
+ * editor per screens.md.
  */
 object EditorErrorText {
-    fun res(code: String?): Int = when (code) {
-        "VALIDATION_ERROR" -> R.string.editor_error_duplicate_day
-        else -> R.string.editor_error_generic
-    }
+    fun res(code: String?): Int = R.string.state_error
 }
 
 data class EditorState(

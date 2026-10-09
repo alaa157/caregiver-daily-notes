@@ -100,7 +100,7 @@ fun HistoryScreen(
     ) {
         Column(modifier = Modifier.padding(top = AppSpacing.md)) {
             Text(
-                text = title ?: stringResource(R.string.tab_history),
+                text = title ?: stringResource(R.string.nav_history),
                 fontFamily = AppFontFamily,
                 fontWeight = FontWeight.Bold,
                 fontSize = 22.sp,
@@ -117,8 +117,8 @@ fun HistoryScreen(
                 else -> Unit
             }
             Row(horizontalArrangement = Arrangement.spacedBy(AppSpacing.xs)) {
-                DateField(R.string.history_from, from) { vm.setFrom(it) }
-                DateField(R.string.history_to, to) { vm.setTo(it) }
+                DateField(R.string.summary_period_7, from) { vm.setFrom(it) }
+                DateField(R.string.summary_period_14, to) { vm.setTo(it) }
             }
         }
         when (val s = state) {
@@ -128,9 +128,9 @@ fun HistoryScreen(
                 if (s.content.entries.isEmpty()) {
                     AppEmptyState(
                         icon = "📄",
-                        title = stringResource(R.string.history_empty),
-                        subtitle = stringResource(R.string.notes_empty),
-                        actionLabel = stringResource(R.string.summary_period),
+                        title = stringResource(R.string.people_empty),
+                        subtitle = stringResource(R.string.people_empty),
+                        actionLabel = stringResource(R.string.summary_generate),
                         onAction = vm::refresh,
                     )
                 } else {
@@ -178,7 +178,7 @@ fun HistoryScreen(
                                     )
                                     Row(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
                                         if (entry.note.fall) {
-                                            RedPill(stringResource(R.string.chip_fall))
+                                            RedPill(stringResource(R.string.alert_redFlag_fall))
                                         }
                                     }
                                     Row(
@@ -189,7 +189,7 @@ fun HistoryScreen(
                                             .clickable { navController.navigate("note/${entry.note.id}") },
                                     ) {
                                         Text(
-                                            stringResource(R.string.saved_view),
+                                            stringResource(R.string.note_saved),
                                             fontFamily = AppFontFamily,
                                             fontWeight = FontWeight.Bold,
                                             fontSize = 15.sp,
@@ -222,17 +222,17 @@ private fun PersonFilter(
     ExposedDropdownMenuBox(expanded = expanded, onExpandedChange = { expanded = it }) {
         OutlinedTextField(
             value = people.firstOrNull { it.id == selected }?.name
-                ?: stringResource(R.string.history_filter_all),
+                ?: stringResource(R.string.nav_history),
             onValueChange = {},
             readOnly = true,
-            label = { Text(stringResource(R.string.history_filter_person), fontFamily = AppFontFamily) },
+            label = { Text(stringResource(R.string.nav_people), fontFamily = AppFontFamily) },
             trailingIcon = { ExposedDropdownMenuDefaults.TrailingIcon(expanded) },
             shape = RoundedCornerShape(AppSpacing.sm),
             modifier = Modifier.menuAnchor().fillMaxWidth().height(AppSpacing.xxl),
         )
         ExposedDropdownMenu(expanded = expanded, onDismissRequest = { expanded = false }) {
             DropdownMenuItem(
-                text = { Text(stringResource(R.string.history_filter_all), fontFamily = AppFontFamily) },
+                text = { Text(stringResource(R.string.nav_history), fontFamily = AppFontFamily) },
                 onClick = { onSelect(null); expanded = false },
             )
             people.forEach { person ->
@@ -284,7 +284,7 @@ private fun RowScope.DateField(label: Int, date: LocalDate?, onPick: (LocalDate?
                     )
                     open = false
                 }) {
-                    Text(stringResource(R.string.common_ok), fontFamily = AppFontFamily)
+                    Text(stringResource(R.string.action_retry), fontFamily = AppFontFamily)
                 }
             },
         ) {

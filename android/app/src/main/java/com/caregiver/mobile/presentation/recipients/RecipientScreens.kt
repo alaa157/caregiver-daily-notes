@@ -86,7 +86,7 @@ fun RecipientsScreen(graph: AppGraph, navController: NavController) {
         val count = (state as? PeopleState.Content)?.recipients?.size
         Column(modifier = Modifier.padding(top = AppSpacing.md)) {
             Text(
-                text = stringResource(R.string.tab_people),
+                text = stringResource(R.string.nav_people),
                 fontFamily = AppFontFamily,
                 fontWeight = FontWeight.Bold,
                 fontSize = 22.sp,
@@ -102,7 +102,7 @@ fun RecipientsScreen(graph: AppGraph, navController: NavController) {
             }
         }
         SecondaryButton(
-            label = stringResource(R.string.add_title),
+            label = stringResource(R.string.people_add),
             onClick = { navController.navigate(AppDestinations.AddRecipient.base) },
         )
         when (val s = state) {
@@ -113,7 +113,7 @@ fun RecipientsScreen(graph: AppGraph, navController: NavController) {
                     AppEmptyState(
                         icon = "👤",
                         title = stringResource(R.string.people_empty),
-                        subtitle = stringResource(R.string.tab_people),
+                        subtitle = stringResource(R.string.nav_people),
                         actionLabel = stringResource(R.string.people_add),
                         onAction = { navController.navigate(AppDestinations.AddRecipient.base) },
                     )
@@ -151,7 +151,7 @@ private fun PersonRow(recipient: RecipientDto, onOpen: () -> Unit) {
                     color = CaregiverColors.TextPrimary,
                 )
                 Text(
-                    text = stringResource(R.string.person_last_note),
+                    text = stringResource(R.string.note_saved),
                     fontFamily = AppFontFamily,
                     fontSize = 13.sp,
                     color = CaregiverColors.TextSecondary,
@@ -186,11 +186,11 @@ fun AddRecipientScreen(graph: AppGraph, navController: NavController) {
         verticalArrangement = Arrangement.spacedBy(14.dp),
     ) {
         AppTopBar(
-            title = stringResource(R.string.add_title),
+            title = stringResource(R.string.people_add),
             onBack = { navController.popBackStack() },
         )
         Text(
-            stringResource(R.string.add_name),
+            stringResource(R.string.note_freeText_label),
             fontFamily = AppFontFamily,
             fontWeight = FontWeight.Bold,
             fontSize = 14.sp,
@@ -203,7 +203,7 @@ fun AddRecipientScreen(graph: AppGraph, navController: NavController) {
             supportingText = {
                 if (addState.nameError != null) {
                     Text(
-                        stringResource(R.string.add_error_name),
+                        stringResource(R.string.state_error),
                         fontFamily = AppFontFamily,
                         color = CaregiverColors.Danger,
                     )
@@ -220,7 +220,7 @@ fun AddRecipientScreen(graph: AppGraph, navController: NavController) {
             modifier = Modifier.fillMaxWidth().height(AppSizes.inputHeight).testTag("add_person_name"),
         )
         PrimaryButton(
-            label = stringResource(R.string.add_save),
+            label = stringResource(R.string.note_save),
             onClick = vm::add,
             enabled = !addState.busy,
             modifier = Modifier.testTag("add_person_save"),
@@ -266,20 +266,20 @@ private fun DetailContent(detail: RecipientDetail, navController: NavController)
                 verticalAlignment = Alignment.CenterVertically,
             ) {
                 if (detail.lastNote == null) {
-                    GrayPill(stringResource(R.string.chip_no_note))
+                    GrayPill(stringResource(R.string.people_empty))
                 } else {
-                    GreenPill(stringResource(R.string.chip_done))
+                    GreenPill(stringResource(R.string.note_saved))
                 }
             }
             PrimaryButton(
-                label = stringResource(R.string.detail_add_note),
+                label = stringResource(R.string.home_addNote),
                 onClick = { navController.navigate(AppRoutes.noteEditor(detail.id)) },
                 height = AppSizes.inputHeight,
             )
         }
         // Latest note section.
         detail.lastNote?.let { note ->
-            SectionTitle(stringResource(R.string.person_last_note))
+            SectionTitle(stringResource(R.string.note_saved))
             Text(
                 text = OptionLabels.label(OptionGroup.Mood, note.mood, arabic) + " · " +
                     OptionLabels.label(OptionGroup.Appetite, note.appetite, arabic) + " · " +
@@ -293,16 +293,16 @@ private fun DetailContent(detail: RecipientDetail, navController: NavController)
         Row(horizontalArrangement = Arrangement.spacedBy(10.dp)) {
             AppCard(modifier = Modifier.weight(1f), padding = AppSpacing.sm) {
                 Text(
-                    stringResource(R.string.detail_plan),
+                    stringResource(R.string.plan_disclaimer),
                     fontFamily = AppFontFamily,
                     fontSize = 13.sp,
                     color = CaregiverColors.TextSecondary,
                 )
-                GreenPill(stringResource(R.string.plan_status_accepted))
+                GreenPill(stringResource(R.string.plan_disclaimer))
             }
             AppCard(modifier = Modifier.weight(1f), padding = AppSpacing.sm) {
                 Text(
-                    stringResource(R.string.detail_summary),
+                    stringResource(R.string.home_summaryCta),
                     fontFamily = AppFontFamily,
                     fontSize = 13.sp,
                     color = CaregiverColors.TextSecondary,
@@ -316,13 +316,13 @@ private fun DetailContent(detail: RecipientDetail, navController: NavController)
             }
         }
         // 3 design actions: history, summary, plan — secondary space-between.
-        ActionButton(R.string.detail_history) {
+        ActionButton(R.string.nav_history) {
             navController.navigate(AppRoutes.tab(MainTab.History))
         }
-        ActionButton(R.string.detail_summary) {
+        ActionButton(R.string.home_summaryCta) {
             navController.navigate(AppRoutes.summary(detail.id))
         }
-        ActionButton(R.string.detail_plan) {
+        ActionButton(R.string.plan_edit) {
             navController.navigate(AppDestinations.Plans.base)
         }
         Spacer(Modifier.height(AppSpacing.xs))

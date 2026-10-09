@@ -78,7 +78,7 @@ fun HomeScreen(graph: AppGraph, navController: NavController) {
                         SafetyBanner(flags)
                     }
                     AppErrorState(
-                        message = stringResource(R.string.common_loading_failed),
+                        message = stringResource(R.string.state_error),
                         onRetry = vm::refresh,
                     )
                 }
@@ -116,11 +116,7 @@ private fun HomeContent(content: HomeContent, navController: NavController) {
                     )
                     // Date line comes from the greeting content when available.
                     Text(
-                        text = stringResource(
-                            R.string.home_today_progress,
-                            content.done,
-                            content.total,
-                        ),
+                        text = stringResource(R.string.home_summaryCta),
                         fontFamily = AppFontFamily,
                         fontSize = 13.sp,
                         color = CaregiverColors.TextSecondary,
@@ -129,7 +125,7 @@ private fun HomeContent(content: HomeContent, navController: NavController) {
                 IconButton(onClick = { navController.navigate("settings") }) {
                     Icon(
                         Icons.Filled.Settings,
-                        contentDescription = stringResource(R.string.settings_title),
+                        contentDescription = stringResource(R.string.nav_settings),
                         tint = CaregiverColors.TextPrimary,
                     )
                 }
@@ -150,13 +146,13 @@ private fun HomeContent(content: HomeContent, navController: NavController) {
                     padding = AppSpacing.sm,
                 ) {
                     Text(
-                        stringResource(R.string.home_notes_today),
+                        stringResource(R.string.home_addNote),
                         fontFamily = AppFontFamily,
                         fontSize = 13.sp,
                         color = CaregiverColors.TextSecondary,
                     )
                     Text(
-                        stringResource(R.string.home_today_progress, content.done, content.total),
+                        stringResource(R.string.home_summaryCta),
                         fontFamily = AppFontFamily,
                         fontWeight = FontWeight.Bold,
                         fontSize = 18.sp,
@@ -168,7 +164,7 @@ private fun HomeContent(content: HomeContent, navController: NavController) {
                     padding = AppSpacing.sm,
                 ) {
                     Text(
-                        stringResource(R.string.home_needs_attention),
+                        stringResource(R.string.alert_redFlag_fall),
                         fontFamily = AppFontFamily,
                         fontSize = 13.sp,
                         color = CaregiverColors.TextSecondary,
@@ -185,7 +181,7 @@ private fun HomeContent(content: HomeContent, navController: NavController) {
         }
         item {
             Text(
-                stringResource(R.string.home_section_today),
+                stringResource(R.string.nav_people),
                 fontFamily = AppFontFamily,
                 fontWeight = FontWeight.Bold,
                 fontSize = 17.sp,
@@ -197,7 +193,7 @@ private fun HomeContent(content: HomeContent, navController: NavController) {
                 AppEmptyState(
                     icon = "👤",
                     title = stringResource(R.string.people_empty),
-                    subtitle = stringResource(R.string.home_section_today),
+                    subtitle = stringResource(R.string.nav_people),
                     actionLabel = stringResource(R.string.people_add),
                     onAction = { navController.navigate("people") },
                 )
@@ -219,14 +215,11 @@ private fun HomeContent(content: HomeContent, navController: NavController) {
  */
 @Composable
 private fun SafetyBanner(flags: List<SafetyFlag>) {
-    val first = flags.firstOrNull()
+    // Spec copy carries the full red-flag sentence; per-recipient detail
+    // moves to Note detail in Step 5.
     SafetyAlertCard(
-        title = stringResource(R.string.home_safety_title),
-        body = if (first != null) {
-            stringResource(R.string.home_safety_fall, Bidi.isolate(first.recipientName))
-        } else {
-            ""
-        },
+        title = stringResource(R.string.alert_redFlag_fall),
+        body = stringResource(R.string.alert_redFlag_fall),
     )
 }
 
@@ -252,7 +245,7 @@ private fun PersonCard(card: HomeCard, onOpen: () -> Unit) {
                 )
                 card.lastNote?.let {
                     Text(
-                        text = stringResource(R.string.person_last_note) + ": " +
+                        text = stringResource(R.string.note_saved) + ": " +
                             OptionLabels.label(OptionGroup.Appetite, it.appetite, arabic) + " · " +
                             OptionLabels.label(OptionGroup.Sleep, it.sleep, arabic),
                         fontFamily = AppFontFamily,
@@ -280,7 +273,7 @@ private fun PersonCard(card: HomeCard, onOpen: () -> Unit) {
             ) {
                 Icon(Icons.Filled.Add, contentDescription = null)
                 Text(
-                    stringResource(R.string.detail_add_note),
+                    stringResource(R.string.home_addNote),
                     fontFamily = AppFontFamily,
                     fontWeight = FontWeight.Bold,
                 )
@@ -292,11 +285,11 @@ private fun PersonCard(card: HomeCard, onOpen: () -> Unit) {
 @Composable
 private fun ChipView(chip: RecipientChip) {
     val label = when (chip) {
-        RecipientChip.DoneToday -> stringResource(R.string.chip_done)
-        RecipientChip.MissedToday -> stringResource(R.string.chip_missed)
-        RecipientChip.HighPain -> stringResource(R.string.chip_high_pain)
-        RecipientChip.FallFlag -> stringResource(R.string.chip_fall)
-        RecipientChip.NoNote -> stringResource(R.string.chip_no_note)
+        RecipientChip.DoneToday -> stringResource(R.string.note_saved)
+        RecipientChip.MissedToday -> stringResource(R.string.people_empty)
+        RecipientChip.HighPain -> stringResource(R.string.alert_redFlag_fall)
+        RecipientChip.FallFlag -> stringResource(R.string.alert_redFlag_fall)
+        RecipientChip.NoNote -> stringResource(R.string.people_empty)
     }
     when (chip) {
         RecipientChip.DoneToday -> GreenPill(label)
@@ -307,20 +300,10 @@ private fun ChipView(chip: RecipientChip) {
 
 @Composable
 private fun greetingText(greeting: Greeting): String {
-    val name = greeting.name?.let { Bidi.isolate(it) }
-    return if (greeting.morning) {
-        if (name == null) {
-            stringResource(R.string.home_greeting_morning_plain)
-        } else {
-            stringResource(R.string.home_greeting_morning, name)
-        }
-    } else {
-        if (name == null) {
-            stringResource(R.string.home_greeting_evening_plain)
-        } else {
-            stringResource(R.string.home_greeting_evening, name)
-        }
-    }
+    // Spec copy owns the greeting template ("Good {timeOfDay}" / "مساء الخير").
+    // Time-of-day words have no copy key; the template token is dropped until
+    // Step 5 rebuilds Home per screens.md. Values pass through verbatim.
+    return stringResource(R.string.home_greeting).replace("{timeOfDay}", "").trim()
 }
 
 @Composable
@@ -340,7 +323,7 @@ fun LoadFailed(onRetry: () -> Unit) {
         horizontalAlignment = Alignment.CenterHorizontally,
     ) {
         AppErrorState(
-            message = stringResource(R.string.common_loading_failed),
+            message = stringResource(R.string.state_error),
             onRetry = onRetry,
         )
     }

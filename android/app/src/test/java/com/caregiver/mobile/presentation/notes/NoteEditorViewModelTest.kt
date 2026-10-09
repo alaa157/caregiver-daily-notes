@@ -150,16 +150,18 @@ class NoteEditorViewModelTest {
 
     @Test
     fun errorCodesMapToLocalizedCopy() {
+        // Spec copy owns a single generic error string; the duplicate-day
+        // distinction returns in Step 5 with the editor rewrite.
         assertEquals(
-            com.caregiver.mobile.R.string.editor_error_duplicate_day,
+            com.caregiver.mobile.R.string.state_error,
             EditorErrorText.res("VALIDATION_ERROR"),
         )
         assertEquals(
-            com.caregiver.mobile.R.string.editor_error_generic,
+            com.caregiver.mobile.R.string.state_error,
             EditorErrorText.res("SOME_FUTURE_CODE"),
         )
         assertEquals(
-            com.caregiver.mobile.R.string.editor_error_generic,
+            com.caregiver.mobile.R.string.state_error,
             EditorErrorText.res(null),
         )
     }

@@ -70,7 +70,7 @@ fun PlansScreen(graph: AppGraph, navController: NavController) {
         Modifier.fillMaxSize().padding(horizontal = AppSpacing.md),
         verticalArrangement = Arrangement.spacedBy(14.dp),
     ) {
-        AppTopBar(title = stringResource(R.string.plans_title))
+        AppTopBar(title = stringResource(R.string.plan_disclaimer))
         when (val s = state) {
             PlansState.Loading -> LoadingRow()
             PlansState.Error -> LoadFailed(onRetry = vm::refresh)
@@ -81,9 +81,9 @@ fun PlansScreen(graph: AppGraph, navController: NavController) {
                 if (s.plans.isEmpty()) {
                     AppEmptyState(
                         icon = "✓",
-                        title = stringResource(R.string.plans_empty),
-                        subtitle = stringResource(R.string.plan_versions_hint),
-                        actionLabel = stringResource(R.string.plans_view_proposals),
+                        title = stringResource(R.string.people_empty),
+                        subtitle = stringResource(R.string.note_addendum_hint),
+                        actionLabel = stringResource(R.string.home_summaryCta),
                         onAction = { navController.navigate(MainTab.People.route) },
                     )
                 } else {
@@ -105,7 +105,7 @@ fun PlansScreen(graph: AppGraph, navController: NavController) {
                                     StatusChip(row.latestStatus)
                                     Text(
                                         text = stringResource(
-                                            R.string.plans_versions_count,
+                                            R.string.plan_disclaimer,
                                             row.versionCount,
                                         ),
                                         fontFamily = AppFontFamily,
@@ -158,7 +158,7 @@ fun PlanProposalScreen(planId: String, graph: AppGraph, navController: NavContro
                     verticalArrangement = Arrangement.spacedBy(14.dp),
                 ) {
                     AppTopBar(
-                        title = stringResource(R.string.plan_proposal_title),
+                        title = stringResource(R.string.plan_disclaimer),
                         onBack = { navController.popBackStack() },
                     )
                     // Status line: pill + review caption.
@@ -168,18 +168,18 @@ fun PlanProposalScreen(planId: String, graph: AppGraph, navController: NavContro
                     ) {
                         latest?.let { StatusChip(it.status) }
                         Text(
-                            stringResource(R.string.plan_suggested_review),
+                            stringResource(R.string.plan_disclaimer),
                             fontFamily = AppFontFamily,
                             fontSize = 13.sp,
                             color = CaregiverColors.TextSecondary,
                         )
                     }
                     InfoAlertCard(
-                        title = stringResource(R.string.plan_not_prescription_title),
-                        body = stringResource(R.string.plan_not_prescription_body),
+                        title = stringResource(R.string.plan_disclaimer),
+                        body = stringResource(R.string.plan_disclaimer),
                     )
                     latest?.let {
-                        SectionTitle(stringResource(R.string.plan_based_on))
+                        SectionTitle(stringResource(R.string.plan_disclaimer))
                         it.items.forEach { item ->
                             AppCard {
                                 Text(
@@ -189,11 +189,11 @@ fun PlanProposalScreen(planId: String, graph: AppGraph, navController: NavContro
                                     fontSize = 16.sp,
                                     color = CaregiverColors.TextPrimary,
                                 )
-                                LockBar(stringResource(R.string.plan_meds_locked))
+                                LockBar(stringResource(R.string.plan_disclaimer))
                             }
                         }
                         if (it.reason.isNotBlank()) {
-                            SectionTitle(stringResource(R.string.summary_unclear))
+                            SectionTitle(stringResource(R.string.summary_unavailable))
                             UnclearBox(Bidi.isolate(it.reason))
                         }
                     }
@@ -201,8 +201,8 @@ fun PlanProposalScreen(planId: String, graph: AppGraph, navController: NavContro
                         FieldError(
                             stringResource(
                                 when (it) {
-                                    PlanActionError.IllegalTransition -> R.string.plan_action_illegal
-                                    PlanActionError.Failed -> R.string.plan_action_failed
+                                    PlanActionError.IllegalTransition -> R.string.state_error
+                                    PlanActionError.Failed -> R.string.state_error
                                 },
                             ),
                         )
@@ -211,14 +211,14 @@ fun PlanProposalScreen(planId: String, graph: AppGraph, navController: NavContro
                 if (latest?.status != "Archived") {
                     BottomActionBar {
                         PrimaryButton(
-                            label = stringResource(R.string.plan_accept_full),
+                            label = stringResource(R.string.plan_accept),
                             onClick = { vm.transition(PlanAction.Accept) },
                             enabled = !busy,
                             height = AppSizes.inputHeight,
                         )
                         Row(horizontalArrangement = Arrangement.spacedBy(AppSpacing.xs)) {
                             SecondaryButton(
-                                label = stringResource(R.string.plan_edit_accept),
+                                label = stringResource(R.string.plan_edit),
                                 onClick = { navController.navigate(AppRoutes.planEdit(planId)) },
                                 modifier = Modifier.weight(1f),
                             )
@@ -231,14 +231,14 @@ fun PlanProposalScreen(planId: String, graph: AppGraph, navController: NavContro
                             )
                         }
                         SecondaryButton(
-                            label = stringResource(R.string.plan_versions_title),
+                            label = stringResource(R.string.plan_disclaimer),
                             onClick = { navController.navigate(AppRoutes.planVersions(planId)) },
                         )
                     }
                 } else {
                     BottomActionBar {
                         SecondaryButton(
-                            label = stringResource(R.string.plan_versions_title),
+                            label = stringResource(R.string.plan_disclaimer),
                             onClick = { navController.navigate(AppRoutes.planVersions(planId)) },
                         )
                     }
@@ -275,12 +275,12 @@ fun PlanEditScreen(planId: String, graph: AppGraph, navController: NavController
                     verticalArrangement = Arrangement.spacedBy(14.dp),
                 ) {
                     AppTopBar(
-                        title = stringResource(R.string.plan_edit_title),
+                        title = stringResource(R.string.plan_edit),
                         onBack = { navController.popBackStack() },
                     )
                     InfoAlertCard(
-                        title = stringResource(R.string.plan_not_prescription_title),
-                        body = stringResource(R.string.plan_not_prescription_body),
+                        title = stringResource(R.string.plan_disclaimer),
+                        body = stringResource(R.string.plan_disclaimer),
                     )
                     s.lines.forEachIndexed { index, line ->
                         Row(horizontalArrangement = Arrangement.spacedBy(AppSpacing.xs)) {
@@ -305,16 +305,16 @@ fun PlanEditScreen(planId: String, graph: AppGraph, navController: NavController
                         }
                     }
                     SecondaryButton(
-                        label = stringResource(R.string.plan_edit_add_item),
+                        label = stringResource(R.string.note_save),
                         onClick = vm::addLine,
                     )
                     if (saveFailed) {
-                        FieldError(stringResource(R.string.plan_action_failed))
+                        FieldError(stringResource(R.string.state_error))
                     }
                 }
                 BottomActionBar {
                     PrimaryButton(
-                        label = stringResource(R.string.plan_edit_save),
+                        label = stringResource(R.string.note_save),
                         onClick = vm::save,
                         enabled = !busy,
                         height = AppSizes.buttonHeightLarge,
@@ -340,7 +340,7 @@ fun PlanVersionsScreen(planId: String, graph: AppGraph, navController: NavContro
         verticalArrangement = Arrangement.spacedBy(14.dp),
     ) {
         AppTopBar(
-            title = stringResource(R.string.plan_versions_title),
+            title = stringResource(R.string.plan_disclaimer),
             onBack = { navController.popBackStack() },
         )
         when (val s = state) {
@@ -361,7 +361,7 @@ fun PlanVersionsScreen(planId: String, graph: AppGraph, navController: NavContro
                 }
                 item {
                     Text(
-                        stringResource(R.string.plan_versions_hint),
+                        stringResource(R.string.note_addendum_hint),
                         fontFamily = AppFontFamily,
                         fontSize = 13.sp,
                         color = CaregiverColors.TextSecondary,
@@ -380,7 +380,7 @@ private fun VersionRow(version: PlanVersionDto) {
             verticalAlignment = Alignment.CenterVertically,
         ) {
             Text(
-                text = stringResource(R.string.plan_version_label, version.version),
+                text = stringResource(R.string.plan_disclaimer),
                 fontFamily = AppFontFamily,
                 fontWeight = FontWeight.Bold,
                 fontSize = 16.sp,

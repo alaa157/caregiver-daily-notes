@@ -7,8 +7,11 @@ import org.junit.Assert.assertTrue
 import org.junit.Test
 
 /**
- * Task 8: every `ar` key exists in `en` and vice versa, no empty values,
- * placeholders stay consistent, and the board-15 state catalog exists.
+ * Copy contract per design: every `ar` key exists in `en` and vice versa,
+ * no empty values, placeholders stay consistent, and the generated
+ * resources match design/copy.*.json keys in identical order (dots become
+ * underscores). scripts/gen_strings.py is the generator; this test guards
+ * the contract in CI.
  */
 class StringsParityTest {
 
@@ -88,20 +91,53 @@ class StringsParityTest {
     }
 
     @Test
-    fun board15StateCatalogExists() {
+    fun generatedStringsMatchCopyJsonKeysInOrder() {
         val dir = resDir()
-        val en = strings(File(dir, "values/strings.xml"))
+        // Walk up from the Gradle user.dir (android/app for unit tests) to
+        // the repo root holding design/copy.*.json.
+        var root: File? = File(System.getProperty("user.dir")).absoluteFile
+        var copyEn: File? = null
+        var copyAr: File? = null
+        while (root != null && copyEn == null) {
+            val candidate = File(root, "design/copy.en.json")
+            if (candidate.isFile) {
+                copyEn = candidate
+                copyAr = File(root, "design/copy.ar.json")
+            }
+            root = root.parentFile
+        }
+        assertTrue("design/copy.en.json not found from $dir", copyEn?.isFile == true)
+        assertTrue("design/copy.ar.json not found from $dir", copyAr?.isFile == true)
 
-        // Board-15 catalog: offline, empty states, plans empty, safety banner CD.
-        val required = listOf(
-            "common_offline",
-            "people_empty",
-            "notes_empty",
-            "plans_empty",
-            "plans_view_proposals",
-            "safety_banner_cd",
+        val enKeys = keysInOrder(copyEn!!)
+        val arKeys = keysInOrder(copyAr!!)
+        assertEquals(
+            "copy.en.json and copy.ar.json must have identical keys in identical order",
+            enKeys,
+            arKeys,
         )
-        val missing = required.filter { it !in en }
-        assertTrue("missing board-15 state strings: $missing", missing.isEmpty())
+
+        val expected = enKeys.map { it.replace(".", "_") }
+        val resEn = strings(File(dir, "values/strings.xml")).keys.toList()
+        val resAr = strings(File(dir, "values-ar/strings.xml")).keys.toList()
+        assertEquals(
+            "values/strings.xml must match copy.en.json (run scripts/gen_strings.py)",
+            expected,
+            resEn,
+        )
+        assertEquals(
+            "values-ar/strings.xml must match copy.ar.json (run scripts/gen_strings.py)",
+            expected,
+            resAr,
+        )
+    }
+
+    private fun keysInOrder(file: File): List<String> {
+        // Order-sensitive key extraction: a regex over the raw JSON preserves
+        // document order without a JSON parser dependency.
+        val keys = Regex("\"([^\"]+)\"\\s*:").findAll(file.readText())
+            .map { it.groupValues[1] }.toList()
+        assertTrue("${file.name} must not be empty", keys.isNotEmpty())
+        return keys
     }
 }

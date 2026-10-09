@@ -421,7 +421,7 @@ fun AppErrorState(message: String, detail: String? = null, onRetry: () -> Unit) 
                 Text(detail, style = MaterialTheme.typography.labelLarge, color = CaregiverColors.Danger)
             }
             Spacer(Modifier.height(AppSpacing.xs))
-            SecondaryButton(label = stringResource(R.string.common_retry), onClick = onRetry)
+            SecondaryButton(label = stringResource(R.string.action_retry), onClick = onRetry)
         }
     }
 }

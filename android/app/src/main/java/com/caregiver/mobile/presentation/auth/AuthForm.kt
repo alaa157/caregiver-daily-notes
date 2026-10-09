@@ -107,7 +107,7 @@ fun AuthForm(
                 Text("♥", fontSize = 28.sp, color = CaregiverColors.Surface)
             }
             Text(
-                text = stringResource(R.string.login_hero_title),
+                text = stringResource(R.string.app_name),
                 fontFamily = AppFontFamily,
                 fontWeight = FontWeight.Bold,
                 fontSize = 28.sp,
@@ -115,7 +115,7 @@ fun AuthForm(
                 color = CaregiverColors.TextPrimary,
             )
             Text(
-                text = stringResource(R.string.login_hero_subtitle),
+                text = stringResource(R.string.auth_login_title),
                 fontFamily = AppFontFamily,
                 fontSize = 15.sp,
                 color = CaregiverColors.TextSecondary,
@@ -130,8 +130,8 @@ fun AuthForm(
         ) {
             Text(
                 text = stringResource(
-                    if (mode == AuthMode.Login) R.string.auth_title_login
-                    else R.string.auth_title_register,
+                    if (mode == AuthMode.Login) R.string.auth_login_title
+                    else R.string.auth_login_title,
                 ),
                 fontFamily = AppFontFamily,
                 fontWeight = FontWeight.Bold,
@@ -140,7 +140,7 @@ fun AuthForm(
             )
 
             LabeledField(
-                label = stringResource(R.string.auth_email),
+                label = stringResource(R.string.auth_login_email),
                 value = state.email,
                 onValueChange = onEmail,
                 isError = state.emailError != null,
@@ -153,7 +153,7 @@ fun AuthForm(
             )
 
             LabeledField(
-                label = stringResource(R.string.auth_password),
+                label = stringResource(R.string.auth_login_password),
                 value = state.password,
                 onValueChange = onPassword,
                 isError = state.passwordError != null,
@@ -169,12 +169,12 @@ fun AuthForm(
 
             if (mode == AuthMode.Register) {
                 LabeledField(
-                    label = stringResource(R.string.auth_confirm),
+                    label = stringResource(R.string.auth_login_password),
                     value = state.confirm,
                     onValueChange = onConfirm,
                     isError = state.confirmError != null,
                     supporting = if (state.confirmError != null) {
-                        stringResource(R.string.auth_error_confirm_mismatch)
+                        stringResource(R.string.state_error)
                     } else {
                         null
                     },
@@ -205,12 +205,12 @@ fun AuthForm(
                     containerColor = CaregiverColors.Primary,
                     contentColor = CaregiverColors.Surface,
                 ),
-                modifier = Modifier.fillMaxWidth().heightIn(min = AppSizes.buttonHeightLarge).height(AppSizes.buttonHeightLarge),
+                modifier = Modifier.fillMaxWidth().heightIn(min = AppSizes.buttonHeightLarge).height(AppSizes.buttonHeightLarge).testTag("auth_submit"),
             ) {
                 Text(
                     stringResource(
-                        if (mode == AuthMode.Login) R.string.auth_submit_login
-                        else R.string.auth_submit_register,
+                        if (mode == AuthMode.Login) R.string.auth_login_submit
+                        else R.string.auth_login_submit,
                     ),
                     fontFamily = AppFontFamily,
                     fontWeight = FontWeight.Bold,
@@ -218,11 +218,11 @@ fun AuthForm(
                 )
             }
 
-            TextButton(onClick = onSwitchMode) {
+            TextButton(onClick = onSwitchMode, modifier = Modifier.testTag("auth_switch")) {
                 Text(
                     stringResource(
-                        if (mode == AuthMode.Login) R.string.auth_no_account
-                        else R.string.auth_have_account,
+                        if (mode == AuthMode.Login) R.string.auth_login_submit
+                        else R.string.auth_login_submit,
                     ),
                     fontFamily = AppFontFamily,
                     color = CaregiverColors.Primary,
@@ -233,7 +233,7 @@ fun AuthForm(
             if (onServerSettings != null) {
                 TextButton(onClick = onServerSettings) {
                     Text(
-                        stringResource(R.string.auth_server_link),
+                        stringResource(R.string.nav_settings),
                         fontFamily = AppFontFamily,
                         color = CaregiverColors.Primary,
                     )
@@ -289,25 +289,25 @@ private fun LabeledField(
 @Composable
 private fun emailErrorText(error: EmailError): String = stringResource(
     when (error) {
-        EmailError.Required -> R.string.auth_error_email_required
-        EmailError.Invalid -> R.string.auth_error_email_invalid
+        EmailError.Required -> R.string.state_error
+        EmailError.Invalid -> R.string.state_error
     },
 )
 
 @Composable
 private fun passwordErrorText(error: PasswordError): String = stringResource(
     when (error) {
-        PasswordError.Required -> R.string.auth_error_password_required
-        PasswordError.TooLong -> R.string.auth_error_password_long
+        PasswordError.Required -> R.string.state_error
+        PasswordError.TooLong -> R.string.state_error
     },
 )
 
 @Composable
 private fun formErrorText(error: FormError): String = stringResource(
     when (error) {
-        FormError.InvalidCredentials -> R.string.auth_error_invalid_credentials
-        FormError.DuplicateEmail -> R.string.auth_error_duplicate_email
-        FormError.Unreachable -> R.string.auth_error_unreachable
-        FormError.Generic -> R.string.auth_error_generic
+        FormError.InvalidCredentials -> R.string.state_error
+        FormError.DuplicateEmail -> R.string.state_error
+        FormError.Unreachable -> R.string.state_error
+        FormError.Generic -> R.string.state_error
     },
 )

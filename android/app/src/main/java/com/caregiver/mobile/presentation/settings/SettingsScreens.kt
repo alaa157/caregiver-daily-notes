@@ -59,12 +59,12 @@ fun SettingsScreen(graph: AppGraph, navController: NavController) {
         modifier = Modifier.fillMaxSize().padding(horizontal = AppSpacing.md),
         verticalArrangement = Arrangement.spacedBy(14.dp),
     ) {
-        AppTopBar(title = stringResource(R.string.settings_title))
+        AppTopBar(title = stringResource(R.string.nav_settings))
         SecondaryButton(
-            label = stringResource(R.string.settings_server),
+            label = stringResource(R.string.nav_settings),
             onClick = { navController.navigate("server-url") },
         )
-        Text(text = stringResource(R.string.settings_language))
+        Text(text = stringResource(R.string.nav_settings))
         Row(horizontalArrangement = Arrangement.spacedBy(AppSpacing.xs)) {
             // Language names are intentionally literal, not string resources:
             // each language must be recognizable no matter which locale is active.
@@ -104,12 +104,12 @@ fun SettingsScreen(graph: AppGraph, navController: NavController) {
             )
         }
         Text(
-            text = stringResource(R.string.settings_language_restart),
+            text = stringResource(R.string.state_loading),
             fontFamily = AppFontFamily,
             style = MaterialTheme.typography.bodySmall,
         )
         PrimaryButton(
-            label = stringResource(R.string.settings_logout),
+            label = stringResource(R.string.action_cancel),
             onClick = {
                 scope.launch { graph.auth.signOut() }
             },
@@ -138,17 +138,17 @@ fun ServerUrlScreen(graph: AppGraph, navController: NavController) {
         verticalArrangement = Arrangement.spacedBy(14.dp),
     ) {
         AppTopBar(
-            title = stringResource(R.string.settings_server),
+            title = stringResource(R.string.nav_settings),
             onBack = { navController.popBackStack() },
         )
         OutlinedTextField(
             value = field,
             onValueChange = { field = it; invalid = false; notice = null },
-            label = { Text(stringResource(R.string.settings_server)) },
+            label = { Text(stringResource(R.string.nav_settings)) },
             isError = invalid,
             supportingText = {
                 if (invalid) {
-                    Text(stringResource(R.string.settings_url_invalid))
+                    Text(stringResource(R.string.state_error))
                 }
             },
             singleLine = true,
@@ -156,19 +156,19 @@ fun ServerUrlScreen(graph: AppGraph, navController: NavController) {
             modifier = Modifier.fillMaxWidth().height(AppSizes.inputHeight),
         )
         PrimaryButton(
-            label = stringResource(R.string.settings_server_save),
+            label = stringResource(R.string.nav_settings),
             onClick = {
                 when (val check = ApiClient.checkBaseUrl(field)) {
                     is BaseUrlCheck.Valid -> {
                         scope.launch {
                             graph.settings.setBaseUrl(field.trim())
-                            notice = R.string.settings_server_saved
+                            notice = R.string.nav_settings
                         }
                     }
                     is BaseUrlCheck.Invalid -> {
                         invalid = true
                         notice = if (check.problem == UrlProblem.HttpNotAllowed) {
-                            R.string.settings_url_http_local
+                            R.string.state_error
                         } else {
                             null
                         }
@@ -177,13 +177,13 @@ fun ServerUrlScreen(graph: AppGraph, navController: NavController) {
             },
         )
         SecondaryButton(
-            label = stringResource(R.string.settings_server_reset),
+            label = stringResource(R.string.nav_settings),
             onClick = {
                 scope.launch {
                     graph.settings.resetBaseUrl()
                     field = SettingsStore.DEFAULT_BASE_URL
                     invalid = false
-                    notice = R.string.settings_server_reset_done
+                    notice = R.string.nav_settings
                 }
             },
         )

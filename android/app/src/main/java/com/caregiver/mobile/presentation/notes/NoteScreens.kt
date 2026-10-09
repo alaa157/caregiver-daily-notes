@@ -91,11 +91,11 @@ fun NoteEditorScreen(recipientId: String, graph: AppGraph, navController: NavCon
             verticalArrangement = Arrangement.spacedBy(14.dp),
         ) {
             AppTopBar(
-                title = stringResource(R.string.editor_title),
+                title = stringResource(R.string.note_new_title),
                 onBack = { navController.popBackStack() },
             )
             // Section 1: الحالة العامة — 4 chip groups.
-            SectionTitle(stringResource(R.string.editor_section_general))
+            SectionTitle(stringResource(R.string.note_field_mood))
             OptionGroup.entries.filter { it != OptionGroup.Medication }.forEach { group ->
                 GroupLabel(group)
                 ChipWrap {
@@ -115,11 +115,11 @@ fun NoteEditorScreen(recipientId: String, graph: AppGraph, navController: NavCon
                     }
                 }
                 if (group == OptionGroup.Mood && state.moodError != null) {
-                    FieldError(stringResource(R.string.editor_error_mood))
+                    FieldError(stringResource(R.string.state_error))
                 }
             }
             // Section 2: الأدوية والسقوط.
-            SectionTitle(stringResource(R.string.editor_section_meds_fall))
+            SectionTitle(stringResource(R.string.note_field_medication))
             GroupLabel(OptionGroup.Medication)
             ChipWrap {
                 NoteOptions.values(OptionGroup.Medication).forEach { value ->
@@ -130,21 +130,21 @@ fun NoteEditorScreen(recipientId: String, graph: AppGraph, navController: NavCon
                     )
                 }
             }
-            GroupLabelText(stringResource(R.string.editor_fall_question))
+            GroupLabelText(stringResource(R.string.note_field_falls))
             ChipWrap {
                 HtmlChip(
-                    label = stringResource(R.string.editor_no),
+                    label = stringResource(R.string.action_cancel),
                     selected = !state.fall,
                     onClick = { vm.setFall(false) },
                 )
                 HtmlChip(
-                    label = stringResource(R.string.editor_yes),
+                    label = stringResource(R.string.action_retry),
                     selected = state.fall,
                     onClick = { vm.setFall(true) },
                 )
             }
             // Section 3: الألم — 11 square 44x44 buttons.
-            SectionTitle(stringResource(R.string.editor_section_pain))
+            SectionTitle(stringResource(R.string.note_field_pain))
             Row(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
                 (0..10).forEach { level ->
                     val selected = state.pain == level
@@ -166,18 +166,18 @@ fun NoteEditorScreen(recipientId: String, graph: AppGraph, navController: NavCon
                     }
                 }
             }
-            HelperCaption(stringResource(R.string.editor_pain_caption))
+            HelperCaption(stringResource(R.string.note_field_pain))
             // Section 4: ملاحظات إضافية — textarea 130dp.
-            SectionTitle(stringResource(R.string.editor_section_extra))
+            SectionTitle(stringResource(R.string.note_freeText_label))
             OutlinedTextField(
                 value = state.text,
                 onValueChange = vm::onText,
-                placeholder = { Text(stringResource(R.string.editor_hint_extra), fontFamily = AppFontFamily) },
+                placeholder = { Text(stringResource(R.string.note_freeText_label), fontFamily = AppFontFamily) },
                 isError = state.textError != null,
                 supportingText = {
                     if (state.textError != null) {
                         Text(
-                            stringResource(R.string.editor_error_text),
+                            stringResource(R.string.state_error),
                             fontFamily = AppFontFamily,
                             color = CaregiverColors.Danger,
                         )
@@ -197,7 +197,7 @@ fun NoteEditorScreen(recipientId: String, graph: AppGraph, navController: NavCon
                 FieldError(
                     when (it) {
                         is EditorError.Rejected -> stringResource(EditorErrorText.res(it.code))
-                        EditorError.Unreachable -> stringResource(R.string.auth_error_unreachable)
+                        EditorError.Unreachable -> stringResource(R.string.state_error)
                         else -> ""
                     },
                 )
@@ -207,14 +207,14 @@ fun NoteEditorScreen(recipientId: String, graph: AppGraph, navController: NavCon
         // Footer action bar: primary 56dp + centered caption.
         BottomActionBar {
             PrimaryButton(
-                label = stringResource(R.string.editor_save),
+                label = stringResource(R.string.note_save),
                 onClick = vm::submit,
                 enabled = !state.busy,
                 height = AppSizes.buttonHeightLarge,
                 large = true,
             )
             HelperCaption(
-                stringResource(R.string.editor_save_note),
+                stringResource(R.string.summary_unavailable),
                 align = TextAlign.Center,
             )
         }
@@ -268,11 +268,11 @@ private fun GroupLabel(group: OptionGroup) {
     GroupLabelText(
         stringResource(
             when (group) {
-                OptionGroup.Mood -> R.string.editor_mood
-                OptionGroup.Appetite -> R.string.editor_appetite
-                OptionGroup.Sleep -> R.string.editor_sleep
-                OptionGroup.Mobility -> R.string.editor_mobility
-                OptionGroup.Medication -> R.string.editor_medication
+                OptionGroup.Mood -> R.string.note_field_mood
+                OptionGroup.Appetite -> R.string.note_field_appetite
+                OptionGroup.Sleep -> R.string.note_field_sleep
+                OptionGroup.Mobility -> R.string.note_field_mobility
+                OptionGroup.Medication -> R.string.note_field_medication
             },
         ),
     )
@@ -321,7 +321,7 @@ fun NoteSavedScreen(noteId: String, graph: AppGraph, navController: NavControlle
             Text("✓", fontSize = 36.sp, color = CaregiverColors.Success)
         }
         Text(
-            text = stringResource(R.string.saved_title),
+            text = stringResource(R.string.note_saved),
             fontFamily = AppFontFamily,
             fontWeight = FontWeight.Bold,
             fontSize = 24.sp,
@@ -333,12 +333,12 @@ fun NoteSavedScreen(noteId: String, graph: AppGraph, navController: NavControlle
             modifier = Modifier.fillMaxWidth().padding(top = AppSpacing.md),
         ) {
             SecondaryButton(
-                label = stringResource(R.string.saved_view),
+                label = stringResource(R.string.note_saved),
                 onClick = { navController.navigate("note/$noteId") },
                 height = AppSizes.buttonHeightLarge,
             )
             PrimaryButton(
-                label = stringResource(R.string.saved_summarize),
+                label = stringResource(R.string.summary_generate),
                 onClick = { recipientId?.let { navController.navigate("summary/$it") } },
                 enabled = recipientId != null,
                 height = AppSizes.buttonHeightLarge,
@@ -372,7 +372,7 @@ fun NoteDetailScreen(noteId: String, graph: AppGraph, navController: NavControll
                     verticalArrangement = Arrangement.spacedBy(14.dp),
                 ) {
                     AppTopBar(
-                        title = stringResource(R.string.editor_title),
+                        title = stringResource(R.string.note_new_title),
                         subtitle = DateFormats.historyDay(s.content.note.date, arabic),
                         onBack = { navController.popBackStack() },
                     )
@@ -384,42 +384,42 @@ fun NoteDetailScreen(noteId: String, graph: AppGraph, navController: NavControll
                         modifier = Modifier.fillMaxWidth(),
                     ) {
                         StatMini(
-                            stringResource(R.string.editor_mood),
+                            stringResource(R.string.note_field_mood),
                             OptionLabels.label(OptionGroup.Mood, s.content.note.mood, arabic),
                         )
                         StatMini(
-                            stringResource(R.string.editor_appetite),
+                            stringResource(R.string.note_field_appetite),
                             OptionLabels.label(OptionGroup.Appetite, s.content.note.appetite, arabic),
                         )
                         StatMini(
-                            stringResource(R.string.editor_sleep),
+                            stringResource(R.string.note_field_sleep),
                             OptionLabels.label(OptionGroup.Sleep, s.content.note.sleep, arabic),
                         )
                         StatMini(
-                            stringResource(R.string.editor_mobility),
+                            stringResource(R.string.note_field_mobility),
                             OptionLabels.label(OptionGroup.Mobility, s.content.note.mobility, arabic),
                         )
                         StatMini(
-                            stringResource(R.string.editor_pain),
+                            stringResource(R.string.note_field_pain),
                             "${s.content.note.pain} / 10",
                         )
                         StatMini(
-                            stringResource(R.string.editor_fall),
+                            stringResource(R.string.note_field_falls),
                             stringResource(
-                                if (s.content.note.fall) R.string.detail_fall_yes
-                                else R.string.detail_fall_no,
+                                if (s.content.note.fall) R.string.alert_redFlag_fall
+                                else R.string.action_cancel,
                             ),
                         )
                     }
                     // Caregiver notes + lock row.
-                    SectionTitle(stringResource(R.string.editor_text))
+                    SectionTitle(stringResource(R.string.note_freeText_label))
                     Row(
                         horizontalArrangement = Arrangement.spacedBy(6.dp),
                         verticalAlignment = Alignment.CenterVertically,
                     ) {
                         Text("🔒", fontSize = 16.sp)
                         Text(
-                            stringResource(R.string.note_original_locked),
+                            stringResource(R.string.note_addendum_hint),
                             fontFamily = AppFontFamily,
                             fontSize = 13.sp,
                             color = CaregiverColors.TextSecondary,
@@ -433,9 +433,9 @@ fun NoteDetailScreen(noteId: String, graph: AppGraph, navController: NavControll
                         color = CaregiverColors.TextPrimary,
                     )
                     // Attachments timeline.
-                    SectionTitle(stringResource(R.string.note_attachments))
+                    SectionTitle(stringResource(R.string.note_addendum))
                     if (s.content.addenda.isEmpty()) {
-                        HelperCaption(stringResource(R.string.notes_empty))
+                        HelperCaption(stringResource(R.string.people_empty))
                     } else {
                         Column(
                             verticalArrangement = Arrangement.spacedBy(AppSpacing.xs),
@@ -457,7 +457,7 @@ fun NoteDetailScreen(noteId: String, graph: AppGraph, navController: NavControll
                 }
                 BottomActionBar {
                     SecondaryButton(
-                        label = stringResource(R.string.detail_add_correction),
+                        label = stringResource(R.string.note_addendum),
                         onClick = { navController.navigate("addendum/$noteId") },
                         height = AppSizes.inputHeight,
                     )
@@ -511,23 +511,23 @@ fun AddendumScreen(noteId: String, graph: AppGraph, navController: NavController
             verticalArrangement = Arrangement.spacedBy(14.dp),
         ) {
             AppTopBar(
-                title = stringResource(R.string.addendum_title),
+                title = stringResource(R.string.note_addendum),
                 onBack = { navController.popBackStack() },
             )
             InfoAlertCard(
-                title = stringResource(R.string.addendum_info_title),
-                body = stringResource(R.string.addendum_info_body),
+                title = stringResource(R.string.note_addendum_hint),
+                body = stringResource(R.string.note_addendum_hint),
             )
-            GroupLabelText(stringResource(R.string.addendum_text))
+            GroupLabelText(stringResource(R.string.note_freeText_label))
             OutlinedTextField(
                 value = form.text,
                 onValueChange = vm::onAddendumText,
-                placeholder = { Text(stringResource(R.string.addendum_hint), fontFamily = AppFontFamily) },
+                placeholder = { Text(stringResource(R.string.note_freeText_label), fontFamily = AppFontFamily) },
                 isError = form.addendumError,
                 supportingText = {
                     if (form.addendumError) {
                         Text(
-                            stringResource(R.string.addendum_error),
+                            stringResource(R.string.state_error),
                             fontFamily = AppFontFamily,
                             color = CaregiverColors.Danger,
                         )
@@ -544,12 +544,12 @@ fun AddendumScreen(noteId: String, graph: AppGraph, navController: NavController
                 modifier = Modifier.fillMaxWidth().height(150.dp),
             )
             if (form.sendFailed) {
-                FieldError(stringResource(R.string.addendum_error_send))
+                FieldError(stringResource(R.string.state_error))
             }
         }
         BottomActionBar {
             PrimaryButton(
-                label = stringResource(R.string.addendum_save),
+                label = stringResource(R.string.note_save),
                 onClick = vm::submitAddendum,
                 enabled = !form.busy,
                 height = AppSizes.buttonHeightLarge,
