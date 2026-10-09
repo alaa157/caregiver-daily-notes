@@ -1,16 +1,14 @@
 package com.caregiver.mobile.presentation.summary
 
-import androidx.compose.foundation.BorderStroke
+import androidx.compose.foundation.clickable
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
-import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
-import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.rememberScrollState
-import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.FilterChip
 import androidx.compose.material3.FilterChipDefaults
@@ -19,122 +17,95 @@ import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
-import androidx.compose.runtime.mutableIntStateOf
-import androidx.compose.runtime.saveable.rememberSaveable
-import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.res.stringResource
-import androidx.compose.ui.text.font.FontWeight
-import androidx.compose.ui.unit.dp
-import androidx.compose.ui.unit.sp
 import androidx.navigation.NavController
 import com.caregiver.mobile.AppGraph
 import com.caregiver.mobile.R
 import com.caregiver.mobile.core.i18n.Bidi
-import com.caregiver.mobile.core.navigation.AppDestinations
-import com.caregiver.mobile.core.theme.AppRadius
+import com.caregiver.mobile.core.navigation.AppRoutes
+import com.caregiver.mobile.core.navigation.MainTab
 import com.caregiver.mobile.core.theme.AppSizes
 import com.caregiver.mobile.core.theme.AppSpacing
 import com.caregiver.mobile.core.theme.CaregiverColors
-import com.caregiver.mobile.core.theme.AppFontFamily
-import com.caregiver.mobile.data.api.SummaryDto
+import com.caregiver.mobile.data.demo.DemoSummary
 import com.caregiver.mobile.presentation.common.AppCard
+import com.caregiver.mobile.presentation.common.AppErrorState
+import com.caregiver.mobile.presentation.common.AppLoadingSkeleton
 import com.caregiver.mobile.presentation.common.AppTopBar
 import com.caregiver.mobile.presentation.common.AppWarningState
-import com.caregiver.mobile.presentation.common.BottomActionBar
-import com.caregiver.mobile.presentation.common.BusyBar
-import com.caregiver.mobile.presentation.common.GrayPill
 import com.caregiver.mobile.presentation.common.InfoAlertCard
-import com.caregiver.mobile.presentation.common.LockBar
+import com.caregiver.mobile.presentation.common.Pill
 import com.caregiver.mobile.presentation.common.PrimaryButton
 import com.caregiver.mobile.presentation.common.SafetyAlertCard
+import com.caregiver.mobile.presentation.common.SecondaryButton
 import com.caregiver.mobile.presentation.common.SectionTitle
-import com.caregiver.mobile.presentation.common.UnclearBox
 import com.caregiver.mobile.presentation.common.assistedViewModel
-import com.caregiver.mobile.presentation.home.LoadFailed
 import com.caregiver.mobile.presentation.home.LoadingRow
 
 /**
- * Summary period picker (board 10): blue info alert + period chips +
- * primary 56dp generate. Local chip state, no VM until generate.
+ * Summary (spec screen 8): AppBar, segmented 7/14/30 control, PrimaryButton
+ * summary.generate, result Card, AlertSafety when applicable, AlertInfo
+ * plan.disclaimer. Tapping the result Card opens Plan proposal (owner
+ * decision). Stub content is fixed sample text labeled "Demo".
+ * States: idle, generating (Skeleton + button label change), unavailable
+ * (notes still accessible), success; errors use the shared error state.
  */
+// DEMO-ONLY: "Demo" is a non-translated demo-chrome marker (copy owns no
+// demo keys). Flagged in the report.
+private const val DEMO_BADGE = "Demo"
+
 @Composable
 fun SummaryPeriodScreen(recipientId: String, graph: AppGraph, navController: NavController) {
-    var period by rememberSaveable { mutableIntStateOf(14) }
-    Column(Modifier.fillMaxSize()) {
-        Column(
-            modifier = Modifier.weight(1f).verticalScroll(rememberScrollState())
-                .padding(horizontal = AppSpacing.md),
-            verticalArrangement = Arrangement.spacedBy(14.dp),
-        ) {
-            AppTopBar(
-                title = stringResource(R.string.home_summaryCta),
-                onBack = { navController.popBackStack() },
-            )
-            InfoAlertCard(
-                title = stringResource(R.string.plan_disclaimer),
-                body = stringResource(R.string.plan_disclaimer),
-            )
-            SectionTitle(stringResource(R.string.summary_generate))
-            Text(
-                stringResource(R.string.summary_generate),
-                fontFamily = AppFontFamily,
-                fontWeight = FontWeight.Bold,
-                fontSize = 14.sp,
-                color = CaregiverColors.TextPrimary,
-            )
-            Row(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
-                SummaryViewModel.PERIODS.forEach { days ->
-                    FilterChip(
-                        selected = period == days,
-                        onClick = { period = days },
-                        label = {
-                            Row(
-                                horizontalArrangement = Arrangement.spacedBy(AppSpacing.xxs),
-                                verticalAlignment = Alignment.CenterVertically,
-                            ) {
-                                if (period == days) {
-                                    Text("✓", fontFamily = AppFontFamily, fontWeight = FontWeight.Bold)
-                                }
-                                Text(
-                                    periodLabel(days),
-                                    fontFamily = AppFontFamily,
-                                    fontWeight = FontWeight.Bold,
-                                )
-                            }
-                        },
-                        shape = RoundedCornerShape(AppRadius.pill),
-                        border = BorderStroke(
-                            AppSizes.borderWidth,
-                            if (period == days) CaregiverColors.Primary else CaregiverColors.Border,
-                        ),
-                        colors = FilterChipDefaults.filterChipColors(
-                            containerColor = CaregiverColors.Surface,
-                            labelColor = CaregiverColors.TextPrimary,
-                            selectedContainerColor = CaregiverColors.Primary,
-                            selectedLabelColor = CaregiverColors.Surface,
-                        ),
-                    )
-                }
+    val vm: SummaryDemoViewModel = assistedViewModel("summary-demo-$recipientId") {
+        SummaryDemoViewModel(recipientId, graph.demoNotes, graph.demoSummary)
+    }
+    val period by vm.period.collectAsState()
+    val state by vm.state.collectAsState()
+    Column(
+        modifier = Modifier.fillMaxSize().verticalScroll(rememberScrollState())
+            .padding(horizontal = AppSpacing.md),
+        verticalArrangement = Arrangement.spacedBy(AppSpacing.md),
+    ) {
+        AppTopBar(
+            title = stringResource(R.string.home_summaryCta),
+            onBack = { navController.popBackStack() },
+        )
+        PeriodRow(period, vm::setPeriod)
+        val generating = state is SummaryDemoState.Generating
+        PrimaryButton(
+            // Generating state changes the button label (screens.md).
+            label = stringResource(
+                if (generating) R.string.state_loading else R.string.summary_generate,
+            ),
+            onClick = vm::generate,
+            loading = generating,
+            height = AppSizes.buttonHeightLarge,
+            large = true,
+        )
+        when (val s = state) {
+            SummaryDemoState.Idle -> Unit
+            SummaryDemoState.Generating -> AppLoadingSkeleton()
+            SummaryDemoState.Unavailable -> {
+                AppWarningState(message = stringResource(R.string.summary_unavailable))
+                SecondaryButton(
+                    label = stringResource(R.string.nav_history),
+                    onClick = { navController.navigate(AppRoutes.tab(MainTab.History)) },
+                )
             }
-        }
-        BottomActionBar {
-            PrimaryButton(
-                label = stringResource(R.string.summary_generate),
-                onClick = { navController.navigate("summary-result/$recipientId/$period") },
-                height = AppSizes.buttonHeightLarge,
-                large = true,
+            SummaryDemoState.Error -> AppErrorState(
+                message = stringResource(R.string.state_error),
+                onRetry = vm::generate,
             )
+            is SummaryDemoState.Content -> SummaryBody(s.summary, navController)
         }
     }
 }
 
 /**
- * Summary result (board 11, 1480px): red safety alert + overview +
- * important notes + unclear dashed box + meds lock footnote.
- * Trends are data-driven from evidence/uncertainties; no invented values.
+ * Summary result (spec screen 8, result part): banner, body, evidence,
+ * disclaimer. Kept as a separate destination for back-stack parity.
  */
 @Composable
 fun SummaryResultScreen(
@@ -143,137 +114,115 @@ fun SummaryResultScreen(
     graph: AppGraph,
     navController: NavController,
 ) {
-    val vm: SummaryViewModel = assistedViewModel("summary-$recipientId") {
-        SummaryViewModel(recipientId, graph.apis, graph.auth, null, periodDays)
+    val vm: SummaryDemoViewModel = assistedViewModel("summary-demo-$recipientId") {
+        SummaryDemoViewModel(recipientId, graph.demoNotes, graph.demoSummary, periodDays)
     }
+    val period by vm.period.collectAsState()
     val state by vm.state.collectAsState()
-    Column(Modifier.fillMaxSize().padding(horizontal = AppSpacing.md)) {
-        when (val s = state) {
-            SummaryState.Loading -> {
-                Spacer(Modifier.height(AppSpacing.md))
-                BusyBar(stringResource(R.string.state_loading))
-            }
-            is SummaryState.AiUnavailable -> Column(
-                verticalArrangement = Arrangement.spacedBy(14.dp),
-                modifier = Modifier.padding(top = AppSpacing.md),
-            ) {
-                s.last?.let { FlagsBanner(it.redFlags) }
-                AppWarningState(
-                    message = stringResource(R.string.summary_unavailable),
-                    detail = stringResource(R.string.summary_unavailable),
-                )
-                PrimaryButton(
-                    label = stringResource(R.string.action_retry),
-                    onClick = vm::refresh,
-                )
-            }
-            is SummaryState.Rejected -> Column(
-                verticalArrangement = Arrangement.spacedBy(14.dp),
-                modifier = Modifier.padding(top = AppSpacing.md),
-            ) {
-                s.last?.let { FlagsBanner(it.redFlags) }
-                Text(
-                    text = stringResource(R.string.state_error),
-                    fontFamily = AppFontFamily,
-                    color = CaregiverColors.Danger,
-                )
-                PrimaryButton(
-                    label = stringResource(R.string.action_retry),
-                    onClick = vm::refresh,
-                )
-            }
-            is SummaryState.Content -> SummaryBody(s.summary, periodDays, navController)
-        }
-    }
-}
-
-/**
- * Known flags stay visible in every state. No dismiss action exists by
- * construction — the banner is information, not a dialog.
- */
-@Composable
-private fun FlagsBanner(redFlags: List<String>) {
-    if (redFlags.isEmpty()) {
-        return
-    }
-    Column(verticalArrangement = Arrangement.spacedBy(0.dp)) {
-        redFlags.forEach { flag ->
-            SafetyAlertCard(
-                title = stringResource(R.string.alert_redFlag_fall),
-                body = flagText(flag),
-            )
-        }
-    }
-}
-
-@Composable
-private fun SummaryBody(summary: SummaryDto, periodDays: Int, navController: NavController) {
     Column(
-        modifier = Modifier.fillMaxSize().verticalScroll(rememberScrollState()),
-        verticalArrangement = Arrangement.spacedBy(14.dp),
+        modifier = Modifier.fillMaxSize().verticalScroll(rememberScrollState())
+            .padding(horizontal = AppSpacing.md),
+        verticalArrangement = Arrangement.spacedBy(AppSpacing.md),
     ) {
         AppTopBar(
             title = stringResource(R.string.home_summaryCta),
             onBack = { navController.popBackStack() },
         )
-        if (summary.redFlags.isNotEmpty()) {
-            FlagsBanner(summary.redFlags)
-        }
-        SectionTitle(stringResource(R.string.home_summaryCta))
-        Text(
-            text = summary.text,
-            fontFamily = AppFontFamily,
-            fontSize = 16.sp,
-            lineHeight = 29.sp,
-            color = CaregiverColors.TextPrimary,
-        )
-        if (summary.evidence.isNotEmpty()) {
-            SectionTitle(stringResource(R.string.home_summaryCta))
-            summary.evidence.forEach { item ->
-                AppCard {
-                    Text(
-                        text = "“${Bidi.isolate(item.quote)}”",
-                        fontFamily = AppFontFamily,
-                        fontSize = 15.sp,
-                        color = CaregiverColors.TextPrimary,
-                    )
-                    GrayPill(stringResource(R.string.plan_disclaimer))
-                }
-            }
-        }
-        if (summary.uncertainties.isNotEmpty()) {
-            SectionTitle(stringResource(R.string.summary_unavailable))
-            summary.uncertainties.forEach { item ->
-                UnclearBox("${item.topic}: ${item.detail}")
-            }
-        }
-        Row(
-            horizontalArrangement = Arrangement.spacedBy(6.dp),
-            verticalAlignment = Alignment.CenterVertically,
-        ) {
-            Text("🔒", fontSize = 16.sp)
-            Text(
-                stringResource(R.string.plan_disclaimer),
-                fontFamily = AppFontFamily,
-                fontSize = 13.sp,
-                color = CaregiverColors.TextSecondary,
-            )
-        }
+        PeriodRow(period, vm::setPeriod)
+        val generating = state is SummaryDemoState.Generating
         PrimaryButton(
-            label = stringResource(R.string.home_summaryCta),
-            onClick = { navController.navigate(AppDestinations.Plans.base) },
-            height = AppSizes.inputHeight,
+            label = stringResource(
+                if (generating) R.string.state_loading else R.string.summary_generate,
+            ),
+            onClick = vm::generate,
+            loading = generating,
+            height = AppSizes.buttonHeightLarge,
+            large = true,
         )
-        Spacer(Modifier.height(AppSpacing.xs))
+        when (val s = state) {
+            SummaryDemoState.Idle -> LoadingRow()
+            SummaryDemoState.Generating -> AppLoadingSkeleton()
+            SummaryDemoState.Unavailable -> {
+                AppWarningState(message = stringResource(R.string.summary_unavailable))
+                SecondaryButton(
+                    label = stringResource(R.string.nav_history),
+                    onClick = { navController.navigate(AppRoutes.tab(MainTab.History)) },
+                )
+            }
+            SummaryDemoState.Error -> AppErrorState(
+                message = stringResource(R.string.state_error),
+                onRetry = vm::generate,
+            )
+            is SummaryDemoState.Content -> SummaryBody(s.summary, navController)
+        }
     }
 }
 
 @Composable
-private fun flagText(flag: String): String = when (flag) {
-    "FALL_REPORTED" -> stringResource(R.string.alert_redFlag_fall)
-    "HIGH_PAIN" -> stringResource(R.string.alert_redFlag_fall)
-    "MEDICATION_UNCLEAR" -> stringResource(R.string.summary_unavailable)
-    else -> flag
+private fun PeriodRow(period: Int, onSelect: (Int) -> Unit) {
+    Row(horizontalArrangement = Arrangement.spacedBy(AppSpacing.xs)) {
+        listOf(7, 14, 30).forEach { days ->
+            FilterChip(
+                selected = period == days,
+                onClick = { onSelect(days) },
+                label = { Text(periodLabel(days)) },
+                colors = FilterChipDefaults.filterChipColors(
+                    containerColor = CaregiverColors.Surface,
+                    labelColor = CaregiverColors.TextPrimary,
+                    selectedContainerColor = CaregiverColors.Primary,
+                    selectedLabelColor = CaregiverColors.Surface,
+                ),
+            )
+        }
+    }
+}
+
+@Composable
+private fun SummaryBody(summary: DemoSummary, navController: NavController) {
+    if (summary.redFlags.isNotEmpty()) {
+        // Demo rule output rendered through the alert.redFlag copy.
+        SafetyAlertCard(
+            title = stringResource(R.string.alert_redFlag_fall),
+            body = stringResource(R.string.alert_redFlag_fall),
+        )
+    }
+    // Owner decision: tapping the result Card opens Plan proposal.
+    AppCard(
+        modifier = Modifier.clickable { navController.navigate(AppRoutes.planProposal("demo")) },
+    ) {
+        Row(
+            horizontalArrangement = Arrangement.spacedBy(AppSpacing.xs),
+            verticalAlignment = Alignment.CenterVertically,
+        ) {
+            Pill(DEMO_BADGE, CaregiverColors.PrimarySoft, CaregiverColors.Primary)
+        }
+        Text(
+            text = summary.text,
+            style = MaterialTheme.typography.bodyLarge,
+            color = CaregiverColors.TextPrimary,
+        )
+    }
+    if (summary.evidence.isNotEmpty()) {
+        summary.evidence.forEach { item ->
+            AppCard {
+                Text(
+                    text = "“${Bidi.isolate(item.quote)}”",
+                    style = MaterialTheme.typography.bodyLarge,
+                    color = CaregiverColors.TextPrimary,
+                )
+            }
+        }
+    }
+    if (summary.uncertainties.isNotEmpty()) {
+        summary.uncertainties.forEach { line ->
+            Text(
+                text = line,
+                style = MaterialTheme.typography.bodySmall,
+                color = CaregiverColors.TextSecondary,
+            )
+        }
+    }
+    InfoAlertCard(title = stringResource(R.string.plan_disclaimer))
 }
 
 @Composable

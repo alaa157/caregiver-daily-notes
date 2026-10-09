@@ -1,38 +1,30 @@
 package com.caregiver.mobile
 
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
-import androidx.navigation.compose.NavHost
-import androidx.navigation.compose.composable
-import androidx.navigation.compose.rememberNavController
-import com.caregiver.mobile.core.navigation.AppDestinations
-import com.caregiver.mobile.presentation.auth.LoginScreen
-import com.caregiver.mobile.presentation.auth.RegisterScreen
-import com.caregiver.mobile.presentation.settings.ServerUrlScreen
+import com.caregiver.mobile.presentation.auth.DemoSignInScreen
+import com.caregiver.mobile.presentation.common.AppLoadingSkeleton
+import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.foundation.layout.padding
+import androidx.compose.ui.Modifier
+import com.caregiver.mobile.core.theme.AppSpacing
 
 /**
- * Root gate: no token → auth graph (login/register); token present → tabs.
- * A 401 anywhere signs out through AuthRepository, which flips this back to
- * login without leaking the previous screen's data.
+ * Root gate (Step 6): no demo session → demo sign-in; session active →
+ * tabs. No login, no network, no credentials.
  */
 @Composable
 fun CaregiverRoot(graph: AppGraph) {
-    val token by graph.auth.token.collectAsState(initial = null)
-    if (token == null) {
-        val navController = rememberNavController()
-        NavHost(navController = navController, startDestination = AppDestinations.Login.base) {
-            composable(AppDestinations.Login.base) {
-                LoginScreen(graph.auth, navController)
-            }
-            composable(AppDestinations.Register.base) {
-                RegisterScreen(graph.auth, navController)
-            }
-            composable(AppDestinations.ServerUrl.base) {
-                ServerUrlScreen(graph, navController)
-            }
-        }
-    } else {
-        MainScaffold(graph)
+    LaunchedEffect(Unit) { graph.ensureSeeded() }
+    val active by graph.demoSession.active.collectAsState(initial = null)
+    when (active) {
+        null -> Column(
+            Modifier.fillMaxSize().padding(AppSpacing.lg),
+        ) { AppLoadingSkeleton() }
+        false -> DemoSignInScreen(graph)
+        true -> MainScaffold(graph)
     }
 }

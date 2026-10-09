@@ -3,6 +3,7 @@ package com.caregiver.mobile.presentation.common
 import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -138,10 +139,12 @@ fun PrimaryButton(
     height: Dp = AppSizes.buttonHeight,
     large: Boolean = false,
     leading: @Composable (() -> Unit)? = null,
+    /** Submitting state: spinner only inside the button (components.md). */
+    loading: Boolean = false,
 ) {
     Button(
         onClick = onClick,
-        enabled = enabled,
+        enabled = enabled && !loading,
         shape = RoundedCornerShape(AppRadius.md),
         colors = ButtonDefaults.buttonColors(
             containerColor = CaregiverColors.Primary,
@@ -153,7 +156,16 @@ fun PrimaryButton(
             .heightIn(min = height)
             .height(if (large) AppSizes.buttonHeightLarge else height),
     ) {
-        leading?.let { it(); Spacer(Modifier.width(AppSpacing.xs)) }
+        if (loading) {
+            CircularProgressIndicator(
+                modifier = Modifier.size(AppSizes.progressIndicator),
+                strokeWidth = AppSizes.borderWidthStrong,
+                color = CaregiverColors.Surface,
+            )
+            Spacer(Modifier.width(AppSpacing.xs))
+        } else {
+            leading?.let { it(); Spacer(Modifier.width(AppSpacing.xs)) }
+        }
         Text(
             label,
             style = if (large) MaterialTheme.typography.titleMedium else MaterialTheme.typography.labelLarge,
@@ -546,5 +558,122 @@ fun TrendRow(label: String, value: String, icon: String) {
             color = CaregiverColors.TextPrimary,
         )
         Text(value, style = MaterialTheme.typography.bodyLarge, color = CaregiverColors.TextPrimary)
+    }
+}
+/**
+ * ChoiceRow option (components.md): at least 48dp high; neutral
+ * surface/border/textPrimary; selected primarySoft fill + primary outline;
+ * label plus check icon for the selected state (never color alone).
+ */
+@Composable
+fun ChoiceRowOption(
+    label: String,
+    selected: Boolean,
+    onClick: () -> Unit,
+    modifier: Modifier = Modifier,
+) {
+    Surface(
+        onClick = onClick,
+        shape = RoundedCornerShape(AppRadius.md),
+        border = BorderStroke(
+            AppSizes.borderWidth,
+            if (selected) CaregiverColors.Primary else CaregiverColors.Border,
+        ),
+        color = if (selected) CaregiverColors.PrimarySoft else CaregiverColors.Surface,
+        modifier = modifier.heightIn(min = AppSizes.touchTargetMin),
+    ) {
+        Row(
+            verticalAlignment = Alignment.CenterVertically,
+            horizontalArrangement = Arrangement.spacedBy(AppSpacing.xs),
+            modifier = Modifier.padding(horizontal = AppSpacing.sm, vertical = AppSpacing.xs),
+        ) {
+            if (selected) {
+                Text(
+                    "✓",
+                    style = MaterialTheme.typography.labelLarge,
+                    fontWeight = FontWeight.Bold,
+                    color = CaregiverColors.Primary,
+                )
+            }
+            Text(
+                label,
+                style = MaterialTheme.typography.labelLarge,
+                fontWeight = if (selected) FontWeight.SemiBold else FontWeight.Normal,
+                color = if (selected) CaregiverColors.Primary else CaregiverColors.TextPrimary,
+            )
+        }
+    }
+}
+
+/**
+ * PainScale (components.md): values 0-10, each cell at least 48x48dp,
+ * wrapping rows; neutral border/surface, selected primarySoft + primary;
+ * selected value carries a check cue besides color.
+ */
+@OptIn(androidx.compose.foundation.layout.ExperimentalLayoutApi::class)
+@Composable
+fun PainScale(
+    selected: Int,
+    onSelect: (Int) -> Unit,
+    modifier: Modifier = Modifier,
+) {
+    androidx.compose.foundation.layout.FlowRow(
+        horizontalArrangement = Arrangement.spacedBy(AppSpacing.xs),
+        verticalArrangement = Arrangement.spacedBy(AppSpacing.xs),
+        modifier = modifier.fillMaxWidth(),
+    ) {
+        (0..10).forEach { value ->
+            val isSelected = value == selected
+            Surface(
+                onClick = { onSelect(value) },
+                shape = RoundedCornerShape(AppRadius.sm),
+                border = BorderStroke(
+                    AppSizes.borderWidth,
+                    if (isSelected) CaregiverColors.Primary else CaregiverColors.Border,
+                ),
+                color = if (isSelected) CaregiverColors.PrimarySoft else CaregiverColors.Surface,
+                modifier = Modifier.size(AppSizes.touchTargetMin),
+            ) {
+                Box(contentAlignment = Alignment.Center, modifier = Modifier.fillMaxWidth()) {
+                    Text(
+                        if (isSelected) "✓ $value" else "$value",
+                        style = MaterialTheme.typography.labelLarge,
+                        fontWeight = if (isSelected) FontWeight.Bold else FontWeight.Normal,
+                        color = if (isSelected) CaregiverColors.Primary else CaregiverColors.TextPrimary,
+                    )
+                }
+            }
+        }
+    }
+}
+
+/**
+ * TimelineItem (components.md): surface card, md padding, caption date
+ * label + note summary; tap opens note detail; at least 48dp high.
+ */
+@Composable
+fun TimelineItem(
+    dateCaption: String,
+    summary: String,
+    onOpen: () -> Unit,
+    modifier: Modifier = Modifier,
+    trailing: @Composable (() -> Unit)? = null,
+) {
+    AppCard(
+        modifier = modifier
+            .heightIn(min = AppSizes.touchTargetMin)
+            .clickable(onClick = onOpen),
+    ) {
+        Text(
+            dateCaption,
+            style = MaterialTheme.typography.bodySmall,
+            color = CaregiverColors.TextSecondary,
+        )
+        Text(
+            summary,
+            style = MaterialTheme.typography.bodyLarge,
+            color = CaregiverColors.TextPrimary,
+        )
+        trailing?.invoke()
     }
 }

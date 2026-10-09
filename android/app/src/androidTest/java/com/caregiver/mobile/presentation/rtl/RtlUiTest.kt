@@ -111,36 +111,57 @@ class RtlUiTest {
         compose.onNodeWithText("Email").assertIsDisplayed()
     }
 
+    private fun seedOmarToday() {
+        runBlocking {
+            graph.demoDb.recipients().clear()
+            graph.demoDb.notes().clear()
+            graph.demoDb.addenda().clear()
+            val now = System.currentTimeMillis()
+            graph.demoDb.recipients().insert(
+                com.caregiver.mobile.data.demo.RecipientEntity("r1", "Omar عمر", now),
+            )
+            graph.demoDb.notes().insert(
+                com.caregiver.mobile.data.demo.NoteEntity(
+                    id = "n1", recipientId = "r1",
+                    date = java.time.LocalDate.now().toString(),
+                    mood = "good", appetite = "good", sleep = "good",
+                    mobility = "walks", medicationTaken = "taken",
+                    pain = 1, fall = false, text = "t", createdAt = now,
+                ),
+            )
+        }
+    }
+
     @Test
     fun homeArabicRtlWithMixedName() {
-        enqueueHome("[]")
+        seedOmarToday()
         render("ar") { HomeScreen(graph, rememberNavController()) }
 
         assertEquals(LayoutDirection.Rtl, capturedDirection)
-        compose.onNodeWithText(Bidi.isolate("Omar عمر")).assertIsDisplayed()
-        compose.onAllNodesWithText("عرض الملخص").assertCountEquals(2)
-        compose.onNodeWithText("لا يوجد أشخاص مسجلون لتلقي الرعاية بعد. أضف شخصًا لبدء تسجيل الملاحظات.").assertIsDisplayed()
+        compose.onNodeWithText("مساء الخير").assertIsDisplayed()
+        compose.onNodeWithText("1 / 1").assertIsDisplayed()
+        compose.onNodeWithText(Bidi.isolate("Omar عمر") + " · t", substring = true).assertIsDisplayed()
     }
 
     @Test
     fun homeEnglishLtr() {
-        enqueueHome("[]")
+        seedOmarToday()
         render("en") { HomeScreen(graph, rememberNavController()) }
 
         assertEquals(LayoutDirection.Ltr, capturedDirection)
-        compose.onNodeWithText(Bidi.isolate("Omar عمر")).assertIsDisplayed()
-        compose.onAllNodesWithText("View summary").assertCountEquals(2)
-        compose.onNodeWithText("No care recipients yet. Add one to start recording notes.").assertIsDisplayed()
+        compose.onNodeWithText("Good").assertIsDisplayed()
+        compose.onNodeWithText("1 / 1").assertIsDisplayed()
+        compose.onNodeWithText(Bidi.isolate("Omar عمر") + " · t", substring = true).assertIsDisplayed()
     }
 
     @Test
     fun recipientsArabicRtl() {
-        enqueueList()
+        seedOmarToday()
         render("ar") { RecipientsScreen(graph, rememberNavController()) }
 
         assertEquals(LayoutDirection.Rtl, capturedDirection)
         compose.onNodeWithText("إضافة شخص لتلقي الرعاية").assertIsDisplayed()
-        compose.onNodeWithText("Omar عمر").assertIsDisplayed()
+        compose.onNodeWithText(Bidi.isolate("Omar عمر")).assertIsDisplayed()
     }
 
     @Test

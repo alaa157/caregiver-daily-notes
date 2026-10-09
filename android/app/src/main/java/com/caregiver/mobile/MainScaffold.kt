@@ -54,6 +54,7 @@ import com.caregiver.mobile.presentation.plans.PlansScreen
 import com.caregiver.mobile.presentation.recipients.AddRecipientScreen
 import com.caregiver.mobile.presentation.recipients.RecipientDetailScreen
 import com.caregiver.mobile.presentation.recipients.RecipientsScreen
+import com.caregiver.mobile.presentation.saved.SavedScreen
 import com.caregiver.mobile.presentation.settings.SettingsScreen
 import com.caregiver.mobile.presentation.summary.SummaryPeriodScreen
 import com.caregiver.mobile.presentation.summary.SummaryResultScreen
@@ -69,6 +70,9 @@ fun MainScaffold(graph: AppGraph) {
     val backStack by navController.currentBackStackEntryAsState()
     val currentRoute = backStack?.destination?.route
 
+    // No global FAB: screens.md puts the add-note action on Home (primary
+    // button) and Care recipients (FAB) only. Those screens host their own
+    // FABs; the scaffold keeps just the BottomNav.
     Scaffold(
         containerColor = CaregiverColors.Background,
         bottomBar = {
@@ -122,31 +126,6 @@ fun MainScaffold(graph: AppGraph) {
                 }
             }
         },
-        floatingActionButton = {
-            // Interim target: the Care recipients list, where the add-note
-            // flow starts via recipient detail. Step 5 moves the add-note
-            // action into the Home primary button and recipients FAB.
-            ExtendedFloatingActionButton(
-                onClick = { navController.navigate(MainTab.People.route) },
-                icon = {
-                    Icon(
-                        Icons.Filled.Add,
-                        contentDescription = null,
-                        modifier = Modifier.size(18.dp),
-                    )
-                },
-                text = {
-                    Text(
-                        stringResource(R.string.home_addNote),
-                        fontWeight = FontWeight.Bold,
-                    )
-                },
-                containerColor = CaregiverColors.Primary,
-                contentColor = CaregiverColors.Surface,
-                shape = RoundedCornerShape(28.dp),
-                modifier = Modifier.height(AppSizes.buttonHeightLarge),
-            )
-        },
     ) { innerPadding ->
         NavHost(
             navController = navController,
@@ -156,15 +135,7 @@ fun MainScaffold(graph: AppGraph) {
             composable(MainTab.Home.route) { HomeScreen(graph, navController) }
             composable(MainTab.People.route) { RecipientsScreen(graph, navController) }
             composable(MainTab.History.route) { HistoryScreen(graph, navController) }
-            // Interim Saved: timeline of recorded notes until Step 5 builds
-            // the spec Saved screen. Saved notes stay immutable.
-            composable(MainTab.Saved.route) {
-                HistoryScreen(
-                    graph = graph,
-                    navController = navController,
-                    title = stringResource(R.string.nav_saved),
-                )
-            }
+            composable(MainTab.Saved.route) { SavedScreen(graph, navController) }
             composable(MainTab.Settings.route) {
                 SettingsScreen(graph, navController)
             }

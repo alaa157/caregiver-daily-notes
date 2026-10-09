@@ -52,6 +52,7 @@ class RotationUiTest {
         graph = AppGraph(context)
         runBlocking {
             graph.settings.setBaseUrl(server.url("/").toString())
+            graph.demoNotes.resetToSeed()
         }
         val today = LocalDate.now().toString()
         val recipients = """[{"id":"r1","name":"Ferial","active":true}]"""

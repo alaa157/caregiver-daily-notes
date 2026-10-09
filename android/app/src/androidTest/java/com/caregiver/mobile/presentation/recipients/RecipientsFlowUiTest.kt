@@ -9,7 +9,6 @@ import androidx.compose.ui.test.onNodeWithTag
 import androidx.compose.ui.test.onNodeWithText
 import androidx.compose.ui.test.performClick
 import androidx.compose.ui.test.performTextInput
-import androidx.compose.material3.Text
 import androidx.navigation.compose.NavHost
 import androidx.navigation.compose.composable
 import androidx.navigation.compose.rememberNavController
@@ -17,13 +16,11 @@ import androidx.test.core.app.ApplicationProvider
 import androidx.test.ext.junit.runners.AndroidJUnit4
 import com.caregiver.mobile.AppGraph
 import com.caregiver.mobile.presentation.history.HistoryScreen
+import com.caregiver.mobile.presentation.notes.NoteDetailScreen
 import com.caregiver.mobile.presentation.notes.NoteEditorScreen
-import com.caregiver.mobile.presentation.summary.SummaryPeriodScreen
 import kotlinx.coroutines.runBlocking
-import okhttp3.mockwebserver.MockResponse
-import okhttp3.mockwebserver.MockWebServer
-import org.junit.After
 import org.junit.Assert.assertEquals
+import org.junit.Assert.assertTrue
 import org.junit.Before
 import org.junit.Rule
 import org.junit.Test
@@ -31,9 +28,9 @@ import org.junit.runner.RunWith
 import com.caregiver.mobile.test.WithTestOwner
 
 /**
- * Task 4 visible flows against a fake server: list → add → create → return
- * with a refreshed list (proving the shared list/form instance), and detail
- * with all four actions reaching their destinations. Instrumentation-only.
+ * Offline visible flows against seeded Room data: list → add → create →
+ * return with a refreshed list, and detail with add-note plus timeline
+ * navigation. Instrumentation-only.
  */
 @RunWith(AndroidJUnit4::class)
 class RecipientsFlowUiTest {
@@ -41,24 +38,16 @@ class RecipientsFlowUiTest {
     @get:Rule
     val compose = createComposeRule()
 
-    private lateinit var server: MockWebServer
     private lateinit var graph: AppGraph
     private lateinit var nav: androidx.navigation.NavHostController
 
     @Before
     fun setUp() {
-        server = MockWebServer()
-        server.start()
         val context = ApplicationProvider.getApplicationContext<Context>()
         graph = AppGraph(context)
         runBlocking {
-            graph.settings.setBaseUrl(server.url("/").toString())
+            graph.demoNotes.resetToSeed()
         }
-    }
-
-    @After
-    fun tearDown() {
-        server.shutdown()
     }
 
     private fun setNav() {
@@ -82,77 +71,50 @@ class RecipientsFlowUiTest {
                         nav,
                     )
                 }
-                composable("history") { HistoryScreen(graph, nav) }
-                composable("summary/{recipientId}") {
-                    SummaryPeriodScreen(
-                        it.arguments?.getString("recipientId")!!,
+                composable("note/{noteId}") {
+                    NoteDetailScreen(
+                        it.arguments?.getString("noteId")!!,
                         graph,
                         nav,
                     )
                 }
-                composable("plans") {
-                    Text("plans")
-                }
+                composable("history") { HistoryScreen(graph, nav) }
                 }
             }
         }
     }
 
-    private fun listJson(vararg people: Pair<String, String>) =
-        people.joinToString(",", "[", "]") { (id, name) ->
-            """{"id":"$id","name":"$name","active":true}"""
-        }
-
     @Test
     fun addFlowRefreshesVisibleListOnReturn() {
-        server.enqueue(MockResponse().setBody(listJson("a" to "Aisha")))
-        server.enqueue(MockResponse().setBody(listJson("a" to "Aisha")))
-        server.enqueue(
-            MockResponse().setResponseCode(201)
-                .setBody("""{"id":"b","name":"Karim","active":true}"""),
-        )
-        server.enqueue(MockResponse().setBody(listJson("a" to "Aisha", "b" to "Karim")))
-        server.enqueue(MockResponse().setBody(listJson("a" to "Aisha", "b" to "Karim")))
         setNav()
 
-        compose.onNodeWithText("Aisha").assertIsDisplayed()
+        compose.onNodeWithText("Layla H.").assertIsDisplayed()
         compose.onNodeWithText("Add care recipient").performClick()
         compose.onNodeWithTag("add_person_name").performTextInput("Karim")
         compose.onNodeWithTag("add_person_save").performClick()
 
         compose.onNodeWithText("Karim").assertIsDisplayed()
-        compose.onNodeWithText("Aisha").assertIsDisplayed()
+        compose.onNodeWithText("Layla H.").assertIsDisplayed()
         compose.onAllNodesWithText("Add care recipient").assertCountEquals(0)
     }
 
     @Test
-    fun detailShowsFourActionsAndEachNavigates() {
-        server.enqueue(MockResponse().setBody(listJson("r1" to "Aisha")))
-        server.enqueue(MockResponse().setBody(listJson("r1" to "Aisha")))
-        server.enqueue(MockResponse().setBody(listJson("r1" to "Aisha")))
-        server.enqueue(MockResponse().setBody("[]"))
-        server.enqueue(MockResponse().setBody(listJson("r1" to "Aisha")))
-        server.enqueue(MockResponse().setBody("[]"))
+    fun detailAddNoteAndTimelineNavigate() {
         setNav()
-        compose.onNodeWithText("Aisha").performClick()
+        compose.onNodeWithText("Layla H.").performClick()
 
-        compose.onNodeWithText("Aisha").assertIsDisplayed()
+        compose.onAllNodesWithText("Layla H.").assertCountEquals(2)
         compose.onNodeWithText("Add today’s note").performClick()
-        assertEquals("note-editor/r1", nav.currentDestination?.route)
+        assertEquals("note-editor/r-layla", nav.currentDestination?.route)
         compose.onNodeWithText("Daily note").assertIsDisplayed()
         compose.runOnUiThread { nav.popBackStack() }
 
-        compose.onNodeWithText("History").performClick()
-        assertEquals("history", nav.currentDestination?.route)
-        compose.onNodeWithText("No care recipients yet. Add one to start recording notes.").assertIsDisplayed()
-        compose.runOnUiThread { nav.popBackStack() }
-
-        compose.onNodeWithText("Edit, then accept").performClick()
-        assertEquals("plans", nav.currentDestination?.route)
-        compose.runOnUiThread { nav.popBackStack() }
-
-        compose.onNodeWithText("View summary").performClick()
-        assertEquals("summary/{recipientId}", nav.currentDestination?.route)
-        compose.onNodeWithText("View summary").assertIsDisplayed()
+        compose.onNodeWithText(
+            "Ate well today and walked to the garden in the morning.",
+            substring = true,
+        ).performClick()
+        assertTrue(
+            (nav.currentDestination?.route ?: "").startsWith("note/"),
+        )
     }
 }

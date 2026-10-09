@@ -13,7 +13,6 @@ import androidx.navigation.compose.rememberNavController
 import androidx.test.core.app.ApplicationProvider
 import androidx.test.ext.junit.runners.AndroidJUnit4
 import com.caregiver.mobile.AppGraph
-import com.caregiver.mobile.core.i18n.Bidi
 import com.caregiver.mobile.core.theme.CaregiverTheme
 import java.time.LocalDate
 import java.util.Locale
@@ -50,6 +49,7 @@ class HomeUiTest {
         runBlocking {
             graph.settings.setBaseUrl(server.url("/").toString())
             graph.settings.setEmail("layla@example.com")
+            graph.demoNotes.resetToSeed()
         }
     }
 
@@ -86,10 +86,9 @@ class HomeUiTest {
             }
         }
 
-        compose.onAllNodesWithText("عرض الملخص").assertCountEquals(2)
-        compose.onNodeWithText("تم حفظ الملاحظة").assertIsDisplayed()
-        compose.onNodeWithText("تم حفظ الملاحظة: جيدة · متقطع").assertIsDisplayed()
-        compose.onNodeWithText(Bidi.isolate("ليلى Layla")).assertIsDisplayed()
+        compose.onNodeWithText("عرض الملخص").assertIsDisplayed()
+        compose.onAllNodesWithText("أضف ملاحظة اليوم").assertCountEquals(2)
+        compose.onNodeWithText("Ate well today", substring = true).assertIsDisplayed()
         compose.onAllNodesWithText("تم تسجيل حالة سقوط. يُنصح بالتواصل مع الطبيب.").assertCountEquals(2)
         compose.onAllNodesWithText("good").assertCountEquals(0)
         compose.onAllNodesWithText("broken").assertCountEquals(0)

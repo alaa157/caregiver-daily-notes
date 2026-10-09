@@ -4,124 +4,126 @@ import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
-import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
-import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.ChevronLeft
+import androidx.compose.material.icons.filled.Add
+import androidx.compose.material3.ExtendedFloatingActionButton
 import androidx.compose.material3.Icon
+import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.OutlinedTextFieldDefaults
+import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
-import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.rememberCoroutineScope
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.graphics.Color
-import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.res.stringResource
-import androidx.compose.ui.text.font.FontWeight
-import androidx.compose.ui.unit.dp
-import androidx.compose.ui.unit.sp
 import androidx.navigation.NavController
 import com.caregiver.mobile.AppGraph
 import com.caregiver.mobile.R
 import com.caregiver.mobile.core.i18n.Bidi
 import com.caregiver.mobile.core.navigation.AppDestinations
 import com.caregiver.mobile.core.navigation.AppRoutes
-import com.caregiver.mobile.core.navigation.MainTab
 import com.caregiver.mobile.core.theme.AppSizes
 import com.caregiver.mobile.core.theme.AppSpacing
 import com.caregiver.mobile.core.theme.CaregiverColors
-import com.caregiver.mobile.core.theme.AppFontFamily
-import com.caregiver.mobile.data.api.RecipientDto
 import com.caregiver.mobile.presentation.common.AppCard
 import com.caregiver.mobile.presentation.common.AppEmptyState
 import com.caregiver.mobile.presentation.common.AppTopBar
 import com.caregiver.mobile.presentation.common.Avatar
-import com.caregiver.mobile.presentation.common.GrayPill
-import com.caregiver.mobile.presentation.common.GreenPill
 import com.caregiver.mobile.presentation.common.PrimaryButton
-import com.caregiver.mobile.presentation.common.SecondaryButton
-import com.caregiver.mobile.presentation.common.SectionTitle
+import com.caregiver.mobile.presentation.common.SafetyAlertCard
+import com.caregiver.mobile.presentation.common.TimelineItem
 import com.caregiver.mobile.presentation.common.assistedViewModel
 import com.caregiver.mobile.presentation.home.LoadFailed
 import com.caregiver.mobile.presentation.home.LoadingRow
-import com.caregiver.mobile.presentation.notes.OptionGroup
-import com.caregiver.mobile.presentation.notes.OptionLabels
 import java.util.Locale
+import kotlinx.coroutines.launch
 
 /**
- * Recipients list (board 3) with the add-person entry point. The list shares
- * one activity-scoped [RecipientsViewModel] with the add form below, so a
- * creation refreshes exactly the list the back stack returns to; entry
- * refreshes cover sign-out/sign-in turnover on the same activity.
- *
- * HTML: h1 22sp + subtitle 13sp, full-width secondary add button,
- * person cards (avatar 48 + name + last-note 13sp), bottom nav الأشخاص.
+ * Care recipients (spec screen 3): AppBar, one Card per recipient with
+ * initials Avatar, name, last note date, FAB (people.add), BottomNav
+ * (scaffold), EmptyState. The spec FAB lives on this screen.
+ * States: loading, empty (people.empty), error, success.
  */
 @Composable
 fun RecipientsScreen(graph: AppGraph, navController: NavController) {
-    val activity = LocalContext.current as androidx.activity.ComponentActivity
-    val vm: RecipientsViewModel = assistedViewModel("people-shared", activity) {
-        RecipientsViewModel(graph.apis, graph.auth)
+    val vm: RecipientsDemoViewModel = assistedViewModel("people-demo") {
+        RecipientsDemoViewModel(graph.demoRecipients, graph.demoNotes)
     }
-    LaunchedEffect(Unit) { vm.refresh() }
     val state by vm.state.collectAsState()
-    Column(
-        Modifier.fillMaxSize().padding(horizontal = AppSpacing.md),
-        verticalArrangement = Arrangement.spacedBy(14.dp),
-    ) {
-        val count = (state as? PeopleState.Content)?.recipients?.size
-        Column(modifier = Modifier.padding(top = AppSpacing.md)) {
-            Text(
-                text = stringResource(R.string.nav_people),
-                fontFamily = AppFontFamily,
-                fontWeight = FontWeight.Bold,
-                fontSize = 22.sp,
-                color = CaregiverColors.TextPrimary,
+    val arabic = Locale.getDefault().language == "ar"
+    Scaffold(
+        containerColor = CaregiverColors.Background,
+        floatingActionButton = {
+            ExtendedFloatingActionButton(
+                onClick = { navController.navigate(AppDestinations.AddRecipient.base) },
+                icon = { Icon(Icons.Filled.Add, contentDescription = null) },
+                text = { Text(stringResource(R.string.people_add)) },
+                containerColor = CaregiverColors.Primary,
+                contentColor = CaregiverColors.Surface,
             )
-            if (count != null) {
-                Text(
-                    text = "$count",
-                    fontFamily = AppFontFamily,
-                    fontSize = 13.sp,
-                    color = CaregiverColors.TextSecondary,
-                )
-            }
-        }
-        SecondaryButton(
-            label = stringResource(R.string.people_add),
-            onClick = { navController.navigate(AppDestinations.AddRecipient.base) },
-        )
-        when (val s = state) {
-            PeopleState.Loading -> LoadingRow()
-            PeopleState.Error -> LoadFailed(onRetry = vm::refresh)
-            is PeopleState.Content -> {
-                if (s.recipients.isEmpty()) {
+        },
+    ) { padding ->
+        Column(
+            Modifier.fillMaxSize().padding(padding).padding(horizontal = AppSpacing.md),
+            verticalArrangement = Arrangement.spacedBy(AppSpacing.md),
+        ) {
+            AppTopBar(title = stringResource(R.string.nav_people))
+            when (val s = state) {
+                DemoRecipientsState.Loading -> LoadingRow()
+                DemoRecipientsState.Error -> LoadFailed(onRetry = vm::refresh)
+                is DemoRecipientsState.Content -> if (s.rows.isEmpty()) {
                     AppEmptyState(
-                        icon = "👤",
-                        title = stringResource(R.string.people_empty),
-                        subtitle = stringResource(R.string.nav_people),
+                        icon = "○",
+                        title = stringResource(R.string.nav_people),
+                        subtitle = stringResource(R.string.people_empty),
                         actionLabel = stringResource(R.string.people_add),
                         onAction = { navController.navigate(AppDestinations.AddRecipient.base) },
                     )
                 } else {
                     LazyColumn(verticalArrangement = Arrangement.spacedBy(AppSpacing.sm)) {
-                        items(s.recipients, key = { it.id }) { recipient ->
-                            PersonRow(recipient) {
-                                navController.navigate(AppRoutes.recipientDetail(recipient.id))
+                        items(s.rows, key = { it.id }) { row ->
+                            AppCard(
+                                modifier = Modifier.clickable {
+                                    navController.navigate(AppRoutes.recipientDetail(row.id))
+                                },
+                            ) {
+                                Row(
+                                    horizontalArrangement = Arrangement.spacedBy(AppSpacing.sm),
+                                    verticalAlignment = Alignment.CenterVertically,
+                                ) {
+                                    Avatar(Bidi.isolate(row.name).take(1))
+                                    Column(modifier = Modifier.weight(1f)) {
+                                        Text(
+                                            text = Bidi.isolate(row.name),
+                                            style = MaterialTheme.typography.titleMedium,
+                                            color = CaregiverColors.TextPrimary,
+                                        )
+                                        lastNoteCaption(row.lastNoteDate, arabic)?.let {
+                                            Text(
+                                                text = it,
+                                                style = MaterialTheme.typography.bodySmall,
+                                                color = CaregiverColors.TextSecondary,
+                                            )
+                                        }
+                                    }
+                                }
                             }
                         }
                     }
@@ -131,86 +133,48 @@ fun RecipientsScreen(graph: AppGraph, navController: NavController) {
     }
 }
 
-@Composable
-private fun PersonRow(recipient: RecipientDto, onOpen: () -> Unit) {
-    AppCard(modifier = Modifier.clickable(onClick = onOpen)) {
-        Row(
-            horizontalArrangement = Arrangement.spacedBy(AppSpacing.sm),
-            verticalAlignment = Alignment.CenterVertically,
-        ) {
-            Avatar(Bidi.isolate(recipient.name).take(1))
-            Column(
-                modifier = Modifier.weight(1f),
-                verticalArrangement = Arrangement.spacedBy(AppSpacing.xxs),
-            ) {
-                Text(
-                    text = Bidi.isolate(recipient.name),
-                    fontFamily = AppFontFamily,
-                    fontWeight = FontWeight.Bold,
-                    fontSize = 16.sp,
-                    color = CaregiverColors.TextPrimary,
-                )
-                Text(
-                    text = stringResource(R.string.note_saved),
-                    fontFamily = AppFontFamily,
-                    fontSize = 13.sp,
-                    color = CaregiverColors.TextSecondary,
-                )
-            }
-            Icon(
-                Icons.Filled.ChevronLeft,
-                contentDescription = null,
-                tint = CaregiverColors.TextSecondary,
-                modifier = Modifier.size(18.dp),
-            )
-        }
-    }
-}
-
-/** Add-person form (missing-page spec): name only, inline required error. */
+/**
+ * Add-recipient flow (extra, not in spec): reached only from the spec
+ * Care-recipients FAB/empty action. Name only; inline generic error.
+ */
 @Composable
 fun AddRecipientScreen(graph: AppGraph, navController: NavController) {
-    val activity = LocalContext.current as androidx.activity.ComponentActivity
-    val vm: RecipientsViewModel = assistedViewModel("people-shared", activity) {
-        RecipientsViewModel(graph.apis, graph.auth)
+    val vm: AddRecipientDemoViewModel = assistedViewModel("add-recipient-demo") {
+        AddRecipientDemoViewModel(graph.demoRecipients)
     }
-    val addState by vm.addState.collectAsState()
-    addState.addedId?.let {
-        LaunchedEffect(it) {
-            vm.consumeAdded()
-            navController.popBackStack()
-        }
+    val state by vm.state.collectAsState()
+    val scope = rememberCoroutineScope()
+    var saved by remember { mutableStateOf(false) }
+    if (saved) {
+        androidx.compose.runtime.LaunchedEffect(Unit) { navController.popBackStack() }
     }
     Column(
         Modifier.fillMaxSize().padding(horizontal = AppSpacing.md),
-        verticalArrangement = Arrangement.spacedBy(14.dp),
+        verticalArrangement = Arrangement.spacedBy(AppSpacing.md),
     ) {
         AppTopBar(
             title = stringResource(R.string.people_add),
             onBack = { navController.popBackStack() },
         )
         Text(
-            stringResource(R.string.note_freeText_label),
-            fontFamily = AppFontFamily,
-            fontWeight = FontWeight.Bold,
-            fontSize = 14.sp,
+            text = stringResource(R.string.note_freeText_label),
+            style = MaterialTheme.typography.labelLarge,
             color = CaregiverColors.TextPrimary,
         )
         OutlinedTextField(
-            value = addState.name,
+            value = state.name,
             onValueChange = vm::onName,
-            isError = addState.nameError != null,
+            isError = state.failed,
             supportingText = {
-                if (addState.nameError != null) {
+                if (state.failed) {
                     Text(
                         stringResource(R.string.state_error),
-                        fontFamily = AppFontFamily,
                         color = CaregiverColors.Danger,
                     )
                 }
             },
             singleLine = true,
-            shape = RoundedCornerShape(AppSpacing.sm),
+            shape = RoundedCornerShape(AppSizes.cardRadius),
             colors = OutlinedTextFieldDefaults.colors(
                 focusedBorderColor = CaregiverColors.Primary,
                 unfocusedBorderColor = CaregiverColors.Border,
@@ -221,142 +185,101 @@ fun AddRecipientScreen(graph: AppGraph, navController: NavController) {
         )
         PrimaryButton(
             label = stringResource(R.string.note_save),
-            onClick = vm::add,
-            enabled = !addState.busy,
+            onClick = {
+                scope.launch {
+                    if (vm.save() != null) saved = true
+                }
+            },
+            loading = state.busy,
             modifier = Modifier.testTag("add_person_save"),
         )
     }
 }
 
 /**
- * Recipient detail (board 4): status card + latest note + 3 design actions.
- * HTML: back + name + age, status card (pill + primary 52dp), latest-note
- * section, 2-col stats (plan/summary), 3 secondary space-between buttons.
+ * Recipient detail (spec screen 4): AppBar with back, profile Card,
+ * PrimaryButton for new note, recent notes as TimelineItems.
+ * States: loading, empty (no recent notes), error, success.
  */
 @Composable
 fun RecipientDetailScreen(recipientId: String, graph: AppGraph, navController: NavController) {
-    val vm: RecipientDetailViewModel = assistedViewModel("detail-$recipientId") {
-        RecipientDetailViewModel(recipientId, graph.apis, graph.auth)
+    val vm: RecipientDetailDemoViewModel = assistedViewModel("detail-demo-$recipientId") {
+        RecipientDetailDemoViewModel(recipientId, graph.demoRecipients, graph.demoNotes)
     }
     val state by vm.state.collectAsState()
     Column(Modifier.fillMaxSize().padding(horizontal = AppSpacing.md)) {
         when (val s = state) {
-            DetailState.Loading -> LoadingRow()
-            DetailState.Error -> LoadFailed(onRetry = vm::refresh)
-            is DetailState.Content -> DetailContent(s.detail, navController)
+            DetailDemoState.Loading -> LoadingRow()
+            DetailDemoState.Error -> LoadFailed(onRetry = vm::refresh)
+            is DetailDemoState.Content -> DetailContent(s, navController, vm)
         }
     }
 }
 
 @Composable
-private fun DetailContent(detail: RecipientDetail, navController: NavController) {
+private fun DetailContent(
+    s: DetailDemoState.Content,
+    navController: NavController,
+    vm: RecipientDetailDemoViewModel,
+) {
     val arabic = Locale.getDefault().language == "ar"
     Column(
         modifier = Modifier.fillMaxSize().verticalScroll(rememberScrollState()),
-        verticalArrangement = Arrangement.spacedBy(14.dp),
+        verticalArrangement = Arrangement.spacedBy(AppSpacing.md),
     ) {
         AppTopBar(
-            title = Bidi.isolate(detail.name),
+            title = Bidi.isolate(s.name),
             onBack = { navController.popBackStack() },
         )
-        // Status card: pill + primary add-note 52dp.
         AppCard {
             Row(
-                horizontalArrangement = Arrangement.spacedBy(AppSpacing.xs),
+                horizontalArrangement = Arrangement.spacedBy(AppSpacing.sm),
                 verticalAlignment = Alignment.CenterVertically,
             ) {
-                if (detail.lastNote == null) {
-                    GrayPill(stringResource(R.string.people_empty))
-                } else {
-                    GreenPill(stringResource(R.string.note_saved))
+                Avatar(Bidi.isolate(s.name).take(1))
+                Column(modifier = Modifier.weight(1f)) {
+                    Text(
+                        text = Bidi.isolate(s.name),
+                        style = MaterialTheme.typography.titleMedium,
+                        color = CaregiverColors.TextPrimary,
+                    )
+                    lastNoteCaption(s.lastDate, arabic)?.let {
+                        Text(
+                            text = it,
+                            style = MaterialTheme.typography.bodySmall,
+                            color = CaregiverColors.TextSecondary,
+                        )
+                    }
                 }
             }
-            PrimaryButton(
-                label = stringResource(R.string.home_addNote),
-                onClick = { navController.navigate(AppRoutes.noteEditor(detail.id)) },
-                height = AppSizes.inputHeight,
+        }
+        if (s.recent.any { it.note.fall }) {
+            // Demo rule output through the alert.redFlag copy.
+            SafetyAlertCard(
+                title = stringResource(R.string.alert_redFlag_fall),
+                body = stringResource(R.string.alert_redFlag_fall),
             )
         }
-        // Latest note section.
-        detail.lastNote?.let { note ->
-            SectionTitle(stringResource(R.string.note_saved))
-            Text(
-                text = OptionLabels.label(OptionGroup.Mood, note.mood, arabic) + " · " +
-                    OptionLabels.label(OptionGroup.Appetite, note.appetite, arabic) + " · " +
-                    OptionLabels.label(OptionGroup.Mobility, note.mobility, arabic),
-                fontFamily = AppFontFamily,
-                fontSize = 15.sp,
-                color = CaregiverColors.TextPrimary,
+        PrimaryButton(
+            label = stringResource(R.string.home_addNote),
+            onClick = { navController.navigate(AppRoutes.noteEditor(s.id)) },
+        )
+        if (s.recent.isEmpty()) {
+            AppEmptyState(
+                icon = "○",
+                title = Bidi.isolate(s.name),
+                subtitle = stringResource(R.string.people_empty),
+                actionLabel = stringResource(R.string.home_addNote),
+                onAction = { navController.navigate(AppRoutes.noteEditor(s.id)) },
             )
-        }
-        // 2-col stats: plan + summary.
-        Row(horizontalArrangement = Arrangement.spacedBy(10.dp)) {
-            AppCard(modifier = Modifier.weight(1f), padding = AppSpacing.sm) {
-                Text(
-                    stringResource(R.string.plan_disclaimer),
-                    fontFamily = AppFontFamily,
-                    fontSize = 13.sp,
-                    color = CaregiverColors.TextSecondary,
-                )
-                GreenPill(stringResource(R.string.plan_disclaimer))
-            }
-            AppCard(modifier = Modifier.weight(1f), padding = AppSpacing.sm) {
-                Text(
-                    stringResource(R.string.home_summaryCta),
-                    fontFamily = AppFontFamily,
-                    fontSize = 13.sp,
-                    color = CaregiverColors.TextSecondary,
-                )
-                Text(
-                    "✓",
-                    fontFamily = AppFontFamily,
-                    fontWeight = FontWeight.Bold,
-                    color = CaregiverColors.Primary,
+        } else {
+            s.recent.forEach { item ->
+                TimelineItem(
+                    dateCaption = lastNoteCaption(item.note.date, arabic) ?: item.note.date,
+                    summary = item.note.text.take(120),
+                    onOpen = { navController.navigate(AppRoutes.noteDetail(item.note.id)) },
                 )
             }
-        }
-        // 3 design actions: history, summary, plan — secondary space-between.
-        ActionButton(R.string.nav_history) {
-            navController.navigate(AppRoutes.tab(MainTab.History))
-        }
-        ActionButton(R.string.home_summaryCta) {
-            navController.navigate(AppRoutes.summary(detail.id))
-        }
-        ActionButton(R.string.plan_edit) {
-            navController.navigate(AppDestinations.Plans.base)
-        }
-        Spacer(Modifier.height(AppSpacing.xs))
-    }
-}
-
-@Composable
-private fun ActionButton(label: Int, onClick: () -> Unit) {
-    androidx.compose.material3.OutlinedButton(
-        onClick = onClick,
-        shape = RoundedCornerShape(AppSpacing.sm),
-        border = androidx.compose.foundation.BorderStroke(AppSizes.borderWidth, CaregiverColors.Border),
-        colors = androidx.compose.material3.ButtonDefaults.outlinedButtonColors(
-            containerColor = CaregiverColors.Surface,
-            contentColor = CaregiverColors.TextPrimary,
-        ),
-        modifier = Modifier.fillMaxWidth().height(AppSpacing.xxl),
-    ) {
-        Row(
-            verticalAlignment = Alignment.CenterVertically,
-            modifier = Modifier.fillMaxWidth(),
-        ) {
-            Text(
-                stringResource(label),
-                fontFamily = AppFontFamily,
-                fontWeight = FontWeight.Bold,
-                modifier = Modifier.weight(1f),
-            )
-            Icon(
-                Icons.Filled.ChevronLeft,
-                contentDescription = null,
-                tint = CaregiverColors.TextSecondary,
-                modifier = Modifier.size(18.dp),
-            )
         }
     }
 }
