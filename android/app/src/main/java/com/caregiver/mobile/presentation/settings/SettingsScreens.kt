@@ -21,6 +21,7 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.stringResource
 import androidx.navigation.NavController
@@ -56,7 +57,7 @@ fun SettingsScreen(graph: AppGraph, navController: NavController) {
     val language by graph.settings.language.collectAsState(initial = SettingsStore.DEFAULT_LANGUAGE)
     var resetting by remember { mutableStateOf(false) }
     Column(
-        modifier = Modifier.fillMaxSize().padding(horizontal = AppSpacing.md),
+        modifier = Modifier.fillMaxSize().padding(horizontal = AppSpacing.md).testTag("screen_settings"),
         verticalArrangement = Arrangement.spacedBy(AppSpacing.md),
     ) {
         AppTopBar(title = stringResource(R.string.nav_settings))

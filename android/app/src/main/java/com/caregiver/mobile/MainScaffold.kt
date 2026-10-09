@@ -106,7 +106,7 @@ fun MainScaffold(graph: AppGraph) {
                                     MainTab.Settings -> Icons.Filled.Settings
                                 },
                                 contentDescription = null,
-                                modifier = Modifier.size(22.dp),
+                                modifier = Modifier.size(AppSizes.iconSize),
                             )
                         },
                         // Token selection: primary icon/label on a primarySoft

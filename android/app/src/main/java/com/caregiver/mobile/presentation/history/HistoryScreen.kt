@@ -24,6 +24,7 @@ import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.res.stringResource
 import androidx.navigation.NavController
 import com.caregiver.mobile.AppGraph
@@ -63,7 +64,7 @@ fun HistoryScreen(
     val state by vm.state.collectAsState()
     val arabic = Locale.getDefault().language == "ar"
     Column(
-        Modifier.fillMaxSize().padding(horizontal = AppSpacing.md),
+        Modifier.fillMaxSize().padding(horizontal = AppSpacing.md).testTag("screen_history"),
         verticalArrangement = Arrangement.spacedBy(AppSpacing.md),
     ) {
         AppTopBar(title = title ?: stringResource(R.string.nav_history))

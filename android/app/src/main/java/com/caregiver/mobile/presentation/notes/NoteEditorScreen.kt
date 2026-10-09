@@ -23,6 +23,7 @@ import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontWeight
@@ -70,7 +71,7 @@ fun NoteEditorScreen(recipientId: String, graph: AppGraph, navController: NavCon
         }
     }
     val arabic = Locale.getDefault().language == "ar"
-    Column(Modifier.fillMaxSize()) {
+    Column(Modifier.fillMaxSize().testTag("screen_note_editor")) {
         Column(
             modifier = Modifier.weight(1f).verticalScroll(rememberScrollState())
                 .padding(horizontal = AppSpacing.md),

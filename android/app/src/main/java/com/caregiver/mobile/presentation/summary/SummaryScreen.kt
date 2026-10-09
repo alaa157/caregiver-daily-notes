@@ -19,6 +19,7 @@ import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.res.stringResource
 import androidx.navigation.NavController
 import com.caregiver.mobile.AppGraph
@@ -65,7 +66,7 @@ fun SummaryPeriodScreen(recipientId: String, graph: AppGraph, navController: Nav
     val state by vm.state.collectAsState()
     Column(
         modifier = Modifier.fillMaxSize().verticalScroll(rememberScrollState())
-            .padding(horizontal = AppSpacing.md),
+            .padding(horizontal = AppSpacing.md).testTag("screen_summary"),
         verticalArrangement = Arrangement.spacedBy(AppSpacing.md),
     ) {
         AppTopBar(

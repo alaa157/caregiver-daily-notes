@@ -69,6 +69,7 @@ fun RecipientsScreen(graph: AppGraph, navController: NavController) {
     val state by vm.state.collectAsState()
     val arabic = Locale.getDefault().language == "ar"
     Scaffold(
+        modifier = Modifier.testTag("screen_recipients"),
         containerColor = CaregiverColors.Background,
         floatingActionButton = {
             ExtendedFloatingActionButton(
@@ -207,7 +208,7 @@ fun RecipientDetailScreen(recipientId: String, graph: AppGraph, navController: N
         RecipientDetailDemoViewModel(recipientId, graph.demoRecipients, graph.demoNotes)
     }
     val state by vm.state.collectAsState()
-    Column(Modifier.fillMaxSize().padding(horizontal = AppSpacing.md)) {
+    Column(Modifier.fillMaxSize().padding(horizontal = AppSpacing.md).testTag("screen_recipient_detail")) {
         when (val s = state) {
             DetailDemoState.Loading -> LoadingRow()
             DetailDemoState.Error -> LoadFailed(onRetry = vm::refresh)

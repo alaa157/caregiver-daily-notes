@@ -26,6 +26,7 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.res.stringResource
 import androidx.navigation.NavController
 import com.caregiver.mobile.AppGraph
@@ -73,7 +74,7 @@ fun PlanProposalScreen(planId: String, graph: AppGraph, navController: NavContro
         PlanProposalDemoViewModel(graph.demoPlans)
     }
     val state by vm.state.collectAsState()
-    Column(Modifier.fillMaxSize()) {
+    Column(Modifier.fillMaxSize().testTag("screen_plan_proposal")) {
         when (val s = state) {
             PlanProposalDemoState.Loading -> LoadingRow()
             PlanProposalDemoState.Error -> LoadFailed(onRetry = vm::refresh)
@@ -187,7 +188,7 @@ fun PlanVersionsScreen(planId: String, graph: AppGraph, navController: NavContro
     }
     val state by vm.state.collectAsState()
     Column(
-        Modifier.fillMaxSize().padding(horizontal = AppSpacing.md),
+        Modifier.fillMaxSize().padding(horizontal = AppSpacing.md).testTag("screen_plan_history"),
         verticalArrangement = Arrangement.spacedBy(AppSpacing.md),
     ) {
         AppTopBar(
@@ -319,59 +320,21 @@ fun PlanEditScreen(planId: String, graph: AppGraph, navController: NavController
 /** Plans list (extra, not in spec): orphaned from nav in the offline demo. */
 @Composable
 fun PlansScreen(graph: AppGraph, navController: NavController) {
-    val vm: PlansViewModel = assistedViewModel("plans") {
-        PlansViewModel(graph.apis, graph.auth)
-    }
-    val state by vm.state.collectAsState()
     Column(
         Modifier.fillMaxSize().padding(horizontal = AppSpacing.md),
         verticalArrangement = Arrangement.spacedBy(AppSpacing.md),
     ) {
-        AppTopBar(title = stringResource(R.string.plan_disclaimer))
-        when (val s = state) {
-            PlansState.Loading -> LoadingRow()
-            PlansState.Error -> LoadFailed(onRetry = vm::refresh)
-            is PlansState.Content -> {
-                if (s.refreshing) {
-                    LinearProgressIndicator(modifier = Modifier.fillMaxWidth())
-                }
-                if (s.plans.isEmpty()) {
-                    AppEmptyState(
-                        icon = "✓",
-                        title = stringResource(R.string.people_empty),
-                        subtitle = stringResource(R.string.note_addendum_hint),
-                        actionLabel = stringResource(R.string.home_summaryCta),
-                        onAction = { navController.navigate(MainTab.People.route) },
-                    )
-                } else {
-                    LazyColumn(verticalArrangement = Arrangement.spacedBy(AppSpacing.sm)) {
-                        items(s.plans, key = { it.id }) { row ->
-                            AppCard(
-                                modifier = Modifier.clickable {
-                                    navController.navigate(AppRoutes.planProposal(row.id))
-                                },
-                            ) {
-                                Column(Modifier.padding(AppSpacing.sm)) {
-                                    Text(
-                                        text = Bidi.isolate(row.recipientName),
-                                        style = MaterialTheme.typography.titleMedium,
-                                        color = CaregiverColors.TextPrimary,
-                                    )
-                                    Row(horizontalArrangement = Arrangement.spacedBy(AppSpacing.xs)) {
-                                        StatusChip(row.latestStatus)
-                                        Text(
-                                            text = stringResource(R.string.plan_disclaimer),
-                                            style = MaterialTheme.typography.bodySmall,
-                                            color = CaregiverColors.TextSecondary,
-                                        )
-                                    }
-                                }
-                            }
-                        }
-                    }
-                }
-            }
-        }
+        AppTopBar(
+            title = stringResource(R.string.plan_disclaimer),
+            onBack = { navController.popBackStack() },
+        )
+        AppEmptyState(
+            icon = "○",
+            title = stringResource(R.string.plan_disclaimer),
+            subtitle = stringResource(R.string.people_empty),
+            actionLabel = stringResource(R.string.home_summaryCta),
+            onAction = { navController.navigate(MainTab.People.route) },
+        )
     }
 }
 

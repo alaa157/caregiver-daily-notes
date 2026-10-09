@@ -20,6 +20,7 @@ import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.navigation.NavController
@@ -58,6 +59,7 @@ fun HomeScreen(graph: AppGraph, navController: NavController) {
     }
     val state by vm.state.collectAsState()
     Scaffold(
+        modifier = Modifier.testTag("screen_home"),
         containerColor = CaregiverColors.Background,
         floatingActionButton = {
             if (state is DemoHomeState.Content && !(state as DemoHomeState.Content).empty) {

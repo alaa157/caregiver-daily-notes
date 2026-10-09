@@ -15,6 +15,7 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.navigation.NavController
@@ -50,7 +51,7 @@ fun NoteDetailScreen(noteId: String, graph: AppGraph, navController: NavControll
         NoteDetailDemoViewModel(noteId, graph.demoNotes)
     }
     val state by vm.state.collectAsState()
-    Column(Modifier.fillMaxSize()) {
+    Column(Modifier.fillMaxSize().testTag("screen_note_detail")) {
         when (val s = state) {
             NoteDetailDemoState.Loading -> LoadingRow()
             NoteDetailDemoState.Error -> LoadFailed(onRetry = vm::refresh)

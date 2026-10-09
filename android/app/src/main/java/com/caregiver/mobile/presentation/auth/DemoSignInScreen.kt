@@ -56,6 +56,7 @@ fun DemoSignInScreen(graph: AppGraph) {
     Column(
         modifier = Modifier
             .fillMaxSize()
+            .testTag("screen_signin")
             .verticalScroll(rememberScrollState())
             .imePadding()
             .padding(AppSpacing.lg),

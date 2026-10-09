@@ -50,7 +50,7 @@ import com.caregiver.mobile.core.theme.AppFontFamily
  * Renders [AuthUiState] only — all decisions live in [AuthViewModel].
  *
  * HTML: logo 56x56 radius 16 teal, h1 28sp Bold, subtitle 15sp muted,
- * labels 14sp Bold, inputs 52dp border #C5CDD1 radius 12, CTA 56dp 17sp.
+ * labels/buttons/inputs follow the token type scale and sizes.
  * The auth heading (تسجيل الدخول / Sign in) is kept for the existing
  * navigation/tests; the hero carries the HTML board title.
  */
@@ -85,7 +85,7 @@ fun AuthForm(
         ) {
             OutlinedButton(
                 onClick = {},
-                modifier = Modifier.heightIn(min = 44.dp).height(44.dp),
+                modifier = Modifier.heightIn(min = AppSpacing.xxl).height(AppSpacing.xxl),
                 shape = RoundedCornerShape(AppSpacing.sm),
             ) {
                 Text("English", fontFamily = AppFontFamily, fontWeight = FontWeight.Bold)
@@ -93,7 +93,7 @@ fun AuthForm(
         }
         // Hero — HTML margin-top 40px, gap 10px.
         Column(
-            verticalArrangement = Arrangement.spacedBy(10.dp),
+            verticalArrangement = Arrangement.spacedBy(AppSpacing.xs),
             modifier = Modifier
                 .fillMaxWidth()
                 .padding(top = AppSizes.avatarSize),
@@ -104,38 +104,29 @@ fun AuthForm(
                     .size(AppSizes.buttonHeightLarge)
                     .background(CaregiverColors.Primary, RoundedCornerShape(AppSpacing.md)),
             ) {
-                Text("♥", fontSize = 28.sp, color = CaregiverColors.Surface)
+                Text("♥", style = MaterialTheme.typography.displayLarge, color = CaregiverColors.Surface)
             }
             Text(
                 text = stringResource(R.string.app_name),
-                fontFamily = AppFontFamily,
-                fontWeight = FontWeight.Bold,
-                fontSize = 28.sp,
-                lineHeight = 34.sp,
+                style = MaterialTheme.typography.displayLarge,
                 color = CaregiverColors.TextPrimary,
             )
             Text(
                 text = stringResource(R.string.auth_login_title),
-                fontFamily = AppFontFamily,
-                fontSize = 15.sp,
+                style = MaterialTheme.typography.bodyLarge,
                 color = CaregiverColors.TextSecondary,
             )
         }
         // Form — HTML margin-top 24px, gap 14px.
         Column(
-            verticalArrangement = Arrangement.spacedBy(14.dp),
+            verticalArrangement = Arrangement.spacedBy(AppSpacing.sm),
             modifier = Modifier
                 .fillMaxWidth()
                 .padding(top = AppSpacing.lg, bottom = AppSpacing.lg),
         ) {
             Text(
-                text = stringResource(
-                    if (mode == AuthMode.Login) R.string.auth_login_title
-                    else R.string.auth_login_title,
-                ),
-                fontFamily = AppFontFamily,
-                fontWeight = FontWeight.Bold,
-                fontSize = 22.sp,
+                text = stringResource(R.string.auth_login_title),
+                style = MaterialTheme.typography.headlineSmall,
                 color = CaregiverColors.TextPrimary,
             )
 
@@ -191,8 +182,7 @@ fun AuthForm(
             state.formError?.let {
                 Text(
                     text = formErrorText(it),
-                    fontFamily = AppFontFamily,
-                    fontSize = 14.sp,
+                    style = MaterialTheme.typography.labelLarge,
                     color = CaregiverColors.Danger,
                 )
             }
@@ -208,25 +198,17 @@ fun AuthForm(
                 modifier = Modifier.fillMaxWidth().heightIn(min = AppSizes.buttonHeightLarge).height(AppSizes.buttonHeightLarge).testTag("auth_submit"),
             ) {
                 Text(
-                    stringResource(
-                        if (mode == AuthMode.Login) R.string.auth_login_submit
-                        else R.string.auth_login_submit,
-                    ),
-                    fontFamily = AppFontFamily,
-                    fontWeight = FontWeight.Bold,
-                    fontSize = 17.sp,
+                    stringResource(R.string.auth_login_submit),
+                    style = MaterialTheme.typography.titleMedium,
                 )
             }
 
             TextButton(onClick = onSwitchMode, modifier = Modifier.testTag("auth_switch")) {
                 Text(
-                    stringResource(
-                        if (mode == AuthMode.Login) R.string.auth_login_submit
-                        else R.string.auth_login_submit,
-                    ),
-                    fontFamily = AppFontFamily,
-                    color = CaregiverColors.Primary,
+                    stringResource(R.string.auth_login_submit),
+                    style = MaterialTheme.typography.labelLarge,
                     fontWeight = FontWeight.Bold,
+                    color = CaregiverColors.Primary,
                 )
             }
 
@@ -256,12 +238,11 @@ private fun LabeledField(
     visual: Boolean = false,
     onDone: (() -> Unit)? = null,
 ) {
-    Column(verticalArrangement = Arrangement.spacedBy(6.dp)) {
+    Column(verticalArrangement = Arrangement.spacedBy(AppSpacing.xxs)) {
         Text(
             label,
-            fontFamily = AppFontFamily,
+            style = MaterialTheme.typography.labelLarge,
             fontWeight = FontWeight.Bold,
-            fontSize = 14.sp,
             color = CaregiverColors.TextPrimary,
         )
         OutlinedTextField(

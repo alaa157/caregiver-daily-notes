@@ -10,6 +10,7 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.res.stringResource
 import androidx.navigation.NavController
 import com.caregiver.mobile.AppGraph
@@ -41,7 +42,7 @@ fun SavedScreen(graph: AppGraph, navController: NavController) {
     val state by vm.state.collectAsState()
     val arabic = Locale.getDefault().language == "ar"
     Column(
-        Modifier.fillMaxSize().padding(horizontal = AppSpacing.md),
+        Modifier.fillMaxSize().padding(horizontal = AppSpacing.md).testTag("screen_saved"),
         verticalArrangement = Arrangement.spacedBy(AppSpacing.md),
     ) {
         AppTopBar(title = stringResource(R.string.nav_saved))
