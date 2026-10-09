@@ -3,6 +3,7 @@ plugins {
     alias(libs.plugins.kotlin.android)
     alias(libs.plugins.kotlin.compose)
     alias(libs.plugins.kotlin.serialization)
+    alias(libs.plugins.kotlin.kapt)
 }
 
 android {
@@ -84,6 +85,11 @@ dependencies {
 
     implementation(libs.coroutines.core)
     implementation(libs.datastore.preferences)
+    // Offline demo storage. Retrofit/OkHttp stay until Step 7 moves the
+    // network path out of the demo flavor; nothing at runtime calls them.
+    implementation(libs.room.runtime)
+    implementation(libs.room.ktx)
+    kapt(libs.room.compiler)
     implementation(libs.retrofit)
     implementation(libs.retrofit.converter.kotlinx)
     implementation(libs.okhttp)
