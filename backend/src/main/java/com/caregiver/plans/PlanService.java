@@ -57,9 +57,11 @@ public class PlanService {
     if (target.getStatus() != PlanStatus.SUGGESTED) {
       throw new IllegalPlanTransitionException("Only a suggested plan can be accepted.");
     }
+    // Flush the archive updates before accepting the replacement. This releases the
+    // per-recipient unique active-plan key before the new version claims it.
     archiveActivePlans(recipient.getId(), target.getId());
     target.changeStatus(PlanStatus.ACCEPTED);
-    plans.save(target);
+    plans.saveAndFlush(target);
     audit.record("PLAN_ACCEPTED", "CARE_PLAN", target.getId().toString(), "version=" + target.getVersionNumber());
     return PlanResponse.from(target);
   }
@@ -74,7 +76,7 @@ public class PlanService {
     int version = plans.maxVersionForRecipient(recipient.getId()) + 1;
     archiveActivePlans(recipient.getId(), null);
     original.changeStatus(PlanStatus.ARCHIVED);
-    plans.save(original);
+    plans.saveAndFlush(original);
     CarePlan edited = plans.save(new CarePlan(recipient, version, PlanStatus.EDITED_AND_ACCEPTED,
         request.content(), request.sourceSummaryId() == null ? original.getSourceSummaryId() : request.sourceSummaryId(),
         original.getId(), request.evidenceNoteIds().isEmpty()
@@ -105,7 +107,8 @@ public class PlanService {
         List.of(PlanStatus.ACCEPTED, PlanStatus.EDITED_AND_ACCEPTED))) {
       if (exceptId == null || !current.getId().equals(exceptId)) {
         current.changeStatus(PlanStatus.ARCHIVED);
-        plans.save(current);
+        // Persist the status change immediately to free the unique active-plan key.
+        plans.saveAndFlush(current);
         audit.record("PLAN_ARCHIVED", "CARE_PLAN", current.getId().toString(),
             "version=" + current.getVersionNumber());
       }
