@@ -147,6 +147,45 @@ class PlanControllerTest {
     });
   }
 
+  @Test
+  void versionsIncreaseMonotonicallyAndDismissedVersionsRemainInHistory() throws Exception {
+    TestCaregiver owner = register("plan-versioning@example.com");
+    String recipientId = createRecipient(owner.token());
+
+    JsonNode first = suggest(owner.token(), recipientId, "Version one", null);
+    mvc.perform(post(path(recipientId, first.get("id").asText(), "dismiss"))
+            .header("Authorization", bearer(owner.token())))
+        .andExpect(status().isOk())
+        .andExpect(jsonPath("$.status").value("DISMISSED"));
+
+    JsonNode second = suggest(owner.token(), recipientId, "Version two", null);
+    assertThat(first.get("version").asInt()).isEqualTo(1);
+    assertThat(second.get("version").asInt()).isEqualTo(2);
+
+    mvc.perform(get(PLANS + recipientId + "/plans/history")
+            .header("Authorization", bearer(owner.token())))
+        .andExpect(status().isOk())
+        .andExpect(jsonPath("$[0].version").value(2))
+        .andExpect(jsonPath("$[1].version").value(1))
+        .andExpect(jsonPath("$[1].status").value("DISMISSED"));
+  }
+
+  @Test
+  void unknownRecipientAndUnknownPlanIdsReturnNotFound() throws Exception {
+    TestCaregiver owner = register("plan-invalid-ids@example.com");
+    String unknownRecipientId = UUID.randomUUID().toString();
+    String unknownPlanId = UUID.randomUUID().toString();
+
+    mvc.perform(get(PLANS + unknownRecipientId + "/plans/history")
+            .header("Authorization", bearer(owner.token())))
+        .andExpect(status().isNotFound());
+
+    String recipientId = createRecipient(owner.token());
+    mvc.perform(post(path(recipientId, unknownPlanId, "accept"))
+            .header("Authorization", bearer(owner.token())))
+        .andExpect(status().isNotFound());
+  }
+
   private java.util.List<AuditEvent> auditEventsFor(UUID actorId) {
     return auditEvents.findAllByActorCaregiverIdOrderByOccurredAtDesc(actorId);
   }
