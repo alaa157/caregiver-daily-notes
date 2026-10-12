@@ -9,8 +9,12 @@ import org.springframework.web.bind.annotation.RestControllerAdvice;
 
 @RestControllerAdvice
 public class PlanExceptionHandler {
-  @ExceptionHandler(PlanNotFoundException.class)
-  public ResponseEntity<ErrorResponse> notFound(PlanNotFoundException ex) {
+  @ExceptionHandler({PlanNotFoundException.class, RecipientNotFoundException.class})
+  public ResponseEntity<ErrorResponse> notFound(RuntimeException ex) {
+    if (ex instanceof RecipientNotFoundException) {
+      return ResponseEntity.status(HttpStatus.NOT_FOUND)
+          .body(new ErrorResponse("RECIPIENT_NOT_FOUND", "Recipient not found."));
+    }
     return ResponseEntity.status(HttpStatus.NOT_FOUND)
         .body(new ErrorResponse("NOT_FOUND", "Plan not found."));
   }
