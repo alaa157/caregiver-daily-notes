@@ -53,6 +53,7 @@ class PlanControllerTest {
 
   @BeforeEach
   void cleanDatabase() {
+    jdbcTemplate.update("update care_plan_versions set source_plan_id = null");
     jdbcTemplate.update("delete from care_plan_versions");
     jdbcTemplate.update("delete from audit_events");
     recipients.deleteAll();
