@@ -107,6 +107,20 @@ class SecurityFilterTest {
   }
 
   @Test
+  void duplicateAuthorizationHeadersAreRejected() throws Exception {
+    String valid = tokenFor(UUID.randomUUID());
+
+    MvcResult result =
+        mvc.perform(
+                get("/api/test/whoami")
+                    .header("Authorization", "Bearer " + valid, "Token ambiguous-value"))
+            .andExpect(status().isUnauthorized())
+            .andReturn();
+
+    assertThat(result.getResponse().getContentAsString()).isEqualTo(DENIED);
+  }
+
+  @Test
   void allBadCredentialsShareOne401Envelope() throws Exception {
     UUID id = UUID.randomUUID();
     String tampered = tokenFor(id).substring(0, tokenFor(id).length() - 2) + "xx";
