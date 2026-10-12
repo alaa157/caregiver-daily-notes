@@ -143,7 +143,7 @@ class PlanControllerTest {
 
     mvc.perform(post("/api/auth/login")
             .contentType(MediaType.APPLICATION_JSON)
-            .content("{\\"email\\":\\"plan-state@example.com\\",\\"password\\":\\"password123\\"}"))
+            .content("{\"email\":\"plan-state@example.com\",\"password\":\"password123\"}"))
         .andExpect(status().isOk());
 
     assertThat(auditEventsFor(owner.id()))
