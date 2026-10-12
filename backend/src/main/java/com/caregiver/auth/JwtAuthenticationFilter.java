@@ -32,9 +32,17 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
   protected void doFilterInternal(
       HttpServletRequest request, HttpServletResponse response, FilterChain chain)
       throws ServletException, IOException {
-    String header = request.getHeader("Authorization");
-    if (header == null || header.isBlank()) {
+    var authorizationHeaders = request.getHeaders("Authorization");
+    if (authorizationHeaders == null || !authorizationHeaders.hasMoreElements()) {
       chain.doFilter(request, response);
+      return;
+    }
+
+    String header = authorizationHeaders.nextElement();
+    // Reject duplicate Authorization headers: intermediaries can disagree about
+    // which value wins, so accepting only the first can create auth ambiguity.
+    if (authorizationHeaders.hasMoreElements() || header == null || header.isBlank()) {
+      deny(response);
       return;
     }
     if (header.length() <= SCHEME.length()
