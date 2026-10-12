@@ -1,5 +1,6 @@
 package com.caregiver.recipient;
 
+import com.caregiver.audit.AuditService;
 import com.caregiver.auth.AuthContext;
 import com.caregiver.auth.Caregiver;
 import com.caregiver.auth.CaregiverRepository;
@@ -13,13 +14,15 @@ import java.util.UUID;
 /** Enforces recipient ownership at the service boundary for every operation. */
 @Service
 public class RecipientService {
-
   private final CareRecipientRepository recipients;
   private final CaregiverRepository caregivers;
+  private final AuditService audit;
 
-  public RecipientService(CareRecipientRepository recipients, CaregiverRepository caregivers) {
+  public RecipientService(CareRecipientRepository recipients, CaregiverRepository caregivers,
+      AuditService audit) {
     this.recipients = recipients;
     this.caregivers = caregivers;
+    this.audit = audit;
   }
 
   @Transactional
@@ -27,9 +30,10 @@ public class RecipientService {
     UUID caregiverId = AuthContext.currentCaregiverId();
     Caregiver caregiver = caregivers.findById(caregiverId)
         .orElseThrow(() -> new InvalidTokenException("Authentication required."));
-    CareRecipient recipient =
-        new CareRecipient(caregiver, request.name(), request.relationship());
-    return RecipientResponse.from(recipients.save(recipient));
+    CareRecipient recipient = new CareRecipient(caregiver, request.name(), request.relationship());
+    recipient = recipients.save(recipient);
+    audit.record("RECIPIENT_CREATED", "CARE_RECIPIENT", recipient.getId().toString(), null);
+    return RecipientResponse.from(recipient);
   }
 
   @Transactional(readOnly = true)
@@ -52,15 +56,18 @@ public class RecipientService {
       throw new InactiveRecipientException();
     }
     recipient.update(request.name(), request.relationship());
-    return RecipientResponse.from(recipients.save(recipient));
+    recipient = recipients.save(recipient);
+    audit.record("RECIPIENT_UPDATED", "CARE_RECIPIENT", recipient.getId().toString(), null);
+    return RecipientResponse.from(recipient);
   }
 
   @Transactional
   public RecipientResponse deactivate(UUID id) {
     CareRecipient recipient = findOwned(id);
     recipient.deactivate();
-    // Soft state change only. No dependent history is deleted.
-    return RecipientResponse.from(recipients.save(recipient));
+    recipient = recipients.save(recipient);
+    audit.record("RECIPIENT_DEACTIVATED", "CARE_RECIPIENT", recipient.getId().toString(), null);
+    return RecipientResponse.from(recipient);
   }
 
   private CareRecipient findOwned(UUID id) {
