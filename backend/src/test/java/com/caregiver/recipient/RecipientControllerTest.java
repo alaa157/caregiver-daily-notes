@@ -1,7 +1,7 @@
 package com.caregiver.recipient;
 
 import com.caregiver.auth.CaregiverRepository;
-import com.caregiver.audit.AuditEventRepository;
+import org.springframework.jdbc.core.JdbcTemplate;
 import com.caregiver.auth.JwtService;
 import com.caregiver.config.CaregiverApplication;
 import com.fasterxml.jackson.databind.JsonNode;
@@ -46,13 +46,13 @@ class RecipientControllerTest {
   @Autowired private MockMvc mvc;
   @Autowired private CareRecipientRepository recipientRepository;
   @Autowired private CaregiverRepository caregiverRepository;
-  @Autowired private AuditEventRepository auditEventRepository;
+  @Autowired private JdbcTemplate jdbcTemplate;
   @Autowired private JwtService jwtService;
   @Autowired private ObjectMapper objectMapper;
 
   @BeforeEach
   void cleanDatabase() {
-    auditEventRepository.deleteAll();
+    jdbcTemplate.update("delete from audit_events");
     recipientRepository.deleteAll();
     caregiverRepository.deleteAll();
   }
