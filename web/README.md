@@ -7,12 +7,34 @@ React 18 + TypeScript + Vite. This folder is the frontend-only foundation for is
 From `web/`:
 
 ```sh
-npm install
+npm ci
 npm run dev
 npm run typecheck
 npm test
 npm run build
 ```
+
+The lockfile pins the dependency tree. DM Sans and Noto Sans Arabic are served
+with the app through Fontsource; fonts require no third-party CDN requests.
+
+Browser checks run against the production build in Chromium at 1280, 768, 390,
+and 320 pixels, in Arabic and English. They cover navigation, the anonymous
+route guard, language persistence, keyboard focus, horizontal overflow,
+reduced motion, and axe WCAG A/AA accessibility checks including contrast.
+
+```sh
+npx playwright install chromium
+npm run test:e2e
+```
+
+If Chromium is already installed by your development environment, use it without
+downloading another browser:
+
+```sh
+PLAYWRIGHT_CHROMIUM_EXECUTABLE_PATH=/usr/bin/chromium npm run test:e2e
+```
+
+No real or simulated backend endpoints are used by these browser checks.
 
 The `dist/` directory is an independent static site. Deploy it with SPA routing fallback to `index.html` for client-side routes. The existing root CI job does not yet include frontend checks; changes to `.github/workflows` are outside this issue.
 
@@ -41,6 +63,8 @@ This modifies `dist/config.json`, not the built JS bundle; repeating that step r
 - Features belong under `src/features/<feature>/` and use the centralized API client. Reusable UI is in `src/components`, shared helpers in `src/lib`.
 - The language provider exposes `t`, `language`, `direction`, and `setLanguage`, and synchronizes `<html lang>` and `<html dir>` for Arabic and English. Translations live in `src/i18n/translations.ts`; layout CSS uses logical alignment where direction matters.
 - Reusable `LoadingState`, `EmptyState`, `ErrorState`, and `FieldError` set up accessible feedback conventions. The app includes a skip link, focus-visible outlines, and responsive mobile/desktop layout.
+- `Button`/`ButtonLink`, `Icon`, `FeatureCard`, and `PagePanel` provide shared presentation primitives. Decorative illustrations contain no patient data. Upcoming features are labeled clearly; sign-in remains unavailable.
+- Route changes focus the main landmark and update the translated document title. Arabic typography uses its own font, spacing, and line height; layout uses logical CSS properties. Animations respect reduced-motion preferences.
 - Authentication and authorization remain backend-owned. Never place provider keys, LLM calls, diagnosis logic, or safety decisions in the browser.
 
 ## Definition of scope

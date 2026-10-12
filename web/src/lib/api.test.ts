@@ -27,4 +27,33 @@ describe('typed API transport', () => {
     await expect(api.request({ path: '//evil.example' })).rejects.toThrow();
     await expect(api.request({ path: '/notes', body: { x: 1 } })).rejects.toThrow();
   });
+  it.each([
+    { label: 'newline', control: '\n' },
+    { label: 'tab', control: '\t' },
+    { label: 'carriage return', control: '\r' },
+    { label: 'null', control: '\0' },
+    { label: 'delete', control: '\u007f' },
+  ])('rejects $label in a path before sending a request', async ({ control }) => {
+    const fetcher = vi.fn();
+    const api = createApiClient({ apiBaseUrl: '' }, fetcher as typeof fetch);
+
+    await expect(api.request({
+      path: `/${control}/external.example/resource`,
+      accessToken: 'test-access-token',
+    })).rejects.toThrow('API paths must be root-relative paths, not external URLs.');
+    expect(fetcher).not.toHaveBeenCalled();
+  });
+  it('preserves supported root-relative paths and encoded query values', async () => {
+    const fetcher = vi.fn().mockResolvedValue({
+      ok: true,
+      status: 200,
+      headers: new Headers({ 'content-type': 'application/json' }),
+      json: async () => [],
+    });
+    const api = createApiClient({ apiBaseUrl: '' }, fetcher as typeof fetch);
+
+    await api.request({ path: '/notes?search=daily%20notes&recipient=recipient-1' });
+
+    expect(fetcher.mock.calls[0][0]).toBe('/notes?search=daily%20notes&recipient=recipient-1');
+  });
 });

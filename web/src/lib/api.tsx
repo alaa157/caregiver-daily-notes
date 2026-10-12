@@ -29,7 +29,7 @@ export function createApiClient(config: RuntimeConfig, fetcher: typeof fetch = f
     async request<TResponse, TBody = unknown>({
       path, method = 'GET', body, headers, signal, accessToken,
     }: ApiRequest<TBody>): Promise<TResponse> {
-      if (!path.startsWith('/') || path.startsWith('//') || path.includes('\\')) {
+      if (!path.startsWith('/') || path.startsWith('//') || path.includes('\\') || /[\u0000-\u001f\u007f]/.test(path)) {
         throw new Error('API paths must be root-relative paths, not external URLs.');
       }
       if (body !== undefined && (method === 'GET')) throw new Error('GET requests cannot include a body.');

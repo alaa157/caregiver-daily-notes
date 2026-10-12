@@ -7,6 +7,8 @@ import { ErrorState, LoadingState } from './components/Feedback';
 import { I18nProvider, useI18n } from './i18n/I18nProvider';
 import { ApiProvider } from './lib/api';
 import { loadRuntimeConfig, type RuntimeConfig } from './lib/config';
+import '@fontsource-variable/dm-sans';
+import '@fontsource-variable/noto-sans-arabic';
 import './styles/base.css';
 
 type BootstrapStatus =
