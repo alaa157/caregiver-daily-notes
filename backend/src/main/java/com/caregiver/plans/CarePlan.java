@@ -9,13 +9,11 @@ import jakarta.persistence.FetchType;
 import jakarta.persistence.ForeignKey;
 import jakarta.persistence.Index;
 import jakarta.persistence.JoinColumn;
-import jakarta.persistence.Lob;
 import jakarta.persistence.ManyToOne;
 import jakarta.persistence.Table;
 import jakarta.persistence.UniqueConstraint;
 import org.hibernate.annotations.CreationTimestamp;
 import org.hibernate.annotations.UuidGenerator;
-
 import jakarta.persistence.Id;
 import java.time.Instant;
 import java.util.UUID;
@@ -47,8 +45,7 @@ public class CarePlan {
   @Column(nullable = false, length = 32)
   private PlanStatus status;
 
-  @Lob
-  @Column(name = "content", nullable = false, updatable = false)
+  @Column(name = "content", nullable = false, updatable = false, columnDefinition = "text")
   private String content;
 
   @Column(name = "source_summary_id", length = 160, updatable = false)
