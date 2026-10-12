@@ -1,5 +1,7 @@
 package com.caregiver.plans;
 
+import com.caregiver.audit.AuditEvent;
+import com.caregiver.audit.AuditEventRepository;
 import org.springframework.jdbc.core.JdbcTemplate;
 import com.caregiver.auth.CaregiverRepository;
 import com.caregiver.config.CaregiverApplication;
@@ -47,6 +49,7 @@ class PlanControllerTest {
   @Autowired private CareRecipientRepository recipients;
   @Autowired private CaregiverRepository caregivers;
   @Autowired private JdbcTemplate jdbcTemplate;
+  @Autowired private AuditEventRepository auditEvents;
 
   @BeforeEach
   void cleanDatabase() {
@@ -144,9 +147,8 @@ class PlanControllerTest {
     });
   }
 
-  private java.util.List<com.caregiver.audit.AuditEvent> auditEventsFor(UUID actorId) {
-    return org.springframework.beans.factory.annotation.Autowired.class != null
-        ? java.util.List.of() : java.util.List.of();
+  private java.util.List<AuditEvent> auditEventsFor(UUID actorId) {
+    return auditEvents.findAllByActorCaregiverIdOrderByOccurredAtDesc(actorId);
   }
 
   private JsonNode suggest(String token, String recipientId, String content, String summaryId) throws Exception {
