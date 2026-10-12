@@ -21,8 +21,12 @@ import java.util.UUID;
 /** One immutable plan version. Lifecycle status may change; content never does. */
 @Entity
 @Table(name = "care_plan_versions",
-    uniqueConstraints = @UniqueConstraint(name = "uk_plan_recipient_version",
-        columnNames = {"recipient_id", "version_number"}),
+    uniqueConstraints = {
+      @UniqueConstraint(name = "uk_plan_recipient_version",
+          columnNames = {"recipient_id", "version_number"}),
+      @UniqueConstraint(name = "uk_one_active_accepted_plan_per_recipient",
+          columnNames = {"recipient_id", "active_accepted_key"})
+    },
     indexes = {
       @Index(name = "idx_plan_recipient_version", columnList = "recipient_id, version_number"),
       @Index(name = "idx_plan_recipient_status", columnList = "recipient_id, status")
@@ -48,6 +52,9 @@ public class CarePlan {
   @Column(name = "content", nullable = false, updatable = false, columnDefinition = "text")
   private String content;
 
+  @Column(name = "active_accepted_key")
+  private Boolean activeAcceptedKey;
+
   @Column(name = "source_summary_id", length = 160, updatable = false)
   private String sourceSummaryId;
 
@@ -68,6 +75,7 @@ public class CarePlan {
     this.recipient = recipient;
     this.versionNumber = versionNumber;
     this.status = status;
+    this.activeAcceptedKey = status.isActiveAccepted() ? Boolean.TRUE : null;
     this.content = content;
     this.sourceSummaryId = sourceSummaryId;
     this.sourcePlanId = sourcePlanId;
@@ -98,5 +106,6 @@ public class CarePlan {
       throw new IllegalPlanTransitionException("Transition from " + status + " to " + next + " is not allowed.");
     }
     status = next;
+    activeAcceptedKey = next.isActiveAccepted() ? Boolean.TRUE : null;
   }
 }
