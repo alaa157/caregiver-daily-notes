@@ -5,6 +5,7 @@ import com.caregiver.auth.AuthContext;
 import com.caregiver.recipient.CareRecipient;
 import com.caregiver.recipient.CareRecipientRepository;
 import com.caregiver.recipient.RecipientNotFoundException;
+import com.caregiver.recipient.InactiveRecipientException;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -116,8 +117,12 @@ public class PlanService {
   }
 
   private CareRecipient ownedRecipientForUpdate(UUID recipientId) {
-    return recipients.findOwnedForUpdate(recipientId, AuthContext.currentCaregiverId())
+    CareRecipient recipient = recipients.findOwnedForUpdate(recipientId, AuthContext.currentCaregiverId())
         .orElseThrow(RecipientNotFoundException::new);
+    if (!recipient.isActive()) {
+      throw new InactiveRecipientException();
+    }
+    return recipient;
   }
 
   private CarePlan ownedPlan(CareRecipient recipient, UUID planId) {
