@@ -2,6 +2,7 @@ package com.caregiver.plans;
 
 import com.caregiver.audit.AuditEventRepository;
 import com.caregiver.auth.CaregiverRepository;
+import com.caregiver.config.CaregiverApplication;
 import com.caregiver.auth.JwtService;
 import com.caregiver.recipient.CareRecipientRepository;
 import com.fasterxml.jackson.databind.JsonNode;
@@ -24,6 +25,7 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
 @SpringBootTest(
+    classes = CaregiverApplication.class,
     properties = {
       "spring.datasource.url=jdbc:h2:mem:plantest;MODE=PostgreSQL;DB_CLOSE_DELAY=-1",
       "spring.datasource.driver-class-name=org.h2.Driver",
