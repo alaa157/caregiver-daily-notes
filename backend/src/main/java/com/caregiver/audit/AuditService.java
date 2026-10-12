@@ -31,7 +31,7 @@ public class AuditService {
     String metadata = safeMetadata;
     if (metadata != null) {
       metadata = metadata.replaceAll(
-          "(?i)(password|token|secret|api[-_ ]?key)\\\\s*[:=]\\\\s*[^;, ]+",
+          "(?i)(password|token|secret|api[-_ ]?key)\\s*[:=]\\s*[^;, ]+",
           "$1=[REDACTED]");
       if (metadata.length() > 1000) metadata = metadata.substring(0, 1000);
     }
