@@ -110,6 +110,8 @@ public class PlanService {
             "version=" + current.getVersionNumber());
       }
     }
+    // Persist archive markers before assigning the unique active marker to the next version.
+    plans.flush();
   }
 
   private CareRecipient ownedRecipient(UUID recipientId) {
