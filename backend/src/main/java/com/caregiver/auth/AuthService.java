@@ -1,6 +1,8 @@
 package com.caregiver.auth;
 
 import com.caregiver.config.SecurityBeans;
+import com.caregiver.audit.AuditService;
+import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
@@ -19,12 +21,20 @@ public class AuthService {
   private final CaregiverRepository repository;
   private final PasswordEncoder encoder;
   private final JwtService jwtService;
+  private final AuditService audit;
 
-  public AuthService(
-      CaregiverRepository repository, PasswordEncoder encoder, JwtService jwtService) {
+  @Autowired
+  public AuthService(CaregiverRepository repository, PasswordEncoder encoder, JwtService jwtService,
+      AuditService audit) {
     this.repository = repository;
     this.encoder = encoder;
     this.jwtService = jwtService;
+    this.audit = audit;
+  }
+
+  /** Constructor retained for isolated unit tests that do not load Spring audit persistence. */
+  public AuthService(CaregiverRepository repository, PasswordEncoder encoder, JwtService jwtService) {
+    this(repository, encoder, jwtService, null);
   }
 
   @Transactional
@@ -58,6 +68,10 @@ public class AuthService {
       }
       throw e;
     }
+    if (audit != null) {
+      audit.recordForActor(caregiver.getId(), "CAREGIVER_REGISTERED", "CAREGIVER",
+          caregiver.getId().toString(), null);
+    }
     return new AuthResponse(jwtService.issue(caregiver.getId()));
   }
 
@@ -77,6 +91,10 @@ public class AuthService {
         password, caregiver.map(Caregiver::getPasswordHash).orElse(SecurityBeans.DUMMY_HASH));
     if (caregiver.isEmpty() || !matched) {
       throw new BadCredentialsException();
+    }
+    if (audit != null) {
+      audit.recordForActor(caregiver.get().getId(), "CAREGIVER_LOGIN_SUCCEEDED", "CAREGIVER",
+          caregiver.get().getId().toString(), null);
     }
     return new AuthResponse(jwtService.issue(caregiver.get().getId()));
   }
