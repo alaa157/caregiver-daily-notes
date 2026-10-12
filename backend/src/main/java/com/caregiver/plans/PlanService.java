@@ -77,7 +77,8 @@ public class PlanService {
     plans.save(original);
     CarePlan edited = plans.save(new CarePlan(recipient, version, PlanStatus.EDITED_AND_ACCEPTED,
         request.content(), request.sourceSummaryId() == null ? original.getSourceSummaryId() : request.sourceSummaryId(),
-        original.getId(), encodeIds(request.evidenceNoteIds())));
+        original.getId(), request.evidenceNoteIds().isEmpty()
+            ? original.getEvidenceNoteIds() : encodeIds(request.evidenceNoteIds())));
     audit.record("PLAN_EDITED_AND_ACCEPTED", "CARE_PLAN", edited.getId().toString(),
         "version=" + version + ";sourceVersion=" + original.getVersionNumber());
     return PlanResponse.from(edited);
