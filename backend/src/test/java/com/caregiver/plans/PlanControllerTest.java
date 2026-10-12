@@ -141,6 +141,15 @@ class PlanControllerTest {
     mvc.perform(post(path(recipientId, id, "dismiss")).header("Authorization", bearer(owner.token())))
         .andExpect(status().isConflict());
 
+    mvc.perform(post("/api/auth/login")
+            .contentType(MediaType.APPLICATION_JSON)
+            .content("{\\"email\\":\\"plan-state@example.com\\",\\"password\\":\\"password123\\"}"))
+        .andExpect(status().isOk());
+
+    assertThat(auditEventsFor(owner.id()))
+        .extracting(AuditEvent::getEventType)
+        .contains("CAREGIVER_REGISTERED", "CAREGIVER_LOGIN_SUCCEEDED", "PLAN_ACCEPTED")
+        .doesNotContain("PLAN_DISMISSED");
     assertThat(auditEventsFor(owner.id())).anySatisfy(event -> {
       assertThat(event.getActorCaregiverId()).isEqualTo(owner.id());
       assertThat(event.getEventType()).isEqualTo("PLAN_ACCEPTED");
