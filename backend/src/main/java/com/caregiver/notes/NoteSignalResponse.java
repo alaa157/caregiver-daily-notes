@@ -1,0 +1,1 @@
+package com.caregiver.notes; import java.time.LocalDate; import java.util.UUID; public record NoteSignalResponse(UUID recipientId,LocalDate date,Boolean fallReported,Integer painScore,String medicationStatus,boolean medicationUnverified,Boolean poorAppetite,String freeText){}
