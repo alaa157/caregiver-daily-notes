@@ -4,13 +4,14 @@ import java.time.LocalDate;
 import java.util.Objects;
 
 /**
- * Immutable input struct for one day of caregiver note signals.
- * Stub for Member 2 TASK 1/5 schema. {@code freeText} is ignored by the evaluator.
+ * Immutable contract for one day's structured caregiver observations.
+ * Nullable fields mean the observation was not supplied or remains unknown.
+ * Free text is preserved as source material and is not interpreted by safety rules.
  */
 public record NoteSignals(
     String recipientId,
     LocalDate date,
-    boolean fallReported,
+    Boolean fallReported,
     Integer painScore,
     Boolean missedMedication,
     boolean medicationUnverified,
