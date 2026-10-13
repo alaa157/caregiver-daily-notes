@@ -82,7 +82,8 @@ class SecurityFilterTest {
 
     mvc.perform(get("/api/test/whoami").header("Authorization", "Bearer " + tokenFor(id)))
         .andExpect(status().isOk())
-        .andExpect(jsonPath("$.caregiverId").value(id.toString()));
+        .andExpect(jsonPath("$.caregiverId").value(id.toString()))
+        .andExpect(jsonPath("$.authorities[0]").value("ROLE_CAREGIVER"));
   }
 
   @Test
