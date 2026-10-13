@@ -8,28 +8,15 @@ import java.util.ArrayList;
 import java.util.List;
 
 /**
- * Deterministic red-flag decision table over stubbed note signals.
- * Pure Java — no LLM, no Spring. Missing data yields absent signals, never positives.
+ * Deterministic red-flag decision table over note signals.
+ * Missing data yields absent signals, never positives.
  */
 public class SafetySignalEvaluator {
-
-  /** Pain score at or above this triggers {@code HIGH_PAIN/HIGH}. Scores 0-6 never trigger. */
   public static final int HIGH_PAIN_THRESHOLD = 7;
-
-  /** Verified missed-medication distinct dates at or above this triggers {@code REPEATED_MISSED_MED/HIGH}. */
   public static final int MISSED_MED_COUNT_THRESHOLD = 2;
-
-  /** Poor-appetite distinct dates at or above this triggers {@code POOR_APPETITE_DAYS/WATCH}. */
   public static final int POOR_APPETITE_DAYS_THRESHOLD = 3;
-
-  /** Default evaluation window length in days. */
   public static final int DEFAULT_PERIOD_DAYS = 7;
 
-  /**
-   * Evaluates notes in the inclusive window {@code [periodEndInclusive-periodDays+1, periodEndInclusive]}.
-   * Null or empty {@code notes}, null window end, or non-positive {@code periodDays}
-   * yield an empty evaluation with no banner — never throw on missing data.
-   */
   public SafetyEvaluation evaluate(List<NoteSignals> notes, LocalDate periodEndInclusive, int periodDays) {
     if (notes == null || notes.isEmpty() || periodEndInclusive == null || periodDays <= 0) {
       return new SafetyEvaluation(List.of(), false);
@@ -42,8 +29,7 @@ public class SafetySignalEvaluator {
         .toList();
 
     List<SafetySignal> signals = new ArrayList<>();
-
-    if (window.stream().anyMatch(NoteSignals::fallReported)) {
+    if (window.stream().anyMatch(n -> Boolean.TRUE.equals(n.fallReported()))) {
       signals.add(new SafetySignal(
           SafetyRuleId.FALL_DETECTED, Severity.HIGH, "Fall reported in period"));
     }
