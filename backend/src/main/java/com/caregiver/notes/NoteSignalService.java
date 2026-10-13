@@ -1,11 +1,109 @@
 package com.caregiver.notes;
-import com.caregiver.auth.AuthContext; import com.caregiver.recipient.CareRecipientRepository; import com.caregiver.recipient.RecipientNotFoundException; import org.springframework.stereotype.Service; import org.springframework.transaction.annotation.Transactional; import java.time.LocalDate; import java.util.*;
-@Service public class NoteSignalService{
- private final DailyNoteRepository notes;private final NoteAddendumRepository addenda;private final CareRecipientRepository recipients;
- public NoteSignalService(DailyNoteRepository n,NoteAddendumRepository a,CareRecipientRepository r){notes=n;addenda=a;recipients=r;}
- @Transactional(readOnly=true) public List<NoteSignalResponse> forRange(UUID id,LocalDate from,LocalDate to){UUID o=AuthContext.currentCaregiverId();if(from.isAfter(to))throw new IllegalArgumentException("from must be on or before to.");if(recipients.findByIdAndCaregiver_Id(id,o).isEmpty())throw new RecipientNotFoundException();return notes.findAllByCaregiver_IdAndRecipient_IdAndDateBetweenOrderByDateAsc(o,id,from,to).stream().map(n->merge(n,addenda.findAllByNote_IdAndCaregiver_IdOrderByCreatedAtAsc(n.getId(),o))).toList();}
- private NoteSignalResponse merge(DailyNote n,List<NoteAddendum> as){Boolean fall=n.getFallReported(),poor=poor(n.getAppetite()),verified=n.getMedicationVerified();Integer pain=n.getPainScore();String med=n.getMedicationStatus(),text=n.getFreeText();for(NoteAddendum a:as){if(a.getFallReported()!=null)fall=a.getFallReported();if(a.getPainScore()!=null)pain=a.getPainScore();if(a.getAppetite()!=null)poor=poor(a.getAppetite());if(a.getMedicationStatus()!=null){med=a.getMedicationStatus();verified=a.getMedicationVerified();}if(a.getFreeText()!=null)text=a.getFreeText();}
- List<String> statuses=new ArrayList<>();if(n.getMedicationStatus()!=null)statuses.add(n.getMedicationStatus());as.stream().map(NoteAddendum::getMedicationStatus).filter(Objects::nonNull).forEach(statuses::add);if(statuses.contains("TAKEN")&&statuses.contains("MISSED")){med="UNKNOWN";verified=false;}
- boolean unverified=(("MISSED".equals(med)||"TAKEN".equals(med))&&!Boolean.TRUE.equals(verified));return new NoteSignalResponse(n.getRecipient().getId(),n.getDate(),fall,pain,med,unverified,poor,text);}
- private Boolean poor(String s){if(s==null)return null;return switch(s.trim().toUpperCase(Locale.ROOT)){case "POOR","LOW","POOR_APPETITE"->true;case "GOOD","NORMAL","FAIR"->false;default->null;};}
+
+import com.caregiver.auth.AuthContext;
+import com.caregiver.recipient.CareRecipientRepository;
+import com.caregiver.recipient.RecipientNotFoundException;
+import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
+
+import java.time.LocalDate;
+import java.util.ArrayList;
+import java.util.List;
+import java.util.Locale;
+import java.util.Objects;
+import java.util.UUID;
+
+@Service
+public class NoteSignalService {
+  private final DailyNoteRepository notes;
+  private final NoteAddendumRepository addenda;
+  private final CareRecipientRepository recipients;
+
+  public NoteSignalService(
+      DailyNoteRepository notes,
+      NoteAddendumRepository addenda,
+      CareRecipientRepository recipients) {
+    this.notes = notes;
+    this.addenda = addenda;
+    this.recipients = recipients;
+  }
+
+  @Transactional(readOnly = true)
+  public List<NoteSignalResponse> forRange(UUID recipientId, LocalDate from, LocalDate to) {
+    UUID caregiverId = AuthContext.currentCaregiverId();
+    if (from == null || to == null || from.isAfter(to)) {
+      throw new IllegalArgumentException("from and to are required, and from must be on or before to.");
+    }
+    if (recipients.findByIdAndCaregiver_Id(recipientId, caregiverId).isEmpty()) {
+      throw new RecipientNotFoundException();
+    }
+    return notes.findAllByCaregiver_IdAndRecipient_IdAndDateBetweenOrderByDateAsc(
+            caregiverId, recipientId, from, to)
+        .stream()
+        .map(note -> merge(note,
+            addenda.findAllByNote_IdAndCaregiver_IdOrderByCreatedAtAsc(note.getId(), caregiverId)))
+        .toList();
+  }
+
+  private NoteSignalResponse merge(DailyNote note, List<NoteAddendum> addendaForNote) {
+    Boolean fall = note.getFallReported();
+    Boolean poorAppetite = poor(note.getAppetite());
+    Integer pain = note.getPainScore();
+    String medication = note.getMedicationStatus();
+    Boolean medicationVerified = note.getMedicationVerified();
+    String freeText = note.getFreeText();
+
+    // Apply corrections in chronological order: the latest non-null value wins per field.
+    for (NoteAddendum addendum : addendaForNote) {
+      if (addendum.getFallReported() != null) fall = addendum.getFallReported();
+      if (addendum.getPainScore() != null) pain = addendum.getPainScore();
+      if (addendum.getAppetite() != null) poorAppetite = poor(addendum.getAppetite());
+      if (addendum.getMedicationStatus() != null) {
+        medication = addendum.getMedicationStatus();
+        medicationVerified = addendum.getMedicationVerified();
+      }
+      if (addendum.getFreeText() != null) freeText = addendum.getFreeText();
+    }
+
+    // Only explicitly verified entries count as confirmed taken/missed facts.
+    // Unverified reports must not create a false contradiction or a confirmed signal.
+    List<String> verifiedStatuses = new ArrayList<>();
+    if (Boolean.TRUE.equals(note.getMedicationVerified())
+        && note.getMedicationStatus() != null) {
+      verifiedStatuses.add(note.getMedicationStatus());
+    }
+    for (NoteAddendum addendum : addendaForNote) {
+      if (Boolean.TRUE.equals(addendum.getMedicationVerified())
+          && addendum.getMedicationStatus() != null) {
+        verifiedStatuses.add(addendum.getMedicationStatus());
+      }
+    }
+
+    boolean contradictory = verifiedStatuses.contains("TAKEN")
+        && verifiedStatuses.contains("MISSED");
+    if (contradictory) {
+      medication = "UNKNOWN";
+      medicationVerified = true;
+    }
+
+    boolean medicationUnverified = medication != null && !Boolean.TRUE.equals(medicationVerified);
+    return new NoteSignalResponse(
+        note.getRecipient().getId(),
+        note.getDate(),
+        fall,
+        pain,
+        medication,
+        medicationUnverified,
+        poorAppetite,
+        freeText);
+  }
+
+  private Boolean poor(String value) {
+    if (value == null) return null;
+    return switch (value.trim().toUpperCase(Locale.ROOT)) {
+      case "POOR", "LOW", "POOR_APPETITE" -> true;
+      case "GOOD", "NORMAL", "FAIR" -> false;
+      default -> null;
+    };
+  }
 }
