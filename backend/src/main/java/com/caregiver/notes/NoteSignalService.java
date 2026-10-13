@@ -10,7 +10,6 @@ import java.time.LocalDate;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Locale;
-import java.util.Objects;
 import java.util.UUID;
 
 @Service
@@ -31,8 +30,8 @@ public class NoteSignalService {
   @Transactional(readOnly = true)
   public List<NoteSignalResponse> forRange(UUID recipientId, LocalDate from, LocalDate to) {
     UUID caregiverId = AuthContext.currentCaregiverId();
-    if (from == null || to == null || from.isAfter(to)) {
-      throw new IllegalArgumentException("from and to are required, and from must be on or before to.");
+    if (recipientId == null || from == null || to == null || from.isAfter(to)) {
+      throw new IllegalArgumentException("recipientId, from and to are required, and from must be on or before to.");
     }
     if (recipients.findByIdAndCaregiver_Id(recipientId, caregiverId).isEmpty()) {
       throw new RecipientNotFoundException();
@@ -53,7 +52,7 @@ public class NoteSignalService {
     Boolean medicationVerified = note.getMedicationVerified();
     String freeText = note.getFreeText();
 
-    // Apply corrections in chronological order: the latest non-null value wins per field.
+    // Latest non-null addendum wins independently for each structured field.
     for (NoteAddendum addendum : addendaForNote) {
       if (addendum.getFallReported() != null) fall = addendum.getFallReported();
       if (addendum.getPainScore() != null) pain = addendum.getPainScore();
@@ -65,37 +64,44 @@ public class NoteSignalService {
       if (addendum.getFreeText() != null) freeText = addendum.getFreeText();
     }
 
-    // Only explicitly verified entries count as confirmed taken/missed facts.
-    // Unverified reports must not create a false contradiction or a confirmed signal.
+    // Any verified same-day contradiction must remain unknown, even if a later
+    // addendum exists; unverified reports alone never become confirmed facts.
     List<String> verifiedStatuses = new ArrayList<>();
-    if (Boolean.TRUE.equals(note.getMedicationVerified())
-        && note.getMedicationStatus() != null) {
+    if (Boolean.TRUE.equals(note.getMedicationVerified()) && isKnownMedication(note.getMedicationStatus())) {
       verifiedStatuses.add(note.getMedicationStatus());
     }
     for (NoteAddendum addendum : addendaForNote) {
-      if (Boolean.TRUE.equals(addendum.getMedicationVerified())
-          && addendum.getMedicationStatus() != null) {
+      if (Boolean.TRUE.equals(addendum.getMedicationVerified()) && isKnownMedication(addendum.getMedicationStatus())) {
         verifiedStatuses.add(addendum.getMedicationStatus());
       }
     }
-
-    boolean contradictory = verifiedStatuses.contains("TAKEN")
-        && verifiedStatuses.contains("MISSED");
+    boolean contradictory = verifiedStatuses.contains("TAKEN") && verifiedStatuses.contains("MISSED");
     if (contradictory) {
       medication = "UNKNOWN";
-      medicationVerified = true;
+      medicationVerified = false;
     }
 
-    boolean medicationUnverified = medication != null && !Boolean.TRUE.equals(medicationVerified);
+    boolean medicationUnverified = medication != null
+        && (!Boolean.TRUE.equals(medicationVerified) || "UNKNOWN".equals(medication));
+    Boolean missedMedication = null;
+    if (!medicationUnverified) {
+      if ("MISSED".equals(medication)) missedMedication = true;
+      else if ("TAKEN".equals(medication)) missedMedication = false;
+    }
+
     return new NoteSignalResponse(
         note.getRecipient().getId(),
         note.getDate(),
         fall,
         pain,
-        medication,
+        missedMedication,
         medicationUnverified,
         poorAppetite,
         freeText);
+  }
+
+  private boolean isKnownMedication(String value) {
+    return "TAKEN".equals(value) || "MISSED".equals(value);
   }
 
   private Boolean poor(String value) {
