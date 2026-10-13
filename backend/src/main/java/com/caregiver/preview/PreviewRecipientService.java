@@ -10,11 +10,11 @@ import java.util.UUID;
 
 /** Preview recipient CRUD scoped to the authenticated caregiver. Replaced by #8. */
 @Service
-public class RecipientService {
+public class PreviewRecipientService {
 
   private final RecipientRepository repository;
 
-  public RecipientService(RecipientRepository repository) {
+  public PreviewRecipientService(RecipientRepository repository) {
     this.repository = repository;
   }
 

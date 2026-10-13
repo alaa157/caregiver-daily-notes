@@ -14,11 +14,11 @@ import java.util.UUID;
 
 /** Preview plan endpoints. Replaced by #9. */
 @RestController
-public class PlanController {
+public class PreviewPlanController {
 
-  private final PlanService service;
+  private final PreviewPlanService service;
 
-  public PlanController(PlanService service) {
+  public PreviewPlanController(PreviewPlanService service) {
     this.service = service;
   }
 

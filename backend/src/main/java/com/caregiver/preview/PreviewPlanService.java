@@ -10,14 +10,14 @@ import java.util.UUID;
 
 /** Preview plans scoped to the caregiver. Replaced by #9. */
 @Service
-public class PlanService {
+public class PreviewPlanService {
 
   private final PlanRepository plans;
   private final PlanVersionRepository versions;
-  private final RecipientService recipients;
+  private final PreviewRecipientService recipients;
 
-  public PlanService(
-      PlanRepository plans, PlanVersionRepository versions, RecipientService recipients) {
+  public PreviewPlanService(
+      PlanRepository plans, PlanVersionRepository versions, PreviewRecipientService recipients) {
     this.plans = plans;
     this.versions = versions;
     this.recipients = recipients;

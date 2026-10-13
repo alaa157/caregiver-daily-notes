@@ -57,7 +57,7 @@ class PreviewApiTest {
 
     String id =
         mvc.perform(
-                post("/api/recipients")
+                post("/api/preview/recipients")
                     .header("Authorization", "Bearer " + token)
                     .contentType(MediaType.APPLICATION_JSON)
                     .content("{\"name\":\"Fatma\"}"))
@@ -69,39 +69,39 @@ class PreviewApiTest {
             .getContentAsString()
             .replaceAll(".*\"id\"\\s*:\\s*\"([^\"]+)\".*", "$1");
 
-    mvc.perform(get("/api/recipients").header("Authorization", "Bearer " + token))
+    mvc.perform(get("/api/preview/recipients").header("Authorization", "Bearer " + token))
         .andExpect(status().isOk())
         .andExpect(jsonPath("$.length()").value(1));
 
-    mvc.perform(get("/api/recipients/" + id).header("Authorization", "Bearer " + token))
+    mvc.perform(get("/api/preview/recipients/" + id).header("Authorization", "Bearer " + token))
         .andExpect(status().isOk())
         .andExpect(jsonPath("$.name").value("Fatma"));
 
     // Other caregiver sees nothing and cannot read.
-    mvc.perform(get("/api/recipients").header("Authorization", "Bearer " + other))
+    mvc.perform(get("/api/preview/recipients").header("Authorization", "Bearer " + other))
         .andExpect(status().isOk())
         .andExpect(jsonPath("$.length()").value(0));
-    mvc.perform(get("/api/recipients/" + id).header("Authorization", "Bearer " + other))
+    mvc.perform(get("/api/preview/recipients/" + id).header("Authorization", "Bearer " + other))
         .andExpect(status().isForbidden());
 
     // Deactivate keeps the row readable.
     mvc.perform(
-            put("/api/recipients/" + id)
+            put("/api/preview/recipients/" + id)
                 .header("Authorization", "Bearer " + token)
                 .contentType(MediaType.APPLICATION_JSON)
                 .content("{\"active\":false}"))
         .andExpect(status().isOk())
         .andExpect(jsonPath("$.active").value(false));
-    mvc.perform(get("/api/recipients/" + id).header("Authorization", "Bearer " + token))
+    mvc.perform(get("/api/preview/recipients/" + id).header("Authorization", "Bearer " + token))
         .andExpect(status().isOk());
 
     // No token at all.
-    mvc.perform(get("/api/recipients")).andExpect(status().isUnauthorized());
+    mvc.perform(get("/api/preview/recipients")).andExpect(status().isUnauthorized());
   }
 
   String recipientFor(String token, String name) throws Exception {
     return mvc.perform(
-            post("/api/recipients")
+            post("/api/preview/recipients")
                 .header("Authorization", "Bearer " + token)
                 .contentType(MediaType.APPLICATION_JSON)
                 .content("{\"name\":\"" + name + "\"}"))

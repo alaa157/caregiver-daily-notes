@@ -14,14 +14,14 @@ import org.springframework.web.bind.annotation.RestController;
 import java.util.List;
 import java.util.UUID;
 
-/** Preview recipient endpoints. Replaced by #8. */
+/** Preview recipient endpoints. Replaced by #8; remapped off /api/recipients to avoid clashing with the real controller. */
 @RestController
-@RequestMapping("/api/recipients")
-public class RecipientController {
+@RequestMapping("/api/preview/recipients")
+public class PreviewRecipientController {
 
-  private final RecipientService service;
+  private final PreviewRecipientService service;
 
-  public RecipientController(RecipientService service) {
+  public PreviewRecipientController(PreviewRecipientService service) {
     this.service = service;
   }
 

@@ -79,6 +79,7 @@ class FakeRecipientApi : RecipientApi {
     }
     override suspend fun get(id: String): RecipientDto = error("unused")
     override suspend fun update(id: String, body: UpdateRecipientRequest): RecipientDto = error("unused")
+    override suspend fun deactivate(id: String): RecipientDto = error("unused")
 }
 
 class FakeNoteApi : NoteApi {

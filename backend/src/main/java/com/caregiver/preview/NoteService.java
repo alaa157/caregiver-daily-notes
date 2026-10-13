@@ -17,10 +17,10 @@ public class NoteService {
 
   private final NoteRepository notes;
   private final AddendumRepository addenda;
-  private final RecipientService recipients;
+  private final PreviewRecipientService recipients;
 
   public NoteService(
-      NoteRepository notes, AddendumRepository addenda, RecipientService recipients) {
+      NoteRepository notes, AddendumRepository addenda, PreviewRecipientService recipients) {
     this.notes = notes;
     this.addenda = addenda;
     this.recipients = recipients;
