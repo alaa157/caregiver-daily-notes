@@ -18,9 +18,7 @@ public class NoteSignalService {
   private final NoteAddendumRepository addenda;
   private final CareRecipientRepository recipients;
 
-  public NoteSignalService(
-      DailyNoteRepository notes,
-      NoteAddendumRepository addenda,
+  public NoteSignalService(DailyNoteRepository notes, NoteAddendumRepository addenda,
       CareRecipientRepository recipients) {
     this.notes = notes;
     this.addenda = addenda;
@@ -52,7 +50,7 @@ public class NoteSignalService {
     Boolean medicationVerified = note.getMedicationVerified();
     String freeText = note.getFreeText();
 
-    // Latest non-null addendum wins independently for each structured field.
+    // Latest non-null addendum wins independently for each field.
     for (NoteAddendum addendum : addendaForNote) {
       if (addendum.getFallReported() != null) fall = addendum.getFallReported();
       if (addendum.getPainScore() != null) pain = addendum.getPainScore();
@@ -64,18 +62,14 @@ public class NoteSignalService {
       if (addendum.getFreeText() != null) freeText = addendum.getFreeText();
     }
 
-    // Any verified same-day contradiction must remain unknown, even if a later
-    // addendum exists; unverified reports alone never become confirmed facts.
-    List<String> verifiedStatuses = new ArrayList<>();
-    if (Boolean.TRUE.equals(note.getMedicationVerified()) && isKnownMedication(note.getMedicationStatus())) {
-      verifiedStatuses.add(note.getMedicationStatus());
-    }
+    // Conflicting same-day TAKEN/MISSED reports are ambiguous regardless of
+    // verification state; do not turn them into a positive missed-medication fact.
+    List<String> reportedStatuses = new ArrayList<>();
+    if (isKnownMedication(note.getMedicationStatus())) reportedStatuses.add(note.getMedicationStatus());
     for (NoteAddendum addendum : addendaForNote) {
-      if (Boolean.TRUE.equals(addendum.getMedicationVerified()) && isKnownMedication(addendum.getMedicationStatus())) {
-        verifiedStatuses.add(addendum.getMedicationStatus());
-      }
+      if (isKnownMedication(addendum.getMedicationStatus())) reportedStatuses.add(addendum.getMedicationStatus());
     }
-    boolean contradictory = verifiedStatuses.contains("TAKEN") && verifiedStatuses.contains("MISSED");
+    boolean contradictory = reportedStatuses.contains("TAKEN") && reportedStatuses.contains("MISSED");
     if (contradictory) {
       medication = "UNKNOWN";
       medicationVerified = false;
@@ -89,15 +83,8 @@ public class NoteSignalService {
       else if ("TAKEN".equals(medication)) missedMedication = false;
     }
 
-    return new NoteSignalResponse(
-        note.getRecipient().getId(),
-        note.getDate(),
-        fall,
-        pain,
-        missedMedication,
-        medicationUnverified,
-        poorAppetite,
-        freeText);
+    return new NoteSignalResponse(note.getRecipient().getId(), note.getDate(), fall, pain,
+        missedMedication, medicationUnverified, poorAppetite, freeText);
   }
 
   private boolean isKnownMedication(String value) {
