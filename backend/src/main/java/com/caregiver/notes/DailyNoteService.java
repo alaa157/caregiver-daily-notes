@@ -1,5 +1,5 @@
 package com.caregiver.notes;
-import com.caregiver.auth.AuthContext; import com.caregiver.auth.CaregiverRepository; import com.caregiver.recipient.CareRecipientRepository; import com.caregiver.recipient.RecipientNotFoundException; import org.springframework.data.domain.*; import org.springframework.stereotype.Service; import org.springframework.transaction.annotation.Transactional; import java.time.LocalDate; import java.util.UUID;
+import com.caregiver.auth.AuthContext; import com.caregiver.auth.CaregiverRepository; import com.caregiver.recipient.CareRecipientRepository; import com.caregiver.recipient.RecipientNotFoundException; import org.springframework.data.domain.*; import org.springframework.stereotype.Service; import org.springframework.transaction.annotation.Transactional; import java.time.LocalDate; import java.util.Objects; import java.util.UUID;
 @Service public class DailyNoteService{
  private final DailyNoteRepository notes; private final NoteAddendumRepository addenda; private final CareRecipientRepository recipients; private final CaregiverRepository caregivers;
  public DailyNoteService(DailyNoteRepository n,NoteAddendumRepository a,CareRecipientRepository r,CaregiverRepository c){notes=n;addenda=a;recipients=r;caregivers=c;}
