@@ -8,6 +8,7 @@ import jakarta.servlet.http.HttpServletResponse;
 import org.springframework.http.MediaType;
 import org.springframework.security.authentication.UsernamePasswordAuthenticationToken;
 import org.springframework.security.core.context.SecurityContextHolder;
+import org.springframework.security.core.authority.SimpleGrantedAuthority;
 import org.springframework.stereotype.Component;
 import org.springframework.web.filter.OncePerRequestFilter;
 
@@ -50,7 +51,8 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
     try {
       JwtPrincipal principal = jwtService.parse(token);
       var authentication = new UsernamePasswordAuthenticationToken(
-          new CaregiverPrincipal(principal.caregiverId()), null, List.of());
+          new CaregiverPrincipal(principal.caregiverId()), null,
+          List.of(new SimpleGrantedAuthority("ROLE_CAREGIVER")));
       SecurityContextHolder.getContext().setAuthentication(authentication);
       chain.doFilter(request, response);
     } catch (InvalidTokenException e) {
