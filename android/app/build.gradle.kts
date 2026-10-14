@@ -22,7 +22,14 @@ android {
     }
 
     buildTypes {
+        // Debug APKs are the offline demo: DEMO_BACKEND serves canned
+        // in-memory data with no network, so the frontend can be installed
+        // and clicked through with no backend running.
+        debug {
+            buildConfigField("boolean", "DEMO_BACKEND", "true")
+        }
         release {
+            buildConfigField("boolean", "DEMO_BACKEND", "false")
             // Keep minify off: the old cross-platform app crashed on launch with
             // R8 enabled and was never diagnosed. Revisit only with a device proof.
             isMinifyEnabled = false
@@ -31,6 +38,7 @@ android {
         // installs like the debug APK. `release` above stays minify-off until
         // real release signing lands.
         create("minified") {
+            buildConfigField("boolean", "DEMO_BACKEND", "false")
             isMinifyEnabled = true
             isShrinkResources = true
             proguardFiles(
@@ -52,6 +60,8 @@ android {
     }
     buildFeatures {
         compose = true
+        // Explicit: AppGraph reads BuildConfig.DEMO_BACKEND for the offline switch.
+        buildConfig = true
     }
     testOptions {
         unitTests.isIncludeAndroidResources = true

@@ -8,6 +8,7 @@ import com.caregiver.mobile.data.AuthRepository
 import com.caregiver.mobile.data.SettingsStore
 import com.caregiver.mobile.data.api.BackendApis
 import com.caregiver.mobile.data.api.RetrofitBackendApis
+import com.caregiver.mobile.data.demo.DemoBackendApis
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.runBlocking
 
@@ -37,6 +38,16 @@ class CaregiverApp : Application() {
 class AppGraph(val context: Context) {
     val tokens = TokenHolder()
     val settings: SettingsStore by lazy { SettingsStore.create(context) }
-    val apis: BackendApis by lazy { RetrofitBackendApis(settings, tokens) }
+
+    /**
+     * Offline demo switch: debug builds serve [DemoBackendApis] (canned,
+     * in-memory, no network) so the frontend can be installed and clicked
+     * through with no backend. Release builds always use Retrofit.
+     * No screen, ViewModel, navigation or copy changes are needed — both
+     * providers implement [BackendApis].
+     */
+    val apis: BackendApis by lazy {
+        if (BuildConfig.DEMO_BACKEND) DemoBackendApis() else RetrofitBackendApis(settings, tokens)
+    }
     val auth: AuthRepository by lazy { AuthRepository(apis, settings, tokens) }
 }
