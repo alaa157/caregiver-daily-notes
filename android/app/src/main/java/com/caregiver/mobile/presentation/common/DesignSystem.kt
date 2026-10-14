@@ -85,6 +85,16 @@ object AppDimens {
     val AvatarSize = 48.dp
     val FabRadius = 28.dp
     val SuccessCircle = 72.dp
+    val GapTight = 4.dp
+    val GapForm = 8.dp
+    val GapCard = 12.dp
+    val AlertPad = 16.dp
+    val PagePad = 24.dp
+    val BarSm = 6.dp
+    val IconSm = 20.dp
+    val IconMd = 24.dp
+    val IconLg = 30.dp
+    val PillRadius = 999.dp
 }
 
 @Composable
@@ -96,18 +106,18 @@ fun AppTopBar(
 ) {
     Row(
         verticalAlignment = Alignment.CenterVertically,
-        horizontalArrangement = Arrangement.spacedBy(8.dp),
+        horizontalArrangement = Arrangement.spacedBy(AppDimens.GapForm),
         modifier = Modifier
             .fillMaxWidth()
             .padding(top = 16.dp),
     ) {
         if (onBack != null) {
             Surface(
-                shape = RoundedCornerShape(12.dp),
+                shape = RoundedCornerShape(AppDimens.ControlRadius),
                 color = Color.White,
-                modifier = Modifier.size(48.dp),
+                modifier = Modifier.size(AppDimens.BackSize),
             ) {
-                IconButton(onClick = onBack, modifier = Modifier.size(48.dp)) {
+                IconButton(onClick = onBack, modifier = Modifier.size(AppDimens.BackSize)) {
                     Icon(
                         Icons.AutoMirrored.Filled.ArrowBack,
                         contentDescription = null,
@@ -168,14 +178,14 @@ fun PrimaryButton(
     onClick: () -> Unit,
     modifier: Modifier = Modifier,
     enabled: Boolean = true,
-    height: Dp = 48.dp,
+    height: Dp = AppDimens.ButtonH,
     large: Boolean = false,
     leading: @Composable (() -> Unit)? = null,
 ) {
     Button(
         onClick = onClick,
         enabled = enabled,
-        shape = RoundedCornerShape(12.dp),
+        shape = RoundedCornerShape(AppDimens.ControlRadius),
         colors = ButtonDefaults.buttonColors(
             containerColor = CaregiverColors.Primary,
             contentColor = Color.White,
@@ -186,7 +196,7 @@ fun PrimaryButton(
             .heightIn(min = height)
             .height(height),
     ) {
-        leading?.let { it(); Spacer(Modifier.width(8.dp)) }
+        leading?.let { it(); Spacer(Modifier.width(AppDimens.GapForm)) }
         Text(
             label,
             fontFamily = PlexArabic,
@@ -202,13 +212,13 @@ fun SecondaryButton(
     onClick: () -> Unit,
     modifier: Modifier = Modifier,
     enabled: Boolean = true,
-    height: Dp = 48.dp,
+    height: Dp = AppDimens.ButtonH,
     danger: Boolean = false,
 ) {
     OutlinedButton(
         onClick = onClick,
         enabled = enabled,
-        shape = RoundedCornerShape(12.dp),
+        shape = RoundedCornerShape(AppDimens.ControlRadius),
         border = BorderStroke(1.dp, CaregiverColors.Border),
         colors = ButtonDefaults.outlinedButtonColors(
             containerColor = Color.White,
@@ -231,20 +241,20 @@ fun SecondaryButton(
 @Composable
 fun AppCard(
     modifier: Modifier = Modifier,
-    padding: Dp = 14.dp,
+    padding: Dp = AppDimens.CardPadding,
     content: @Composable ColumnScope.() -> Unit,
 ) {
     Card(
-        shape = RoundedCornerShape(14.dp),
+        shape = RoundedCornerShape(AppDimens.CardRadius),
         border = BorderStroke(1.dp, CaregiverColors.BorderSoft),
         colors = CardDefaults.cardColors(containerColor = Color.White),
         modifier = modifier
             .fillMaxWidth()
-            .shadow(1.dp, RoundedCornerShape(14.dp), clip = false),
+            .shadow(1.dp, RoundedCornerShape(AppDimens.CardRadius), clip = false),
     ) {
         Column(
             modifier = Modifier.padding(padding),
-            verticalArrangement = Arrangement.spacedBy(8.dp),
+            verticalArrangement = Arrangement.spacedBy(AppDimens.GapForm),
             content = content,
         )
     }
@@ -271,7 +281,7 @@ fun Avatar(letter: String, modifier: Modifier = Modifier) {
     Box(
         contentAlignment = Alignment.Center,
         modifier = modifier
-            .size(48.dp)
+            .size(AppDimens.AvatarSize)
             .background(CaregiverColors.AvatarContainer, CircleShape),
     ) {
         Text(
@@ -291,7 +301,7 @@ fun Pill(
     content: Color,
 ) {
     Surface(
-        shape = RoundedCornerShape(999.dp),
+        shape = RoundedCornerShape(AppDimens.PillRadius),
         color = container,
     ) {
         Text(
@@ -324,22 +334,22 @@ fun LightBluePill(text: String) =
 @Composable
 fun SafetyAlertCard(title: String, body: String) {
     Card(
-        shape = RoundedCornerShape(14.dp),
+        shape = RoundedCornerShape(AppDimens.CardRadius),
         border = BorderStroke(1.dp, CaregiverColors.DangerBorder),
         colors = CardDefaults.cardColors(containerColor = CaregiverColors.DangerContainer),
         modifier = Modifier.fillMaxWidth(),
     ) {
         Row(
-            horizontalArrangement = Arrangement.spacedBy(12.dp),
-            modifier = Modifier.padding(16.dp),
+            horizontalArrangement = Arrangement.spacedBy(AppDimens.GapCard),
+            modifier = Modifier.padding(AppDimens.AlertPad),
         ) {
             Icon(
                 Icons.Filled.Warning,
                 contentDescription = null,
                 tint = CaregiverColors.Danger,
-                modifier = Modifier.size(24.dp),
+                modifier = Modifier.size(AppDimens.IconMd),
             )
-            Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
+            Column(verticalArrangement = Arrangement.spacedBy(AppDimens.GapTight)) {
                 Text(
                     title,
                     fontFamily = PlexArabic,
@@ -361,20 +371,20 @@ fun SafetyAlertCard(title: String, body: String) {
 @Composable
 fun InfoAlertCard(title: String, body: String? = null) {
     Card(
-        shape = RoundedCornerShape(14.dp),
+        shape = RoundedCornerShape(AppDimens.CardRadius),
         border = BorderStroke(1.dp, CaregiverColors.InfoBorder),
         colors = CardDefaults.cardColors(containerColor = CaregiverColors.InfoContainer),
         modifier = Modifier.fillMaxWidth(),
     ) {
         Row(
-            horizontalArrangement = Arrangement.spacedBy(12.dp),
-            modifier = Modifier.padding(16.dp),
+            horizontalArrangement = Arrangement.spacedBy(AppDimens.GapCard),
+            modifier = Modifier.padding(AppDimens.AlertPad),
         ) {
             Icon(
                 Icons.Filled.Info,
                 contentDescription = null,
                 tint = CaregiverColors.Info,
-                modifier = Modifier.size(24.dp),
+                modifier = Modifier.size(AppDimens.IconMd),
             )
             Column {
                 Text(
@@ -400,18 +410,18 @@ fun InfoAlertCard(title: String, body: String? = null) {
 @Composable
 fun LockBar(text: String) {
     Row(
-        horizontalArrangement = Arrangement.spacedBy(8.dp),
+        horizontalArrangement = Arrangement.spacedBy(AppDimens.GapForm),
         verticalAlignment = Alignment.CenterVertically,
         modifier = Modifier
             .fillMaxWidth()
-            .background(CaregiverColors.LockBar, RoundedCornerShape(12.dp))
-            .padding(14.dp),
+            .background(CaregiverColors.LockBar, RoundedCornerShape(AppDimens.ControlRadius))
+            .padding(AppDimens.CardPadding),
     ) {
         Icon(
             Icons.Filled.Lock,
             contentDescription = null,
             tint = CaregiverColors.Ink,
-            modifier = Modifier.size(20.dp),
+            modifier = Modifier.size(AppDimens.IconSm),
         )
         Text(text, fontFamily = PlexArabic, fontSize = 14.sp, color = CaregiverColors.Ink)
     }
@@ -422,8 +432,8 @@ fun UnclearBox(text: String) {
     Box(
         modifier = Modifier
             .fillMaxWidth()
-            .border(2.dp, CaregiverColors.Border, RoundedCornerShape(12.dp))
-            .padding(14.dp),
+            .border(2.dp, CaregiverColors.Border, RoundedCornerShape(AppDimens.ControlRadius))
+            .padding(AppDimens.CardPadding),
     ) {
         Text(text, fontFamily = PlexArabic, fontSize = 14.sp, color = CaregiverColors.Ink)
     }
@@ -438,20 +448,20 @@ fun AppEmptyState(
     onAction: () -> Unit,
 ) {
     Card(
-        shape = RoundedCornerShape(14.dp),
+        shape = RoundedCornerShape(AppDimens.CardRadius),
         border = BorderStroke(1.dp, CaregiverColors.BorderSoft),
         colors = CardDefaults.cardColors(containerColor = Color.White),
         modifier = Modifier.fillMaxWidth(),
     ) {
         Column(
             horizontalAlignment = Alignment.CenterHorizontally,
-            verticalArrangement = Arrangement.spacedBy(8.dp),
+            verticalArrangement = Arrangement.spacedBy(AppDimens.GapForm),
             modifier = Modifier
                 .fillMaxWidth()
-                .padding(24.dp),
+                .padding(AppDimens.PagePad),
         ) {
             Icon(icon, contentDescription = null, tint = CaregiverColors.Primary,
-                modifier = Modifier.size(30.dp))
+                modifier = Modifier.size(AppDimens.IconLg))
             Text(
                 title,
                 fontFamily = PlexArabic,
@@ -475,14 +485,14 @@ fun AppEmptyState(
 @Composable
 fun AppErrorState(message: String, detail: String? = null, onRetry: () -> Unit) {
     Card(
-        shape = RoundedCornerShape(14.dp),
+        shape = RoundedCornerShape(AppDimens.CardRadius),
         border = BorderStroke(1.dp, CaregiverColors.DangerBorder),
         colors = CardDefaults.cardColors(containerColor = CaregiverColors.DangerContainer),
         modifier = Modifier.fillMaxWidth(),
     ) {
         Column(
-            verticalArrangement = Arrangement.spacedBy(4.dp),
-            modifier = Modifier.padding(16.dp),
+            verticalArrangement = Arrangement.spacedBy(AppDimens.GapTight),
+            modifier = Modifier.padding(AppDimens.AlertPad),
         ) {
             Text(
                 message,
@@ -503,14 +513,14 @@ fun AppErrorState(message: String, detail: String? = null, onRetry: () -> Unit) 
 @Composable
 fun AppWarningState(message: String, detail: String? = null) {
     Card(
-        shape = RoundedCornerShape(14.dp),
+        shape = RoundedCornerShape(AppDimens.CardRadius),
         border = BorderStroke(1.dp, CaregiverColors.WarningContainer),
         colors = CardDefaults.cardColors(containerColor = CaregiverColors.WarningContainer),
         modifier = Modifier.fillMaxWidth(),
     ) {
         Column(
-            verticalArrangement = Arrangement.spacedBy(4.dp),
-            modifier = Modifier.padding(16.dp),
+            verticalArrangement = Arrangement.spacedBy(AppDimens.GapTight),
+            modifier = Modifier.padding(AppDimens.AlertPad),
         ) {
             Text(
                 message,
@@ -538,7 +548,7 @@ fun SkeletonBar(widthFraction: Float, height: Dp = 14.dp) {
 
 @Composable
 fun AppLoadingSkeleton() {
-    Column(verticalArrangement = Arrangement.spacedBy(8.dp), modifier = Modifier.fillMaxWidth()) {
+    Column(verticalArrangement = Arrangement.spacedBy(AppDimens.GapForm), modifier = Modifier.fillMaxWidth()) {
         SkeletonBar(0.6f, 20.dp)
         SkeletonBar(0.9f)
         SkeletonBar(0.75f)
@@ -547,21 +557,21 @@ fun AppLoadingSkeleton() {
 
 @Composable
 fun BusyBar(label: String, progress: Float = 0.6f) {
-    Column(verticalArrangement = Arrangement.spacedBy(8.dp), modifier = Modifier.fillMaxWidth()) {
-        Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+    Column(verticalArrangement = Arrangement.spacedBy(AppDimens.GapForm), modifier = Modifier.fillMaxWidth()) {
+        Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(AppDimens.GapForm)) {
             CircularProgressIndicator(modifier = Modifier.size(20.dp), strokeWidth = 2.dp)
             Text(label, fontFamily = PlexArabic, fontSize = 15.sp, color = CaregiverColors.Ink)
         }
         Box(
             modifier = Modifier
                 .fillMaxWidth()
-                .height(6.dp)
+                .height(AppDimens.BarSm)
                 .background(CaregiverColors.Skeleton, RoundedCornerShape(3.dp)),
         ) {
             Box(
                 modifier = Modifier
                     .fillMaxWidth(progress)
-                    .height(6.dp)
+                    .height(AppDimens.BarSm)
                     .background(CaregiverColors.Primary, RoundedCornerShape(3.dp)),
             )
         }
@@ -576,8 +586,8 @@ fun BottomActionBar(content: @Composable ColumnScope.() -> Unit) {
         modifier = Modifier.fillMaxWidth(),
     ) {
         Column(
-            verticalArrangement = Arrangement.spacedBy(8.dp),
-            modifier = Modifier.padding(horizontal = 16.dp, vertical = 12.dp),
+            verticalArrangement = Arrangement.spacedBy(AppDimens.GapForm),
+            modifier = Modifier.padding(horizontal = AppDimens.AlertPad, vertical = AppDimens.GapCard),
             content = content,
         )
     }
@@ -606,15 +616,16 @@ fun HelperCaption(text: String, align: TextAlign = TextAlign.Start) {
 }
 
 @Composable
-fun TrendRow(label: String, value: String, icon: String) {
+fun TrendRow(label: String, value: String, icon: ImageVector) {
     Row(
         verticalAlignment = Alignment.CenterVertically,
-        horizontalArrangement = Arrangement.spacedBy(8.dp),
+        horizontalArrangement = Arrangement.spacedBy(AppDimens.GapForm),
         modifier = Modifier
             .fillMaxWidth()
-            .padding(vertical = 8.dp),
+            .padding(vertical = AppDimens.GapForm),
     ) {
-        Text(icon, fontSize = 20.sp)
+        Icon(icon, contentDescription = null, tint = CaregiverColors.Ink,
+            modifier = Modifier.size(AppDimens.IconSm))
         Text(
             label,
             fontFamily = PlexArabic,
