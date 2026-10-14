@@ -96,6 +96,18 @@ class HistoryViewModelTest {
     }
 
     @Test
+    fun changedDateRangePassedToApiUnchanged() = runTest {
+        val vm = HistoryViewModel(apis(), repository, this)
+        content(vm)
+
+        vm.setFrom(LocalDate.of(2026, 10, 1))
+        vm.setTo(LocalDate.of(2026, 10, 31))
+        advanceUntilIdle()
+
+        assertEquals(Triple(null, "2026-10-01", "2026-10-31"), notes.lastHistory)
+    }
+
+    @Test
     fun recipientFilterNarrowsTheList() = runTest {
         recipients.listHandler = {
             listOf(RecipientDto("r1", "A", true), RecipientDto("r2", "B", true))
