@@ -35,6 +35,7 @@ import com.caregiver.mobile.R
 import com.caregiver.mobile.core.i18n.Bidi
 import com.caregiver.mobile.core.navigation.AppDestinations
 import com.caregiver.mobile.core.theme.CaregiverColors
+import com.caregiver.mobile.presentation.common.AppDimens
 import com.caregiver.mobile.core.theme.PlexArabic
 import com.caregiver.mobile.data.api.SummaryDto
 import com.caregiver.mobile.presentation.common.AppCard
@@ -63,8 +64,8 @@ fun SummaryPeriodScreen(recipientId: String, graph: AppGraph, navController: Nav
     Column(Modifier.fillMaxSize()) {
         Column(
             modifier = Modifier.weight(1f).verticalScroll(rememberScrollState())
-                .padding(horizontal = 16.dp),
-            verticalArrangement = Arrangement.spacedBy(14.dp),
+                .padding(horizontal = AppDimens.ScreenHPadding),
+            verticalArrangement = Arrangement.spacedBy(AppDimens.SectionGap),
         ) {
             AppTopBar(
                 title = stringResource(R.string.summary_title),
@@ -102,16 +103,16 @@ fun SummaryPeriodScreen(recipientId: String, graph: AppGraph, navController: Nav
                                 )
                             }
                         },
-                        shape = RoundedCornerShape(999.dp),
+                        shape = RoundedCornerShape(AppDimens.CardRadius),
                         border = BorderStroke(
                             1.dp,
                             if (period == days) CaregiverColors.Primary else CaregiverColors.Border,
                         ),
                         colors = FilterChipDefaults.filterChipColors(
-                            containerColor = Color.White,
+                            containerColor = CaregiverColors.Surface,
                             labelColor = CaregiverColors.Ink,
-                            selectedContainerColor = CaregiverColors.Primary,
-                            selectedLabelColor = Color.White,
+                            selectedContainerColor = CaregiverColors.PrimarySoft,
+                            selectedLabelColor = CaregiverColors.Primary,
                         ),
                     )
                 }
@@ -144,14 +145,14 @@ fun SummaryResultScreen(
         SummaryViewModel(recipientId, graph.apis, graph.auth, null, periodDays)
     }
     val state by vm.state.collectAsState()
-    Column(Modifier.fillMaxSize().padding(horizontal = 16.dp)) {
+    Column(Modifier.fillMaxSize().padding(horizontal = AppDimens.ScreenHPadding)) {
         when (val s = state) {
             SummaryState.Loading -> {
                 Spacer(Modifier.height(16.dp))
                 BusyBar(stringResource(R.string.state_summary_loading))
             }
             is SummaryState.AiUnavailable -> Column(
-                verticalArrangement = Arrangement.spacedBy(14.dp),
+                verticalArrangement = Arrangement.spacedBy(AppDimens.SectionGap),
                 modifier = Modifier.padding(top = 16.dp),
             ) {
                 s.last?.let { FlagsBanner(it.redFlags) }
@@ -165,7 +166,7 @@ fun SummaryResultScreen(
                 )
             }
             is SummaryState.Rejected -> Column(
-                verticalArrangement = Arrangement.spacedBy(14.dp),
+                verticalArrangement = Arrangement.spacedBy(AppDimens.SectionGap),
                 modifier = Modifier.padding(top = 16.dp),
             ) {
                 s.last?.let { FlagsBanner(it.redFlags) }
@@ -207,11 +208,15 @@ private fun FlagsBanner(redFlags: List<String>) {
 private fun SummaryBody(summary: SummaryDto, periodDays: Int, navController: NavController) {
     Column(
         modifier = Modifier.fillMaxSize().verticalScroll(rememberScrollState()),
-        verticalArrangement = Arrangement.spacedBy(14.dp),
+        verticalArrangement = Arrangement.spacedBy(AppDimens.SectionGap),
     ) {
         AppTopBar(
             title = stringResource(R.string.summary_title),
             onBack = { navController.popBackStack() },
+        )
+        InfoAlertCard(
+            title = stringResource(R.string.plan_not_prescription_title),
+            body = stringResource(R.string.plan_not_prescription_body),
         )
         if (summary.redFlags.isNotEmpty()) {
             FlagsBanner(summary.redFlags)
