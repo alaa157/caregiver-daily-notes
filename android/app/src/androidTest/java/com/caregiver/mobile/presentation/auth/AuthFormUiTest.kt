@@ -6,6 +6,7 @@ import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.test.assertDoesNotExist
 import androidx.compose.ui.test.assertIsDisplayed
 import androidx.compose.ui.test.assertCountEquals
 import androidx.compose.ui.test.hasClickAction
@@ -67,6 +68,7 @@ class AuthFormUiTest {
         mode: AuthMode,
         language: String,
         onSwitch: () -> Unit = {},
+        onDemo: (() -> Unit)? = null,
     ): AuthViewModel {
         val base = ApplicationProvider.getApplicationContext<Context>()
         val localized = base.withLocale(language)
@@ -83,6 +85,7 @@ class AuthFormUiTest {
                         onConfirm = vm::onConfirm,
                         onSubmit = vm::submit,
                         onSwitchMode = onSwitch,
+                        onDemo = onDemo,
                     )
                 }
             }
@@ -225,5 +228,20 @@ class AuthFormUiTest {
         val config = Configuration(resources.configuration)
         config.setLocale(Locale(language))
         return createConfigurationContext(config)
+    }
+
+    @Test
+    fun debugDemoEntryVisibleOnLogin() {
+        setForm(AuthMode.Login, "en", onDemo = {})
+
+        compose.onNodeWithTag("auth_demo_entry").assertIsDisplayed()
+        compose.onNodeWithText("Explore the demo (offline)").assertIsDisplayed()
+    }
+
+    @Test
+    fun demoEntryAbsentWithoutCallback() {
+        setForm(AuthMode.Login, "en")
+
+        compose.onNodeWithTag("auth_demo_entry").assertDoesNotExist()
     }
 }

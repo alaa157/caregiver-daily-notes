@@ -42,6 +42,7 @@ import com.caregiver.mobile.BuildConfig
 import com.caregiver.mobile.R
 import com.caregiver.mobile.core.theme.CaregiverColors
 import com.caregiver.mobile.core.theme.PlexArabic
+import com.caregiver.mobile.presentation.common.AppDimens
 
 /**
  * Shared login/register form in the design language (board 1): hero logo,
@@ -85,8 +86,8 @@ fun AuthForm(
         ) {
             OutlinedButton(
                 onClick = {},
-                modifier = Modifier.heightIn(min = 44.dp).height(44.dp),
-                shape = RoundedCornerShape(12.dp),
+                modifier = Modifier.heightIn(min = 48.dp).height(48.dp),
+                shape = RoundedCornerShape(AppDimens.ControlRadius),
             ) {
                 Text("English", fontFamily = PlexArabic, fontWeight = FontWeight.Bold)
             }
@@ -200,10 +201,10 @@ fun AuthForm(
             Button(
                 onClick = onSubmit,
                 enabled = !state.busy,
-                shape = RoundedCornerShape(12.dp),
+                shape = RoundedCornerShape(AppDimens.ControlRadius),
                 colors = ButtonDefaults.buttonColors(
                     containerColor = CaregiverColors.Primary,
-                    contentColor = Color.White,
+                    contentColor = CaregiverColors.Surface,
                 ),
                 modifier = Modifier.fillMaxWidth().heightIn(min = 56.dp).height(56.dp),
             ) {
@@ -287,13 +288,13 @@ private fun LabeledField(
             keyboardOptions = keyboardOptions,
             keyboardActions = KeyboardActions(onDone = { onDone?.invoke() }),
             singleLine = true,
-            shape = RoundedCornerShape(12.dp),
+            shape = RoundedCornerShape(AppDimens.ControlRadius),
             colors = OutlinedTextFieldDefaults.colors(
                 focusedBorderColor = CaregiverColors.Primary,
                 unfocusedBorderColor = CaregiverColors.Border,
                 errorBorderColor = CaregiverColors.Danger,
-                focusedContainerColor = Color.White,
-                unfocusedContainerColor = Color.White,
+                focusedContainerColor = CaregiverColors.Surface,
+                unfocusedContainerColor = CaregiverColors.Surface,
             ),
             modifier = Modifier.fillMaxWidth().heightIn(min = 52.dp),
         )
