@@ -31,6 +31,7 @@ import androidx.compose.material3.ExposedDropdownMenuBox
 import androidx.compose.material3.ExposedDropdownMenuDefaults
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedTextField
+import androidx.compose.material3.OutlinedTextFieldDefaults
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.material3.rememberDatePickerState
@@ -43,10 +44,12 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.drawBehind
+import androidx.compose.ui.platform.LocalLayoutDirection
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.unit.LayoutDirection
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.navigation.NavController
@@ -54,6 +57,7 @@ import com.caregiver.mobile.AppGraph
 import com.caregiver.mobile.R
 import com.caregiver.mobile.core.i18n.Bidi
 import com.caregiver.mobile.core.theme.CaregiverColors
+import com.caregiver.mobile.presentation.common.AppDimens
 import com.caregiver.mobile.core.theme.PlexArabic
 import com.caregiver.mobile.core.time.DateFormats
 import com.caregiver.mobile.presentation.common.AppCard
@@ -94,8 +98,8 @@ fun HistoryScreen(
     val from by vm.from.collectAsState()
     val to by vm.to.collectAsState()
     Column(
-        Modifier.fillMaxSize().padding(horizontal = 16.dp),
-        verticalArrangement = Arrangement.spacedBy(14.dp),
+        Modifier.fillMaxSize().padding(horizontal = AppDimens.ScreenHPadding),
+        verticalArrangement = Arrangement.spacedBy(AppDimens.SectionGap),
     ) {
         Column(modifier = Modifier.padding(top = 16.dp)) {
             Text(
@@ -134,24 +138,29 @@ fun HistoryScreen(
                     )
                 } else {
                     val arabic = Locale.getDefault().language == "ar"
+                    // The rail sits on the layout-start side: physical x must
+                    // mirror in RTL because drawBehind offsets are physical,
+                    // while padding(start) already flips automatically.
+                    val railRtl = LocalLayoutDirection.current == LayoutDirection.Rtl
                     LazyColumn(
-                        verticalArrangement = Arrangement.spacedBy(12.dp),
+                        verticalArrangement = Arrangement.spacedBy(AppDimens.GapCard),
                         modifier = Modifier
                             .fillMaxSize()
-                            .padding(start = 12.dp)
+                            .padding(start = AppDimens.GapCard)
                             .drawBehind {
+                                val x = if (railRtl) size.width else 0f
                                 drawLine(
                                     CaregiverColors.BorderSoft,
-                                    Offset(0f, 0f),
-                                    Offset(0f, size.height),
+                                    Offset(x, 0f),
+                                    Offset(x, size.height),
                                     strokeWidth = 2.dp.toPx(),
                                 )
                             }
-                            .padding(start = 12.dp),
+                            .padding(start = AppDimens.GapCard),
                     ) {
                         items(s.content.entries, key = { it.note.id }) { entry ->
                             Box {
-                                // Timeline dot — HTML 12px teal circle.
+                                // Timeline dot — 12dp primary circle.
                                 Box(
                                     modifier = Modifier
                                         .size(12.dp)
@@ -184,7 +193,7 @@ fun HistoryScreen(
                                         verticalAlignment = Alignment.CenterVertically,
                                         horizontalArrangement = Arrangement.spacedBy(8.dp),
                                         modifier = Modifier
-                                            .heightIn(min = 44.dp)
+                                            .heightIn(min = 48.dp)
                                             .clickable { navController.navigate("note/${entry.note.id}") },
                                     ) {
                                         Text(
@@ -195,7 +204,7 @@ fun HistoryScreen(
                                             color = CaregiverColors.Primary,
                                         )
                                         Text(
-                                            "←",
+                                            if (LocalLayoutDirection.current == LayoutDirection.Rtl) "←" else "→",
                                             fontSize = 18.sp,
                                             color = CaregiverColors.Primary,
                                         )
@@ -226,7 +235,13 @@ private fun PersonFilter(
             readOnly = true,
             label = { Text(stringResource(R.string.history_filter_person), fontFamily = PlexArabic) },
             trailingIcon = { ExposedDropdownMenuDefaults.TrailingIcon(expanded) },
-            shape = RoundedCornerShape(12.dp),
+            shape = RoundedCornerShape(AppDimens.ControlRadius),
+            colors = OutlinedTextFieldDefaults.colors(
+                focusedBorderColor = CaregiverColors.Primary,
+                unfocusedBorderColor = CaregiverColors.Border,
+                focusedContainerColor = CaregiverColors.Surface,
+                unfocusedContainerColor = CaregiverColors.Surface,
+            ),
             modifier = Modifier.menuAnchor().fillMaxWidth().height(48.dp),
         )
         ExposedDropdownMenu(expanded = expanded, onDismissRequest = { expanded = false }) {
@@ -251,13 +266,13 @@ private fun RowScope.DateField(label: Int, date: LocalDate?, onPick: (LocalDate?
     val arabic = Locale.getDefault().language == "ar"
     Button(
         onClick = { open = true },
-        shape = RoundedCornerShape(12.dp),
+        shape = RoundedCornerShape(AppDimens.ControlRadius),
         colors = ButtonDefaults.outlinedButtonColors(
-            containerColor = Color.White,
+            containerColor = CaregiverColors.Surface,
             contentColor = CaregiverColors.Ink,
         ),
         border = androidx.compose.foundation.BorderStroke(1.dp, CaregiverColors.Border),
-        modifier = Modifier.weight(1f).height(44.dp),
+        modifier = Modifier.weight(1f).height(48.dp),
     ) {
         val shown = date?.let { DateFormats.historyDay(it.toString(), arabic) } ?: "—"
         Text(
