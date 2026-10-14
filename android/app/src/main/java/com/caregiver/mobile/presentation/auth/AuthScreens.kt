@@ -25,6 +25,9 @@ fun LoginScreen(repository: AuthRepository, navController: NavController) {
         onSubmit = vm::submit,
         onSwitchMode = { navController.navigate(AppDestinations.Register.base) },
         onServerSettings = { navController.navigate(AppDestinations.ServerUrl.base) },
+        // Debug builds show the offline demo entry (gated inside AuthForm
+        // by BuildConfig.DEBUG); release builds never see this callback.
+        onDemo = vm::demoSignIn,
         modifier = Modifier,
     )
 }

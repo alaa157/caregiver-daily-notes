@@ -35,7 +35,7 @@ class CaregiverApp : Application() {
 }
 
 /** Manual composition root: settings, token mirror, API provider, auth. */
-class AppGraph(val context: Context) {
+class AppGraph(val context: Context, val forceProduction: Boolean = false) {
     val tokens = TokenHolder()
     val settings: SettingsStore by lazy { SettingsStore.create(context) }
 
@@ -43,11 +43,28 @@ class AppGraph(val context: Context) {
      * Offline demo switch: debug builds serve [DemoBackendApis] (canned,
      * in-memory, no network) so the frontend can be installed and clicked
      * through with no backend. Release builds always use Retrofit.
-     * No screen, ViewModel, navigation or copy changes are needed — both
-     * providers implement [BackendApis].
+     * [forceProduction] keeps MockWebServer instrumentation tests on the
+     * real Retrofit path regardless of build type. No screen, ViewModel,
+     * navigation or copy changes are needed — both providers implement
+     * [BackendApis].
      */
     val apis: BackendApis by lazy {
-        if (BuildConfig.DEMO_BACKEND) DemoBackendApis() else RetrofitBackendApis(settings, tokens)
+        selectApis(
+            !forceProduction && BuildConfig.DEMO_BACKEND,
+            DemoBackendApis(),
+            RetrofitBackendApis(settings, tokens),
+        )
     }
     val auth: AuthRepository by lazy { AuthRepository(apis, settings, tokens) }
 }
+
+/**
+ * Pure provider selector, unit-tested per build variant in
+ * `AppGraphProviderTest`. Kept outside [AppGraph] so no Context,
+ * DataStore, or network is needed to prove the wiring.
+ */
+internal fun selectApis(
+    demoBackend: Boolean,
+    demo: BackendApis,
+    production: BackendApis,
+): BackendApis = if (demoBackend) demo else production

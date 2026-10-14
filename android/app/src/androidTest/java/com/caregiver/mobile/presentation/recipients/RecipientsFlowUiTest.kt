@@ -50,7 +50,7 @@ class RecipientsFlowUiTest {
         server = MockWebServer()
         server.start()
         val context = ApplicationProvider.getApplicationContext<Context>()
-        graph = AppGraph(context)
+        graph = AppGraph(context, forceProduction = true)
         runBlocking {
             graph.settings.setBaseUrl(server.url("/").toString())
         }

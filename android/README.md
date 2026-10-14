@@ -31,6 +31,20 @@ same Spring Boot REST API as the web app. No cross-platform framework.
 # → app/build/outputs/apk/debug/app-debug.apk
 ```
 
+## Offline demo (debug builds only)
+
+Debug builds set `DEMO_BACKEND=true` and serve the in-memory
+`DemoBackendApis` (`data/demo/`) instead of Retrofit: no backend, no
+network, no registration needed.
+
+- On the login screen, tap **“Explore the demo (offline)”** — or sign in
+  with any credentials; the demo backend accepts everything.
+- Recipients, notes, addenda, summaries, and plan accept/dismiss/edit all
+  work against canned bilingual data dated relative to today. Mutations
+  live only in memory and are never uploaded.
+- Release and `minified` builds always use the real backend
+  (`DEMO_BACKEND=false`); the demo entry control is absent there.
+
 Lint:
 
 ```bash

@@ -72,6 +72,17 @@ class AuthViewModel(
         _state.value = _state.value.copy(confirm = value, confirmError = null, formError = null)
     }
 
+    /**
+     * Offline demo entry: fills fixed demo credentials and submits through
+     * the normal [submit] path. The debug demo backend accepts any
+     * credentials; production behavior is unchanged.
+     */
+    fun demoSignIn() {
+        onEmail(DEMO_EMAIL)
+        onPassword(DEMO_PASSWORD)
+        submit()
+    }
+
     fun submit() {
         val current = _state.value
         val emailError = validateEmail(current.email)
@@ -122,6 +133,10 @@ class AuthViewModel(
     companion object {
         /** BCrypt limit, mirrored from the backend — measured in bytes, not chars. */
         const val MAX_PASSWORD_BYTES = 72
+
+        /** Fixed credentials for the debug offline demo entry. */
+        const val DEMO_EMAIL = "demo@example.com"
+        const val DEMO_PASSWORD = "demo-pass"
 
         fun validateEmail(raw: String): EmailError? {
             val email = raw.trim()
