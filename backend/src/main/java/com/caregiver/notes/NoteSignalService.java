@@ -8,9 +8,12 @@ import org.springframework.transaction.annotation.Transactional;
 
 import java.time.LocalDate;
 import java.util.ArrayList;
+import java.util.Collection;
 import java.util.List;
 import java.util.Locale;
+import java.util.Map;
 import java.util.UUID;
+import java.util.stream.Collectors;
 
 @Service
 public class NoteSignalService {
@@ -34,14 +37,41 @@ public class NoteSignalService {
     if (recipients.findByIdAndCaregiver_Id(recipientId, caregiverId).isEmpty()) {
       throw new RecipientNotFoundException();
     }
-    return notes.findAllByCaregiver_IdAndRecipient_IdAndDateBetweenOrderByDateAsc(
-            caregiverId, recipientId, from, to)
-        .stream()
-        .map(note -> merge(note,
-            addenda.findAllByNote_IdAndCaregiver_IdOrderByCreatedAtAsc(note.getId(), caregiverId)))
+    List<DailyNote> found = notes.findAllByCaregiver_IdAndRecipient_IdAndDateBetweenOrderByDateAsc(
+        caregiverId, recipientId, from, to);
+    // One batched addenda read for the whole range instead of one query per note.
+    Map<UUID, List<NoteAddendum>> addendaByNote = Map.of();
+    if (!found.isEmpty()) {
+      Collection<UUID> noteIds = found.stream().map(DailyNote::getId).toList();
+      addendaByNote = addenda
+          .findAllByNote_IdInAndCaregiver_IdOrderByCreatedAtAsc(noteIds, caregiverId)
+          .stream()
+          .collect(Collectors.groupingBy(addendum -> addendum.getNote().getId()));
+    }
+    final Map<UUID, List<NoteAddendum>> grouped = addendaByNote;
+    return found.stream()
+        .map(note -> merge(note, grouped.getOrDefault(note.getId(), List.of())))
         .toList();
   }
 
+  /**
+   * Merges one note with its chronological addenda into a single signal.
+   *
+   * <p><b>Medication contradiction policy (issue #34, conservative by design):</b>
+   * historical observations are never rewritten — the note and every addendum
+   * stay persisted — but the <em>interpreted</em> signal must not present
+   * uncertain information as a confirmed fact. Per-field latest-non-null
+   * merging applies first (a correction supersedes earlier values for
+   * display), yet when the combined history for the day contains both a
+   * {@code TAKEN} and a {@code MISSED} report the interpreted state collapses
+   * to {@code missedMedication=null} with {@code medicationUnverified=true}.
+   * The policy is symmetric: it applies identically whether the original note
+   * said {@code MISSED} and the addendum says {@code TAKEN}, or the reverse.
+   * A bare {@code UNKNOWN} report contributes no contradiction evidence on its
+   * own; it simply leaves the state unverified. Downstream safety rules must
+   * treat {@code medicationUnverified=true} as "do not assert", never as a
+   * confirmed missed (or taken) dose.
+   */
   private NoteSignalResponse merge(DailyNote note, List<NoteAddendum> addendaForNote) {
     Boolean fall = note.getFallReported();
     Boolean poorAppetite = poor(note.getAppetite());
