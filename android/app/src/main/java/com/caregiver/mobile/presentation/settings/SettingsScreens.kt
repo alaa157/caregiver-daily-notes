@@ -10,12 +10,12 @@ import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
-import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.FilterChip
 import androidx.compose.material3.FilterChipDefaults
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedTextField
+import androidx.compose.material3.OutlinedTextFieldDefaults
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.collectAsState
@@ -25,7 +25,6 @@ import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.dp
@@ -39,6 +38,7 @@ import com.caregiver.mobile.data.api.ApiClient
 import com.caregiver.mobile.data.api.BaseUrlCheck
 import com.caregiver.mobile.data.api.UrlProblem
 import com.caregiver.mobile.presentation.common.AppTopBar
+import com.caregiver.mobile.presentation.common.AppDimens
 import com.caregiver.mobile.presentation.common.PrimaryButton
 import com.caregiver.mobile.presentation.common.SecondaryButton
 import kotlinx.coroutines.launch
@@ -77,10 +77,16 @@ fun SettingsScreen(graph: AppGraph, navController: NavController) {
                     }
                 },
                 label = { Text("العربية") },
-                shape = CircleShape,
+                shape = RoundedCornerShape(AppDimens.CardRadius),
+                border = androidx.compose.foundation.BorderStroke(
+                    1.dp,
+                    if (language == "ar") CaregiverColors.Primary else CaregiverColors.Border,
+                ),
                 colors = FilterChipDefaults.filterChipColors(
-                    selectedContainerColor = CaregiverColors.Primary,
-                    selectedLabelColor = Color.White,
+                    containerColor = CaregiverColors.Surface,
+                    labelColor = CaregiverColors.Ink,
+                    selectedContainerColor = CaregiverColors.PrimarySoft,
+                    selectedLabelColor = CaregiverColors.Primary,
                 ),
             )
             FilterChip(
@@ -94,10 +100,16 @@ fun SettingsScreen(graph: AppGraph, navController: NavController) {
                     }
                 },
                 label = { Text("English") },
-                shape = CircleShape,
+                shape = RoundedCornerShape(AppDimens.CardRadius),
+                border = androidx.compose.foundation.BorderStroke(
+                    1.dp,
+                    if (language == "en") CaregiverColors.Primary else CaregiverColors.Border,
+                ),
                 colors = FilterChipDefaults.filterChipColors(
-                    selectedContainerColor = CaregiverColors.Primary,
-                    selectedLabelColor = Color.White,
+                    containerColor = CaregiverColors.Surface,
+                    labelColor = CaregiverColors.Ink,
+                    selectedContainerColor = CaregiverColors.PrimarySoft,
+                    selectedLabelColor = CaregiverColors.Primary,
                 ),
             )
         }
@@ -106,11 +118,12 @@ fun SettingsScreen(graph: AppGraph, navController: NavController) {
             fontFamily = PlexArabic,
             style = MaterialTheme.typography.bodySmall,
         )
-        PrimaryButton(
+        SecondaryButton(
             label = stringResource(R.string.settings_logout),
             onClick = {
                 scope.launch { graph.auth.signOut() }
             },
+            danger = true,
         )
     }
 }
@@ -150,7 +163,13 @@ fun ServerUrlScreen(graph: AppGraph, navController: NavController) {
                 }
             },
             singleLine = true,
-            shape = RoundedCornerShape(12.dp),
+            shape = RoundedCornerShape(AppDimens.ControlRadius),
+            colors = OutlinedTextFieldDefaults.colors(
+                focusedBorderColor = CaregiverColors.Primary,
+                unfocusedBorderColor = CaregiverColors.Border,
+                focusedContainerColor = CaregiverColors.Surface,
+                unfocusedContainerColor = CaregiverColors.Surface,
+            ),
             modifier = Modifier.fillMaxWidth().height(52.dp),
         )
         PrimaryButton(

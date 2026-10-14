@@ -29,6 +29,7 @@ import com.caregiver.mobile.presentation.home.HomeScreen
 import com.caregiver.mobile.presentation.notes.NoteEditorScreen
 import com.caregiver.mobile.presentation.plans.PlansScreen
 import com.caregiver.mobile.presentation.recipients.RecipientsScreen
+import com.caregiver.mobile.presentation.settings.SettingsScreen
 import com.caregiver.mobile.presentation.summary.SummaryPeriodScreen
 import java.util.Locale
 import kotlinx.coroutines.runBlocking
@@ -178,6 +179,27 @@ class RtlUiTest {
 
         assertEquals(LayoutDirection.Ltr, capturedDirection)
         compose.onNodeWithText("Plans").assertIsDisplayed()
+    }
+
+    @Test
+    fun settingsArabicRtl() {
+        render("ar") { SettingsScreen(graph, rememberNavController()) }
+
+        assertEquals(LayoutDirection.Rtl, capturedDirection)
+        compose.onNodeWithText("الإعدادات").assertIsDisplayed()
+        compose.onNodeWithText("اللغة").assertIsDisplayed()
+        compose.onNodeWithText("العربية").assertIsDisplayed()
+        compose.onNodeWithText("English").assertIsDisplayed()
+        compose.onNodeWithText("تسجيل الخروج").assertIsDisplayed()
+    }
+
+    @Test
+    fun settingsEnglishLtr() {
+        render("en") { SettingsScreen(graph, rememberNavController()) }
+
+        assertEquals(LayoutDirection.Ltr, capturedDirection)
+        compose.onNodeWithText("Settings").assertIsDisplayed()
+        compose.onNodeWithText("Sign out").assertIsDisplayed()
     }
 
     private fun renderAuth(mode: AuthMode, language: String, onSwitch: () -> Unit) {
