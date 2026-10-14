@@ -1,0 +1,27 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1200" height="900" viewBox="0 0 1200 900">
+<rect width="1200" height="900" rx="32" fill="#F8F7F3"/>
+<text x="70" y="75" font-family="DejaVu Sans, sans-serif" font-size="20" letter-spacing="4" font-weight="700" fill="#687572">CAREGIVER DAILY NOTES · BRAND CONCEPT</text>
+<rect x="85" y="125" width="300" height="300" rx="74" fill="#0E6B66"/>
+<path d="M157 205 Q157 187 177 187 H228 Q247 187 247 207 V323 Q228 307 205 307 H177 Q157 307 157 287 Z" fill="#F8F7F3"/>
+<path d="M247 207 Q247 187 267 187 H293 Q313 187 313 207 V287 Q313 307 293 307 H274 Q256 307 247 323 Z" fill="#E6F3F0"/>
+<path d="M235 244 C215 220 188 231 190 253 C192 272 216 287 235 301 C254 286 278 270 280 252 C282 230 254 221 235 244 Z" fill="#0E6B66"/>
+<path d="M217 265 L231 278 L256 250" fill="none" stroke="#E7A28B" stroke-width="8" stroke-linecap="round" stroke-linejoin="round"/>
+<text x="235" y="475" font-family="DejaVu Sans, sans-serif" font-size="23" font-weight="700" fill="#202927" text-anchor="middle">APP ICON</text>
+<text x="235" y="510" font-family="DejaVu Sans, sans-serif" font-size="16" fill="#687572" text-anchor="middle">Rounded · high contrast</text>
+<rect x="450" y="145" width="670" height="275" rx="26" fill="#FFFFFF" stroke="#E3E8E4" stroke-width="2"/>
+<rect x="485" y="208" width="150" height="150" rx="38" fill="#0E6B66"/>
+<path d="M520 246 Q520 235 533 235 H558 Q569 235 569 248 V313 Q557 301 544 301 H533 Q520 301 520 288 Z" fill="#F8F7F3"/>
+<path d="M569 248 Q569 235 582 235 H598 Q611 235 611 248 V288 Q611 301 598 301 H586 Q575 301 569 313 Z" fill="#E6F3F0"/>
+<path d="M565 268 C552 252 536 260 537 274 C538 287 553 296 565 306 C577 296 592 285 593 273 C594 259 576 252 565 268 Z" fill="#0E6B66"/>
+<path d="M553 279 L562 288 L578 270" fill="none" stroke="#E7A28B" stroke-width="5" stroke-linecap="round" stroke-linejoin="round"/>
+<text x="1065" y="268" font-family="Noto Sans Arabic, DejaVu Sans, sans-serif" font-size="38" font-weight="700" fill="#084E4A" text-anchor="end" direction="rtl" unicode-bidi="plaintext">ملاحظات الرعاية اليومية</text>
+<text x="1065" y="315" font-family="DejaVu Sans, sans-serif" font-size="17" fill="#687572" text-anchor="end">Care that keeps every day in view</text>
+<text x="785" y="390" font-family="DejaVu Sans, sans-serif" font-size="18" font-weight="700" fill="#202927" text-anchor="middle">WEBSITE WORDMARK</text>
+<rect x="450" y="475" width="670" height="250" rx="26" fill="#FFFFFF" stroke="#E3E8E4" stroke-width="2"/>
+<g transform="translate(520,515)" fill="#202927"><path d="M0 20 Q0 0 20 0 H67 Q85 0 85 20 V148 Q65 130 43 130 H20 Q0 130 0 110 Z"/><path d="M85 20 Q85 0 105 0 H130 Q150 0 150 20 V110 Q150 130 130 130 H109 Q91 130 85 148 Z"/></g>
+<path d="M595 570 C575 545 547 558 550 582 C552 603 578 620 595 633 C612 619 638 602 640 581 C642 557 612 545 595 570 Z" fill="#F8F7F3"/>
+<path d="M576 587 L590 601 L614 574" fill="none" stroke="#F8F7F3" stroke-width="8" stroke-linecap="round" stroke-linejoin="round"/>
+<text x="1065" y="592" font-family="Noto Sans Arabic, DejaVu Sans, sans-serif" font-size="38" font-weight="700" fill="#202927" text-anchor="end" direction="rtl" unicode-bidi="plaintext">ملاحظات الرعاية اليومية</text>
+<text x="785" y="667" font-family="DejaVu Sans, sans-serif" font-size="18" font-weight="700" fill="#687572" text-anchor="middle">MONOCHROME / SMALL-SIZE SAFE</text>
+<text x="70" y="835" font-family="DejaVu Sans, sans-serif" font-size="16" fill="#687572">Palette: #0E6B66 · #084E4A · #E6F3F0 · #F8F7F3 · #E7A28B</text>
+</svg>
