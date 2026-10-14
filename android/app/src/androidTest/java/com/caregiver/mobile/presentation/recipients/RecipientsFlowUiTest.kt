@@ -16,6 +16,7 @@ import androidx.navigation.compose.rememberNavController
 import androidx.test.core.app.ApplicationProvider
 import androidx.test.ext.junit.runners.AndroidJUnit4
 import com.caregiver.mobile.AppGraph
+import com.caregiver.mobile.core.i18n.Bidi
 import com.caregiver.mobile.presentation.history.HistoryScreen
 import com.caregiver.mobile.presentation.notes.NoteEditorScreen
 import com.caregiver.mobile.presentation.summary.SummaryPeriodScreen
@@ -126,8 +127,7 @@ class RecipientsFlowUiTest {
     }
 
     @Test
-    fun detailShowsFourActionsAndEachNavigates() {
-        server.enqueue(MockResponse().setBody(listJson("r1" to "Aisha")))
+    fun detailShowsFourActionsAndEachNavigates() {        server.enqueue(MockResponse().setBody(listJson("r1" to "Aisha")))
         server.enqueue(MockResponse().setBody(listJson("r1" to "Aisha")))
         server.enqueue(MockResponse().setBody(listJson("r1" to "Aisha")))
         server.enqueue(MockResponse().setBody("[]"))
@@ -154,5 +154,46 @@ class RecipientsFlowUiTest {
         compose.onNodeWithText("Smart summary").performClick()
         assertEquals("summary/{recipientId}", nav.currentDestination?.route)
         compose.onNodeWithText("Smart summary").assertIsDisplayed()
+    }
+
+    @Test
+    fun emptyListShowsLocalizedEmptyState() {
+        server.enqueue(MockResponse().setBody("[]"))
+        setNav()
+
+        compose.onNodeWithText("No people yet. Add your first person.").assertIsDisplayed()
+        compose.onNodeWithText("Add person").assertIsDisplayed()
+    }
+
+    @Test
+    fun failedLoadCanRetry() {
+        server.enqueue(MockResponse().setResponseCode(500))
+        setNav()
+
+        compose.onNodeWithText("Could not load").assertIsDisplayed()
+        server.enqueue(MockResponse().setBody(listJson("a" to "Aisha")))
+        compose.onNodeWithText("Retry").performClick()
+        compose.onNodeWithText("Aisha").assertIsDisplayed()
+    }
+
+    @Test
+    fun recipientOpensDetail() {
+        server.enqueue(MockResponse().setBody(listJson("r1" to "Aisha")))
+        server.enqueue(MockResponse().setBody(listJson("r1" to "Aisha")))
+        server.enqueue(MockResponse().setBody("[]"))
+        setNav()
+
+        compose.onNodeWithText("Aisha").performClick()
+        assertEquals("recipient/r1", nav.currentDestination?.route)
+        compose.onNodeWithText("Add note").assertIsDisplayed()
+    }
+
+    @Test
+    fun longMixedNameRemainsVisible() {
+        val name = "ليلى الطويلة الاسم جدا Layla Very Long Name 123"
+        server.enqueue(MockResponse().setBody(listJson("r9" to name)))
+        setNav()
+
+        compose.onNodeWithText(Bidi.isolate(name)).assertIsDisplayed()
     }
 }

@@ -9,15 +9,13 @@ import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
-import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.ChevronLeft
-import androidx.compose.material3.Icon
+import androidx.compose.material.icons.filled.PersonAdd
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.OutlinedTextFieldDefaults
 import androidx.compose.material3.Text
@@ -27,7 +25,6 @@ import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.res.stringResource
@@ -45,9 +42,11 @@ import com.caregiver.mobile.core.theme.CaregiverColors
 import com.caregiver.mobile.core.theme.PlexArabic
 import com.caregiver.mobile.data.api.RecipientDto
 import com.caregiver.mobile.presentation.common.AppCard
+import com.caregiver.mobile.presentation.common.AppDimens
 import com.caregiver.mobile.presentation.common.AppEmptyState
 import com.caregiver.mobile.presentation.common.AppTopBar
 import com.caregiver.mobile.presentation.common.Avatar
+import com.caregiver.mobile.presentation.common.ForwardChevron
 import com.caregiver.mobile.presentation.common.GrayPill
 import com.caregiver.mobile.presentation.common.GreenPill
 import com.caregiver.mobile.presentation.common.PrimaryButton
@@ -78,8 +77,8 @@ fun RecipientsScreen(graph: AppGraph, navController: NavController) {
     LaunchedEffect(Unit) { vm.refresh() }
     val state by vm.state.collectAsState()
     Column(
-        Modifier.fillMaxSize().padding(horizontal = 16.dp),
-        verticalArrangement = Arrangement.spacedBy(14.dp),
+        Modifier.fillMaxSize().padding(horizontal = AppDimens.ScreenHPadding),
+        verticalArrangement = Arrangement.spacedBy(AppDimens.SectionGap),
     ) {
         val count = (state as? PeopleState.Content)?.recipients?.size
         Column(modifier = Modifier.padding(top = 16.dp)) {
@@ -109,7 +108,7 @@ fun RecipientsScreen(graph: AppGraph, navController: NavController) {
             is PeopleState.Content -> {
                 if (s.recipients.isEmpty()) {
                     AppEmptyState(
-                        icon = "👤",
+                        icon = Icons.Filled.PersonAdd,
                         title = stringResource(R.string.people_empty),
                         subtitle = stringResource(R.string.tab_people),
                         actionLabel = stringResource(R.string.people_add),
@@ -155,12 +154,7 @@ private fun PersonRow(recipient: RecipientDto, onOpen: () -> Unit) {
                     color = CaregiverColors.Muted,
                 )
             }
-            Icon(
-                Icons.Filled.ChevronLeft,
-                contentDescription = null,
-                tint = CaregiverColors.Muted,
-                modifier = Modifier.size(18.dp),
-            )
+            ForwardChevron()
         }
     }
 }
@@ -180,8 +174,8 @@ fun AddRecipientScreen(graph: AppGraph, navController: NavController) {
         }
     }
     Column(
-        Modifier.fillMaxSize().padding(horizontal = 16.dp),
-        verticalArrangement = Arrangement.spacedBy(14.dp),
+        Modifier.fillMaxSize().padding(horizontal = AppDimens.ScreenHPadding),
+        verticalArrangement = Arrangement.spacedBy(AppDimens.SectionGap),
     ) {
         AppTopBar(
             title = stringResource(R.string.add_title),
@@ -208,12 +202,12 @@ fun AddRecipientScreen(graph: AppGraph, navController: NavController) {
                 }
             },
             singleLine = true,
-            shape = RoundedCornerShape(12.dp),
+            shape = RoundedCornerShape(AppDimens.ControlRadius),
             colors = OutlinedTextFieldDefaults.colors(
                 focusedBorderColor = CaregiverColors.Primary,
                 unfocusedBorderColor = CaregiverColors.Border,
-                focusedContainerColor = Color.White,
-                unfocusedContainerColor = Color.White,
+                focusedContainerColor = CaregiverColors.Surface,
+                unfocusedContainerColor = CaregiverColors.Surface,
             ),
             modifier = Modifier.fillMaxWidth().height(52.dp).testTag("add_person_name"),
         )
@@ -237,7 +231,7 @@ fun RecipientDetailScreen(recipientId: String, graph: AppGraph, navController: N
         RecipientDetailViewModel(recipientId, graph.apis, graph.auth)
     }
     val state by vm.state.collectAsState()
-    Column(Modifier.fillMaxSize().padding(horizontal = 16.dp)) {
+    Column(Modifier.fillMaxSize().padding(horizontal = AppDimens.ScreenHPadding)) {
         when (val s = state) {
             DetailState.Loading -> LoadingRow()
             DetailState.Error -> LoadFailed(onRetry = vm::refresh)
@@ -251,7 +245,7 @@ private fun DetailContent(detail: RecipientDetail, navController: NavController)
     val arabic = Locale.getDefault().language == "ar"
     Column(
         modifier = Modifier.fillMaxSize().verticalScroll(rememberScrollState()),
-        verticalArrangement = Arrangement.spacedBy(14.dp),
+        verticalArrangement = Arrangement.spacedBy(AppDimens.SectionGap),
     ) {
         AppTopBar(
             title = Bidi.isolate(detail.name),
@@ -331,10 +325,10 @@ private fun DetailContent(detail: RecipientDetail, navController: NavController)
 private fun ActionButton(label: Int, onClick: () -> Unit) {
     androidx.compose.material3.OutlinedButton(
         onClick = onClick,
-        shape = RoundedCornerShape(12.dp),
+        shape = RoundedCornerShape(AppDimens.ControlRadius),
         border = androidx.compose.foundation.BorderStroke(1.dp, CaregiverColors.Border),
         colors = androidx.compose.material3.ButtonDefaults.outlinedButtonColors(
-            containerColor = Color.White,
+            containerColor = CaregiverColors.Surface,
             contentColor = CaregiverColors.Ink,
         ),
         modifier = Modifier.fillMaxWidth().height(48.dp),
@@ -349,12 +343,7 @@ private fun ActionButton(label: Int, onClick: () -> Unit) {
                 fontWeight = FontWeight.Bold,
                 modifier = Modifier.weight(1f),
             )
-            Icon(
-                Icons.Filled.ChevronLeft,
-                contentDescription = null,
-                tint = CaregiverColors.Muted,
-                modifier = Modifier.size(18.dp),
-            )
+            ForwardChevron()
         }
     }
 }
