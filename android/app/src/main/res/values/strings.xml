@@ -15,6 +15,7 @@
     <string name="auth_submit_register">Create account</string>
     <string name="auth_no_account">No account? Create one</string>
     <string name="auth_have_account">Have an account? Sign in</string>
+    <string name="auth_demo">Explore the demo (offline)</string>
     <string name="auth_error_email_required">Email is required</string>
     <string name="auth_error_email_invalid">Enter a valid email address</string>
     <string name="auth_error_password_required">Password is required</string>

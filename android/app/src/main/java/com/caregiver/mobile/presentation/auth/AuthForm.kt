@@ -38,6 +38,7 @@ import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.text.input.PasswordVisualTransformation
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import com.caregiver.mobile.BuildConfig
 import com.caregiver.mobile.R
 import com.caregiver.mobile.core.theme.CaregiverColors
 import com.caregiver.mobile.core.theme.PlexArabic
@@ -63,6 +64,7 @@ fun AuthForm(
     onSwitchMode: () -> Unit,
     modifier: Modifier = Modifier,
     onServerSettings: (() -> Unit)? = null,
+    onDemo: (() -> Unit)? = null,
 ) {
     Column(
         modifier = modifier
@@ -232,6 +234,20 @@ fun AuthForm(
                 TextButton(onClick = onServerSettings) {
                     Text(
                         stringResource(R.string.auth_server_link),
+                        fontFamily = PlexArabic,
+                        color = CaregiverColors.Primary,
+                    )
+                }
+            }
+            // Debug-only offline demo entry. Absent from release/minified
+            // builds by construction — BuildConfig.DEBUG is false there.
+            if (BuildConfig.DEBUG && onDemo != null) {
+                TextButton(
+                    onClick = onDemo,
+                    modifier = Modifier.testTag("auth_demo_entry"),
+                ) {
+                    Text(
+                        stringResource(R.string.auth_demo),
                         fontFamily = PlexArabic,
                         color = CaregiverColors.Primary,
                     )
