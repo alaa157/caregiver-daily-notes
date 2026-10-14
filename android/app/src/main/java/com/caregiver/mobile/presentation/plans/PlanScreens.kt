@@ -26,7 +26,6 @@ import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
@@ -39,6 +38,7 @@ import com.caregiver.mobile.core.i18n.Bidi
 import com.caregiver.mobile.core.navigation.AppRoutes
 import com.caregiver.mobile.core.navigation.MainTab
 import com.caregiver.mobile.core.theme.CaregiverColors
+import com.caregiver.mobile.presentation.common.AppDimens
 import com.caregiver.mobile.core.theme.PlexArabic
 import com.caregiver.mobile.data.api.PlanVersionDto
 import com.caregiver.mobile.presentation.common.AppCard
@@ -67,8 +67,8 @@ fun PlansScreen(graph: AppGraph, navController: NavController) {
     }
     val state by vm.state.collectAsState()
     Column(
-        Modifier.fillMaxSize().padding(horizontal = 16.dp),
-        verticalArrangement = Arrangement.spacedBy(14.dp),
+        Modifier.fillMaxSize().padding(horizontal = AppDimens.ScreenHPadding),
+        verticalArrangement = Arrangement.spacedBy(AppDimens.SectionGap),
     ) {
         AppTopBar(title = stringResource(R.string.plans_title))
         when (val s = state) {
@@ -154,8 +154,8 @@ fun PlanProposalScreen(planId: String, graph: AppGraph, navController: NavContro
                 val latest = s.detail.versions.firstOrNull()
                 Column(
                     modifier = Modifier.weight(1f).verticalScroll(rememberScrollState())
-                        .padding(horizontal = 16.dp),
-                    verticalArrangement = Arrangement.spacedBy(14.dp),
+                        .padding(horizontal = AppDimens.ScreenHPadding),
+                    verticalArrangement = Arrangement.spacedBy(AppDimens.SectionGap),
                 ) {
                     AppTopBar(
                         title = stringResource(R.string.plan_proposal_title),
@@ -271,8 +271,8 @@ fun PlanEditScreen(planId: String, graph: AppGraph, navController: NavController
             is PlanEditState.Content -> {
                 Column(
                     modifier = Modifier.weight(1f).verticalScroll(rememberScrollState())
-                        .padding(horizontal = 16.dp),
-                    verticalArrangement = Arrangement.spacedBy(14.dp),
+                        .padding(horizontal = AppDimens.ScreenHPadding),
+                    verticalArrangement = Arrangement.spacedBy(AppDimens.SectionGap),
                 ) {
                     AppTopBar(
                         title = stringResource(R.string.plan_edit_title),
@@ -288,12 +288,12 @@ fun PlanEditScreen(planId: String, graph: AppGraph, navController: NavController
                                 value = line,
                                 onValueChange = { vm.updateLine(index, it) },
                                 singleLine = true,
-                                shape = RoundedCornerShape(12.dp),
+                                shape = RoundedCornerShape(AppDimens.ControlRadius),
                                 colors = OutlinedTextFieldDefaults.colors(
                                     focusedBorderColor = CaregiverColors.Primary,
                                     unfocusedBorderColor = CaregiverColors.Border,
-                                    focusedContainerColor = Color.White,
-                                    unfocusedContainerColor = Color.White,
+                                    focusedContainerColor = CaregiverColors.Surface,
+                                    unfocusedContainerColor = CaregiverColors.Surface,
                                 ),
                                 modifier = Modifier.weight(1f).height(64.dp),
                             )
@@ -336,8 +336,8 @@ fun PlanVersionsScreen(planId: String, graph: AppGraph, navController: NavContro
     }
     val state by vm.state.collectAsState()
     Column(
-        Modifier.fillMaxSize().padding(horizontal = 16.dp),
-        verticalArrangement = Arrangement.spacedBy(14.dp),
+        Modifier.fillMaxSize().padding(horizontal = AppDimens.ScreenHPadding),
+        verticalArrangement = Arrangement.spacedBy(AppDimens.SectionGap),
     ) {
         AppTopBar(
             title = stringResource(R.string.plan_versions_title),
