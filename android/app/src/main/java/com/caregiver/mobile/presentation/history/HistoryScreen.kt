@@ -20,6 +20,7 @@ import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
+import androidx.compose.material.icons.filled.EventNote
 import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.DatePicker
@@ -125,7 +126,7 @@ fun HistoryScreen(
             is HistoryState.Content -> {
                 if (s.content.entries.isEmpty()) {
                     AppEmptyState(
-                        icon = "📄",
+                        icon = Icons.Filled.EventNote,
                         title = stringResource(R.string.history_empty),
                         subtitle = stringResource(R.string.notes_empty),
                         actionLabel = stringResource(R.string.summary_period),

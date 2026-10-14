@@ -20,6 +20,12 @@ import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
+import androidx.compose.material.icons.filled.Check
+import androidx.compose.material.icons.filled.ChevronLeft
+import androidx.compose.material.icons.filled.ChevronRight
+import androidx.compose.material.icons.filled.Info
+import androidx.compose.material.icons.filled.Lock
+import androidx.compose.material.icons.filled.Warning
 import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.Card
@@ -37,10 +43,12 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.shadow
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.vector.ImageVector
+import androidx.compose.ui.platform.LocalLayoutDirection
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.Dp
+import androidx.compose.ui.unit.LayoutDirection
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.caregiver.mobile.R
@@ -75,6 +83,7 @@ object AppDimens {
     val LogoSize = 56.dp
     val LogoRadius = 16.dp
     val AvatarSize = 48.dp
+    val FabRadius = 28.dp
     val SuccessCircle = 72.dp
 }
 
@@ -242,6 +251,22 @@ fun AppCard(
 }
 
 @Composable
+fun ForwardChevron(
+    tint: Color = CaregiverColors.Muted,
+    size: Dp = 18.dp,
+) {
+    // Forward means left in RTL, right in LTR — a fixed chevron glyph
+    // points the wrong way in one of the two locales.
+    val rtl = LocalLayoutDirection.current == LayoutDirection.Rtl
+    Icon(
+        if (rtl) Icons.Filled.ChevronLeft else Icons.Filled.ChevronRight,
+        contentDescription = null,
+        tint = tint,
+        modifier = Modifier.size(size),
+    )
+}
+
+@Composable
 fun Avatar(letter: String, modifier: Modifier = Modifier) {
     Box(
         contentAlignment = Alignment.Center,
@@ -308,7 +333,12 @@ fun SafetyAlertCard(title: String, body: String) {
             horizontalArrangement = Arrangement.spacedBy(12.dp),
             modifier = Modifier.padding(16.dp),
         ) {
-            Text("⚠", fontSize = 24.sp)
+            Icon(
+                Icons.Filled.Warning,
+                contentDescription = null,
+                tint = CaregiverColors.Danger,
+                modifier = Modifier.size(24.dp),
+            )
             Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
                 Text(
                     title,
@@ -340,7 +370,12 @@ fun InfoAlertCard(title: String, body: String? = null) {
             horizontalArrangement = Arrangement.spacedBy(12.dp),
             modifier = Modifier.padding(16.dp),
         ) {
-            Text("ⓘ", fontSize = 24.sp)
+            Icon(
+                Icons.Filled.Info,
+                contentDescription = null,
+                tint = CaregiverColors.Info,
+                modifier = Modifier.size(24.dp),
+            )
             Column {
                 Text(
                     title,
@@ -372,7 +407,12 @@ fun LockBar(text: String) {
             .background(CaregiverColors.LockBar, RoundedCornerShape(12.dp))
             .padding(14.dp),
     ) {
-        Text("🔒", fontSize = 20.sp)
+        Icon(
+            Icons.Filled.Lock,
+            contentDescription = null,
+            tint = CaregiverColors.Ink,
+            modifier = Modifier.size(20.dp),
+        )
         Text(text, fontFamily = PlexArabic, fontSize = 14.sp, color = CaregiverColors.Ink)
     }
 }
@@ -391,7 +431,7 @@ fun UnclearBox(text: String) {
 
 @Composable
 fun AppEmptyState(
-    icon: String,
+    icon: ImageVector,
     title: String,
     subtitle: String,
     actionLabel: String,
@@ -410,7 +450,8 @@ fun AppEmptyState(
                 .fillMaxWidth()
                 .padding(24.dp),
         ) {
-            Text(icon, fontSize = 30.sp, color = CaregiverColors.Primary)
+            Icon(icon, contentDescription = null, tint = CaregiverColors.Primary,
+                modifier = Modifier.size(30.dp))
             Text(
                 title,
                 fontFamily = PlexArabic,

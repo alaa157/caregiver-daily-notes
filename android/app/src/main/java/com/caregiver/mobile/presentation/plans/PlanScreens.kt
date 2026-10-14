@@ -14,6 +14,8 @@ import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.Check
 import androidx.compose.material3.LinearProgressIndicator
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.OutlinedTextFieldDefaults
@@ -78,7 +80,7 @@ fun PlansScreen(graph: AppGraph, navController: NavController) {
                 }
                 if (s.plans.isEmpty()) {
                     AppEmptyState(
-                        icon = "✓",
+                        icon = Icons.Filled.Check,
                         title = stringResource(R.string.plans_empty),
                         subtitle = stringResource(R.string.plan_versions_hint),
                         actionLabel = stringResource(R.string.plans_view_proposals),

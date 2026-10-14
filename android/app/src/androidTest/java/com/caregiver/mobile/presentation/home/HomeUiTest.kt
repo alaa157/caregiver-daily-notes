@@ -96,6 +96,58 @@ class HomeUiTest {
         compose.onAllNodesWithText("broken").assertCountEquals(0)
     }
 
+    @Test
+    fun emptyHistoryShowsEmptyState() {
+        server.enqueue(MockResponse().setBody("[]"))
+        server.enqueue(MockResponse().setBody("[]"))
+        val base = ApplicationProvider.getApplicationContext<Context>()
+        val localized = base.withLocale("en")
+        compose.setContent {
+            CompositionLocalProvider(LocalContext provides localized) {
+                WithTestOwner {
+                    CaregiverTheme {
+                        HomeScreen(graph, rememberNavController())
+                    }
+                }
+            }
+        }
+
+        compose.onNodeWithText("No people yet. Add your first person.").assertIsDisplayed()
+        compose.onNodeWithText("Add person").assertIsDisplayed()
+    }
+
+    @Test
+    fun failedLoadShowsRetryAndRecovers() {
+        val today = LocalDate.now().toString()
+        server.enqueue(
+            MockResponse().setBody("""[{"id":"r1","name":"Sara","active":true}]"""),
+        )
+        server.enqueue(MockResponse().setResponseCode(500))
+        val base = ApplicationProvider.getApplicationContext<Context>()
+        val localized = base.withLocale("en")
+        compose.setContent {
+            CompositionLocalProvider(LocalContext provides localized) {
+                WithTestOwner {
+                    CaregiverTheme {
+                        HomeScreen(graph, rememberNavController())
+                    }
+                }
+            }
+        }
+
+        compose.onNodeWithText("Could not load").assertIsDisplayed()
+        server.enqueue(
+            MockResponse().setBody("""[{"id":"r1","name":"Sara","active":true}]"""),
+        )
+        server.enqueue(
+            MockResponse().setBody(
+                """[{"id":"n1","recipientId":"r1","date":"$today","mood":"good","appetite":"good","sleep":"good","mobility":"walks","medicationTaken":"taken","pain":1,"fall":false,"text":"t"}]""",
+            ),
+        )
+        compose.onNodeWithText("Retry").performClick()
+        compose.onNodeWithText("Sara").assertIsDisplayed()
+    }
+
     private fun Context.withLocale(language: String): Context {
         val config = Configuration(resources.configuration)
         config.setLocale(Locale(language))

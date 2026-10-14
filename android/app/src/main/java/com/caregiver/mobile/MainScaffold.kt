@@ -22,7 +22,6 @@ import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontWeight
@@ -38,6 +37,7 @@ import com.caregiver.mobile.core.navigation.AppDestinations
 import com.caregiver.mobile.core.navigation.AppRoutes
 import com.caregiver.mobile.core.navigation.MainTab
 import com.caregiver.mobile.core.theme.CaregiverColors
+import com.caregiver.mobile.presentation.common.AppDimens
 import com.caregiver.mobile.presentation.history.HistoryScreen
 import com.caregiver.mobile.presentation.home.HomeScreen
 import com.caregiver.mobile.presentation.notes.AddendumScreen
@@ -70,12 +70,12 @@ fun MainScaffold(graph: AppGraph) {
         containerColor = CaregiverColors.Background,
         bottomBar = {
             Surface(
-                color = Color.White,
+                color = CaregiverColors.Surface,
                 border = BorderStroke(1.dp, CaregiverColors.BorderSoft),
             ) {
                 NavigationBar(
-                    containerColor = Color.White,
-                    modifier = Modifier.height(72.dp),
+                    containerColor = CaregiverColors.Surface,
+                    modifier = Modifier.height(AppDimens.BottomNavH),
                 ) {
                 MainTab.entries.forEach { tab ->
                     NavigationBarItem(
@@ -134,9 +134,9 @@ fun MainScaffold(graph: AppGraph) {
                     )
                 },
                 containerColor = CaregiverColors.Primary,
-                contentColor = Color.White,
-                shape = RoundedCornerShape(28.dp),
-                modifier = Modifier.height(56.dp),
+                contentColor = CaregiverColors.Surface,
+                shape = RoundedCornerShape(AppDimens.FabRadius),
+                modifier = Modifier.height(AppDimens.ButtonLargeH),
             )
         },
     ) { innerPadding ->
