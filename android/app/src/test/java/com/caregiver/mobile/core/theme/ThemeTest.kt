@@ -2,6 +2,7 @@ package com.caregiver.mobile.core.theme
 
 import androidx.compose.ui.graphics.Color
 import org.junit.Assert.assertEquals
+import org.junit.Assert.assertTrue
 import org.junit.Test
 
 /**
@@ -34,6 +35,16 @@ class ThemeTest {
         assertEquals(Color(0xFFE8F0F9), CaregiverColors.InfoContainer)
         assertEquals(Color(0xFF7A4B00), CaregiverColors.Warning)
         assertEquals(Color(0xFFFBF0D9), CaregiverColors.WarningContainer)
+    }
+
+    @Test
+    fun semanticColorsAreDistinctFromTheirContainers() {
+        // Tinted containers must never collapse into their signal color —
+        // alerts and pills rely on the contrast between the two.
+        assertTrue(CaregiverColors.Danger != CaregiverColors.DangerContainer)
+        assertTrue(CaregiverColors.Success != CaregiverColors.SuccessContainer)
+        assertTrue(CaregiverColors.Info != CaregiverColors.InfoContainer)
+        assertTrue(CaregiverColors.Warning != CaregiverColors.WarningContainer)
     }
 
     @Test
