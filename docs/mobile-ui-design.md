@@ -2,7 +2,8 @@
 
 **Branch:** `feat/mobile-ui-design`  
 **Status:** Design specification (implementation follows this document)  
-**Canva reference:** https://canva.link/enjs7gleeugybcn
+**Canva (editable):** https://canva.link/enjs7gleeugybcn  
+**PDF export:** See download link below (or re-export from Canva)
 
 ---
 
@@ -122,7 +123,8 @@ Language toggle, profile, simple and respectful. No clutter.
 ## Implementation Notes
 
 - This document is the source of truth for visual and interaction direction of the mobile client.
-- Canva presentation is the visual reference: https://canva.link/enjs7gleeugybcn
+- Canva presentation (editable): https://canva.link/enjs7gleeugybcn
+- PDF version of the presentation has been exported and is available from Canva (File → Download → PDF Standard).
 - Implementation (Kotlin rewrite or React Native) must follow these tokens and screen intentions.
 - Do not fall back to generic Material or system defaults without explicit decision.
 
