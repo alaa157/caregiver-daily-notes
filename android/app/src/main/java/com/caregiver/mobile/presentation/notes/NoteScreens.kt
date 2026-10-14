@@ -20,6 +20,8 @@ import androidx.compose.foundation.lazy.grid.items
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.Lock
 import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.FilterChip
@@ -35,7 +37,6 @@ import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontWeight
@@ -46,6 +47,7 @@ import androidx.navigation.NavController
 import com.caregiver.mobile.AppGraph
 import com.caregiver.mobile.R
 import com.caregiver.mobile.core.theme.CaregiverColors
+import com.caregiver.mobile.presentation.common.AppDimens
 import com.caregiver.mobile.core.theme.PlexArabic
 import com.caregiver.mobile.core.time.DateFormats
 import com.caregiver.mobile.presentation.common.AppCard
@@ -142,21 +144,21 @@ fun NoteEditorScreen(recipientId: String, graph: AppGraph, navController: NavCon
             }
             // Section 3: الألم — 11 square 44x44 buttons.
             SectionTitle(stringResource(R.string.editor_section_pain))
-            Row(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
+            ChipWrap {
                 (0..10).forEach { level ->
                     val selected = state.pain == level
                     OutlinedButton(
                         onClick = { vm.setPain(level) },
-                        shape = RoundedCornerShape(12.dp),
+                        shape = RoundedCornerShape(8.dp),
                         border = BorderStroke(
-                            1.dp,
+                            if (selected) 2.dp else 1.dp,
                             if (selected) CaregiverColors.Primary else CaregiverColors.Border,
                         ),
                         colors = ButtonDefaults.outlinedButtonColors(
-                            containerColor = if (selected) CaregiverColors.Primary else Color.White,
-                            contentColor = if (selected) Color.White else CaregiverColors.Ink,
+                            containerColor = if (selected) CaregiverColors.PrimarySoft else CaregiverColors.Surface,
+                            contentColor = if (selected) CaregiverColors.Primary else CaregiverColors.Ink,
                         ),
-                        modifier = Modifier.size(44.dp),
+                        modifier = Modifier.size(48.dp),
                         contentPadding = androidx.compose.foundation.layout.PaddingValues(0.dp),
                     ) {
                         Text("$level", fontFamily = PlexArabic, fontWeight = FontWeight.Bold)
@@ -181,12 +183,12 @@ fun NoteEditorScreen(recipientId: String, graph: AppGraph, navController: NavCon
                     }
                 },
                 minLines = 5,
-                shape = RoundedCornerShape(12.dp),
+                shape = RoundedCornerShape(AppDimens.ControlRadius),
                 colors = OutlinedTextFieldDefaults.colors(
                     focusedBorderColor = CaregiverColors.Primary,
                     unfocusedBorderColor = CaregiverColors.Border,
-                    focusedContainerColor = Color.White,
-                    unfocusedContainerColor = Color.White,
+                    focusedContainerColor = CaregiverColors.Surface,
+                    unfocusedContainerColor = CaregiverColors.Surface,
                 ),
                 modifier = Modifier.fillMaxWidth().height(130.dp),
             )
@@ -246,16 +248,16 @@ private fun HtmlChip(label: String, selected: Boolean, onClick: () -> Unit) {
                 Text(label, fontFamily = PlexArabic, fontWeight = FontWeight.Bold, fontSize = 14.sp)
             }
         },
-        shape = RoundedCornerShape(999.dp),
+        shape = RoundedCornerShape(AppDimens.CardRadius),
         border = BorderStroke(
             1.dp,
             if (selected) CaregiverColors.Primary else CaregiverColors.Border,
         ),
         colors = FilterChipDefaults.filterChipColors(
-            containerColor = Color.White,
+            containerColor = CaregiverColors.Surface,
             labelColor = CaregiverColors.Ink,
-            selectedContainerColor = CaregiverColors.Primary,
-            selectedLabelColor = Color.White,
+            selectedContainerColor = CaregiverColors.PrimarySoft,
+            selectedLabelColor = CaregiverColors.Primary,
         ),
     )
 }
@@ -414,7 +416,12 @@ fun NoteDetailScreen(noteId: String, graph: AppGraph, navController: NavControll
                         horizontalArrangement = Arrangement.spacedBy(6.dp),
                         verticalAlignment = Alignment.CenterVertically,
                     ) {
-                        Text("🔒", fontSize = 16.sp)
+                        Icon(
+                            Icons.Filled.Lock,
+                            contentDescription = null,
+                            tint = CaregiverColors.Muted,
+                            modifier = Modifier.size(AppDimens.IconSm),
+                        )
                         Text(
                             stringResource(R.string.note_original_locked),
                             fontFamily = PlexArabic,
@@ -531,12 +538,12 @@ fun AddendumScreen(noteId: String, graph: AppGraph, navController: NavController
                     }
                 },
                 minLines = 6,
-                shape = RoundedCornerShape(12.dp),
+                shape = RoundedCornerShape(AppDimens.ControlRadius),
                 colors = OutlinedTextFieldDefaults.colors(
                     focusedBorderColor = CaregiverColors.Primary,
                     unfocusedBorderColor = CaregiverColors.Border,
-                    focusedContainerColor = Color.White,
-                    unfocusedContainerColor = Color.White,
+                    focusedContainerColor = CaregiverColors.Surface,
+                    unfocusedContainerColor = CaregiverColors.Surface,
                 ),
                 modifier = Modifier.fillMaxWidth().height(150.dp),
             )
