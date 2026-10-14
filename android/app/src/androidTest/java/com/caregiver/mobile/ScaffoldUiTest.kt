@@ -7,6 +7,7 @@ import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.test.assertIsDisplayed
 import androidx.compose.ui.test.assertIsNotSelected
 import androidx.compose.ui.test.assertIsSelected
+import androidx.compose.ui.test.assertHasClickAction
 import androidx.compose.ui.test.junit4.createComposeRule
 import androidx.compose.ui.test.onNodeWithContentDescription
 import androidx.compose.ui.test.onNodeWithTag
@@ -14,6 +15,7 @@ import androidx.compose.ui.test.onNodeWithText
 import androidx.compose.ui.test.performClick
 import androidx.test.core.app.ApplicationProvider
 import androidx.test.ext.junit.runners.AndroidJUnit4
+import com.caregiver.mobile.core.i18n.Bidi
 import com.caregiver.mobile.core.theme.CaregiverTheme
 import java.util.Locale
 import org.junit.Rule
@@ -87,6 +89,24 @@ class ScaffoldUiTest {
 
         compose.onNodeWithContentDescription("Add note").performClick()
         compose.onNodeWithTag("tab_notes").assertIsSelected()
+    }
+
+    @Test
+    fun addNoteActionIsEnabled() {
+        setScaffold("en")
+
+        compose.onNodeWithContentDescription("Add note")
+            .assertIsDisplayed()
+            .assertHasClickAction()
+    }
+
+    @Test
+    fun peopleTabListsDemoRecipients() {
+        setScaffold("en")
+
+        compose.onNodeWithTag("tab_people").performClick()
+        compose.onNodeWithTag("tab_people").assertIsSelected()
+        compose.onNodeWithText(Bidi.isolate("ليلى حسن")).assertIsDisplayed()
     }
 
     private fun Context.withLocale(language: String): Context {

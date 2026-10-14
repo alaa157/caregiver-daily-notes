@@ -14,6 +14,7 @@ import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Add
+import androidx.compose.material.icons.filled.People
 import androidx.compose.material.icons.filled.Check
 import androidx.compose.material.icons.filled.Settings
 import androidx.compose.material.icons.filled.Warning
@@ -28,7 +29,6 @@ import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
@@ -41,6 +41,7 @@ import com.caregiver.mobile.core.navigation.AppRoutes
 import com.caregiver.mobile.core.theme.CaregiverColors
 import com.caregiver.mobile.core.theme.PlexArabic
 import com.caregiver.mobile.presentation.common.AppCard
+import com.caregiver.mobile.presentation.common.AppDimens
 import com.caregiver.mobile.presentation.common.AppEmptyState
 import com.caregiver.mobile.presentation.common.AppErrorState
 import com.caregiver.mobile.presentation.common.AppLoadingSkeleton
@@ -63,7 +64,7 @@ fun HomeScreen(graph: AppGraph, navController: NavController) {
         HomeViewModel(graph.auth, graph.settings)
     }
     val state by vm.state.collectAsState()
-    Column(Modifier.fillMaxSize().padding(horizontal = 16.dp)) {
+    Column(Modifier.fillMaxSize().padding(horizontal = AppDimens.ScreenHPadding)) {
         when (val s = state) {
             HomeState.Loading, HomeState.Idle -> {
                 Spacer(Modifier.height(16.dp))
@@ -72,7 +73,7 @@ fun HomeScreen(graph: AppGraph, navController: NavController) {
             is HomeState.Error -> {
                 Spacer(Modifier.height(16.dp))
                 val flags = s.lastContent?.flags.orEmpty()
-                Column(verticalArrangement = Arrangement.spacedBy(14.dp)) {
+                Column(verticalArrangement = Arrangement.spacedBy(AppDimens.SectionGap)) {
                     if (flags.isNotEmpty()) {
                         SafetyBanner(flags)
                     }
@@ -96,10 +97,11 @@ fun HomeScreen(graph: AppGraph, navController: NavController) {
 private fun HomeContent(content: HomeContent, navController: NavController) {
     LazyColumn(
         modifier = Modifier.fillMaxSize(),
-        verticalArrangement = Arrangement.spacedBy(14.dp),
+        verticalArrangement = Arrangement.spacedBy(AppDimens.SectionGap),
     ) {
         item {
-            // Header: h1 22sp Bold + date 13sp muted, settings action.
+            // Header: greeting + settings action. Today's progress lives in
+            // the status card below (single source, no repeated metric).
             Row(
                 verticalAlignment = Alignment.CenterVertically,
                 modifier = Modifier.padding(top = 16.dp),
@@ -112,17 +114,6 @@ private fun HomeContent(content: HomeContent, navController: NavController) {
                         fontSize = 22.sp,
                         lineHeight = 28.sp,
                         color = CaregiverColors.Ink,
-                    )
-                    // Date line comes from the greeting content when available.
-                    Text(
-                        text = stringResource(
-                            R.string.home_today_progress,
-                            content.done,
-                            content.total,
-                        ),
-                        fontFamily = PlexArabic,
-                        fontSize = 13.sp,
-                        color = CaregiverColors.Muted,
                     )
                 }
                 IconButton(onClick = { navController.navigate("settings") }) {
@@ -194,7 +185,7 @@ private fun HomeContent(content: HomeContent, navController: NavController) {
         if (content.cards.isEmpty()) {
             item {
                 AppEmptyState(
-                    icon = "👤",
+                    icon = Icons.Filled.People,
                     title = stringResource(R.string.people_empty),
                     subtitle = stringResource(R.string.home_section_today),
                     actionLabel = stringResource(R.string.people_add),
@@ -270,10 +261,10 @@ private fun PersonCard(card: HomeCard, onOpen: () -> Unit) {
         ) {
             Button(
                 onClick = onOpen,
-                shape = RoundedCornerShape(12.dp),
+                shape = RoundedCornerShape(AppDimens.ControlRadius),
                 colors = ButtonDefaults.buttonColors(
                     containerColor = CaregiverColors.Primary,
-                    contentColor = Color.White,
+                    contentColor = CaregiverColors.Surface,
                 ),
                 modifier = Modifier.fillMaxWidth().height(48.dp),
             ) {

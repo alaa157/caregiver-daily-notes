@@ -289,6 +289,24 @@ class HomeViewModelTest {
         assertEquals(Greeting(morning = true, name = null), c.greeting)
     }
 
+    @Test
+    fun refreshFailurePreservesLastContentAndFlags() = runTest {
+        recipients.listHandler = { listOf(RecipientDto("r1", "Sara", true)) }
+        notes.historyHandler = { _, _, _ ->
+            listOf(note("n1", "r1", today.toString(), pain = 8, fall = true))
+        }
+        val viewModel = vm(scope = this)
+        val first = content(viewModel)
+        assertTrue(first.flags.isNotEmpty())
+
+        recipients.listHandler = { throw IOException("down") }
+        viewModel.refresh()
+        val state = viewModel.state.first { it is HomeState.Error }
+        val last = (state as HomeState.Error).lastContent
+        assertEquals(first, last)
+        assertTrue(last!!.flags.isNotEmpty())
+    }
+
     private fun note(
         id: String,
         recipientId: String,
