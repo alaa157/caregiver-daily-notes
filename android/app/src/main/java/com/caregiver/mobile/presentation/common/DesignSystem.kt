@@ -80,7 +80,7 @@ object AppDimens {
     val InputHeight = 52.dp
     val ButtonH = AppSpacing.xxl
     val ButtonLargeH = 56.dp
-    val BottomNavH = 72.dp
+    val BottomNavH = 64.dp
     val LogoSize = 56.dp
     val LogoRadius = AppSpacing.md
     val AvatarSize = AppSpacing.xxl
