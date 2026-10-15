@@ -240,7 +240,7 @@ private fun PersonFilter(
                 focusedContainerColor = CaregiverColors.Surface,
                 unfocusedContainerColor = CaregiverColors.Surface,
             ),
-            modifier = Modifier.menuAnchor().fillMaxWidth().height(48.dp),
+            modifier = Modifier.menuAnchor().fillMaxWidth().heightIn(min = AppDimens.InputHeight),
         )
         ExposedDropdownMenu(expanded = expanded, onDismissRequest = { expanded = false }) {
             DropdownMenuItem(

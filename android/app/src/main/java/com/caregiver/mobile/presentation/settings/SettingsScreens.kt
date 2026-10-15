@@ -9,6 +9,7 @@ import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.FilterChip
@@ -170,7 +171,7 @@ fun ServerUrlScreen(graph: AppGraph, navController: NavController) {
                 focusedContainerColor = CaregiverColors.Surface,
                 unfocusedContainerColor = CaregiverColors.Surface,
             ),
-            modifier = Modifier.fillMaxWidth().height(52.dp),
+            modifier = Modifier.fillMaxWidth().heightIn(min = AppDimens.InputHeight),
         )
         PrimaryButton(
             label = stringResource(R.string.settings_server_save),
