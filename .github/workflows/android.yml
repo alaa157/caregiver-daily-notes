@@ -9,7 +9,7 @@ on:
     tags:
       - "demo-v*"
   pull_request:
-    branches: [main]
+    branches: [main, preview/full-stack]
     paths:
       - "android/**"
       - ".github/workflows/android.yml"
@@ -44,6 +44,16 @@ jobs:
         run: |
           chmod +x gradlew
           ./gradlew :app:assembleDebug --no-daemon
+        working-directory: android
+
+      - name: Run debug unit tests
+        # Task 9: JVM unit tests (incl. DemoBackendApis, provider selection,
+        # theme, ViewModels, string parity) run on every preview PR.
+        run: ./gradlew :app:testDebugUnitTest --no-daemon
+        working-directory: android
+
+      - name: Run debug lint
+        run: ./gradlew :app:lintDebug --no-daemon
         working-directory: android
 
       - name: Upload debug APK
