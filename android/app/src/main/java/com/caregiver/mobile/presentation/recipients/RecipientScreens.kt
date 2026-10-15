@@ -8,6 +8,8 @@ import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.heightIn
+import androidx.compose.foundation.layout.imePadding
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
@@ -168,7 +170,11 @@ fun AddRecipientScreen(graph: AppGraph, navController: NavController) {
         }
     }
     Column(
-        Modifier.fillMaxSize().padding(horizontal = AppDimens.ScreenHPadding),
+        Modifier
+            .fillMaxSize()
+            .verticalScroll(rememberScrollState())
+            .imePadding()
+            .padding(horizontal = AppDimens.ScreenHPadding),
         verticalArrangement = Arrangement.spacedBy(AppDimens.SectionGap),
     ) {
         AppTopBar(
@@ -196,6 +202,13 @@ fun AddRecipientScreen(graph: AppGraph, navController: NavController) {
                 }
             },
             singleLine = true,
+            keyboardOptions = androidx.compose.foundation.text.KeyboardOptions(
+                keyboardType = androidx.compose.ui.text.input.KeyboardType.Text,
+                imeAction = androidx.compose.ui.text.input.ImeAction.Done,
+            ),
+            keyboardActions = androidx.compose.foundation.text.KeyboardActions(
+                onDone = { vm.add() },
+            ),
             shape = RoundedCornerShape(AppDimens.ControlRadius),
             colors = OutlinedTextFieldDefaults.colors(
                 focusedBorderColor = CaregiverColors.Primary,
@@ -203,7 +216,7 @@ fun AddRecipientScreen(graph: AppGraph, navController: NavController) {
                 focusedContainerColor = CaregiverColors.Surface,
                 unfocusedContainerColor = CaregiverColors.Surface,
             ),
-            modifier = Modifier.fillMaxWidth().height(52.dp).testTag("add_person_name"),
+            modifier = Modifier.fillMaxWidth().heightIn(min = AppDimens.InputHeight).testTag("add_person_name"),
         )
         PrimaryButton(
             label = stringResource(R.string.add_save),

@@ -1,5 +1,8 @@
 package com.caregiver.mobile
 
+import androidx.compose.animation.core.tween
+import androidx.compose.animation.fadeIn
+import androidx.compose.animation.fadeOut
 import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
@@ -56,6 +59,9 @@ import com.caregiver.mobile.presentation.summary.SummaryPeriodScreen
 import com.caregiver.mobile.presentation.summary.SummaryResultScreen
 import java.time.LocalDate
 
+/** Destination cross-fade duration; shorter than Nav defaults so tab taps feel instant. */
+private const val TabTransitionMs = 180
+
 /**
  * Tab shell: 4 tabs plus the add-note action. All destinations are live;
  * detail screens navigate with typed [AppRoutes] builders.
@@ -73,9 +79,11 @@ fun MainScaffold(graph: AppGraph) {
                 color = CaregiverColors.Surface,
                 border = BorderStroke(1.dp, CaregiverColors.BorderSoft),
             ) {
+                // Height is left to NavigationBar: M3 applies the bottom
+                // system-bar inset internally, and forcing a fixed 72dp
+                // clipped the icons/labels into the gesture-bar area.
                 NavigationBar(
                     containerColor = CaregiverColors.Surface,
-                    modifier = Modifier.height(AppDimens.BottomNavH),
                 ) {
                 MainTab.entries.forEach { tab ->
                     NavigationBarItem(
@@ -144,10 +152,16 @@ fun MainScaffold(graph: AppGraph) {
             )
         },
     ) { innerPadding ->
+        // Fast cross-fade between destinations: the Navigation-Compose
+        // default is a 700ms tween, which reads as sluggish on tab switches.
         NavHost(
             navController = navController,
             startDestination = MainTab.Home.route,
             modifier = Modifier.padding(innerPadding),
+            enterTransition = { fadeIn(tween(TabTransitionMs)) },
+            exitTransition = { fadeOut(tween(TabTransitionMs)) },
+            popEnterTransition = { fadeIn(tween(TabTransitionMs)) },
+            popExitTransition = { fadeOut(tween(TabTransitionMs)) },
         ) {
             composable(MainTab.Home.route) { HomeScreen(graph, navController) }
             composable(MainTab.People.route) { RecipientsScreen(graph, navController) }
