@@ -16,7 +16,9 @@ import androidx.test.core.app.ApplicationProvider
 import androidx.test.ext.junit.runners.AndroidJUnit4
 import com.caregiver.mobile.AppGraph
 import com.caregiver.mobile.core.theme.CaregiverTheme
+import com.caregiver.mobile.core.time.DateFormats
 import com.caregiver.mobile.test.WithTestOwner
+import java.time.LocalDate
 import kotlinx.coroutines.runBlocking
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertTrue
@@ -139,6 +141,25 @@ class NoteEditorFlowUiTest {
         compose.onNodeWithText(
             "تصحيح: لم يحدث كسر، مجرد كدمة — correction: bruise only, no fracture.",
         ).assertIsDisplayed()
+    }
+
+    @Test
+    fun noteDetailShowsMedicationStatus() {
+        setNav("note/n2")
+
+        // Demo note n2 records medicationTaken=missed.
+        compose.onNodeWithText("Medication").assertIsDisplayed()
+        compose.onNodeWithText("Missed").assertIsDisplayed()
+    }
+
+    @Test
+    fun addendumCardShowsItsCreationDate() {
+        setNav("note/n2")
+
+        // Demo addendum a1 shares n2's calendar day, so both the top-bar
+        // subtitle and the addendum card render it.
+        val expected = DateFormats.historyDay(LocalDate.now().minusDays(2).toString(), false)
+        compose.onAllNodesWithText(expected).assertCountEquals(2)
     }
 
     @Test

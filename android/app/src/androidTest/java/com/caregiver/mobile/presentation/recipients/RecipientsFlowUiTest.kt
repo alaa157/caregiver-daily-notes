@@ -2,6 +2,7 @@ package com.caregiver.mobile.presentation.recipients
 
 import android.content.Context
 import androidx.compose.ui.test.assertCountEquals
+import androidx.compose.ui.test.assertDoesNotExist
 import androidx.compose.ui.test.assertIsDisplayed
 import androidx.compose.ui.test.junit4.createComposeRule
 import androidx.compose.ui.test.onAllNodesWithText
@@ -175,6 +176,45 @@ class RecipientsFlowUiTest {
         compose.onNodeWithText("Retry").performClick()
         compose.onNodeWithText("Aisha").assertIsDisplayed()
     }
+
+    @Test
+    fun listRowsShowNoInventedLastNoteCaption() {
+        server.enqueue(MockResponse().setBody(listJson("r1" to "Aisha")))
+        setNav()
+
+        compose.onNodeWithText("Aisha").assertIsDisplayed()
+        // The list payload carries no note data, so no per-row caption.
+        compose.onAllNodesWithText("Last note").assertCountEquals(0)
+    }
+
+    @Test
+    fun detailWithNoNotesShowsHonestEmptyState() {
+        server.enqueue(MockResponse().setBody(listJson("r1" to "Aisha")))
+        server.enqueue(MockResponse().setBody(listJson("r1" to "Aisha")))
+        server.enqueue(MockResponse().setBody("[]"))
+        setNav()
+        compose.onNodeWithText("Aisha").performClick()
+
+        compose.onNodeWithText("No notes yet").assertIsDisplayed()
+        // Plan/summary status is unverified here: never claimed.
+        compose.onNodeWithText("Accepted").assertDoesNotExist()
+    }
+
+    @Test
+    fun detailWithNotesShowsDoneButNoInventedPlanOrSummaryStatus() {
+        server.enqueue(MockResponse().setBody(listJson("r1" to "Aisha")))
+        server.enqueue(MockResponse().setBody(listJson("r1" to "Aisha")))
+        server.enqueue(MockResponse().setBody("[" + historyNote() + "]"))
+        setNav()
+        compose.onNodeWithText("Aisha").performClick()
+
+        compose.onNodeWithText("Done today").assertIsDisplayed()
+        compose.onNodeWithText("Last note").assertIsDisplayed()
+        compose.onNodeWithText("Accepted").assertDoesNotExist()
+    }
+
+    private fun historyNote() =
+        """{"id":"n1","recipientId":"r1","date":"2026-10-07","mood":"good","appetite":"good","sleep":"good","mobility":"walks","medicationTaken":"taken","pain":2,"fall":false,"text":"Steady day."}"""
 
     @Test
     fun recipientOpensDetail() {

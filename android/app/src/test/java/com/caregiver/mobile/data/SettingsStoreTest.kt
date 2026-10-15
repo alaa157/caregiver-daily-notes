@@ -70,6 +70,21 @@ class SettingsStoreTest {
     }
 
     @Test
+    fun languageSwitchPreservesServerUrlAndToken() = runTest {
+        store.setBaseUrl("https://care.example:8443/")
+        store.setToken("jwt-token")
+        store.setEmail("a@b.c")
+
+        store.setLanguage("en")
+        store.setLanguage("ar")
+
+        assertEquals("https://care.example:8443/", store.baseUrl.first())
+        assertEquals("jwt-token", store.token.first())
+        assertEquals("a@b.c", store.email.first())
+        assertEquals("ar", store.language.first())
+    }
+
+    @Test
     fun emailStartsNullRoundTripsAndClears() = runTest {
         assertNull(store.email.first())
         store.setEmail("a@b.c")

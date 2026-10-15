@@ -1,6 +1,7 @@
 package com.caregiver.mobile.core.theme
 
 import androidx.compose.ui.graphics.Color
+import com.caregiver.mobile.presentation.common.AppDimens
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertTrue
 import org.junit.Test
@@ -81,5 +82,21 @@ class ThemeTest {
         )
         assertEquals(15, scales.size)
         scales.forEach { assertEquals(PlexArabic, it.fontFamily) }
+    }
+
+    @Test
+    fun sharedDimensAliasTheSpacingScale() {
+        // AppDimens entries that sit on the 8-dp rhythm must reference the
+        // canonical scale, so a rhythm change propagates from one place.
+        assertEquals(AppSpacing.md, AppDimens.ScreenHPadding)
+        assertEquals(AppSpacing.md, AppDimens.LogoRadius)
+        assertEquals(AppSpacing.md, AppDimens.AlertPad)
+        assertEquals(AppSpacing.xxl, AppDimens.BackSize)
+        assertEquals(AppSpacing.xxl, AppDimens.AvatarSize)
+        assertEquals(AppSpacing.xxl, AppDimens.ButtonH)
+        assertEquals(AppSpacing.xs, AppDimens.GapTight)
+        assertEquals(AppSpacing.sm, AppDimens.GapForm)
+        assertEquals(AppSpacing.lg, AppDimens.PagePad)
+        assertEquals(AppSpacing.lg, AppDimens.IconMd)
     }
 }

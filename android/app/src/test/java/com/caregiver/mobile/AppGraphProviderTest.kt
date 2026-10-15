@@ -15,16 +15,18 @@ import org.junit.Test
 
 /**
  * Task 1: the offline demo switch stays isolated per build variant.
- * The same test source runs for debug, release, and minified unit-test
- * variants; the flag assertion holds in each because the manifest of
- * expectations travels with the variant's own BuildConfig.
+ * `debug` and `minified` are the offline demo; `release` is production.
+ * The same test source runs for each unit-test variant and keys off this
+ * variant's own [BuildConfig.BUILD_TYPE], so the expectation travels with
+ * the variant instead of assuming demo == debuggable.
  */
 @OptIn(ExperimentalCoroutinesApi::class)
 class AppGraphProviderTest {
 
     @Test
-    fun demoFlagMatchesDebuggableVariant() {
-        assertEquals(BuildConfig.DEBUG, BuildConfig.DEMO_BACKEND)
+    fun demoFlagMatchesBuildType() {
+        val expectedDemo = BuildConfig.BUILD_TYPE == "debug" || BuildConfig.BUILD_TYPE == "minified"
+        assertEquals(expectedDemo, BuildConfig.DEMO_BACKEND)
     }
 
     @Test

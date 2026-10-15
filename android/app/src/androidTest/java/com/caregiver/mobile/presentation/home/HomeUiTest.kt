@@ -9,6 +9,10 @@ import androidx.compose.ui.test.assertIsDisplayed
 import androidx.compose.ui.test.junit4.createComposeRule
 import androidx.compose.ui.test.onAllNodesWithText
 import androidx.compose.ui.test.onNodeWithText
+import androidx.lifecycle.ViewModelProvider
+import androidx.lifecycle.ViewModelStore
+import androidx.lifecycle.ViewModelStoreOwner
+import androidx.lifecycle.viewmodel.compose.LocalViewModelStoreOwner
 import androidx.navigation.compose.rememberNavController
 import androidx.test.core.app.ApplicationProvider
 import androidx.test.ext.junit.runners.AndroidJUnit4
@@ -152,5 +156,54 @@ class HomeUiTest {
         val config = Configuration(resources.configuration)
         config.setLocale(Locale(language))
         return createConfigurationContext(config)
+    }
+
+    @Test
+    fun refreshFailureKeepsSafetyBannerVisible() {
+        val today = LocalDate.now().toString()
+        val older = LocalDate.now().minusDays(2).toString()
+        server.enqueue(
+            MockResponse().setBody("""[{"id":"r1","name":"Sara","active":true}]"""),
+        )
+        server.enqueue(
+            MockResponse().setBody(
+                """[{"id":"n1","recipientId":"r1","date":"$today","mood":"good","appetite":"good","sleep":"good","mobility":"walks","medicationTaken":"taken","pain":1,"fall":false,"text":"t"},
+                    {"id":"n2","recipientId":"r1","date":"$older","mood":"bad","appetite":"poor","sleep":"poor","mobility":"bed","medicationTaken":"missed","pain":8,"fall":true,"text":"t"}]"""
+                    .replace("\n", ""),
+            ),
+        )
+        // Explicit owner (same pattern as WithTestOwner) so the test can
+        // reach the screen's keyed ViewModel and trigger a refresh; the
+        // factory is never invoked because the "home" instance exists.
+        val owner = object : ViewModelStoreOwner {
+            override val viewModelStore = ViewModelStore()
+        }
+        val base = ApplicationProvider.getApplicationContext<Context>()
+        val localized = base.withLocale("en")
+        compose.setContent {
+            CompositionLocalProvider(
+                LocalContext provides localized,
+                LocalViewModelStoreOwner provides owner,
+            ) {
+                CaregiverTheme {
+                    HomeScreen(graph, rememberNavController())
+                }
+            }
+        }
+
+        // Initial load succeeds with a fall flag: banner visible.
+        compose.onNodeWithText("Fall alert").assertIsDisplayed()
+        compose.onNodeWithText("Reported fall — " + Bidi.isolate("Sara")).assertIsDisplayed()
+
+        // Refresh fails: error/retry appear, but the flag/banner stays.
+        server.enqueue(
+            MockResponse().setBody("""[{"id":"r1","name":"Sara","active":true}]"""),
+        )
+        server.enqueue(MockResponse().setResponseCode(500))
+        ViewModelProvider(owner)["home", HomeViewModel::class.java].refresh()
+        compose.onNodeWithText("Could not load").assertIsDisplayed()
+        compose.onNodeWithText("Retry").assertIsDisplayed()
+        compose.onNodeWithText("Fall alert").assertIsDisplayed()
+        compose.onNodeWithText("Reported fall — " + Bidi.isolate("Sara")).assertIsDisplayed()
     }
 }

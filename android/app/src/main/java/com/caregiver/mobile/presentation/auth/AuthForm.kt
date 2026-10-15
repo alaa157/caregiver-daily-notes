@@ -240,11 +240,11 @@ fun AuthForm(
                     )
                 }
             }
-            // Debug-only offline demo entry. Absent from release/minified
-            // builds by construction — BuildConfig.DEBUG is false there.
-            if (BuildConfig.DEBUG && onDemo != null) {
+            // Offline demo entry, gated on DEMO_BACKEND (debug + minified).
+            // Release uses the real backend and never shows it.
+            if (shouldShowDemoEntry(BuildConfig.DEMO_BACKEND, onDemo != null)) {
                 TextButton(
-                    onClick = onDemo,
+                    onClick = { onDemo?.invoke() },
                     modifier = Modifier.testTag("auth_demo_entry"),
                 ) {
                     Text(
@@ -258,6 +258,15 @@ fun AuthForm(
         }
     }
 }
+
+/**
+ * Demo-entry gate, kept pure so both branches are unit-testable: the entry
+ * appears only when the build serves the offline demo backend (debug and
+ * minified) and a demo handler is actually wired. Release builds use the
+ * real backend and never show it, even if a handler were passed.
+ */
+internal fun shouldShowDemoEntry(demoBackendEnabled: Boolean, hasDemoHandler: Boolean): Boolean =
+    demoBackendEnabled && hasDemoHandler
 
 @Composable
 private fun LabeledField(

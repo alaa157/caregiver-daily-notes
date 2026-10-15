@@ -40,9 +40,10 @@ class AppGraph(val context: Context, val forceProduction: Boolean = false) {
     val settings: SettingsStore by lazy { SettingsStore.create(context) }
 
     /**
-     * Offline demo switch: debug builds serve [DemoBackendApis] (canned,
-     * in-memory, no network) so the frontend can be installed and clicked
-     * through with no backend. Release builds always use Retrofit.
+     * Offline demo switch: demo builds (debug + minified) serve
+     * [DemoBackendApis] (canned, in-memory, no network) so the app can be
+     * installed and clicked through with no backend. Release always uses
+     * Retrofit.
      * [forceProduction] keeps MockWebServer instrumentation tests on the
      * real Retrofit path regardless of build type. No screen, ViewModel,
      * navigation or copy changes are needed — both providers implement
@@ -55,6 +56,15 @@ class AppGraph(val context: Context, val forceProduction: Boolean = false) {
             RetrofitBackendApis(settings, tokens),
         )
     }
+
+    /**
+     * True when [apis] actually resolved to the offline demo provider.
+     * Screens use this — never the bare build type — to label illustrative
+     * demo content, so production summaries are never mislabeled and
+     * `forceProduction` test graphs never claim demo data.
+     */
+    val isDemo: Boolean
+        get() = apis is DemoBackendApis
     val auth: AuthRepository by lazy { AuthRepository(apis, settings, tokens) }
 }
 

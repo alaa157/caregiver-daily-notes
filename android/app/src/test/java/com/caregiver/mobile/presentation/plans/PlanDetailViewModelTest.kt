@@ -110,6 +110,27 @@ class PlanDetailViewModelTest {
     }
 
     @Test
+    fun dismissTransitionsAndReloads() = runTest {
+        var status = "Suggested"
+        plans.listHandler = { listOf(PlanDto("p1", "r1", listOf(version(1, status)))) }
+        plans.dismissHandler = {
+            status = "Dismissed"
+            PlanDto("p1", "r1", listOf(version(1, status)))
+        }
+        val vm = PlanDetailViewModel("p1", apis(), repository, this)
+        content(vm)
+
+        vm.transition(PlanAction.Dismiss)
+        val reloaded = vm.state.first {
+            it is PlanDetailState.Content && it.detail.versions.single().status == "Dismissed"
+        } as PlanDetailState.Content
+
+        assertEquals("p1" to "dismiss", plans.lastTransition)
+        assertEquals("Dismissed", reloaded.detail.versions.single().status)
+        assertFalse(vm.busy.value)
+    }
+
+    @Test
     fun illegalTransitionSurfacesLocalizedErrorAndClearsBusy() = runTest {
         plans.listHandler = { suggested() }
         plans.acceptHandler = {
