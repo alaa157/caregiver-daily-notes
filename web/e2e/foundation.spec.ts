@@ -66,8 +66,8 @@ for (const language of ['en', 'ar'] as const) {
       await page.getByRole('navigation').getByRole('link', { name: language === 'ar' ? 'تسجيل الدخول' : 'Sign in' }).click();
       await expect(page).toHaveURL(/\/login$/);
       await expect(page.getByRole('main')).toBeFocused();
-      await expect(page.getByRole('status')).toHaveText(language === 'ar' ? 'تسجيل الدخول غير متاح بعد.' : 'Sign in is not available yet.');
-      await expect(page.locator('input')).toHaveCount(0);
+      await expect(page.getByRole('form')).toBeVisible();
+      await expect(page.locator('input')).toHaveCount(2);
       await checkAccessibility(page);
 
       await page.goto('/app');

@@ -1,6 +1,6 @@
 # Caregiver Daily Notes — web foundation (#13)
 
-React 18 + TypeScript + Vite. This folder is the frontend-only foundation for issues #14–#21; no authentication, backend, AI, or clinical logic is mocked or implemented in issue #13.
+React 18 + TypeScript + Vite. Task #13 provides the foundation; Task #14 adds caregiver authentication. Recipients, notes, history, summaries and plans remain in their separate issues. Backend and clinical logic remain server-owned.
 
 ## Run and test
 
@@ -59,7 +59,7 @@ This modifies `dist/config.json`, not the built JS bundle; repeating that step r
 
 - The backend is a separate Spring Boot REST API using JWT authentication. No endpoint routes, payload fields, token lifecycle, or ownership semantics are invented by this foundation; feature contributors must consult the actual backend controllers/OpenAPI contract before wiring requests.
 - `src/lib/api.tsx` provides `useApiClient().request<TResponse, TBody>({ path, method, body, signal, accessToken })`, with JSON transport, an optional `/api` prefix in `apiBaseUrl`, typed HTTP errors, and request cancellation. Calls are same-origin when `apiBaseUrl` is an empty string.
-- Task #14 must replace the deliberately **anonymous** authentication provider with the real backend session mechanism; `ProtectedRoute` already sends anonymous users to `/login`, and the sign-in page is clearly unavailable until then.
+- Task #14 implements login, a tab-scoped JWT session, logout, expiry handling and protected routes. See [authentication](src/features/auth/README.md) for contract, security limits, integration and validation details.
 - Features belong under `src/features/<feature>/` and use the centralized API client. Reusable UI is in `src/components`, shared helpers in `src/lib`.
 - The language provider exposes `t`, `language`, `direction`, and `setLanguage`, and synchronizes `<html lang>` and `<html dir>` for Arabic and English. Translations live in `src/i18n/translations.ts`; layout CSS uses logical alignment where direction matters.
 - Reusable `LoadingState`, `EmptyState`, `ErrorState`, and `FieldError` set up accessible feedback conventions. The app includes a skip link, focus-visible outlines, and responsive mobile/desktop layout.

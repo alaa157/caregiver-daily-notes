@@ -2,9 +2,11 @@ import { useEffect, useRef, type ReactNode } from 'react';
 import { Link, NavLink, useLocation } from 'react-router-dom';
 import { useI18n } from '../i18n/I18nProvider';
 import { Icon } from './Icon';
+import { useAuth } from '../features/auth/AuthProvider';
 
 export function AppShell({ children }: { children: ReactNode }) {
   const { t, language, setLanguage } = useI18n();
+  const auth = useAuth();
   const { pathname } = useLocation();
   const mainRef = useRef<HTMLElement>(null);
   const previousPath = useRef(pathname);
@@ -35,10 +37,13 @@ export function AppShell({ children }: { children: ReactNode }) {
             <span className="brand-mark"><Icon name="leaf" size={25} /></span>
             <span className="brand-text"><span>{t('brand')}</span><span className="brand-tagline">{t('brandTagline')}</span></span>
           </Link>
-          <nav className="site-nav" aria-label={t('mainNavigation')}>
+          <nav className={'site-nav' + (auth.status === 'authenticated' ? ' site-nav--authenticated' : '')} aria-label={t('mainNavigation')}>
             <div className="nav-links">
               <NavLink end to="/" className={navClass}>{t('home')}</NavLink>
-              <NavLink to="/login" className={navClass}>{t('signIn')}</NavLink>
+              {auth.status === 'authenticated' ? <>
+                <NavLink to="/app" className={navClass}>{t('dashboard')}</NavLink>
+                <button type="button" className="nav-link auth-logout" onClick={auth.logout}>{t('authSignOut')}</button>
+              </> : <NavLink to="/login" className={navClass}>{t('signIn')}</NavLink>}
             </div>
             <button type="button" className="language-toggle" lang={nextLanguage} dir={nextLanguage === 'ar' ? 'rtl' : 'ltr'}
               aria-label={language === 'ar' ? 'Switch to English' : 'التغيير إلى العربية'}
