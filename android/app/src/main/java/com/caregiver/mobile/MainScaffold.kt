@@ -4,9 +4,13 @@ import androidx.compose.animation.core.tween
 import androidx.compose.animation.fadeIn
 import androidx.compose.animation.fadeOut
 import androidx.compose.foundation.BorderStroke
+import androidx.compose.foundation.layout.WindowInsets
+import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.navigationBars
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.layout.windowInsetsPadding
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Add
@@ -79,11 +83,17 @@ fun MainScaffold(graph: AppGraph) {
                 color = CaregiverColors.Surface,
                 border = BorderStroke(1.dp, CaregiverColors.BorderSoft),
             ) {
-                // Height is left to NavigationBar: M3 applies the bottom
-                // system-bar inset internally, and forcing a fixed 72dp
-                // clipped the icons/labels into the gesture-bar area.
+                // Compact strip: the tabs are a fixed [AppDimens.BottomNavH]
+                // tall, and the system navigation-bar inset is reserved
+                // *below* them (not squeezed into them and not added to the
+                // 80dp M3 default), so the bar stays short without clipping.
                 NavigationBar(
                     containerColor = CaregiverColors.Surface,
+                    windowInsets = WindowInsets(0, 0, 0, 0),
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .windowInsetsPadding(WindowInsets.navigationBars)
+                        .height(AppDimens.BottomNavH),
                 ) {
                 MainTab.entries.forEach { tab ->
                     NavigationBarItem(
