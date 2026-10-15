@@ -6,9 +6,10 @@ import { AuthProvider } from './AuthContext';
 import { I18nProvider } from '../i18n/I18nProvider';
 import { EmptyState, ErrorState, FieldError, LoadingState } from '../components/Feedback';
 import { App } from './App';
+import { ApiProvider } from '../lib/api';
 
 function renderRoute(path: string) {
-  return render(<I18nProvider><AuthProvider><MemoryRouter initialEntries={[path]}><App /></MemoryRouter></AuthProvider></I18nProvider>);
+  return render(<I18nProvider><ApiProvider config={{ apiBaseUrl: '' }}><AuthProvider><MemoryRouter initialEntries={[path]}><App /></MemoryRouter></AuthProvider></ApiProvider></I18nProvider>);
 }
 
 describe('application foundation', () => {
@@ -17,7 +18,7 @@ describe('application foundation', () => {
     expect(screen.getByRole('heading', { level: 1, name: 'Better records. More thoughtful care.' })).toBeInTheDocument();
     expect(screen.getByRole('link', { name: 'Continue to sign in' })).toHaveAttribute('href', '/login');
   });
-  it('protects the dashboard before Task 2 implements real authentication', () => {
+  it('protects the dashboard without an authenticated session', () => {
     renderRoute('/app');
     expect(screen.getByRole('heading', { name: 'Caregiver sign in' })).toBeInTheDocument();
     expect(screen.queryByRole('heading', { name: 'Caregiver workspace' })).not.toBeInTheDocument();
@@ -39,11 +40,12 @@ describe('application foundation', () => {
     expect(screen.getByText('No items yet')).toBeInTheDocument();
     expect(screen.getByText('This field is required.')).toHaveAttribute('id', 'field-error');
   });
-  it('renders the sign-in route with its current availability and a return link', () => {
+  it('renders the sign-in form and a return link', () => {
     renderRoute('/login');
 
     expect(screen.getByRole('heading', { level: 1, name: 'Caregiver sign in' })).toBeInTheDocument();
-    expect(screen.getByRole('status')).toBeInTheDocument();
+    expect(screen.getByRole('textbox', { name: 'Email address' })).toBeInTheDocument();
+    expect(screen.getByLabelText('Password')).toHaveAttribute('autocomplete', 'current-password');
     expect(screen.getByRole('link', { name: 'Return home' })).toHaveAttribute('href', '/');
   });
   it('returns to the landing page from an unknown route', async () => {

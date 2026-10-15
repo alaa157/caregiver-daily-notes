@@ -9,6 +9,9 @@ beforeEach(() => {
 afterEach(() => {
   cleanup();
   localStorage.clear();
+  sessionStorage.clear();
+  vi.unstubAllGlobals();
+  vi.useRealTimers();
   document.documentElement.lang = 'en';
   document.documentElement.dir = 'ltr';
 });
