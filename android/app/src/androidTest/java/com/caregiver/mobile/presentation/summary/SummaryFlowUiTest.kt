@@ -1,6 +1,7 @@
 package com.caregiver.mobile.presentation.summary
 
 import android.content.Context
+import androidx.compose.ui.test.assertDoesNotExist
 import androidx.compose.ui.test.assertIsDisplayed
 import androidx.compose.ui.test.junit4.createComposeRule
 import androidx.compose.ui.test.onNodeWithText
@@ -24,9 +25,11 @@ import org.junit.Test
 import org.junit.runner.RunWith
 
 /**
- * Task 7 summary flows against a fake server: period selection drives
- * navigation, the result labels illustrative content with disclaimer,
- * evidence and uncertainty, and failed generation retries cleanly.
+ * Task 7 summary flows against a fake server (production path, so no
+ * illustrative-demo label may appear here — see `SummaryDemoLabelUiTest`
+ * for the demo-mode counterpart): period selection drives navigation, the
+ * result shows disclaimer, evidence and uncertainty, flags survive the
+ * failure/retry flow, and failed generation retries cleanly.
  * Instrumentation-only.
  */
 @RunWith(AndroidJUnit4::class)
@@ -97,16 +100,37 @@ class SummaryFlowUiTest {
     }
 
     @Test
+    fun sevenDaySelectionReachesResult() {
+        setNav("summary/r1")
+
+        compose.onNodeWithText("7 days").performClick()
+        compose.onNodeWithText("Generate summary").performClick()
+
+        assertEquals("summary-result/r1/7", nav.currentDestination?.route)
+    }
+
+    @Test
+    fun defaultFourteenDaySelectionReachesResult() {
+        setNav("summary/r1")
+
+        compose.onNodeWithText("Generate summary").performClick()
+
+        assertEquals("summary-result/r1/14", nav.currentDestination?.route)
+    }
+
+    @Test
     fun disclaimerEvidenceAndFlagsShown() {
-        server.enqueue(MockResponse().setBody(summaryJson("Demo summary body")))
+        server.enqueue(MockResponse().setBody(summaryJson("Server summary body")))
         setNav("summary-result/r1/7")
 
         compose.onNodeWithText("A suggestion, not a prescription").assertIsDisplayed()
         compose.onNodeWithText("Fall alert").assertIsDisplayed()
         compose.onNodeWithText("Reported fall").assertIsDisplayed()
-        compose.onNodeWithText("Demo summary body").assertIsDisplayed()
+        compose.onNodeWithText("Server summary body").assertIsDisplayed()
         compose.onNodeWithText("rest Matters", substring = true).assertIsDisplayed()
         compose.onNodeWithText("meds: unsure dose").assertIsDisplayed()
+        // Production path: never labeled as demo content.
+        compose.onNodeWithText("Illustrative demo summary").assertDoesNotExist()
     }
 
     @Test
@@ -119,5 +143,8 @@ class SummaryFlowUiTest {
         server.enqueue(MockResponse().setBody(summaryJson("Recovered summary")))
         compose.onNodeWithText("Retry").performClick()
         compose.onNodeWithText("Recovered summary").assertIsDisplayed()
+        // Safety flags travel with the recovered summary.
+        compose.onNodeWithText("Fall alert").assertIsDisplayed()
+        compose.onNodeWithText("Reported fall").assertIsDisplayed()
     }
 }

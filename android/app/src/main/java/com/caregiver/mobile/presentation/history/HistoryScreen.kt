@@ -67,9 +67,7 @@ import com.caregiver.mobile.presentation.common.RedPill
 import com.caregiver.mobile.presentation.common.assistedViewModel
 import com.caregiver.mobile.presentation.home.LoadFailed
 import com.caregiver.mobile.presentation.home.LoadingRow
-import java.time.Instant
 import java.time.LocalDate
-import java.time.ZoneId
 import java.util.Locale
 
 /**
@@ -283,9 +281,10 @@ private fun RowScope.DateField(label: Int, date: LocalDate?, onPick: (LocalDate?
         )
     }
     if (open) {
+        // UTC both ways: the picker deals in UTC-midnight millis, and the
+        // API takes plain ISO dates — the device zone must not shift the day.
         val picker = rememberDatePickerState(
-            initialSelectedDateMillis = date?.atStartOfDay(ZoneId.systemDefault())
-                ?.toInstant()?.toEpochMilli(),
+            initialSelectedDateMillis = date?.let { HistoryDates.toPickerMillis(it) },
         )
         DatePickerDialog(
             onDismissRequest = { open = false },
@@ -293,7 +292,7 @@ private fun RowScope.DateField(label: Int, date: LocalDate?, onPick: (LocalDate?
                 TextButton(onClick = {
                     onPick(
                         picker.selectedDateMillis?.let {
-                            Instant.ofEpochMilli(it).atZone(ZoneId.systemDefault()).toLocalDate()
+                            HistoryDates.fromPickerMillis(it)
                         },
                     )
                     open = false

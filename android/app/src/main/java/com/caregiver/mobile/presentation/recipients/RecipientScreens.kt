@@ -66,7 +66,8 @@ import java.util.Locale
  * refreshes cover sign-out/sign-in turnover on the same activity.
  *
  * HTML: h1 22sp + subtitle 13sp, full-width secondary add button,
- * person cards (avatar 48 + name + last-note 13sp), bottom nav الأشخاص.
+ * person cards (avatar 48 + name), bottom nav الأشخاص. No per-person
+ * note captions: the list payload has no note data.
  */
 @Composable
 fun RecipientsScreen(graph: AppGraph, navController: NavController) {
@@ -130,30 +131,23 @@ fun RecipientsScreen(graph: AppGraph, navController: NavController) {
 
 @Composable
 private fun PersonRow(recipient: RecipientDto, onOpen: () -> Unit) {
+    // The list response carries only id/name/active — no per-person note
+    // data — so no "last note" caption is shown here. Note state is visible
+    // on the detail screen, which loads the recipient's history.
     AppCard(modifier = Modifier.clickable(onClick = onOpen)) {
         Row(
             horizontalArrangement = Arrangement.spacedBy(12.dp),
             verticalAlignment = Alignment.CenterVertically,
         ) {
             Avatar(Bidi.isolate(recipient.name).take(1))
-            Column(
+            Text(
+                text = Bidi.isolate(recipient.name),
+                fontFamily = PlexArabic,
+                fontWeight = FontWeight.Bold,
+                fontSize = 16.sp,
+                color = CaregiverColors.Ink,
                 modifier = Modifier.weight(1f),
-                verticalArrangement = Arrangement.spacedBy(4.dp),
-            ) {
-                Text(
-                    text = Bidi.isolate(recipient.name),
-                    fontFamily = PlexArabic,
-                    fontWeight = FontWeight.Bold,
-                    fontSize = 16.sp,
-                    color = CaregiverColors.Ink,
-                )
-                Text(
-                    text = stringResource(R.string.person_last_note),
-                    fontFamily = PlexArabic,
-                    fontSize = 13.sp,
-                    color = CaregiverColors.Muted,
-                )
-            }
+            )
             ForwardChevron()
         }
     }
@@ -222,8 +216,10 @@ fun AddRecipientScreen(graph: AppGraph, navController: NavController) {
 
 /**
  * Recipient detail (board 4): status card + latest note + 3 design actions.
- * HTML: back + name + age, status card (pill + primary 52dp), latest-note
- * section, 2-col stats (plan/summary), 3 secondary space-between buttons.
+ * HTML: back + name, status card (pill + primary 52dp), latest-note section
+ * when history returned one, 3 secondary space-between buttons. Plan and
+ * summary status is intentionally not shown: it is unverified on this
+ * screen (no plan/summary payload is loaded here).
  */
 @Composable
 fun RecipientDetailScreen(recipientId: String, graph: AppGraph, navController: NavController) {
@@ -269,7 +265,8 @@ private fun DetailContent(detail: RecipientDetail, navController: NavController)
                 height = 52.dp,
             )
         }
-        // Latest note section.
+        // Latest note section — only when history actually returned one.
+        // The status card above already covers the no-notes empty state.
         detail.lastNote?.let { note ->
             SectionTitle(stringResource(R.string.person_last_note))
             Text(
@@ -281,32 +278,10 @@ private fun DetailContent(detail: RecipientDetail, navController: NavController)
                 color = CaregiverColors.Ink,
             )
         }
-        // 2-col stats: plan + summary.
-        Row(horizontalArrangement = Arrangement.spacedBy(10.dp)) {
-            AppCard(modifier = Modifier.weight(1f), padding = 12.dp) {
-                Text(
-                    stringResource(R.string.detail_plan),
-                    fontFamily = PlexArabic,
-                    fontSize = 13.sp,
-                    color = CaregiverColors.Muted,
-                )
-                GreenPill(stringResource(R.string.plan_status_accepted))
-            }
-            AppCard(modifier = Modifier.weight(1f), padding = 12.dp) {
-                Text(
-                    stringResource(R.string.detail_summary),
-                    fontFamily = PlexArabic,
-                    fontSize = 13.sp,
-                    color = CaregiverColors.Muted,
-                )
-                Text(
-                    "✓",
-                    fontFamily = PlexArabic,
-                    fontWeight = FontWeight.Bold,
-                    color = CaregiverColors.Primary,
-                )
-            }
-        }
+        // No plan/summary status cards: this screen loads only the recipient
+        // and their note history, so plan acceptance and summary existence
+        // are unverified here. The actions below navigate to the screens
+        // that load that real data.
         // 3 design actions: history, summary, plan — secondary space-between.
         ActionButton(R.string.detail_history) {
             navController.navigate(AppRoutes.tab(MainTab.History))

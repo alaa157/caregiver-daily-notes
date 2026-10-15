@@ -39,4 +39,24 @@ object DateFormats {
         val pattern = if (arabic) "d MMMM yyyy" else "MMM d, yyyy"
         return DateTimeFormatter.ofPattern(pattern, locale).format(parsed)
     }
+
+    /**
+     * Addendum creation date for the attachments timeline. Addenda arrive as
+     * ISO date-times (`2026-10-07T18:30:00`, fractional seconds, or trailing
+     * `Z`/offset) or plain ISO dates. Returns the [historyDay] rendering of
+     * the date part, or null when the value is blank or unparsable so callers
+     * omit the date line instead of showing a misleading date.
+     */
+    fun addendumDate(createdAt: String, arabic: Boolean): String? {
+        if (createdAt.isBlank()) return null
+        val datePart = createdAt.trim().substringBefore("T")
+        val parsed = try {
+            LocalDate.parse(datePart)
+        } catch (e: java.time.format.DateTimeParseException) {
+            return null
+        }
+        // Re-render through the shared formatter so both languages stay
+        // consistent with history rows.
+        return historyDay(parsed.toString(), arabic)
+    }
 }

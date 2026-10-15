@@ -117,9 +117,13 @@ fun MainScaffold(graph: AppGraph) {
             }
         },
         floatingActionButton = {
-            // HTML People/History FAB: pill 56dp, radius 28, teal, label + plus.
+            // "Add note" starts the existing note-creation flow, whose
+            // first step is recipient selection: the editor route requires
+            // a recipient id, and picking happens on the People tab
+            // (list → detail → Add note → editor). Routing here preserves
+            // that product flow instead of inventing a recipient-less one.
             ExtendedFloatingActionButton(
-                onClick = { navController.navigate(MainTab.Notes.route) },
+                onClick = { navController.navigate(MainTab.People.route) },
                 icon = {
                     Icon(
                         Icons.Filled.Add,

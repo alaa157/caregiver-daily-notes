@@ -5,6 +5,7 @@ import com.caregiver.mobile.data.api.CreateNoteRequest
 import com.caregiver.mobile.data.api.CreateRecipientRequest
 import com.caregiver.mobile.data.api.LoginRequest
 import com.caregiver.mobile.data.api.RegisterRequest
+import com.caregiver.mobile.data.api.SummaryRequest
 import kotlinx.coroutines.test.runTest
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertTrue
@@ -137,5 +138,42 @@ class DemoBackendApisTest {
         } catch (e: HttpException) {
             assertEquals(404, e.code())
         }
+    }
+
+    @Test
+    fun summaryIncludesOnlyNotesInsidePeriod() = runTest {
+        val backend = apis()
+        // r1 fixtures: n1 (today, pain 2) and n2 (2 days ago, fall, pain 8).
+        val week = backend.summaries().summarize(SummaryRequest("r1", 7))
+        assertTrue(week.redFlags.contains("FALL_REPORTED"))
+        assertTrue(week.redFlags.contains("HIGH_PAIN"))
+        assertEquals(listOf("n1", "n2"), week.evidence.map { it.noteId })
+
+        // A 1-day window excludes the 2-day-old fall note.
+        val day = backend.summaries().summarize(SummaryRequest("r1", 1))
+        assertTrue(day.redFlags.isEmpty())
+        assertEquals(listOf("n1"), day.evidence.map { it.noteId })
+    }
+
+    @Test
+    fun summaryFlagsFollowTheWindowNotAllNotes() = runTest {
+        val backend = apis()
+        // r2 fixtures: n3 (3 days ago) and n4 (6 days ago, pain 5).
+        val narrow = backend.summaries().summarize(SummaryRequest("r2", 5))
+        assertEquals(listOf("n3"), narrow.evidence.map { it.noteId })
+
+        val wide = backend.summaries().summarize(SummaryRequest("r2", 7))
+        assertEquals(listOf("n3", "n4"), wide.evidence.map { it.noteId })
+    }
+
+    @Test
+    fun emptyPeriodYieldsEmptySummary() = runTest {
+        val backend = apis()
+        // r3's only note is 10 days old: a 7-day window is empty.
+        val empty = backend.summaries().summarize(SummaryRequest("r3", 7))
+        assertTrue(empty.redFlags.isEmpty())
+        assertTrue(empty.evidence.isEmpty())
+        assertTrue(empty.uncertainties.isEmpty())
+        assertTrue(empty.text.contains("No demo notes"))
     }
 }

@@ -22,9 +22,10 @@ android {
     }
 
     buildTypes {
-        // Debug APKs are the offline demo: DEMO_BACKEND serves canned
-        // in-memory data with no network, so the frontend can be installed
-        // and clicked through with no backend running.
+        // Demo APKs are the offline build: DEMO_BACKEND serves canned
+        // in-memory data with no network, so the app can be installed and
+        // clicked through with no backend running. `debug` is unminified;
+        // `minified` is the R8-shrunk offline demo for smaller installs.
         debug {
             buildConfigField("boolean", "DEMO_BACKEND", "true")
         }
@@ -34,11 +35,12 @@ android {
             // R8 enabled and was never diagnosed. Revisit only with a device proof.
             isMinifyEnabled = false
         }
-        // Squeezed test distribution: R8 + resource shrink, debug-signed so it
-        // installs like the debug APK. `release` above stays minify-off until
-        // real release signing lands.
+        // Squeezed offline demo: R8 + resource shrink, debug-signed so it
+        // installs like the debug APK, and DEMO_BACKEND=true so it runs with
+        // no backend. Smaller than `debug` for handing around; `release`
+        // above stays minify-off with DEMO_BACKEND=false (real backend).
         create("minified") {
-            buildConfigField("boolean", "DEMO_BACKEND", "false")
+            buildConfigField("boolean", "DEMO_BACKEND", "true")
             isMinifyEnabled = true
             isShrinkResources = true
             proguardFiles(

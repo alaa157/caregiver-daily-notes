@@ -52,6 +52,7 @@ import androidx.compose.ui.unit.LayoutDirection
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.caregiver.mobile.R
+import com.caregiver.mobile.core.theme.AppSpacing
 import com.caregiver.mobile.core.theme.CaregiverColors
 import com.caregiver.mobile.core.theme.PlexArabic
 
@@ -69,30 +70,30 @@ import com.caregiver.mobile.core.theme.PlexArabic
  * - Inputs: 52dp, 1px #C5CDD1, radius 12
  */
 object AppDimens {
-    val ScreenHPadding = 16.dp
+    val ScreenHPadding = AppSpacing.md
     val SectionGap = 14.dp
     val CardPadding = 14.dp
     val SectionPadding = 20.dp
     val CardRadius = 14.dp
     val ControlRadius = 12.dp
-    val BackSize = 48.dp
+    val BackSize = AppSpacing.xxl
     val InputHeight = 52.dp
-    val ButtonH = 48.dp
+    val ButtonH = AppSpacing.xxl
     val ButtonLargeH = 56.dp
     val BottomNavH = 72.dp
     val LogoSize = 56.dp
-    val LogoRadius = 16.dp
-    val AvatarSize = 48.dp
+    val LogoRadius = AppSpacing.md
+    val AvatarSize = AppSpacing.xxl
     val FabRadius = 28.dp
     val SuccessCircle = 72.dp
-    val GapTight = 4.dp
-    val GapForm = 8.dp
+    val GapTight = AppSpacing.xs
+    val GapForm = AppSpacing.sm
     val GapCard = 12.dp
-    val AlertPad = 16.dp
-    val PagePad = 24.dp
+    val AlertPad = AppSpacing.md
+    val PagePad = AppSpacing.lg
     val BarSm = 6.dp
     val IconSm = 20.dp
-    val IconMd = 24.dp
+    val IconMd = AppSpacing.lg
     val IconLg = 30.dp
     val PillRadius = 999.dp
 }
@@ -109,7 +110,7 @@ fun AppTopBar(
         horizontalArrangement = Arrangement.spacedBy(AppDimens.GapForm),
         modifier = Modifier
             .fillMaxWidth()
-            .padding(top = 16.dp),
+            .padding(top = AppSpacing.md),
     ) {
         if (onBack != null) {
             Surface(
@@ -504,7 +505,7 @@ fun AppErrorState(message: String, detail: String? = null, onRetry: () -> Unit) 
             if (detail != null) {
                 Text(detail, fontFamily = PlexArabic, fontSize = 14.sp, color = CaregiverColors.Danger)
             }
-            Spacer(Modifier.height(8.dp))
+            Spacer(Modifier.height(AppSpacing.sm))
             SecondaryButton(label = stringResource(R.string.common_retry), onClick = onRetry)
         }
     }

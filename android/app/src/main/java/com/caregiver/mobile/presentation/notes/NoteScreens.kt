@@ -26,6 +26,7 @@ import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.FilterChip
 import androidx.compose.material3.FilterChipDefaults
+import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.OutlinedTextField
@@ -375,7 +376,8 @@ fun NoteDetailScreen(noteId: String, graph: AppGraph, navController: NavControll
                         subtitle = DateFormats.historyDay(s.content.note.date, arabic),
                         onBack = { navController.popBackStack() },
                     )
-                    // 2-col grid of 6 mini-cards.
+                    // 2-col grid of 7 mini-cards: every status value the
+                    // editor records, including medication.
                     androidx.compose.foundation.layout.FlowRow(
                         horizontalArrangement = Arrangement.spacedBy(10.dp),
                         verticalArrangement = Arrangement.spacedBy(10.dp),
@@ -397,6 +399,14 @@ fun NoteDetailScreen(noteId: String, graph: AppGraph, navController: NavControll
                         StatMini(
                             stringResource(R.string.editor_mobility),
                             OptionLabels.label(OptionGroup.Mobility, s.content.note.mobility, arabic),
+                        )
+                        StatMini(
+                            stringResource(R.string.editor_medication),
+                            OptionLabels.label(
+                                OptionGroup.Medication,
+                                s.content.note.medicationTaken,
+                                arabic,
+                            ),
                         )
                         StatMini(
                             stringResource(R.string.editor_pain),
@@ -447,6 +457,17 @@ fun NoteDetailScreen(noteId: String, graph: AppGraph, navController: NavControll
                         ) {
                             s.content.addenda.forEach { addendum ->
                                 AppCard {
+                                    // Creation date when the backend value
+                                    // parses; omitted otherwise so no
+                                    // misleading date is ever shown.
+                                    DateFormats.addendumDate(addendum.createdAt, arabic)?.let { dated ->
+                                        Text(
+                                            dated,
+                                            fontFamily = PlexArabic,
+                                            fontSize = 13.sp,
+                                            color = CaregiverColors.Muted,
+                                        )
+                                    }
                                     Text(
                                         addendum.text,
                                         fontFamily = PlexArabic,

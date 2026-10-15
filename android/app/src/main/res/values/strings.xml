@@ -160,6 +160,8 @@
     <string name="addendum_hint">Write the new information or correction…</string>
     <string name="summary_info">Smart insights are based on recorded notes</string>
     <string name="summary_info2">and are not a substitute for medical advice.</string>
+    <string name="summary_demo_title">Illustrative demo summary</string>
+    <string name="summary_demo_body">Generated offline from demo notes for illustration. Always check the source notes below.</string>
     <string name="summary_choose_period">Choose the time period</string>
     <string name="summary_overview">Overview</string>
     <string name="summary_trends">Trends</string>

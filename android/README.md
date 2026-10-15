@@ -17,23 +17,30 @@ same Spring Boot REST API as the web app. No cross-platform framework.
 
 ```bash
 # Local JVM unit tests (no device needed)
-./gradlew :app:testDebugUnitTest --no-daemon
+./gradlew :app:testDebugUnitTest
 
 # Single test class
-./gradlew :app:testDebugUnitTest --tests "*StringsParityTest*" --no-daemon
+./gradlew :app:testDebugUnitTest --tests "*StringsParityTest*"
 
 # Instrumentation / Compose UI tests (needs a booted emulator or device;
 # NEVER treat testDebugUnitTest as running these)
-./gradlew :app:connectedDebugAndroidTest --no-daemon
+./gradlew :app:connectedDebugAndroidTest
 
-# Debug APK (universal: arm64-v8a, armeabi-v7a, x86_64; minify off)
-./gradlew :app:assembleDebug --no-daemon
+# Debug APK (universal, minify off) — offline demo
+./gradlew :app:assembleDebug
 # → app/build/outputs/apk/debug/app-debug.apk
+
+# Minified APK (R8 + resource shrink, debug-signed) — offline demo, smaller
+./gradlew :app:assembleMinified
+# → app/build/outputs/apk/minified/app-minified.apk
+# NOTE: R8 shrinking is slow by nature (full-app analysis). The build cache
+# makes subsequent runs reuse it until inputs change. Do not pass --no-daemon:
+# gradle.properties keeps the daemon, build cache, and configuration cache on.
 ```
 
-## Offline demo (debug builds only)
+## Offline demo (debug and minified builds)
 
-Debug builds set `DEMO_BACKEND=true` and serve the in-memory
+`debug` and `minified` set `DEMO_BACKEND=true` and serve the in-memory
 `DemoBackendApis` (`data/demo/`) instead of Retrofit: no backend, no
 network, no registration needed.
 
@@ -42,13 +49,13 @@ network, no registration needed.
 - Recipients, notes, addenda, summaries, and plan accept/dismiss/edit all
   work against canned bilingual data dated relative to today. Mutations
   live only in memory and are never uploaded.
-- Release and `minified` builds always use the real backend
-  (`DEMO_BACKEND=false`); the demo entry control is absent there.
+- `release` uses the real backend (`DEMO_BACKEND=false`); the demo entry
+  control is absent there.
 
 Lint:
 
 ```bash
-./gradlew :app:lintDebug --no-daemon
+./gradlew :app:lintDebug
 ```
 
 ## Structure

@@ -9,6 +9,7 @@ import androidx.compose.ui.graphics.Color
  */
 object CaregiverColors {
     val Primary = Color(0xFF0E6B66)
+    val PrimarySoft = Color(0xFFDCE5D6)
 
     val Ink = Color(0xFF1F2A2E)
     val Muted = Color(0xFF5B6B70)

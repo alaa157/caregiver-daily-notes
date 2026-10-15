@@ -35,7 +35,7 @@ import retrofit2.Response
 /**
  * Fully offline demo backend behind the [BackendApis] seam.
  *
- * Used only when `DEMO_BACKEND` is true (debug builds). All dates are
+ * Used only when `DEMO_BACKEND` is true (debug and minified builds). All dates are
  * relative to today so chips, windows and history behave correctly whenever
  * the APK is installed. Writes (recipients, notes, addenda, plan
  * transitions) mutate in-memory state, so create/edit flows can be clicked
@@ -200,26 +200,42 @@ class DemoBackendApis : BackendApis {
         }
 
         override suspend fun summarize(body: SummaryRequest): SummaryDto = synchronized(lock) {
-            val inScope = notes.filter { it.recipientId == body.recipientId }
+            // ISO-8601 dates sort lexicographically — the same convention
+            // the history/signals filters already use. `periodDays` counts
+            // back from today, so a 7-day summary never sees last month's
+            // notes while describing them as recent.
+            val cutoff = LocalDate.now().minusDays(body.periodDays.toLong()).toString()
+            val inScope = notes.filter {
+                it.recipientId == body.recipientId && it.date >= cutoff
+            }.sortedByDescending { it.date }
             val flags = buildList {
                 if (inScope.any { it.fall }) add("FALL_REPORTED")
                 if (inScope.any { it.pain >= 7 }) add("HIGH_PAIN")
             }
             SummaryDto(
                 id = "sum-demo", recipientId = body.recipientId, periodDays = body.periodDays,
-                text = "Demo summary for the last ${body.periodDays} days. " +
-                    "ملخص تجريبي — appetite mostly stable, one fall reported with high pain. " +
-                    "Generated offline; connect a backend for real AI summaries.",
+                text = if (inScope.isEmpty()) {
+                    "No demo notes in the last ${body.periodDays} days. " +
+                        "لا توجد ملاحظات تجريبية في هذه الفترة."
+                } else {
+                    "Demo summary for the last ${body.periodDays} days " +
+                        "from ${inScope.size} note(s). ملخص تجريبي — " +
+                        "Generated offline; connect a backend for real AI summaries."
+                },
                 redFlags = flags,
                 evidence = inScope.take(2).map {
                     SummaryDto.EvidenceDto(noteId = it.id, quote = it.text.take(80))
                 },
-                uncertainties = listOf(
-                    SummaryDto.UncertaintyDto(
-                        topic = "medication",
-                        detail = "One evening dose was marked unsure in the demo notes.",
-                    ),
-                ),
+                uncertainties = if (inScope.any { it.medicationTaken == "unsure" }) {
+                    listOf(
+                        SummaryDto.UncertaintyDto(
+                            topic = "medication",
+                            detail = "An evening dose was marked unsure in the demo notes.",
+                        ),
+                    )
+                } else {
+                    emptyList()
+                },
             )
         }
     }

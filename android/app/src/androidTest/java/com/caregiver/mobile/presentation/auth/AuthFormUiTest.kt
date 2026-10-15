@@ -11,6 +11,7 @@ import androidx.compose.ui.test.assertIsDisplayed
 import androidx.compose.ui.test.assertCountEquals
 import androidx.compose.ui.test.hasClickAction
 import androidx.compose.ui.test.filterToOne
+import androidx.compose.ui.test.assertIsNotEnabled
 import androidx.compose.ui.test.junit4.createComposeRule
 import androidx.compose.ui.test.onAllNodesWithText
 import androidx.compose.ui.test.onNodeWithTag
@@ -27,6 +28,7 @@ import com.caregiver.mobile.data.FakeBackendApis
 import com.caregiver.mobile.data.SettingsStore
 import com.caregiver.mobile.data.api.AuthResponse
 import java.util.Locale
+import kotlinx.coroutines.CompletableDeferred
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.runBlocking
 import org.junit.After
@@ -212,6 +214,20 @@ class AuthFormUiTest {
         compose.waitForIdle()
         assertEquals("ali@example.com", fakeAuth.lastLogin?.email)
         assertEquals("tok", runBlocking { settings.token.first() })
+    }
+
+    @Test
+    fun submitDisablesButtonWhileBusy() {
+        val gate = CompletableDeferred<AuthResponse>()
+        fakeAuth.loginHandler = { gate.await() }
+        setForm(AuthMode.Login, "en")
+
+        compose.onNodeWithTag("auth_field_email").performTextInput("a@b.c")
+        compose.onNodeWithTag("auth_field_password").performTextInput("pw")
+        submitButton("Sign in").performClick()
+
+        submitButton("Sign in").assertIsNotEnabled()
+        gate.complete(AuthResponse("tok"))
     }
 
     @Test

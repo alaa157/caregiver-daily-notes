@@ -51,6 +51,22 @@ The supplied `/workspaces/android_rtl.html` visual reference is available and la
 
 Primary files to change are `android/README.md`, `CaregiverApp.kt`, `CaregiverRoot.kt`, `MainScaffold.kt`, `core/theme/{Color,Spacing,Theme,Type}.kt`, `presentation/common/DesignSystem.kt`, existing screen files under `presentation/{auth,home,history,notes,plans,recipients,settings,summary}/`, `data/demo/DemoBackend.kt`, both `values/strings.xml` and `values-ar/strings.xml`, their related `test/` and `androidTest/` files, and `.github/workflows/android.yml` so checks run for the correct preview PR base. Do not change backend code.
 
+### Phase 0 screen audit (verified against the current implementation)
+
+Every destination below is wired to its ViewModel/repository path and covered by JVM and/or instrumentation tests; no stub or "coming soon" screens remain in `presentation/`. "Backend-backed" means Retrofit production APIs with `DemoBackendApis` serving the debug build; "local-only" means DataStore on-device state.
+
+- Login / register (`presentation/auth/`): backend-backed, complete. `AuthViewModel` validates and submits through `AuthRepository`; debug builds add the demo entry (`AuthFormUiTest`, `RtlUiTest`).
+- Server URL (`presentation/settings/ServerUrlScreen`): local-only, complete. Reads/writes DataStore; language switching and sign-out covered by settings/RTL tests.
+- Home (`presentation/home/`): backend-backed, complete. Recipients + notes-today window, fall-only safety banner with refresh-failure retention (`HomeViewModelTest`, `HomeUiTest`, `ScaffoldUiTest`).
+- Recipients list / add / detail (`presentation/recipients/`): backend-backed, complete. Existing DTO fields only; list → add → detail → editor/summary/plans navigation (`RecipientsFlowUiTest`, recipient ViewModel tests).
+- Notes-today / history (`presentation/history/`): backend-backed, complete. Stable-key list, recipient/date filters, empty/error/retry, note-detail navigation (`HistoryFlowUiTest`, `HistoryViewModelTest`).
+- Note editor / saved / detail / addendum (`presentation/notes/`): backend-backed, complete. Validation, disabled/progress save, double-tap guard, immutable original with chronological addenda (`NoteEditorFlowUiTest`, editor/detail ViewModel tests).
+- Summary period / result (`presentation/summary/`): backend-backed, complete. 7/14/30-day windows, evidence/uncertainty sections, demo content labeled illustrative with a non-diagnosis disclaimer (`SummaryFlowUiTest`, summary ViewModel tests, `BannerRetentionTest`).
+- Plans / proposal / edit / versions (`presentation/plans/`): backend-backed, complete. Existing accept/edit/dismiss/version transitions with medication protections unchanged (`PlanFlowUiTest`, plan ViewModel tests).
+- Settings (`presentation/settings/SettingsScreens.kt`): local-only, complete. Language chips, server-URL entry, danger-outline sign-out; bilingual RTL verified (`RtlUiTest`).
+- Demo provider (`data/demo/DemoBackend.kt`): demo/local-only, complete. Debug-only in-memory fixtures and mutations; release/minified builds select Retrofit (`DemoBackendApisTest`, `AppGraphProviderTest`, `OfflineDemoFlowUiTest`).
+- Placeholders: none. Every `AppDestinations` route resolves to an implemented screen.
+
 ## Implementation Tasks
 
 ### Task 1: Complete and prove the isolated offline demo path

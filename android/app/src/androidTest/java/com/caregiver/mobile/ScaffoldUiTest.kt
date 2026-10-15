@@ -84,11 +84,13 @@ class ScaffoldUiTest {
     }
 
     @Test
-    fun fabNavigatesToNotesTab() {
+    fun fabNavigatesToPeopleTab() {
         setScaffold("en")
 
         compose.onNodeWithContentDescription("Add note").performClick()
-        compose.onNodeWithTag("tab_notes").assertIsSelected()
+        compose.onNodeWithTag("tab_people").assertIsSelected()
+        // The creation flow starts with recipient selection.
+        compose.onNodeWithText(Bidi.isolate("ليلى حسن")).assertIsDisplayed()
     }
 
     @Test

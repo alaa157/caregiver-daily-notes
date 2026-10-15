@@ -3,10 +3,10 @@ package com.caregiver.mobile.core.theme
 import androidx.compose.ui.unit.dp
 
 /**
- * Spacing scale on an 8-dp rhythm (4-dp half step for hairlines).
- * Currently unreferenced — screens consume [AppDimens] — kept as the
- * canonical scale so future layouts converge here instead of inventing
- * local values.
+ * Canonical spacing scale on an 8-dp rhythm (4-dp half step for hairlines).
+ * Shared AppDimens entries alias these values, so the scale stays the
+ * single source of truth; component-specific sizes that fall off the
+ * scale (14-dp gaps, 48-dp+ control sizes) stay local to AppDimens.
  */
 object AppSpacing {
     val xs = 4.dp

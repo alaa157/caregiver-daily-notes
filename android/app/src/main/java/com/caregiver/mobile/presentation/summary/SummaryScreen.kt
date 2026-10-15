@@ -180,7 +180,7 @@ fun SummaryResultScreen(
                     onClick = vm::refresh,
                 )
             }
-            is SummaryState.Content -> SummaryBody(s.summary, periodDays, navController)
+            is SummaryState.Content -> SummaryBody(s.summary, periodDays, graph.isDemo, navController)
         }
     }
 }
@@ -205,7 +205,12 @@ private fun FlagsBanner(redFlags: List<String>) {
 }
 
 @Composable
-private fun SummaryBody(summary: SummaryDto, periodDays: Int, navController: NavController) {
+private fun SummaryBody(
+    summary: SummaryDto,
+    periodDays: Int,
+    isDemo: Boolean,
+    navController: NavController,
+) {
     Column(
         modifier = Modifier.fillMaxSize().verticalScroll(rememberScrollState()),
         verticalArrangement = Arrangement.spacedBy(AppDimens.SectionGap),
@@ -218,6 +223,16 @@ private fun SummaryBody(summary: SummaryDto, periodDays: Int, navController: Nav
             title = stringResource(R.string.plan_not_prescription_title),
             body = stringResource(R.string.plan_not_prescription_body),
         )
+        // Shown only when the serving provider is the offline demo backend
+        // (see AppGraph.isDemo): marks the text below as illustrative so it
+        // is never confused with the source-note evidence. Production
+        // summaries never carry this label.
+        if (isDemo) {
+            InfoAlertCard(
+                title = stringResource(R.string.summary_demo_title),
+                body = stringResource(R.string.summary_demo_body),
+            )
+        }
         if (summary.redFlags.isNotEmpty()) {
             FlagsBanner(summary.redFlags)
         }

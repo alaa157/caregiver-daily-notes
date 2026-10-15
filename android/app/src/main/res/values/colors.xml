@@ -1,0 +1,5 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <!-- Launcher background: spec primary sage (design/tokens.json). -->
+    <color name="ic_launcher_background">#FF4A6850</color>
+</resources>

@@ -160,6 +160,8 @@
     <string name="addendum_hint">اكتب المعلومة الجديدة أو التصحيح...</string>
     <string name="summary_info">المعلومات الذكية مبنية على الملاحظات المسجلة</string>
     <string name="summary_info2">وليست بديلاً عن النصيحة الطبية.</string>
+    <string name="summary_demo_title">ملخص تجريبي استرشادي</string>
+    <string name="summary_demo_body">تم إنشاؤه دون اتصال من ملاحظات تجريبية لأغراض العرض. تحقق دائمًا من الملاحظات المصدر أدناه.</string>
     <string name="summary_choose_period">اختر الفترة الزمنية</string>
     <string name="summary_overview">نظرة عامة</string>
     <string name="summary_trends">الاتجاهات</string>
