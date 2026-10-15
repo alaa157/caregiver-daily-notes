@@ -6,6 +6,7 @@ import { FeatureCard } from '../components/FeatureCard';
 import { Icon } from '../components/Icon';
 import { PagePanel } from '../components/PagePanel';
 import { useI18n } from '../i18n/I18nProvider';
+import { LoginPage } from '../features/auth/LoginPage';
 import { ProtectedRoute } from './ProtectedRoute';
 
 function HomePage() {
@@ -43,16 +44,6 @@ function HomePage() {
         </div>
       </section>
     </>
-  );
-}
-
-function LoginPage() {
-  const { t } = useI18n();
-  return (
-    <PagePanel icon="lock" eyebrow={t('comingSoon')} title={t('loginTitle')} description={t('loginDescription')}>
-      <p className="notice" role="status"><Icon name="info" size={20} />{t('unavailable')}</p>
-      <ButtonLink variant="secondary" to="/"><Icon name="arrow-left" className="directional-icon" />{t('returnHome')}</ButtonLink>
-    </PagePanel>
   );
 }
 

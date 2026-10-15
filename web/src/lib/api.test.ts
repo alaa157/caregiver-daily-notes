@@ -2,6 +2,13 @@ import { describe, expect, it, vi } from 'vitest';
 import { ApiError, createApiClient } from './api';
 
 describe('typed API transport', () => {
+  it('joins the backend /api contract exactly once when the runtime base includes /api', async () => {
+    const fetcher = vi.fn().mockResolvedValue({ ok: true, status: 204, headers: new Headers() });
+    const api = createApiClient({ apiBaseUrl: 'https://backend.example/api/' }, fetcher as typeof fetch);
+    await api.request({ path: '/api/auth/login', method: 'POST', body: { email: 'test@example.com', password: 'synthetic' } });
+    expect(fetcher.mock.calls[0][0]).toBe('https://backend.example/api/auth/login');
+    expect(fetcher.mock.calls[0][1]).toMatchObject({ redirect: 'error', cache: 'no-store', credentials: 'omit' });
+  });
   it('uses a runtime base URL including a path prefix', async () => {
     const fetcher = vi.fn().mockResolvedValue({ ok: true, status: 200, headers: new Headers({ 'content-type': 'application/json' }), json: async () => ({ id: 'a1' }) });
     const api = createApiClient({ apiBaseUrl: 'https://tunnel.example/api' }, fetcher as typeof fetch);
