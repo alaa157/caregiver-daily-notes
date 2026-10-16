@@ -3,6 +3,7 @@ plugins {
     alias(libs.plugins.kotlin.android)
     alias(libs.plugins.kotlin.compose)
     alias(libs.plugins.kotlin.serialization)
+    alias(libs.plugins.ksp)
 }
 
 android {
@@ -75,6 +76,13 @@ android {
     }
 }
 
+// Room (Task 8a): KSP is the processor here — the module had no annotation
+// processor before, so KSP was chosen over adding kapt. Exported schema is
+// committed so the 8b/8c migrations have a baseline to diff against.
+ksp {
+    arg("room.schemaLocation", "$projectDir/schemas")
+}
+
 dependencies {
     coreLibraryDesugaring(libs.desugar)
     implementation(libs.core.ktx)
@@ -101,9 +109,16 @@ dependencies {
     implementation(libs.okhttp)
     implementation(libs.serialization.json)
 
+    implementation(libs.room.runtime)
+    implementation(libs.room.ktx)
+    ksp(libs.room.compiler)
+
     testImplementation(libs.junit)
     testImplementation(libs.coroutines.test)
     testImplementation(libs.mockwebserver)
+    // DAO/repository tests run on the JVM against in-memory Room.
+    testImplementation(libs.robolectric)
+    testImplementation(libs.test.core)
 
     androidTestImplementation(libs.compose.ui.test.junit4)
     androidTestImplementation(libs.test.runner)

@@ -1,7 +1,7 @@
 # Android API gaps (client-visible, backend-owned)
 
-Recorded from the Task 5/6 client work. The app renders only what the API
-returns; the items below need server-side support and must not be
+Recorded from the Task 5/6 and 8 client work. The app renders only what the
+API returns; the items below need server-side support and must not be
 derived or invented in the mobile client.
 
 ## History has no addendum counts
@@ -53,3 +53,12 @@ dashboard cannot fetch backend-computed flags (e.g.
 `MEDICATION_UNCLEAR`) without per-recipient fan-out. Home derives its
 fall/pain display from a single bounded notes-window response instead. A
 batch safety endpoint would close this gap.
+
+## No updated-since marker on recipients and notes
+
+`GET /api/recipients` and `GET /api/notes` have no `updatedAt`/`deletedAt`
+fields and no `updatedSince` filter, so the Task 8a Room cache cannot sync
+incrementally: every refresh re-fetches the queried scope and replaces the
+cached rows for it (`TODO(api-gap)` in `RecipientRepository` and
+`NoteRepository`). A timestamp or delta filter would let the client apply
+small deltas instead of re-fetching whole scopes.
