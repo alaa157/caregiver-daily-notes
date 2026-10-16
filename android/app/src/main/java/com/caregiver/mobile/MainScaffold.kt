@@ -18,6 +18,8 @@ import androidx.compose.material.icons.filled.History
 import androidx.compose.material.icons.filled.Home
 import androidx.compose.material.icons.filled.NoteAdd
 import androidx.compose.material.icons.filled.People
+import androidx.compose.material.icons.outlined.CloudQueue
+import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.ExtendedFloatingActionButton
 import androidx.compose.material3.Icon
 import androidx.compose.material3.NavigationBar
@@ -26,9 +28,12 @@ import androidx.compose.material3.NavigationBarItemDefaults
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
+import androidx.compose.material3.TopAppBarDefaults
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.input.nestedscroll.nestedScroll
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontWeight
@@ -44,9 +49,11 @@ import com.caregiver.mobile.core.navigation.AppDestinations
 import com.caregiver.mobile.core.navigation.AppRoutes
 import com.caregiver.mobile.core.navigation.MainTab
 import com.caregiver.mobile.core.theme.CaregiverColors
+import com.caregiver.mobile.presentation.common.AppCenterTopBar
 import com.caregiver.mobile.presentation.common.AppDimens
 import com.caregiver.mobile.presentation.history.HistoryScreen
 import com.caregiver.mobile.presentation.home.HomeScreen
+import com.caregiver.mobile.presentation.home.HomeViewModel
 import com.caregiver.mobile.presentation.notes.AddendumScreen
 import com.caregiver.mobile.presentation.notes.NoteDetailScreen
 import com.caregiver.mobile.presentation.notes.NoteEditorScreen
@@ -70,14 +77,47 @@ private const val TabTransitionMs = 180
  * Tab shell: 4 tabs plus the add-note action. All destinations are live;
  * detail screens navigate with typed [AppRoutes] builders.
  */
+@OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun MainScaffold(graph: AppGraph) {
     val navController = rememberNavController()
     val backStack by navController.currentBackStackEntryAsState()
     val currentRoute = backStack?.destination?.route
 
+    // X-style shared top bar, tab routes only; it hides on scroll-down and
+    // returns on scroll-up (nested scroll is connected to the Scaffold below).
+    val scrollBehavior = TopAppBarDefaults.enterAlwaysScrollBehavior()
+
+    // Avatar initial: the same email→name derivation the Home greeting uses,
+    // so the bar and the greeting agree; "?" while the session state loads.
+    val email by graph.settings.email.collectAsState(initial = null)
+    val avatarLetter = HomeViewModel.displayName(email)?.take(1)?.uppercase() ?: "?"
+
     Scaffold(
         containerColor = CaregiverColors.Background,
+        modifier = Modifier.nestedScroll(scrollBehavior.nestedScrollConnection),
+        topBar = {
+            // The four tab routes share the center-aligned bar; detail routes
+            // keep drawing their own AppTopBar with a back button, so nothing
+            // is rendered here for them.
+            if (MainTab.entries.any { it.route == currentRoute }) {
+                AppCenterTopBar(
+                    title = stringResource(R.string.app_name),
+                    avatarLetter = avatarLetter,
+                    scrollBehavior = scrollBehavior,
+                    actions = {
+                        // Placeholder sync/offline status; Task 8d wires the
+                        // real state. Decorative (non-interactive) until then.
+                        Icon(
+                            Icons.Outlined.CloudQueue,
+                            contentDescription = null,
+                            tint = CaregiverColors.Muted,
+                            modifier = Modifier.size(AppDimens.IconMd),
+                        )
+                    },
+                )
+            }
+        },
         bottomBar = {
             Surface(
                 color = CaregiverColors.Surface,

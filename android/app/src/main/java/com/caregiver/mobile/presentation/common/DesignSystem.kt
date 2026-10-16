@@ -10,12 +10,15 @@ import androidx.compose.foundation.layout.ColumnScope
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.RowScope
 import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.WindowInsets
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.layout.statusBars
 import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.layout.windowInsetsPadding
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
@@ -30,13 +33,17 @@ import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
+import androidx.compose.material3.CenterAlignedTopAppBar
 import androidx.compose.material3.CircularProgressIndicator
+import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
+import androidx.compose.material3.TopAppBarDefaults
+import androidx.compose.material3.TopAppBarScrollBehavior
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -81,6 +88,8 @@ object AppDimens {
     val ButtonH = AppSpacing.xxl
     val ButtonLargeH = 56.dp
     val BottomNavH = 64.dp
+    val TopBarH = 56.dp
+    val TopBarAvatar = 36.dp
     val LogoSize = 56.dp
     val LogoRadius = AppSpacing.md
     val AvatarSize = AppSpacing.xxl
@@ -148,6 +157,53 @@ fun AppTopBar(
         }
         actions()
     }
+}
+
+/**
+ * Shared top bar for the four tab routes (X-style): avatar at the start,
+ * the app name centered, a status slot at the end. The content height is
+ * fixed at [AppDimens.TopBarH] (the 56-dp header rule); the status-bar
+ * inset is reserved ABOVE the bar, not squeezed into it — the same
+ * pattern the bottom navigation strip uses.
+ *
+ * The bar hides on scroll-down and returns on scroll-up through the
+ * caller's [scrollBehavior]; the owner must connect
+ * `Modifier.nestedScroll(scrollBehavior.nestedScrollConnection)` to the
+ * Scaffold for those events to reach it.
+ */
+@OptIn(ExperimentalMaterial3Api::class)
+@Composable
+fun AppCenterTopBar(
+    title: String,
+    avatarLetter: String,
+    scrollBehavior: TopAppBarScrollBehavior,
+    modifier: Modifier = Modifier,
+    actions: @Composable RowScope.() -> Unit = {},
+) {
+    CenterAlignedTopAppBar(
+        title = {
+            Text(
+                text = title,
+                fontFamily = PlexArabic,
+                fontWeight = FontWeight.Bold,
+                fontSize = 18.sp,
+                color = CaregiverColors.Ink,
+            )
+        },
+        navigationIcon = {
+            Avatar(avatarLetter, Modifier.size(AppDimens.TopBarAvatar))
+        },
+        actions = actions,
+        colors = TopAppBarDefaults.centerAlignedTopAppBarColors(
+            containerColor = CaregiverColors.Surface,
+        ),
+        windowInsets = WindowInsets(0, 0, 0, 0),
+        scrollBehavior = scrollBehavior,
+        modifier = modifier
+            .fillMaxWidth()
+            .windowInsetsPadding(WindowInsets.statusBars)
+            .height(AppDimens.TopBarH),
+    )
 }
 
 @Composable

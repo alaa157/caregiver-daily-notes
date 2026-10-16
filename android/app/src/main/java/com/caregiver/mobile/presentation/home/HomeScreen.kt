@@ -16,12 +16,10 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Add
 import androidx.compose.material.icons.filled.People
 import androidx.compose.material.icons.filled.Check
-import androidx.compose.material.icons.filled.Settings
 import androidx.compose.material.icons.filled.Warning
 import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.Icon
-import androidx.compose.material3.IconButton
 import androidx.compose.material3.LinearProgressIndicator
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
@@ -84,6 +82,14 @@ fun HomeScreen(graph: AppGraph, navController: NavController) {
                 }
             }
             is HomeState.Content -> {
+                // Rule 6 (spec): the fall-safety banner is pinned OUTSIDE the
+                // feed's scroll container, directly under the shared top bar,
+                // so scrolling can never hide it. The error branch above does
+                // the same for retained flags.
+                if (s.content.flags.isNotEmpty()) {
+                    Spacer(Modifier.height(AppDimens.GapForm))
+                    SafetyBanner(s.content.flags)
+                }
                 if (s.refreshing) {
                     LinearProgressIndicator(modifier = Modifier.fillMaxWidth())
                 }
@@ -100,33 +106,19 @@ private fun HomeContent(content: HomeContent, navController: NavController) {
         verticalArrangement = Arrangement.spacedBy(AppDimens.SectionGap),
     ) {
         item {
-            // Header: greeting + settings action. Today's progress lives in
-            // the status card below (single source, no repeated metric).
-            Row(
-                verticalAlignment = Alignment.CenterVertically,
-                modifier = Modifier.padding(top = 16.dp),
-            ) {
-                Column(modifier = Modifier.weight(1f)) {
-                    Text(
-                        text = greetingText(content.greeting),
-                        fontFamily = PlexArabic,
-                        fontWeight = FontWeight.Bold,
-                        fontSize = 22.sp,
-                        lineHeight = 28.sp,
-                        color = CaregiverColors.Ink,
-                    )
-                }
-                IconButton(onClick = { navController.navigate("settings") }) {
-                    Icon(
-                        Icons.Filled.Settings,
-                        contentDescription = stringResource(R.string.settings_title),
-                        tint = CaregiverColors.Ink,
-                    )
-                }
-            }
-        }
-        if (content.flags.isNotEmpty()) {
-            item { SafetyBanner(content.flags) }
+            // Greeting is the first feed item: Task 1 removed the old inline
+            // header row (the shared top bar now owns the avatar and the
+            // status action). Today's progress lives in the status card below
+            // (single source, no repeated metric).
+            Text(
+                text = greetingText(content.greeting),
+                fontFamily = PlexArabic,
+                fontWeight = FontWeight.Bold,
+                fontSize = 22.sp,
+                lineHeight = 28.sp,
+                color = CaregiverColors.Ink,
+                modifier = Modifier.padding(top = AppDimens.GapForm),
+            )
         }
         item {
             // Stats row: ملاحظات اليوم + تحتاج إلى الانتباه.
