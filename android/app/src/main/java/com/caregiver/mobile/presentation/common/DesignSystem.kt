@@ -90,11 +90,13 @@ object AppDimens {
     val ButtonH = AppSpacing.xxl
     val ButtonLargeH = 56.dp
     val BottomNavH = 64.dp
+    val BottomNavIcon = 22.dp
     val TopBarH = 56.dp
     val TopBarAvatar = 36.dp
     val LogoSize = 56.dp
     val LogoRadius = AppSpacing.md
     val AvatarSize = AppSpacing.xxl
+    val NoteRowAvatar = 40.dp
     val FabRadius = 28.dp
     val FabSize = 56.dp
     val SuccessCircle = 72.dp

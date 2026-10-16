@@ -262,7 +262,7 @@ fun MainScaffold(graph: AppGraph) {
                                         }
                                     },
                                     contentDescription = stringResource(tab.titleRes),
-                                    modifier = Modifier.size(22.dp),
+                                    modifier = Modifier.size(AppDimens.BottomNavIcon),
                                 )
                             },
                             // No pill indicator and no label: state is carried by

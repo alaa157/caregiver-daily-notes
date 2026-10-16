@@ -27,6 +27,7 @@ import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.material3.pulltorefresh.PullToRefreshBox
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
@@ -44,6 +45,8 @@ import com.caregiver.mobile.AppGraph
 import com.caregiver.mobile.R
 import com.caregiver.mobile.core.i18n.Bidi
 import com.caregiver.mobile.core.navigation.AppRoutes
+import com.caregiver.mobile.core.navigation.MainTab
+import com.caregiver.mobile.core.navigation.ScrollToTop
 import com.caregiver.mobile.core.theme.CaregiverColors
 import com.caregiver.mobile.core.theme.PlexArabic
 import com.caregiver.mobile.presentation.common.AppCard
@@ -148,7 +151,15 @@ private fun HomeTimeline(
 ) {
     var selectedTab by rememberSaveable { mutableStateOf(HomeTab.Today) }
     val listState = rememberLazyListState()
-    // TODO(task-2): collect ScrollToTop.events for route "home" and scroll the LazyListState to item 0
+    // Task 2 contract: re-tapping the active Home tab publishes "home";
+    // scroll the feed back to the first row when the event is ours.
+    LaunchedEffect(MainTab.Home.route) {
+        ScrollToTop.events.collect { route ->
+            if (route == MainTab.Home.route && listState.layoutInfo.totalItemsCount > 0) {
+                listState.animateScrollToItem(0)
+            }
+        }
+    }
     Column(modifier = Modifier.fillMaxSize()) {
         if (content.flags.isNotEmpty()) {
             Box(
