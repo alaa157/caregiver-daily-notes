@@ -13,6 +13,7 @@ import androidx.compose.foundation.layout.imePadding
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
@@ -40,6 +41,7 @@ import com.caregiver.mobile.core.i18n.Bidi
 import com.caregiver.mobile.core.navigation.AppDestinations
 import com.caregiver.mobile.core.navigation.AppRoutes
 import com.caregiver.mobile.core.navigation.MainTab
+import com.caregiver.mobile.core.navigation.ScrollToTop
 import com.caregiver.mobile.core.theme.CaregiverColors
 import com.caregiver.mobile.core.theme.PlexArabic
 import com.caregiver.mobile.data.api.RecipientDto
@@ -79,6 +81,17 @@ fun RecipientsScreen(graph: AppGraph, navController: NavController) {
     }
     LaunchedEffect(Unit) { vm.refresh() }
     val state by vm.state.collectAsState()
+
+    val listState = rememberLazyListState()
+    // Task 2 contract: re-tapping the active People tab publishes "people";
+    // scroll the list back to the first person when the event is ours.
+    LaunchedEffect(MainTab.People.route) {
+        ScrollToTop.events.collect { route ->
+            if (route == MainTab.People.route && listState.layoutInfo.totalItemsCount > 0) {
+                listState.animateScrollToItem(0)
+            }
+        }
+    }
     Column(
         Modifier.fillMaxSize().padding(horizontal = AppDimens.ScreenHPadding),
         verticalArrangement = Arrangement.spacedBy(AppDimens.SectionGap),
@@ -118,7 +131,7 @@ fun RecipientsScreen(graph: AppGraph, navController: NavController) {
                         onAction = { navController.navigate(AppDestinations.AddRecipient.base) },
                     )
                 } else {
-                    LazyColumn(verticalArrangement = Arrangement.spacedBy(12.dp)) {
+                    LazyColumn(state = listState, verticalArrangement = Arrangement.spacedBy(12.dp)) {
                         items(s.recipients, key = { it.id }) { recipient ->
                             PersonRow(recipient) {
                                 navController.navigate(AppRoutes.recipientDetail(recipient.id))
