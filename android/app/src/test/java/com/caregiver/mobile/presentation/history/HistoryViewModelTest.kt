@@ -28,7 +28,8 @@ import org.junit.Test
 
 /**
  * History (board 9): unfiltered load, recipient/date narrowing mapped to
- * exact query params, and bounded loading without per-note fan-out.
+ * exact query params, refresh that keeps loaded rows composed, and bounded
+ * loading without per-note fan-out.
  */
 @OptIn(ExperimentalCoroutinesApi::class)
 class HistoryViewModelTest {
@@ -126,6 +127,46 @@ class HistoryViewModelTest {
 
         assertEquals("n1", narrowed.content.entries.single().note.id)
         assertEquals("r1", notes.lastHistory?.first)
+    }
+
+    @Test
+    fun dateFilterNarrowsTheList() = runTest {
+        notes.historyHandler = { _, from, to ->
+            listOf(
+                testNote(id = "n1", date = "2026-10-01"),
+                testNote(id = "n2", date = "2026-10-07"),
+                testNote(id = "n3", date = "2026-10-15"),
+            ).filter { (from == null || it.date >= from) && (to == null || it.date <= to) }
+        }
+        val vm = HistoryViewModel(apis(), repository, this)
+        assertEquals(3, content(vm).entries.size)
+
+        vm.setFrom(LocalDate.of(2026, 10, 7))
+        vm.setTo(LocalDate.of(2026, 10, 15))
+        advanceUntilIdle()
+
+        val narrowed = vm.state.value as HistoryState.Content
+        assertEquals(listOf("n2", "n3"), narrowed.content.entries.map { it.note.id })
+        assertEquals(Triple(null, "2026-10-07", "2026-10-15"), notes.lastHistory)
+    }
+
+    @Test
+    fun refreshKeepsContentVisibleWhileReloading() = runTest {
+        notes.historyHandler = { _, _, _ -> listOf(testNote(id = "n1")) }
+        val vm = HistoryViewModel(apis(), repository, this)
+        content(vm)
+
+        vm.refresh()
+
+        // Synchronous: the rows stay composed while the reload runs (the
+        // pull indicator spins); skeletons are only for the first load.
+        val mid = vm.state.value as HistoryState.Content
+        assertTrue(mid.refreshing)
+        assertEquals(listOf("n1"), mid.content.entries.map { it.note.id })
+
+        advanceUntilIdle()
+        val done = vm.state.value as HistoryState.Content
+        assertEquals(false, done.refreshing)
     }
 
     @Test

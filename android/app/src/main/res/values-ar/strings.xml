@@ -201,4 +201,6 @@
     <string name="pick_recipient_title">لمن هذه الملاحظة؟</string>
     <string name="pick_recipient_empty_title">لا يوجد أشخاص بعد</string>
     <string name="pick_recipient_empty_body">أضف أول شخص للبدء بتسجيل الملاحظات.</string>
+    <!-- المهمة 6: صف رقائق التصفية القابل للطي في السجل. -->
+    <string name="history_filters">تصفية</string>
 </resources>

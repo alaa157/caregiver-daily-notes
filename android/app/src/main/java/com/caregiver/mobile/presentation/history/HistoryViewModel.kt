@@ -21,7 +21,13 @@ data class HistoryContent(val entries: List<HistoryEntry>, val recipients: List<
 
 sealed interface HistoryState {
     data object Loading : HistoryState
-    data class Content(val content: HistoryContent) : HistoryState
+
+    /**
+     * [refreshing] is true while a reload runs on top of already-loaded
+     * rows (pull-to-refresh); skeletons are only for the first load.
+     */
+    data class Content(val content: HistoryContent, val refreshing: Boolean = false) : HistoryState
+
     data object Error : HistoryState
 }
 
@@ -75,7 +81,13 @@ class HistoryViewModel(
     }
 
     fun refresh() {
-        _state.value = HistoryState.Loading
+        // Keep already-loaded rows composed while reloading (pull-to-refresh
+        // and filter changes show the indicator instead of flashing
+        // skeletons); Loading is only for the first load or after an error.
+        _state.value = when (val current = _state.value) {
+            is HistoryState.Content -> current.copy(refreshing = true)
+            else -> HistoryState.Loading
+        }
         exec.launch { load() }
     }
 
