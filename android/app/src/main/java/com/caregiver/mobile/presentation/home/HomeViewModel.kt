@@ -46,6 +46,28 @@ sealed interface HomeState {
     data class Error(val lastContent: HomeContent? = null) : HomeState
 }
 
+/** Home feed sub-tabs (Task 5): Today / Needs attention / All. */
+enum class HomeTab { Today, NeedsAttention, All }
+
+/** The dashboard's attention rule: high pain or a fall flag. */
+fun needsAttention(card: HomeCard): Boolean =
+    RecipientChip.HighPain in card.chips || RecipientChip.FallFlag in card.chips
+
+/**
+ * Pure client-side filter for the sub-tabs, JVM-unit-testable.
+ *
+ * The dashboard already loads one bounded window (recipients + one notes
+ * call, [HomeViewModel.HOME_WINDOW_DAYS] days) for every active recipient,
+ * so each tab just narrows that in-memory list — no per-tab request. No
+ * pagination either: the feed is one row per recipient and stays small
+ * (see docs/api/android-gaps.md, "History has no server-side bound").
+ */
+fun homeCardsForTab(cards: List<HomeCard>, tab: HomeTab): List<HomeCard> = when (tab) {
+    HomeTab.Today -> cards.filter { RecipientChip.DoneToday in it.chips }
+    HomeTab.NeedsAttention -> cards.filter(::needsAttention)
+    HomeTab.All -> cards
+}
+
 /**
  * Home dashboard (board 2): greeting, today progress over active recipients,
  * per-recipient status chips, and fall safety flags.
