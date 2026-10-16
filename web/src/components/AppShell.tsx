@@ -13,7 +13,10 @@ export function AppShell({ children }: { children: ReactNode }) {
 
   useEffect(() => {
     const title = pathname === '/' ? t('home') : pathname === '/login' ? t('loginTitle')
-      : pathname === '/app' ? t('dashboardTitle') : t('pageNotFound');
+      : pathname === '/app' ? t('dashboardTitle')
+      : pathname === '/app/recipients/new' ? t('recipientCreate')
+      : pathname.startsWith('/app/recipients/') ? t(pathname.endsWith('/edit') ? 'recipientEdit' : 'recipientDetails')
+      : pathname === '/app/recipients' ? t('recipientsTitle') : t('pageNotFound');
     document.title = `${title} · ${t('brand')}`;
   }, [pathname, t]);
 
@@ -41,7 +44,8 @@ export function AppShell({ children }: { children: ReactNode }) {
             <div className="nav-links">
               <NavLink end to="/" className={navClass}>{t('home')}</NavLink>
               {auth.status === 'authenticated' ? <>
-                <NavLink to="/app" className={navClass}>{t('dashboard')}</NavLink>
+                <NavLink end to="/app" className={navClass}>{t('dashboard')}</NavLink>
+                <NavLink to="/app/recipients" className={navClass}>{t('recipientsTitle')}</NavLink>
                 <button type="button" className="nav-link auth-logout" onClick={auth.logout}>{t('authSignOut')}</button>
               </> : <NavLink to="/login" className={navClass}>{t('signIn')}</NavLink>}
             </div>

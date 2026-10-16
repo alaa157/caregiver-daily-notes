@@ -8,6 +8,7 @@ import { PagePanel } from '../components/PagePanel';
 import { useI18n } from '../i18n/I18nProvider';
 import { LoginPage } from '../features/auth/LoginPage';
 import { ProtectedRoute } from './ProtectedRoute';
+import { RecipientsRoutes } from '../routes/RecipientsRoutes';
 
 function HomePage() {
   const { t } = useI18n();
@@ -49,7 +50,9 @@ function HomePage() {
 
 function DashboardPage() {
   const { t } = useI18n();
-  return <PagePanel icon="journal" eyebrow={t('dashboard')} title={t('dashboardTitle')} description={t('dashboardDescription')} />;
+  return <PagePanel icon="journal" eyebrow={t('dashboard')} title={t('dashboardTitle')} description={t('dashboardDescription')}>
+    <ButtonLink to="/app/recipients">{t('recipientsTitle')}<Icon name="arrow-right" className="directional-icon" /></ButtonLink>
+  </PagePanel>;
 }
 
 function NotFoundPage() {
@@ -69,6 +72,7 @@ export function App() {
         <Route path="/login" element={<LoginPage />} />
         <Route element={<ProtectedRoute />}>
           <Route path="/app" element={<DashboardPage />} />
+          <Route path="/app/recipients/*" element={<RecipientsRoutes />} />
         </Route>
         <Route path="*" element={<NotFoundPage />} />
       </Routes>
