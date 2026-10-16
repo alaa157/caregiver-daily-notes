@@ -31,9 +31,9 @@ import kotlinx.coroutines.flow.map
  * scope (null filters = wildcard, matching the endpoint) and returns it
  * merged with that scope's pending records; a transport failure
  * ([IOException], i.e. offline) serves the same scope from the cached copy
- * plus the outbox. With neither a cached copy nor pending records the
- * failure propagates exactly as before Task 8a, so the existing error/retry
- * UI is unchanged. A null [dao] (demo builds) makes every call a plain
+ * plus the outbox — an empty cached copy still counts (Task 8a review fix),
+ * so only a missing cache at all (demo builds) makes the failure propagate
+ * as before Task 8a. A null [dao] (demo builds) makes every call a plain
  * passthrough: demo data never touches disk.
  *
  * [create]: offline saves enqueue the note in the outbox and return it as a
@@ -66,12 +66,10 @@ class NoteRepository(
             cacheWrite { dao?.replaceScope(recipientId, from, to, fresh.map { it.toEntity() }) }
             mergePending(recipientId, from, to, fresh)
         } catch (e: IOException) {
-            val cached = dao?.query(recipientId, from, to)?.map { it.toDto() }.orEmpty()
-            val pending = pendingFor(recipientId, from, to)
-            // Without a cached copy and without pending records, the failure
-            // surfaces as before Task 8a.
-            if (cached.isEmpty() && pending.isEmpty()) throw e
-            mergeDates(pending, cached)
+            // Task 8a review fix: a cached scope is served even when empty;
+            // only a missing cache at all (demo builds) propagates.
+            val cached = serveCached(e) { dao?.query(recipientId, from, to)?.map { it.toDto() } }
+            mergeDates(pendingFor(recipientId, from, to), cached)
         }
     }
 

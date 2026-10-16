@@ -86,7 +86,7 @@ class NoteRepositoryTest {
     }
 
     @Test
-    fun fallbackHonorsTheQueryScopeAndThrowsWithoutCache() = runTest {
+    fun fallbackHonorsTheQueryScopeAndServesEmptyWithoutCache() = runTest {
         noteApi.historyHandler = { recipientId, _, _ ->
             if (recipientId == "r1") listOf(testNote("n1", recipientId = "r1")) else emptyList()
         }
@@ -95,8 +95,9 @@ class NoteRepositoryTest {
 
         noteApi.historyHandler = { _, _, _ -> throw IOException("network down") }
         assertEquals(listOf("n1"), repo.history("r1", null, null).map { it.id })
-        // Another scope has no cached copy: the failure propagates as before.
-        expectIOException { repo.history("r2", null, null) }
+        // Another scope has no cached rows: its empty copy is served, not an
+        // error (only a missing cache at all — demo mode — propagates).
+        assertEquals(emptyList<String>(), repo.history("r2", null, null).map { it.id })
     }
 
     @Test
@@ -177,8 +178,9 @@ class NoteRepositoryTest {
         noteApi.historyHandler = { _, _, _ -> throw IOException("network down") }
         assertEquals(listOf(pending.id, "n1"), repo.history("r1", null, null).map { it.id })
 
-        // A scope with neither cache nor pending rows keeps the old error.
-        expectIOException { repo.history("r2", null, null) }
+        // A scope with neither cache nor pending rows serves its empty copy
+        // (Task 8a review fix); only a missing cache at all propagates.
+        assertEquals(emptyList<String>(), repo.history("r2", null, null).map { it.id })
     }
 
     @Test
