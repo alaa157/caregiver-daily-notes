@@ -59,15 +59,31 @@ class RecipientRepositoryTest {
     }
 
     @Test
-    fun offlineWithoutCachePropagates() = runTest {
-        recipientApi.listHandler = { throw IOException("offline") }
+    fun offlineWithEmptyCacheServesTheEmptyList() = runTest {
+        recipientApi.listHandler = { emptyList() }
         val repo = RecipientRepository(apis, db.recipientDao())
+
+        // Online: a successful sync of zero recipients is cached (empty).
+        assertEquals(emptyList<RecipientDto>(), repo.list())
+
+        // Offline: the cached empty list is served, not an error (only a
+        // missing cache at all — demo mode — propagates).
+        recipientApi.listHandler = { throw IOException("offline") }
+        assertEquals(emptyList<RecipientDto>(), repo.list())
+    }
+
+    @Test
+    fun offlineWithoutAnyCachePropagates() = runTest {
+        recipientApi.listHandler = { throw IOException("offline") }
+        // No DAO at all (demo graphs): there is no disk to cache into, so the
+        // transport failure propagates and the ViewModel keeps its error state.
+        val repo = RecipientRepository(apis, dao = null)
 
         try {
             repo.list()
             fail("expected IOException")
         } catch (e: IOException) {
-            // Expected: nothing cached, so the ViewModel keeps its error state.
+            // Expected: no cache exists at all.
         }
     }
 

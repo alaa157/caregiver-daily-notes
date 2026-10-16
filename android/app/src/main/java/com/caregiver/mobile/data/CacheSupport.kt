@@ -24,4 +24,4 @@ internal suspend fun cacheWrite(block: suspend () -> Unit) {
  * cache (demo mode) always rethrows: there is no disk to read from.
  */
 internal suspend fun <T> serveCached(cause: IOException, read: suspend () -> List<T>?): List<T> =
-    read()?.takeIf { it.isNotEmpty() } ?: throw cause
+    read() ?: throw cause
