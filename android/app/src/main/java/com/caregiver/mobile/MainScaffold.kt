@@ -21,7 +21,6 @@ import androidx.compose.material.icons.filled.History
 import androidx.compose.material.icons.filled.Home
 import androidx.compose.material.icons.filled.NoteAdd
 import androidx.compose.material.icons.filled.People
-import androidx.compose.material.icons.outlined.CloudQueue
 import androidx.compose.material.icons.outlined.History
 import androidx.compose.material.icons.outlined.Home
 import androidx.compose.material.icons.outlined.NoteAdd
@@ -66,11 +65,16 @@ import com.caregiver.mobile.core.navigation.AppDestinations
 import com.caregiver.mobile.core.navigation.AppRoutes
 import com.caregiver.mobile.core.navigation.MainTab
 import com.caregiver.mobile.core.navigation.ScrollToTop
+import com.caregiver.mobile.core.network.networkAvailabilityFlow
 import com.caregiver.mobile.core.theme.CaregiverColors
+import com.caregiver.mobile.data.OutboxSyncWorker
 import com.caregiver.mobile.presentation.common.AppCenterTopBar
 import com.caregiver.mobile.presentation.common.AppDrawer
 import com.caregiver.mobile.presentation.common.AppDimens
 import com.caregiver.mobile.presentation.common.assistedViewModel
+import com.caregiver.mobile.presentation.common.SyncStatus
+import com.caregiver.mobile.presentation.common.SyncStatusIndicator
+import com.caregiver.mobile.presentation.common.SyncStatusViewModel
 import com.caregiver.mobile.presentation.history.HistoryScreen
 import com.caregiver.mobile.presentation.home.HomeScreen
 import com.caregiver.mobile.presentation.home.HomeViewModel
@@ -136,6 +140,18 @@ fun MainScaffold(graph: AppGraph) {
         ?.recipients?.filter { it.active }
         .orEmpty()
 
+    // Task 8d: real sync status for the bar's end slot — the outbox rows
+    // plus connectivity; tapping a failed state re-queues the same
+    // WorkManager drain an offline save would trigger.
+    val syncStatusVm: SyncStatusViewModel = assistedViewModel("sync-status") {
+        SyncStatusViewModel(
+            statuses = graph.noteRepository.observeOutboxStatuses(),
+            connected = networkAvailabilityFlow(graph.context.applicationContext),
+            onRetry = { OutboxSyncWorker.schedule(graph.context.applicationContext) },
+        )
+    }
+    val syncStatus by syncStatusVm.status.collectAsState(initial = SyncStatus.SYNCED)
+
     // Shown only when the picker has something to ask: exactly one active
     // person goes straight to the editor instead.
     var showRecipientPicker by rememberSaveable { mutableStateOf(false) }
@@ -194,13 +210,11 @@ fun MainScaffold(graph: AppGraph) {
                         avatarContentDescription = stringResource(R.string.drawer_open),
                         avatarModifier = Modifier.testTag("drawer_avatar"),
                         actions = {
-                            // Placeholder sync/offline status; Task 8d wires the
-                            // real state. Decorative (non-interactive) until then.
-                            Icon(
-                                Icons.Outlined.CloudQueue,
-                                contentDescription = null,
-                                tint = CaregiverColors.Muted,
-                                modifier = Modifier.size(AppDimens.IconMd),
+                            // Task 8d: the end slot mirrors the outbox — synced,
+                            // syncing, offline, or failed (tap to retry).
+                            SyncStatusIndicator(
+                                status = syncStatus,
+                                onRetry = syncStatusVm::retry,
                             )
                         },
                     )

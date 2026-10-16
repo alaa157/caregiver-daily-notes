@@ -271,4 +271,20 @@ class OutboxDrainTest {
         repo.create(createRequest())
         assertEquals(1, scheduled)
     }
+
+    @Test
+    fun observedOutboxStatusesReflectTheQueuedNotesAndAreEmptyInDemo() = runTest {
+        db.outboxDao().insert(outboxRow("l1", createdAt = 1))
+        db.outboxDao().insert(outboxRow("l2", createdAt = 2, status = OutboxStatus.FAILED))
+
+        // Newest first (Task 8d top-bar status); demo graphs observe nothing.
+        assertEquals(
+            listOf(OutboxStatus.FAILED, OutboxStatus.PENDING),
+            newRepo().observeOutboxStatuses().first(),
+        )
+        assertEquals(
+            emptyList<String>(),
+            NoteRepository(apis, dao = null).observeOutboxStatuses().first(),
+        )
+    }
 }

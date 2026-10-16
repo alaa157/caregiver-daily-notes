@@ -190,6 +190,11 @@
     <string name="note_row_show_more">عرض المزيد</string>
     <!-- المهمة 8b: أيقونة ساعة على الملاحظات في انتظار المزامنة. -->
     <string name="note_row_pending">لم تتم المزامنة بعد</string>
+    <!-- المهمة 8d: حالة المزامنة في الشريط العلوي؛ اضغط على الفشل لإعادة المحاولة. -->
+    <string name="sync_status_synced">تمت المزامنة</string>
+    <string name="sync_status_syncing">جارٍ المزامنة</string>
+    <string name="sync_status_offline">غير متصل</string>
+    <string name="sync_status_failed">فشلت المزامنة — اضغط لإعادة المحاولة</string>
     <!-- المهمة 5: علامات تبويب الصفحة الرئيسية وحالات الفراغ. -->
     <string name="home_tab_today">اليوم</string>
     <string name="home_tab_attention">تحتاج إلى الانتباه</string>

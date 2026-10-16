@@ -9,6 +9,7 @@ import androidx.room.Query
 import com.caregiver.mobile.data.api.CreateNoteRequest
 import com.caregiver.mobile.data.api.NoteDetailDto
 import com.caregiver.mobile.data.api.NoteDto
+import kotlinx.coroutines.flow.Flow
 
 /**
  * Note saved while the device could not reach the server (Task 8b). The row
@@ -116,6 +117,10 @@ interface OutboxDao {
 
     @Query("SELECT * FROM outbox WHERE localId = :localId")
     suspend fun byLocalId(localId: String): OutboxEntity?
+
+    /** Observes every queued row, newest first (Task 8d sync status). */
+    @Query("SELECT * FROM outbox ORDER BY createdAt DESC")
+    fun observeAll(): Flow<List<OutboxEntity>>
 
     @Query("UPDATE outbox SET status = :status WHERE localId = :localId")
     suspend fun updateStatus(localId: String, status: String)

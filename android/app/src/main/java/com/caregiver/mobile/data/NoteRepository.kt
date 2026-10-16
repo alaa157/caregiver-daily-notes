@@ -88,6 +88,13 @@ class NoteRepository(
     fun observeAll(): Flow<List<NoteDto>> =
         dao?.observeAll()?.map { rows -> rows.map { it.toDto() } } ?: flowOf(emptyList())
 
+    /**
+     * Observed statuses of the rows in the outbox (Task 8d top-bar status);
+     * always empty in demo mode, which has no outbox at all.
+     */
+    fun observeOutboxStatuses(): Flow<List<String>> =
+        outboxDao?.observeAll()?.map { rows -> rows.map { it.status } } ?: flowOf(emptyList())
+
     suspend fun history(recipientId: String?, from: String?, to: String?): List<NoteDto> {
         val api = apis.notes()
         return try {
