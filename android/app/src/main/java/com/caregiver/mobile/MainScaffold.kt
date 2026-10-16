@@ -19,6 +19,10 @@ import androidx.compose.material.icons.filled.Home
 import androidx.compose.material.icons.filled.NoteAdd
 import androidx.compose.material.icons.filled.People
 import androidx.compose.material.icons.outlined.CloudQueue
+import androidx.compose.material.icons.outlined.History
+import androidx.compose.material.icons.outlined.Home
+import androidx.compose.material.icons.outlined.NoteAdd
+import androidx.compose.material.icons.outlined.People
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.ExtendedFloatingActionButton
 import androidx.compose.material3.Icon
@@ -33,12 +37,14 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.input.nestedscroll.nestedScroll
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import androidx.navigation.NavGraph.Companion.findStartDestination
 import androidx.navigation.NavType
 import androidx.navigation.compose.NavHost
 import androidx.navigation.compose.composable
@@ -48,6 +54,7 @@ import androidx.navigation.navArgument
 import com.caregiver.mobile.core.navigation.AppDestinations
 import com.caregiver.mobile.core.navigation.AppRoutes
 import com.caregiver.mobile.core.navigation.MainTab
+import com.caregiver.mobile.core.navigation.ScrollToTop
 import com.caregiver.mobile.core.theme.CaregiverColors
 import com.caregiver.mobile.presentation.common.AppCenterTopBar
 import com.caregiver.mobile.presentation.common.AppDimens
@@ -136,37 +143,60 @@ fun MainScaffold(graph: AppGraph) {
                         .height(AppDimens.BottomNavH),
                 ) {
                 MainTab.entries.forEach { tab ->
+                    val selected = currentRoute == tab.route
                     NavigationBarItem(
-                        selected = currentRoute == tab.route,
+                        selected = selected,
                         onClick = {
-                            navController.navigate(tab.route) {
-                                popUpTo(MainTab.Home.route)
-                                launchSingleTop = true
+                            if (selected) {
+                                // X pattern: re-tapping the ACTIVE tab must not
+                                // navigate. It asks that tab's list to scroll
+                                // back to top (screens start collecting
+                                // ScrollToTop.events in a later task).
+                                ScrollToTop.emit(tab.route)
+                            } else {
+                                navController.navigate(tab.route) {
+                                    // Save/restore each tab's state: switching
+                                    // tabs keeps scroll position, and the
+                                    // re-tap path above handles "back to top".
+                                    popUpTo(navController.graph.findStartDestination().id) {
+                                        saveState = true
+                                    }
+                                    launchSingleTop = true
+                                    restoreState = true
+                                }
                             }
                         },
-                        label = { Text(stringResource(tab.titleRes)) },
+                        // Icon-only bar (X style): no labels anywhere, so each
+                        // icon carries its tab name for TalkBack.
+                        alwaysShowLabel = false,
                         icon = {
                             Icon(
-                                imageVector = when (tab) {
-                                    MainTab.Home -> Icons.Filled.Home
-                                    MainTab.People -> Icons.Filled.People
-                                    MainTab.Notes -> Icons.Filled.NoteAdd
-                                    MainTab.History -> Icons.Filled.History
+                                imageVector = if (selected) {
+                                    when (tab) {
+                                        MainTab.Home -> Icons.Filled.Home
+                                        MainTab.People -> Icons.Filled.People
+                                        MainTab.Notes -> Icons.Filled.NoteAdd
+                                        MainTab.History -> Icons.Filled.History
+                                    }
+                                } else {
+                                    when (tab) {
+                                        MainTab.Home -> Icons.Outlined.Home
+                                        MainTab.People -> Icons.Outlined.People
+                                        MainTab.Notes -> Icons.Outlined.NoteAdd
+                                        MainTab.History -> Icons.Outlined.History
+                                    }
                                 },
-                                contentDescription = null,
+                                contentDescription = stringResource(tab.titleRes),
                                 modifier = Modifier.size(22.dp),
                             )
                         },
-                        // Explicit in-palette selection: teal icon/label on a
-                        // neutral pill. Test tags keep the UI tests offline-safe.
-                        // HTML: item min-height 52dp, min-width 64dp, 12sp Bold,
-                        // active #0E6B66, inactive #5B6B70.
+                        // No pill indicator and no label: state is carried by
+                        // colour (teal vs muted) and the filled/outlined icon
+                        // swap. Test tags keep the UI tests offline-safe.
                         colors = NavigationBarItemDefaults.colors(
                             selectedIconColor = CaregiverColors.Primary,
-                            selectedTextColor = CaregiverColors.Primary,
                             unselectedIconColor = CaregiverColors.Muted,
-                            unselectedTextColor = CaregiverColors.Muted,
-                            indicatorColor = CaregiverColors.BorderSoft,
+                            indicatorColor = Color.Transparent,
                         ),
                         modifier = Modifier.testTag("tab_${tab.route}"),
                     )
