@@ -197,4 +197,8 @@
     <string name="home_empty_attention_title">لا شيء يحتاج إلى الانتباه</string>
     <string name="home_empty_attention_body">سيظهر هنا أي ألم شديد أو سقوط.</string>
     <string name="home_empty_view_all">عرض الكل</string>
+    <!-- المهمة 3: ورقة اختيار المستلم لزر الإضافة. -->
+    <string name="pick_recipient_title">لمن هذه الملاحظة؟</string>
+    <string name="pick_recipient_empty_title">لا يوجد أشخاص بعد</string>
+    <string name="pick_recipient_empty_body">أضف أول شخص للبدء بتسجيل الملاحظات.</string>
 </resources>

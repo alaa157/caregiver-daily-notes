@@ -9,6 +9,7 @@ import androidx.compose.ui.test.assertIsNotSelected
 import androidx.compose.ui.test.assertIsSelected
 import androidx.compose.ui.test.assertHasClickAction
 import androidx.compose.ui.test.junit4.createComposeRule
+import androidx.compose.ui.test.onAllNodesWithTag
 import androidx.compose.ui.test.onNodeWithContentDescription
 import androidx.compose.ui.test.onNodeWithTag
 import androidx.compose.ui.test.onNodeWithText
@@ -24,8 +25,9 @@ import org.junit.runner.RunWith
 import com.caregiver.mobile.test.WithTestOwner
 
 /**
- * Task 1 scaffold coverage on a real renderer: the four tab labels in both
- * locales, tab selection, and the localized add-note action. These are
+ * Task 1 scaffold coverage on a real renderer: the four tab names (icon
+ * content descriptions since Task 2) in both locales, tab selection, and
+ * the localized add-note action. These are
  * instrumentation tests — they need a device or emulator and never run
  * under `testDebugUnitTest`.
  *
@@ -57,8 +59,10 @@ class ScaffoldUiTest {
     fun englishTabLabelsRendered() {
         setScaffold("en")
 
-        listOf("Home", "People", "Notes", "History").forEach { label ->
-            compose.onNodeWithText(label).assertIsDisplayed()
+        // Task 2 made the bar icon-only: the tab names live on the icons as
+        // content descriptions (TalkBack), not as label text.
+        listOf("Home", "People", "Notes", "History").forEach { name ->
+            compose.onNodeWithContentDescription(name).assertIsDisplayed()
         }
         compose.onNodeWithContentDescription("Add note").assertIsDisplayed()
     }
@@ -67,8 +71,8 @@ class ScaffoldUiTest {
     fun arabicTabLabelsRendered() {
         setScaffold("ar")
 
-        listOf("الرئيسية", "الأشخاص", "الملاحظات", "السجل").forEach { label ->
-            compose.onNodeWithText(label).assertIsDisplayed()
+        listOf("الرئيسية", "الأشخاص", "الملاحظات", "السجل").forEach { name ->
+            compose.onNodeWithContentDescription(name).assertIsDisplayed()
         }
         compose.onNodeWithContentDescription("إضافة ملاحظة").assertIsDisplayed()
     }
@@ -84,13 +88,17 @@ class ScaffoldUiTest {
     }
 
     @Test
-    fun fabNavigatesToPeopleTab() {
+    fun fabOpensRecipientPicker() {
         setScaffold("en")
 
+        // Task 3: the FAB no longer detours through the People tab — the
+        // picker opens in place with the two active demo people.
         compose.onNodeWithContentDescription("Add note").performClick()
-        compose.onNodeWithTag("tab_people").assertIsSelected()
-        // The creation flow starts with recipient selection.
-        compose.onNodeWithText(Bidi.isolate("ليلى حسن")).assertIsDisplayed()
+        compose.onNodeWithText("Who is this note for?").assertIsDisplayed()
+        compose.waitUntil(timeoutMillis = 5_000) {
+            compose.onAllNodesWithTag("picker_recipient_r1").fetchSemanticsNodes().isNotEmpty()
+        }
+        compose.onNodeWithTag("tab_home").assertIsSelected()
     }
 
     @Test
