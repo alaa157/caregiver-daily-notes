@@ -15,8 +15,8 @@ import kotlinx.coroutines.flow.Flow
 /**
  * Cached note (Task 8a). Fields mirror [NoteDto]; [rowId] is a local
  * surrogate key, [serverId] is the backend id, and [localId] is the
- * nullable client-side id Task 8b assigns to notes that exist locally
- * before the server confirms them (always null until then).
+ * nullable client-side id mapping an outbox note (Task 8b) onto its server
+ * row once Task 8c syncs it; null until then.
  */
 @Entity(tableName = "notes", indices = [Index(value = ["serverId"], unique = true)])
 data class NoteEntity(

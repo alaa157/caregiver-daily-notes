@@ -278,6 +278,7 @@ private fun HistoryNoteRow(
         name = name,
         time = DateFormats.historyDay(entry.note.date, arabic),
         body = entry.note.text,
+        pending = entry.note.pending,
         onClick = onOpen,
         pills = {
             if (entry.note.fall) {

@@ -42,6 +42,12 @@ data class NoteDto(
     val pain: Int,
     val fall: Boolean,
     val text: String,
+    /**
+     * Client-local flag (Task 8b): true only for notes that exist in the
+     * device outbox and have not reached the server yet. The backend never
+     * sends this field, so decoded and cached rows always default to false.
+     */
+    val pending: Boolean = false,
 )
 
 @Serializable

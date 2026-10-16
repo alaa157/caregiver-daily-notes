@@ -188,6 +188,8 @@
     <string name="state_field_pain">اختر مستوى الألم قبل الحفظ.</string>
     <!-- المهمة 4: صف الملاحظة بنمط X. -->
     <string name="note_row_show_more">عرض المزيد</string>
+    <!-- المهمة 8b: أيقونة ساعة على الملاحظات في انتظار المزامنة. -->
+    <string name="note_row_pending">لم تتم المزامنة بعد</string>
     <!-- المهمة 5: علامات تبويب الصفحة الرئيسية وحالات الفراغ. -->
     <string name="home_tab_today">اليوم</string>
     <string name="home_tab_attention">تحتاج إلى الانتباه</string>

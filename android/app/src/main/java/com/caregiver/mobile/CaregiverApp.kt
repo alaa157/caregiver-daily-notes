@@ -73,7 +73,7 @@ class AppGraph(val context: Context, val forceProduction: Boolean = false) {
         RoomBackedBackendApis(
             live = live,
             recipients = RecipientRepository(live, db?.recipientDao()),
-            notes = NoteRepository(live, db?.noteDao()),
+            notes = NoteRepository(live, db?.noteDao(), db?.outboxDao()),
         )
     }
 
