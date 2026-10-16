@@ -186,4 +186,6 @@
     <string name="state_fall_recorded">تم تسجيل سقوط</string>
     <string name="state_safety_rules">هذا التنبيه يعتمد على قواعد السلامة في التطبيق.</string>
     <string name="state_field_pain">اختر مستوى الألم قبل الحفظ.</string>
+    <!-- المهمة 4: صف الملاحظة بنمط X. -->
+    <string name="note_row_show_more">عرض المزيد</string>
 </resources>
