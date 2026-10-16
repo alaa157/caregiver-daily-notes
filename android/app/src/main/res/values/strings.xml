@@ -201,4 +201,6 @@
     <string name="pick_recipient_title">Who is this note for?</string>
     <string name="pick_recipient_empty_title">No people yet</string>
     <string name="pick_recipient_empty_body">Add your first person to start notes.</string>
+    <!-- Task 6: History collapsible filter chip row. -->
+    <string name="history_filters">Filters</string>
 </resources>

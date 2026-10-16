@@ -3,6 +3,8 @@ package com.caregiver.mobile.presentation.history
 import android.content.Context
 import androidx.compose.ui.test.assertIsDisplayed
 import androidx.compose.ui.test.junit4.createComposeRule
+import androidx.compose.ui.test.onAllNodesWithText
+import androidx.compose.ui.test.onNodeWithTag
 import androidx.compose.ui.test.onNodeWithText
 import androidx.compose.ui.test.performClick
 import androidx.navigation.compose.NavHost
@@ -25,9 +27,9 @@ import org.junit.Test
 import org.junit.runner.RunWith
 
 /**
- * Task 6 history flows against a fake server: recipient filtering,
- * empty/error states with retry, entry-to-detail navigation, and long
- * Arabic previews. Date-dialog interaction stays in
+ * Task 6 history flows against a fake server: recipient filtering via the
+ * collapsible chip row, empty/error states with retry, entry-to-detail
+ * navigation, and long Arabic previews. Date-dialog interaction stays in
  * `HistoryViewModelTest`; range plumbing is asserted there.
  * Instrumentation-only.
  */
@@ -108,9 +110,14 @@ class HistoryFlowUiTest {
 
         compose.onNodeWithText("Alpha note").assertIsDisplayed()
         compose.onNodeWithText("Beta note").assertIsDisplayed()
-        compose.onNodeWithText("All").performClick()
-        compose.onNodeWithText("Aisha").performClick()
+        compose.onNodeWithTag("history_filter_person").performClick()
+        compose.onNodeWithTag("history_person_option_r1").performClick()
 
+        // The reload keeps the old rows composed while it runs (pull-to-
+        // refresh semantics), so wait for the narrowed response to render.
+        compose.waitUntil(10_000) {
+            compose.onAllNodesWithText("Beta note").fetchSemanticsNodes().isEmpty()
+        }
         compose.onNodeWithText("Alpha note").assertIsDisplayed()
         compose.onNodeWithText("Beta note").assertDoesNotExist()
     }
@@ -147,7 +154,8 @@ class HistoryFlowUiTest {
 
         compose.onNodeWithText("View note").performClick()
 
-        assertEquals("note/n1", nav.currentDestination?.route)
+        assertEquals("note/{noteId}", nav.currentDestination?.route)
+        assertEquals("n1", nav.currentBackStackEntry?.arguments?.getString("noteId"))
         compose.onNodeWithText("Alpha note").assertIsDisplayed()
     }
 
@@ -160,6 +168,7 @@ class HistoryFlowUiTest {
         )
         setNav()
 
-        compose.onNodeWithText(long.take(120)).assertIsDisplayed()
+        // The row renders the full note; NoteRow truncates it at four lines.
+        compose.onNodeWithText(long).assertIsDisplayed()
     }
 }
