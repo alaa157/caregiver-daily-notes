@@ -6,6 +6,7 @@ import androidx.room.Insert
 import androidx.room.OnConflictStrategy
 import androidx.room.PrimaryKey
 import androidx.room.Query
+import com.caregiver.mobile.data.api.CreateNoteRequest
 import com.caregiver.mobile.data.api.NoteDetailDto
 import com.caregiver.mobile.data.api.NoteDto
 
@@ -17,9 +18,11 @@ import com.caregiver.mobile.data.api.NoteDto
  * pending note in timelines before the server confirms it.
  *
  * Task 8c drains this table: [OutboxStatus.SYNCING] while an upload runs,
- * [OutboxStatus.FAILED] after a retryable failure, and a successful upload
- * deletes the row. Demo builds never reach this table: their graph has no
- * DAO, so demo data still never touches disk.
+ * back to [OutboxStatus.PENDING] when the server could not be reached (the
+ * worker retries with backoff), [OutboxStatus.FAILED] when the server
+ * rejected the note, and a successful upload deletes the row. Demo builds
+ * never reach this table: their graph has no DAO, so demo data still never
+ * touches disk.
  */
 @Entity(tableName = "outbox")
 data class OutboxEntity(
@@ -74,6 +77,19 @@ fun OutboxEntity.toNoteDetailDto(): NoteDetailDto = NoteDetailDto(
     fall = fall,
     text = text,
     addenda = emptyList(),
+)
+
+/** The create call the drain (Task 8c) replays for this row. */
+fun OutboxEntity.toCreateRequest(): CreateNoteRequest = CreateNoteRequest(
+    recipientId = recipientId,
+    mood = mood,
+    appetite = appetite,
+    sleep = sleep,
+    mobility = mobility,
+    medicationTaken = medicationTaken,
+    pain = pain,
+    fall = fall,
+    text = text,
 )
 
 /**

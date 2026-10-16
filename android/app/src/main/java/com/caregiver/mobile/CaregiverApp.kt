@@ -6,6 +6,8 @@ import com.caregiver.mobile.core.network.TokenHolder
 import com.caregiver.mobile.core.util.LocaleHelper
 import com.caregiver.mobile.data.AuthRepository
 import com.caregiver.mobile.data.NoteRepository
+import com.caregiver.mobile.data.OutboxDrain
+import com.caregiver.mobile.data.OutboxSyncWorker
 import com.caregiver.mobile.data.RecipientRepository
 import com.caregiver.mobile.data.RoomBackedBackendApis
 import com.caregiver.mobile.data.SettingsStore
@@ -36,6 +38,14 @@ class CaregiverApp : Application() {
         }
         super.attachBaseContext(LocaleHelper.wrap(base, language))
     }
+
+    override fun onCreate() {
+        super.onCreate()
+        // Task 8c: drain anything a previous run left in the outbox as soon
+        // as connectivity returns. Demo graphs have no outbox — and demo
+        // data must never upload — so they never schedule the worker.
+        if (!graph.isDemo) OutboxSyncWorker.schedule(this)
+    }
 }
 
 /** Manual composition root: settings, token mirror, API provider, Room cache, auth. */
@@ -56,7 +66,35 @@ class AppGraph(val context: Context, val forceProduction: Boolean = false) {
      * real Retrofit path regardless of build type. No screen, ViewModel,
      * navigation or copy changes are needed — both providers implement
      * [BackendApis].
-     *
+     */
+    private val live: BackendApis by lazy {
+        selectApis(
+            demoBackend,
+            DemoBackendApis(),
+            RetrofitBackendApis(settings, tokens),
+        )
+    }
+
+    /** Task 8a cache; production-only so demo data never reaches disk. */
+    private val db: AppDatabase? by lazy {
+        if (demoBackend) null else AppDatabase.create(context)
+    }
+
+    /**
+     * Notes with the offline outbox (Task 8b) and its drain (Task 8c).
+     * [NoteRepository.scheduleOutboxSync] is only reachable once the
+     * outbox exists (production): a demo save never schedules work.
+     */
+    val noteRepository: NoteRepository by lazy {
+        NoteRepository(
+            apis = live,
+            dao = db?.noteDao(),
+            outboxDao = db?.outboxDao(),
+            scheduleOutboxSync = { OutboxSyncWorker.schedule(context) },
+        )
+    }
+
+    /**
      * Task 8a: the backend sits behind [RoomBackedBackendApis] so
      * recipients/notes reads are served from the Room cache when offline
      * and refreshed from the network when online. Demo graphs get the same
@@ -64,16 +102,10 @@ class AppGraph(val context: Context, val forceProduction: Boolean = false) {
      * so `AppDatabase.create` is only called on the production path.
      */
     val apis: BackendApis by lazy {
-        val live = selectApis(
-            demoBackend,
-            DemoBackendApis(),
-            RetrofitBackendApis(settings, tokens),
-        )
-        val db = if (demoBackend) null else AppDatabase.create(context)
         RoomBackedBackendApis(
             live = live,
             recipients = RecipientRepository(live, db?.recipientDao()),
-            notes = NoteRepository(live, db?.noteDao(), db?.outboxDao()),
+            notes = noteRepository,
         )
     }
 
@@ -85,6 +117,9 @@ class AppGraph(val context: Context, val forceProduction: Boolean = false) {
      */
     val isDemo: Boolean
         get() = demoBackend
+
+    /** One outbox drain pass; the WorkManager worker (Task 8c) calls this. */
+    suspend fun drainOutbox(): OutboxDrain = noteRepository.drainOutbox()
 
     val auth: AuthRepository by lazy { AuthRepository(apis, settings, tokens) }
 }
