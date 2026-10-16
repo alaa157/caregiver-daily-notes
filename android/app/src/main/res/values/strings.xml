@@ -190,6 +190,11 @@
     <string name="note_row_show_more">Show more</string>
     <!-- Task 8b: clock glyph on notes waiting to sync (outbox). -->
     <string name="note_row_pending">Not synced yet</string>
+    <!-- Task 8d: sync status in the top bar; a failed sync is tappable to retry. -->
+    <string name="sync_status_synced">Synced</string>
+    <string name="sync_status_syncing">Syncing</string>
+    <string name="sync_status_offline">Offline</string>
+    <string name="sync_status_failed">Sync failed — tap to retry</string>
     <!-- Task 5: Home timeline sub-tabs and per-tab empty states. -->
     <string name="home_tab_today">Today</string>
     <string name="home_tab_attention">Needs attention</string>
