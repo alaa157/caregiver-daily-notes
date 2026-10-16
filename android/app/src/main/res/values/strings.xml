@@ -203,4 +203,7 @@
     <string name="pick_recipient_empty_body">Add your first person to start notes.</string>
     <!-- Task 6: History collapsible filter chip row. -->
     <string name="history_filters">Filters</string>
+    <!-- Task 7: avatar drawer. -->
+    <string name="drawer_open">Open navigation menu</string>
+    <string name="drawer_sync_synced">Synced</string>
 </resources>

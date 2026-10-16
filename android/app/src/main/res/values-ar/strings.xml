@@ -203,4 +203,7 @@
     <string name="pick_recipient_empty_body">أضف أول شخص للبدء بتسجيل الملاحظات.</string>
     <!-- المهمة 6: صف رقائق التصفية القابل للطي في السجل. -->
     <string name="history_filters">تصفية</string>
+    <!-- المهمة 7: درج الصورة الرمزية. -->
+    <string name="drawer_open">فتح قائمة التنقل</string>
+    <string name="drawer_sync_synced">متزامن</string>
 </resources>

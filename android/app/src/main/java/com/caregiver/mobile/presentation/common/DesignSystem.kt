@@ -52,6 +52,8 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.platform.LocalLayoutDirection
 import androidx.compose.ui.res.stringResource
+import androidx.compose.ui.semantics.contentDescription
+import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.Dp
@@ -102,6 +104,7 @@ object AppDimens {
     val AlertPad = AppSpacing.md
     val PagePad = AppSpacing.lg
     val BarSm = 6.dp
+    val Hairline = 1.dp
     val IconSm = 20.dp
     val IconMd = AppSpacing.lg
     val IconLg = 30.dp
@@ -171,6 +174,10 @@ fun AppTopBar(
  * caller's [scrollBehavior]; the owner must connect
  * `Modifier.nestedScroll(scrollBehavior.nestedScrollConnection)` to the
  * Scaffold for those events to reach it.
+ *
+ * The avatar is the bar's start action (in this app it opens the drawer):
+ * [avatarContentDescription] is its TalkBack name and [avatarModifier]
+ * carries caller additives such as the drawer test tag.
  */
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -178,7 +185,10 @@ fun AppCenterTopBar(
     title: String,
     avatarLetter: String,
     scrollBehavior: TopAppBarScrollBehavior,
+    onAvatarClick: () -> Unit,
+    avatarContentDescription: String,
     modifier: Modifier = Modifier,
+    avatarModifier: Modifier = Modifier,
     actions: @Composable RowScope.() -> Unit = {},
 ) {
     CenterAlignedTopAppBar(
@@ -192,7 +202,14 @@ fun AppCenterTopBar(
             )
         },
         navigationIcon = {
-            Avatar(avatarLetter, Modifier.size(AppDimens.TopBarAvatar))
+            IconButton(
+                onClick = onAvatarClick,
+                modifier = avatarModifier.semantics {
+                    contentDescription = avatarContentDescription
+                },
+            ) {
+                Avatar(avatarLetter, Modifier.size(AppDimens.TopBarAvatar))
+            }
         },
         actions = actions,
         colors = TopAppBarDefaults.centerAlignedTopAppBarColors(
