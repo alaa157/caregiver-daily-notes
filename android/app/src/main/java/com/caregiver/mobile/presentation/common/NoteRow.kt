@@ -45,9 +45,6 @@ import com.caregiver.mobile.core.theme.PlexArabic
  * mixed Arabic/Latin content cannot reorder under RTL.
  */
 
-/** Row avatar diameter per the spec's visual rules (X density, 40dp). */
-private val NoteRowAvatarSize = 40.dp
-
 /** Gap between pills inside the pills slot row. */
 private val NoteRowPillGap = 6.dp
 
@@ -81,7 +78,7 @@ fun NoteRow(
                 vertical = AppDimens.GapCard,
             ),
         ) {
-            Avatar(letter = avatarLetter, modifier = Modifier.size(NoteRowAvatarSize))
+            Avatar(letter = avatarLetter, modifier = Modifier.size(AppDimens.NoteRowAvatar))
             Column(
                 verticalArrangement = Arrangement.spacedBy(AppDimens.GapTight),
                 modifier = Modifier.weight(1f),
@@ -134,7 +131,7 @@ fun NoteRow(
                 Row(horizontalArrangement = Arrangement.spacedBy(NoteRowPillGap)) { actions() }
             }
         }
-        HorizontalDivider(color = CaregiverColors.BorderSoft)
+        HorizontalDivider(thickness = AppDimens.Hairline, color = CaregiverColors.BorderSoft)
     }
 }
 
@@ -151,7 +148,7 @@ fun NoteRowSkeleton(modifier: Modifier = Modifier) {
         ) {
             Box(
                 modifier = Modifier
-                    .size(NoteRowAvatarSize)
+                    .size(AppDimens.NoteRowAvatar)
                     .background(CaregiverColors.Skeleton, CircleShape),
             )
             Column(
@@ -163,6 +160,6 @@ fun NoteRowSkeleton(modifier: Modifier = Modifier) {
                 SkeletonBar(widthFraction = 0.75f)
             }
         }
-        HorizontalDivider(color = CaregiverColors.BorderSoft)
+        HorizontalDivider(thickness = AppDimens.Hairline, color = CaregiverColors.BorderSoft)
     }
 }
