@@ -186,4 +186,6 @@
     <string name="state_fall_recorded">Fall recorded</string>
     <string name="state_safety_rules">This alert is based on the app safety rules.</string>
     <string name="state_field_pain">Select the pain level before saving.</string>
+    <!-- Task 4: X-style note timeline row (NoteRow). -->
+    <string name="note_row_show_more">Show more</string>
 </resources>
