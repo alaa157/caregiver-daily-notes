@@ -113,12 +113,15 @@ dependencies {
     implementation(libs.room.ktx)
     ksp(libs.room.compiler)
 
+    implementation(libs.work.runtime)
+
     testImplementation(libs.junit)
     testImplementation(libs.coroutines.test)
     testImplementation(libs.mockwebserver)
     // DAO/repository tests run on the JVM against in-memory Room.
     testImplementation(libs.robolectric)
     testImplementation(libs.test.core)
+    testImplementation(libs.work.testing)
 
     androidTestImplementation(libs.compose.ui.test.junit4)
     androidTestImplementation(libs.test.runner)

@@ -105,6 +105,10 @@ interface NoteDao {
     @Query("SELECT * FROM notes WHERE serverId = :serverId")
     suspend fun byServerId(serverId: String): NoteEntity?
 
+    /** Finds the cached row for a synced outbox note (Task 8c localId mapping). */
+    @Query("SELECT * FROM notes WHERE localId = :localId")
+    suspend fun byLocalId(localId: String): NoteEntity?
+
     @Insert(onConflict = OnConflictStrategy.REPLACE)
     suspend fun insertAll(items: List<NoteEntity>)
 
@@ -118,10 +122,18 @@ interface NoteDao {
     )
     suspend fun deleteScope(recipientId: String?, from: String?, to: String?)
 
-    /** Replaces the cache for one queried scope (replace on refresh). */
+    /**
+     * Replaces the cache for one queried scope (replace on refresh),
+     * carrying over the localId mapping of rows the server still returns
+     * (Task 8c): a refresh must not orphan a synced outbox id that a
+     * screen may still hold.
+     */
     @Transaction
     suspend fun replaceScope(recipientId: String?, from: String?, to: String?, items: List<NoteEntity>) {
+        val localIds = query(recipientId, from, to)
+            .mapNotNull { row -> row.localId?.let { row.serverId to it } }
+            .toMap()
         deleteScope(recipientId, from, to)
-        insertAll(items)
+        insertAll(items.map { it.copy(localId = it.localId ?: localIds[it.serverId]) })
     }
 }
