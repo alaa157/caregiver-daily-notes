@@ -10,7 +10,10 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.shape.CircleShape
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.outlined.Schedule
 import androidx.compose.material3.HorizontalDivider
+import androidx.compose.material3.Icon
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
@@ -37,16 +40,21 @@ import com.caregiver.mobile.core.theme.PlexArabic
  * Full-bleed row for a LazyColumn timeline: no card, no shadow, hairline
  * BorderSoft divider at the bottom, 40dp avatar on the layout-start side.
  * Lines: name + muted dot + relative time, note body (max 4 lines, then
- * "Show more"), pills slot, actions slot.
+ * "Show more"), pills slot, actions slot. [pending] rows (Task 8b, an
+ * outbox note not yet on the server) carry a small clock glyph after the
+ * time, like an unsent post.
  *
  * Plain values plus composable slots — no view model, DTO, or UI state type
- * crosses this API, so Tasks 5 and 6 can feed it from any screen. Names and
- * relative times are wrapped in [Bidi.isolate] exactly like HomeScreen, so
- * mixed Arabic/Latin content cannot reorder under RTL.
+ * crosses this API, so any screen can feed it. Names and relative times are
+ * wrapped in [Bidi.isolate] exactly like HomeScreen, so mixed Arabic/Latin
+ * content cannot reorder under RTL.
  */
 
 /** Row avatar diameter per the spec's visual rules (X density, 40dp). */
 private val NoteRowAvatarSize = 40.dp
+
+/** Clock glyph marking a note still waiting to sync (Task 8b). */
+private val NoteRowPendingIconSize = 14.dp
 
 /** Gap between pills inside the pills slot row. */
 private val NoteRowPillGap = 6.dp
@@ -62,6 +70,7 @@ fun NoteRow(
     body: String,
     onClick: () -> Unit,
     modifier: Modifier = Modifier,
+    pending: Boolean = false,
     pills: @Composable () -> Unit = {},
     actions: @Composable () -> Unit = {},
 ) {
@@ -104,6 +113,17 @@ fun NoteRow(
                         color = CaregiverColors.Muted,
                         maxLines = 1,
                     )
+                    if (pending) {
+                        Icon(
+                            imageVector = Icons.Outlined.Schedule,
+                            contentDescription = stringResource(R.string.note_row_pending),
+                            tint = CaregiverColors.Muted,
+                            modifier = Modifier
+                                .padding(start = AppDimens.GapTight)
+                                .size(NoteRowPendingIconSize)
+                                .testTag("note_row_pending"),
+                        )
+                    }
                 }
                 Text(
                     text = body,

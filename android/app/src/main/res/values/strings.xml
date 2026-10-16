@@ -188,6 +188,8 @@
     <string name="state_field_pain">Select the pain level before saving.</string>
     <!-- Task 4: X-style note timeline row (NoteRow). -->
     <string name="note_row_show_more">Show more</string>
+    <!-- Task 8b: clock glyph on notes waiting to sync (outbox). -->
+    <string name="note_row_pending">Not synced yet</string>
     <!-- Task 5: Home timeline sub-tabs and per-tab empty states. -->
     <string name="home_tab_today">Today</string>
     <string name="home_tab_attention">Needs attention</string>

@@ -62,3 +62,16 @@ incrementally: every refresh re-fetches the queried scope and replaces the
 cached rows for it (`TODO(api-gap)` in `RecipientRepository` and
 `NoteRepository`). A timestamp or delta filter would let the client apply
 small deltas instead of re-fetching whole scopes.
+
+## Note creation has no idempotency key
+
+`POST /api/notes` accepts no client-generated id and no idempotency key, so
+the server cannot deduplicate a create that is retried. Task 8b still
+generates a client UUID per note saved offline — it identifies the outbox
+row and the pending timeline row — but the request has nowhere to send it
+(`TODO(api-gap)` in `NoteRepository.create`). Task 8c's retries therefore
+risk re-creating a note the server already accepted; the one-note-per-day
+rule answers those with a 422 `VALIDATION_ERROR` instead of a silent
+duplicate, but only for same-day retries and it cannot tell the client's
+own retry from a different device's note. Accepting a client id (or an
+idempotency key) on create would make retries safely repeatable.

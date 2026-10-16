@@ -4,19 +4,21 @@ import android.content.Context
 import androidx.room.Database
 import androidx.room.Room
 import androidx.room.RoomDatabase
+import androidx.room.migration.Migration
+import androidx.sqlite.db.SupportSQLiteDatabase
 
 /**
- * Room cache of recipients and notes (Task 8a) — the offline copy the
- * repositories read from and the network refresh writes to. Version 1 is
- * the cache only; the outbox table lands in Task 8b (bump the version and
- * export a migration there).
+ * Room cache of recipients and notes (Task 8a) plus the note outbox
+ * (Task 8b) — the offline copy the repositories read from, the network
+ * refresh writes to, and the queue for notes saved while offline.
  *
- * The exported schema (`app/schemas/`) is committed so 8b/8c migrations
- * have a baseline to diff against.
+ * The exported schema (`app/schemas/`) is committed so migrations have a
+ * baseline to diff against: 1.json is the Task 8a cache-only shape, 2.json
+ * adds the outbox.
  */
 @Database(
-    entities = [RecipientEntity::class, NoteEntity::class],
-    version = 1,
+    entities = [RecipientEntity::class, NoteEntity::class, OutboxEntity::class],
+    version = 2,
     exportSchema = true,
 )
 abstract class AppDatabase : RoomDatabase() {
@@ -24,7 +26,36 @@ abstract class AppDatabase : RoomDatabase() {
 
     abstract fun noteDao(): NoteDao
 
+    abstract fun outboxDao(): OutboxDao
+
     companion object {
+        /**
+         * Task 8b: adds the outbox table. Must stay identical to the
+         * `CREATE TABLE` Room generates for [OutboxEntity] (see the
+         * exported 2.json schema).
+         */
+        val MIGRATION_1_2: Migration = object : Migration(1, 2) {
+            override fun migrate(db: SupportSQLiteDatabase) {
+                db.execSQL(
+                    "CREATE TABLE IF NOT EXISTS `outbox` (" +
+                        "`localId` TEXT NOT NULL, " +
+                        "`recipientId` TEXT NOT NULL, " +
+                        "`mood` TEXT NOT NULL, " +
+                        "`appetite` TEXT NOT NULL, " +
+                        "`sleep` TEXT NOT NULL, " +
+                        "`mobility` TEXT NOT NULL, " +
+                        "`medicationTaken` TEXT NOT NULL, " +
+                        "`pain` INTEGER NOT NULL, " +
+                        "`fall` INTEGER NOT NULL, " +
+                        "`text` TEXT NOT NULL, " +
+                        "`date` TEXT NOT NULL, " +
+                        "`createdAt` INTEGER NOT NULL, " +
+                        "`status` TEXT NOT NULL, " +
+                        "PRIMARY KEY(`localId`))",
+                )
+            }
+        }
+
         /**
          * File-backed database for production graphs. Demo graphs never
          * call this: demo data must not reach disk (Task 8a rule), so
@@ -33,6 +64,7 @@ abstract class AppDatabase : RoomDatabase() {
          */
         fun create(context: Context): AppDatabase =
             Room.databaseBuilder(context.applicationContext, AppDatabase::class.java, "caregiver-db")
+                .addMigrations(MIGRATION_1_2)
                 .build()
     }
 }
