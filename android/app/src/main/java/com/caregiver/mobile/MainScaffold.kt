@@ -1,8 +1,12 @@
 package com.caregiver.mobile
 
+import androidx.activity.ComponentActivity
+import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.animation.core.tween
 import androidx.compose.animation.fadeIn
 import androidx.compose.animation.fadeOut
+import androidx.compose.animation.scaleIn
+import androidx.compose.animation.scaleOut
 import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.layout.WindowInsets
 import androidx.compose.foundation.layout.fillMaxWidth
@@ -11,9 +15,7 @@ import androidx.compose.foundation.layout.navigationBars
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.windowInsetsPadding
-import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.Add
 import androidx.compose.material.icons.filled.History
 import androidx.compose.material.icons.filled.Home
 import androidx.compose.material.icons.filled.NoteAdd
@@ -24,24 +26,28 @@ import androidx.compose.material.icons.outlined.Home
 import androidx.compose.material.icons.outlined.NoteAdd
 import androidx.compose.material.icons.outlined.People
 import androidx.compose.material3.ExperimentalMaterial3Api
-import androidx.compose.material3.ExtendedFloatingActionButton
+import androidx.compose.material3.FloatingActionButton
 import androidx.compose.material3.Icon
 import androidx.compose.material3.NavigationBar
 import androidx.compose.material3.NavigationBarItem
 import androidx.compose.material3.NavigationBarItemDefaults
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Surface
-import androidx.compose.material3.Text
 import androidx.compose.material3.TopAppBarDefaults
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.collectAsState
+import androidx.compose.runtime.derivedStateOf
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.saveable.rememberSaveable
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.input.nestedscroll.nestedScroll
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.res.stringResource
-import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.navigation.NavGraph.Companion.findStartDestination
@@ -58,6 +64,7 @@ import com.caregiver.mobile.core.navigation.ScrollToTop
 import com.caregiver.mobile.core.theme.CaregiverColors
 import com.caregiver.mobile.presentation.common.AppCenterTopBar
 import com.caregiver.mobile.presentation.common.AppDimens
+import com.caregiver.mobile.presentation.common.assistedViewModel
 import com.caregiver.mobile.presentation.history.HistoryScreen
 import com.caregiver.mobile.presentation.home.HomeScreen
 import com.caregiver.mobile.presentation.home.HomeViewModel
@@ -65,13 +72,16 @@ import com.caregiver.mobile.presentation.notes.AddendumScreen
 import com.caregiver.mobile.presentation.notes.NoteDetailScreen
 import com.caregiver.mobile.presentation.notes.NoteEditorScreen
 import com.caregiver.mobile.presentation.notes.NoteSavedScreen
+import com.caregiver.mobile.presentation.notes.RecipientPickerSheet
 import com.caregiver.mobile.presentation.plans.PlanEditScreen
 import com.caregiver.mobile.presentation.plans.PlanProposalScreen
 import com.caregiver.mobile.presentation.plans.PlanVersionsScreen
 import com.caregiver.mobile.presentation.plans.PlansScreen
 import com.caregiver.mobile.presentation.recipients.AddRecipientScreen
+import com.caregiver.mobile.presentation.recipients.PeopleState
 import com.caregiver.mobile.presentation.recipients.RecipientDetailScreen
 import com.caregiver.mobile.presentation.recipients.RecipientsScreen
+import com.caregiver.mobile.presentation.recipients.RecipientsViewModel
 import com.caregiver.mobile.presentation.settings.SettingsScreen
 import com.caregiver.mobile.presentation.summary.SummaryPeriodScreen
 import com.caregiver.mobile.presentation.summary.SummaryResultScreen
@@ -99,6 +109,23 @@ fun MainScaffold(graph: AppGraph) {
     // so the bar and the greeting agree; "?" while the session state loads.
     val email by graph.settings.email.collectAsState(initial = null)
     val avatarLetter = HomeViewModel.displayName(email)?.take(1)?.uppercase() ?: "?"
+
+    // Shared recipients source: the exact activity-scoped "people-shared"
+    // VM the People tab uses — no new repository, no second data path.
+    // Without an activity (compose-rule tests) it falls back to the local
+    // store owner, mirroring RecipientsScreen.
+    val activity = LocalContext.current as? ComponentActivity
+    val recipientsVm: RecipientsViewModel = assistedViewModel("people-shared", activity) {
+        RecipientsViewModel(graph.apis, graph.auth)
+    }
+    val peopleState by recipientsVm.state.collectAsState()
+    val activeRecipients = (peopleState as? PeopleState.Content)
+        ?.recipients?.filter { it.active }
+        .orEmpty()
+
+    // Shown only when the picker has something to ask: exactly one active
+    // person goes straight to the editor instead.
+    var showRecipientPicker by rememberSaveable { mutableStateOf(false) }
 
     Scaffold(
         containerColor = CaregiverColors.Background,
@@ -205,31 +232,40 @@ fun MainScaffold(graph: AppGraph) {
             }
         },
         floatingActionButton = {
-            // "Add note" starts the existing note-creation flow, whose
-            // first step is recipient selection: the editor route requires
-            // a recipient id, and picking happens on the People tab
-            // (list → detail → Add note → editor). Routing here preserves
-            // that product flow instead of inventing a recipient-less one.
-            ExtendedFloatingActionButton(
-                onClick = { navController.navigate(MainTab.People.route) },
-                icon = {
+            // X pattern: the round add-note button hides while content
+            // scrolls down and returns on scroll-up — driven by the same
+            // nested-scroll behavior that hides the top bar.
+            val fabVisible by remember {
+                derivedStateOf { scrollBehavior.state.heightOffset == 0f }
+            }
+            AnimatedVisibility(
+                visible = fabVisible,
+                enter = fadeIn() + scaleIn(),
+                exit = fadeOut() + scaleOut(),
+            ) {
+                FloatingActionButton(
+                    onClick = {
+                        val only = activeRecipients.singleOrNull()
+                        if (only != null) {
+                            // Exactly one active person: skip the picker.
+                            navController.navigate(AppRoutes.noteEditor(only.id))
+                        } else {
+                            showRecipientPicker = true
+                        }
+                    },
+                    containerColor = CaregiverColors.Primary,
+                    contentColor = CaregiverColors.Surface,
+                    modifier = Modifier
+                        .size(AppDimens.FabSize)
+                        .testTag("fab_add_note"),
+                ) {
                     Icon(
-                        Icons.Filled.Add,
-                        contentDescription = null,
-                        modifier = Modifier.size(18.dp),
+                        Icons.Filled.NoteAdd,
+                        contentDescription = stringResource(R.string.fab_add_note),
+                        modifier = Modifier.size(AppDimens.IconMd),
                     )
-                },
-                text = {
-                    Text(
-                        stringResource(R.string.fab_add_note),
-                        fontWeight = FontWeight.Bold,
-                    )
-                },
-                containerColor = CaregiverColors.Primary,
-                contentColor = CaregiverColors.Surface,
-                shape = RoundedCornerShape(AppDimens.FabRadius),
-                modifier = Modifier.height(AppDimens.ButtonLargeH),
-            )
+                }
+            }
         },
     ) { innerPadding ->
         // Fast cross-fade between destinations: the Navigation-Compose
@@ -336,5 +372,24 @@ fun MainScaffold(graph: AppGraph) {
                 SettingsScreen(graph, navController)
             }
         }
+    }
+
+    // X-style picker: a ModalBottomSheet of the active people; loading shows
+    // skeleton bars, an empty list offers the add-person flow. The safety
+    // banner lives inside the tab content and is never touched by this.
+    if (showRecipientPicker) {
+        RecipientPickerSheet(
+            recipients = activeRecipients,
+            loading = peopleState is PeopleState.Loading,
+            onPick = { recipientId ->
+                showRecipientPicker = false
+                navController.navigate(AppRoutes.noteEditor(recipientId))
+            },
+            onAddPerson = {
+                showRecipientPicker = false
+                navController.navigate(AppDestinations.AddRecipient.base)
+            },
+            onDismiss = { showRecipientPicker = false },
+        )
     }
 }

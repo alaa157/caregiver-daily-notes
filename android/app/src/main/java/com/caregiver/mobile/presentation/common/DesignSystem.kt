@@ -94,6 +94,7 @@ object AppDimens {
     val LogoRadius = AppSpacing.md
     val AvatarSize = AppSpacing.xxl
     val FabRadius = 28.dp
+    val FabSize = 56.dp
     val SuccessCircle = 72.dp
     val GapTight = AppSpacing.xs
     val GapForm = AppSpacing.sm

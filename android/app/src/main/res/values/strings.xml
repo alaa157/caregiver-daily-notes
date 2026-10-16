@@ -197,4 +197,8 @@
     <string name="home_empty_attention_title">Nothing needs attention</string>
     <string name="home_empty_attention_body">High pain or a fall will be flagged here.</string>
     <string name="home_empty_view_all">View all</string>
+    <!-- Task 3: round FAB recipient picker sheet. -->
+    <string name="pick_recipient_title">Who is this note for?</string>
+    <string name="pick_recipient_empty_title">No people yet</string>
+    <string name="pick_recipient_empty_body">Add your first person to start notes.</string>
 </resources>
