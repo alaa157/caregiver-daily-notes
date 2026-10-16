@@ -122,6 +122,9 @@ dependencies {
     testImplementation(libs.robolectric)
     testImplementation(libs.test.core)
     testImplementation(libs.work.testing)
+    // Robolectric-driven Compose harness (top-bar scroll regression lock).
+    testImplementation(platform(libs.compose.bom))
+    testImplementation(libs.compose.ui.test.junit4)
 
     androidTestImplementation(libs.compose.ui.test.junit4)
     androidTestImplementation(libs.test.runner)

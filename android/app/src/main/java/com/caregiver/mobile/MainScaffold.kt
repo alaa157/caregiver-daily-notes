@@ -13,6 +13,7 @@ import androidx.compose.foundation.layout.WindowInsets
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.navigationBars
+import androidx.compose.foundation.layout.offset
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.windowInsetsPadding
@@ -35,23 +36,22 @@ import androidx.compose.material3.NavigationBarItem
 import androidx.compose.material3.NavigationBarItemDefaults
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Surface
-import androidx.compose.material3.TopAppBarDefaults
 import androidx.compose.material3.rememberDrawerState
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.collectAsState
-import androidx.compose.runtime.derivedStateOf
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
-import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.input.nestedscroll.nestedScroll
+import androidx.compose.ui.layout.onSizeChanged
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.res.stringResource
+import androidx.compose.ui.unit.IntOffset
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.navigation.NavGraph.Companion.findStartDestination
@@ -72,6 +72,7 @@ import com.caregiver.mobile.presentation.common.AppCenterTopBar
 import com.caregiver.mobile.presentation.common.AppDrawer
 import com.caregiver.mobile.presentation.common.AppDimens
 import com.caregiver.mobile.presentation.common.assistedViewModel
+import com.caregiver.mobile.presentation.common.rememberTopBarHideState
 import com.caregiver.mobile.presentation.common.SyncStatus
 import com.caregiver.mobile.presentation.common.SyncStatusIndicator
 import com.caregiver.mobile.presentation.common.SyncStatusViewModel
@@ -96,6 +97,7 @@ import com.caregiver.mobile.presentation.settings.SettingsScreen
 import com.caregiver.mobile.presentation.summary.SummaryPeriodScreen
 import com.caregiver.mobile.presentation.summary.SummaryResultScreen
 import java.time.LocalDate
+import kotlin.math.roundToInt
 import kotlinx.coroutines.launch
 
 /** Destination cross-fade duration; shorter than Nav defaults so tab taps feel instant. */
@@ -114,7 +116,11 @@ fun MainScaffold(graph: AppGraph) {
 
     // X-style shared top bar, tab routes only; it hides on scroll-down and
     // returns on scroll-up (nested scroll is connected to the Scaffold below).
-    val scrollBehavior = TopAppBarDefaults.enterAlwaysScrollBehavior()
+    // Our own offset, not material3's stock scroll behavior: the stock one
+    // collapses by a hardcoded 64dp and lays a shorter bar out at a negative
+    // height when it fully hides — "Size(.., -16) is out of range" — which
+    // killed the app on the first scroll (demo-v0.8.0). See TopBarHide.
+    val topBarHide = rememberTopBarHideState()
 
     // Avatar drawer: opened from the top-bar avatar or a swipe from the start
     // edge; the stock drawer component mirrors both in RTL by itself.
@@ -196,7 +202,7 @@ fun MainScaffold(graph: AppGraph) {
     ) {
         Scaffold(
             containerColor = CaregiverColors.Background,
-            modifier = Modifier.nestedScroll(scrollBehavior.nestedScrollConnection),
+            modifier = Modifier.nestedScroll(topBarHide.nestedScrollConnection),
             topBar = {
                 // The four tab routes share the center-aligned bar; detail routes
                 // keep drawing their own AppTopBar with a back button, so nothing
@@ -205,10 +211,12 @@ fun MainScaffold(graph: AppGraph) {
                     AppCenterTopBar(
                         title = stringResource(R.string.app_name),
                         avatarLetter = avatarLetter,
-                        scrollBehavior = scrollBehavior,
                         onAvatarClick = { scope.launch { drawerState.open() } },
                         avatarContentDescription = stringResource(R.string.drawer_open),
                         avatarModifier = Modifier.testTag("drawer_avatar"),
+                        modifier = Modifier
+                            .offset { IntOffset(0, topBarHide.offsetPx.roundToInt()) }
+                            .onSizeChanged { topBarHide.updateBarHeight(it.height.toFloat()) },
                         actions = {
                             // Task 8d: the end slot mirrors the outbox — synced,
                             // syncing, offline, or failed (tap to retry).
@@ -295,11 +303,9 @@ fun MainScaffold(graph: AppGraph) {
             },
             floatingActionButton = {
                 // X pattern: the round add-note button hides while content
-                // scrolls down and returns on scroll-up — driven by the same
-                // nested-scroll behavior that hides the top bar.
-                val fabVisible by remember {
-                    derivedStateOf { scrollBehavior.state.heightOffset == 0f }
-                }
+                // scrolls down and returns on scroll-up — same offset signal
+                // as the shared top bar above.
+                val fabVisible = topBarHide.offsetPx == 0f
                 AnimatedVisibility(
                     visible = fabVisible,
                     enter = fadeIn() + scaleIn(),

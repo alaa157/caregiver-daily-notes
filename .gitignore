@@ -11,6 +11,8 @@ target/
 # Android local state (Gradle 8+ puts these under android/).
 android/.gradle/
 android/local.properties
+# Kotlin build-session caches (K2 compiler FS writes).
+android/.kotlin/
 
 # Eclipse / IntelliJ.
 .classpath
