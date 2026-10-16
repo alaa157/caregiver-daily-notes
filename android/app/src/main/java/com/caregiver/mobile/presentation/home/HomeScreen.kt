@@ -1,7 +1,7 @@
 package com.caregiver.mobile.presentation.home
 
-import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
@@ -9,24 +9,32 @@ import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
-import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Add
-import androidx.compose.material.icons.filled.People
 import androidx.compose.material.icons.filled.Check
-import androidx.compose.material.icons.filled.Warning
-import androidx.compose.material3.Button
-import androidx.compose.material3.ButtonDefaults
+import androidx.compose.material.icons.filled.DateRange
+import androidx.compose.material.icons.filled.People
+import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.Icon
-import androidx.compose.material3.LinearProgressIndicator
+import androidx.compose.material3.PrimaryTabRow
+import androidx.compose.material3.Tab
 import androidx.compose.material3.Text
+import androidx.compose.material3.TextButton
+import androidx.compose.material3.pulltorefresh.PullToRefreshBox
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.saveable.rememberSaveable
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
@@ -43,154 +51,333 @@ import com.caregiver.mobile.presentation.common.AppDimens
 import com.caregiver.mobile.presentation.common.AppEmptyState
 import com.caregiver.mobile.presentation.common.AppErrorState
 import com.caregiver.mobile.presentation.common.AppLoadingSkeleton
-import com.caregiver.mobile.presentation.common.Avatar
-import com.caregiver.mobile.presentation.common.BusyBar
-import com.caregiver.mobile.presentation.common.GreenPill
 import com.caregiver.mobile.presentation.common.GrayPill
+import com.caregiver.mobile.presentation.common.GreenPill
+import com.caregiver.mobile.presentation.common.NoteRow
+import com.caregiver.mobile.presentation.common.NoteRowSkeleton
 import com.caregiver.mobile.presentation.common.RedPill
 import com.caregiver.mobile.presentation.common.SafetyAlertCard
-import com.caregiver.mobile.presentation.common.YellowPill
 import com.caregiver.mobile.presentation.common.assistedViewModel
 import com.caregiver.mobile.presentation.notes.OptionGroup
 import com.caregiver.mobile.presentation.notes.OptionLabels
 import java.util.Locale
 
-/** Home dashboard (board 2): greeting, today progress, safety banner, cards. */
+/**
+ * Home timeline (Task 5): greeting, compact stats, then one [NoteRow] per
+ * care recipient, filtered by the Today / Needs attention / All sub-tabs.
+ *
+ * The fall-safety banner is pinned OUTSIDE the feed (Rule 6): it sits under
+ * the shared top bar and above the sub-tabs, so scrolling can never hide it.
+ * Filtering is pure client-side over the dashboard's single bounded load —
+ * one row per recipient, so no pagination and no per-tab request.
+ */
 @Composable
 fun HomeScreen(graph: AppGraph, navController: NavController) {
     val vm: HomeViewModel = assistedViewModel("home") {
         HomeViewModel(graph.auth, graph.settings)
     }
     val state by vm.state.collectAsState()
-    Column(Modifier.fillMaxSize().padding(horizontal = AppDimens.ScreenHPadding)) {
-        when (val s = state) {
-            HomeState.Loading, HomeState.Idle -> {
-                Spacer(Modifier.height(16.dp))
-                AppLoadingSkeleton()
+    when (val s = state) {
+        HomeState.Loading, HomeState.Idle -> HomeLoadingRows()
+        is HomeState.Error -> HomeErrorState(
+            flags = s.lastContent?.flags.orEmpty(),
+            onRetry = vm::refresh,
+        )
+        is HomeState.Content -> HomeTimeline(
+            content = s.content,
+            refreshing = s.refreshing,
+            onRefresh = vm::refresh,
+            navController = navController,
+        )
+    }
+}
+
+/** Skeleton rows shown while the dashboard loads (Task 5). */
+private const val LOADING_ROWS = 4
+
+private val HomeTab.testTag: String
+    get() = when (this) {
+        HomeTab.Today -> "home_tab_today"
+        HomeTab.NeedsAttention -> "home_tab_attention"
+        HomeTab.All -> "home_tab_all"
+    }
+
+private val HomeTab.labelRes: Int
+    get() = when (this) {
+        HomeTab.Today -> R.string.home_tab_today
+        HomeTab.NeedsAttention -> R.string.home_tab_attention
+        HomeTab.All -> R.string.home_tab_all
+    }
+
+@Composable
+private fun HomeLoadingRows() {
+    Column(modifier = Modifier.fillMaxSize()) {
+        Spacer(Modifier.height(AppDimens.GapForm))
+        repeat(LOADING_ROWS) { NoteRowSkeleton() }
+    }
+}
+
+@Composable
+private fun HomeErrorState(flags: List<SafetyFlag>, onRetry: () -> Unit) {
+    Column(
+        modifier = Modifier
+            .fillMaxSize()
+            .padding(horizontal = AppDimens.ScreenHPadding),
+        verticalArrangement = Arrangement.spacedBy(AppDimens.SectionGap),
+    ) {
+        Spacer(Modifier.height(AppDimens.GapCard))
+        // Retained flags stay pinned here too: a failed refresh must never
+        // hide a known fall (same rule as the content path below).
+        if (flags.isNotEmpty()) {
+            SafetyBanner(flags)
+        }
+        AppErrorState(
+            message = stringResource(R.string.common_loading_failed),
+            onRetry = onRetry,
+        )
+    }
+}
+
+@OptIn(ExperimentalMaterial3Api::class)
+@Composable
+private fun HomeTimeline(
+    content: HomeContent,
+    refreshing: Boolean,
+    onRefresh: () -> Unit,
+    navController: NavController,
+) {
+    var selectedTab by rememberSaveable { mutableStateOf(HomeTab.Today) }
+    val listState = rememberLazyListState()
+    // TODO(task-2): collect ScrollToTop.events for route "home" and scroll the LazyListState to item 0
+    Column(modifier = Modifier.fillMaxSize()) {
+        if (content.flags.isNotEmpty()) {
+            Box(
+                modifier = Modifier.padding(
+                    start = AppDimens.ScreenHPadding,
+                    top = AppDimens.GapForm,
+                    end = AppDimens.ScreenHPadding,
+                    bottom = AppDimens.GapForm,
+                ),
+            ) {
+                SafetyBanner(content.flags)
             }
-            is HomeState.Error -> {
-                Spacer(Modifier.height(16.dp))
-                val flags = s.lastContent?.flags.orEmpty()
-                Column(verticalArrangement = Arrangement.spacedBy(AppDimens.SectionGap)) {
-                    if (flags.isNotEmpty()) {
-                        SafetyBanner(flags)
-                    }
-                    AppErrorState(
-                        message = stringResource(R.string.common_loading_failed),
-                        onRetry = vm::refresh,
+        }
+        PrimaryTabRow(
+            selectedTabIndex = selectedTab.ordinal,
+            modifier = Modifier.testTag("home_tabs"),
+        ) {
+            HomeTab.entries.forEach { tab ->
+                Tab(
+                    selected = tab == selectedTab,
+                    onClick = { selectedTab = tab },
+                    text = {
+                        Text(
+                            text = stringResource(tab.labelRes),
+                            fontFamily = PlexArabic,
+                            fontWeight = FontWeight.Bold,
+                            fontSize = 14.sp,
+                        )
+                    },
+                    modifier = Modifier.testTag(tab.testTag),
+                )
+            }
+        }
+        PullToRefreshBox(
+            isRefreshing = refreshing,
+            onRefresh = onRefresh,
+            modifier = Modifier.fillMaxSize(),
+        ) {
+            val cards = homeCardsForTab(content.cards, selectedTab)
+            LazyColumn(
+                state = listState,
+                modifier = Modifier.fillMaxSize(),
+            ) {
+                item(key = "greeting") {
+                    // Greeting is the first feed item (Task 1 moved it out
+                    // of the old inline header row).
+                    Text(
+                        text = greetingText(content.greeting),
+                        fontFamily = PlexArabic,
+                        fontWeight = FontWeight.Bold,
+                        fontSize = 22.sp,
+                        lineHeight = 28.sp,
+                        color = CaregiverColors.Ink,
+                        modifier = Modifier.padding(
+                            start = AppDimens.ScreenHPadding,
+                            top = AppDimens.GapForm,
+                            end = AppDimens.ScreenHPadding,
+                        ),
                     )
                 }
-            }
-            is HomeState.Content -> {
-                // Rule 6 (spec): the fall-safety banner is pinned OUTSIDE the
-                // feed's scroll container, directly under the shared top bar,
-                // so scrolling can never hide it. The error branch above does
-                // the same for retained flags.
-                if (s.content.flags.isNotEmpty()) {
-                    Spacer(Modifier.height(AppDimens.GapForm))
-                    SafetyBanner(s.content.flags)
+                item(key = "stats") {
+                    HomeStatsRow(
+                        done = content.done,
+                        total = content.total,
+                        attention = content.cards.count(::needsAttention),
+                    )
                 }
-                if (s.refreshing) {
-                    LinearProgressIndicator(modifier = Modifier.fillMaxWidth())
+                when {
+                    content.cards.isEmpty() -> item(key = "empty-people") {
+                        EmptyItem {
+                            AppEmptyState(
+                                icon = Icons.Filled.People,
+                                title = stringResource(R.string.people_empty),
+                                subtitle = stringResource(R.string.home_section_today),
+                                actionLabel = stringResource(R.string.people_add),
+                                onAction = { navController.navigate("people") },
+                            )
+                        }
+                    }
+                    cards.isEmpty() -> item(key = "empty-tab") {
+                        EmptyItem {
+                            TabEmptyState(selectedTab) { selectedTab = HomeTab.All }
+                        }
+                    }
+                    else -> items(cards, key = { it.recipientId }) { card ->
+                        RecipientRow(card) {
+                            navController.navigate(AppRoutes.recipientDetail(card.recipientId))
+                        }
+                    }
                 }
-                HomeContent(s.content, navController)
             }
         }
     }
 }
 
 @Composable
-private fun HomeContent(content: HomeContent, navController: NavController) {
-    LazyColumn(
-        modifier = Modifier.fillMaxSize(),
-        verticalArrangement = Arrangement.spacedBy(AppDimens.SectionGap),
+private fun EmptyItem(content: @Composable () -> Unit) {
+    Box(
+        modifier = Modifier.padding(
+            start = AppDimens.ScreenHPadding,
+            top = AppDimens.SectionGap,
+            end = AppDimens.ScreenHPadding,
+            bottom = AppDimens.SectionGap,
+        ),
     ) {
-        item {
-            // Greeting is the first feed item: Task 1 removed the old inline
-            // header row (the shared top bar now owns the avatar and the
-            // status action). Today's progress lives in the status card below
-            // (single source, no repeated metric).
+        content()
+    }
+}
+
+/** Per-tab empty state with a client-side jump to the All tab. */
+@Composable
+private fun TabEmptyState(tab: HomeTab, onViewAll: () -> Unit) {
+    if (tab == HomeTab.Today) {
+        AppEmptyState(
+            icon = Icons.Filled.DateRange,
+            title = stringResource(R.string.home_empty_today_title),
+            subtitle = stringResource(R.string.home_empty_today_body),
+            actionLabel = stringResource(R.string.home_empty_view_all),
+            onAction = onViewAll,
+        )
+    } else {
+        AppEmptyState(
+            icon = Icons.Filled.Check,
+            title = stringResource(R.string.home_empty_attention_title),
+            subtitle = stringResource(R.string.home_empty_attention_body),
+            actionLabel = stringResource(R.string.home_empty_view_all),
+            onAction = onViewAll,
+        )
+    }
+}
+
+@Composable
+private fun HomeStatsRow(done: Int, total: Int, attention: Int) {
+    Row(
+        horizontalArrangement = Arrangement.spacedBy(AppDimens.GapCard),
+        modifier = Modifier
+            .fillMaxWidth()
+            .padding(
+                start = AppDimens.ScreenHPadding,
+                top = AppDimens.GapCard,
+                end = AppDimens.ScreenHPadding,
+                bottom = AppDimens.GapCard,
+            ),
+    ) {
+        AppCard(modifier = Modifier.weight(1f), padding = AppDimens.GapCard) {
             Text(
-                text = greetingText(content.greeting),
+                stringResource(R.string.home_notes_today),
                 fontFamily = PlexArabic,
-                fontWeight = FontWeight.Bold,
-                fontSize = 22.sp,
-                lineHeight = 28.sp,
-                color = CaregiverColors.Ink,
-                modifier = Modifier.padding(top = AppDimens.GapForm),
+                fontSize = 13.sp,
+                color = CaregiverColors.Muted,
             )
-        }
-        item {
-            // Stats row: ملاحظات اليوم + تحتاج إلى الانتباه.
-            val attention = content.cards.count {
-                it.chips.contains(RecipientChip.HighPain) ||
-                    it.chips.contains(RecipientChip.FallFlag)
-            }
-            Row(horizontalArrangement = Arrangement.spacedBy(10.dp)) {
-                AppCard(
-                    modifier = Modifier.weight(1f),
-                    padding = 12.dp,
-                ) {
-                    Text(
-                        stringResource(R.string.home_notes_today),
-                        fontFamily = PlexArabic,
-                        fontSize = 13.sp,
-                        color = CaregiverColors.Muted,
-                    )
-                    Text(
-                        stringResource(R.string.home_today_progress, content.done, content.total),
-                        fontFamily = PlexArabic,
-                        fontWeight = FontWeight.Bold,
-                        fontSize = 18.sp,
-                        color = CaregiverColors.Ink,
-                    )
-                }
-                AppCard(
-                    modifier = Modifier.weight(1f),
-                    padding = 12.dp,
-                ) {
-                    Text(
-                        stringResource(R.string.home_needs_attention),
-                        fontFamily = PlexArabic,
-                        fontSize = 13.sp,
-                        color = CaregiverColors.Muted,
-                    )
-                    Text(
-                        "$attention",
-                        fontFamily = PlexArabic,
-                        fontWeight = FontWeight.Bold,
-                        fontSize = 18.sp,
-                        color = CaregiverColors.Ink,
-                    )
-                }
-            }
-        }
-        item {
             Text(
-                stringResource(R.string.home_section_today),
+                stringResource(R.string.home_today_progress, done, total),
                 fontFamily = PlexArabic,
                 fontWeight = FontWeight.Bold,
-                fontSize = 17.sp,
+                fontSize = 18.sp,
                 color = CaregiverColors.Ink,
             )
         }
-        if (content.cards.isEmpty()) {
-            item {
-                AppEmptyState(
-                    icon = Icons.Filled.People,
-                    title = stringResource(R.string.people_empty),
-                    subtitle = stringResource(R.string.home_section_today),
-                    actionLabel = stringResource(R.string.people_add),
-                    onAction = { navController.navigate("people") },
-                )
-            }
-        } else {
-            items(content.cards, key = { it.recipientId }) { card ->
-                PersonCard(card) {
-                    navController.navigate(AppRoutes.recipientDetail(card.recipientId))
-                }
-            }
+        AppCard(modifier = Modifier.weight(1f), padding = AppDimens.GapCard) {
+            Text(
+                stringResource(R.string.home_needs_attention),
+                fontFamily = PlexArabic,
+                fontSize = 13.sp,
+                color = CaregiverColors.Muted,
+            )
+            Text(
+                "$attention",
+                fontFamily = PlexArabic,
+                fontWeight = FontWeight.Bold,
+                fontSize = 18.sp,
+                color = CaregiverColors.Ink,
+            )
         }
+    }
+}
+
+/**
+ * One care recipient as a timeline row (Task 5): the chips and last-note
+ * summary come from the dashboard's single bounded load.
+ */
+@Composable
+private fun RecipientRow(card: HomeCard, onOpen: () -> Unit) {
+    val arabic = Locale.getDefault().language == "ar"
+    NoteRow(
+        avatarLetter = card.name.take(1),
+        name = card.name,
+        // TODO(api-gap): the API carries only a day-precision note date, no
+        // timestamp, so the row's time slot stays empty — the client must
+        // not invent one. A note timestamp field would close this gap.
+        time = "",
+        body = card.lastNote?.let { note ->
+            stringResource(R.string.person_last_note) + ": " +
+                OptionLabels.label(OptionGroup.Appetite, note.appetite, arabic) + " · " +
+                OptionLabels.label(OptionGroup.Sleep, note.sleep, arabic)
+        } ?: "",
+        onClick = onOpen,
+        pills = { card.chips.forEach { ChipView(it) } },
+        actions = {
+            if (card.chips.contains(RecipientChip.MissedToday) ||
+                card.chips.contains(RecipientChip.NoNote)
+            ) {
+                AddNoteAction(onClick = onOpen)
+            }
+        },
+    )
+}
+
+/** Compact X-style action row entry for recipients missing today's note. */
+@Composable
+private fun AddNoteAction(onClick: () -> Unit) {
+    TextButton(
+        onClick = onClick,
+        modifier = Modifier.testTag("home_add_note"),
+    ) {
+        Icon(
+            Icons.Filled.Add,
+            contentDescription = null,
+            tint = CaregiverColors.Primary,
+            modifier = Modifier.size(AppDimens.IconSm),
+        )
+        Spacer(Modifier.width(AppDimens.GapTight))
+        Text(
+            stringResource(R.string.detail_add_note),
+            fontFamily = PlexArabic,
+            fontWeight = FontWeight.Bold,
+            fontSize = 14.sp,
+            color = CaregiverColors.Primary,
+        )
     }
 }
 
@@ -210,65 +397,6 @@ private fun SafetyBanner(flags: List<SafetyFlag>) {
             ""
         },
     )
-}
-
-@Composable
-private fun PersonCard(card: HomeCard, onOpen: () -> Unit) {
-    val arabic = Locale.getDefault().language == "ar"
-    AppCard(modifier = Modifier.clickable(onClick = onOpen)) {
-        Row(
-            horizontalArrangement = Arrangement.spacedBy(12.dp),
-            verticalAlignment = Alignment.CenterVertically,
-        ) {
-            Avatar(Bidi.isolate(card.name).take(1))
-            Column(
-                modifier = Modifier.weight(1f),
-                verticalArrangement = Arrangement.spacedBy(4.dp),
-            ) {
-                Text(
-                    text = Bidi.isolate(card.name),
-                    fontFamily = PlexArabic,
-                    fontWeight = FontWeight.Bold,
-                    fontSize = 16.sp,
-                    color = CaregiverColors.Ink,
-                )
-                card.lastNote?.let {
-                    Text(
-                        text = stringResource(R.string.person_last_note) + ": " +
-                            OptionLabels.label(OptionGroup.Appetite, it.appetite, arabic) + " · " +
-                            OptionLabels.label(OptionGroup.Sleep, it.sleep, arabic),
-                        fontFamily = PlexArabic,
-                        fontSize = 13.sp,
-                        color = CaregiverColors.Muted,
-                    )
-                }
-                Row(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
-                    card.chips.forEach { ChipView(it) }
-                }
-            }
-        }
-        // In-card primary action when today's note is missing (HTML board).
-        if (card.chips.contains(RecipientChip.MissedToday) ||
-            card.chips.contains(RecipientChip.NoNote)
-        ) {
-            Button(
-                onClick = onOpen,
-                shape = RoundedCornerShape(AppDimens.ControlRadius),
-                colors = ButtonDefaults.buttonColors(
-                    containerColor = CaregiverColors.Primary,
-                    contentColor = CaregiverColors.Surface,
-                ),
-                modifier = Modifier.fillMaxWidth().height(48.dp),
-            ) {
-                Icon(Icons.Filled.Add, contentDescription = null)
-                Text(
-                    stringResource(R.string.detail_add_note),
-                    fontFamily = PlexArabic,
-                    fontWeight = FontWeight.Bold,
-                )
-            }
-        }
-    }
 }
 
 @Composable

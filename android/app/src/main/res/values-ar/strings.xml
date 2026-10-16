@@ -188,4 +188,13 @@
     <string name="state_field_pain">اختر مستوى الألم قبل الحفظ.</string>
     <!-- المهمة 4: صف الملاحظة بنمط X. -->
     <string name="note_row_show_more">عرض المزيد</string>
+    <!-- المهمة 5: علامات تبويب الصفحة الرئيسية وحالات الفراغ. -->
+    <string name="home_tab_today">اليوم</string>
+    <string name="home_tab_attention">تحتاج إلى الانتباه</string>
+    <string name="home_tab_all">الكل</string>
+    <string name="home_empty_today_title">لا ملاحظات اليوم بعد</string>
+    <string name="home_empty_today_body">ستظهر هنا الملاحظات المسجلة اليوم.</string>
+    <string name="home_empty_attention_title">لا شيء يحتاج إلى الانتباه</string>
+    <string name="home_empty_attention_body">سيظهر هنا أي ألم شديد أو سقوط.</string>
+    <string name="home_empty_view_all">عرض الكل</string>
 </resources>

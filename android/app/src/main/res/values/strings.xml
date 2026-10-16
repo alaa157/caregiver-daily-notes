@@ -188,4 +188,13 @@
     <string name="state_field_pain">Select the pain level before saving.</string>
     <!-- Task 4: X-style note timeline row (NoteRow). -->
     <string name="note_row_show_more">Show more</string>
+    <!-- Task 5: Home timeline sub-tabs and per-tab empty states. -->
+    <string name="home_tab_today">Today</string>
+    <string name="home_tab_attention">Needs attention</string>
+    <string name="home_tab_all">All</string>
+    <string name="home_empty_today_title">No notes yet today</string>
+    <string name="home_empty_today_body">Notes recorded today will appear here.</string>
+    <string name="home_empty_attention_title">Nothing needs attention</string>
+    <string name="home_empty_attention_body">High pain or a fall will be flagged here.</string>
+    <string name="home_empty_view_all">View all</string>
 </resources>

@@ -8,7 +8,9 @@ import androidx.compose.ui.test.assertCountEquals
 import androidx.compose.ui.test.assertIsDisplayed
 import androidx.compose.ui.test.junit4.createComposeRule
 import androidx.compose.ui.test.onAllNodesWithText
+import androidx.compose.ui.test.onNodeWithTag
 import androidx.compose.ui.test.onNodeWithText
+import androidx.compose.ui.test.performClick
 import androidx.lifecycle.ViewModelProvider
 import androidx.lifecycle.ViewModelStore
 import androidx.lifecycle.ViewModelStoreOwner
@@ -32,8 +34,9 @@ import org.junit.runner.RunWith
 import com.caregiver.mobile.test.WithTestOwner
 
 /**
- * Task 4 home behavior in Arabic against a fake server: translated greeting,
- * progress, chips, enum values, and the fall-only banner — with no raw
+ * Home behavior against a fake server in Arabic and English: translated
+ * greeting, progress, chips, enum values, the fall-only banner, and the
+ * Task 5 timeline sub-tabs (Today / Needs attention / All) — with no raw
  * English enum text leaking into the UI. Instrumentation-only.
  */
 @RunWith(AndroidJUnit4::class)
@@ -98,6 +101,49 @@ class HomeUiTest {
         compose.onNodeWithText("سقوط مبلغ عنه — " + Bidi.isolate("ليلى Layla")).assertIsDisplayed()
         compose.onAllNodesWithText("good").assertCountEquals(0)
         compose.onAllNodesWithText("broken").assertCountEquals(0)
+    }
+
+    @Test
+    fun arabicSubTabsFilterTheTimeline() {
+        val today = LocalDate.now().toString()
+        val older = LocalDate.now().minusDays(2).toString()
+        server.enqueue(
+            MockResponse().setBody(
+                """[{"id":"r1","name":"ليلى","active":true},{"id":"r2","name":"سارة","active":true}]""",
+            ),
+        )
+        server.enqueue(
+            MockResponse().setBody(
+                """[{"id":"n1","recipientId":"r1","date":"$today","mood":"good","appetite":"good","sleep":"good","mobility":"walks","medicationTaken":"taken","pain":1,"fall":false,"text":"t"},
+                    {"id":"n2","recipientId":"r2","date":"$older","mood":"bad","appetite":"poor","sleep":"poor","mobility":"bed","medicationTaken":"missed","pain":8,"fall":false,"text":"t"}]"""
+                    .replace("\n", ""),
+            ),
+        )
+        val base = ApplicationProvider.getApplicationContext<Context>()
+        val localized = base.withLocale("ar")
+        compose.setContent {
+            CompositionLocalProvider(LocalContext provides localized) {
+                WithTestOwner {
+                    CaregiverTheme {
+                        HomeScreen(graph, rememberNavController())
+                    }
+                }
+            }
+        }
+
+        // Today (default tab): only the recipient whose note is from today.
+        compose.onNodeWithText(Bidi.isolate("ليلى")).assertIsDisplayed()
+        compose.onNodeWithText(Bidi.isolate("سارة")).assertDoesNotExist()
+
+        // Needs attention: only the high-pain recipient (pain 8).
+        compose.onNodeWithTag("home_tab_attention").performClick()
+        compose.onNodeWithText(Bidi.isolate("سارة")).assertIsDisplayed()
+        compose.onNodeWithText(Bidi.isolate("ليلى")).assertDoesNotExist()
+
+        // All: both rows are back.
+        compose.onNodeWithTag("home_tab_all").performClick()
+        compose.onNodeWithText(Bidi.isolate("ليلى")).assertIsDisplayed()
+        compose.onNodeWithText(Bidi.isolate("سارة")).assertIsDisplayed()
     }
 
     @Test
