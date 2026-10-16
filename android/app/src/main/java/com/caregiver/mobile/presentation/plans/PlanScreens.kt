@@ -221,6 +221,7 @@ fun PlanProposalScreen(planId: String, graph: AppGraph, navController: NavContro
                                 label = stringResource(R.string.plan_edit_accept),
                                 onClick = { navController.navigate(AppRoutes.planEdit(planId)) },
                                 modifier = Modifier.weight(1f),
+                                height = 40.dp,
                             )
                             SecondaryButton(
                                 label = stringResource(R.string.plan_dismiss),
