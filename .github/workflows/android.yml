@@ -2,7 +2,7 @@ name: Android
 
 on:
   push:
-    branches: [main, preview/full-stack]
+    branches: [main, preview/full-stack, feat/x-style-task-8d-sync-status]
     paths:
       - "android/**"
       - ".github/workflows/android.yml"
