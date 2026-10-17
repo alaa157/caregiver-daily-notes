@@ -20,6 +20,7 @@ class SettingsStore(private val dataStore: DataStore<Preferences>) {
     val token: Flow<String?> = dataStore.data.map { it[TOKEN] }
     val email: Flow<String?> = dataStore.data.map { it[EMAIL] }
     val language: Flow<String> = dataStore.data.map { it[LANGUAGE] ?: DEFAULT_LANGUAGE }
+    val themeMode: Flow<String> = dataStore.data.map { it[THEME_MODE] ?: DEFAULT_THEME_MODE }
 
     suspend fun setBaseUrl(url: String) {
         dataStore.edit { it[BASE_URL] = url }
@@ -49,14 +50,20 @@ class SettingsStore(private val dataStore: DataStore<Preferences>) {
         dataStore.edit { it[LANGUAGE] = code }
     }
 
+    suspend fun setThemeMode(mode: String) {
+        dataStore.edit { it[THEME_MODE] = mode }
+    }
+
     companion object {
         const val DEFAULT_BASE_URL = "https://CHANGE-ME"
         const val DEFAULT_LANGUAGE = "ar"
+        const val DEFAULT_THEME_MODE = "system"
 
         private val BASE_URL = stringPreferencesKey("base_url")
         private val TOKEN = stringPreferencesKey("auth_token")
         private val EMAIL = stringPreferencesKey("auth_email")
         private val LANGUAGE = stringPreferencesKey("language")
+        private val THEME_MODE = stringPreferencesKey("theme_mode")
 
         fun create(context: Context, name: String = "settings"): SettingsStore =
             SettingsStoreRegistry.getOrCreate(name) { context.preferencesDataStoreFile(name) }

@@ -46,34 +46,46 @@ class GeminiLlmClient(
         }
         val reqBody = json.encodeToString(JsonObject.serializer(), bodyObj)
             .toRequestBody("application/json".toMediaType())
-        val httpReq = Request.Builder()
-            .url(url)
-            .addHeader("Content-Type", "application/json")
-            .addHeader("x-goog-api-key", apiKey)
-            .post(reqBody)
-            .build()
-        try {
-            okHttpClient.newCall(httpReq).execute().use { resp ->
-                val raw = resp.body?.string().orEmpty()
-                if (!resp.isSuccessful) {
-                    val code = resp.code
-                    val err = when (code) { 401, 403 -> "invalid_key"; 429 -> "rate_limit"; else -> "http_$code" }
-                    return@withContext LlmResult(LlmStatus.FALLBACK, "", err, code)
+        var last: LlmResult = LlmResult(LlmStatus.FALLBACK, "", "network", null)
+        repeat(3) { attempt ->
+            val httpReq = Request.Builder()
+                .url(url)
+                .addHeader("Content-Type", "application/json")
+                .addHeader("x-goog-api-key", apiKey)
+                .post(reqBody)
+                .build()
+            try {
+                okHttpClient.newCall(httpReq).execute().use { resp ->
+                    val raw = resp.body?.string().orEmpty()
+                    if (!resp.isSuccessful) {
+                        val code = resp.code
+                        val err = when (code) { 401, 403 -> "invalid_key"; 429 -> "rate_limit"; else -> "http_$code" }
+                        last = LlmResult(LlmStatus.FALLBACK, "", err, code)
+                        if (code >= 500) {
+                            kotlinx.coroutines.delay(1000L * (attempt + 1))
+                            return@use
+                        }
+                        return@withContext last
+                    }
+                    val content = try {
+                        val root = json.parseToJsonElement(raw).jsonObject
+                        root["candidates"]?.jsonArray?.firstOrNull()
+                            ?.jsonObject?.get("content")?.jsonObject
+                            ?.get("parts")?.jsonArray?.firstOrNull()
+                            ?.jsonObject?.get("text")?.jsonPrimitive?.contentOrNull
+                    } catch (e: Exception) { null }
+                    if (content.isNullOrBlank()) {
+                        last = LlmResult(LlmStatus.FALLBACK, "", "empty_output", resp.code)
+                        kotlinx.coroutines.delay(1000L * (attempt + 1))
+                        return@use
+                    }
+                    return@withContext LlmResult(LlmStatus.OK, content)
                 }
-                val content = try {
-                    val root = json.parseToJsonElement(raw).jsonObject
-                    root["candidates"]?.jsonArray?.firstOrNull()
-                        ?.jsonObject?.get("content")?.jsonObject
-                        ?.get("parts")?.jsonArray?.firstOrNull()
-                        ?.jsonObject?.get("text")?.jsonPrimitive?.contentOrNull
-                } catch (e: Exception) { null }
-                if (content.isNullOrBlank()) {
-                    return@withContext LlmResult(LlmStatus.FALLBACK, "", "empty_output", resp.code)
-                }
-                LlmResult(LlmStatus.OK, content)
+            } catch (e: Exception) {
+                last = LlmResult(LlmStatus.FALLBACK, "", "network", null)
+                kotlinx.coroutines.delay(1000L * (attempt + 1))
             }
-        } catch (e: Exception) {
-            LlmResult(LlmStatus.FALLBACK, "", "network", null)
         }
+        return@withContext last
     }
 }

@@ -3,6 +3,7 @@ package com.caregiver.mobile.core.theme
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Shapes
+import androidx.compose.material3.darkColorScheme
 import androidx.compose.material3.lightColorScheme
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.graphics.Color
@@ -50,10 +51,30 @@ internal val AppShapes = Shapes(
  * App theme. The design is light-only, so dynamic color is deliberately off:
  * fidelity to the boards beats wallpaper tinting on every device.
  */
+internal val AppDarkScheme = darkColorScheme(
+    primary = Color(0xFF4DB6AC),
+    onPrimary = Color(0xFF00332F),
+    primaryContainer = Color(0xFF0E6B66),
+    onPrimaryContainer = Color.White,
+    secondaryContainer = Color(0xFF2A3336),
+    onSecondaryContainer = Color(0xFFDCE5E7),
+    background = Color(0xFF121616),
+    onBackground = Color(0xFFE3E7EA),
+    surface = Color(0xFF1A1F1F),
+    onSurface = Color(0xFFE3E7EA),
+    surfaceVariant = Color(0xFF2A3336),
+    onSurfaceVariant = Color(0xFFB0BEC5),
+    outline = Color(0xFF5B6B70),
+    error = Color(0xFFEF9A9A),
+    onError = Color(0xFF330000),
+    errorContainer = Color(0xFF5C1A1A),
+    onErrorContainer = Color(0xFFFFCDD2),
+)
+
 @Composable
-fun CaregiverTheme(content: @Composable () -> Unit) {
+fun CaregiverTheme(darkTheme: Boolean = false, content: @Composable () -> Unit) {
     MaterialTheme(
-        colorScheme = AppLightScheme,
+        colorScheme = if (darkTheme) AppDarkScheme else AppLightScheme,
         shapes = AppShapes,
         typography = AppTypography,
         content = content,
