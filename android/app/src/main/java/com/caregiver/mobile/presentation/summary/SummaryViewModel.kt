@@ -17,7 +17,7 @@ import retrofit2.HttpException
 
 sealed interface SummaryState {
     data object Loading : SummaryState
-    data class Content(val summary: SummaryDto, val refreshing: Boolean = false) : SummaryState
+    data class Content(val summary: SummaryDto, val refreshing: Boolean = false, val aiGenerated: Boolean = false) : SummaryState
     data class AiUnavailable(val last: SummaryDto? = null) : SummaryState
     data class Rejected(val code: String?, val last: SummaryDto? = null) : SummaryState
 }
@@ -87,7 +87,7 @@ class SummaryViewModel(
                 val notes = repository.authorized { apis.notes().history(recipientId, null, null) }
                 val signals = repository.authorized { apis.summaries().signals(recipientId, null, null) }
                 val summary = service.summarize(recipientId, _period.value, notes, signals)
-                _state.value = SummaryState.Content(summary)
+                _state.value = SummaryState.Content(summary, aiGenerated = true)
                 return
             } catch (e: Exception) {
                 // Fall through to API path on failure.

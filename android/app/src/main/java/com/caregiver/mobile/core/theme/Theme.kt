@@ -90,7 +90,11 @@ private fun palettePrimary(palette: String?): androidx.compose.ui.graphics.Color
 fun CaregiverTheme(darkTheme: Boolean = false, palette: Any? = null, content: @Composable () -> Unit) {
     val base = if (darkTheme) AppDarkScheme else AppLightScheme
     val primary = palettePrimary(palette?.toString())
-    val scheme = base.copy(primary = primary, primaryContainer = primary)
+    val scheme = if (darkTheme) {
+        base.copy(primary = primary)
+    } else {
+        base.copy(primary = primary, primaryContainer = primary)
+    }
     MaterialTheme(
         colorScheme = scheme,
         shapes = AppShapes,

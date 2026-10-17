@@ -373,6 +373,7 @@ fun NoteDetailScreen(noteId: String, graph: AppGraph, navController: NavControll
                 val arabic = Locale.getDefault().language == "ar"
                 var translation by remember { mutableStateOf<String?>(null) }
                 var translating by remember { mutableStateOf(false) }
+                val showConsent = remember { mutableStateOf(false) }
                 val scope = rememberCoroutineScope()
                 Column(
                     modifier = Modifier.weight(1f).verticalScroll(rememberScrollState())
@@ -455,7 +456,7 @@ fun NoteDetailScreen(noteId: String, graph: AppGraph, navController: NavControll
                         color = CaregiverColors.Ink,
                     )
                     // Translate note via AI.
-                    Button(onClick = {
+                    val runTranslation: () -> Unit = {
                         translating = true
                         scope.launch {
                             val store = com.caregiver.mobile.ai.AiKeyStore(graph.context)
@@ -478,7 +479,25 @@ fun NoteDetailScreen(noteId: String, graph: AppGraph, navController: NavControll
                             translation = service.translate(s.content.note.text, from, to)
                             translating = false
                         }
-                    }) { Text(if (translating) "Translating..." else "Translate") }
+                    }
+                    Button(onClick = {
+                        val st = com.caregiver.mobile.ai.AiKeyStore(graph.context)
+                        if (!st.consentGiven()) {
+                            showConsent.value = true
+                        } else {
+                            runTranslation()
+                        }
+                    }) { Text(if (translating) stringResource(R.string.note_translating) else stringResource(R.string.note_translate)) }
+                if (showConsent.value) {
+                    com.caregiver.mobile.ai.AiConsentDialog(
+                        onAccept = {
+                            com.caregiver.mobile.ai.AiKeyStore(graph.context).setConsentGiven()
+                            showConsent.value = false
+                            runTranslation()
+                        },
+                        onDismiss = { showConsent.value = false },
+                    )
+                }
                     translation?.let { Text(it) }
                     // Attachments timeline.
                     SectionTitle(stringResource(R.string.note_attachments))

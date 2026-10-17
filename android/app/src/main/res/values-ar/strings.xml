@@ -213,4 +213,10 @@
     <!-- المهمة 7: درج الصورة الرمزية. -->
     <string name="drawer_open">فتح قائمة التنقل</string>
     <string name="drawer_sync_synced">متزامن</string>
+    <string name="settings_ai">إعدادات الذكاء الاصطناعي</string>
+    <string name="settings_load_sample_data">تحميل بيانات نموذجية</string>
+    <string name="settings_about">حول</string>
+    <string name="settings_appearance">المظهر</string>
+    <string name="note_translate">ترجمة</string>
+    <string name="note_translating">جارٍ الترجمة...</string>
 </resources>

@@ -188,7 +188,7 @@ fun SummaryResultScreen(
                     onClick = vm::refresh,
                 )
             }
-            is SummaryState.Content -> SummaryBody(s.summary, periodDays, graph.isDemo, navController)
+            is SummaryState.Content -> SummaryBody(s.summary, periodDays, graph.isDemo, navController, s.aiGenerated)
         }
     }
 }
@@ -218,6 +218,7 @@ private fun SummaryBody(
     periodDays: Int,
     isDemo: Boolean,
     navController: NavController,
+    aiGenerated: Boolean = false,
 ) {
     Column(
         modifier = Modifier.fillMaxSize().verticalScroll(rememberScrollState()),
@@ -239,6 +240,14 @@ private fun SummaryBody(
             InfoAlertCard(
                 title = stringResource(R.string.summary_demo_title),
                 body = stringResource(R.string.summary_demo_body),
+            )
+        }
+        if (aiGenerated) {
+            Text(
+                text = "AI-generated",
+                fontFamily = PlexArabic,
+                fontSize = 12.sp,
+                color = CaregiverColors.Muted,
             )
         }
         if (summary.redFlags.isNotEmpty()) {
