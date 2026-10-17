@@ -71,10 +71,28 @@ internal val AppDarkScheme = darkColorScheme(
     onErrorContainer = Color(0xFFFFCDD2),
 )
 
+/**
+ * Accent palettes (2-3 options). Stored as strings in [SettingsStore].
+ */
+object ColorPalettes {
+    const val TEAL = "teal"
+    const val INDIGO = "indigo"
+    const val ROSE = "rose"
+}
+
+private fun palettePrimary(palette: String?): androidx.compose.ui.graphics.Color = when (palette?.lowercase()) {
+    ColorPalettes.INDIGO -> Color(0xFF3F51B5)
+    ColorPalettes.ROSE -> Color(0xFFC2185B)
+    else -> CaregiverColors.Primary
+}
+
 @Composable
-fun CaregiverTheme(darkTheme: Boolean = false, content: @Composable () -> Unit) {
+fun CaregiverTheme(darkTheme: Boolean = false, palette: Any? = null, content: @Composable () -> Unit) {
+    val base = if (darkTheme) AppDarkScheme else AppLightScheme
+    val primary = palettePrimary(palette?.toString())
+    val scheme = base.copy(primary = primary, primaryContainer = primary)
     MaterialTheme(
-        colorScheme = if (darkTheme) AppDarkScheme else AppLightScheme,
+        colorScheme = scheme,
         shapes = AppShapes,
         typography = AppTypography,
         content = content,

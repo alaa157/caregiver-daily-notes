@@ -42,6 +42,7 @@ import com.caregiver.mobile.presentation.common.AppTopBar
 import com.caregiver.mobile.presentation.common.AppDimens
 import com.caregiver.mobile.presentation.common.PrimaryButton
 import com.caregiver.mobile.presentation.common.SecondaryButton
+import com.caregiver.mobile.ui.component.SettingsGroup
 import kotlinx.coroutines.launch
 
 /**
@@ -55,102 +56,105 @@ fun SettingsScreen(graph: AppGraph, navController: NavController) {
     val activity = LocalContext.current as Activity
     val language by graph.settings.language.collectAsState(initial = SettingsStore.DEFAULT_LANGUAGE)
     val themeMode by graph.settings.themeMode.collectAsState(initial = SettingsStore.DEFAULT_THEME_MODE)
+    val colorPalette by graph.settings.colorPalette.collectAsState(initial = SettingsStore.DEFAULT_COLOR_PALETTE)
     Column(
         modifier = Modifier.fillMaxSize().padding(horizontal = 16.dp),
         verticalArrangement = Arrangement.spacedBy(14.dp),
     ) {
         AppTopBar(title = stringResource(R.string.settings_title))
-        if (!com.caregiver.mobile.BuildConfig.LOCAL_MODE) {
-            SecondaryButton(
-                label = stringResource(R.string.settings_server),
-                onClick = { navController.navigate("server-url") },
-            )
-        }
-        Text(text = stringResource(R.string.settings_language))
-        Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-            // Language names are intentionally literal, not string resources:
-            // each language must be recognizable no matter which locale is active.
-            FilterChip(
-                selected = language == "ar",
-                onClick = {
-                    if (language != "ar") {
-                        scope.launch {
-                            graph.settings.setLanguage("ar")
-                            activity.recreate()
-                        }
-                    }
-                },
-                label = { Text("العربية") },
-                shape = RoundedCornerShape(AppDimens.CardRadius),
-                border = androidx.compose.foundation.BorderStroke(
-                    1.dp,
-                    if (language == "ar") CaregiverColors.Primary else CaregiverColors.Border,
-                ),
-                colors = FilterChipDefaults.filterChipColors(
-                    containerColor = CaregiverColors.Surface,
-                    labelColor = CaregiverColors.Ink,
-                    selectedContainerColor = CaregiverColors.PrimarySoft,
-                    selectedLabelColor = CaregiverColors.Primary,
-                ),
-            )
-            FilterChip(
-                selected = language == "en",
-                onClick = {
-                    if (language != "en") {
-                        scope.launch {
-                            graph.settings.setLanguage("en")
-                            activity.recreate()
-                        }
-                    }
-                },
-                label = { Text("English") },
-                shape = RoundedCornerShape(AppDimens.CardRadius),
-                border = androidx.compose.foundation.BorderStroke(
-                    1.dp,
-                    if (language == "en") CaregiverColors.Primary else CaregiverColors.Border,
-                ),
-                colors = FilterChipDefaults.filterChipColors(
-                    containerColor = CaregiverColors.Surface,
-                    labelColor = CaregiverColors.Ink,
-                    selectedContainerColor = CaregiverColors.PrimarySoft,
-                    selectedLabelColor = CaregiverColors.Primary,
-                ),
-            )
-        }
-        Text(text = "Appearance")
-        Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-            listOf("light", "dark", "system").forEach { mode ->
+
+        SettingsGroup(title = "Language") {
+            Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                 FilterChip(
-                    selected = themeMode == mode,
-                    onClick = { scope.launch { graph.settings.setThemeMode(mode) } },
-                    label = { Text(mode.replaceFirstChar { it.uppercase() }) },
+                    selected = language == "ar",
+                    onClick = {
+                        if (language != "ar") {
+                            scope.launch {
+                                graph.settings.setLanguage("ar")
+                                activity.recreate()
+                            }
+                        }
+                    },
+                    label = { Text("العربية") },
+                )
+                FilterChip(
+                    selected = language == "en",
+                    onClick = {
+                        if (language != "en") {
+                            scope.launch {
+                                graph.settings.setLanguage("en")
+                                activity.recreate()
+                            }
+                        }
+                    },
+                    label = { Text("English") },
+                )
+            }
+            Text(
+                text = stringResource(R.string.settings_language_restart),
+                fontFamily = PlexArabic,
+                style = MaterialTheme.typography.bodySmall,
+            )
+        }
+
+        SettingsGroup(title = "Appearance") {
+            Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                listOf("light", "dark", "system").forEach { mode ->
+                    FilterChip(
+                        selected = themeMode == mode,
+                        onClick = { scope.launch { graph.settings.setThemeMode(mode) } },
+                        label = { Text(mode.replaceFirstChar { it.uppercase() }) },
+                    )
+                }
+            }
+            Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                listOf("teal", "indigo", "rose").forEach { pal ->
+                    FilterChip(
+                        selected = colorPalette == pal,
+                        onClick = { scope.launch { graph.settings.setColorPalette(pal) } },
+                        label = { Text(pal.replaceFirstChar { it.uppercase() }) },
+                    )
+                }
+            }
+        }
+
+        SettingsGroup(title = "AI") {
+            SecondaryButton(
+                label = "AI settings",
+                onClick = { navController.navigate("ai-settings") },
+            )
+        }
+
+        if (com.caregiver.mobile.BuildConfig.LOCAL_MODE) {
+            SettingsGroup(title = "Data") {
+                SecondaryButton(
+                    label = "Load sample data",
+                    onClick = {
+                        scope.launch {
+                            com.caregiver.mobile.data.SampleDataLoader.load(
+                                com.caregiver.mobile.data.local.AppDatabase.create(graph.context),
+                            )
+                        }
+                    },
                 )
             }
         }
-        Text(
-            text = stringResource(R.string.settings_language_restart),
-            fontFamily = PlexArabic,
-            style = MaterialTheme.typography.bodySmall,
-        )
-        SecondaryButton(
-            label = "AI settings",
-            onClick = { navController.navigate("ai-settings") },
-        )
-        Text(text = "About")
-        Text(text = "Caregiver Daily Notes v" + com.caregiver.mobile.BuildConfig.VERSION_NAME)
-        if (com.caregiver.mobile.BuildConfig.LOCAL_MODE) {
+
+        SettingsGroup(title = "About") {
+            Text(text = "Caregiver Daily Notes v" + com.caregiver.mobile.BuildConfig.VERSION_NAME)
             SecondaryButton(
-                label = "Load sample data",
-                onClick = {
-                    scope.launch {
-                        com.caregiver.mobile.data.SampleDataLoader.load(
-                            com.caregiver.mobile.data.local.AppDatabase.create(graph.context),
-                        )
-                    }
-                },
+                label = "About",
+                onClick = { navController.navigate("about") },
             )
         }
+
         if (!com.caregiver.mobile.BuildConfig.LOCAL_MODE) {
+            if (!com.caregiver.mobile.BuildConfig.LOCAL_MODE) {
+                SecondaryButton(
+                    label = stringResource(R.string.settings_server),
+                    onClick = { navController.navigate("server-url") },
+                )
+            }
             SecondaryButton(
                 label = stringResource(R.string.settings_logout),
                 onClick = {

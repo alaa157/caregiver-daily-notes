@@ -15,12 +15,13 @@ class MainActivity : ComponentActivity() {
         val graph = (application as CaregiverApp).graph
         setContent {
             val themeMode by graph.settings.themeMode.collectAsState(initial = SettingsStore.DEFAULT_THEME_MODE)
+            val colorPalette by graph.settings.colorPalette.collectAsState(initial = SettingsStore.DEFAULT_COLOR_PALETTE)
             val dark = when (themeMode) {
                 "dark" -> true
                 "light" -> false
                 else -> isSystemInDarkTheme()
             }
-            CaregiverTheme(darkTheme = dark) {
+            CaregiverTheme(darkTheme = dark, palette = colorPalette) {
                 CaregiverRoot(graph)
             }
         }

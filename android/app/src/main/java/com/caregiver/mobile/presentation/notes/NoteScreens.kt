@@ -36,6 +36,11 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.rememberCoroutineScope
+import androidx.compose.runtime.setValue
+import kotlinx.coroutines.launch
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
@@ -366,6 +371,9 @@ fun NoteDetailScreen(noteId: String, graph: AppGraph, navController: NavControll
             NoteDetailState.Error -> LoadFailed(onRetry = vm::refresh)
             is NoteDetailState.Content -> {
                 val arabic = Locale.getDefault().language == "ar"
+                var translation by remember { mutableStateOf<String?>(null) }
+                var translating by remember { mutableStateOf(false) }
+                val scope = rememberCoroutineScope()
                 Column(
                     modifier = Modifier.weight(1f).verticalScroll(rememberScrollState())
                         .padding(horizontal = 16.dp),
@@ -446,6 +454,32 @@ fun NoteDetailScreen(noteId: String, graph: AppGraph, navController: NavControll
                         lineHeight = 29.sp,
                         color = CaregiverColors.Ink,
                     )
+                    // Translate note via AI.
+                    Button(onClick = {
+                        translating = true
+                        scope.launch {
+                            val store = com.caregiver.mobile.ai.AiKeyStore(graph.context)
+                            val provider = store.provider() ?: com.caregiver.mobile.ai.AiProvider.OPENAI
+                            val key = store.apiKey().orEmpty()
+                            val model = store.model() ?: provider.defaultModel
+                            val client = when (provider) {
+                                com.caregiver.mobile.ai.AiProvider.OPENAI,
+                                com.caregiver.mobile.ai.AiProvider.XAI,
+                                com.caregiver.mobile.ai.AiProvider.OPEN_ROUTER ->
+                                    com.caregiver.mobile.ai.OpenAiCompatibleLlmClient(provider.defaultBaseUrl, model, key)
+                                com.caregiver.mobile.ai.AiProvider.ANTHROPIC ->
+                                    com.caregiver.mobile.ai.AnthropicLlmClient(provider.defaultBaseUrl, model, key)
+                                com.caregiver.mobile.ai.AiProvider.GEMINI ->
+                                    com.caregiver.mobile.ai.GeminiLlmClient(provider.defaultBaseUrl, model, key)
+                            }
+                            val service = com.caregiver.mobile.ai.TranslationService(client, store)
+                            val from = if (arabic) "ar" else "en"
+                            val to = if (arabic) "en" else "ar"
+                            translation = service.translate(s.content.note.text, from, to)
+                            translating = false
+                        }
+                    }) { Text(if (translating) "Translating..." else "Translate") }
+                    translation?.let { Text(it) }
                     // Attachments timeline.
                     SectionTitle(stringResource(R.string.note_attachments))
                     if (s.content.addenda.isEmpty()) {
