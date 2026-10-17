@@ -141,6 +141,14 @@ fun SummaryResultScreen(
     graph: AppGraph,
     navController: NavController,
 ) {
+    val hasKey = com.caregiver.mobile.ai.AiKeyStore(graph.context).hasKey()
+    if (!hasKey) {
+        Column(Modifier.fillMaxSize().padding(horizontal = AppDimens.ScreenHPadding)) {
+            AppTopBar(title = stringResource(R.string.summary_title))
+            Text("Set up AI in Settings to generate summaries.")
+        }
+        return
+    }
     val vm: SummaryViewModel = assistedViewModel("summary-$recipientId") {
         SummaryViewModel(recipientId, graph.apis, graph.auth, null, periodDays)
     }
