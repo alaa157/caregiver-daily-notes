@@ -10,6 +10,15 @@ android {
     namespace = "com.caregiver.mobile"
     compileSdk = 35
 
+    val releaseSigning = if (System.getenv("KEYSTORE_PATH") != null) {
+        signingConfigs.create("release") {
+            storeFile = file(System.getenv("KEYSTORE_PATH"))
+            storePassword = System.getenv("KEYSTORE_PASSWORD")
+            keyAlias = System.getenv("KEY_ALIAS")
+            keyPassword = System.getenv("KEY_PASSWORD")
+        }
+    } else null
+
     defaultConfig {
         applicationId = "com.caregiver.mobile"
         minSdk = 23
@@ -37,6 +46,7 @@ android {
             // Keep minify off: the old cross-platform app crashed on launch with
             // R8 enabled and was never diagnosed. Revisit only with a device proof.
             isMinifyEnabled = false
+            if (releaseSigning != null) signingConfig = releaseSigning
         }
         // Squeezed offline demo: R8 + resource shrink, debug-signed so it
         // installs like the debug APK, and DEMO_BACKEND=true so it runs with

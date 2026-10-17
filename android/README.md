@@ -10,8 +10,31 @@ same Spring Boot REST API as the web app. No cross-platform framework.
 
 - JDK 17 (Gradle/AGP 8.7.x). Newer JDKs (e.g. 25) fail the build.
 - Android SDK: `platforms;android-35`, `build-tools;35.0.0` (see
-  `.github/workflows/android.yml`). minSdk 21, target/compile 35.
+  `.github/workflows/android.yml`). minSdk 23, target/compile 35.
 - A running backend URL for on-device runs (tunnel or direct HTTPS).
+
+## Standalone install (no backend, no login)
+
+The app is standalone: install the APK from GitHub Releases and use it without
+any backend. AI features (summaries, plan suggestions, note translation) need
+your own API key.
+
+1. Download the latest `app-release.apk` from the GitHub Releases page.
+2. Install it (allow installing from unknown sources).
+3. Open Settings > AI, pick a provider (OpenAI, Anthropic, Gemini, xAI, or
+   OpenRouter), paste your API key and model id, then tap "Test connection".
+4. On first use you will see a consent dialog: care notes are sent to the
+   chosen provider; the app is not a medical device and is not HIPAA-compliant.
+
+### Getting an API key
+
+- OpenAI: https://platform.openai.com/api-keys
+- Anthropic: https://console.anthropic.com/settings/keys
+- Gemini: https://aistudio.google.com/app/apikey
+- xAI: https://console.x.ai
+- OpenRouter: https://openrouter.ai/keys
+
+The key is stored encrypted in the Android Keystore and never leaves the device.
 
 ## Commands (run in `android/`)
 
