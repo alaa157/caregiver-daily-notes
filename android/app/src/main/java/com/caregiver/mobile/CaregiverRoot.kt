@@ -12,12 +12,15 @@ import com.caregiver.mobile.presentation.auth.RegisterScreen
 import com.caregiver.mobile.presentation.settings.ServerUrlScreen
 
 /**
- * Root gate: no token → auth graph (login/register); token present → tabs.
- * A 401 anywhere signs out through AuthRepository, which flips this back to
- * login without leaking the previous screen's data.
+ * Root gate. In LOCAL_MODE the app is standalone: go straight to MainScaffold,
+ * no login/register/server-url screens.
  */
 @Composable
 fun CaregiverRoot(graph: AppGraph) {
+    if (com.caregiver.mobile.BuildConfig.LOCAL_MODE) {
+        MainScaffold(graph)
+        return
+    }
     val token by graph.auth.token.collectAsState(initial = null)
     if (token == null) {
         val navController = rememberNavController()

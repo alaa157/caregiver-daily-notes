@@ -15,6 +15,7 @@ import com.caregiver.mobile.data.api.BackendApis
 import com.caregiver.mobile.data.api.RetrofitBackendApis
 import com.caregiver.mobile.data.demo.DemoBackendApis
 import com.caregiver.mobile.data.local.AppDatabase
+import com.caregiver.mobile.data.local.LocalBackendApis
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.runBlocking
 
@@ -44,7 +45,7 @@ class CaregiverApp : Application() {
         // Task 8c: drain anything a previous run left in the outbox as soon
         // as connectivity returns. Demo graphs have no outbox — and demo
         // data must never upload — so they never schedule the worker.
-        if (!graph.isDemo) OutboxSyncWorker.schedule(this)
+        if (!graph.isDemo && !graph.isLocalMode) OutboxSyncWorker.schedule(this)
     }
 }
 
@@ -57,6 +58,10 @@ class AppGraph(val context: Context, val forceProduction: Boolean = false) {
     private val demoBackend: Boolean
         get() = !forceProduction && BuildConfig.DEMO_BACKEND
 
+    /** True when running standalone with no backend. */
+    val isLocalMode: Boolean
+        get() = !forceProduction && BuildConfig.LOCAL_MODE
+
     /**
      * Offline demo switch: demo builds (debug + minified) serve
      * [DemoBackendApis] (canned, in-memory, no network) so the app can be
@@ -67,17 +72,27 @@ class AppGraph(val context: Context, val forceProduction: Boolean = false) {
      * navigation or copy changes are needed — both providers implement
      * [BackendApis].
      */
+    private val localMode: Boolean
+        get() = isLocalMode
+
     private val live: BackendApis by lazy {
-        selectApis(
-            demoBackend,
-            DemoBackendApis(),
-            RetrofitBackendApis(settings, tokens),
-        )
+        when {
+            localMode -> LocalBackendApis(AppDatabase.create(context))
+            else -> selectApis(
+                demoBackend,
+                DemoBackendApis(),
+                RetrofitBackendApis(settings, tokens),
+            )
+        }
     }
 
     /** Task 8a cache; production-only so demo data never reaches disk. */
     private val db: AppDatabase? by lazy {
-        if (demoBackend) null else AppDatabase.create(context)
+        when {
+            localMode -> null
+            demoBackend -> null
+            else -> AppDatabase.create(context)
+        }
     }
 
     /**
@@ -86,27 +101,28 @@ class AppGraph(val context: Context, val forceProduction: Boolean = false) {
      * outbox exists (production): a demo save never schedules work.
      */
     val noteRepository: NoteRepository by lazy {
-        NoteRepository(
-            apis = live,
-            dao = db?.noteDao(),
-            outboxDao = db?.outboxDao(),
-            scheduleOutboxSync = { OutboxSyncWorker.schedule(context) },
-        )
+        if (localMode) {
+            NoteRepository(apis = live, dao = null, outboxDao = null)
+        } else {
+            NoteRepository(
+                apis = live,
+                dao = db?.noteDao(),
+                outboxDao = db?.outboxDao(),
+                scheduleOutboxSync = { OutboxSyncWorker.schedule(context) },
+            )
+        }
     }
 
-    /**
-     * Task 8a: the backend sits behind [RoomBackedBackendApis] so
-     * recipients/notes reads are served from the Room cache when offline
-     * and refreshed from the network when online. Demo graphs get the same
-     * wrapper with no database at all — demo data must never reach disk,
-     * so `AppDatabase.create` is only called on the production path.
-     */
     val apis: BackendApis by lazy {
-        RoomBackedBackendApis(
-            live = live,
-            recipients = RecipientRepository(live, db?.recipientDao()),
-            notes = noteRepository,
-        )
+        if (localMode) {
+            live
+        } else {
+            RoomBackedBackendApis(
+                live = live,
+                recipients = RecipientRepository(live, db?.recipientDao()),
+                notes = noteRepository,
+            )
+        }
     }
 
     /**

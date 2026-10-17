@@ -44,6 +44,7 @@ object AppDestinations {
     val PlanVersions = Destination("plan-versions/{planId}")
 
     val Settings = Destination("settings")
+    val AiSettings = Destination("ai-settings")
 
     val all: List<Destination> = listOf(
         Login, Register, ServerUrl,
@@ -51,7 +52,7 @@ object AppDestinations {
         RecipientDetail, AddRecipient, NoteEditor, NoteSaved, NoteDetail, Addendum,
         Summary, SummaryResult,
         Plans, PlanProposal, PlanEdit, PlanVersions,
-        Settings,
+        Settings, AiSettings,
     )
 }
 

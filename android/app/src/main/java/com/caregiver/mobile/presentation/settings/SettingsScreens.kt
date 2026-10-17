@@ -59,10 +59,12 @@ fun SettingsScreen(graph: AppGraph, navController: NavController) {
         verticalArrangement = Arrangement.spacedBy(14.dp),
     ) {
         AppTopBar(title = stringResource(R.string.settings_title))
-        SecondaryButton(
-            label = stringResource(R.string.settings_server),
-            onClick = { navController.navigate("server-url") },
-        )
+        if (!com.caregiver.mobile.BuildConfig.LOCAL_MODE) {
+            SecondaryButton(
+                label = stringResource(R.string.settings_server),
+                onClick = { navController.navigate("server-url") },
+            )
+        }
         Text(text = stringResource(R.string.settings_language))
         Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
             // Language names are intentionally literal, not string resources:
@@ -120,12 +122,30 @@ fun SettingsScreen(graph: AppGraph, navController: NavController) {
             style = MaterialTheme.typography.bodySmall,
         )
         SecondaryButton(
-            label = stringResource(R.string.settings_logout),
-            onClick = {
-                scope.launch { graph.auth.signOut() }
-            },
-            danger = true,
+            label = "AI settings",
+            onClick = { navController.navigate("ai-settings") },
         )
+        if (com.caregiver.mobile.BuildConfig.LOCAL_MODE) {
+            SecondaryButton(
+                label = "Load sample data",
+                onClick = {
+                    scope.launch {
+                        com.caregiver.mobile.data.SampleDataLoader.load(
+                            com.caregiver.mobile.data.local.AppDatabase.create(graph.context),
+                        )
+                    }
+                },
+            )
+        }
+        if (!com.caregiver.mobile.BuildConfig.LOCAL_MODE) {
+            SecondaryButton(
+                label = stringResource(R.string.settings_logout),
+                onClick = {
+                    scope.launch { graph.auth.signOut() }
+                },
+                danger = true,
+            )
+        }
     }
 }
 

@@ -17,8 +17,8 @@ import androidx.sqlite.db.SupportSQLiteDatabase
  * adds the outbox.
  */
 @Database(
-    entities = [RecipientEntity::class, NoteEntity::class, OutboxEntity::class],
-    version = 2,
+    entities = [RecipientEntity::class, NoteEntity::class, OutboxEntity::class, PlanEntity::class],
+    version = 3,
     exportSchema = true,
 )
 abstract class AppDatabase : RoomDatabase() {
@@ -27,6 +27,8 @@ abstract class AppDatabase : RoomDatabase() {
     abstract fun noteDao(): NoteDao
 
     abstract fun outboxDao(): OutboxDao
+
+    abstract fun planDao(): PlanDao
 
     companion object {
         /**
@@ -62,9 +64,22 @@ abstract class AppDatabase : RoomDatabase() {
          * `AppGraph` only creates the database when the real backend is in
          * use.
          */
+        val MIGRATION_2_3: Migration = object : Migration(2, 3) {
+            override fun migrate(db: SupportSQLiteDatabase) {
+                db.execSQL(
+                    "CREATE TABLE IF NOT EXISTS `plans` (" +
+                        "`id` TEXT NOT NULL, " +
+                        "`recipientId` TEXT NOT NULL, " +
+                        "`versionsJson` TEXT NOT NULL, " +
+                        "`updatedAt` INTEGER NOT NULL, " +
+                        "PRIMARY KEY(`id`))",
+                )
+            }
+        }
+
         fun create(context: Context): AppDatabase =
             Room.databaseBuilder(context.applicationContext, AppDatabase::class.java, "caregiver-db")
-                .addMigrations(MIGRATION_1_2)
+                .addMigrations(MIGRATION_1_2, MIGRATION_2_3)
                 .build()
     }
 }

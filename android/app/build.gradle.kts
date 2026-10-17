@@ -12,7 +12,7 @@ android {
 
     defaultConfig {
         applicationId = "com.caregiver.mobile"
-        minSdk = 21
+        minSdk = 23
         targetSdk = 35
         versionCode = 1
         versionName = "0.1.0"
@@ -20,6 +20,8 @@ android {
         // Only en + ar ship in the app; strip other locales' resources
         // pulled in by dependencies.
         resourceConfigurations += listOf("en", "ar")
+        // Standalone local-first mode: no backend, no login.
+        buildConfigField("boolean", "LOCAL_MODE", "true")
     }
 
     buildTypes {
