@@ -35,6 +35,7 @@ class SummaryViewModel(
     private val repository: AuthRepository,
     scope: CoroutineScope? = null,
     initialPeriod: Int = DEFAULT_PERIOD_DAYS,
+    private val aiKeyStore: com.caregiver.mobile.ai.AiKeyStore? = null,
 ) : ViewModel() {
     private val exec: CoroutineScope = scope ?: viewModelScope
 
@@ -66,6 +67,32 @@ class SummaryViewModel(
     }
 
     private suspend fun load(preserve: Boolean) {
+        val store = aiKeyStore
+        if (store != null && store.hasKey()) {
+            try {
+                val provider = store.provider() ?: com.caregiver.mobile.ai.AiProvider.OPENAI
+                val key = store.apiKey().orEmpty()
+                val model = store.model() ?: provider.defaultModel
+                val client = when (provider) {
+                    com.caregiver.mobile.ai.AiProvider.OPENAI,
+                    com.caregiver.mobile.ai.AiProvider.XAI,
+                    com.caregiver.mobile.ai.AiProvider.OPEN_ROUTER ->
+                        com.caregiver.mobile.ai.OpenAiCompatibleLlmClient(provider.defaultBaseUrl, model, key)
+                    com.caregiver.mobile.ai.AiProvider.ANTHROPIC ->
+                        com.caregiver.mobile.ai.AnthropicLlmClient(provider.defaultBaseUrl, model, key)
+                    com.caregiver.mobile.ai.AiProvider.GEMINI ->
+                        com.caregiver.mobile.ai.GeminiLlmClient(provider.defaultBaseUrl, model, key)
+                }
+                val service = com.caregiver.mobile.ai.SummaryAiService(client, store)
+                val notes = repository.authorized { apis.notes().history(recipientId, null, null) }
+                val signals = repository.authorized { apis.summaries().signals(recipientId, null, null) }
+                val summary = service.summarize(recipientId, _period.value, notes, signals)
+                _state.value = SummaryState.Content(summary)
+                return
+            } catch (e: Exception) {
+                // Fall through to API path on failure.
+            }
+        }
         try {
             val summary = repository.authorized {
                 apis.summaries().summarize(SummaryRequest(recipientId, _period.value))
