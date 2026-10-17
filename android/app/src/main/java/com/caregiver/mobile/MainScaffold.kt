@@ -433,6 +433,9 @@ fun MainScaffold(graph: AppGraph) {
                 composable(AppDestinations.Settings.base) {
                     SettingsScreen(graph, navController)
                 }
+                composable("about") {
+                    com.caregiver.mobile.presentation.settings.AboutScreen { navController.popBackStack() }
+                }
                 composable(AppDestinations.AiSettings.base) {
                     com.caregiver.mobile.presentation.settings.AiSettingsScreen(graph, navController)
                 }

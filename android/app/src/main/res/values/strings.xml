@@ -213,4 +213,10 @@
     <!-- Task 7: avatar drawer. -->
     <string name="drawer_open">Open navigation menu</string>
     <string name="drawer_sync_synced">Synced</string>
+    <string name="settings_ai">AI settings</string>
+    <string name="settings_load_sample_data">Load sample data</string>
+    <string name="settings_about">About</string>
+    <string name="settings_appearance">Appearance</string>
+    <string name="note_translate">Translate</string>
+    <string name="note_translating">Translating...</string>
 </resources>

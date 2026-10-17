@@ -97,7 +97,7 @@ fun SettingsScreen(graph: AppGraph, navController: NavController) {
             )
         }
 
-        SettingsGroup(title = "Appearance") {
+        SettingsGroup(title = stringResource(R.string.settings_appearance)) {
             Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                 listOf("light", "dark", "system").forEach { mode ->
                     FilterChip(
@@ -120,7 +120,7 @@ fun SettingsScreen(graph: AppGraph, navController: NavController) {
 
         SettingsGroup(title = "AI") {
             SecondaryButton(
-                label = "AI settings",
+                label = stringResource(R.string.settings_ai),
                 onClick = { navController.navigate("ai-settings") },
             )
         }
@@ -128,7 +128,7 @@ fun SettingsScreen(graph: AppGraph, navController: NavController) {
         if (com.caregiver.mobile.BuildConfig.LOCAL_MODE) {
             SettingsGroup(title = "Data") {
                 SecondaryButton(
-                    label = "Load sample data",
+                    label = stringResource(R.string.settings_load_sample_data),
                     onClick = {
                         scope.launch {
                             com.caregiver.mobile.data.SampleDataLoader.load(
@@ -140,21 +140,19 @@ fun SettingsScreen(graph: AppGraph, navController: NavController) {
             }
         }
 
-        SettingsGroup(title = "About") {
+        SettingsGroup(title = stringResource(R.string.settings_about)) {
             Text(text = "Caregiver Daily Notes v" + com.caregiver.mobile.BuildConfig.VERSION_NAME)
             SecondaryButton(
-                label = "About",
+                label = stringResource(R.string.settings_about),
                 onClick = { navController.navigate("about") },
             )
         }
 
         if (!com.caregiver.mobile.BuildConfig.LOCAL_MODE) {
-            if (!com.caregiver.mobile.BuildConfig.LOCAL_MODE) {
-                SecondaryButton(
-                    label = stringResource(R.string.settings_server),
-                    onClick = { navController.navigate("server-url") },
-                )
-            }
+            SecondaryButton(
+                label = stringResource(R.string.settings_server),
+                onClick = { navController.navigate("server-url") },
+            )
             SecondaryButton(
                 label = stringResource(R.string.settings_logout),
                 onClick = {
