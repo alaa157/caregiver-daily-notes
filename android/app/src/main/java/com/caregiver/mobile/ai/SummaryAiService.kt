@@ -20,6 +20,7 @@ private data class ModelSummary(val observations: List<ModelObs> = emptyList(), 
 
 class SummaryAiService(
     private val client: LlmClient,
+    private val keyStore: AiKeyStore? = null,
     private val json: Json = Json { ignoreUnknownKeys = true },
 ) {
     suspend fun summarize(
@@ -31,7 +32,8 @@ class SummaryAiService(
         val dataBlock = notes.joinToString("\n") { note ->
             "[NOTE id=\"${note.id}\" date=${note.date}]\n${note.text}\n[/NOTE]"
         }
-        val res = client.complete(com.caregiver.mobile.ai.LlmRequest(Prompts.SUMMARY_SYSTEM, dataBlock))
+        val prompt = keyStore?.systemPrompt()?.takeIf { it.isNotBlank() } ?: Prompts.SUMMARY_SYSTEM
+        val res = client.complete(com.caregiver.mobile.ai.LlmRequest(prompt, dataBlock))
         val redFlags = SafetySignalEvaluator.evaluate(signals)
         if (res.status == com.caregiver.mobile.ai.LlmStatus.FALLBACK) {
             return SummaryDto(

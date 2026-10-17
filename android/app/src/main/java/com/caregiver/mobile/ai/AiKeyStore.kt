@@ -46,6 +46,12 @@ class AiKeyStore(private val context: Context) {
         prefs.edit().putBoolean(KEY_CONSENT, true).apply()
     }
 
+    fun systemPrompt(): String = prefs.getString(KEY_SYSTEM_PROMPT, "").orEmpty()
+
+    fun setSystemPrompt(value: String) {
+        prefs.edit().putString(KEY_SYSTEM_PROMPT, value).apply()
+    }
+
     private fun encrypt(plain: String): String {
         val cipher = Cipher.getInstance("AES/GCM/NoPadding")
         cipher.init(Cipher.ENCRYPT_MODE, getOrCreateKey())
@@ -87,6 +93,7 @@ class AiKeyStore(private val context: Context) {
         private const val KEY_API = "api_key"
         private const val KEY_MODEL = "model"
         private const val KEY_CONSENT = "consent"
+        private const val KEY_SYSTEM_PROMPT = "system_prompt"
         private const val IV_SIZE = 12
         private const val TAG_SIZE_BITS = 128
     }

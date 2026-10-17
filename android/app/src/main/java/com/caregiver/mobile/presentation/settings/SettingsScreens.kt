@@ -54,6 +54,7 @@ fun SettingsScreen(graph: AppGraph, navController: NavController) {
     val scope = rememberCoroutineScope()
     val activity = LocalContext.current as Activity
     val language by graph.settings.language.collectAsState(initial = SettingsStore.DEFAULT_LANGUAGE)
+    val themeMode by graph.settings.themeMode.collectAsState(initial = SettingsStore.DEFAULT_THEME_MODE)
     Column(
         modifier = Modifier.fillMaxSize().padding(horizontal = 16.dp),
         verticalArrangement = Arrangement.spacedBy(14.dp),
@@ -116,6 +117,16 @@ fun SettingsScreen(graph: AppGraph, navController: NavController) {
                 ),
             )
         }
+        Text(text = "Appearance")
+        Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+            listOf("light", "dark", "system").forEach { mode ->
+                FilterChip(
+                    selected = themeMode == mode,
+                    onClick = { scope.launch { graph.settings.setThemeMode(mode) } },
+                    label = { Text(mode.replaceFirstChar { it.uppercase() }) },
+                )
+            }
+        }
         Text(
             text = stringResource(R.string.settings_language_restart),
             fontFamily = PlexArabic,
@@ -125,6 +136,8 @@ fun SettingsScreen(graph: AppGraph, navController: NavController) {
             label = "AI settings",
             onClick = { navController.navigate("ai-settings") },
         )
+        Text(text = "About")
+        Text(text = "Caregiver Daily Notes v" + com.caregiver.mobile.BuildConfig.VERSION_NAME)
         if (com.caregiver.mobile.BuildConfig.LOCAL_MODE) {
             SecondaryButton(
                 label = "Load sample data",
