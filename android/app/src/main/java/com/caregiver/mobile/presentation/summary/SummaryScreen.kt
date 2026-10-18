@@ -216,6 +216,7 @@ fun SummaryResultScreen(
                     }
                 },
                 suggesting = vm.suggesting.collectAsState().value,
+                suggestedForCurrent = vm.suggestedForCurrent.collectAsState().value,
                 suggestStatus = vm.suggestStatus.collectAsState().value,
             )
         }
@@ -250,6 +251,7 @@ private fun SummaryBody(
     aiGenerated: Boolean = false,
     onSuggestPlan: (() -> Unit)? = null,
     suggesting: Boolean = false,
+    suggestedForCurrent: Boolean = false,
     suggestStatus: String? = null,
 ) {
     Column(
@@ -332,9 +334,9 @@ private fun SummaryBody(
         )
         if (onSuggestPlan != null) {
             PrimaryButton(
-                label = if (suggesting) "Suggesting..." else "Suggest plan (AI)",
+                label = if (suggesting) stringResource(R.string.suggesting) else if (suggestedForCurrent) stringResource(R.string.plan_suggest_success) else stringResource(R.string.suggest_plan_ai),
                 onClick = onSuggestPlan,
-                enabled = !suggesting,
+                enabled = !suggesting && !suggestedForCurrent,
                 height = 48.dp,
             )
         }
