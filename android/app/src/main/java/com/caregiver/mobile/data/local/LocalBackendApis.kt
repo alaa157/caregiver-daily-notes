@@ -108,6 +108,7 @@ class LocalBackendApis(
         }
 
         override suspend fun append(id: String, body: CreateAddendumRequest): AddendumDto {
+            if (noteDao.byServerId(id) == null) throw NoSuchElementException("note $id")
             val addendum = AddendumDto(
                 id = UUID.randomUUID().toString(),
                 noteId = id,
