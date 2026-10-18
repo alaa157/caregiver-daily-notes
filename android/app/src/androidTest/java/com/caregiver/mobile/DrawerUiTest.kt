@@ -59,6 +59,10 @@ class DrawerUiTest {
         compose.onNodeWithTag("drawer_avatar").assertDoesNotExist()
         compose.onNodeWithText(compose.activity.getString(R.string.settings_server))
             .assertIsDisplayed()
+        // Add-note is tab-shell chrome: it must not follow the user into
+        // settings (or any other non-tab destination), where screens carry
+        // their own bottom actions.
+        compose.onNodeWithTag("fab_add_note").assertDoesNotExist()
         // Drawer closed: the sheet sits off-screen.
         compose.onNodeWithTag("drawer_item_settings").assertIsNotDisplayed()
     }
