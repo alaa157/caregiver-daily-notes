@@ -75,12 +75,14 @@ internal val AppDarkScheme = darkColorScheme(
  * Accent palettes (2-3 options). Stored as strings in [SettingsStore].
  */
 object ColorPalettes {
+    const val METROLIST = "metrolist"
     const val TEAL = "teal"
     const val INDIGO = "indigo"
     const val ROSE = "rose"
 }
 
 private fun palettePrimary(palette: String?): androidx.compose.ui.graphics.Color = when (palette?.lowercase()) {
+    ColorPalettes.METROLIST -> Color(0xFF6750A4)
     ColorPalettes.INDIGO -> Color(0xFF3F51B5)
     ColorPalettes.ROSE -> Color(0xFFC2185B)
     else -> CaregiverColors.Primary

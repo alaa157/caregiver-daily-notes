@@ -17,6 +17,9 @@ import androidx.compose.material3.FilterChipDefaults
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.OutlinedTextFieldDefaults
+import androidx.compose.material3.SegmentedButton
+import androidx.compose.material3.SegmentedButtonDefaults
+import androidx.compose.material3.SingleChoiceSegmentedButtonRow
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.collectAsState
@@ -58,12 +61,45 @@ fun SettingsScreen(graph: AppGraph, navController: NavController) {
     val themeMode by graph.settings.themeMode.collectAsState(initial = SettingsStore.DEFAULT_THEME_MODE)
     val colorPalette by graph.settings.colorPalette.collectAsState(initial = SettingsStore.DEFAULT_COLOR_PALETTE)
     Column(
-        modifier = Modifier.fillMaxSize().padding(horizontal = 16.dp),
-        verticalArrangement = Arrangement.spacedBy(14.dp),
+        modifier = Modifier.fillMaxSize().padding(horizontal = 16.dp, vertical = 8.dp),
+        verticalArrangement = Arrangement.spacedBy(16.dp),
     ) {
         AppTopBar(title = stringResource(R.string.settings_title))
 
-        SettingsGroup(title = "Language") {
+        SettingsGroup(title = stringResource(R.string.settings_appearance)) {
+            Text(
+                text = "Mode",
+                style = MaterialTheme.typography.labelMedium,
+                color = CaregiverColors.Muted,
+            )
+            SingleChoiceSegmentedButtonRow(modifier = Modifier.fillMaxWidth()) {
+                listOf("light", "dark", "system").forEachIndexed { index, mode ->
+                    SegmentedButton(
+                        selected = themeMode == mode,
+                        onClick = { scope.launch { graph.settings.setThemeMode(mode) } },
+                        shape = SegmentedButtonDefaults.itemShape(index, 3),
+                    ) {
+                        Text(mode.replaceFirstChar { it.uppercase() })
+                    }
+                }
+            }
+            Text(
+                text = "Accent",
+                style = MaterialTheme.typography.labelMedium,
+                color = CaregiverColors.Muted,
+            )
+            Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                listOf("metrolist", "teal", "indigo", "rose").forEach { pal ->
+                    FilterChip(
+                        selected = colorPalette == pal,
+                        onClick = { scope.launch { graph.settings.setColorPalette(pal) } },
+                        label = { Text(pal.replaceFirstChar { it.uppercase() }) },
+                    )
+                }
+            }
+        }
+
+        SettingsGroup(title = stringResource(R.string.settings_language)) {
             Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                 FilterChip(
                     selected = language == "ar",
@@ -94,31 +130,11 @@ fun SettingsScreen(graph: AppGraph, navController: NavController) {
                 text = stringResource(R.string.settings_language_restart),
                 fontFamily = PlexArabic,
                 style = MaterialTheme.typography.bodySmall,
+                color = CaregiverColors.Muted,
             )
         }
 
-        SettingsGroup(title = stringResource(R.string.settings_appearance)) {
-            Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                listOf("light", "dark", "system").forEach { mode ->
-                    FilterChip(
-                        selected = themeMode == mode,
-                        onClick = { scope.launch { graph.settings.setThemeMode(mode) } },
-                        label = { Text(mode.replaceFirstChar { it.uppercase() }) },
-                    )
-                }
-            }
-            Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                listOf("teal", "indigo", "rose").forEach { pal ->
-                    FilterChip(
-                        selected = colorPalette == pal,
-                        onClick = { scope.launch { graph.settings.setColorPalette(pal) } },
-                        label = { Text(pal.replaceFirstChar { it.uppercase() }) },
-                    )
-                }
-            }
-        }
-
-        SettingsGroup(title = "AI") {
+        SettingsGroup(title = stringResource(R.string.settings_ai)) {
             SecondaryButton(
                 label = stringResource(R.string.settings_ai),
                 onClick = { navController.navigate("ai-settings") },
@@ -141,7 +157,10 @@ fun SettingsScreen(graph: AppGraph, navController: NavController) {
         }
 
         SettingsGroup(title = stringResource(R.string.settings_about)) {
-            Text(text = "Caregiver Daily Notes v" + com.caregiver.mobile.BuildConfig.VERSION_NAME)
+            Text(
+                text = "Caregiver Daily Notes v" + com.caregiver.mobile.BuildConfig.VERSION_NAME,
+                style = MaterialTheme.typography.bodyMedium,
+            )
             SecondaryButton(
                 label = stringResource(R.string.settings_about),
                 onClick = { navController.navigate("about") },
@@ -149,17 +168,19 @@ fun SettingsScreen(graph: AppGraph, navController: NavController) {
         }
 
         if (!com.caregiver.mobile.BuildConfig.LOCAL_MODE) {
-            SecondaryButton(
-                label = stringResource(R.string.settings_server),
-                onClick = { navController.navigate("server-url") },
-            )
-            SecondaryButton(
-                label = stringResource(R.string.settings_logout),
-                onClick = {
-                    scope.launch { graph.auth.signOut() }
-                },
-                danger = true,
-            )
+            SettingsGroup(title = "Server") {
+                SecondaryButton(
+                    label = stringResource(R.string.settings_server),
+                    onClick = { navController.navigate("server-url") },
+                )
+                SecondaryButton(
+                    label = stringResource(R.string.settings_logout),
+                    onClick = {
+                        scope.launch { graph.auth.signOut() }
+                    },
+                    danger = true,
+                )
+            }
         }
     }
 }

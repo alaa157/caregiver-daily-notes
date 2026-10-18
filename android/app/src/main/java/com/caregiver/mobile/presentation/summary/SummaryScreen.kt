@@ -145,7 +145,7 @@ fun SummaryResultScreen(
     if (!hasKey) {
         Column(Modifier.fillMaxSize().padding(horizontal = AppDimens.ScreenHPadding)) {
             AppTopBar(title = stringResource(R.string.summary_title))
-            Text("Set up AI in Settings to generate summaries.")
+            Text(stringResource(R.string.summary_setup_ai))
         }
         return
     }

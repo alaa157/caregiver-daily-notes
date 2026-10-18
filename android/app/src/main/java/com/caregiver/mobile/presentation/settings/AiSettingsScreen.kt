@@ -59,33 +59,33 @@ fun AiSettingsScreen(graph: AppGraph, navController: NavController) {
     ) {
         Text(text = stringResource(R.string.settings_ai))
 
-        SettingsGroup(title = "Provider") {
+        SettingsGroup(title = stringResource(R.string.settings_ai_provider)) {
             TextButton(onClick = { showProviderDialog = true }) {
                 Text(provider.displayName)
             }
         }
 
-        SettingsGroup(title = "API key") {
+        SettingsGroup(title = stringResource(R.string.settings_ai_api_key)) {
             TextButton(onClick = { showKeyDialog = true }) {
-                Text(if (apiKey.isBlank()) "Set API key" else "••••••••")
+                Text(if (apiKey.isBlank()) stringResource(R.string.settings_ai_set_api_key) else "••••••••")
             }
         }
 
-        SettingsGroup(title = "Model") {
+        SettingsGroup(title = stringResource(R.string.settings_ai_model)) {
             TextButton(onClick = { showModelDialog = true }) {
                 Text(model.ifBlank { provider.defaultModel })
             }
         }
 
-        SettingsGroup(title = "Base URL (custom)") {
+        SettingsGroup(title = stringResource(R.string.settings_ai_base_url)) {
             TextButton(onClick = { showUrlDialog = true }) {
                 Text(baseUrl.ifBlank { provider.defaultBaseUrl })
             }
         }
 
-        SettingsGroup(title = "System prompt") {
+        SettingsGroup(title = stringResource(R.string.settings_ai_system_prompt)) {
             TextButton(onClick = { showPromptDialog = true }) {
-                Text(if (systemPrompt.isBlank()) "Default" else "Custom")
+                Text(if (systemPrompt.isBlank()) stringResource(R.string.settings_ai_default) else stringResource(R.string.settings_ai_custom))
             }
         }
 
@@ -94,11 +94,11 @@ fun AiSettingsScreen(graph: AppGraph, navController: NavController) {
             scope.launch {
                 val client = buildClient(provider, model.ifBlank { provider.defaultModel }, apiKey, baseUrl.ifBlank { provider.defaultBaseUrl })
                 val res = client.complete(LlmRequest("Reply with OK", "ping"))
-                status = if (res.status.name == "OK") "Connection OK" else "Failed: ${res.error}"
+                status = if (res.status.name == "OK") graph.context.getString(R.string.settings_ai_connection_ok) else graph.context.getString(R.string.settings_ai_failed, res.error ?: "")
                 testing = false
             }
         }, enabled = !testing) {
-            Text(if (testing) "Testing..." else "Test connection")
+            Text(if (testing) stringResource(R.string.settings_ai_testing) else stringResource(R.string.settings_ai_test_connection))
         }
         status?.let { Text(it) }
 
@@ -108,15 +108,15 @@ fun AiSettingsScreen(graph: AppGraph, navController: NavController) {
             store.setModel(model.ifBlank { provider.defaultModel })
             store.setSystemPrompt(systemPrompt)
             navController.popBackStack()
-        }) { Text("Save") }
+        }) { Text(stringResource(R.string.settings_ai_save)) }
 
-        TextButton(onClick = { navController.popBackStack() }) { Text("Cancel") }
+        TextButton(onClick = { navController.popBackStack() }) { Text(stringResource(R.string.common_cancel)) }
     }
 
     if (showProviderDialog) {
         AlertDialog(
             onDismissRequest = { showProviderDialog = false },
-            title = { Text("Provider") },
+            title = { Text(stringResource(R.string.settings_ai_provider)) },
             text = {
                 Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
                     AiProvider.values().forEach { p ->
@@ -129,14 +129,14 @@ fun AiSettingsScreen(graph: AppGraph, navController: NavController) {
                     }
                 }
             },
-            confirmButton = { TextButton(onClick = { showProviderDialog = false }) { Text("Close") } },
+            confirmButton = { TextButton(onClick = { showProviderDialog = false }) { Text(stringResource(R.string.settings_ai_close)) } },
         )
     }
 
     if (showKeyDialog) {
         AlertDialog(
             onDismissRequest = { showKeyDialog = false },
-            title = { Text("API key") },
+            title = { Text(stringResource(R.string.settings_ai_api_key)) },
             text = {
                 OutlinedTextField(
                     value = apiKey,
@@ -145,36 +145,36 @@ fun AiSettingsScreen(graph: AppGraph, navController: NavController) {
                     modifier = Modifier.fillMaxWidth(),
                 )
             },
-            confirmButton = { TextButton(onClick = { showKeyDialog = false }) { Text("OK") } },
+            confirmButton = { TextButton(onClick = { showKeyDialog = false }) { Text(stringResource(R.string.common_ok)) } },
         )
     }
 
     if (showModelDialog) {
         AlertDialog(
             onDismissRequest = { showModelDialog = false },
-            title = { Text("Model") },
+            title = { Text(stringResource(R.string.settings_ai_model)) },
             text = {
                 Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
                     OutlinedTextField(
                         value = model,
                         onValueChange = { model = it },
-                        label = { Text("Custom model") },
+                        label = { Text(stringResource(R.string.settings_ai_custom_model)) },
                         modifier = Modifier.fillMaxWidth(),
                     )
-                    Text("Suggestions:")
+                    Text(stringResource(R.string.settings_ai_suggestions))
                     listOf(provider.defaultModel).forEach { s ->
                         TextButton(onClick = { model = s }) { Text(s) }
                     }
                 }
             },
-            confirmButton = { TextButton(onClick = { showModelDialog = false }) { Text("OK") } },
+            confirmButton = { TextButton(onClick = { showModelDialog = false }) { Text(stringResource(R.string.common_ok)) } },
         )
     }
 
     if (showUrlDialog) {
         AlertDialog(
             onDismissRequest = { showUrlDialog = false },
-            title = { Text("Base URL") },
+            title = { Text(stringResource(R.string.settings_ai_base_url)) },
             text = {
                 OutlinedTextField(
                     value = baseUrl,
@@ -182,14 +182,14 @@ fun AiSettingsScreen(graph: AppGraph, navController: NavController) {
                     modifier = Modifier.fillMaxWidth(),
                 )
             },
-            confirmButton = { TextButton(onClick = { showUrlDialog = false }) { Text("OK") } },
+            confirmButton = { TextButton(onClick = { showUrlDialog = false }) { Text(stringResource(R.string.common_ok)) } },
         )
     }
 
     if (showPromptDialog) {
         AlertDialog(
             onDismissRequest = { showPromptDialog = false },
-            title = { Text("System prompt") },
+            title = { Text(stringResource(R.string.settings_ai_system_prompt)) },
             text = {
                 OutlinedTextField(
                     value = systemPrompt,
@@ -199,13 +199,13 @@ fun AiSettingsScreen(graph: AppGraph, navController: NavController) {
                 )
             },
             confirmButton = {
-                TextButton(onClick = { showPromptDialog = false }) { Text("OK") }
+                TextButton(onClick = { showPromptDialog = false }) { Text(stringResource(R.string.common_ok)) }
             },
             dismissButton = {
                 TextButton(onClick = {
                     systemPrompt = ""
                     showPromptDialog = false
-                }) { Text("Reset to default") }
+                }) { Text(stringResource(R.string.settings_ai_reset_default)) }
             },
         )
     }
