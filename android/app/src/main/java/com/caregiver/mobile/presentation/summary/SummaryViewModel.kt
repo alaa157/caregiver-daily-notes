@@ -184,7 +184,16 @@ class SummaryViewModel(
                 val result = service.suggest(summaryText, noteIds)
                 when (result) {
                     is com.caregiver.mobile.ai.PlanSuggestionResult.Success -> {
-                        val items = result.suggestion.changes.map { it.reason }.filter { it.isNotBlank() }
+                        val items = result.suggestion.changes.mapNotNull { change ->
+                            val reason = change.reason.trim()
+                            if (reason.isBlank()) return@mapNotNull null
+                            buildString {
+                                append("[").append(change.actionId).append("] ")
+                                append(reason)
+                                if (change.evidenceNoteIds.isNotEmpty()) append(" (evidence: ").append(change.evidenceNoteIds.joinToString(",")).append(")")
+                                if (change.params.isNotEmpty()) append(" params=").append(change.params.entries.joinToString(",") { "${it.key}=${it.value}" })
+                            }
+                        }
                         if (items.isNotEmpty()) {
                             repository.authorized {
                                 apis.plans().suggest(SuggestPlanRequest(recipientId, items))

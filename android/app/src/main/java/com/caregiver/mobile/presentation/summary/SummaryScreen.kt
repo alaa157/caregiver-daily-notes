@@ -334,7 +334,7 @@ private fun SummaryBody(
             PrimaryButton(
                 label = if (suggesting) "Suggesting..." else "Suggest plan (AI)",
                 onClick = onSuggestPlan,
-                enabled = !suggesting && !vm.suggestedForCurrent.collectAsState().value,
+                enabled = !suggesting,
                 height = 48.dp,
             )
         }
