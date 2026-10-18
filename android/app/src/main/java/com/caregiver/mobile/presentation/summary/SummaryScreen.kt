@@ -274,7 +274,7 @@ private fun SummaryBody(
         }
         if (aiGenerated) {
             Text(
-                text = "AI-generated",
+                text = stringResource(R.string.ai_generated),
                 fontFamily = PlexArabic,
                 fontSize = 12.sp,
                 color = CaregiverColors.Muted,

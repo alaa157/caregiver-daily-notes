@@ -18,6 +18,7 @@ import androidx.compose.material3.FilterChip
 import androidx.compose.material3.FilterChipDefaults
 import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
+import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.ModalDrawerSheet
 import androidx.compose.material3.NavigationDrawerItem
 import androidx.compose.material3.NavigationDrawerItemDefaults
@@ -101,7 +102,7 @@ fun AppDrawer(
                 )
             }
         }
-        HorizontalDivider(thickness = AppDimens.Hairline, color = MaterialTheme.colorScheme.outlineSoft)
+        HorizontalDivider(thickness = AppDimens.Hairline, color = CaregiverColors.BorderSoft)
         DrawerItem(
             icon = Icons.Outlined.People,
             label = stringResource(R.string.tab_people),
@@ -123,7 +124,7 @@ fun AppDrawer(
         ) {
             onNavigate(AppDestinations.Settings.base)
         }
-        HorizontalDivider(thickness = AppDimens.Hairline, color = MaterialTheme.colorScheme.outlineSoft)
+        HorizontalDivider(thickness = AppDimens.Hairline, color = CaregiverColors.BorderSoft)
         Spacer(Modifier.height(AppDimens.GapCard))
         Text(
             text = stringResource(R.string.settings_language),
@@ -158,7 +159,7 @@ fun AppDrawer(
             }
         }
         Spacer(Modifier.height(AppDimens.GapCard))
-        HorizontalDivider(thickness = AppDimens.Hairline, color = MaterialTheme.colorScheme.outlineSoft)
+        HorizontalDivider(thickness = AppDimens.Hairline, color = CaregiverColors.BorderSoft)
         Text(
             text = stringResource(
                 when (syncStatus) {
@@ -213,7 +214,7 @@ private fun DrawerItem(
         // None of the items is persistently "current", but the selected
         // styling keeps the app palette if selection is ever added.
         colors = NavigationDrawerItemDefaults.colors(
-            selectedContainerColor = MaterialTheme.colorScheme.primarySoft,
+            selectedContainerColor = CaregiverColors.PrimarySoft,
             selectedIconColor = MaterialTheme.colorScheme.primary,
             selectedTextColor = MaterialTheme.colorScheme.primary,
             unselectedIconColor = MaterialTheme.colorScheme.onSurfaceVariant,
@@ -242,7 +243,7 @@ private fun LanguageChip(
         colors = FilterChipDefaults.filterChipColors(
             containerColor = MaterialTheme.colorScheme.surface,
             labelColor = MaterialTheme.colorScheme.onSurface,
-            selectedContainerColor = MaterialTheme.colorScheme.primarySoft,
+            selectedContainerColor = CaregiverColors.PrimarySoft,
             selectedLabelColor = MaterialTheme.colorScheme.primary,
         ),
     )
