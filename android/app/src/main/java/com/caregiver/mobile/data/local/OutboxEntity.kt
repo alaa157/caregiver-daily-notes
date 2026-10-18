@@ -91,6 +91,7 @@ fun OutboxEntity.toCreateRequest(): CreateNoteRequest = CreateNoteRequest(
     pain = pain,
     fall = fall,
     text = text,
+    idempotencyKey = localId,
 )
 
 /**

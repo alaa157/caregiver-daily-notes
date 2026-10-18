@@ -77,6 +77,7 @@ data class CreateNoteRequest(
     val pain: Int,
     val fall: Boolean,
     val text: String,
+    val idempotencyKey: String? = null,
 )
 
 @Serializable

@@ -61,7 +61,7 @@ class OpenAiCompatibleLlmClient(
                         }
                         last = LlmResult(LlmStatus.FALLBACK, "", err, code)
                         if (code >= 500) {
-                            kotlinx.coroutines.delay(1000L * (attempt + 1))
+                            kotlinx.coroutines.delay(calculateBackoff(attempt))
                             return@use
                         }
                         return@withContext last
@@ -76,16 +76,24 @@ class OpenAiCompatibleLlmClient(
                     }
                     if (content.isNullOrBlank()) {
                         last = LlmResult(LlmStatus.FALLBACK, "", "empty_output", resp.code)
-                        kotlinx.coroutines.delay(1000L * (attempt + 1))
+                        kotlinx.coroutines.delay(calculateBackoff(attempt))
                         return@use
                     }
                     return@withContext LlmResult(LlmStatus.OK, content)
                 }
             } catch (e: Exception) {
                 last = LlmResult(LlmStatus.FALLBACK, "", "network", null)
-                kotlinx.coroutines.delay(1000L * (attempt + 1))
+                kotlinx.coroutines.delay(calculateBackoff(attempt))
             }
         }
         return@withContext last
+    }
+
+    fun calculateBackoff(attempt: Int, baseMs: Long = BACKOFF_BASE_MS): Long {
+        return baseMs * (1L shl attempt.coerceAtMost(4))
+    }
+
+    companion object {
+        const val BACKOFF_BASE_MS = 500L
     }
 }
