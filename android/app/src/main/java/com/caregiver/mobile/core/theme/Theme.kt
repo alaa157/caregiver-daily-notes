@@ -130,7 +130,10 @@ internal val MetrolistDarkScheme = darkColorScheme(
 
 @Composable
 fun CaregiverTheme(darkTheme: Boolean = false, palette: Any? = null, content: @Composable () -> Unit) {
-    val p = palette?.toString()?.lowercase()
+    val p = palette?.toString()?.lowercase() ?: "teal"
+    androidx.compose.runtime.SideEffect {
+        com.caregiver.mobile.core.theme.CaregiverColors.update(darkTheme, p)
+    }
     val base = when (p) {
         ColorPalettes.METROLIST -> if (darkTheme) MetrolistDarkScheme else MetrolistLightScheme
         else -> if (darkTheme) AppDarkScheme else AppLightScheme

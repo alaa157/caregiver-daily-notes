@@ -55,11 +55,12 @@ class PlanSuggestionService(
                 if (id !in noteIds) return null
             }
         }
-        // Enforce medication prohibition: proposed must equal current when current provided
-        if (currentMedications.isNotEmpty() && payload.proposedMedications != currentMedications) {
+        // Medications are never AI-proposed: any non-empty proposed list is
+        // rejected outright, regardless of the current medication list.
+        if (payload.proposedMedications.isNotEmpty()) {
             return null
         }
-        return PlanSuggestion(payload.changes, payload.proposedMedications)
+        return PlanSuggestion(payload.changes, emptyList())
     }
 
     companion object {

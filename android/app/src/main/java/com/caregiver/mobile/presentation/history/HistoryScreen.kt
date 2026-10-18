@@ -387,6 +387,7 @@ private fun PersonFilterChip(
     onSelect: (String?) -> Unit,
 ) {
     var expanded by remember { mutableStateOf(false) }
+    val allLabel = stringResource(R.string.history_filter_all)
     Box {
         FilterChip(
             selected = selected != null,
@@ -404,7 +405,10 @@ private fun PersonFilterChip(
             },
             modifier = Modifier
                 .testTag("history_filter_person")
-                .semantics { stateDescription = if (selected != null) "selected" else "all" },
+                .semantics {
+                    stateDescription = people.firstOrNull { it.id == selected }?.name
+                        ?: allLabel
+                },
         )
         DropdownMenu(expanded = expanded, onDismissRequest = { expanded = false }) {
             DropdownMenuItem(
@@ -446,7 +450,9 @@ private fun DateFilterChip(
         },
         modifier = Modifier
             .testTag(tag)
-            .semantics { stateDescription = if (date != null) date.toString() else "none" },
+            .semantics {
+                stateDescription = date?.let { DateFormats.historyDay(it.toString(), arabic) } ?: "—"
+            },
     )
     if (open) {
         // UTC both ways: the picker deals in UTC-midnight millis, and the

@@ -35,6 +35,7 @@ import androidx.compose.material3.NavigationBarItem
 import androidx.compose.material3.NavigationBarItemDefaults
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Surface
+import androidx.compose.material3.Text
 import androidx.compose.material3.TopAppBarDefaults
 import androidx.compose.material3.rememberDrawerState
 import androidx.compose.runtime.Composable
@@ -231,13 +232,17 @@ fun MainScaffold(graph: AppGraph) {
                     // tall, and the system navigation-bar inset is reserved
                     // *below* them (not squeezed into them and not added to the
                     // 80dp M3 default), so the bar stays short without clipping.
+                    // Modifier order is load-bearing: the inset padding must
+                    // wrap the fixed height, otherwise the padding eats into the
+                    // 64dp strip and squeezes the icons (visible on 3-button
+                    // navigation, where the inset is ~48dp).
                     NavigationBar(
                         containerColor = CaregiverColors.Surface,
                         windowInsets = WindowInsets(0, 0, 0, 0),
                         modifier = Modifier
                             .fillMaxWidth()
-                            .height(AppDimens.BottomNavH)
-                            .windowInsetsPadding(WindowInsets.navigationBars),
+                            .windowInsetsPadding(WindowInsets.navigationBars)
+                            .height(AppDimens.BottomNavH),
                     ) {
                     MainTab.entries.forEach { tab ->
                         val selected = currentRoute == tab.route
