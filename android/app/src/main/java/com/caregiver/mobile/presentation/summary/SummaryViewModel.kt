@@ -2,6 +2,7 @@ package com.caregiver.mobile.presentation.summary
 
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
+import com.caregiver.mobile.ai.SummaryWindow
 import com.caregiver.mobile.data.AuthRepository
 import com.caregiver.mobile.data.LoggedOutException
 import com.caregiver.mobile.data.api.ApiErrors
@@ -10,6 +11,7 @@ import com.caregiver.mobile.data.api.SummaryDto
 import com.caregiver.mobile.data.api.SummaryRequest
 import com.caregiver.mobile.data.api.SuggestPlanRequest
 import java.io.IOException
+import java.time.LocalDate
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
@@ -18,6 +20,7 @@ import retrofit2.HttpException
 
 sealed interface SummaryState {
     data object Loading : SummaryState
+    data object NeedsConsent : SummaryState
     data class Content(val summary: SummaryDto, val refreshing: Boolean = false, val aiGenerated: Boolean = false) : SummaryState
     data class AiUnavailable(val last: SummaryDto? = null) : SummaryState
     data class Rejected(val code: String?, val last: SummaryDto? = null) : SummaryState
@@ -71,9 +74,19 @@ class SummaryViewModel(
         exec.launch { load(preserve = current != null) }
     }
 
+    fun grantConsent() {
+        aiKeyStore?.setConsentGiven()
+        _state.value = SummaryState.Loading
+        exec.launch { load(preserve = false) }
+    }
+
     private suspend fun load(preserve: Boolean) {
         val store = aiKeyStore
         if (store != null && store.hasKey()) {
+            if (!store.consentGiven()) {
+                _state.value = SummaryState.NeedsConsent
+                return
+            }
             try {
                 val provider = store.provider() ?: com.caregiver.mobile.ai.AiProvider.OPENAI
                 val key = store.apiKey().orEmpty()
@@ -89,10 +102,20 @@ class SummaryViewModel(
                         llmClientFactory.createGeminiClient(provider.defaultBaseUrl, model, key)
                 }
                 val service = com.caregiver.mobile.ai.SummaryAiService(client, store)
-                val notes = repository.authorized { apis.notes().history(recipientId, null, null) }
-                val signals = repository.authorized { apis.summaries().signals(recipientId, null, null) }
-                val summary = service.summarize(recipientId, _period.value, notes, signals)
-                _state.value = SummaryState.Content(summary, aiGenerated = true)
+                // Explicit inclusive window (Finding 3): today plus the
+                // preceding periodDays - 1 days, the same rule the backend
+                // applies. Both fetches are narrowed to it so notes and
+                // signals outside the selected period never reach the AI
+                // provider, and the same window is passed to the service.
+                val today = LocalDate.now()
+                val from = SummaryWindow.start(today, _period.value).toString()
+                val to = today.toString()
+                val notes = repository.authorized { apis.notes().history(recipientId, from, to) }
+                val signals = repository.authorized { apis.summaries().signals(recipientId, from, to) }
+                val summary = service.summarize(recipientId, _period.value, notes, signals, today)
+                val aiGenerated = (summary.text.isNotBlank() || summary.evidence.isNotEmpty())
+                    && summary.uncertainties.none { it.topic in setOf("malformed_output", "invalid_evidence", "no_source_data") }
+                _state.value = SummaryState.Content(summary, aiGenerated = aiGenerated)
                 return
             } catch (e: Exception) {
                 // Fall through to API path on failure.
@@ -119,6 +142,7 @@ class SummaryViewModel(
     fun suggestPlan() {
         val store = aiKeyStore ?: return
         if (!store.hasKey()) return
+        if (!store.consentGiven()) return
         val summaryText = (_state.value as? SummaryState.Content)?.summary?.text.orEmpty()
         _suggesting.value = true
         exec.launch {
@@ -136,8 +160,11 @@ class SummaryViewModel(
                     com.caregiver.mobile.ai.AiProvider.GEMINI ->
                         llmClientFactory.createGeminiClient(provider.defaultBaseUrl, model, key)
                 }
+                val notes = repository.authorized { apis.notes().history(recipientId, null, null) }
+                val noteIds = notes.map { it.id }.toSet()
                 val service = com.caregiver.mobile.ai.PlanSuggestionService(client, store)
-                val items = service.suggestItems(summaryText)
+                val suggestion = service.suggest(summaryText, noteIds)
+                val items = suggestion?.changes?.map { it.reason }?.filter { it.isNotBlank() } ?: emptyList()
                 if (items.isNotEmpty()) {
                     repository.authorized {
                         apis.plans().suggest(SuggestPlanRequest(recipientId, items))

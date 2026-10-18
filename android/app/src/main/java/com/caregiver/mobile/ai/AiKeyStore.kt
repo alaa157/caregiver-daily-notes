@@ -40,16 +40,48 @@ class AiKeyStore(private val context: Context) {
         prefs.edit().putString(KEY_MODEL, m).apply()
     }
 
+    fun baseUrl(): String? = prefs.getString(KEY_BASE_URL, null)
+
+    fun setBaseUrl(url: String) {
+        prefs.edit().putString(KEY_BASE_URL, url).apply()
+    }
+
+    /** The saved base URL, or the provider default when none/custom was set. */
+    fun baseUrlOrDefault(provider: AiProvider): String =
+        baseUrl()?.takeIf { it.isNotBlank() } ?: provider.defaultBaseUrl
+
     fun consentGiven(): Boolean = prefs.getBoolean(KEY_CONSENT, false)
 
     fun setConsentGiven() {
         prefs.edit().putBoolean(KEY_CONSENT, true).apply()
     }
 
+    fun revokeConsent() {
+        prefs.edit().putBoolean(KEY_CONSENT, false).apply()
+    }
+
     fun systemPrompt(): String = prefs.getString(KEY_SYSTEM_PROMPT, "").orEmpty()
 
     fun setSystemPrompt(value: String) {
         prefs.edit().putString(KEY_SYSTEM_PROMPT, value).apply()
+    }
+
+    fun summarySystemPrompt(): String = prefs.getString(KEY_SUMMARY_PROMPT, "").orEmpty()
+
+    fun setSummarySystemPrompt(value: String) {
+        prefs.edit().putString(KEY_SUMMARY_PROMPT, value).apply()
+    }
+
+    fun translationSystemPrompt(): String = prefs.getString(KEY_TRANSLATION_PROMPT, "").orEmpty()
+
+    fun setTranslationSystemPrompt(value: String) {
+        prefs.edit().putString(KEY_TRANSLATION_PROMPT, value).apply()
+    }
+
+    fun planSystemPrompt(): String = prefs.getString(KEY_PLAN_PROMPT, "").orEmpty()
+
+    fun setPlanSystemPrompt(value: String) {
+        prefs.edit().putString(KEY_PLAN_PROMPT, value).apply()
     }
 
     private fun encrypt(plain: String): String {
@@ -92,8 +124,12 @@ class AiKeyStore(private val context: Context) {
         private const val KEY_PROVIDER = "provider"
         private const val KEY_API = "api_key"
         private const val KEY_MODEL = "model"
+        private const val KEY_BASE_URL = "base_url"
         private const val KEY_CONSENT = "consent"
         private const val KEY_SYSTEM_PROMPT = "system_prompt"
+        private const val KEY_SUMMARY_PROMPT = "summary_prompt"
+        private const val KEY_TRANSLATION_PROMPT = "translation_prompt"
+        private const val KEY_PLAN_PROMPT = "plan_prompt"
         private const val IV_SIZE = 12
         private const val TAG_SIZE_BITS = 128
     }
