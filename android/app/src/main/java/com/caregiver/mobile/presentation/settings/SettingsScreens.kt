@@ -91,24 +91,24 @@ fun SettingsScreen(graph: AppGraph, navController: NavController) {
 
         // Section 1: Interface
         SectionHeader(stringResource(R.string.section_interface))
-        SettingsTile(title = stringResource(R.string.item_zero), icon = Icons.Outlined.Circle, onClick = {})
+        SettingsTile(title = stringResource(R.string.item_zero), icon = Icons.Outlined.Circle, onClick = {}, enabled = false)
 
         // Section 2: Privacy & Security
         SectionHeader(stringResource(R.string.section_privacy))
-        SettingsTile(title = stringResource(R.string.item_privacy), icon = Icons.Outlined.Lock, onClick = {})
+        SettingsTile(title = stringResource(R.string.item_privacy), icon = Icons.Outlined.Lock, onClick = {}, enabled = false)
 
         // Section 3: Storage & Data
         SectionHeader(stringResource(R.string.section_storage))
-        SettingsTile(title = stringResource(R.string.item_storage), icon = Icons.Outlined.Storage, onClick = {})
-        SettingsTile(title = stringResource(R.string.item_backup_restore), icon = Icons.Outlined.Backup, onClick = {})
+        SettingsTile(title = stringResource(R.string.item_storage), icon = Icons.Outlined.Storage, onClick = {}, enabled = false)
+        SettingsTile(title = stringResource(R.string.item_backup_restore), icon = Icons.Outlined.Backup, onClick = {}, enabled = false)
 
         // Section 4: System & About
         SectionHeader(stringResource(R.string.section_system))
-        SettingsTile(title = stringResource(R.string.item_open_supported_links), icon = Icons.Outlined.OpenInNew, onClick = {})
-        SettingsTile(title = stringResource(R.string.item_updater), icon = Icons.Outlined.SystemUpdate, onClick = {})
-        SettingsTile(title = stringResource(R.string.item_changelog), icon = Icons.Outlined.History, onClick = {})
+        SettingsTile(title = stringResource(R.string.item_open_supported_links), icon = Icons.Outlined.OpenInNew, onClick = {}, enabled = false)
+        SettingsTile(title = stringResource(R.string.item_updater), icon = Icons.Outlined.SystemUpdate, onClick = {}, enabled = false)
+        SettingsTile(title = stringResource(R.string.item_changelog), icon = Icons.Outlined.History, onClick = {}, enabled = false)
         SettingsTile(title = stringResource(R.string.settings_about), icon = Icons.Outlined.Info, onClick = { navController.navigate("about") })
-        SettingsTile(title = stringResource(R.string.item_check_new_version), icon = Icons.Outlined.Update, onClick = {})
+        SettingsTile(title = stringResource(R.string.item_check_new_version), icon = Icons.Outlined.Update, onClick = {}, enabled = false)
 
         // Application-specific section
         SectionHeader(stringResource(R.string.section_application))
