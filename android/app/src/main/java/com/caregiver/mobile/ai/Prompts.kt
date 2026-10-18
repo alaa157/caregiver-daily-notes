@@ -10,11 +10,18 @@ object Prompts {
             "Mark unclear or conflicting information as uncertainty, never guess. " +
             "No diagnoses, no prescriptions."
 
-    const val PLAN_SYSTEM =
-        "You suggest care-plan updates from grounded summaries. Select ONLY actions from the fixed catalog " +
-            "with its exact parameter names. Cite evidenceNoteIds from the supplied notes for every change " +
-            "and give a reason. NEVER add, remove, or change medications, doses, or schedules. " +
+    fun planSystemPrompt(): String {
+        val catalog = PlanSuggestionService.DEFAULT_ALLOWED_ACTIONS.sorted().joinToString("\n") { action ->
+            val params = PlanSuggestionService.ALLOWED_PARAMS[action] ?: emptySet()
+            val paramText = if (params.isEmpty()) "{}" else params.joinToString(prefix = "{", postfix = "}") { "\"$it\"" }
+            "- $action (params must be $paramText)"
+        }
+        return "You suggest care-plan updates from grounded summaries. Select ONLY actions from this fixed catalog:\n" +
+            catalog + "\n" +
+            "Every change must use an actionId from the catalog above and params must match the action's schema (empty object {} unless listed). " +
+            "Cite evidenceNoteIds from the supplied notes for every change and give a reason. " +
+            "proposedMedications must always be [] and medications must never be suggested, added, removed, or changed. " +
             "NEVER diagnose or prescribe. Return ONLY valid JSON: " +
             "{\"changes\":[{\"actionId\":string,\"params\":object,\"reason\":string,\"evidenceNoteIds\":[string]}], " +
-            "\"proposedMedications\":[{\"name\":string,\"dose\":string,\"schedule\":string}]}."
-}
+            "\"proposedMedications\":[]}."
+    }}
