@@ -32,6 +32,19 @@ class PlanSuggestionService(
 ) {
     private val json = Json { ignoreUnknownKeys = false }
 
+    /**
+     * Partial acceptance is intentional: invalid individual changes are dropped
+     * while valid ones are kept. The whole payload is still rejected when
+     * proposedMedications is non-empty.
+     */
+    private fun stripFences(raw: String): String {
+        val trimmed = raw.trim()
+        if (!trimmed.startsWith("```")) return trimmed
+        val withoutFence = trimmed.removePrefix("```json").removePrefix("```").trim()
+        val end = withoutFence.lastIndexOf("```")
+        return if (end >= 0) withoutFence.substring(0, end).trim() else withoutFence
+    }
+
     suspend fun suggest(
         summaryText: String,
         noteIds: Set<String>,
@@ -48,32 +61,32 @@ class PlanSuggestionService(
         val res = client.complete(LlmRequest(prompt, summaryText))
         if (res.status == LlmStatus.FALLBACK) return null
         if (res.text.length > MAX_OUTPUT_CHARS) return null
+        val cleaned = stripFences(res.text)
         val payload = try {
-            json.decodeFromString(PlanSuggestionPayload.serializer(), res.text)
+            json.decodeFromString(PlanSuggestionPayload.serializer(), cleaned)
         } catch (e: Exception) {
             return null
-        }
-        if (payload.changes.size > MAX_CHANGES) return null
-        // Validate actions against strict schemas.
-        for (change in payload.changes) {
-            if (change.actionId.isBlank() || change.actionId !in allowedActions) return null
-            if (change.reason.isBlank() || change.reason.length > MAX_REASON_LENGTH) return null
-            if (change.evidenceNoteIds.size > MAX_EVIDENCE_IDS) return null
-            for (id in change.evidenceNoteIds) {
-                if (id !in noteIds) return null
-            }
-            val allowedParams = ALLOWED_PARAMS[change.actionId] ?: return null
-            if (change.params.keys != allowedParams) return null
-            for ((k, v) in change.params) {
-                if (v.isBlank() || v.length > MAX_PARAM_VALUE_LENGTH) return null
-            }
         }
         // Medications are never AI-proposed: any non-empty proposed list is
         // rejected outright, regardless of the current medication list.
         if (payload.proposedMedications.isNotEmpty()) {
             return null
         }
-        return PlanSuggestion(payload.changes, emptyList())
+        // Validate each change independently; drop invalid ones, keep valid.
+        val accepted = mutableListOf<PlanChange>()
+        for (change in payload.changes) {
+            if (accepted.size >= MAX_CHANGES) break
+            if (change.actionId.isBlank() || change.actionId !in allowedActions) continue
+            if (change.reason.isBlank() || change.reason.length > MAX_REASON_LENGTH) continue
+            if (change.evidenceNoteIds.size > MAX_EVIDENCE_IDS) continue
+            if (change.evidenceNoteIds.any { it !in noteIds }) continue
+            val allowedParams = ALLOWED_PARAMS[change.actionId] ?: continue
+            if (change.params.keys != allowedParams) continue
+            if (change.params.any { it.value.isBlank() || it.value.length > MAX_PARAM_VALUE_LENGTH }) continue
+            accepted.add(change)
+        }
+        if (accepted.isEmpty()) return null
+        return PlanSuggestion(accepted, emptyList())
     }
 
     companion object {
