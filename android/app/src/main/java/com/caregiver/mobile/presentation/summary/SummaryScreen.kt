@@ -334,7 +334,7 @@ private fun SummaryBody(
         )
         if (onSuggestPlan != null) {
             PrimaryButton(
-                label = if (suggesting) stringResource(R.string.suggesting) else if (suggestedForCurrent) stringResource(R.string.plan_suggest_success) else stringResource(R.string.suggest_plan_ai),
+                label = if (suggesting) stringResource(R.string.suggesting) else if (suggestedForCurrent) stringResource(R.string.plan_suggest_done) else stringResource(R.string.suggest_plan_ai),
                 onClick = onSuggestPlan,
                 enabled = !suggesting && !suggestedForCurrent,
                 height = 48.dp,
