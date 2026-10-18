@@ -72,11 +72,6 @@ class AiKeyStore(private val context: Context) {
         prefs.edit().putString(KEY_SUMMARY_PROMPT, value).apply()
     }
 
-    fun translationSystemPrompt(): String = prefs.getString(KEY_TRANSLATION_PROMPT, "").orEmpty()
-
-    fun setTranslationSystemPrompt(value: String) {
-        prefs.edit().putString(KEY_TRANSLATION_PROMPT, value).apply()
-    }
 
     fun planSystemPrompt(): String = prefs.getString(KEY_PLAN_PROMPT, "").orEmpty()
 
@@ -128,7 +123,6 @@ class AiKeyStore(private val context: Context) {
         private const val KEY_CONSENT = "consent"
         private const val KEY_SYSTEM_PROMPT = "system_prompt"
         private const val KEY_SUMMARY_PROMPT = "summary_prompt"
-        private const val KEY_TRANSLATION_PROMPT = "translation_prompt"
         private const val KEY_PLAN_PROMPT = "plan_prompt"
         private const val IV_SIZE = 12
         private const val TAG_SIZE_BITS = 128
