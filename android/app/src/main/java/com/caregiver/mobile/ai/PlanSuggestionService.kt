@@ -62,7 +62,7 @@ class PlanSuggestionService(
         noteIds: Set<String>,
         currentMedications: List<PlanMedication> = emptyList(),
     ): PlanSuggestionResult {
-        if (noteIds.isEmpty()) return PlanSuggestionResult.Failure("empty_note_ids")
+        if (noteIds.isEmpty()) return PlanSuggestionResult.Failure("empty_after_filter")
         val userPref = keyStore?.planSystemPrompt()?.takeIf { it.isNotBlank() }
             ?: keyStore?.systemPrompt()?.takeIf { it.isNotBlank() }
         val basePrompt = Prompts.planSystemPrompt()
