@@ -1,6 +1,6 @@
-# Caregiver Daily Notes — web foundation (#13)
+# Caregiver Daily Notes — web application (Tasks 1–3)
 
-React 18 + TypeScript + Vite. Task #13 provides the foundation; Task #14 adds caregiver authentication. Recipients, notes, history, summaries and plans remain in their separate issues. Backend and clinical logic remain server-owned.
+React 18 + TypeScript + Vite. Task #13 provides the foundation, Task #14 adds caregiver authentication, and Task #15 adds recipient management. Notes, history, summaries and plans remain in their separate issues. Backend and clinical logic remain server-owned.
 
 ## Run and test
 
@@ -34,7 +34,16 @@ downloading another browser:
 PLAYWRIGHT_CHROMIUM_EXECUTABLE_PATH=/usr/bin/chromium npm run test:e2e
 ```
 
-No real or simulated backend endpoints are used by these browser checks.
+The foundation checks need no backend. Authentication and recipient browser
+checks use intercepted contract-shaped responses. Run the recipient suite too:
+
+```sh
+npx playwright test --config src/tests/recipients/playwright.config.ts
+```
+
+The opt-in [real-backend integration suite](src/tests/integration/README.md)
+checks login and recipient workflows against a running disposable local backend,
+including server-enforced ownership and preservation of an existing note.
 
 The `dist/` directory is an independent static site. Deploy it with SPA routing fallback to `index.html` for client-side routes. The existing root CI job does not yet include frontend checks; changes to `.github/workflows` are outside this issue.
 
@@ -63,7 +72,7 @@ This modifies `dist/config.json`, not the built JS bundle; repeating that step r
 - Features belong under `src/features/<feature>/` and use the centralized API client. Reusable UI is in `src/components`, shared helpers in `src/lib`.
 - The language provider exposes `t`, `language`, `direction`, and `setLanguage`, and synchronizes `<html lang>` and `<html dir>` for Arabic and English. Translations live in `src/i18n/translations.ts`; layout CSS uses logical alignment where direction matters.
 - Reusable `LoadingState`, `EmptyState`, `ErrorState`, and `FieldError` set up accessible feedback conventions. The app includes a skip link, focus-visible outlines, and responsive mobile/desktop layout.
-- `Button`/`ButtonLink`, `Icon`, `FeatureCard`, and `PagePanel` provide shared presentation primitives. Decorative illustrations contain no patient data. Upcoming features are labeled clearly; sign-in remains unavailable.
+- `Button`/`ButtonLink`, `Icon`, `FeatureCard`, and `PagePanel` provide shared presentation primitives. Decorative illustrations contain no patient data. Sign-in and recipient management are available; upcoming features are labeled clearly.
 - Route changes focus the main landmark and update the translated document title. Arabic typography uses its own font, spacing, and line height; layout uses logical CSS properties. Animations respect reduced-motion preferences.
 - Authentication and authorization remain backend-owned. Never place provider keys, LLM calls, diagnosis logic, or safety decisions in the browser.
 

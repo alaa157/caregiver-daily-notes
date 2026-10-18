@@ -18,20 +18,27 @@ export interface RecipientInput {
 
 export const isRecipientId = (id: string) => /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(id);
 
-function readRecipient(value: unknown): Recipient {
+function readRecipientCore(value: unknown): Pick<Recipient, 'id' | 'name' | 'relationship' | 'active'> {
   if (typeof value !== 'object' || value === null) throw new Error('Invalid recipient response.');
   const item = value as Record<string, unknown>;
   if (typeof item.id !== 'string' || !isRecipientId(item.id)
     || typeof item.name !== 'string' || !item.name.trim()
     || (item.relationship !== null && typeof item.relationship !== 'string')
-    || typeof item.active !== 'boolean'
-    || typeof item.createdAt !== 'string' || !Number.isFinite(Date.parse(item.createdAt))
-    || typeof item.updatedAt !== 'string' || !Number.isFinite(Date.parse(item.updatedAt))) {
+    || typeof item.active !== 'boolean') {
     throw new Error('Invalid recipient response.');
   }
   // Pick safe fields even if a future response contains additional properties.
-  return { id: item.id, name: item.name, relationship: item.relationship, active: item.active,
-    createdAt: item.createdAt, updatedAt: item.updatedAt };
+  return { id: item.id, name: item.name, relationship: item.relationship, active: item.active };
+}
+
+function readRecipient(value: unknown): Recipient {
+  const core = readRecipientCore(value);
+  const { createdAt, updatedAt } = value as Record<string, unknown>;
+  if (typeof createdAt !== 'string' || !Number.isFinite(Date.parse(createdAt))
+    || typeof updatedAt !== 'string' || !Number.isFinite(Date.parse(updatedAt))) {
+    throw new Error('Invalid recipient response.');
+  }
+  return { ...core, createdAt, updatedAt };
 }
 
 const fields = (input: RecipientInput): RecipientInput => ({
@@ -72,7 +79,12 @@ export function createRecipientsApi(client: ApiClient) {
       return response.map(readRecipient);
     },
     get: async (id: string, signal?: AbortSignal) => single(pathFor(id), 'GET', signal),
-    create: (input: RecipientInput, signal?: AbortSignal) => single('/api/recipients', 'POST', signal, fields(input)),
+    // The current backend constructs the POST response before Hibernate assigns
+    // timestamps. Creation needs only the validated identity; the details route
+    // fetches the committed record and strictly validates its timestamps there.
+    create: async (input: RecipientInput, signal?: AbortSignal) => readRecipientCore(await client.request<unknown>({
+      path: '/api/recipients', method: 'POST', signal, body: fields(input),
+    })),
     update: (id: string, input: RecipientInput, signal?: AbortSignal) => single(pathFor(id), 'PUT', signal, fields(input)),
     deactivate: (id: string, signal?: AbortSignal) => single(`${pathFor(id)}/deactivate`, 'PATCH', signal),
   };
