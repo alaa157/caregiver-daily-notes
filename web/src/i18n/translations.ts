@@ -1,8 +1,10 @@
 import { recipientMessages } from './recipientTranslations';
+import { noteMessages } from './noteTranslations';
 
 export const messages = {
   en: {
     ...recipientMessages.en,
+    ...noteMessages.en,
     brand: 'Caregiver Daily Notes',
     brandTagline: 'Clarity for everyday care',
     home: 'Home',
@@ -22,7 +24,7 @@ export const messages = {
     foundationLabel: 'Built around your everyday',
     foundationTitle: 'Thoughtful by nature. Simple by design.',
     foundationDescription: 'A calm, considered foundation for your care routine. Clear information, in the language that feels like home.',
-    foundationNotice: 'Sign in to manage your care recipients. Daily notes, summaries, and plans are being prepared for future updates.',
+    foundationNotice: 'Sign in to manage care recipients and record daily notes. Summaries and plans are being prepared for future updates.',
     featureOne: 'Notice the everyday',
     featureOneDescription: 'A home for daily observations, organized notes, and a clearer view of the days in between.',
     featureTwo: 'In your own language',
@@ -57,7 +59,7 @@ export const messages = {
     authSessionNote: 'For your privacy, sign-in is limited to this browser tab.',
     returnHome: 'Return home',
     dashboardTitle: 'Caregiver workspace',
-    dashboardDescription: 'Manage your care recipients from your caregiver workspace.',
+    dashboardDescription: 'Manage your care recipients and record daily observations from your caregiver workspace.',
     notFoundLabel: 'A small detour',
     pageNotFound: 'Page not found',
     pageNotFoundDescription: 'We couldn’t find that page. Let’s take you back to a familiar place.',
@@ -74,6 +76,7 @@ export const messages = {
   },
   ar: {
     ...recipientMessages.ar,
+    ...noteMessages.ar,
     brand: 'ملاحظات الرعاية اليومية',
     brandTagline: 'وضوح في تفاصيل الرعاية',
     home: 'الرئيسية',
@@ -93,7 +96,7 @@ export const messages = {
     foundationLabel: 'مصمم لتفاصيل يومك',
     foundationTitle: 'مصمم باهتمام. ليوم أكثر وضوحًا.',
     foundationDescription: 'أساس هادئ ومدروس لروتين الرعاية. معلومات واضحة، باللغة الأقرب إليك.',
-    foundationNotice: 'سجّل الدخول لإدارة المستفيدين من الرعاية. نعمل على تجهيز الملاحظات اليومية والملخصات والخطط للتحديثات القادمة.',
+    foundationNotice: 'سجّل الدخول لإدارة المستفيدين وتسجيل الملاحظات اليومية. نعمل على تجهيز الملخصات والخطط للتحديثات القادمة.',
     featureOne: 'اهتم بالتفاصيل اليومية',
     featureOneDescription: 'مساحة للملاحظات اليومية والسجلات المنظمة، لرؤية أوضح للتفاصيل بين يوم وآخر.',
     featureTwo: 'باللغة الأقرب إليك',
@@ -128,7 +131,7 @@ export const messages = {
     authSessionNote: 'لحماية خصوصيتك، يقتصر تسجيل الدخول على علامة التبويب الحالية.',
     returnHome: 'العودة للرئيسية',
     dashboardTitle: 'مساحة عمل مقدّم الرعاية',
-    dashboardDescription: 'أدِر المستفيدين من الرعاية من مساحة العمل الخاصة بك.',
+    dashboardDescription: 'أدِر المستفيدين وسجّل المشاهدات اليومية من مساحة العمل الخاصة بك.',
     notFoundLabel: 'لنعد إلى الطريق',
     pageNotFound: 'الصفحة غير موجودة',
     pageNotFoundDescription: 'لم نتمكن من العثور على هذه الصفحة. لنعد إلى الصفحة الرئيسية.',

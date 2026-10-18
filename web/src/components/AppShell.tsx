@@ -3,6 +3,7 @@ import { Link, NavLink, useLocation } from 'react-router-dom';
 import { useI18n } from '../i18n/I18nProvider';
 import { Icon } from './Icon';
 import { useAuth } from '../features/auth/AuthProvider';
+import './AppShell.css';
 
 export function AppShell({ children }: { children: ReactNode }) {
   const { t, language, setLanguage } = useI18n();
@@ -15,6 +16,9 @@ export function AppShell({ children }: { children: ReactNode }) {
     const title = pathname === '/' ? t('home') : pathname === '/login' ? t('loginTitle')
       : pathname === '/app' ? t('dashboardTitle')
       : pathname === '/app/recipients/new' ? t('recipientCreate')
+      : pathname === '/app/notes/new' ? t('notesCreate')
+      : pathname.startsWith('/app/notes/') ? t(pathname.endsWith('/addenda/new') ? 'notesAppend' : 'notesDetails')
+      : pathname === '/app/notes' ? t('notesTitle')
       : pathname.startsWith('/app/recipients/') ? t(pathname.endsWith('/edit') ? 'recipientEdit' : 'recipientDetails')
       : pathname === '/app/recipients' ? t('recipientsTitle') : t('pageNotFound');
     document.title = `${title} · ${t('brand')}`;
@@ -46,6 +50,7 @@ export function AppShell({ children }: { children: ReactNode }) {
               {auth.status === 'authenticated' ? <>
                 <NavLink end to="/app" className={navClass}>{t('dashboard')}</NavLink>
                 <NavLink to="/app/recipients" className={navClass}>{t('recipientsTitle')}</NavLink>
+                <NavLink to="/app/notes" className={navClass}>{t('notesTitle')}</NavLink>
                 <button type="button" className="nav-link auth-logout" onClick={auth.logout}>{t('authSignOut')}</button>
               </> : <NavLink to="/login" className={navClass}>{t('signIn')}</NavLink>}
             </div>
