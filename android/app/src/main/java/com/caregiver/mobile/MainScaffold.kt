@@ -198,7 +198,7 @@ fun MainScaffold(graph: AppGraph) {
         },
     ) {
         Scaffold(
-            containerColor = CaregiverColors.Background,
+            containerColor = MaterialTheme.colorScheme.background,
             modifier = Modifier.nestedScroll(scrollBehavior.nestedScrollConnection),
             topBar = {
                 // The four tab routes share the center-aligned bar; detail routes
@@ -225,8 +225,8 @@ fun MainScaffold(graph: AppGraph) {
             },
             bottomBar = {
                 Surface(
-                    color = CaregiverColors.Surface,
-                    border = BorderStroke(1.dp, CaregiverColors.BorderSoft),
+                    color = MaterialTheme.colorScheme.surface,
+                    border = BorderStroke(1.dp, MaterialTheme.colorScheme.outlineSoft),
                 ) {
                     // Compact strip: the tabs are a fixed [AppDimens.BottomNavH]
                     // tall, and the system navigation-bar inset is reserved
@@ -237,7 +237,7 @@ fun MainScaffold(graph: AppGraph) {
                     // 64dp strip and squeezes the icons (visible on 3-button
                     // navigation, where the inset is ~48dp).
                     NavigationBar(
-                        containerColor = CaregiverColors.Surface,
+                        containerColor = MaterialTheme.colorScheme.surface,
                         windowInsets = WindowInsets(0, 0, 0, 0),
                         modifier = Modifier
                             .fillMaxWidth()
@@ -292,8 +292,8 @@ fun MainScaffold(graph: AppGraph) {
                                 )
                             },
                             colors = NavigationBarItemDefaults.colors(
-                                selectedIconColor = CaregiverColors.Primary,
-                                unselectedIconColor = CaregiverColors.Muted,
+                                selectedIconColor = MaterialTheme.colorScheme.primary,
+                                unselectedIconColor = MaterialTheme.colorScheme.onSurfaceVariant,
                                 indicatorColor = Color.Transparent,
                             ),
                             modifier = Modifier.testTag("tab_${tab.route}"),
@@ -328,8 +328,8 @@ fun MainScaffold(graph: AppGraph) {
                                 showRecipientPicker = true
                             }
                         },
-                        containerColor = CaregiverColors.Primary,
-                        contentColor = CaregiverColors.Surface,
+                        containerColor = MaterialTheme.colorScheme.primary,
+                        contentColor = MaterialTheme.colorScheme.surface,
                         modifier = Modifier
                             .size(AppDimens.FabSize)
                             .testTag("fab_add_note"),
