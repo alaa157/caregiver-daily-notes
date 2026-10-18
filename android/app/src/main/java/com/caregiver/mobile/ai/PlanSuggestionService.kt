@@ -62,7 +62,6 @@ class PlanSuggestionService(
         noteIds: Set<String>,
         currentMedications: List<PlanMedication> = emptyList(),
     ): PlanSuggestionResult {
-        if (noteIds.isEmpty()) return PlanSuggestionResult.Failure("empty_after_filter")
         val userPref = keyStore?.planSystemPrompt()?.takeIf { it.isNotBlank() }
             ?: keyStore?.systemPrompt()?.takeIf { it.isNotBlank() }
         val basePrompt = Prompts.planSystemPrompt()
@@ -92,7 +91,6 @@ class PlanSuggestionService(
             if (accepted.size >= MAX_CHANGES) break
             if (change.actionId.isBlank() || change.actionId !in allowedActions) continue
             if (change.reason.isBlank() || change.reason.length > MAX_REASON_LENGTH) continue
-            if (change.evidenceNoteIds.isEmpty()) continue
             if (change.evidenceNoteIds.size > MAX_EVIDENCE_IDS) continue
             if (change.evidenceNoteIds.any { it !in noteIds }) continue
             val allowedParams = ALLOWED_PARAMS[change.actionId] ?: continue

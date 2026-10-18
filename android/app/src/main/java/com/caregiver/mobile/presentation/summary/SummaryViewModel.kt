@@ -165,17 +165,7 @@ class SummaryViewModel(
         } catch (e: HttpException) {
             _state.value = SummaryState.Rejected(ApiErrors.parse(e)?.code, lastSummary())
         } catch (e: IOException) {
-            _state.value = SummaryState.AiUnavailable(
-                SummaryDto(
-                    id = "",
-                    recipientId = recipientId,
-                    periodDays = _period.value,
-                    text = "",
-                    redFlags = aiRedFlags,
-                    evidence = emptyList(),
-                    uncertainties = listOf(SummaryDto.UncertaintyDto("ai_unavailable", "AI unavailable")),
-                )
-            )
+            _state.value = SummaryState.AiUnavailable(lastSummary())
         }
     }
 
