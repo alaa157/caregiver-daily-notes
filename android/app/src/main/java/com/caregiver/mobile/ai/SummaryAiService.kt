@@ -36,8 +36,12 @@ class SummaryAiService(
         // Window here as well as at the fetch: the model and the deterministic
         // flags must never see data outside the selected period, even if a
         // caller (or a backend that ignores from/to) hands over more history.
-        val windowedNotes = notes.filter { SummaryWindow.contains(it.date, endInclusive, periodDays) }
-        val windowedSignals = signals.filter { SummaryWindow.contains(it.date, endInclusive, periodDays) }
+        // Recipient isolation: only records belonging to the requested
+        // recipient may reach the model or safety evaluation.
+        val scopedNotes = notes.filter { it.recipientId == recipientId }
+        val scopedSignals = signals.filter { it.recipientId == recipientId }
+        val windowedNotes = scopedNotes.filter { SummaryWindow.contains(it.date, endInclusive, periodDays) }
+        val windowedSignals = scopedSignals.filter { SummaryWindow.contains(it.date, endInclusive, periodDays) }
         val redFlags = SafetySignalEvaluator.evaluate(windowedSignals)
         if (windowedNotes.isEmpty()) {
             return SummaryAiResult.Failure(redFlags, "no_source_data")
