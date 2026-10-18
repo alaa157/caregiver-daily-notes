@@ -44,7 +44,12 @@ class OpenAiCompatibleLlmClient(
         if (apiKey.isBlank() || apiKey.any { it.isISOControl() }) {
             return@withContext LlmResult(LlmStatus.FALLBACK, "", "invalid_key", null)
         }
-        val url = httpUrl.newBuilder().addPathSegments("chat/completions").build().toString()
+        val basePath = httpUrl.encodedPath
+            .removeSuffix("/chat/completions")
+            .removeSuffix("/chat/completions/")
+            .ifEmpty { "/" }
+        val normalizedUrl = httpUrl.newBuilder().encodedPath(if (basePath.endsWith("/")) basePath else "$basePath/").build()
+        val url = normalizedUrl.newBuilder().addPathSegments("chat/completions").build().toString()
         val isOpenAi = baseUrl.contains("api.openai.com", ignoreCase = true)
         val bodyObj = buildJsonObject {
             put("model", model)
