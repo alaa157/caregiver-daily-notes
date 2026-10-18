@@ -270,8 +270,10 @@ fun PrimaryButton(
         ),
         modifier = modifier
             .fillMaxWidth()
-            .heightIn(min = height)
-            .height(height),
+            // Grow past the minimum instead of pinning it: at large font
+            // scales a wrapping label needs more than ButtonH, and a fixed
+            // height clips it (Finding 11).
+            .heightIn(min = height),
     ) {
         leading?.let { it(); Spacer(Modifier.width(AppDimens.GapForm)) }
         Text(
@@ -303,8 +305,8 @@ fun SecondaryButton(
         ),
         modifier = modifier
             .fillMaxWidth()
-            .heightIn(min = height)
-            .height(height),
+            // Same growth rule as PrimaryButton (Finding 11).
+            .heightIn(min = height),
     ) {
         Text(
             label,

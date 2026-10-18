@@ -4,7 +4,8 @@ import android.app.Activity
 import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
-import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.ExperimentalLayoutApi
+import androidx.compose.foundation.layout.FlowRow
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
@@ -38,7 +39,11 @@ import androidx.navigation.NavController
 import com.caregiver.mobile.AppGraph
 import com.caregiver.mobile.R
 import com.caregiver.mobile.core.theme.CaregiverColors
+import com.caregiver.mobile.core.theme.ColorPalettes
 import com.caregiver.mobile.core.theme.PlexArabic
+import com.caregiver.mobile.core.theme.THEME_MODE_DARK
+import com.caregiver.mobile.core.theme.THEME_MODE_LIGHT
+import com.caregiver.mobile.core.theme.THEME_MODE_SYSTEM
 import com.caregiver.mobile.data.SettingsStore
 import com.caregiver.mobile.data.api.ApiClient
 import com.caregiver.mobile.data.api.BaseUrlCheck
@@ -55,10 +60,13 @@ import kotlinx.coroutines.launch
  * persists immediately and the activity recreates to apply it; the notice
  * covers process-level resources that need a full restart.
  */
+@OptIn(ExperimentalLayoutApi::class)
 @Composable
 fun SettingsScreen(graph: AppGraph, navController: NavController) {
     val scope = rememberCoroutineScope()
-    val activity = LocalContext.current as Activity
+    // Null-safe like the drawer: the screen also composes under tests and
+    // previews, where LocalContext is not necessarily an Activity.
+    val activity = LocalContext.current as? Activity
     val language by graph.settings.language.collectAsState(initial = SettingsStore.DEFAULT_LANGUAGE)
     val themeMode by graph.settings.themeMode.collectAsState(initial = SettingsStore.DEFAULT_THEME_MODE)
     val colorPalette by graph.settings.colorPalette.collectAsState(initial = SettingsStore.DEFAULT_COLOR_PALETTE)
@@ -75,13 +83,17 @@ fun SettingsScreen(graph: AppGraph, navController: NavController) {
                 color = CaregiverColors.Muted,
             )
             SingleChoiceSegmentedButtonRow(modifier = Modifier.fillMaxWidth()) {
-                listOf("light", "dark", "system").forEachIndexed { index, mode ->
+                listOf(
+                    THEME_MODE_LIGHT to R.string.settings_mode_light,
+                    THEME_MODE_DARK to R.string.settings_mode_dark,
+                    THEME_MODE_SYSTEM to R.string.settings_mode_system,
+                ).forEachIndexed { index, (mode, label) ->
                     SegmentedButton(
                         selected = themeMode == mode,
                         onClick = { scope.launch { graph.settings.setThemeMode(mode) } },
                         shape = SegmentedButtonDefaults.itemShape(index, 3),
                     ) {
-                        Text(mode.replaceFirstChar { it.uppercase() })
+                        Text(stringResource(label))
                     }
                 }
             }
@@ -90,26 +102,42 @@ fun SettingsScreen(graph: AppGraph, navController: NavController) {
                 style = MaterialTheme.typography.labelMedium,
                 color = CaregiverColors.Muted,
             )
-            Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                listOf("metrolist", "teal", "indigo", "rose").forEach { pal ->
+            // FlowRow, not Row: four chips at larger font scales exceed the
+            // screen width on narrow devices, and a clipped palette chip is
+            // an unreachable setting. Wrapping keeps every accent tappable.
+            FlowRow(
+                horizontalArrangement = Arrangement.spacedBy(8.dp),
+                verticalArrangement = Arrangement.spacedBy(8.dp),
+            ) {
+                listOf(
+                    ColorPalettes.METROLIST to R.string.settings_palette_metrolist,
+                    ColorPalettes.TEAL to R.string.settings_palette_teal,
+                    ColorPalettes.INDIGO to R.string.settings_palette_indigo,
+                    ColorPalettes.ROSE to R.string.settings_palette_rose,
+                ).forEach { (pal, label) ->
                     FilterChip(
                         selected = colorPalette == pal,
                         onClick = { scope.launch { graph.settings.setColorPalette(pal) } },
-                        label = { Text(pal.replaceFirstChar { it.uppercase() }) },
+                        label = { Text(stringResource(label)) },
                     )
                 }
             }
         }
 
         SettingsGroup(title = stringResource(R.string.settings_language)) {
-            Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+            // Same wrap rule as the accents: side by side at normal sizes,
+            // stacked instead of clipped at large font scales.
+            FlowRow(
+                horizontalArrangement = Arrangement.spacedBy(8.dp),
+                verticalArrangement = Arrangement.spacedBy(8.dp),
+            ) {
                 FilterChip(
                     selected = language == "ar",
                     onClick = {
                         if (language != "ar") {
                             scope.launch {
                                 graph.settings.setLanguage("ar")
-                                activity.recreate()
+                                activity?.recreate()
                             }
                         }
                     },
@@ -121,7 +149,7 @@ fun SettingsScreen(graph: AppGraph, navController: NavController) {
                         if (language != "en") {
                             scope.launch {
                                 graph.settings.setLanguage("en")
-                                activity.recreate()
+                                activity?.recreate()
                             }
                         }
                     },

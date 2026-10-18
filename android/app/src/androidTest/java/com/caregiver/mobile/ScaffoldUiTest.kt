@@ -19,6 +19,7 @@ import androidx.test.ext.junit.runners.AndroidJUnit4
 import com.caregiver.mobile.core.i18n.Bidi
 import com.caregiver.mobile.core.theme.CaregiverTheme
 import java.util.Locale
+import org.junit.Assert.assertTrue
 import org.junit.Rule
 import org.junit.Test
 import org.junit.runner.RunWith
@@ -120,6 +121,20 @@ class ScaffoldUiTest {
             compose.onNodeWithTag(tab).performClick()
             compose.onNodeWithTag("fab_add_note").assertIsDisplayed()
         }
+    }
+
+    @Test
+    fun addNoteActionStaysClearOfTheBottomNavigation() {
+        setScaffold("en")
+
+        // The FAB is chrome, not an overlay: its laid-out bounds must end
+        // above the bar, since a button covering a tab would swallow taps.
+        val fab = compose.onNodeWithTag("fab_add_note").fetchSemanticsNode().boundsInRoot
+        val homeTab = compose.onNodeWithTag("tab_home").fetchSemanticsNode().boundsInRoot
+        assertTrue(
+            "Add-note FAB (bottom=${fab.bottom}) overlaps the bottom bar (top=${homeTab.top})",
+            fab.bottom <= homeTab.top,
+        )
     }
 
     @Test

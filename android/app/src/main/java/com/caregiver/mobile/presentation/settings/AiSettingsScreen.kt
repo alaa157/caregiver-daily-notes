@@ -51,7 +51,6 @@ fun AiSettingsScreen(graph: AppGraph, navController: NavController) {
     var baseUrl by remember { mutableStateOf(store.baseUrlOrDefault(provider)) }
     var systemPrompt by remember { mutableStateOf(store.systemPrompt()) }
     var summaryPrompt by remember { mutableStateOf(store.summarySystemPrompt()) }
-    var translationPrompt by remember { mutableStateOf(store.translationSystemPrompt()) }
     var planPrompt by remember { mutableStateOf(store.planSystemPrompt()) }
     // Connection status and feature-level format status are deliberately
     // separate: reachability is not the same as a usable response shape.
@@ -68,7 +67,6 @@ fun AiSettingsScreen(graph: AppGraph, navController: NavController) {
     var showUrlDialog by remember { mutableStateOf(false) }
     var showPromptDialog by remember { mutableStateOf(false) }
     var showSummaryPromptDialog by remember { mutableStateOf(false) }
-    var showTranslationPromptDialog by remember { mutableStateOf(false) }
     var showPlanPromptDialog by remember { mutableStateOf(false) }
 
     Column(
@@ -112,9 +110,6 @@ fun AiSettingsScreen(graph: AppGraph, navController: NavController) {
             }
             TextButton(onClick = { showSummaryPromptDialog = true }) {
                 Text(stringResource(R.string.settings_ai_summary_prompt) + ": " + if (summaryPrompt.isBlank()) stringResource(R.string.settings_ai_default) else stringResource(R.string.settings_ai_custom))
-            }
-            TextButton(onClick = { showTranslationPromptDialog = true }) {
-                Text(stringResource(R.string.settings_ai_translation_prompt) + ": " + if (translationPrompt.isBlank()) stringResource(R.string.settings_ai_default) else stringResource(R.string.settings_ai_custom))
             }
             TextButton(onClick = { showPlanPromptDialog = true }) {
                 Text(stringResource(R.string.settings_ai_plan_prompt) + ": " + if (planPrompt.isBlank()) stringResource(R.string.settings_ai_default) else stringResource(R.string.settings_ai_custom))
@@ -210,7 +205,6 @@ fun AiSettingsScreen(graph: AppGraph, navController: NavController) {
             store.setBaseUrl(AiSettingsValidation.normalizedBaseUrl(baseUrl, provider))
             store.setSystemPrompt(systemPrompt)
             store.setSummarySystemPrompt(summaryPrompt)
-            store.setTranslationSystemPrompt(translationPrompt)
             store.setPlanSystemPrompt(planPrompt)
             navController.popBackStack()
         }, enabled = !baseUrlInvalid) { Text(stringResource(R.string.settings_ai_save)) }
@@ -349,15 +343,6 @@ fun AiSettingsScreen(graph: AppGraph, navController: NavController) {
             text = { OutlinedTextField(value = summaryPrompt, onValueChange = { summaryPrompt = it }, modifier = Modifier.fillMaxWidth(), minLines = 3) },
             confirmButton = { TextButton(onClick = { showSummaryPromptDialog = false }) { Text(stringResource(R.string.common_ok)) } },
             dismissButton = { TextButton(onClick = { summaryPrompt = ""; showSummaryPromptDialog = false }) { Text(stringResource(R.string.settings_ai_reset_default)) } },
-        )
-    }
-    if (showTranslationPromptDialog) {
-        AlertDialog(
-            onDismissRequest = { showTranslationPromptDialog = false },
-            title = { Text(stringResource(R.string.settings_ai_translation_system_prompt)) },
-            text = { OutlinedTextField(value = translationPrompt, onValueChange = { translationPrompt = it }, modifier = Modifier.fillMaxWidth(), minLines = 3) },
-            confirmButton = { TextButton(onClick = { showTranslationPromptDialog = false }) { Text(stringResource(R.string.common_ok)) } },
-            dismissButton = { TextButton(onClick = { translationPrompt = ""; showTranslationPromptDialog = false }) { Text(stringResource(R.string.settings_ai_reset_default)) } },
         )
     }
     if (showPlanPromptDialog) {
