@@ -13,7 +13,13 @@ import androidx.compose.material3.Button
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.outlined.Settings
+import androidx.compose.material.icons.outlined.Article
+import androidx.compose.material.icons.outlined.Cloud
+import androidx.compose.material.icons.outlined.Description
+import androidx.compose.material.icons.outlined.Key
+import androidx.compose.material.icons.outlined.Link
+import androidx.compose.material.icons.outlined.List
+import androidx.compose.material.icons.outlined.Memory
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
@@ -81,46 +87,61 @@ fun AiSettingsScreen(graph: AppGraph, navController: NavController) {
 
         CaregiverSettingsItem(
             title = stringResource(R.string.settings_ai_provider),
-            icon = Icons.Outlined.Settings,
+            icon = Icons.Outlined.Cloud,
             description = provider.displayName,
             onClick = { showProviderDialog = true },
         )
 
         CaregiverSettingsGroup(title = stringResource(R.string.settings_ai_api_key)) {
-            TextButton(onClick = { showKeyDialog = true }) {
-                Text(if (apiKey.isBlank()) stringResource(R.string.settings_ai_set_api_key) else "••••••••")
-            }
+            CaregiverSettingsItem(
+                title = stringResource(R.string.settings_ai_api_key),
+                icon = Icons.Outlined.Key,
+                description = if (apiKey.isBlank()) stringResource(R.string.settings_ai_set_api_key) else "••••••••",
+                onClick = { showKeyDialog = true },
+            )
             if (apiKey.isNotBlank()) {
-                TextButton(onClick = { showClearKeyDialog = true }) {
-                    Text(stringResource(R.string.settings_ai_clear_key))
-                }
+                CaregiverSettingsItem(
+                    title = stringResource(R.string.settings_ai_clear_key),
+                    icon = Icons.Outlined.Key,
+                    description = stringResource(R.string.settings_ai_clear_key),
+                    onClick = { showClearKeyDialog = true },
+                )
             }
         }
 
         CaregiverSettingsItem(
             title = stringResource(R.string.settings_ai_model),
-            icon = Icons.Outlined.Settings,
+            icon = Icons.Outlined.Memory,
             description = model.ifBlank { provider.defaultModel },
             onClick = { showModelDialog = true },
         )
 
         CaregiverSettingsItem(
             title = stringResource(R.string.settings_ai_base_url),
-            icon = Icons.Outlined.Settings,
+            icon = Icons.Outlined.Link,
             description = baseUrl.ifBlank { provider.defaultBaseUrl },
             onClick = { showUrlDialog = true },
         )
 
         CaregiverSettingsGroup(title = stringResource(R.string.settings_ai_system_prompt)) {
-            TextButton(onClick = { showPromptDialog = true }) {
-                Text(if (systemPrompt.isBlank()) stringResource(R.string.settings_ai_default) else stringResource(R.string.settings_ai_custom))
-            }
-            TextButton(onClick = { showSummaryPromptDialog = true }) {
-                Text(stringResource(R.string.settings_ai_summary_prompt) + ": " + if (summaryPrompt.isBlank()) stringResource(R.string.settings_ai_default) else stringResource(R.string.settings_ai_custom))
-            }
-            TextButton(onClick = { showPlanPromptDialog = true }) {
-                Text(stringResource(R.string.settings_ai_plan_prompt) + ": " + if (planPrompt.isBlank()) stringResource(R.string.settings_ai_default) else stringResource(R.string.settings_ai_custom))
-            }
+            CaregiverSettingsItem(
+                title = stringResource(R.string.settings_ai_system_prompt),
+                icon = Icons.Outlined.Article,
+                description = if (systemPrompt.isBlank()) stringResource(R.string.settings_ai_default) else stringResource(R.string.settings_ai_custom),
+                onClick = { showPromptDialog = true },
+            )
+            CaregiverSettingsItem(
+                title = stringResource(R.string.settings_ai_summary_prompt),
+                icon = Icons.Outlined.Description,
+                description = if (summaryPrompt.isBlank()) stringResource(R.string.settings_ai_default) else stringResource(R.string.settings_ai_custom),
+                onClick = { showSummaryPromptDialog = true },
+            )
+            CaregiverSettingsItem(
+                title = stringResource(R.string.settings_ai_plan_prompt),
+                icon = Icons.Outlined.List,
+                description = if (planPrompt.isBlank()) stringResource(R.string.settings_ai_default) else stringResource(R.string.settings_ai_custom),
+                onClick = { showPlanPromptDialog = true },
+            )
         }
 
         Button(onClick = {
