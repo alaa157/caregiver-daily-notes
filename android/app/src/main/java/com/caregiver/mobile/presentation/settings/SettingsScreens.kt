@@ -24,6 +24,7 @@ import androidx.compose.material.icons.outlined.History
 import androidx.compose.material.icons.outlined.Info
 import androidx.compose.material.icons.outlined.Lock
 import androidx.compose.material.icons.outlined.OpenInNew
+import androidx.compose.material.icons.outlined.Palette
 import androidx.compose.material.icons.outlined.SmartToy
 import androidx.compose.material.icons.outlined.Storage
 import androidx.compose.material.icons.outlined.SystemUpdate
@@ -115,63 +116,7 @@ fun SettingsScreen(graph: AppGraph, navController: NavController) {
 
         // Application-specific section
         SectionHeader(stringResource(R.string.section_application))
-        SettingsGroup(title = stringResource(R.string.settings_appearance)) {
-            Text(
-                text = stringResource(R.string.settings_mode),
-                style = MaterialTheme.typography.labelMedium,
-                color = CaregiverColors.Muted,
-            )
-            SingleChoiceSegmentedButtonRow(modifier = Modifier.fillMaxWidth()) {
-                listOf(
-                    THEME_MODE_LIGHT to R.string.settings_mode_light,
-                    THEME_MODE_DARK to R.string.settings_mode_dark,
-                    THEME_MODE_SYSTEM to R.string.settings_mode_system,
-                ).forEachIndexed { index, (mode, label) ->
-                    SegmentedButton(
-                        selected = themeMode == mode,
-                        onClick = { scope.launch { graph.settings.setThemeMode(mode) } },
-                        shape = SegmentedButtonDefaults.itemShape(index, 3),
-                    ) {
-                        Text(stringResource(label))
-                    }
-                }
-            }
-            Text(
-                text = stringResource(R.string.settings_accent),
-                style = MaterialTheme.typography.labelMedium,
-                color = CaregiverColors.Muted,
-            )
-            // FlowRow, not Row: four chips at larger font scales exceed the
-            // screen width on narrow devices, and a clipped palette chip is
-            // an unreachable setting. Wrapping keeps every accent tappable.
-            FlowRow(
-                horizontalArrangement = Arrangement.spacedBy(8.dp),
-                verticalArrangement = Arrangement.spacedBy(8.dp),
-            ) {
-                listOf(
-                    ColorPalettes.METROLIST to R.string.settings_palette_metrolist,
-                    ColorPalettes.TEAL to R.string.settings_palette_teal,
-                    ColorPalettes.INDIGO to R.string.settings_palette_indigo,
-                    ColorPalettes.ROSE to R.string.settings_palette_rose,
-                ).forEach { (pal, label) ->
-                    FilterChip(
-                        selected = colorPalette == pal,
-                        onClick = { scope.launch { graph.settings.setColorPalette(pal) } },
-                        label = { Text(stringResource(label)) },
-                    )
-                }
-            }
-            Row(
-                verticalAlignment = androidx.compose.ui.Alignment.CenterVertically,
-                horizontalArrangement = Arrangement.spacedBy(8.dp),
-            ) {
-                Text("Pure black (dark mode)", style = MaterialTheme.typography.bodyMedium)
-                Switch(
-                    checked = pureBlack,
-                    onCheckedChange = { scope.launch { graph.settings.setPureBlack(it) } },
-                )
-            }
-        }
+        SettingsTile(title = stringResource(R.string.settings_theme_colors), icon = Icons.Outlined.Palette, onClick = { navController.navigate("theme-colors") })
 
         SettingsGroup(title = stringResource(R.string.settings_language)) {
             // Same wrap rule as the accents: side by side at normal sizes,

@@ -8,6 +8,7 @@ import androidx.compose.material3.lightColorScheme
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.unit.dp
+import com.caregiver.mobile.R
 
 /**
  * Explicit roles for everything the scaffold visibly uses. Container colors
@@ -81,16 +82,51 @@ internal val AppDarkScheme = darkColorScheme(
  * Accent palettes (2-3 options). Stored as strings in [SettingsStore].
  */
 object ColorPalettes {
-    const val METROLIST = "metrolist"
-    const val TEAL = "teal"
-    const val INDIGO = "indigo"
+    const val DYNAMIC = "dynamic"
+    const val CRIMSON = "crimson"
     const val ROSE = "rose"
+    const val PURPLE = "purple"
+    const val DEEP_PURPLE = "deep_purple"
+    const val INDIGO = "indigo"
+    const val BLUE = "blue"
+    const val SKY_BLUE = "sky_blue"
+    const val CYAN = "cyan"
+    const val TEAL = "teal"
+    const val GREEN = "green"
+    const val LIGHT_GREEN = "light_green"
+    const val LIME = "lime"
+    const val YELLOW = "yellow"
+    const val AMBER = "amber"
+    const val ORANGE = "orange"
+    const val DEEP_ORANGE = "deep_orange"
+    const val BROWN = "brown"
+    const val GREY = "grey"
+    const val BLUE_GREY = "blue_grey"
+    const val METROLIST = "metrolist"
 }
 
-private fun palettePrimary(palette: String?): androidx.compose.ui.graphics.Color = when (palette?.lowercase()) {
+fun palettePrimary(palette: String?): androidx.compose.ui.graphics.Color = when (palette?.lowercase()) {
+    ColorPalettes.DYNAMIC -> Color(0xFFED5564)
+    ColorPalettes.CRIMSON -> Color(0xFFEC5464)
+    ColorPalettes.ROSE -> Color(0xFFD81B60)
+    ColorPalettes.PURPLE -> Color(0xFF8E24AA)
+    ColorPalettes.DEEP_PURPLE -> Color(0xFF5E35B1)
+    ColorPalettes.INDIGO -> Color(0xFF3949AB)
+    ColorPalettes.BLUE -> Color(0xFF1E88E5)
+    ColorPalettes.SKY_BLUE -> Color(0xFF039BE5)
+    ColorPalettes.CYAN -> Color(0xFF00ACC1)
+    ColorPalettes.TEAL -> Color(0xFF00897B)
+    ColorPalettes.GREEN -> Color(0xFF43A047)
+    ColorPalettes.LIGHT_GREEN -> Color(0xFF7CB342)
+    ColorPalettes.LIME -> Color(0xFFC0CA33)
+    ColorPalettes.YELLOW -> Color(0xFFFDD835)
+    ColorPalettes.AMBER -> Color(0xFFFFB300)
+    ColorPalettes.ORANGE -> Color(0xFFFB8C00)
+    ColorPalettes.DEEP_ORANGE -> Color(0xFFF4511E)
+    ColorPalettes.BROWN -> Color(0xFF6D4C41)
+    ColorPalettes.GREY -> Color(0xFF757575)
+    ColorPalettes.BLUE_GREY -> Color(0xFF546E7A)
     ColorPalettes.METROLIST -> Color(0xFF6750A4)
-    ColorPalettes.INDIGO -> Color(0xFF3F51B5)
-    ColorPalettes.ROSE -> Color(0xFFC2185B)
     else -> CaregiverColors.Primary
 }
 
@@ -126,6 +162,34 @@ internal val MetrolistDarkScheme = darkColorScheme(
     onSurfaceVariant = Color(0xFFCAC4D0),
     outline = Color(0xFF938F99),
     error = Color(0xFFF2B8B5),
+)
+
+data class ThemePalette(
+    val nameRes: Int,
+    val seedColor: androidx.compose.ui.graphics.Color,
+)
+
+val PaletteColors = listOf(
+    ThemePalette(R.string.palette_dynamic, androidx.compose.ui.graphics.Color.Transparent),
+    ThemePalette(R.string.palette_crimson, androidx.compose.ui.graphics.Color(0xFFEC5464)),
+    ThemePalette(R.string.palette_rose, androidx.compose.ui.graphics.Color(0xFFD81B60)),
+    ThemePalette(R.string.palette_purple, androidx.compose.ui.graphics.Color(0xFF8E24AA)),
+    ThemePalette(R.string.palette_deep_purple, androidx.compose.ui.graphics.Color(0xFF5E35B1)),
+    ThemePalette(R.string.palette_indigo, androidx.compose.ui.graphics.Color(0xFF3949AB)),
+    ThemePalette(R.string.palette_blue, androidx.compose.ui.graphics.Color(0xFF1E88E5)),
+    ThemePalette(R.string.palette_sky_blue, androidx.compose.ui.graphics.Color(0xFF039BE5)),
+    ThemePalette(R.string.palette_cyan, androidx.compose.ui.graphics.Color(0xFF00ACC1)),
+    ThemePalette(R.string.palette_teal, androidx.compose.ui.graphics.Color(0xFF00897B)),
+    ThemePalette(R.string.palette_green, androidx.compose.ui.graphics.Color(0xFF43A047)),
+    ThemePalette(R.string.palette_light_green, androidx.compose.ui.graphics.Color(0xFF7CB342)),
+    ThemePalette(R.string.palette_lime, androidx.compose.ui.graphics.Color(0xFFC0CA33)),
+    ThemePalette(R.string.palette_yellow, androidx.compose.ui.graphics.Color(0xFFFDD835)),
+    ThemePalette(R.string.palette_amber, androidx.compose.ui.graphics.Color(0xFFFFB300)),
+    ThemePalette(R.string.palette_orange, androidx.compose.ui.graphics.Color(0xFFFB8C00)),
+    ThemePalette(R.string.palette_deep_orange, androidx.compose.ui.graphics.Color(0xFFF4511E)),
+    ThemePalette(R.string.palette_brown, androidx.compose.ui.graphics.Color(0xFF6D4C41)),
+    ThemePalette(R.string.palette_grey, androidx.compose.ui.graphics.Color(0xFF757575)),
+    ThemePalette(R.string.palette_blue_grey, androidx.compose.ui.graphics.Color(0xFF546E7A)),
 )
 
 @Composable
