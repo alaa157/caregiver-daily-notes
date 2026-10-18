@@ -71,7 +71,9 @@ class GeminiLlmClient(
                     .addHeader("x-goog-api-key", apiKey)
                     .post(reqBody)
                     .build()
-                okHttpClient.newCall(httpReq).execute().use { resp ->
+                val call = okHttpClient.newCall(httpReq)
+                kotlinx.coroutines.coroutineContext[kotlinx.coroutines.Job]?.invokeOnCancellation { call.cancel() }
+                call.execute().use { resp ->
                     val raw = resp.body?.string().orEmpty()
                     if (!resp.isSuccessful) {
                         val code = resp.code

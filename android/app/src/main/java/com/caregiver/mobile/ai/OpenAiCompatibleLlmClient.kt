@@ -70,7 +70,9 @@ class OpenAiCompatibleLlmClient(
                     .addHeader("Authorization", "Bearer $apiKey")
                     .post(reqBody)
                     .build()
-                okHttpClient.newCall(httpReq).execute().use { resp ->
+                val call = okHttpClient.newCall(httpReq)
+                kotlinx.coroutines.coroutineContext[kotlinx.coroutines.Job]?.invokeOnCancellation { call.cancel() }
+                call.execute().use { resp ->
                     val raw = resp.body?.string().orEmpty()
                     if (!resp.isSuccessful) {
                         val code = resp.code
@@ -80,7 +82,10 @@ class OpenAiCompatibleLlmClient(
                             else -> "http_$code"
                         }
                         last = LlmResult(LlmStatus.FALLBACK, "", err, code)
-                        if (code >= 500) {
+                        if (code == 401 || code == 403) {
+                            return@withContext last
+                        }
+                        if (code == 429 || code >= 500) {
                             kotlinx.coroutines.delay(calculateBackoff(attempt))
                             return@use
                         }

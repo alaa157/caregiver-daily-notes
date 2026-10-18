@@ -61,7 +61,9 @@ class AnthropicLlmClient(
                     .addHeader("anthropic-version", "2023-06-01")
                     .post(reqBody)
                     .build()
-                okHttpClient.newCall(httpReq).execute().use { resp ->
+                val call = okHttpClient.newCall(httpReq)
+                kotlinx.coroutines.coroutineContext[kotlinx.coroutines.Job]?.invokeOnCancellation { call.cancel() }
+                call.execute().use { resp ->
                     val raw = resp.body?.string().orEmpty()
                     if (!resp.isSuccessful) {
                         val code = resp.code
