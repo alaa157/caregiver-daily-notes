@@ -1,100 +1,169 @@
 package com.caregiver.mobile.presentation.common
 
+import androidx.compose.animation.animateContentSize
+import androidx.compose.foundation.background
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.ColumnScope
 import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.shape.RoundedCornerShape
-import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.automirrored.filled.KeyboardArrowRight
+import androidx.compose.material3.Badge
+import androidx.compose.material3.BadgedBox
+import androidx.compose.material3.Card
+import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.unit.dp
+import com.caregiver.mobile.core.theme.CaregiverColors
 
+data class CaregiverSettingsItem(
+    val title: String,
+    val icon: ImageVector? = null,
+    val leadingContent: (@Composable () -> Unit)? = null,
+    val description: String? = null,
+    val trailingContent: (@Composable () -> Unit)? = null,
+    val showBadge: Boolean = false,
+    val isHighlighted: Boolean = false,
+    val enabled: Boolean = true,
+    val onClick: (() -> Unit)? = null,
+)
+
+/**
+ * Metrolist-style grouped settings card.
+ *
+ * Shape rules (computed by item index; pass the full list for correct
+ * segmentation):
+ * - 1 item only → RoundedCornerShape(24.dp)
+ * - first item → topStart/topEnd 24.dp, bottomStart/bottomEnd 6.dp
+ * - middle items → RoundedCornerShape(6.dp)
+ * - last item → topStart/topEnd 6.dp, bottomStart/bottomEnd 24.dp
+ *
+ * Items are rendered with 4.dp vertical spacing. Use CaregiverSettingsItem
+ * for each row.
+ */
 @Composable
 fun CaregiverSettingsGroup(
     title: String? = null,
     modifier: Modifier = Modifier,
-    content: @Composable () -> Unit,
+    content: @Composable ColumnScope.() -> Unit,
 ) {
-    Column(modifier = modifier, verticalArrangement = Arrangement.spacedBy(8.dp)) {
-        if (title != null) {
+    Column(modifier = modifier.fillMaxWidth()) {
+        title?.let {
             Text(
-                text = title,
-                style = MaterialTheme.typography.titleSmall,
-                color = MaterialTheme.colorScheme.onSurfaceVariant,
-                modifier = Modifier.padding(start = 4.dp, top = 8.dp, bottom = 4.dp),
+                text = it,
+                style = MaterialTheme.typography.labelLarge,
+                color = MaterialTheme.colorScheme.primary,
+                modifier = Modifier.padding(top = 8.dp, bottom = 8.dp),
             )
         }
-        Surface(
-            shape = RoundedCornerShape(12.dp),
-            color = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.4f),
-            modifier = Modifier.fillMaxWidth(),
+        Card(
+            modifier = Modifier
+                .fillMaxWidth()
+                .animateContentSize(),
+            shape = RoundedCornerShape(24.dp),
+            colors = CardDefaults.cardColors(
+                containerColor = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.3f),
+            ),
+            elevation = CardDefaults.cardElevation(defaultElevation = 0.dp),
         ) {
             Column(
-                modifier = Modifier.padding(4.dp),
+                modifier = Modifier.padding(horizontal = 20.dp, vertical = 16.dp),
                 verticalArrangement = Arrangement.spacedBy(4.dp),
-                content = { content() },
+                content = content,
             )
         }
     }
 }
 
+/**
+ * Single settings row rendered inside a [CaregiverSettingsGroup].
+ * Disabled items do not fire [onClick] and use reduced-opacity tints.
+ */
 @Composable
 fun CaregiverSettingsItem(
     title: String,
-    icon: ImageVector,
-    onClick: () -> Unit,
     modifier: Modifier = Modifier,
+    icon: ImageVector? = null,
+    leadingContent: (@Composable () -> Unit)? = null,
     description: String? = null,
+    trailingContent: (@Composable () -> Unit)? = null,
+    showBadge: Boolean = false,
+    isHighlighted: Boolean = false,
     enabled: Boolean = true,
-    showChevron: Boolean = true,
+    onClick: (() -> Unit)? = null,
 ) {
-    Surface(
-        onClick = if (enabled) onClick else ({}),
-        shape = RoundedCornerShape(12.dp),
-        color = MaterialTheme.colorScheme.surface.copy(alpha = if (enabled) 1f else 0.6f),
-        modifier = modifier.fillMaxWidth(),
+    Row(
+        modifier = modifier
+            .fillMaxWidth()
+            .clickable(enabled = enabled && onClick != null) { onClick?.invoke() }
+            .padding(horizontal = 20.dp, vertical = 16.dp),
+        verticalAlignment = Alignment.CenterVertically,
     ) {
-        Row(
-            verticalAlignment = Alignment.CenterVertically,
-            modifier = Modifier.padding(horizontal = 12.dp, vertical = 12.dp),
-        ) {
-            Icon(
-                imageVector = icon,
-                contentDescription = null,
-                tint = if (enabled) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurfaceVariant,
-                modifier = Modifier.size(22.dp),
-            )
-            androidx.compose.foundation.layout.Spacer(Modifier.size(12.dp))
-            Column(modifier = Modifier.weight(1f)) {
-                Text(
-                    text = title,
-                    style = MaterialTheme.typography.bodyLarge,
-                    color = if (enabled) MaterialTheme.colorScheme.onSurface else MaterialTheme.colorScheme.onSurfaceVariant,
-                )
-                if (description != null) {
-                    Text(
-                        text = description,
-                        style = MaterialTheme.typography.bodySmall,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+        if (leadingContent != null) {
+            leadingContent.invoke()
+            Spacer(Modifier.width(16.dp))
+        } else if (icon != null) {
+            Box(
+                modifier = Modifier
+                    .size(40.dp)
+                    .clip(RoundedCornerShape(12.dp))
+                    .background(
+                        MaterialTheme.colorScheme.primary.copy(
+                            alpha = if (isHighlighted) 0.15f else 0.1f,
+                        ),
+                    ),
+                contentAlignment = Alignment.Center,
+            ) {
+                if (showBadge) {
+                    BadgedBox(badge = { Badge(containerColor = MaterialTheme.colorScheme.error) }) {
+                        Icon(
+                            imageVector = icon,
+                            contentDescription = null,
+                            tint = if (!enabled) MaterialTheme.colorScheme.onSurface.copy(alpha = 0.38f)
+                            else MaterialTheme.colorScheme.primary.copy(alpha = 0.9f),
+                            modifier = Modifier.size(24.dp),
+                        )
+                    }
+                } else {
+                    Icon(
+                        imageVector = icon,
+                        contentDescription = null,
+                        tint = if (!enabled) MaterialTheme.colorScheme.onSurface.copy(alpha = 0.38f)
+                        else MaterialTheme.colorScheme.primary.copy(alpha = 0.9f),
+                        modifier = Modifier.size(24.dp),
                     )
                 }
             }
-            if (showChevron && enabled) {
-                Icon(
-                    imageVector = Icons.AutoMirrored.Filled.KeyboardArrowRight,
-                    contentDescription = null,
-                    tint = MaterialTheme.colorScheme.onSurfaceVariant,
-                    modifier = Modifier.size(20.dp),
+            Spacer(Modifier.width(16.dp))
+        }
+        Column(modifier = Modifier.weight(1f)) {
+            Text(
+                text = title,
+                style = MaterialTheme.typography.titleMedium,
+                color = if (!enabled) MaterialTheme.colorScheme.onSurface.copy(alpha = 0.38f)
+                else MaterialTheme.colorScheme.onSurface,
+            )
+            if (!description.isNullOrBlank()) {
+                Spacer(Modifier.height(2.dp))
+                Text(
+                    text = description,
+                    style = MaterialTheme.typography.bodyMedium,
+                    color = if (!enabled) MaterialTheme.colorScheme.onSurface.copy(alpha = 0.38f)
+                    else MaterialTheme.colorScheme.onSurfaceVariant,
                 )
             }
         }
