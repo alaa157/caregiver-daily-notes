@@ -46,7 +46,7 @@ class AiKeyStore(private val context: Context) {
         prefs.edit().putString(KEY_BASE_URL, url).apply()
     }
 
-    /** The saved base URL, or the provider default when none/custom was set. */
+    /** The saved base URL, or the provider default when none was saved. */
     fun baseUrlOrDefault(provider: AiProvider): String =
         baseUrl()?.takeIf { it.isNotBlank() } ?: provider.defaultBaseUrl
 

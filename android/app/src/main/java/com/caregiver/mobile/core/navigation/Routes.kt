@@ -12,7 +12,16 @@ enum class MainTab(val route: String, @StringRes val titleRes: Int) {
     Home("home", R.string.tab_home),
     People("people", R.string.tab_people),
     Notes("notes", R.string.tab_notes),
-    History("history", R.string.tab_history),
+    History("history", R.string.tab_history);
+
+    companion object {
+        /**
+         * True when [route] names one of the four tab destinations. The tab
+         * shell (top bar, drawer routing, add-note FAB) keys off this rule so
+         * detail/form screens are treated consistently everywhere.
+         */
+        fun isTabRoute(route: String?): Boolean = MainTab.entries.any { it.route == route }
+    }
 }
 
 /** Every destination the app can navigate to. Feature tasks fill in screens. */

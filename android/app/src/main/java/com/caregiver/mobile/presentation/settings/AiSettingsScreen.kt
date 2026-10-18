@@ -6,8 +6,11 @@ import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Button
+import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
@@ -30,8 +33,12 @@ import com.caregiver.mobile.ai.AnthropicLlmClient
 import com.caregiver.mobile.ai.GeminiLlmClient
 import com.caregiver.mobile.ai.LlmClient
 import com.caregiver.mobile.ai.LlmRequest
+import com.caregiver.mobile.ai.LlmStatus
 import com.caregiver.mobile.ai.OpenAiCompatibleLlmClient
+import com.caregiver.mobile.ai.Prompts
+import com.caregiver.mobile.ai.SummaryResponseFormat
 import com.caregiver.mobile.ui.component.SettingsGroup
+import java.time.LocalDate
 import kotlinx.coroutines.launch
 
 @Composable
@@ -65,7 +72,7 @@ fun AiSettingsScreen(graph: AppGraph, navController: NavController) {
     var showPlanPromptDialog by remember { mutableStateOf(false) }
 
     Column(
-        Modifier.fillMaxSize().padding(16.dp),
+        Modifier.fillMaxSize().padding(16.dp).verticalScroll(rememberScrollState()),
         verticalArrangement = Arrangement.spacedBy(12.dp),
     ) {
         Text(text = stringResource(R.string.settings_ai))
@@ -221,9 +228,14 @@ fun AiSettingsScreen(graph: AppGraph, navController: NavController) {
                 Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
                     AiProvider.values().forEach { p ->
                         TextButton(onClick = {
-                            provider = p
-                            if (model.isBlank()) model = p.defaultModel
-                            baseUrl = p.defaultBaseUrl
+                            if (p != provider) {
+                                provider = p
+                                // Provider-dependent defaults follow the
+                                // provider: a model or URL from the previous
+                                // provider is not meaningful for this one.
+                                model = p.defaultModel
+                                baseUrl = p.defaultBaseUrl
+                            }
                             showProviderDialog = false
                         }) { Text(p.displayName) }
                     }
@@ -246,6 +258,24 @@ fun AiSettingsScreen(graph: AppGraph, navController: NavController) {
                 )
             },
             confirmButton = { TextButton(onClick = { showKeyDialog = false }) { Text(stringResource(R.string.common_ok)) } },
+        )
+    }
+
+    if (showClearKeyDialog) {
+        AlertDialog(
+            onDismissRequest = { showClearKeyDialog = false },
+            title = { Text(stringResource(R.string.settings_ai_clear_key)) },
+            text = { Text(stringResource(R.string.settings_ai_clear_key_message)) },
+            confirmButton = {
+                TextButton(onClick = {
+                    store.clearApiKey()
+                    apiKey = ""
+                    showClearKeyDialog = false
+                }) { Text(stringResource(R.string.settings_ai_clear_key)) }
+            },
+            dismissButton = {
+                TextButton(onClick = { showClearKeyDialog = false }) { Text(stringResource(R.string.common_cancel)) }
+            },
         )
     }
 
@@ -337,5 +367,19 @@ fun AiSettingsScreen(graph: AppGraph, navController: NavController) {
             dismissButton = { TextButton(onClick = { planPrompt = ""; showPlanPromptDialog = false }) { Text(stringResource(R.string.settings_ai_reset_default)) } },
         )
     }
+}
+
+/** Single place the settings screen builds a provider client (test + format validation). */
+private fun llmClientFor(
+    graph: AppGraph,
+    provider: AiProvider,
+    baseUrl: String,
+    model: String,
+    apiKey: String,
+): LlmClient = when (provider) {
+    AiProvider.OPENAI, AiProvider.XAI, AiProvider.OPEN_ROUTER ->
+        graph.llmClientFactory.createClient(baseUrl, model, apiKey)
+    AiProvider.ANTHROPIC -> graph.llmClientFactory.createAnthropicClient(baseUrl, model, apiKey)
+    AiProvider.GEMINI -> graph.llmClientFactory.createGeminiClient(baseUrl, model, apiKey)
 }
 
