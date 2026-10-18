@@ -155,10 +155,9 @@ class SummaryWindowBoundaryTest {
             signals = emptyList(),
             endInclusive = end,
         )
-        val summary = (summaryResult as SummaryAiResult.Success).summary
 
         assertFalse(client.lastRequest!!.dataBlock.contains("out-before"))
-        assertTrue(summary.evidence.isEmpty())
-        assertEquals("invalid_evidence", summary.uncertainties.single().topic)
+        assertTrue(summaryResult is SummaryAiResult.Failure)
+        assertEquals("invalid_evidence", (summaryResult as SummaryAiResult.Failure).reasonCode)
     }
 }
