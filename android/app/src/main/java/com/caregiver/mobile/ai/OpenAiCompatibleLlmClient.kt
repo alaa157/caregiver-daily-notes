@@ -76,7 +76,7 @@ class OpenAiCompatibleLlmClient(
                     .post(reqBody)
                     .build()
                 val call = okHttpClient.newCall(httpReq)
-                kotlinx.coroutines.coroutineContext[kotlinx.coroutines.Job]?.invokeOnCancellation { call.cancel() }
+                coroutineContext[kotlinx.coroutines.Job]?.invokeOnCompletion { cause -> if (cause is kotlinx.coroutines.CancellationException) call.cancel() }
                 call.execute().use { resp ->
                     val raw = resp.body?.string().orEmpty()
                     if (!resp.isSuccessful) {
