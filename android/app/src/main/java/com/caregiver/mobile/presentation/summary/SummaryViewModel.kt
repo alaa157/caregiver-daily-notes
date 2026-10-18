@@ -116,13 +116,21 @@ class SummaryViewModel(
                 val to = today.toString()
                 val notes = repository.authorized { apis.notes().history(recipientId, from, to) }
                 val signals = repository.authorized { apis.summaries().signals(recipientId, from, to) }
-                val summary = service.summarize(recipientId, _period.value, notes, signals, today)
-                val aiGenerated = (summary.text.isNotBlank() || summary.evidence.isNotEmpty())
-                    && summary.uncertainties.none { it.topic in setOf("malformed_output", "invalid_evidence", "no_source_data") }
-                _state.value = SummaryState.Content(summary, aiGenerated = aiGenerated)
-                return
+                when (val result = service.summarize(recipientId, _period.value, notes, signals, today)) {
+                    is com.caregiver.mobile.ai.SummaryAiResult.Success -> {
+                        _state.value = SummaryState.Content(result.summary, aiGenerated = true)
+                        return
+                    }
+                    is com.caregiver.mobile.ai.SummaryAiResult.Failure -> {
+                        _state.value = SummaryState.AiUnavailable(lastSummary())
+                        return
+                    }
+                }
+            } catch (e: kotlinx.coroutines.CancellationException) {
+                throw e
             } catch (e: Exception) {
-                // Fall through to API path on failure.
+                _state.value = SummaryState.AiUnavailable(lastSummary())
+                return
             }
         }
         try {

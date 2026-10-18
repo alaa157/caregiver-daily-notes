@@ -1,7 +1,6 @@
 package com.caregiver.mobile.ai
 
 import com.caregiver.mobile.data.api.NoteDto
-import com.caregiver.mobile.data.api.SignalDto
 import com.caregiver.mobile.data.api.SummaryDto
 import java.time.LocalDate
 import kotlinx.coroutines.runBlocking
@@ -25,35 +24,38 @@ class SummaryAiServiceTest {
     }
 
     @Test
-    fun malformedJsonReturnsMalformedUncertainty() = runBlocking {
+    fun malformedJsonReturnsFailure() = runBlocking {
         val svc = service("not json")
-        val summary = svc.summarize("r1", 7, listOf(note), emptyList(), LocalDate.parse("2026-10-01"))
-        assertTrue(summary.uncertainties.any { it.topic == "malformed_output" })
+        val result = svc.summarize("r1", 7, listOf(note), emptyList(), LocalDate.parse("2026-10-01"))
+        assertTrue(result is SummaryAiResult.Failure)
+        assertEquals("malformed_output", (result as SummaryAiResult.Failure).reasonCode)
     }
 
     @Test
     fun fabricatedNoteIdIsRejected() = runBlocking {
         val json = """{"observations":[{"text":"x","noteId":"nope","quote":"walked"}],"uncertainties":[]}"""
         val svc = service(json)
-        val summary = svc.summarize("r1", 7, listOf(note), emptyList(), LocalDate.parse("2026-10-01"))
-        assertTrue(summary.evidence.isEmpty())
-        assertTrue(summary.uncertainties.any { it.topic == "invalid_evidence" })
+        val result = svc.summarize("r1", 7, listOf(note), emptyList(), LocalDate.parse("2026-10-01"))
+        assertTrue(result is SummaryAiResult.Failure)
+        assertEquals("invalid_evidence", (result as SummaryAiResult.Failure).reasonCode)
     }
 
     @Test
     fun incorrectQuoteIsRejected() = runBlocking {
         val json = """{"observations":[{"text":"x","noteId":"n1","quote":"never happened"}],"uncertainties":[]}"""
         val svc = service(json)
-        val summary = svc.summarize("r1", 7, listOf(note), emptyList(), LocalDate.parse("2026-10-01"))
-        assertTrue(summary.evidence.isEmpty())
-        assertTrue(summary.uncertainties.any { it.topic == "invalid_evidence" })
+        val result = svc.summarize("r1", 7, listOf(note), emptyList(), LocalDate.parse("2026-10-01"))
+        assertTrue(result is SummaryAiResult.Failure)
+        assertEquals("invalid_evidence", (result as SummaryAiResult.Failure).reasonCode)
     }
 
     @Test
     fun validObservationIsKept() = runBlocking {
         val json = """{"observations":[{"text":"walked","noteId":"n1","quote":"walked"}],"uncertainties":[]}"""
         val svc = service(json)
-        val summary = svc.summarize("r1", 7, listOf(note), emptyList(), LocalDate.parse("2026-10-01"))
+        val result = svc.summarize("r1", 7, listOf(note), emptyList(), LocalDate.parse("2026-10-01"))
+        assertTrue(result is SummaryAiResult.Success)
+        val summary = (result as SummaryAiResult.Success).summary
         assertEquals(1, summary.evidence.size)
         assertEquals("n1", summary.evidence[0].noteId)
     }
@@ -62,7 +64,8 @@ class SummaryAiServiceTest {
     fun emptyNotesReturnsNoSourceData() = runBlocking {
         val json = """{"observations":[],"uncertainties":[]}"""
         val svc = service(json)
-        val summary = svc.summarize("r1", 7, emptyList(), emptyList(), LocalDate.parse("2026-10-01"))
-        assertTrue(summary.uncertainties.any { it.topic == "no_source_data" })
+        val result = svc.summarize("r1", 7, emptyList(), emptyList(), LocalDate.parse("2026-10-01"))
+        assertTrue(result is SummaryAiResult.Failure)
+        assertEquals("no_source_data", (result as SummaryAiResult.Failure).reasonCode)
     }
 }

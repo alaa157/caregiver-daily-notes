@@ -85,7 +85,7 @@ class SummaryWindowBoundaryTest {
                 ),
                 signals = emptyList(),
                 endInclusive = end,
-            )
+            ) as SummaryAiResult.Success).summary
 
             val dataBlock = client.lastRequest!!.dataBlock
             assertTrue("$periodDays-day window must include its start boundary", dataBlock.contains("in-start"))
@@ -109,7 +109,7 @@ class SummaryWindowBoundaryTest {
                     signal("s-out-after", end.plusDays(1), fall = true),
                 ),
                 endInclusive = end,
-            )
+            ) as SummaryAiResult.Success).summary
             assertFalse(
                 "$periodDays-day window must not raise FALL_REPORTED from signals just outside it",
                 outside.redFlags.contains("FALL_REPORTED"),
@@ -124,7 +124,7 @@ class SummaryWindowBoundaryTest {
                     signal("s-in-end", end, fall = true),
                 ),
                 endInclusive = end,
-            )
+            ) as SummaryAiResult.Success).summary
             assertTrue(
                 "$periodDays-day window must raise FALL_REPORTED from signals on its boundaries",
                 inside.redFlags.contains("FALL_REPORTED"),
