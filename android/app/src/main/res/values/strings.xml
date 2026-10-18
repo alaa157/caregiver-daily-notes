@@ -321,4 +321,6 @@
     <string name="plan_suggest_success">Plan suggested successfully.</string>
     <string name="plan_suggest_failed">Could not suggest a plan.</string>
     <string name="plan_suggest_empty">No plan changes suggested.</string>
+    <string name="flag_missed_med">Repeated missed medication (includes unverified entries)</string>
+    <string name="flag_poor_appetite">Poor appetite for several days</string>
 </resources>
