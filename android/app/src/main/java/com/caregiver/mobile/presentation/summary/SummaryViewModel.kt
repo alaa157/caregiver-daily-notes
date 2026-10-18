@@ -69,6 +69,8 @@ class SummaryViewModel(
 
     fun refresh() {
         val current = (_state.value as? SummaryState.Content)?.summary
+        _suggestedForCurrent.value = false
+        _suggestStatus.value = null
         _state.value = if (current != null) {
             SummaryState.Content(current, refreshing = true)
         } else {
@@ -119,6 +121,8 @@ class SummaryViewModel(
                 when (val result = service.summarize(recipientId, _period.value, notes, signals, today)) {
                     is com.caregiver.mobile.ai.SummaryAiResult.Success -> {
                         _state.value = SummaryState.Content(result.summary, aiGenerated = true)
+                        _suggestedForCurrent.value = false
+                        _suggestStatus.value = null
                         return
                     }
                     is com.caregiver.mobile.ai.SummaryAiResult.Failure -> {
