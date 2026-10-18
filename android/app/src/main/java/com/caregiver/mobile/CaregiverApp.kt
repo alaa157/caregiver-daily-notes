@@ -16,6 +16,7 @@ import com.caregiver.mobile.data.api.RetrofitBackendApis
 import com.caregiver.mobile.data.demo.DemoBackendApis
 import com.caregiver.mobile.data.local.AppDatabase
 import com.caregiver.mobile.data.local.LocalBackendApis
+import com.caregiver.mobile.ai.LlmClientFactory
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.runBlocking
 
@@ -61,6 +62,8 @@ class AppGraph(val context: Context, val forceProduction: Boolean = false) {
     /** True when running standalone with no backend. */
     val isLocalMode: Boolean
         get() = !forceProduction && BuildConfig.LOCAL_MODE
+
+    val llmClientFactory: LlmClientFactory by lazy { LlmClientFactory() }
 
     /**
      * Offline demo switch: demo builds (debug + minified) serve
