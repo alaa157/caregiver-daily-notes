@@ -67,6 +67,8 @@ import com.caregiver.mobile.presentation.common.AppTopBar
 import com.caregiver.mobile.presentation.common.AppDimens
 import com.caregiver.mobile.presentation.common.PrimaryButton
 import com.caregiver.mobile.presentation.common.SecondaryButton
+import com.caregiver.mobile.presentation.common.CaregiverSettingsGroup
+import com.caregiver.mobile.presentation.common.CaregiverSettingsItem
 import com.caregiver.mobile.ui.component.SettingsGroup
 import com.caregiver.mobile.ui.component.SettingsTile
 import kotlinx.coroutines.launch
@@ -95,30 +97,30 @@ fun SettingsScreen(graph: AppGraph, navController: NavController) {
 
         // Section 1: Interface
         SectionHeader(stringResource(R.string.section_interface))
-        SettingsTile(title = stringResource(R.string.item_zero), icon = Icons.Outlined.Circle, onClick = {}, enabled = false)
+        CaregiverSettingsItem(title = stringResource(R.string.item_zero), icon = Icons.Outlined.Circle, onClick = {}, enabled = false)
 
         // Section 2: Privacy & Security
         SectionHeader(stringResource(R.string.section_privacy))
-        SettingsTile(title = stringResource(R.string.item_privacy), icon = Icons.Outlined.Lock, onClick = {}, enabled = false)
+        CaregiverSettingsItem(title = stringResource(R.string.item_privacy), icon = Icons.Outlined.Lock, onClick = {}, enabled = false)
 
         // Section 3: Storage & Data
         SectionHeader(stringResource(R.string.section_storage))
-        SettingsTile(title = stringResource(R.string.item_storage), icon = Icons.Outlined.Storage, onClick = {}, enabled = false)
-        SettingsTile(title = stringResource(R.string.item_backup_restore), icon = Icons.Outlined.Backup, onClick = {}, enabled = false)
+        CaregiverSettingsItem(title = stringResource(R.string.item_storage), icon = Icons.Outlined.Storage, onClick = {}, enabled = false)
+        CaregiverSettingsItem(title = stringResource(R.string.item_backup_restore), icon = Icons.Outlined.Backup, onClick = {}, enabled = false)
 
         // Section 4: System & About
         SectionHeader(stringResource(R.string.section_system))
-        SettingsTile(title = stringResource(R.string.item_open_supported_links), icon = Icons.Outlined.OpenInNew, onClick = {}, enabled = false)
-        SettingsTile(title = stringResource(R.string.item_updater), icon = Icons.Outlined.SystemUpdate, onClick = {}, enabled = false)
-        SettingsTile(title = stringResource(R.string.item_changelog), icon = Icons.Outlined.History, onClick = {}, enabled = false)
-        SettingsTile(title = stringResource(R.string.settings_about), icon = Icons.Outlined.Info, onClick = { navController.navigate("about") })
-        SettingsTile(title = stringResource(R.string.item_check_new_version), icon = Icons.Outlined.Update, onClick = {}, enabled = false)
+        CaregiverSettingsItem(title = stringResource(R.string.item_open_supported_links), icon = Icons.Outlined.OpenInNew, onClick = {}, enabled = false)
+        CaregiverSettingsItem(title = stringResource(R.string.item_updater), icon = Icons.Outlined.SystemUpdate, onClick = {}, enabled = false)
+        CaregiverSettingsItem(title = stringResource(R.string.item_changelog), icon = Icons.Outlined.History, onClick = {}, enabled = false)
+        CaregiverSettingsItem(title = stringResource(R.string.settings_about), icon = Icons.Outlined.Info, onClick = { navController.navigate("about") })
+        CaregiverSettingsItem(title = stringResource(R.string.item_check_new_version), icon = Icons.Outlined.Update, onClick = {}, enabled = false)
 
         // Application-specific section
         SectionHeader(stringResource(R.string.section_application))
-        SettingsTile(title = stringResource(R.string.settings_theme_colors), icon = Icons.Outlined.Palette, onClick = { navController.navigate("theme-colors") })
+        CaregiverSettingsItem(title = stringResource(R.string.settings_theme_colors), icon = Icons.Outlined.Palette, onClick = { navController.navigate("theme-colors") })
 
-        SettingsGroup(title = stringResource(R.string.settings_language)) {
+        CaregiverSettingsGroup(title = stringResource(R.string.settings_language)) {
             // Same wrap rule as the accents: side by side at normal sizes,
             // stacked instead of clipped at large font scales.
             FlowRow(
@@ -158,7 +160,7 @@ fun SettingsScreen(graph: AppGraph, navController: NavController) {
             )
         }
 
-        SettingsGroup(title = stringResource(R.string.settings_ai)) {
+        CaregiverSettingsGroup(title = stringResource(R.string.settings_ai)) {
             SecondaryButton(
                 label = stringResource(R.string.settings_ai),
                 onClick = { navController.navigate("ai-settings") },
@@ -166,7 +168,7 @@ fun SettingsScreen(graph: AppGraph, navController: NavController) {
         }
 
         if (com.caregiver.mobile.BuildConfig.LOCAL_MODE) {
-            SettingsGroup(title = stringResource(R.string.settings_data)) {
+            CaregiverSettingsGroup(title = stringResource(R.string.settings_data)) {
                 SecondaryButton(
                     label = stringResource(R.string.settings_load_sample_data),
                     onClick = {
@@ -186,7 +188,7 @@ fun SettingsScreen(graph: AppGraph, navController: NavController) {
             color = MaterialTheme.colorScheme.onSurfaceVariant,
         )
         if (!com.caregiver.mobile.BuildConfig.LOCAL_MODE) {
-            SettingsGroup(title = stringResource(R.string.settings_server_section)) {
+            CaregiverSettingsGroup(title = stringResource(R.string.settings_server_section)) {
                 SecondaryButton(
                     label = stringResource(R.string.settings_server),
                     onClick = { navController.navigate("server-url") },
