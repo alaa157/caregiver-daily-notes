@@ -222,17 +222,11 @@ fun SettingsScreen(graph: AppGraph, navController: NavController) {
             }
         }
 
-        SettingsGroup(title = stringResource(R.string.settings_about)) {
-            Text(
-                text = stringResource(R.string.settings_app_version, com.caregiver.mobile.BuildConfig.VERSION_NAME),
-                style = MaterialTheme.typography.bodyMedium,
-            )
-            SecondaryButton(
-                label = stringResource(R.string.settings_about),
-                onClick = { navController.navigate("about") },
-            )
-        }
-
+        Text(
+            text = stringResource(R.string.settings_app_version, com.caregiver.mobile.BuildConfig.VERSION_NAME),
+            style = MaterialTheme.typography.bodySmall,
+            color = MaterialTheme.colorScheme.onSurfaceVariant,
+        )
         if (!com.caregiver.mobile.BuildConfig.LOCAL_MODE) {
             SettingsGroup(title = stringResource(R.string.settings_server_section)) {
                 SecondaryButton(
