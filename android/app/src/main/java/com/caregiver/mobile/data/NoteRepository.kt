@@ -120,6 +120,17 @@ class NoteRepository(
             val created = apis.notes().create(request)
             cacheWrite { cacheNote(created.toEntity()) }
             created
+        } catch (e: HttpException) {
+            if (e.code() == 422) {
+                val today = java.time.LocalDate.now(clock).toString()
+                val existing = apis.notes().history(body.recipientId, today, today)
+                    .firstOrNull { it.recipientId == body.recipientId }
+                if (existing != null) {
+                    cacheWrite { cacheNote(existing.toEntity()) }
+                    return existing
+                }
+            }
+            throw e
         } catch (e: IOException) {
             // Demo graphs have no outbox: keep the pre-8b behavior exactly.
             val outbox = outboxDao ?: throw e

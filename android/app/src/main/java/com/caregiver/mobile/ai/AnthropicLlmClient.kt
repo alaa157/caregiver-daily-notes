@@ -20,7 +20,7 @@ class AnthropicLlmClient(
     private val baseUrl: String,
     private val model: String,
     private val apiKey: String,
-    private val okHttpClient: OkHttpClient = OkHttpClient(),
+    private val okHttpClient: OkHttpClient = com.caregiver.mobile.core.network.OkHttpConfig.defaultOkHttpClient(),
     private val json: Json = Json { ignoreUnknownKeys = true },
     private val maxTokens: Int = 1024,
 ) : LlmClient {

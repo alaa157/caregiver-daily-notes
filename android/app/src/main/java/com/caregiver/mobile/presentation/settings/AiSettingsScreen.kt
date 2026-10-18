@@ -217,8 +217,3 @@ fun AiSettingsScreen(graph: AppGraph, navController: NavController) {
     }
 }
 
-private fun buildClient(provider: AiProvider, model: String, key: String, baseUrl: String): LlmClient = when (provider) {
-    AiProvider.OPENAI, AiProvider.XAI, AiProvider.OPEN_ROUTER -> OpenAiCompatibleLlmClient(baseUrl, model, key)
-    AiProvider.ANTHROPIC -> AnthropicLlmClient(baseUrl, model, key)
-    AiProvider.GEMINI -> GeminiLlmClient(baseUrl, model, key)
-}
