@@ -219,4 +219,27 @@
     <string name="settings_appearance">Appearance</string>
     <string name="note_translate">Translate</string>
     <string name="note_translating">Translating...</string>
+    <string name="ai_consent_title">AI consent</string>
+    <string name="ai_consent_body">Care notes are sent to the chosen AI provider. This app is not a medical device and is not HIPAA-compliant.</string>
+    <string name="ai_consent_accept">I understand</string>
+    <string name="common_cancel">Cancel</string>
+    <string name="settings_ai_provider">Provider</string>
+    <string name="settings_ai_api_key">API key</string>
+    <string name="settings_ai_set_api_key">Set API key</string>
+    <string name="settings_ai_model">Model</string>
+    <string name="settings_ai_custom_model">Custom model</string>
+    <string name="settings_ai_suggestions">Suggestions:</string>
+    <string name="settings_ai_base_url">Base URL</string>
+    <string name="settings_ai_system_prompt">System prompt</string>
+    <string name="settings_ai_save">Save</string>
+    <string name="settings_ai_close">Close</string>
+    <string name="settings_ai_reset_default">Reset to default</string>
+    <string name="settings_ai_test_connection">Test connection</string>
+    <string name="settings_ai_testing">Testing...</string>
+    <string name="settings_ai_connection_ok">Connection OK</string>
+    <string name="settings_ai_default">Default</string>
+    <string name="settings_ai_custom">Custom</string>
+    <string name="settings_ai_failed">Failed: %1$s</string>
+    <string name="summary_setup_ai">Set up AI in Settings to generate summaries.</string>
+    <string name="about_project_link">Project link</string>
 </resources>

@@ -10,7 +10,9 @@ import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalUriHandler
+import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.dp
+import com.caregiver.mobile.R
 import com.caregiver.mobile.core.theme.CaregiverColors
 
 /**
@@ -44,7 +46,7 @@ fun AboutScreen(onBack: (() -> Unit)? = null) {
             color = CaregiverColors.Muted,
         )
         TextButton(onClick = { uriHandler.openUri("https://github.com") }) {
-            Text("Project link")
+            Text(stringResource(R.string.about_project_link))
         }
     }
 }
