@@ -86,7 +86,7 @@ class OpenAiCompatibleLlmClient(
                             return@withContext last
                         }
                         if (code == 429 || code >= 500) {
-                            kotlinx.coroutines.delay(calculateBackoff(attempt))
+                            if (attempt < 2) kotlinx.coroutines.delay(calculateBackoff(attempt))
                             return@use
                         }
                         return@withContext last
@@ -97,12 +97,12 @@ class OpenAiCompatibleLlmClient(
                     val finishReason = choice?.get("finish_reason")?.jsonPrimitive?.contentOrNull
                     if (content.isNullOrBlank()) {
                         last = LlmResult(LlmStatus.FALLBACK, "", "empty_output", resp.code)
-                        kotlinx.coroutines.delay(calculateBackoff(attempt))
+                        if (attempt < 2) kotlinx.coroutines.delay(calculateBackoff(attempt))
                         return@use
                     }
                     if (finishReason == "length" || finishReason == "max_tokens") {
                         last = LlmResult(LlmStatus.FALLBACK, "", "truncated", resp.code)
-                        kotlinx.coroutines.delay(calculateBackoff(attempt))
+                        if (attempt < 2) kotlinx.coroutines.delay(calculateBackoff(attempt))
                         return@use
                     }
                     return@withContext LlmResult(LlmStatus.OK, content)
@@ -111,7 +111,7 @@ class OpenAiCompatibleLlmClient(
                 throw e
             } catch (e: Exception) {
                 last = LlmResult(LlmStatus.FALLBACK, "", "network", null)
-                kotlinx.coroutines.delay(calculateBackoff(attempt))
+                if (attempt < 2) kotlinx.coroutines.delay(calculateBackoff(attempt))
             }
         }
         return@withContext last
