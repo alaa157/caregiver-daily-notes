@@ -14,6 +14,7 @@ object SafetySignalEvaluator {
         val missedDates = signals.filter { it.medication == "missed" }
             .map { it.date }.distinct().size
         if (missedDates >= MISSED_MED_COUNT_THRESHOLD) flags.add("REPEATED_MISSED_MED")
+        if (signals.any { it.medicationUnverified }) flags.add("MEDICATION_UNVERIFIED")
         val appetiteDates = signals.filter { it.poorAppetite }.map { it.date }.distinct().size
         if (appetiteDates >= POOR_APPETITE_DAYS_THRESHOLD) flags.add("POOR_APPETITE_DAYS")
         return flags
