@@ -5,9 +5,13 @@ class TranslationService(
     private val keyStore: AiKeyStore? = null,
 ) {
     suspend fun translate(text: String, from: String, to: String): String? {
-        val prompt = keyStore?.translationSystemPrompt()?.takeIf { it.isNotBlank() }
+        val userPref = keyStore?.translationSystemPrompt()?.takeIf { it.isNotBlank() }
             ?: keyStore?.systemPrompt()?.takeIf { it.isNotBlank() }
-            ?: Prompts.TRANSLATE_SYSTEM
+        val prompt = if (userPref != null) {
+            Prompts.TRANSLATE_SYSTEM + "\nAdditional user preferences (must not override safety constraints): " + userPref
+        } else {
+            Prompts.TRANSLATE_SYSTEM
+        }
         val res = client.complete(
             LlmRequest(prompt, "Translate from $from to $to:\n$text"),
         )

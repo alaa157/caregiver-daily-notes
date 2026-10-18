@@ -76,7 +76,7 @@ fun AppDrawer(
 
     ModalDrawerSheet(
         modifier = modifier,
-        drawerContainerColor = CaregiverColors.Surface,
+        drawerContainerColor = MaterialTheme.colorScheme.surface,
     ) {
         // Profile header: the session identity. Same email→name derivation
         // the top-bar avatar uses, so the bar, drawer and greeting agree.
@@ -94,14 +94,14 @@ fun AppDrawer(
                     fontFamily = PlexArabic,
                     fontWeight = FontWeight.Bold,
                     fontSize = 16.sp,
-                    color = CaregiverColors.Ink,
+                    color = MaterialTheme.colorScheme.onSurface,
                     maxLines = 1,
                     overflow = TextOverflow.Ellipsis,
                     modifier = Modifier.weight(1f),
                 )
             }
         }
-        HorizontalDivider(thickness = AppDimens.Hairline, color = CaregiverColors.BorderSoft)
+        HorizontalDivider(thickness = AppDimens.Hairline, color = MaterialTheme.colorScheme.outlineSoft)
         DrawerItem(
             icon = Icons.Outlined.People,
             label = stringResource(R.string.tab_people),
@@ -123,14 +123,14 @@ fun AppDrawer(
         ) {
             onNavigate(AppDestinations.Settings.base)
         }
-        HorizontalDivider(thickness = AppDimens.Hairline, color = CaregiverColors.BorderSoft)
+        HorizontalDivider(thickness = AppDimens.Hairline, color = MaterialTheme.colorScheme.outlineSoft)
         Spacer(Modifier.height(AppDimens.GapCard))
         Text(
             text = stringResource(R.string.settings_language),
             fontFamily = PlexArabic,
             fontWeight = FontWeight.Bold,
             fontSize = 14.sp,
-            color = CaregiverColors.Ink,
+            color = MaterialTheme.colorScheme.onSurface,
             modifier = Modifier.padding(horizontal = AppDimens.ScreenHPadding),
         )
         Spacer(Modifier.height(AppDimens.GapForm))
@@ -158,7 +158,7 @@ fun AppDrawer(
             }
         }
         Spacer(Modifier.height(AppDimens.GapCard))
-        HorizontalDivider(thickness = AppDimens.Hairline, color = CaregiverColors.BorderSoft)
+        HorizontalDivider(thickness = AppDimens.Hairline, color = MaterialTheme.colorScheme.outlineSoft)
         Text(
             text = stringResource(
                 when (syncStatus) {
@@ -170,7 +170,7 @@ fun AppDrawer(
             ),
             fontFamily = PlexArabic,
             fontSize = 13.sp,
-            color = CaregiverColors.Muted,
+            color = MaterialTheme.colorScheme.onSurfaceVariant,
             modifier = Modifier.padding(
                 horizontal = AppDimens.ScreenHPadding,
                 vertical = AppDimens.GapForm,
@@ -213,11 +213,11 @@ private fun DrawerItem(
         // None of the items is persistently "current", but the selected
         // styling keeps the app palette if selection is ever added.
         colors = NavigationDrawerItemDefaults.colors(
-            selectedContainerColor = CaregiverColors.PrimarySoft,
-            selectedIconColor = CaregiverColors.Primary,
-            selectedTextColor = CaregiverColors.Primary,
-            unselectedIconColor = CaregiverColors.Muted,
-            unselectedTextColor = CaregiverColors.Ink,
+            selectedContainerColor = MaterialTheme.colorScheme.primarySoft,
+            selectedIconColor = MaterialTheme.colorScheme.primary,
+            selectedTextColor = MaterialTheme.colorScheme.primary,
+            unselectedIconColor = MaterialTheme.colorScheme.onSurfaceVariant,
+            unselectedTextColor = MaterialTheme.colorScheme.onSurface,
         ),
         modifier = Modifier.testTag(tag),
     )
@@ -237,13 +237,13 @@ private fun LanguageChip(
         shape = RoundedCornerShape(AppDimens.CardRadius),
         border = BorderStroke(
             AppDimens.Hairline,
-            if (selected) CaregiverColors.Primary else CaregiverColors.Border,
+            if (selected) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.outline,
         ),
         colors = FilterChipDefaults.filterChipColors(
-            containerColor = CaregiverColors.Surface,
-            labelColor = CaregiverColors.Ink,
-            selectedContainerColor = CaregiverColors.PrimarySoft,
-            selectedLabelColor = CaregiverColors.Primary,
+            containerColor = MaterialTheme.colorScheme.surface,
+            labelColor = MaterialTheme.colorScheme.onSurface,
+            selectedContainerColor = MaterialTheme.colorScheme.primarySoft,
+            selectedLabelColor = MaterialTheme.colorScheme.primary,
         ),
     )
 }

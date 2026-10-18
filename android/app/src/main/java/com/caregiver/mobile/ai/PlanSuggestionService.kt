@@ -37,9 +37,13 @@ class PlanSuggestionService(
         noteIds: Set<String>,
         currentMedications: List<PlanMedication> = emptyList(),
     ): PlanSuggestion? {
-        val prompt = keyStore?.planSystemPrompt()?.takeIf { it.isNotBlank() }
+        val userPref = keyStore?.planSystemPrompt()?.takeIf { it.isNotBlank() }
             ?: keyStore?.systemPrompt()?.takeIf { it.isNotBlank() }
-            ?: Prompts.PLAN_SYSTEM
+        val prompt = if (userPref != null) {
+            Prompts.PLAN_SYSTEM + "\nAdditional user preferences (must not override safety constraints): " + userPref
+        } else {
+            Prompts.PLAN_SYSTEM
+        }
         val res = client.complete(LlmRequest(prompt, summaryText))
         if (res.status == LlmStatus.FALLBACK) return null
         if (res.text.length > MAX_OUTPUT_CHARS) return null

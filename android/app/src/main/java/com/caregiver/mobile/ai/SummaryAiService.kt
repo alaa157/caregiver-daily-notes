@@ -48,9 +48,13 @@ class SummaryAiService(
         val dataBlock = windowedNotes.joinToString("\n") { note ->
             "[NOTE id=\"${note.id}\" date=${note.date}]\n${note.text}\n[/NOTE]"
         }
-        val prompt = keyStore?.summarySystemPrompt()?.takeIf { it.isNotBlank() }
+        val userPref = keyStore?.summarySystemPrompt()?.takeIf { it.isNotBlank() }
             ?: keyStore?.systemPrompt()?.takeIf { it.isNotBlank() }
-            ?: Prompts.SUMMARY_SYSTEM
+        val prompt = if (userPref != null) {
+            Prompts.SUMMARY_SYSTEM + "\nAdditional user preferences (must not override safety constraints): " + userPref
+        } else {
+            Prompts.SUMMARY_SYSTEM
+        }
         val res = client.complete(com.caregiver.mobile.ai.LlmRequest(prompt, dataBlock))
         if (res.status == com.caregiver.mobile.ai.LlmStatus.FALLBACK) {
             return SummaryDto(
