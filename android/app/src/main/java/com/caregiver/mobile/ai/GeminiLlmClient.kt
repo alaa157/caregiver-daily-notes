@@ -24,7 +24,7 @@ class GeminiLlmClient(
     private val apiKey: String,
     private val okHttpClient: OkHttpClient = com.caregiver.mobile.core.network.OkHttpConfig.defaultOkHttpClient(),
     private val json: Json = Json { ignoreUnknownKeys = true },
-    private val maxTokens: Int = 1024,
+    private val maxTokens: Int = 4096,
 ) : LlmClient {
     override suspend fun complete(request: LlmRequest): LlmResult = withContext(Dispatchers.IO) {
         val httpUrl = baseUrl.toHttpUrlOrNull()
