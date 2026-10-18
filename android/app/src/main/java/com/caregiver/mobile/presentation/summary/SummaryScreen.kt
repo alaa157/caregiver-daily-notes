@@ -344,6 +344,12 @@ private fun SummaryBody(
             val msg = when (code) {
                 "success" -> stringResource(R.string.plan_suggest_success)
                 "empty_after_filter" -> stringResource(R.string.plan_suggest_empty)
+                "parse_error" -> stringResource(R.string.plan_suggest_parse_error)
+                "llm_fallback" -> stringResource(R.string.plan_suggest_llm_fallback)
+                "medications_rejected" -> stringResource(R.string.plan_suggest_medications_rejected)
+                "oversized" -> stringResource(R.string.plan_suggest_oversized)
+                "invalid_evidence" -> stringResource(R.string.plan_suggest_invalid_evidence)
+                "invalid_action" -> stringResource(R.string.plan_suggest_invalid_action)
                 else -> stringResource(R.string.plan_suggest_failed)
             }
             Text(text = msg, color = if (code == "success") CaregiverColors.Success else CaregiverColors.Danger)

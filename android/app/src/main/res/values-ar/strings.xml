@@ -323,4 +323,10 @@
     <string name="plan_suggest_empty">لم يتم اقتراح تغييرات للخطة.</string>
     <string name="flag_missed_med">تكرار الأدوية الفائتة (بما في ذلك غير المؤكدة)</string>
     <string name="flag_poor_appetite">ضعف الشهية لعدة أيام</string>
+    <string name="plan_suggest_parse_error">تعذر قراءة رد الذكاء الاصطناعي.</string>
+    <string name="plan_suggest_llm_fallback">خدمة الذكاء الاصطناعي غير متاحة.</string>
+    <string name="plan_suggest_medications_rejected">تغييرات الأدوية غير مسموح بها.</string>
+    <string name="plan_suggest_oversized">رد الذكاء الاصطناعي كبير جداً.</string>
+    <string name="plan_suggest_invalid_evidence">بعض الأدلة غير صالحة.</string>
+    <string name="plan_suggest_invalid_action">تم اقتراح إجراء غير مدعوم.</string>
 </resources>

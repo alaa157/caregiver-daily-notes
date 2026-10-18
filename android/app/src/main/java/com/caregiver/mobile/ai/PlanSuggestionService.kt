@@ -44,10 +44,17 @@ class PlanSuggestionService(
      */
     private fun stripFences(raw: String): String {
         val trimmed = raw.trim()
-        if (!trimmed.startsWith("```")) return trimmed
-        val withoutFence = trimmed.removePrefix("```json").removePrefix("```").trim()
-        val end = withoutFence.lastIndexOf("```")
-        return if (end >= 0) withoutFence.substring(0, end).trim() else withoutFence
+        val withoutFence = if (trimmed.startsWith("```")) {
+            val body = trimmed.removePrefix("```json").removePrefix("```").trim()
+            val end = body.lastIndexOf("```")
+            if (end >= 0) body.substring(0, end).trim() else body
+        } else {
+            trimmed
+        }
+        // Defensive: extract the outermost JSON object if present.
+        val first = withoutFence.indexOf('{')
+        val last = withoutFence.lastIndexOf('}')
+        return if (first >= 0 && last > first) withoutFence.substring(first, last + 1) else withoutFence
     }
 
     suspend fun suggest(
