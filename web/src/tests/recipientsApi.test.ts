@@ -23,6 +23,19 @@ describe('recipient API contract', () => {
     expect(fetcher).toHaveBeenCalledWith('/api/recipients', expect.objectContaining({ method: 'POST', body: JSON.stringify({ name: 'Samir Hassan', relationship: 'Father' }) }));
   });
 
+  it('accepts a real creation response with pending timestamps without inventing dates or exposing ownership', async () => {
+    const { api, fetcher } = apiWithResponse({ ...recipient, createdAt: null, updatedAt: null, caregiverId: 'private-owner' }, 201);
+    expect(await api.create({ name: recipient.name, relationship: recipient.relationship })).toEqual({
+      id: recipient.id, name: recipient.name, relationship: recipient.relationship, active: true,
+    });
+    expect(fetcher).toHaveBeenCalledTimes(1);
+  });
+
+  it('still rejects an invalid identity in a creation response', async () => {
+    const { api } = apiWithResponse({ ...recipient, id: '../unsafe', createdAt: null, updatedAt: null }, 201);
+    await expect(api.create({ name: recipient.name, relationship: null })).rejects.toThrow('Invalid recipient');
+  });
+
   it('sends the full editable representation with PUT and clears an optional relationship', async () => {
     const { api, fetcher } = apiWithResponse({ ...recipient, relationship: null });
     await api.update(recipient.id, { name: recipient.name, relationship: '  ' });
