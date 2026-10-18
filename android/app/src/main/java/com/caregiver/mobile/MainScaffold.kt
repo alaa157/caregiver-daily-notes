@@ -234,8 +234,8 @@ fun MainScaffold(graph: AppGraph) {
                         windowInsets = WindowInsets(0, 0, 0, 0),
                         modifier = Modifier
                             .fillMaxWidth()
-                            .windowInsetsPadding(WindowInsets.navigationBars)
-                            .height(AppDimens.BottomNavH),
+                            .height(AppDimens.BottomNavH)
+                            .windowInsetsPadding(WindowInsets.navigationBars),
                     ) {
                     MainTab.entries.forEach { tab ->
                         val selected = currentRoute == tab.route
