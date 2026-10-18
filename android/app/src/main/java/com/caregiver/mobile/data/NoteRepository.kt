@@ -115,8 +115,9 @@ class NoteRepository(
      * cached row so the note is visible before the next history refresh.
      */
     suspend fun create(body: CreateNoteRequest): NoteDto {
+        val request = body.copy(idempotencyKey = body.idempotencyKey ?: java.util.UUID.randomUUID().toString())
         return try {
-            val created = apis.notes().create(body)
+            val created = apis.notes().create(request)
             cacheWrite { cacheNote(created.toEntity()) }
             created
         } catch (e: IOException) {
@@ -196,19 +197,22 @@ class NoteRepository(
         // Demo graphs have no outbox: nothing to upload, ever.
         val outbox = outboxDao ?: return OutboxDrain.DONE
         val attempted = mutableSetOf<String>()
+        var retry = false
         while (true) {
             val rows = outbox.query(null, null, null)
                 .sortedBy { it.createdAt }
                 .filter { it.localId !in attempted }
-            if (rows.isEmpty()) return OutboxDrain.DONE
+            if (rows.isEmpty()) return if (retry) OutboxDrain.RETRY else OutboxDrain.DONE
             for (row in rows) {
                 attempted += row.localId
-                outbox.updateStatus(row.localId, OutboxStatus.SYNCING)
-                val created: NoteDto
                 try {
-                    created = apis.notes().create(row.toCreateRequest())
+                    outbox.updateStatus(row.localId, OutboxStatus.SYNCING)
+                    val created = apis.notes().create(row.toCreateRequest())
+                    cacheWrite { cacheNote(created.toEntity().copy(localId = row.localId)) }
+                    outbox.delete(row.localId)
                 } catch (e: IOException) {
                     outbox.updateStatus(row.localId, OutboxStatus.PENDING)
+                    retry = true
                     return OutboxDrain.RETRY
                 } catch (e: HttpException) {
                     when {
@@ -218,16 +222,14 @@ class NoteRepository(
                         }
                         e.code() >= 500 -> {
                             outbox.updateStatus(row.localId, OutboxStatus.PENDING)
+                            retry = true
                             return OutboxDrain.RETRY
                         }
                         else -> {
                             outbox.updateStatus(row.localId, OutboxStatus.FAILED)
-                            continue
                         }
                     }
                 }
-                cacheWrite { cacheNote(created.toEntity().copy(localId = row.localId)) }
-                outbox.delete(row.localId)
             }
         }
     }
