@@ -45,13 +45,18 @@ class OpenAiCompatibleLlmClient(
             return@withContext LlmResult(LlmStatus.FALLBACK, "", "invalid_key", null)
         }
         val url = httpUrl.newBuilder().addPathSegments("chat/completions").build().toString()
+        val isOpenAi = baseUrl.contains("api.openai.com", ignoreCase = true)
         val bodyObj = buildJsonObject {
             put("model", model)
             putJsonArray("messages") {
                 add(buildJsonObject { put("role", "system"); put("content", request.systemPrompt) })
                 add(buildJsonObject { put("role", "user"); put("content", request.dataBlock) })
             }
-            put("max_tokens", maxTokens)
+            if (isOpenAi) {
+                put("max_completion_tokens", maxTokens)
+            } else {
+                put("max_tokens", maxTokens)
+            }
             put("temperature", 0.2)
         }
         val reqBody = json.encodeToString(JsonObject.serializer(), bodyObj)
