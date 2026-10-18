@@ -8,6 +8,7 @@ import com.caregiver.mobile.data.api.ApiErrors
 import com.caregiver.mobile.data.api.BackendApis
 import com.caregiver.mobile.data.api.SummaryDto
 import com.caregiver.mobile.data.api.SummaryRequest
+import com.caregiver.mobile.data.api.SuggestPlanRequest
 import java.io.IOException
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -44,6 +45,9 @@ class SummaryViewModel(
 
     private val _state = MutableStateFlow<SummaryState>(SummaryState.Loading)
     val state: StateFlow<SummaryState> = _state
+
+    private val _suggesting = MutableStateFlow(false)
+    val suggesting: StateFlow<Boolean> = _suggesting
 
     init {
         exec.launch { load(preserve = false) }
@@ -108,6 +112,41 @@ class SummaryViewModel(
             _state.value = SummaryState.Rejected(ApiErrors.parse(e)?.code, lastSummary())
         } catch (e: IOException) {
             _state.value = SummaryState.AiUnavailable(lastSummary())
+        }
+    }
+
+    fun suggestPlan() {
+        val store = aiKeyStore ?: return
+        if (!store.hasKey()) return
+        val summaryText = (_state.value as? SummaryState.Content)?.summary?.text.orEmpty()
+        _suggesting.value = true
+        exec.launch {
+            try {
+                val provider = store.provider() ?: com.caregiver.mobile.ai.AiProvider.OPENAI
+                val key = store.apiKey().orEmpty()
+                val model = store.model() ?: provider.defaultModel
+                val client = when (provider) {
+                    com.caregiver.mobile.ai.AiProvider.OPENAI,
+                    com.caregiver.mobile.ai.AiProvider.XAI,
+                    com.caregiver.mobile.ai.AiProvider.OPEN_ROUTER ->
+                        com.caregiver.mobile.ai.OpenAiCompatibleLlmClient(provider.defaultBaseUrl, model, key)
+                    com.caregiver.mobile.ai.AiProvider.ANTHROPIC ->
+                        com.caregiver.mobile.ai.AnthropicLlmClient(provider.defaultBaseUrl, model, key)
+                    com.caregiver.mobile.ai.AiProvider.GEMINI ->
+                        com.caregiver.mobile.ai.GeminiLlmClient(provider.defaultBaseUrl, model, key)
+                }
+                val service = com.caregiver.mobile.ai.PlanSuggestionService(client, store)
+                val items = service.suggestItems(summaryText)
+                if (items.isNotEmpty()) {
+                    repository.authorized {
+                        apis.plans().suggest(SuggestPlanRequest(recipientId, items))
+                    }
+                }
+            } catch (e: Exception) {
+                // best-effort
+            } finally {
+                _suggesting.value = false
+            }
         }
     }
 

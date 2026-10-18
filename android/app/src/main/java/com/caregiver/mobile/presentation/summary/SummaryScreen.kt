@@ -188,7 +188,11 @@ fun SummaryResultScreen(
                     onClick = vm::refresh,
                 )
             }
-            is SummaryState.Content -> SummaryBody(s.summary, periodDays, graph.isDemo, navController, s.aiGenerated)
+            is SummaryState.Content -> SummaryBody(
+                s.summary, periodDays, graph.isDemo, navController, s.aiGenerated,
+                onSuggestPlan = vm::suggestPlan,
+                suggesting = vm.suggesting.collectAsState().value,
+            )
         }
     }
 }
@@ -219,6 +223,8 @@ private fun SummaryBody(
     isDemo: Boolean,
     navController: NavController,
     aiGenerated: Boolean = false,
+    onSuggestPlan: (() -> Unit)? = null,
+    suggesting: Boolean = false,
 ) {
     Column(
         modifier = Modifier.fillMaxSize().verticalScroll(rememberScrollState()),
@@ -298,6 +304,14 @@ private fun SummaryBody(
             onClick = { navController.navigate(AppDestinations.Plans.base) },
             height = 52.dp,
         )
+        if (onSuggestPlan != null) {
+            PrimaryButton(
+                label = if (suggesting) "Suggesting..." else "Suggest plan (AI)",
+                onClick = onSuggestPlan,
+                enabled = !suggesting,
+                height = 48.dp,
+            )
+        }
         Spacer(Modifier.height(8.dp))
     }
 }
