@@ -71,7 +71,8 @@ describe('care recipients screens', () => {
   });
 
   it('validates create before submitting, trims fields and opens saved details', async () => {
-    const fetcher = vi.fn().mockResolvedValueOnce(jsonResponse(recipient, 201)).mockResolvedValueOnce(jsonResponse(recipient));
+    // POST currently returns null timestamps; GET returns the committed dates.
+    const fetcher = vi.fn().mockResolvedValueOnce(jsonResponse({ ...recipient, createdAt: null, updatedAt: null }, 201)).mockResolvedValueOnce(jsonResponse(recipient));
     renderRecipients(`${root}/new`, fetcher);
     await userEvent.click(screen.getByRole('button', { name: 'Add care recipient' }));
     expect(screen.getByRole('textbox', { name: 'Name' })).toHaveFocus();
