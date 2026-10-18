@@ -188,7 +188,7 @@ class SummaryViewModel(
                     summaryIds
                 } else {
                     val today = java.time.LocalDate.now()
-                    val from = today.minusDays((_period.value - 1).toLong()).toString()
+                    val from = com.caregiver.mobile.ai.SummaryWindow.start(today, _period.value).toString()
                     val to = today.toString()
                     repository.authorized { apis.notes().history(recipientId, from, to) }.map { it.id }.toSet()
                 }
