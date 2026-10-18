@@ -143,6 +143,7 @@ class SummaryViewModel(
             }
             _state.value = SummaryState.Content(summary)
             _suggestedForCurrent.value = false
+            _suggestStatus.value = null
         } catch (e: LoggedOutException) {
             if (!preserve) {
                 _state.value = SummaryState.Loading
