@@ -243,4 +243,11 @@
     <string name="summary_setup_ai">Set up AI in Settings to generate summaries.</string>
     <string name="about_project_link">Project link</string>
     <string name="settings_ai_revoke_consent">Revoke consent</string>
+    <string name="settings_ai_clear_key">Clear API key</string>
+    <string name="settings_ai_clear_key_message">Remove the stored API key? AI features stay off until a new key is added.</string>
+    <string name="settings_ai_validate_format">Validate summary format</string>
+    <string name="settings_ai_validating">Validating...</string>
+    <string name="settings_ai_format_ok">Summary format OK</string>
+    <string name="settings_ai_format_invalid">Format check failed: %1$s</string>
+    <string name="settings_ai_invalid_base_url">Base URL must start with http:// or https:// and include a host.</string>
 </resources>

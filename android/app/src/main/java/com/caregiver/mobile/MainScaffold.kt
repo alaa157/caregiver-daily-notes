@@ -179,10 +179,12 @@ fun MainScaffold(graph: AppGraph) {
                 graph = graph,
                 profileName = displayName ?: email,
                 avatarLetter = avatarLetter,
-                // Task 8d replaces this placeholder with the real sync state.
-                syncStatus = stringResource(R.string.drawer_sync_synced),
+                // Task 8d: mirror the live sync status so the drawer and the
+                // top bar agree.
+                syncStatus = syncStatus,
+                onRetry = syncStatusVm::retry,
                 onNavigate = { route ->
-                    if (MainTab.entries.any { it.route == route }) {
+                    if (MainTab.isTabRoute(route)) {
                         navigateToTab(route)
                     } else {
                         navController.navigate(route)
@@ -201,7 +203,7 @@ fun MainScaffold(graph: AppGraph) {
                 // The four tab routes share the center-aligned bar; detail routes
                 // keep drawing their own AppTopBar with a back button, so nothing
                 // is rendered here for them.
-                if (MainTab.entries.any { it.route == currentRoute }) {
+                if (MainTab.isTabRoute(currentRoute)) {
                     AppCenterTopBar(
                         title = stringResource(R.string.app_name),
                         avatarLetter = avatarLetter,
@@ -300,8 +302,12 @@ fun MainScaffold(graph: AppGraph) {
                 val fabVisible by remember {
                     derivedStateOf { scrollBehavior.state.heightOffset == 0f }
                 }
+                // The add-note action belongs to the tab shell only. Detail,
+                // form and settings screens carry their own bottom action
+                // bars, and a floating button there competes with them, so
+                // the FAB fades out with the tab chrome.
                 AnimatedVisibility(
-                    visible = fabVisible,
+                    visible = fabVisible && MainTab.isTabRoute(currentRoute),
                     enter = fadeIn() + scaleIn(),
                     exit = fadeOut() + scaleOut(),
                 ) {
@@ -432,9 +438,6 @@ fun MainScaffold(graph: AppGraph) {
                 }
                 composable(AppDestinations.Settings.base) {
                     SettingsScreen(graph, navController)
-                }
-                composable("about") {
-                    com.caregiver.mobile.presentation.settings.AboutScreen { navController.popBackStack() }
                 }
                 composable(AppDestinations.AiSettings.base) {
                     com.caregiver.mobile.presentation.settings.AiSettingsScreen(graph, navController)

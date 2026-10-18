@@ -63,7 +63,8 @@ fun AppDrawer(
     graph: AppGraph,
     profileName: String?,
     avatarLetter: String,
-    syncStatus: String,
+    syncStatus: com.caregiver.mobile.presentation.common.SyncStatus,
+    onRetry: (() -> Unit)? = null,
     onNavigate: (String) -> Unit,
     modifier: Modifier = Modifier,
 ) {
@@ -159,7 +160,14 @@ fun AppDrawer(
         Spacer(Modifier.height(AppDimens.GapCard))
         HorizontalDivider(thickness = AppDimens.Hairline, color = CaregiverColors.BorderSoft)
         Text(
-            text = syncStatus,
+            text = stringResource(
+                when (syncStatus) {
+                    SyncStatus.SYNCED -> R.string.sync_status_synced
+                    SyncStatus.SYNCING -> R.string.sync_status_syncing
+                    SyncStatus.OFFLINE -> R.string.sync_status_offline
+                    SyncStatus.FAILED -> R.string.sync_status_failed
+                },
+            ),
             fontFamily = PlexArabic,
             fontSize = 13.sp,
             color = CaregiverColors.Muted,
@@ -168,6 +176,11 @@ fun AppDrawer(
                 vertical = AppDimens.GapForm,
             ),
         )
+        if (syncStatus == SyncStatus.FAILED && onRetry != null) {
+            androidx.compose.material3.TextButton(onClick = onRetry) {
+                Text(stringResource(R.string.common_retry))
+            }
+        }
     }
 }
 

@@ -243,4 +243,11 @@
     <string name="summary_setup_ai">قم بإعداد الذكاء الاصطناعي في الإعدادات لإنشاء الملخصات.</string>
     <string name="about_project_link">رابط المشروع</string>
     <string name="settings_ai_revoke_consent">إلغاء الموافقة</string>
+    <string name="settings_ai_clear_key">مسح مفتاح API</string>
+    <string name="settings_ai_clear_key_message">إزالة مفتاح API المحفوظ؟ ستبقى ميزات الذكاء الاصطناعي متوقفة حتى إضافة مفتاح جديد.</string>
+    <string name="settings_ai_validate_format">التحقق من تنسيق الملخص</string>
+    <string name="settings_ai_validating">جارٍ التحقق...</string>
+    <string name="settings_ai_format_ok">تنسيق الملخص سليم</string>
+    <string name="settings_ai_format_invalid">فشل التحقق من التنسيق: %1$s</string>
+    <string name="settings_ai_invalid_base_url">يجب أن يبدأ عنوان URL الأساسي بـ http:// أو https:// ويتضمن اسم مضيف.</string>
 </resources>

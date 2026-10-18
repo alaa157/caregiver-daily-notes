@@ -463,15 +463,16 @@ fun NoteDetailScreen(noteId: String, graph: AppGraph, navController: NavControll
                             val provider = store.provider() ?: com.caregiver.mobile.ai.AiProvider.OPENAI
                             val key = store.apiKey().orEmpty()
                             val model = store.model() ?: provider.defaultModel
+                            val baseUrl = store.baseUrlOrDefault(provider)
                             val client = when (provider) {
                                 com.caregiver.mobile.ai.AiProvider.OPENAI,
                                 com.caregiver.mobile.ai.AiProvider.XAI,
                                 com.caregiver.mobile.ai.AiProvider.OPEN_ROUTER ->
-                                    graph.llmClientFactory.createClient(provider.defaultBaseUrl, model, key)
+                                    graph.llmClientFactory.createClient(baseUrl, model, key)
                                 com.caregiver.mobile.ai.AiProvider.ANTHROPIC ->
-                                    graph.llmClientFactory.createAnthropicClient(provider.defaultBaseUrl, model, key)
+                                    graph.llmClientFactory.createAnthropicClient(baseUrl, model, key)
                                 com.caregiver.mobile.ai.AiProvider.GEMINI ->
-                                    graph.llmClientFactory.createGeminiClient(provider.defaultBaseUrl, model, key)
+                                    graph.llmClientFactory.createGeminiClient(baseUrl, model, key)
                             }
                             val service = com.caregiver.mobile.ai.TranslationService(client, store)
                             val from = if (arabic) "ar" else "en"
