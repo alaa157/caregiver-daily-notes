@@ -52,23 +52,29 @@ internal val AppShapes = Shapes(
  * fidelity to the boards beats wallpaper tinting on every device.
  */
 internal val AppDarkScheme = darkColorScheme(
-    primary = Color(0xFF4DB6AC),
-    onPrimary = Color(0xFF00332F),
-    primaryContainer = Color(0xFF0E6B66),
-    onPrimaryContainer = Color.White,
-    secondaryContainer = Color(0xFF2A3336),
-    onSecondaryContainer = Color(0xFFDCE5E7),
-    background = Color(0xFF121616),
-    onBackground = Color(0xFFE3E7EA),
-    surface = Color(0xFF1A1F1F),
-    onSurface = Color(0xFFE3E7EA),
-    surfaceVariant = Color(0xFF2A3336),
-    onSurfaceVariant = Color(0xFFB0BEC5),
-    outline = Color(0xFF5B6B70),
-    error = Color(0xFFEF9A9A),
-    onError = Color(0xFF330000),
-    errorContainer = Color(0xFF5C1A1A),
-    onErrorContainer = Color(0xFFFFCDD2),
+    primary = Color(0xFFD0BCFF),
+    onPrimary = Color(0xFF381E72),
+    primaryContainer = Color(0xFF4F378B),
+    onPrimaryContainer = Color(0xFFEADDFF),
+    secondary = Color(0xFFCCC2DC),
+    onSecondary = Color(0xFF332D41),
+    secondaryContainer = Color(0xFF4A4458),
+    onSecondaryContainer = Color(0xFFE8DEF8),
+    tertiary = Color(0xFFEFB8C8),
+    onTertiary = Color(0xFF492532),
+    tertiaryContainer = Color(0xFF633B48),
+    onTertiaryContainer = Color(0xFFFFD8E4),
+    background = Color(0xFF1C1B1F),
+    onBackground = Color(0xFFE6E1E5),
+    surface = Color(0xFF1C1B1F),
+    onSurface = Color(0xFFE6E1E5),
+    surfaceVariant = Color(0xFF49454F),
+    onSurfaceVariant = Color(0xFFCAC4D0),
+    outline = Color(0xFF938F99),
+    error = Color(0xFFF2B8B5),
+    onError = Color(0xFF601410),
+    errorContainer = Color(0xFF8C1D18),
+    onErrorContainer = Color(0xFFF9DEDC),
 )
 
 /**
@@ -88,11 +94,51 @@ private fun palettePrimary(palette: String?): androidx.compose.ui.graphics.Color
     else -> CaregiverColors.Primary
 }
 
+internal val MetrolistLightScheme = lightColorScheme(
+    primary = Color(0xFF6750A4),
+    onPrimary = Color.White,
+    primaryContainer = Color(0xFFEADDFF),
+    onPrimaryContainer = Color(0xFF21005D),
+    secondaryContainer = Color(0xFFE8DEF8),
+    onSecondaryContainer = Color(0xFF1D192B),
+    background = Color(0xFFFFFBFE),
+    onBackground = Color(0xFF1C1B1F),
+    surface = Color(0xFFFFFBFE),
+    onSurface = Color(0xFF1C1B1F),
+    surfaceVariant = Color(0xFFE7E0EC),
+    onSurfaceVariant = Color(0xFF49454F),
+    outline = Color(0xFF79747E),
+    error = Color(0xFFB3261E),
+)
+
+internal val MetrolistDarkScheme = darkColorScheme(
+    primary = Color(0xFFD0BCFF),
+    onPrimary = Color(0xFF381E72),
+    primaryContainer = Color(0xFF4F378B),
+    onPrimaryContainer = Color(0xFFEADDFF),
+    secondaryContainer = Color(0xFF4A4458),
+    onSecondaryContainer = Color(0xFFE8DEF8),
+    background = Color(0xFF1C1B1F),
+    onBackground = Color(0xFFE6E1E5),
+    surface = Color(0xFF1C1B1F),
+    onSurface = Color(0xFFE6E1E5),
+    surfaceVariant = Color(0xFF49454F),
+    onSurfaceVariant = Color(0xFFCAC4D0),
+    outline = Color(0xFF938F99),
+    error = Color(0xFFF2B8B5),
+)
+
 @Composable
 fun CaregiverTheme(darkTheme: Boolean = false, palette: Any? = null, content: @Composable () -> Unit) {
-    val base = if (darkTheme) AppDarkScheme else AppLightScheme
-    val primary = palettePrimary(palette?.toString())
-    val scheme = if (darkTheme) {
+    val p = palette?.toString()?.lowercase()
+    val base = when (p) {
+        ColorPalettes.METROLIST -> if (darkTheme) MetrolistDarkScheme else MetrolistLightScheme
+        else -> if (darkTheme) AppDarkScheme else AppLightScheme
+    }
+    val primary = palettePrimary(p)
+    val scheme = if (p == ColorPalettes.METROLIST) {
+        base
+    } else if (darkTheme) {
         base.copy(primary = primary)
     } else {
         base.copy(primary = primary, primaryContainer = primary)
