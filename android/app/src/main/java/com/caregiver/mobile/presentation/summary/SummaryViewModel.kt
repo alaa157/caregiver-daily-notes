@@ -37,6 +37,7 @@ class SummaryViewModel(
     scope: CoroutineScope? = null,
     initialPeriod: Int = DEFAULT_PERIOD_DAYS,
     private val aiKeyStore: com.caregiver.mobile.ai.AiKeyStore? = null,
+    private val llmClientFactory: com.caregiver.mobile.ai.LlmClientFactory = com.caregiver.mobile.ai.LlmClientFactory(),
 ) : ViewModel() {
     private val exec: CoroutineScope = scope ?: viewModelScope
 
@@ -81,11 +82,11 @@ class SummaryViewModel(
                     com.caregiver.mobile.ai.AiProvider.OPENAI,
                     com.caregiver.mobile.ai.AiProvider.XAI,
                     com.caregiver.mobile.ai.AiProvider.OPEN_ROUTER ->
-                        com.caregiver.mobile.ai.OpenAiCompatibleLlmClient(provider.defaultBaseUrl, model, key)
+                        llmClientFactory.createClient(provider.defaultBaseUrl, model, key)
                     com.caregiver.mobile.ai.AiProvider.ANTHROPIC ->
-                        com.caregiver.mobile.ai.AnthropicLlmClient(provider.defaultBaseUrl, model, key)
+                        llmClientFactory.createAnthropicClient(provider.defaultBaseUrl, model, key)
                     com.caregiver.mobile.ai.AiProvider.GEMINI ->
-                        com.caregiver.mobile.ai.GeminiLlmClient(provider.defaultBaseUrl, model, key)
+                        llmClientFactory.createGeminiClient(provider.defaultBaseUrl, model, key)
                 }
                 val service = com.caregiver.mobile.ai.SummaryAiService(client, store)
                 val notes = repository.authorized { apis.notes().history(recipientId, null, null) }
@@ -129,11 +130,11 @@ class SummaryViewModel(
                     com.caregiver.mobile.ai.AiProvider.OPENAI,
                     com.caregiver.mobile.ai.AiProvider.XAI,
                     com.caregiver.mobile.ai.AiProvider.OPEN_ROUTER ->
-                        com.caregiver.mobile.ai.OpenAiCompatibleLlmClient(provider.defaultBaseUrl, model, key)
+                        llmClientFactory.createClient(provider.defaultBaseUrl, model, key)
                     com.caregiver.mobile.ai.AiProvider.ANTHROPIC ->
-                        com.caregiver.mobile.ai.AnthropicLlmClient(provider.defaultBaseUrl, model, key)
+                        llmClientFactory.createAnthropicClient(provider.defaultBaseUrl, model, key)
                     com.caregiver.mobile.ai.AiProvider.GEMINI ->
-                        com.caregiver.mobile.ai.GeminiLlmClient(provider.defaultBaseUrl, model, key)
+                        llmClientFactory.createGeminiClient(provider.defaultBaseUrl, model, key)
                 }
                 val service = com.caregiver.mobile.ai.PlanSuggestionService(client, store)
                 val items = service.suggestItems(summaryText)

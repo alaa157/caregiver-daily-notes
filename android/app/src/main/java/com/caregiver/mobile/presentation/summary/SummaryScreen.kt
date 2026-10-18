@@ -150,7 +150,7 @@ fun SummaryResultScreen(
         return
     }
     val vm: SummaryViewModel = assistedViewModel("summary-$recipientId") {
-        SummaryViewModel(recipientId, graph.apis, graph.auth, null, periodDays, com.caregiver.mobile.ai.AiKeyStore(graph.context))
+        SummaryViewModel(recipientId, graph.apis, graph.auth, null, periodDays, com.caregiver.mobile.ai.AiKeyStore(graph.context), graph.llmClientFactory)
     }
     val state by vm.state.collectAsState()
     Column(Modifier.fillMaxSize().padding(horizontal = AppDimens.ScreenHPadding)) {

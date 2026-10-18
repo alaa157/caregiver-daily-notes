@@ -467,11 +467,11 @@ fun NoteDetailScreen(noteId: String, graph: AppGraph, navController: NavControll
                                 com.caregiver.mobile.ai.AiProvider.OPENAI,
                                 com.caregiver.mobile.ai.AiProvider.XAI,
                                 com.caregiver.mobile.ai.AiProvider.OPEN_ROUTER ->
-                                    com.caregiver.mobile.ai.OpenAiCompatibleLlmClient(provider.defaultBaseUrl, model, key)
+                                    graph.llmClientFactory.createClient(provider.defaultBaseUrl, model, key)
                                 com.caregiver.mobile.ai.AiProvider.ANTHROPIC ->
-                                    com.caregiver.mobile.ai.AnthropicLlmClient(provider.defaultBaseUrl, model, key)
+                                    graph.llmClientFactory.createAnthropicClient(provider.defaultBaseUrl, model, key)
                                 com.caregiver.mobile.ai.AiProvider.GEMINI ->
-                                    com.caregiver.mobile.ai.GeminiLlmClient(provider.defaultBaseUrl, model, key)
+                                    graph.llmClientFactory.createGeminiClient(provider.defaultBaseUrl, model, key)
                             }
                             val service = com.caregiver.mobile.ai.TranslationService(client, store)
                             val from = if (arabic) "ar" else "en"

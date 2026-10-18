@@ -92,7 +92,13 @@ fun AiSettingsScreen(graph: AppGraph, navController: NavController) {
         Button(onClick = {
             testing = true
             scope.launch {
-                val client = buildClient(provider, model.ifBlank { provider.defaultModel }, apiKey, baseUrl.ifBlank { provider.defaultBaseUrl })
+                val m = model.ifBlank { provider.defaultModel }
+                val bu = baseUrl.ifBlank { provider.defaultBaseUrl }
+                val client = when (provider) {
+                    AiProvider.OPENAI, AiProvider.XAI, AiProvider.OPEN_ROUTER -> graph.llmClientFactory.createClient(bu, m, apiKey)
+                    AiProvider.ANTHROPIC -> graph.llmClientFactory.createAnthropicClient(bu, m, apiKey)
+                    AiProvider.GEMINI -> graph.llmClientFactory.createGeminiClient(bu, m, apiKey)
+                }
                 val res = client.complete(LlmRequest("Reply with OK", "ping"))
                 status = if (res.status.name == "OK") graph.context.getString(R.string.settings_ai_connection_ok) else graph.context.getString(R.string.settings_ai_failed, res.error ?: "")
                 testing = false
