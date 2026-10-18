@@ -42,17 +42,25 @@ class PlanSuggestionService(
             ?: Prompts.PLAN_SYSTEM
         val res = client.complete(LlmRequest(prompt, summaryText))
         if (res.status == LlmStatus.FALLBACK) return null
+        if (res.text.length > MAX_OUTPUT_CHARS) return null
         val payload = try {
             json.decodeFromString(PlanSuggestionPayload.serializer(), res.text)
         } catch (e: Exception) {
             return null
         }
-        // Validate actions
+        if (payload.changes.size > MAX_CHANGES) return null
+        // Validate actions against strict schemas.
         for (change in payload.changes) {
             if (change.actionId.isBlank() || change.actionId !in allowedActions) return null
-            if (change.reason.isBlank()) return null
+            if (change.reason.isBlank() || change.reason.length > MAX_REASON_LENGTH) return null
+            if (change.evidenceNoteIds.size > MAX_EVIDENCE_IDS) return null
             for (id in change.evidenceNoteIds) {
                 if (id !in noteIds) return null
+            }
+            val allowedParams = ALLOWED_PARAMS[change.actionId] ?: return null
+            if (change.params.keys != allowedParams) return null
+            for ((k, v) in change.params) {
+                if (v.isBlank() || v.length > MAX_PARAM_VALUE_LENGTH) return null
             }
         }
         // Medications are never AI-proposed: any non-empty proposed list is
@@ -71,5 +79,21 @@ class PlanSuggestionService(
             "add_safety_measure",
             "schedule_followup",
         )
+
+        // Strict per-action parameter allowlists. Empty means the action takes
+        // no parameters; any unexpected key is rejected.
+        val ALLOWED_PARAMS: Map<String, Set<String>> = mapOf(
+            "monitor" to emptySet(),
+            "adjust_routine" to emptySet(),
+            "review_with_clinician" to emptySet(),
+            "add_safety_measure" to emptySet(),
+            "schedule_followup" to emptySet(),
+        )
+
+        const val MAX_CHANGES = 20
+        const val MAX_EVIDENCE_IDS = 50
+        const val MAX_REASON_LENGTH = 500
+        const val MAX_PARAM_VALUE_LENGTH = 200
+        const val MAX_OUTPUT_CHARS = 100_000
     }
 }
