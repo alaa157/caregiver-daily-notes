@@ -15,6 +15,18 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.outlined.Backup
+import androidx.compose.material.icons.outlined.Circle
+import androidx.compose.material.icons.outlined.Dns
+import androidx.compose.material.icons.outlined.History
+import androidx.compose.material.icons.outlined.Info
+import androidx.compose.material.icons.outlined.Lock
+import androidx.compose.material.icons.outlined.OpenInNew
+import androidx.compose.material.icons.outlined.SmartToy
+import androidx.compose.material.icons.outlined.Storage
+import androidx.compose.material.icons.outlined.SystemUpdate
+import androidx.compose.material.icons.outlined.Update
 import androidx.compose.material3.FilterChip
 import androidx.compose.material3.FilterChipDefaults
 import androidx.compose.material3.MaterialTheme
@@ -53,6 +65,7 @@ import com.caregiver.mobile.presentation.common.AppDimens
 import com.caregiver.mobile.presentation.common.PrimaryButton
 import com.caregiver.mobile.presentation.common.SecondaryButton
 import com.caregiver.mobile.ui.component.SettingsGroup
+import com.caregiver.mobile.ui.component.SettingsTile
 import kotlinx.coroutines.launch
 
 /**
@@ -76,6 +89,29 @@ fun SettingsScreen(graph: AppGraph, navController: NavController) {
     ) {
         AppTopBar(title = stringResource(R.string.settings_title))
 
+        // Section 1: Interface
+        SectionHeader(stringResource(R.string.section_interface))
+        SettingsTile(title = stringResource(R.string.item_zero), icon = Icons.Outlined.Circle, onClick = {})
+
+        // Section 2: Privacy & Security
+        SectionHeader(stringResource(R.string.section_privacy))
+        SettingsTile(title = stringResource(R.string.item_privacy), icon = Icons.Outlined.Lock, onClick = {})
+
+        // Section 3: Storage & Data
+        SectionHeader(stringResource(R.string.section_storage))
+        SettingsTile(title = stringResource(R.string.item_storage), icon = Icons.Outlined.Storage, onClick = {})
+        SettingsTile(title = stringResource(R.string.item_backup_restore), icon = Icons.Outlined.Backup, onClick = {})
+
+        // Section 4: System & About
+        SectionHeader(stringResource(R.string.section_system))
+        SettingsTile(title = stringResource(R.string.item_open_supported_links), icon = Icons.Outlined.OpenInNew, onClick = {})
+        SettingsTile(title = stringResource(R.string.item_updater), icon = Icons.Outlined.SystemUpdate, onClick = {})
+        SettingsTile(title = stringResource(R.string.item_changelog), icon = Icons.Outlined.History, onClick = {})
+        SettingsTile(title = stringResource(R.string.settings_about), icon = Icons.Outlined.Info, onClick = { navController.navigate("about") })
+        SettingsTile(title = stringResource(R.string.item_check_new_version), icon = Icons.Outlined.Update, onClick = {})
+
+        // Application-specific section
+        SectionHeader(stringResource(R.string.section_application))
         SettingsGroup(title = stringResource(R.string.settings_appearance)) {
             Text(
                 text = stringResource(R.string.settings_mode),
@@ -213,6 +249,16 @@ fun SettingsScreen(graph: AppGraph, navController: NavController) {
             }
         }
     }
+}
+
+@Composable
+private fun SectionHeader(title: String) {
+    Text(
+        text = title,
+        style = MaterialTheme.typography.titleSmall,
+        color = MaterialTheme.colorScheme.onSurfaceVariant,
+        modifier = Modifier.padding(top = 8.dp, bottom = 4.dp),
+    )
 }
 
 /**

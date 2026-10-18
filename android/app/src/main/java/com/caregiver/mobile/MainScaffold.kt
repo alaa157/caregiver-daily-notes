@@ -447,12 +447,13 @@ fun MainScaffold(graph: AppGraph) {
                 onDismiss = { showAccountMenu = false },
                 onSignInWithGoogle = {
                     showAccountMenu = false
-                    val ctx = LocalContext.current
-                    android.widget.Toast.makeText(
-                        ctx,
-                        ctx.getString(R.string.experimental_google_signin),
-                        android.widget.Toast.LENGTH_SHORT,
-                    ).show()
+                    activity?.let { ctx ->
+                        android.widget.Toast.makeText(
+                            ctx,
+                            ctx.getString(R.string.experimental_google_signin),
+                            android.widget.Toast.LENGTH_SHORT,
+                        ).show()
+                    }
                 },
                 onSettings = {
                     showAccountMenu = false
