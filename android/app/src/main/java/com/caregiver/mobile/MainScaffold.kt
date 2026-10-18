@@ -9,7 +9,12 @@ import androidx.compose.animation.fadeOut
 import androidx.compose.animation.scaleIn
 import androidx.compose.animation.scaleOut
 import androidx.compose.foundation.BorderStroke
+import androidx.compose.foundation.clickable
+import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.WindowInsets
+import androidx.compose.ui.Alignment
+import androidx.compose.ui.window.Popup
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.navigationBars
@@ -120,7 +125,7 @@ fun MainScaffold(graph: AppGraph) {
 
     // Avatar drawer: opened from the top-bar avatar or a swipe from the start
     // edge; the stock drawer component mirrors both in RTL by itself.
-    val drawerState = rememberDrawerState(DrawerValue.Closed)
+    var showAccountMenu by remember { mutableStateOf(false) }
     val scope = rememberCoroutineScope()
 
     // Session identity: the same email→name derivation the Home greeting
@@ -168,37 +173,12 @@ fun MainScaffold(graph: AppGraph) {
         }
     }
 
-    // Back closes an open drawer before any other back action; once the
-    // drawer is closed the handler disables and back navigates as usual.
-    BackHandler(enabled = drawerState.isOpen) {
-        scope.launch { drawerState.close() }
+    // Back closes an open account pop-up.
+    BackHandler(enabled = showAccountMenu) {
+        showAccountMenu = false
     }
 
-    ModalNavigationDrawer(
-        drawerState = drawerState,
-        drawerContent = {
-            AppDrawer(
-                graph = graph,
-                profileName = displayName ?: email,
-                avatarLetter = avatarLetter,
-                // Task 8d: mirror the live sync status so the drawer and the
-                // top bar agree.
-                syncStatus = syncStatus,
-                onRetry = syncStatusVm::retry,
-                onNavigate = { route ->
-                    if (MainTab.isTabRoute(route)) {
-                        navigateToTab(route)
-                    } else {
-                        navController.navigate(route)
-                    }
-                    // X pattern: picking a destination navigates first, then
-                    // the drawer slides shut.
-                    scope.launch { drawerState.close() }
-                },
-            )
-        },
-    ) {
-        Scaffold(
+    Scaffold(
             containerColor = MaterialTheme.colorScheme.background,
             modifier = Modifier.nestedScroll(scrollBehavior.nestedScrollConnection),
             topBar = {
@@ -210,7 +190,7 @@ fun MainScaffold(graph: AppGraph) {
                         title = stringResource(R.string.app_name),
                         avatarLetter = avatarLetter,
                         scrollBehavior = scrollBehavior,
-                        onAvatarClick = { scope.launch { drawerState.open() } },
+                        onAvatarClick = { showAccountMenu = !showAccountMenu },
                         avatarContentDescription = stringResource(R.string.drawer_open),
                         avatarModifier = Modifier.testTag("drawer_avatar"),
                         actions = {
@@ -454,6 +434,28 @@ fun MainScaffold(graph: AppGraph) {
                     com.caregiver.mobile.presentation.settings.AboutScreen { navController.popBackStack() }
                 }
             }
+        }
+
+    // Account pop-up (replaces the old left drawer).
+    if (showAccountMenu) {
+        // Scrim for outside-click dismissal.
+        Box(
+            modifier = Modifier
+                .fillMaxSize()
+                .clickable { showAccountMenu = false },
+        )
+        androidx.compose.ui.window.Popup(
+            alignment = Alignment.TopEnd,
+            onDismissRequest = { showAccountMenu = false },
+        ) {
+            com.caregiver.mobile.presentation.common.AccountPopupMenu(
+                onDismiss = { showAccountMenu = false },
+                onSignInWithGoogle = { /* integration point for Task 2 */ },
+                onSettings = {
+                    showAccountMenu = false
+                    navController.navigate(AppDestinations.Settings.base)
+                },
+            )
         }
     }
 
