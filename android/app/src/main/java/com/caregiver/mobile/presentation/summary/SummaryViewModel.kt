@@ -216,6 +216,8 @@ class SummaryViewModel(
                             }
                             _suggestStatus.value = "success"
                             _suggestedForCurrent.value = true
+                        } catch (e: kotlinx.coroutines.CancellationException) {
+                            throw e
                         } catch (e: Exception) {
                             _suggestStatus.value = "error"
                         }
