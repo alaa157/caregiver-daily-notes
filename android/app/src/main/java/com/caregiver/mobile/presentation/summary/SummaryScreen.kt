@@ -216,6 +216,7 @@ fun SummaryResultScreen(
                     }
                 },
                 suggesting = vm.suggesting.collectAsState().value,
+                suggestStatus = vm.suggestStatus.collectAsState().value,
             )
         }
     }
@@ -249,6 +250,7 @@ private fun SummaryBody(
     aiGenerated: Boolean = false,
     onSuggestPlan: (() -> Unit)? = null,
     suggesting: Boolean = false,
+    suggestStatus: String? = null,
 ) {
     Column(
         modifier = Modifier.fillMaxSize().verticalScroll(rememberScrollState()),
@@ -332,9 +334,17 @@ private fun SummaryBody(
             PrimaryButton(
                 label = if (suggesting) "Suggesting..." else "Suggest plan (AI)",
                 onClick = onSuggestPlan,
-                enabled = !suggesting,
+                enabled = !suggesting && !vm.suggestedForCurrent.collectAsState().value,
                 height = 48.dp,
             )
+        }
+        suggestStatus?.let { code ->
+            val msg = when (code) {
+                "success" -> stringResource(R.string.plan_suggest_success)
+                "empty_after_filter" -> stringResource(R.string.plan_suggest_empty)
+                else -> stringResource(R.string.plan_suggest_failed)
+            }
+            Text(text = msg, color = if (code == "success") CaregiverColors.Success else CaregiverColors.Danger)
         }
         Spacer(Modifier.height(8.dp))
     }

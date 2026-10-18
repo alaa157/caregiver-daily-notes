@@ -318,4 +318,7 @@
     <string name="dark_theme_on">On</string>
     <string name="dark_theme_off">Off</string>
     <string name="dark_theme_follow_system">Follow system</string>
+    <string name="plan_suggest_success">Plan suggested successfully.</string>
+    <string name="plan_suggest_failed">Could not suggest a plan.</string>
+    <string name="plan_suggest_empty">No plan changes suggested.</string>
 </resources>
