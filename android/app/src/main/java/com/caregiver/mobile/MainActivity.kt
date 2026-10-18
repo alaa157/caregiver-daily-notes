@@ -17,8 +17,9 @@ class MainActivity : ComponentActivity() {
         setContent {
             val themeMode by graph.settings.themeMode.collectAsState(initial = SettingsStore.DEFAULT_THEME_MODE)
             val colorPalette by graph.settings.colorPalette.collectAsState(initial = SettingsStore.DEFAULT_COLOR_PALETTE)
+            val pureBlack by graph.settings.pureBlack.collectAsState(initial = false)
             val dark = resolveDarkTheme(themeMode, systemInDark = isSystemInDarkTheme())
-            CaregiverTheme(darkTheme = dark, palette = colorPalette) {
+            CaregiverTheme(darkTheme = dark, palette = colorPalette, pureBlack = pureBlack) {
                 CaregiverRoot(graph)
             }
         }

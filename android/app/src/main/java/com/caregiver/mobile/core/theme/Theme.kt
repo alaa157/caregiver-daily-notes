@@ -129,7 +129,7 @@ internal val MetrolistDarkScheme = darkColorScheme(
 )
 
 @Composable
-fun CaregiverTheme(darkTheme: Boolean = false, palette: Any? = null, content: @Composable () -> Unit) {
+fun CaregiverTheme(darkTheme: Boolean = false, palette: Any? = null, pureBlack: Boolean = false, content: @Composable () -> Unit) {
     val p = palette?.toString()?.lowercase() ?: "teal"
     androidx.compose.runtime.SideEffect {
         com.caregiver.mobile.core.theme.CaregiverColors.update(darkTheme, p)
@@ -146,8 +146,9 @@ fun CaregiverTheme(darkTheme: Boolean = false, palette: Any? = null, content: @C
     } else {
         base.copy(primary = primary, primaryContainer = primary)
     }
+    val finalScheme = if (darkTheme && pureBlack) scheme.copy(surface = Color.Black, background = Color.Black) else scheme
     MaterialTheme(
-        colorScheme = scheme,
+        colorScheme = finalScheme,
         shapes = AppShapes,
         typography = AppTypography,
         content = content,

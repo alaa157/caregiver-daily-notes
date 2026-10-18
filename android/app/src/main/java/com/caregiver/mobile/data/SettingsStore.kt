@@ -4,6 +4,7 @@ import android.content.Context
 import androidx.datastore.core.DataStore
 import androidx.datastore.preferences.core.Preferences
 import androidx.datastore.preferences.core.edit
+import androidx.datastore.preferences.core.booleanPreferencesKey
 import androidx.datastore.preferences.core.stringPreferencesKey
 import androidx.datastore.preferences.preferencesDataStoreFile
 import kotlinx.coroutines.flow.Flow
@@ -21,6 +22,7 @@ class SettingsStore(private val dataStore: DataStore<Preferences>) {
     val email: Flow<String?> = dataStore.data.map { it[EMAIL] }
     val language: Flow<String> = dataStore.data.map { it[LANGUAGE] ?: DEFAULT_LANGUAGE }
     val themeMode: Flow<String> = dataStore.data.map { it[THEME_MODE] ?: DEFAULT_THEME_MODE }
+    val pureBlack: Flow<Boolean> = dataStore.data.map { it[PURE_BLACK] ?: false }
     val colorPalette: Flow<String> = dataStore.data.map { it[COLOR_PALETTE] ?: DEFAULT_COLOR_PALETTE }
 
     suspend fun setBaseUrl(url: String) {
@@ -55,6 +57,10 @@ class SettingsStore(private val dataStore: DataStore<Preferences>) {
         dataStore.edit { it[THEME_MODE] = mode }
     }
 
+    suspend fun setPureBlack(enabled: Boolean) {
+        dataStore.edit { it[PURE_BLACK] = enabled }
+    }
+
     suspend fun setColorPalette(palette: String) {
         dataStore.edit { it[COLOR_PALETTE] = palette }
     }
@@ -75,6 +81,7 @@ class SettingsStore(private val dataStore: DataStore<Preferences>) {
         private val LANGUAGE = stringPreferencesKey("language")
         private val THEME_MODE = stringPreferencesKey("theme_mode")
         private val COLOR_PALETTE = stringPreferencesKey("color_palette")
+        private val PURE_BLACK = booleanPreferencesKey("pure_black")
 
         fun create(context: Context, name: String = "settings"): SettingsStore =
             SettingsStoreRegistry.getOrCreate(name) { context.preferencesDataStoreFile(name) }
