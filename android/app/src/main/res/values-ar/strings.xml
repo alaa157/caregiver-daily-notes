@@ -262,4 +262,14 @@
     <string name="settings_ai_translation_system_prompt">موجه نظام الترجمة</string>
     <string name="settings_ai_plan_system_prompt">موجه نظام الخطة</string>
     <string name="settings_ai_status_missing_key">missing_key</string>
+    <string name="ai_generated">مُولَّد بالذكاء الاصطناعي</string>
+    <string name="ai_unavailable">الذكاء الاصطناعي غير متاح</string>
+    <string name="ai_malformed_output">مخرجات الذكاء الاصطناعي ليست JSON صالحة</string>
+    <string name="no_source_notes">لا توجد ملاحظات مصدر متاحة</string>
+    <string name="settings_data_section">البيانات</string>
+    <string name="suggesting">جارٍ الاقتراح...</string>
+    <string name="suggest_plan_ai">اقتراح خطة (ذكاء اصطناعي)</string>
+    <string name="summary_system_prompt_title">مطالبة النظام للملخص</string>
+    <string name="translation_system_prompt_title">مطالبة النظام للترجمة</string>
+    <string name="plan_system_prompt_title">مطالبة النظام للخطة</string>
 </resources>

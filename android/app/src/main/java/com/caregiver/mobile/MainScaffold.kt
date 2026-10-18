@@ -34,6 +34,7 @@ import androidx.compose.material3.NavigationBar
 import androidx.compose.material3.NavigationBarItem
 import androidx.compose.material3.NavigationBarItemDefaults
 import androidx.compose.material3.Scaffold
+import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.material3.TopAppBarDefaults
@@ -226,7 +227,7 @@ fun MainScaffold(graph: AppGraph) {
             bottomBar = {
                 Surface(
                     color = MaterialTheme.colorScheme.surface,
-                    border = BorderStroke(1.dp, MaterialTheme.colorScheme.outlineSoft),
+                    border = BorderStroke(1.dp, CaregiverColors.BorderSoft),
                 ) {
                     // Compact strip: the tabs are a fixed [AppDimens.BottomNavH]
                     // tall, and the system navigation-bar inset is reserved

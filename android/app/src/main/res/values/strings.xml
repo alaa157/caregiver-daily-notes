@@ -262,4 +262,14 @@
     <string name="settings_ai_translation_system_prompt">Translation system prompt</string>
     <string name="settings_ai_plan_system_prompt">Plan system prompt</string>
     <string name="settings_ai_status_missing_key">missing_key</string>
+    <string name="ai_generated">AI-generated</string>
+    <string name="ai_unavailable">AI unavailable</string>
+    <string name="ai_malformed_output">AI output was not valid JSON</string>
+    <string name="no_source_notes">No source notes available</string>
+    <string name="settings_data_section">Data</string>
+    <string name="suggesting">Suggesting...</string>
+    <string name="suggest_plan_ai">Suggest plan (AI)</string>
+    <string name="summary_system_prompt_title">Summary system prompt</string>
+    <string name="translation_system_prompt_title">Translation system prompt</string>
+    <string name="plan_system_prompt_title">Plan system prompt</string>
 </resources>
