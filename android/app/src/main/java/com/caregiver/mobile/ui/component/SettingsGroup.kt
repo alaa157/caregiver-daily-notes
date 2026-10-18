@@ -35,13 +35,12 @@ fun SettingsGroup(
             )
         }
         Surface(
-            shape = androidx.compose.foundation.shape.RoundedCornerShape(24.dp),
-            color = MaterialTheme.colorScheme.surface,
-            tonalElevation = 1.dp,
+            shape = androidx.compose.foundation.shape.RoundedCornerShape(12.dp),
+            color = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.4f),
             modifier = Modifier.fillMaxWidth(),
         ) {
             Column(
-                modifier = Modifier.padding(8.dp),
+                modifier = Modifier.padding(4.dp),
                 verticalArrangement = Arrangement.spacedBy(4.dp),
                 content = content,
             )
