@@ -79,7 +79,10 @@ class GeminiLlmClient(
                         val code = resp.code
                         val err = when (code) { 401, 403 -> "invalid_key"; 429 -> "rate_limit"; else -> "http_$code" }
                         last = LlmResult(LlmStatus.FALLBACK, "", err, code)
-                        if (code >= 500) {
+                        if (code == 401 || code == 403) {
+                            return@withContext last
+                        }
+                        if (code == 429 || code >= 500) {
                             kotlinx.coroutines.delay(calculateBackoff(attempt))
                             return@use
                         }
