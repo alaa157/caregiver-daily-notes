@@ -60,6 +60,9 @@ class SummaryAiService(
         if (res.status == com.caregiver.mobile.ai.LlmStatus.FALLBACK) {
             return SummaryAiResult.Failure(redFlags, "unavailable")
         }
+        if (res.text.length > 50000) {
+            return SummaryAiResult.Failure(redFlags, "oversized")
+        }
         val noteTextsById = windowedNotes.associate { it.id to it.text }
         val normalizedNotes = noteTextsById.mapValues { ArabicNormalizer.normalize(it.value) }
 
@@ -74,7 +77,11 @@ class SummaryAiService(
         // Validate and reject unsupported observations; keep only grounded ones.
         val validObservations = mutableListOf<ModelObs>()
         var hadInvalid = false
-        for (obs in parsed.observations) {
+        for (obs in parsed.observations.take(50)) {
+            if (obs.text.isBlank()) {
+                hadInvalid = true
+                continue
+            }
             val noteText = normalizedNotes[obs.noteId]
             if (noteText == null) {
                 hadInvalid = true
@@ -92,6 +99,9 @@ class SummaryAiService(
         val uncertainties = parsed.uncertainties.map { SummaryDto.UncertaintyDto(topic = it.topic, detail = it.detail) }.toMutableList()
         if (hadInvalid) {
             uncertainties += SummaryDto.UncertaintyDto("invalid_evidence", "Some AI observations were not supported by the source notes")
+        }
+        if (validObservations.isNotEmpty()) {
+            uncertainties += SummaryDto.UncertaintyDto("unverified_claim", "AI-generated observations are based on quote matching and require clinical verification")
         }
         val text = validObservations.joinToString(" ") { it.text }
         // If the model produced observations but none survived validation,
