@@ -8,9 +8,9 @@ enum class AiProvider(
     val defaultModel: String,
 ) {
     OPENAI("OpenAI", "https://api.openai.com/v1", "gpt-4o-mini"),
-    ANTHROPIC("Anthropic", "https://api.anthropic.com", "claude-3-5-sonnet-latest"),
-    GEMINI("Gemini", "https://generativelanguage.googleapis.com", "gemini-1.5-flash"),
-    XAI("xAI", "https://api.x.ai/v1", "grok-2-latest"),
+    ANTHROPIC("Anthropic", "https://api.anthropic.com", "claude-3-5-sonnet-20241022"),
+    GEMINI("Gemini", "https://generativelanguage.googleapis.com", "gemini-2.0-flash"),
+    XAI("xAI", "https://api.x.ai/v1", "grok-3"),
     OPEN_ROUTER("OpenRouter", "https://openrouter.ai/api/v1", "openai/gpt-4o-mini"),
 }
 
