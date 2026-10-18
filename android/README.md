@@ -13,6 +13,11 @@ same Spring Boot REST API as the web app. No cross-platform framework.
   `.github/workflows/android.yml`). minSdk 23, target/compile 35.
 - A running backend URL for on-device runs (tunnel or direct HTTPS).
 
+## Build variants and runtime mode
+
+- `debug` / `minified`: `DEMO_BACKEND=true` (illustrative demo data, no network) and `LOCAL_MODE=true`.
+- `release`: `DEMO_BACKEND=false`, `LOCAL_MODE=true`. The official release is intentionally local-first/standalone: no backend, no login, Room is the source of truth. The demo banner is driven by `DEMO_BACKEND`, not by `LOCAL_MODE`, so production summaries are never mislabeled as demo content.
+
 ## Standalone install (no backend, no login)
 
 The app is standalone: install the APK from GitHub Releases and use it without
