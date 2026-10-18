@@ -53,6 +53,9 @@ class SummaryViewModel(
     private val _suggesting = MutableStateFlow(false)
     val suggesting: StateFlow<Boolean> = _suggesting
 
+    private val _suggestedForCurrent = MutableStateFlow(false)
+    val suggestedForCurrent: StateFlow<Boolean> = _suggestedForCurrent
+
     init {
         exec.launch { load(preserve = false) }
     }
@@ -127,6 +130,7 @@ class SummaryViewModel(
                 apis.summaries().summarize(SummaryRequest(recipientId, _period.value))
             }
             _state.value = SummaryState.Content(summary)
+            _suggestedForCurrent.value = false
         } catch (e: LoggedOutException) {
             if (!preserve) {
                 _state.value = SummaryState.Loading
@@ -140,12 +144,17 @@ class SummaryViewModel(
         }
     }
 
+    private val _suggestStatus = MutableStateFlow<String?>(null)
+    val suggestStatus: StateFlow<String?> = _suggestStatus
+
     fun suggestPlan() {
         val store = aiKeyStore ?: return
         if (!store.hasKey()) return
         if (!store.consentGiven()) return
+        if (_suggesting.value || _suggestedForCurrent.value) return
         val summaryText = (_state.value as? SummaryState.Content)?.summary?.text.orEmpty()
         _suggesting.value = true
+        _suggestStatus.value = null
         exec.launch {
             try {
                 val provider = store.provider() ?: com.caregiver.mobile.ai.AiProvider.OPENAI
@@ -172,15 +181,24 @@ class SummaryViewModel(
                     repository.authorized { apis.notes().history(recipientId, from, to) }.map { it.id }.toSet()
                 }
                 val service = com.caregiver.mobile.ai.PlanSuggestionService(client, store)
-                val suggestion = service.suggest(summaryText, noteIds)
-                val items = suggestion?.changes?.map { it.reason }?.filter { it.isNotBlank() } ?: emptyList()
-                if (items.isNotEmpty()) {
-                    repository.authorized {
-                        apis.plans().suggest(SuggestPlanRequest(recipientId, items))
+                val result = service.suggest(summaryText, noteIds)
+                when (result) {
+                    is com.caregiver.mobile.ai.PlanSuggestionResult.Success -> {
+                        val items = result.suggestion.changes.map { it.reason }.filter { it.isNotBlank() }
+                        if (items.isNotEmpty()) {
+                            repository.authorized {
+                                apis.plans().suggest(SuggestPlanRequest(recipientId, items))
+                            }
+                        }
+                        _suggestStatus.value = "success"
+                        _suggestedForCurrent.value = true
+                    }
+                    is com.caregiver.mobile.ai.PlanSuggestionResult.Failure -> {
+                        _suggestStatus.value = result.reasonCode
                     }
                 }
             } catch (e: Exception) {
-                // best-effort
+                _suggestStatus.value = "error"
             } finally {
                 _suggesting.value = false
             }

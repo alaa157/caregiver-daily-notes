@@ -318,4 +318,7 @@
     <string name="dark_theme_on">On</string>
     <string name="dark_theme_off">Off</string>
     <string name="dark_theme_follow_system">Follow system</string>
+    <string name="plan_suggest_success">تم اقتراح الخطة بنجاح.</string>
+    <string name="plan_suggest_failed">تعذر اقتراح خطة.</string>
+    <string name="plan_suggest_empty">لم يتم اقتراح تغييرات للخطة.</string>
 </resources>
