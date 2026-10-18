@@ -100,7 +100,7 @@ class SummaryWindowBoundaryTest {
         for (periodDays in listOf(7, 14, 30)) {
             val start = end.minusDays((periodDays - 1).toLong())
 
-            val outside = (SummaryAiService(RecordingLlmClient(emptyJson)).summarize(
+            val outsideResult = SummaryAiService(RecordingLlmClient(emptyJson)).summarize(
                 recipientId = "r1",
                 periodDays = periodDays,
                 notes = emptyList(),
@@ -109,13 +109,17 @@ class SummaryWindowBoundaryTest {
                     signal("s-out-after", end.plusDays(1), fall = true),
                 ),
                 endInclusive = end,
-            ) as SummaryAiResult.Success).summary
+            )
+            val outsideRedFlags = when (outsideResult) {
+                is SummaryAiResult.Success -> outsideResult.summary.redFlags
+                is SummaryAiResult.Failure -> outsideResult.redFlags
+            }
             assertFalse(
                 "$periodDays-day window must not raise FALL_REPORTED from signals just outside it",
-                outside.redFlags.contains("FALL_REPORTED"),
+                outsideRedFlags.contains("FALL_REPORTED"),
             )
 
-            val inside = (SummaryAiService(RecordingLlmClient(emptyJson)).summarize(
+            val insideResult = SummaryAiService(RecordingLlmClient(emptyJson)).summarize(
                 recipientId = "r1",
                 periodDays = periodDays,
                 notes = emptyList(),
@@ -124,10 +128,14 @@ class SummaryWindowBoundaryTest {
                     signal("s-in-end", end, fall = true),
                 ),
                 endInclusive = end,
-            ) as SummaryAiResult.Success).summary
+            )
+            val insideRedFlags = when (insideResult) {
+                is SummaryAiResult.Success -> insideResult.summary.redFlags
+                is SummaryAiResult.Failure -> insideResult.redFlags
+            }
             assertTrue(
                 "$periodDays-day window must raise FALL_REPORTED from signals on its boundaries",
-                inside.redFlags.contains("FALL_REPORTED"),
+                insideRedFlags.contains("FALL_REPORTED"),
             )
         }
     }
@@ -137,7 +145,7 @@ class SummaryWindowBoundaryTest {
         val json = """{"observations":[{"text":"older fall","noteId":"out-before","quote":"older fall note"}],"uncertainties":[]}"""
         val client = RecordingLlmClient(json)
 
-        val summary = (SummaryAiService(client).summarize(
+        val summaryResult = SummaryAiService(client).summarize(
             recipientId = "r1",
             periodDays = 7,
             notes = listOf(
@@ -146,7 +154,8 @@ class SummaryWindowBoundaryTest {
             ),
             signals = emptyList(),
             endInclusive = end,
-        ) as SummaryAiResult.Success).summary
+        )
+        val summary = (summaryResult as SummaryAiResult.Success).summary
 
         assertFalse(client.lastRequest!!.dataBlock.contains("out-before"))
         assertTrue(summary.evidence.isEmpty())

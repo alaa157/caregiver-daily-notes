@@ -11,7 +11,7 @@ object SafetySignalEvaluator {
         val flags = mutableListOf<String>()
         if (signals.any { it.fallReported }) flags.add("FALL_REPORTED")
         if (signals.any { (it.pain ?: 0) >= HIGH_PAIN_THRESHOLD }) flags.add("HIGH_PAIN")
-        val missedDates = signals.filter { it.medicationUnverified.not() && it.medication == "missed" }
+        val missedDates = signals.filter { it.medication == "missed" }
             .map { it.date }.distinct().size
         if (missedDates >= MISSED_MED_COUNT_THRESHOLD) flags.add("REPEATED_MISSED_MED")
         val appetiteDates = signals.filter { it.poorAppetite }.map { it.date }.distinct().size

@@ -354,7 +354,8 @@ private fun SummaryBody(
 private fun flagText(flag: String): String = when (flag) {
     "FALL_REPORTED" -> stringResource(R.string.flag_fall)
     "HIGH_PAIN" -> stringResource(R.string.flag_pain)
-    "MEDICATION_UNCLEAR" -> stringResource(R.string.flag_meds)
+    "REPEATED_MISSED_MED" -> stringResource(R.string.flag_missed_med)
+    "POOR_APPETITE_DAYS" -> stringResource(R.string.flag_poor_appetite)
     else -> flag
 }
 
