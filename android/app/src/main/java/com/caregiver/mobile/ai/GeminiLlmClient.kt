@@ -11,6 +11,8 @@ import kotlinx.serialization.json.jsonObject
 import kotlinx.serialization.json.jsonPrimitive
 import kotlinx.serialization.json.put
 import kotlinx.serialization.json.putJsonArray
+import okhttp3.HttpUrl.Companion.toHttpUrlOrNull
+import okhttp3.HttpUrl.Companion.toHttpUrlOrNull
 import okhttp3.MediaType.Companion.toMediaType
 import okhttp3.OkHttpClient
 import okhttp3.Request
@@ -25,7 +27,16 @@ class GeminiLlmClient(
     private val maxTokens: Int = 1024,
 ) : LlmClient {
     override suspend fun complete(request: LlmRequest): LlmResult = withContext(Dispatchers.IO) {
-        val url = baseUrl.trimEnd('/') + "/v1beta/models/$model:generateContent"
+        val cleanBase = baseUrl.trim()
+        val httpUrl = cleanBase.toHttpUrlOrNull()
+        if (httpUrl == null || httpUrl.host.isEmpty() || httpUrl.scheme !in listOf("http", "https")) {
+            return@withContext LlmResult(LlmStatus.FALLBACK, "", "invalid_url", null)
+        }
+        if (apiKey.any { it.isISOControl() }) {
+            return@withContext LlmResult(LlmStatus.FALLBACK, "", "invalid_key", null)
+        }
+        val cleanKey = apiKey.trim()
+        val url = cleanBase.trimEnd('/') + "/v1beta/models/$model:generateContent"
         val bodyObj = buildJsonObject {
             putJsonArray("contents") {
                 add(buildJsonObject {
@@ -48,13 +59,13 @@ class GeminiLlmClient(
             .toRequestBody("application/json".toMediaType())
         var last: LlmResult = LlmResult(LlmStatus.FALLBACK, "", "network", null)
         repeat(3) { attempt ->
-            val httpReq = Request.Builder()
-                .url(url)
-                .addHeader("Content-Type", "application/json")
-                .addHeader("x-goog-api-key", apiKey)
-                .post(reqBody)
-                .build()
             try {
+                val httpReq = Request.Builder()
+                    .url(url)
+                    .addHeader("Content-Type", "application/json")
+                    .addHeader("x-goog-api-key", cleanKey)
+                    .post(reqBody)
+                    .build()
                 okHttpClient.newCall(httpReq).execute().use { resp ->
                     val raw = resp.body?.string().orEmpty()
                     if (!resp.isSuccessful) {
@@ -81,6 +92,8 @@ class GeminiLlmClient(
                     }
                     return@withContext LlmResult(LlmStatus.OK, content)
                 }
+            } catch (e: kotlinx.coroutines.CancellationException) {
+                throw e
             } catch (e: Exception) {
                 last = LlmResult(LlmStatus.FALLBACK, "", "network", null)
                 kotlinx.coroutines.delay(calculateBackoff(attempt))
