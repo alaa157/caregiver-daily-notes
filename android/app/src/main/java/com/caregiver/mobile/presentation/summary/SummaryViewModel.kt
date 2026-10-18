@@ -193,6 +193,10 @@ class SummaryViewModel(
                     val to = today.toString()
                     repository.authorized { apis.notes().history(recipientId, from, to) }.map { it.id }.toSet()
                 }
+                if (noteIds.isEmpty()) {
+                    _suggestStatus.value = "empty_after_filter"
+                    return@launch
+                }
                 val service = com.caregiver.mobile.ai.PlanSuggestionService(client, store)
                 val result = service.suggest(summaryText, noteIds)
                 when (result) {
