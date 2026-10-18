@@ -26,16 +26,21 @@ class AnthropicLlmClient(
     private val maxTokens: Int = 1024,
 ) : LlmClient {
     override suspend fun complete(request: LlmRequest): LlmResult = withContext(Dispatchers.IO) {
-        val cleanBase = baseUrl.trim()
-        val httpUrl = cleanBase.toHttpUrlOrNull()
-        if (httpUrl == null || httpUrl.host.isEmpty() || httpUrl.scheme !in listOf("http", "https")) {
+        val httpUrl = baseUrl.toHttpUrlOrNull()
+        if (httpUrl == null || httpUrl.host.isEmpty()) {
             return@withContext LlmResult(LlmStatus.FALLBACK, "", "invalid_url", null)
         }
-        if (apiKey.any { it.isISOControl() }) {
+        val isLoopback = httpUrl.host == "localhost" || httpUrl.host == "127.0.0.1"
+        if (httpUrl.scheme == "http" && !isLoopback) {
+            return@withContext LlmResult(LlmStatus.FALLBACK, "", "invalid_url", null)
+        }
+        if (httpUrl.scheme !in listOf("http", "https")) {
+            return@withContext LlmResult(LlmStatus.FALLBACK, "", "invalid_url", null)
+        }
+        if (apiKey.isBlank() || apiKey.any { it.isISOControl() }) {
             return@withContext LlmResult(LlmStatus.FALLBACK, "", "invalid_key", null)
         }
-        val cleanKey = apiKey.trim()
-        val url = cleanBase.trimEnd('/') + "/v1/messages"
+        val url = httpUrl.newBuilder().addPathSegments("v1/messages").build().toString()
         val bodyObj = buildJsonObject {
             put("model", model)
             put("max_tokens", maxTokens)
@@ -52,7 +57,7 @@ class AnthropicLlmClient(
                 val httpReq = Request.Builder()
                     .url(url)
                     .addHeader("Content-Type", "application/json")
-                    .addHeader("x-api-key", cleanKey)
+                    .addHeader("x-api-key", apiKey)
                     .addHeader("anthropic-version", "2023-06-01")
                     .post(reqBody)
                     .build()
