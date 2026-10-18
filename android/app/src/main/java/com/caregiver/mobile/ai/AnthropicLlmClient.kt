@@ -40,7 +40,12 @@ class AnthropicLlmClient(
         if (apiKey.isBlank() || apiKey.any { it.isISOControl() }) {
             return@withContext LlmResult(LlmStatus.FALLBACK, "", "invalid_key", null)
         }
-        val url = httpUrl.newBuilder().addPathSegments("v1/messages").build().toString()
+        val normalizedUrl = if (httpUrl.encodedPath.endsWith("/v1") || httpUrl.encodedPath.endsWith("/v1/")) {
+            httpUrl.newBuilder().encodedPath(httpUrl.encodedPath.removeSuffix("/").removeSuffix("/v1") + "/").build()
+        } else {
+            httpUrl
+        }
+        val url = normalizedUrl.newBuilder().addPathSegments("v1/messages").build().toString()
         val bodyObj = buildJsonObject {
             put("model", model)
             put("max_tokens", maxTokens)
@@ -73,7 +78,7 @@ class AnthropicLlmClient(
                             return@withContext last
                         }
                         if (code == 429 || code >= 500) {
-                            kotlinx.coroutines.delay(calculateBackoff(attempt))
+                            if (attempt < 2) kotlinx.coroutines.delay(calculateBackoff(attempt))
                             return@use
                         }
                         return@withContext last
@@ -84,12 +89,12 @@ class AnthropicLlmClient(
                     val stopReason = root?.get("stop_reason")?.jsonPrimitive?.contentOrNull
                     if (content.isNullOrBlank()) {
                         last = LlmResult(LlmStatus.FALLBACK, "", "empty_output", resp.code)
-                        kotlinx.coroutines.delay(calculateBackoff(attempt))
+                        if (attempt < 2) kotlinx.coroutines.delay(calculateBackoff(attempt))
                         return@use
                     }
                     if (stopReason == "max_tokens") {
                         last = LlmResult(LlmStatus.FALLBACK, "", "truncated", resp.code)
-                        kotlinx.coroutines.delay(calculateBackoff(attempt))
+                        if (attempt < 2) kotlinx.coroutines.delay(calculateBackoff(attempt))
                         return@use
                     }
                     return@withContext LlmResult(LlmStatus.OK, content)
@@ -98,7 +103,7 @@ class AnthropicLlmClient(
                 throw e
             } catch (e: Exception) {
                 last = LlmResult(LlmStatus.FALLBACK, "", "network", null)
-                kotlinx.coroutines.delay(calculateBackoff(attempt))
+                if (attempt < 2) kotlinx.coroutines.delay(calculateBackoff(attempt))
             }
         }
         return@withContext last
