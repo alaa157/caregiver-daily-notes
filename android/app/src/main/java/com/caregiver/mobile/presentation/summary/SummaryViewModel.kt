@@ -162,8 +162,15 @@ class SummaryViewModel(
                     com.caregiver.mobile.ai.AiProvider.GEMINI ->
                         llmClientFactory.createGeminiClient(baseUrl, model, key)
                 }
-                val notes = repository.authorized { apis.notes().history(recipientId, null, null) }
-                val noteIds = notes.map { it.id }.toSet()
+                val summaryIds = (_state.value as? SummaryState.Content)?.summary?.evidence?.map { it.noteId }?.toSet().orEmpty()
+                val noteIds = if (summaryIds.isNotEmpty()) {
+                    summaryIds
+                } else {
+                    val today = java.time.LocalDate.now()
+                    val from = today.minusDays((_period.value - 1).toLong()).toString()
+                    val to = today.toString()
+                    repository.authorized { apis.notes().history(recipientId, from, to) }.map { it.id }.toSet()
+                }
                 val service = com.caregiver.mobile.ai.PlanSuggestionService(client, store)
                 val suggestion = service.suggest(summaryText, noteIds)
                 val items = suggestion?.changes?.map { it.reason }?.filter { it.isNotBlank() } ?: emptyList()
