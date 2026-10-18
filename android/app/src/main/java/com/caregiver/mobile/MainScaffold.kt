@@ -119,8 +119,8 @@ fun MainScaffold(graph: AppGraph) {
     // returns on scroll-up (nested scroll is connected to the Scaffold below).
     val scrollBehavior = TopAppBarDefaults.enterAlwaysScrollBehavior()
 
-    // Avatar drawer: opened from the top-bar avatar or a swipe from the start
-    // edge; the stock drawer component mirrors both in RTL by itself.
+    // Account pop-up: opened from the top-bar avatar; dismissed by tapping
+    // outside or choosing an item. (Replaces the old left drawer.)
     var showAccountMenu by remember { mutableStateOf(false) }
 
     // Session identity: the same email→name derivation the Home greeting
