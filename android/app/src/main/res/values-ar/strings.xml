@@ -278,4 +278,17 @@
     <string name="account_menu_close">إغلاق قائمة الحساب</string>
     <string name="sign_in_with_google">تسجيل الدخول باستخدام Google</string>
     <string name="experimental_google_signin">ميزة تجريبية — تسجيل الدخول عبر Google غير متاح بعد</string>
+    <string name="section_interface">الواجهة</string>
+    <string name="section_privacy">الخصوصية والأمان</string>
+    <string name="section_storage">التخزين والبيانات</string>
+    <string name="section_system">النظام وحول</string>
+    <string name="item_zero">صفر</string>
+    <string name="item_privacy">الخصوصية</string>
+    <string name="item_storage">التخزين</string>
+    <string name="item_backup_restore">النسخ الاحتياطي والاستعادة</string>
+    <string name="item_open_supported_links">فتح الروابط المدعومة</string>
+    <string name="item_updater">المحدّث</string>
+    <string name="item_changelog">سجل التغييرات</string>
+    <string name="item_check_new_version">التحقق من إصدار جديد</string>
+    <string name="section_application">التطبيق</string>
 </resources>
