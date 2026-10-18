@@ -250,4 +250,16 @@
     <string name="settings_ai_format_ok">Summary format OK</string>
     <string name="settings_ai_format_invalid">Format check failed: %1$s</string>
     <string name="settings_ai_invalid_base_url">Base URL must start with http:// or https:// and include a host.</string>
+    <string name="settings_mode">Mode</string>
+    <string name="settings_accent">Accent</string>
+    <string name="settings_data">Data</string>
+    <string name="settings_server_section">Server</string>
+    <string name="settings_app_version">Caregiver Daily Notes v%1$s</string>
+    <string name="settings_ai_summary_prompt">Summary</string>
+    <string name="settings_ai_translation_prompt">Translation</string>
+    <string name="settings_ai_plan_prompt">Plan</string>
+    <string name="settings_ai_summary_system_prompt">Summary system prompt</string>
+    <string name="settings_ai_translation_system_prompt">Translation system prompt</string>
+    <string name="settings_ai_plan_system_prompt">Plan system prompt</string>
+    <string name="settings_ai_status_missing_key">missing_key</string>
 </resources>

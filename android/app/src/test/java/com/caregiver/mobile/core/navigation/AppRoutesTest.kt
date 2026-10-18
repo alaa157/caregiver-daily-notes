@@ -3,6 +3,7 @@ package com.caregiver.mobile.core.navigation
 import java.io.File
 import javax.xml.parsers.DocumentBuilderFactory
 import org.junit.Assert.assertEquals
+import org.junit.Assert.assertFalse
 import org.junit.Assert.assertNotEquals
 import org.junit.Assert.assertTrue
 import org.junit.Test
@@ -20,6 +21,17 @@ class AppRoutesTest {
             listOf("home", "people", "notes", "history"),
             MainTab.entries.map { it.route },
         )
+    }
+
+    @Test
+    fun tabRouteRuleMatchesOnlyTheMainTabs() {
+        MainTab.entries.forEach { tab ->
+            assertTrue("tab route must pass the rule: ${tab.route}", MainTab.isTabRoute(tab.route))
+        }
+        assertFalse(MainTab.isTabRoute("note-editor/r1"))
+        assertFalse(MainTab.isTabRoute("summary-result/r1/30"))
+        assertFalse(MainTab.isTabRoute("settings"))
+        assertFalse(MainTab.isTabRoute(null))
     }
 
     @Test

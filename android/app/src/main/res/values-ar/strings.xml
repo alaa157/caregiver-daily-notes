@@ -250,4 +250,16 @@
     <string name="settings_ai_format_ok">تنسيق الملخص سليم</string>
     <string name="settings_ai_format_invalid">فشل التحقق من التنسيق: %1$s</string>
     <string name="settings_ai_invalid_base_url">يجب أن يبدأ عنوان URL الأساسي بـ http:// أو https:// ويتضمن اسم مضيف.</string>
+    <string name="settings_mode">الوضع</string>
+    <string name="settings_accent">اللون</string>
+    <string name="settings_data">البيانات</string>
+    <string name="settings_server_section">الخادم</string>
+    <string name="settings_app_version">Caregiver Daily Notes v%1$s</string>
+    <string name="settings_ai_summary_prompt">الملخص</string>
+    <string name="settings_ai_translation_prompt">الترجمة</string>
+    <string name="settings_ai_plan_prompt">الخطة</string>
+    <string name="settings_ai_summary_system_prompt">موجه نظام الملخص</string>
+    <string name="settings_ai_translation_system_prompt">موجه نظام الترجمة</string>
+    <string name="settings_ai_plan_system_prompt">موجه نظام الخطة</string>
+    <string name="settings_ai_status_missing_key">missing_key</string>
 </resources>

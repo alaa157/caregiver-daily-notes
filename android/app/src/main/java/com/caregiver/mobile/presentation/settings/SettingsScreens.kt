@@ -70,7 +70,7 @@ fun SettingsScreen(graph: AppGraph, navController: NavController) {
 
         SettingsGroup(title = stringResource(R.string.settings_appearance)) {
             Text(
-                text = "Mode",
+                text = stringResource(R.string.settings_mode),
                 style = MaterialTheme.typography.labelMedium,
                 color = CaregiverColors.Muted,
             )
@@ -86,7 +86,7 @@ fun SettingsScreen(graph: AppGraph, navController: NavController) {
                 }
             }
             Text(
-                text = "Accent",
+                text = stringResource(R.string.settings_accent),
                 style = MaterialTheme.typography.labelMedium,
                 color = CaregiverColors.Muted,
             )
@@ -144,7 +144,7 @@ fun SettingsScreen(graph: AppGraph, navController: NavController) {
         }
 
         if (com.caregiver.mobile.BuildConfig.LOCAL_MODE) {
-            SettingsGroup(title = "Data") {
+            SettingsGroup(title = stringResource(R.string.settings_data)) {
                 SecondaryButton(
                     label = stringResource(R.string.settings_load_sample_data),
                     onClick = {
@@ -160,7 +160,7 @@ fun SettingsScreen(graph: AppGraph, navController: NavController) {
 
         SettingsGroup(title = stringResource(R.string.settings_about)) {
             Text(
-                text = "Caregiver Daily Notes v" + com.caregiver.mobile.BuildConfig.VERSION_NAME,
+                text = stringResource(R.string.settings_app_version, com.caregiver.mobile.BuildConfig.VERSION_NAME),
                 style = MaterialTheme.typography.bodyMedium,
             )
             SecondaryButton(
@@ -170,7 +170,7 @@ fun SettingsScreen(graph: AppGraph, navController: NavController) {
         }
 
         if (!com.caregiver.mobile.BuildConfig.LOCAL_MODE) {
-            SettingsGroup(title = "Server") {
+            SettingsGroup(title = stringResource(R.string.settings_server_section)) {
                 SecondaryButton(
                     label = stringResource(R.string.settings_server),
                     onClick = { navController.navigate("server-url") },
