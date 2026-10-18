@@ -323,4 +323,10 @@
     <string name="plan_suggest_empty">No plan changes suggested.</string>
     <string name="flag_missed_med">Repeated missed medication (includes unverified entries)</string>
     <string name="flag_poor_appetite">Poor appetite for several days</string>
+    <string name="plan_suggest_parse_error">Could not read the AI response.</string>
+    <string name="plan_suggest_llm_fallback">AI service unavailable.</string>
+    <string name="plan_suggest_medications_rejected">Medication changes are not allowed.</string>
+    <string name="plan_suggest_oversized">AI response too large.</string>
+    <string name="plan_suggest_invalid_evidence">Some evidence was invalid.</string>
+    <string name="plan_suggest_invalid_action">An unsupported action was suggested.</string>
 </resources>
