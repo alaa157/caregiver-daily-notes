@@ -15,7 +15,6 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
-import com.caregiver.mobile.core.theme.CaregiverColors
 
 /**
  * Simple empty-state placeholder used by summary/plan/no-data screens.
@@ -33,13 +32,13 @@ fun EmptyPlaceholder(
         verticalArrangement = Arrangement.Center,
     ) {
         if (icon != null) {
-            Icon(imageVector = icon, contentDescription = null, tint = CaregiverColors.Muted)
+            Icon(imageVector = icon, contentDescription = null, tint = MaterialTheme.colorScheme.onSurfaceVariant)
             Spacer(Modifier.height(12.dp))
         }
         Text(
             text = title,
             style = MaterialTheme.typography.titleMedium,
-            color = CaregiverColors.Ink,
+            color = MaterialTheme.colorScheme.onSurface,
             textAlign = TextAlign.Center,
         )
         if (subtitle != null) {
@@ -47,7 +46,7 @@ fun EmptyPlaceholder(
             Text(
                 text = subtitle,
                 style = MaterialTheme.typography.bodySmall,
-                color = CaregiverColors.Muted,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
                 textAlign = TextAlign.Center,
             )
         }

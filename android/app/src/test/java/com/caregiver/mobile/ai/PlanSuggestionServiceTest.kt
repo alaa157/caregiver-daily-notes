@@ -43,4 +43,37 @@ class PlanSuggestionServiceTest {
         val suggestion = service.suggest("summary", setOf("n1"))
         assertNull(suggestion)
     }
+
+    @Test
+    fun rejectsNonEmptyProposedMedications() = runBlocking {
+        val client = object : LlmClient {
+            override suspend fun complete(request: LlmRequest): LlmResult =
+                LlmResult(LlmStatus.OK, """{"changes":[],"proposedMedications":[{"name":"X","dose":"1","schedule":"daily"}]}""")
+        }
+        val service = PlanSuggestionService(client)
+        val suggestion = service.suggest("summary", emptySet())
+        assertNull(suggestion)
+    }
+
+    @Test
+    fun acceptsEmptyProposedMedications() = runBlocking {
+        val client = object : LlmClient {
+            override suspend fun complete(request: LlmRequest): LlmResult =
+                LlmResult(LlmStatus.OK, """{"changes":[{"actionId":"monitor","params":{},"reason":"r","evidenceNoteIds":[]}],"proposedMedications":[]}""")
+        }
+        val service = PlanSuggestionService(client)
+        val suggestion = service.suggest("summary", emptySet())
+        assertTrue(suggestion != null && suggestion.proposedMedications.isEmpty())
+    }
+
+    @Test
+    fun rejectsMalformedMedicationData() = runBlocking {
+        val client = object : LlmClient {
+            override suspend fun complete(request: LlmRequest): LlmResult =
+                LlmResult(LlmStatus.OK, """{"changes":[],"proposedMedications":"bad"}""")
+        }
+        val service = PlanSuggestionService(client)
+        val suggestion = service.suggest("summary", emptySet())
+        assertNull(suggestion)
+    }
 }
