@@ -87,6 +87,7 @@ class SummaryViewModel(
 
     private suspend fun load(preserve: Boolean) {
         val store = aiKeyStore
+        var aiRedFlags: List<String> = emptyList()
         if (store != null && store.hasKey()) {
             if (!store.consentGiven()) {
                 _state.value = SummaryState.NeedsConsent
@@ -126,7 +127,18 @@ class SummaryViewModel(
                         return
                     }
                     is com.caregiver.mobile.ai.SummaryAiResult.Failure -> {
-                        _state.value = SummaryState.AiUnavailable(lastSummary())
+                        aiRedFlags = result.redFlags
+                        _state.value = SummaryState.AiUnavailable(
+                            SummaryDto(
+                                id = "",
+                                recipientId = recipientId,
+                                periodDays = _period.value,
+                                text = "",
+                                redFlags = result.redFlags,
+                                evidence = emptyList(),
+                                uncertainties = listOf(SummaryDto.UncertaintyDto("ai_unavailable", "AI unavailable")),
+                            )
+                        )
                         return
                     }
                 }
@@ -153,7 +165,17 @@ class SummaryViewModel(
         } catch (e: HttpException) {
             _state.value = SummaryState.Rejected(ApiErrors.parse(e)?.code, lastSummary())
         } catch (e: IOException) {
-            _state.value = SummaryState.AiUnavailable(lastSummary())
+            _state.value = SummaryState.AiUnavailable(
+                SummaryDto(
+                    id = "",
+                    recipientId = recipientId,
+                    periodDays = _period.value,
+                    text = "",
+                    redFlags = aiRedFlags,
+                    evidence = emptyList(),
+                    uncertainties = listOf(SummaryDto.UncertaintyDto("ai_unavailable", "AI unavailable")),
+                )
+            )
         }
     }
 
@@ -166,6 +188,10 @@ class SummaryViewModel(
         if (!store.consentGiven()) return
         if (_suggesting.value || _suggestedForCurrent.value) return
         val summaryText = (_state.value as? SummaryState.Content)?.summary?.text.orEmpty()
+        if (summaryText.isBlank()) {
+            _suggestStatus.value = "empty_after_filter"
+            return
+        }
         _suggesting.value = true
         _suggestStatus.value = null
         exec.launch {

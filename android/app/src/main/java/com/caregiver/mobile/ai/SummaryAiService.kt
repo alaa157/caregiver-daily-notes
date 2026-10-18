@@ -109,6 +109,9 @@ class SummaryAiService(
         if (parsed.observations.isNotEmpty() && validObservations.isEmpty()) {
             return SummaryAiResult.Failure(redFlags, "invalid_evidence")
         }
+        if (validObservations.isEmpty()) {
+            return SummaryAiResult.Failure(redFlags, "empty_findings")
+        }
         return SummaryAiResult.Success(
             SummaryDto(
                 id = "",
