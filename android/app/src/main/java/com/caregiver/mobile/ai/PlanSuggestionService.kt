@@ -25,6 +25,11 @@ data class PlanSuggestion(
     val proposedMedications: List<PlanMedication>,
 )
 
+sealed class PlanSuggestionResult {
+    data class Success(val suggestion: PlanSuggestion) : PlanSuggestionResult()
+    data class Failure(val reasonCode: String) : PlanSuggestionResult()
+}
+
 class PlanSuggestionService(
     private val client: LlmClient,
     private val keyStore: AiKeyStore? = null,
@@ -49,7 +54,7 @@ class PlanSuggestionService(
         summaryText: String,
         noteIds: Set<String>,
         currentMedications: List<PlanMedication> = emptyList(),
-    ): PlanSuggestion? {
+    ): PlanSuggestionResult {
         val userPref = keyStore?.planSystemPrompt()?.takeIf { it.isNotBlank() }
             ?: keyStore?.systemPrompt()?.takeIf { it.isNotBlank() }
         val basePrompt = Prompts.planSystemPrompt()
@@ -58,19 +63,20 @@ class PlanSuggestionService(
         } else {
             basePrompt
         }
-        val res = client.complete(LlmRequest(prompt, summaryText))
-        if (res.status == LlmStatus.FALLBACK) return null
-        if (res.text.length > MAX_OUTPUT_CHARS) return null
+        val dataBlock = summaryText + "\n\nAllowed evidence note IDs (use only these in evidenceNoteIds): " + noteIds.joinToString(", ")
+        val res = client.complete(LlmRequest(prompt, dataBlock))
+        if (res.status == LlmStatus.FALLBACK) return PlanSuggestionResult.Failure("llm_fallback")
+        if (res.text.length > MAX_OUTPUT_CHARS) return PlanSuggestionResult.Failure("oversized")
         val cleaned = stripFences(res.text)
         val payload = try {
             json.decodeFromString(PlanSuggestionPayload.serializer(), cleaned)
         } catch (e: Exception) {
-            return null
+            return PlanSuggestionResult.Failure("parse_error")
         }
         // Medications are never AI-proposed: any non-empty proposed list is
         // rejected outright, regardless of the current medication list.
         if (payload.proposedMedications.isNotEmpty()) {
-            return null
+            return PlanSuggestionResult.Failure("medications_rejected")
         }
         // Validate each change independently; drop invalid ones, keep valid.
         val accepted = mutableListOf<PlanChange>()
@@ -85,8 +91,8 @@ class PlanSuggestionService(
             if (change.params.any { it.value.isBlank() || it.value.length > MAX_PARAM_VALUE_LENGTH }) continue
             accepted.add(change)
         }
-        if (accepted.isEmpty()) return null
-        return PlanSuggestion(accepted, emptyList())
+        if (accepted.isEmpty()) return PlanSuggestionResult.Failure("empty_after_filter")
+        return PlanSuggestionResult.Success(PlanSuggestion(accepted, emptyList()))
     }
 
     companion object {
