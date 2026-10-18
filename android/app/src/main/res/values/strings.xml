@@ -277,4 +277,5 @@
     <string name="plan_system_prompt_title">Plan system prompt</string>
     <string name="account_menu_close">Close account menu</string>
     <string name="sign_in_with_google">Sign in with Google</string>
+    <string name="experimental_google_signin">Experimental feature — Google sign-in is not available yet</string>
 </resources>

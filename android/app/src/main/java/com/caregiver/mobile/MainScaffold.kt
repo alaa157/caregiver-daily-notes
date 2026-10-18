@@ -30,11 +30,9 @@ import androidx.compose.material.icons.outlined.History
 import androidx.compose.material.icons.outlined.Home
 import androidx.compose.material.icons.outlined.NoteAdd
 import androidx.compose.material.icons.outlined.People
-import androidx.compose.material3.DrawerValue
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.FloatingActionButton
 import androidx.compose.material3.Icon
-import androidx.compose.material3.ModalNavigationDrawer
 import androidx.compose.material3.NavigationBar
 import androidx.compose.material3.NavigationBarItem
 import androidx.compose.material3.NavigationBarItemDefaults
@@ -43,7 +41,6 @@ import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.material3.TopAppBarDefaults
-import androidx.compose.material3.rememberDrawerState
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.derivedStateOf
@@ -76,7 +73,6 @@ import com.caregiver.mobile.core.network.networkAvailabilityFlow
 import com.caregiver.mobile.core.theme.CaregiverColors
 import com.caregiver.mobile.data.OutboxSyncWorker
 import com.caregiver.mobile.presentation.common.AppCenterTopBar
-import com.caregiver.mobile.presentation.common.AppDrawer
 import com.caregiver.mobile.presentation.common.AppDimens
 import com.caregiver.mobile.presentation.common.assistedViewModel
 import com.caregiver.mobile.presentation.common.SyncStatus
@@ -126,7 +122,6 @@ fun MainScaffold(graph: AppGraph) {
     // Avatar drawer: opened from the top-bar avatar or a swipe from the start
     // edge; the stock drawer component mirrors both in RTL by itself.
     var showAccountMenu by remember { mutableStateOf(false) }
-    val scope = rememberCoroutineScope()
 
     // Session identity: the same email→name derivation the Home greeting
     // uses, so the bar, drawer and greeting agree; "?" while it loads.
@@ -450,10 +445,20 @@ fun MainScaffold(graph: AppGraph) {
         ) {
             com.caregiver.mobile.presentation.common.AccountPopupMenu(
                 onDismiss = { showAccountMenu = false },
-                onSignInWithGoogle = { /* integration point for Task 2 */ },
+                onSignInWithGoogle = {
+                    showAccountMenu = false
+                    val ctx = LocalContext.current
+                    android.widget.Toast.makeText(
+                        ctx,
+                        ctx.getString(R.string.experimental_google_signin),
+                        android.widget.Toast.LENGTH_SHORT,
+                    ).show()
+                },
                 onSettings = {
                     showAccountMenu = false
-                    navController.navigate(AppDestinations.Settings.base)
+                    navController.navigate(AppDestinations.Settings.base) {
+                        launchSingleTop = true
+                    }
                 },
             )
         }
