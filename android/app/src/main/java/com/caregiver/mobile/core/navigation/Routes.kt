@@ -54,6 +54,7 @@ object AppDestinations {
 
     val Settings = Destination("settings")
     val AiSettings = Destination("ai-settings")
+    val ThemeColors = Destination("theme-colors")
     val About = Destination("about")
 
     val all: List<Destination> = listOf(
@@ -62,7 +63,7 @@ object AppDestinations {
         RecipientDetail, AddRecipient, NoteEditor, NoteSaved, NoteDetail, Addendum,
         Summary, SummaryResult,
         Plans, PlanProposal, PlanEdit, PlanVersions,
-        Settings, AiSettings, About,
+        Settings, AiSettings, About, ThemeColors,
     )
 }
 

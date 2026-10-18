@@ -428,6 +428,9 @@ fun MainScaffold(graph: AppGraph) {
                 composable(AppDestinations.About.base) {
                     com.caregiver.mobile.presentation.settings.AboutScreen { navController.popBackStack() }
                 }
+                composable(AppDestinations.ThemeColors.base) {
+                    com.caregiver.mobile.presentation.settings.ThemeColorsScreen(graph, navController)
+                }
             }
         }
 
