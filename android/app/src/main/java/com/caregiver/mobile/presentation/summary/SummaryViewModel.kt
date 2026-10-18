@@ -202,13 +202,19 @@ class SummaryViewModel(
                                 if (change.params.isNotEmpty()) append(" params=").append(change.params.entries.joinToString(",") { "${it.key}=${it.value}" })
                             }
                         }
-                        if (items.isNotEmpty()) {
+                        if (items.isEmpty()) {
+                            _suggestStatus.value = "empty_after_filter"
+                            return@launch
+                        }
+                        try {
                             repository.authorized {
                                 apis.plans().suggest(SuggestPlanRequest(recipientId, items))
                             }
+                            _suggestStatus.value = "success"
+                            _suggestedForCurrent.value = true
+                        } catch (e: Exception) {
+                            _suggestStatus.value = "error"
                         }
-                        _suggestStatus.value = "success"
-                        _suggestedForCurrent.value = true
                     }
                     is com.caregiver.mobile.ai.PlanSuggestionResult.Failure -> {
                         _suggestStatus.value = result.reasonCode

@@ -26,8 +26,6 @@ import com.caregiver.mobile.data.api.SuggestPlanRequest
 import com.caregiver.mobile.data.api.UpdateRecipientRequest
 import com.caregiver.mobile.data.local.toDto
 import com.caregiver.mobile.data.local.toEntity
-import kotlinx.coroutines.sync.Mutex
-import kotlinx.coroutines.sync.withLock
 import kotlinx.serialization.encodeToString
 import kotlinx.serialization.json.Json
 import java.time.LocalDate
@@ -37,12 +35,11 @@ class LocalBackendApis(
     private val db: AppDatabase,
 ) : BackendApis {
     private val json = Json { ignoreUnknownKeys = true }
-    private val addenda = mutableMapOf<String, MutableList<AddendumDto>>()
-    private val mutex = Mutex()
 
     private val recipientDao get() = db.recipientDao()
     private val noteDao get() = db.noteDao()
     private val planDao get() = db.planDao()
+    private val addendumDao get() = db.addendumDao()
 
     override suspend fun auth(): AuthApi = object : AuthApi {
         override suspend fun login(body: LoginRequest): AuthResponse = AuthResponse("local-token")
@@ -106,7 +103,7 @@ class LocalBackendApis(
                 pain = dto.pain,
                 fall = dto.fall,
                 text = dto.text,
-                addenda = addenda[id]?.toList() ?: emptyList(),
+                addenda = addendumDao.byNoteId(id).map { it.toDto() },
             )
         }
 
@@ -117,9 +114,7 @@ class LocalBackendApis(
                 createdAt = java.time.LocalDateTime.now().toString(),
                 text = body.text,
             )
-            mutex.withLock {
-                addenda.getOrPut(id) { mutableListOf() }.add(addendum)
-            }
+            addendumDao.insert(addendum.toEntity())
             return addendum
         }
 

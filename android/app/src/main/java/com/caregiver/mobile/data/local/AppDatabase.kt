@@ -79,9 +79,22 @@ abstract class AppDatabase : RoomDatabase() {
             }
         }
 
+        val MIGRATION_3_4: Migration = object : Migration(3, 4) {
+            override fun migrate(db: SupportSQLiteDatabase) {
+                db.execSQL(
+                    "CREATE TABLE IF NOT EXISTS `addenda` (" +
+                        "`id` TEXT NOT NULL, " +
+                        "`noteId` TEXT NOT NULL, " +
+                        "`createdAt` TEXT NOT NULL, " +
+                        "`text` TEXT NOT NULL, " +
+                        "PRIMARY KEY(`id`))",
+                )
+            }
+        }
+
         fun create(context: Context): AppDatabase =
             Room.databaseBuilder(context.applicationContext, AppDatabase::class.java, "caregiver-db")
-                .addMigrations(MIGRATION_1_2, MIGRATION_2_3)
+                .addMigrations(MIGRATION_1_2, MIGRATION_2_3, MIGRATION_3_4)
                 .build()
     }
 }
