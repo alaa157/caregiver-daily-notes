@@ -73,13 +73,17 @@ class AnthropicLlmClient(
                         }
                         return@withContext last
                     }
-                    val content = try {
-                        val root = json.parseToJsonElement(raw).jsonObject
-                        root["content"]?.jsonArray?.firstOrNull()
-                            ?.jsonObject?.get("text")?.jsonPrimitive?.contentOrNull
-                    } catch (e: Exception) { null }
+                    val root = try { json.parseToJsonElement(raw).jsonObject } catch (e: Exception) { null }
+                    val content = root?.get("content")?.jsonArray?.firstOrNull()
+                        ?.jsonObject?.get("text")?.jsonPrimitive?.contentOrNull
+                    val stopReason = root?.get("stop_reason")?.jsonPrimitive?.contentOrNull
                     if (content.isNullOrBlank()) {
                         last = LlmResult(LlmStatus.FALLBACK, "", "empty_output", resp.code)
+                        kotlinx.coroutines.delay(calculateBackoff(attempt))
+                        return@use
+                    }
+                    if (stopReason == "max_tokens") {
+                        last = LlmResult(LlmStatus.FALLBACK, "", "truncated", resp.code)
                         kotlinx.coroutines.delay(calculateBackoff(attempt))
                         return@use
                     }

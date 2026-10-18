@@ -86,16 +86,17 @@ class OpenAiCompatibleLlmClient(
                         }
                         return@withContext last
                     }
-                    val content = try {
-                        val root = json.parseToJsonElement(raw).jsonObject
-                        root["choices"]?.jsonArray?.firstOrNull()
-                            ?.jsonObject?.get("message")?.jsonObject
-                            ?.get("content")?.jsonPrimitive?.contentOrNull
-                    } catch (e: Exception) {
-                        null
-                    }
+                    val root = try { json.parseToJsonElement(raw).jsonObject } catch (e: Exception) { null }
+                    val choice = root?.get("choices")?.jsonArray?.firstOrNull()?.jsonObject
+                    val content = choice?.get("message")?.jsonObject?.get("content")?.jsonPrimitive?.contentOrNull
+                    val finishReason = choice?.get("finish_reason")?.jsonPrimitive?.contentOrNull
                     if (content.isNullOrBlank()) {
                         last = LlmResult(LlmStatus.FALLBACK, "", "empty_output", resp.code)
+                        kotlinx.coroutines.delay(calculateBackoff(attempt))
+                        return@use
+                    }
+                    if (finishReason == "length" || finishReason == "max_tokens") {
+                        last = LlmResult(LlmStatus.FALLBACK, "", "truncated", resp.code)
                         kotlinx.coroutines.delay(calculateBackoff(attempt))
                         return@use
                     }

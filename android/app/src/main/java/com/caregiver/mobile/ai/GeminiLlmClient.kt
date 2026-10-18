@@ -83,15 +83,19 @@ class GeminiLlmClient(
                         }
                         return@withContext last
                     }
-                    val content = try {
-                        val root = json.parseToJsonElement(raw).jsonObject
-                        root["candidates"]?.jsonArray?.firstOrNull()
-                            ?.jsonObject?.get("content")?.jsonObject
-                            ?.get("parts")?.jsonArray?.firstOrNull()
-                            ?.jsonObject?.get("text")?.jsonPrimitive?.contentOrNull
-                    } catch (e: Exception) { null }
+                    val root = try { json.parseToJsonElement(raw).jsonObject } catch (e: Exception) { null }
+                    val candidate = root?.get("candidates")?.jsonArray?.firstOrNull()?.jsonObject
+                    val content = candidate?.get("content")?.jsonObject
+                        ?.get("parts")?.jsonArray?.firstOrNull()
+                        ?.jsonObject?.get("text")?.jsonPrimitive?.contentOrNull
+                    val finishReason = candidate?.get("finishReason")?.jsonPrimitive?.contentOrNull
                     if (content.isNullOrBlank()) {
                         last = LlmResult(LlmStatus.FALLBACK, "", "empty_output", resp.code)
+                        kotlinx.coroutines.delay(calculateBackoff(attempt))
+                        return@use
+                    }
+                    if (finishReason == "MAX_TOKENS") {
+                        last = LlmResult(LlmStatus.FALLBACK, "", "truncated", resp.code)
                         kotlinx.coroutines.delay(calculateBackoff(attempt))
                         return@use
                     }
