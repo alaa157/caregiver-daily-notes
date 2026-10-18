@@ -29,18 +29,19 @@ fun SettingsGroup(
         if (title != null) {
             Text(
                 text = title,
-                style = MaterialTheme.typography.titleSmall,
-                color = MaterialTheme.colorScheme.onSurfaceVariant,
-                modifier = Modifier.padding(start = 4.dp),
+                style = MaterialTheme.typography.labelLarge,
+                color = com.caregiver.mobile.core.theme.CaregiverColors.Primary,
+                modifier = Modifier.padding(top = 8.dp, bottom = 8.dp),
             )
         }
         Surface(
-            shape = androidx.compose.foundation.shape.RoundedCornerShape(12.dp),
-            color = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.4f),
+            shape = androidx.compose.foundation.shape.RoundedCornerShape(24.dp),
+            color = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.3f),
+            tonalElevation = 0.dp,
             modifier = Modifier.fillMaxWidth(),
         ) {
             Column(
-                modifier = Modifier.padding(4.dp),
+                modifier = Modifier.padding(horizontal = 20.dp, vertical = 16.dp),
                 verticalArrangement = Arrangement.spacedBy(4.dp),
                 content = content,
             )
