@@ -1,12 +1,10 @@
 package com.caregiver.mobile.presentation.settings
 
 import android.app.Activity
-import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.ExperimentalLayoutApi
 import androidx.compose.foundation.layout.FlowRow
-import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
@@ -14,23 +12,17 @@ import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.rememberScrollState
-import androidx.compose.foundation.verticalScroll
 import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.outlined.Backup
-import androidx.compose.material.icons.outlined.Circle
 import androidx.compose.material.icons.outlined.Dns
-import androidx.compose.material.icons.outlined.History
 import androidx.compose.material.icons.outlined.Info
-import androidx.compose.material.icons.outlined.Lock
-import androidx.compose.material.icons.outlined.OpenInNew
+import androidx.compose.material.icons.outlined.Logout
 import androidx.compose.material.icons.outlined.Palette
-import androidx.compose.material.icons.outlined.SmartToy
+import androidx.compose.material.icons.outlined.Settings
 import androidx.compose.material.icons.outlined.Storage
-import androidx.compose.material.icons.outlined.SystemUpdate
-import androidx.compose.material.icons.outlined.Update
+import androidx.compose.material.icons.outlined.SmartToy
 import androidx.compose.material3.FilterChip
-import androidx.compose.material3.FilterChipDefaults
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.OutlinedTextFieldDefaults
@@ -46,6 +38,7 @@ import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.runtime.rememberCoroutineScope
+import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.stringResource
@@ -65,64 +58,26 @@ import com.caregiver.mobile.data.api.BaseUrlCheck
 import com.caregiver.mobile.data.api.UrlProblem
 import com.caregiver.mobile.presentation.common.AppTopBar
 import com.caregiver.mobile.presentation.common.AppDimens
-import com.caregiver.mobile.presentation.common.PrimaryButton
-import com.caregiver.mobile.presentation.common.SecondaryButton
 import com.caregiver.mobile.presentation.common.CaregiverSettingsGroup
 import com.caregiver.mobile.presentation.common.CaregiverSettingsItem
-import com.caregiver.mobile.ui.component.SettingsGroup
-import com.caregiver.mobile.ui.component.SettingsTile
+import com.caregiver.mobile.presentation.common.PrimaryButton
+import com.caregiver.mobile.presentation.common.SecondaryButton
 import kotlinx.coroutines.launch
 
-/**
- * Settings (missing page): server address, language, sign-out. Language
- * persists immediately and the activity recreates to apply it; the notice
- * covers process-level resources that need a full restart.
- */
 @OptIn(ExperimentalLayoutApi::class)
 @Composable
 fun SettingsScreen(graph: AppGraph, navController: NavController) {
     val scope = rememberCoroutineScope()
-    // Null-safe like the drawer: the screen also composes under tests and
-    // previews, where LocalContext is not necessarily an Activity.
     val activity = LocalContext.current as? Activity
     val language by graph.settings.language.collectAsState(initial = SettingsStore.DEFAULT_LANGUAGE)
-    val themeMode by graph.settings.themeMode.collectAsState(initial = SettingsStore.DEFAULT_THEME_MODE)
-    val colorPalette by graph.settings.colorPalette.collectAsState(initial = SettingsStore.DEFAULT_COLOR_PALETTE)
-    val pureBlack by graph.settings.pureBlack.collectAsState(initial = false)
     Column(
         modifier = Modifier.fillMaxSize().padding(horizontal = 16.dp, vertical = 8.dp).verticalScroll(rememberScrollState()),
         verticalArrangement = Arrangement.spacedBy(16.dp),
     ) {
         AppTopBar(title = stringResource(R.string.settings_title))
 
-        // Section 1: Interface
-        SectionHeader(stringResource(R.string.section_interface))
-        CaregiverSettingsItem(title = stringResource(R.string.item_zero), icon = Icons.Outlined.Circle, onClick = {}, enabled = false)
-
-        // Section 2: Privacy & Security
-        SectionHeader(stringResource(R.string.section_privacy))
-        CaregiverSettingsItem(title = stringResource(R.string.item_privacy), icon = Icons.Outlined.Lock, onClick = {}, enabled = false)
-
-        // Section 3: Storage & Data
-        SectionHeader(stringResource(R.string.section_storage))
-        CaregiverSettingsItem(title = stringResource(R.string.item_storage), icon = Icons.Outlined.Storage, onClick = {}, enabled = false)
-        CaregiverSettingsItem(title = stringResource(R.string.item_backup_restore), icon = Icons.Outlined.Backup, onClick = {}, enabled = false)
-
-        // Section 4: System & About
-        SectionHeader(stringResource(R.string.section_system))
-        CaregiverSettingsItem(title = stringResource(R.string.item_open_supported_links), icon = Icons.Outlined.OpenInNew, onClick = {}, enabled = false)
-        CaregiverSettingsItem(title = stringResource(R.string.item_updater), icon = Icons.Outlined.SystemUpdate, onClick = {}, enabled = false)
-        CaregiverSettingsItem(title = stringResource(R.string.item_changelog), icon = Icons.Outlined.History, onClick = {}, enabled = false)
-        CaregiverSettingsItem(title = stringResource(R.string.settings_about), icon = Icons.Outlined.Info, onClick = { navController.navigate("about") })
-        CaregiverSettingsItem(title = stringResource(R.string.item_check_new_version), icon = Icons.Outlined.Update, onClick = {}, enabled = false)
-
-        // Application-specific section
-        SectionHeader(stringResource(R.string.section_application))
-        CaregiverSettingsItem(title = stringResource(R.string.settings_theme_colors), icon = Icons.Outlined.Palette, onClick = { navController.navigate("theme-colors") })
-
+        // Application-specific: Language
         CaregiverSettingsGroup(title = stringResource(R.string.settings_language)) {
-            // Same wrap rule as the accents: side by side at normal sizes,
-            // stacked instead of clipped at large font scales.
             FlowRow(
                 horizontalArrangement = Arrangement.spacedBy(8.dp),
                 verticalArrangement = Arrangement.spacedBy(8.dp),
@@ -156,30 +111,61 @@ fun SettingsScreen(graph: AppGraph, navController: NavController) {
                 text = stringResource(R.string.settings_language_restart),
                 fontFamily = PlexArabic,
                 style = MaterialTheme.typography.bodySmall,
-                color = CaregiverColors.Muted,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
             )
         }
 
-        CaregiverSettingsGroup(title = stringResource(R.string.settings_ai)) {
-            SecondaryButton(
-                label = stringResource(R.string.settings_ai),
-                onClick = { navController.navigate("ai-settings") },
-            )
-        }
+        // Application-specific: AI
+        CaregiverSettingsItem(
+            title = stringResource(R.string.settings_ai),
+            icon = Icons.Outlined.SmartToy,
+            description = stringResource(R.string.settings_ai),
+            onClick = { navController.navigate("ai-settings") },
+        )
 
+        // Application-specific: Theme and Colors
+        CaregiverSettingsItem(
+            title = stringResource(R.string.settings_theme_colors),
+            icon = Icons.Outlined.Palette,
+            description = null,
+            onClick = { navController.navigate("theme-colors") },
+        )
+
+        // Application-specific: Data
         if (com.caregiver.mobile.BuildConfig.LOCAL_MODE) {
-            CaregiverSettingsGroup(title = stringResource(R.string.settings_data)) {
-                SecondaryButton(
-                    label = stringResource(R.string.settings_load_sample_data),
-                    onClick = {
-                        scope.launch {
-                            com.caregiver.mobile.data.SampleDataLoader.load(
-                                com.caregiver.mobile.data.local.AppDatabase.create(graph.context),
-                            )
-                        }
-                    },
-                )
-            }
+            CaregiverSettingsItem(
+                title = stringResource(R.string.settings_load_sample_data),
+                icon = Icons.Outlined.Storage,
+                onClick = {
+                    scope.launch {
+                        com.caregiver.mobile.data.SampleDataLoader.load(
+                            com.caregiver.mobile.data.local.AppDatabase.create(graph.context),
+                        )
+                    }
+                },
+            )
+        }
+
+        // Application-specific: About
+        CaregiverSettingsItem(
+            title = stringResource(R.string.settings_about),
+            icon = Icons.Outlined.Info,
+            description = stringResource(R.string.settings_app_version, com.caregiver.mobile.BuildConfig.VERSION_NAME),
+            onClick = { navController.navigate("about") },
+        )
+
+        // Application-specific: Server / Logout
+        if (!com.caregiver.mobile.BuildConfig.LOCAL_MODE) {
+            CaregiverSettingsItem(
+                title = stringResource(R.string.settings_server),
+                icon = Icons.Outlined.Dns,
+                onClick = { navController.navigate("server-url") },
+            )
+            CaregiverSettingsItem(
+                title = stringResource(R.string.settings_logout),
+                icon = Icons.Outlined.Logout,
+                onClick = { scope.launch { graph.auth.signOut() } },
+            )
         }
 
         Text(
@@ -187,32 +173,7 @@ fun SettingsScreen(graph: AppGraph, navController: NavController) {
             style = MaterialTheme.typography.bodySmall,
             color = MaterialTheme.colorScheme.onSurfaceVariant,
         )
-        if (!com.caregiver.mobile.BuildConfig.LOCAL_MODE) {
-            CaregiverSettingsGroup(title = stringResource(R.string.settings_server_section)) {
-                SecondaryButton(
-                    label = stringResource(R.string.settings_server),
-                    onClick = { navController.navigate("server-url") },
-                )
-                SecondaryButton(
-                    label = stringResource(R.string.settings_logout),
-                    onClick = {
-                        scope.launch { graph.auth.signOut() }
-                    },
-                    danger = true,
-                )
-            }
-        }
     }
-}
-
-@Composable
-private fun SectionHeader(title: String) {
-    Text(
-        text = title,
-        style = MaterialTheme.typography.titleSmall,
-        color = MaterialTheme.colorScheme.onSurfaceVariant,
-        modifier = Modifier.padding(top = 8.dp, bottom = 4.dp),
-    )
 }
 
 /**
@@ -227,8 +188,6 @@ fun ServerUrlScreen(graph: AppGraph, navController: NavController) {
         initial = SettingsStore.DEFAULT_BASE_URL,
     )
     var field by rememberSaveable(current) { mutableStateOf(current) }
-    // Saveable (not just remembered): rotation must not eat the invalid-URL
-    // line or the save/reset confirmation.
     var notice by rememberSaveable { mutableStateOf<Int?>(null) }
     var invalid by rememberSaveable { mutableStateOf(false) }
     Column(
