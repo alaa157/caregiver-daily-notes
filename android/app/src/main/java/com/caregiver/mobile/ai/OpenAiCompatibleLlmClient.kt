@@ -30,16 +30,21 @@ class OpenAiCompatibleLlmClient(
     private val maxTokens: Int = 1024,
 ) : LlmClient {
     override suspend fun complete(request: LlmRequest): LlmResult = withContext(Dispatchers.IO) {
-        val cleanBase = baseUrl.trim()
-        val httpUrl = cleanBase.toHttpUrlOrNull()
-        if (httpUrl == null || httpUrl.host.isEmpty() || httpUrl.scheme !in listOf("http", "https")) {
+        val httpUrl = baseUrl.toHttpUrlOrNull()
+        if (httpUrl == null || httpUrl.host.isEmpty()) {
             return@withContext LlmResult(LlmStatus.FALLBACK, "", "invalid_url", null)
         }
-        val cleanKey = apiKey.trim()
-        if (apiKey.any { it.isISOControl() }) {
+        val isLoopback = httpUrl.host == "localhost" || httpUrl.host == "127.0.0.1"
+        if (httpUrl.scheme == "http" && !isLoopback) {
+            return@withContext LlmResult(LlmStatus.FALLBACK, "", "invalid_url", null)
+        }
+        if (httpUrl.scheme !in listOf("http", "https")) {
+            return@withContext LlmResult(LlmStatus.FALLBACK, "", "invalid_url", null)
+        }
+        if (apiKey.isBlank() || apiKey.any { it.isISOControl() }) {
             return@withContext LlmResult(LlmStatus.FALLBACK, "", "invalid_key", null)
         }
-        val url = cleanBase.trimEnd('/') + "/chat/completions"
+        val url = httpUrl.newBuilder().addPathSegments("chat/completions").build().toString()
         val bodyObj = buildJsonObject {
             put("model", model)
             putJsonArray("messages") {
@@ -57,7 +62,7 @@ class OpenAiCompatibleLlmClient(
                 val httpReq = Request.Builder()
                     .url(url)
                     .addHeader("Content-Type", "application/json")
-                    .addHeader("Authorization", "Bearer $cleanKey")
+                    .addHeader("Authorization", "Bearer $apiKey")
                     .post(reqBody)
                     .build()
                 okHttpClient.newCall(httpReq).execute().use { resp ->
