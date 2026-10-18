@@ -2,14 +2,14 @@ name: Android
 
 on:
   push:
-    branches: [main, preview/full-stack]
+    branches: [main, preview/full-stack, feat/standalone-byok-ai]
     paths:
       - "android/**"
       - ".github/workflows/android.yml"
     tags:
       - "demo-v*"
   pull_request:
-    branches: [main, preview/full-stack]
+    branches: [main, preview/full-stack, feat/standalone-byok-ai]
     paths:
       - "android/**"
       - ".github/workflows/android.yml"
