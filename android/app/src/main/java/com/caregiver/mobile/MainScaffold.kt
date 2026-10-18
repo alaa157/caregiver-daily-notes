@@ -257,9 +257,8 @@ fun MainScaffold(graph: AppGraph) {
                                     navigateToTab(tab.route)
                                 }
                             },
-                            // Icon-only bar (X style): no labels anywhere, so each
-                            // icon carries its tab name for TalkBack.
-                            alwaysShowLabel = false,
+                            // Show labels so destinations are discoverable.
+                            alwaysShowLabel = true,
                             icon = {
                                 Icon(
                                     imageVector = if (selected) {
@@ -281,9 +280,12 @@ fun MainScaffold(graph: AppGraph) {
                                     modifier = Modifier.size(AppDimens.BottomNavIcon),
                                 )
                             },
-                            // No pill indicator and no label: state is carried by
-                            // colour (teal vs muted) and the filled/outlined icon
-                            // swap. Test tags keep the UI tests offline-safe.
+                            label = {
+                                Text(
+                                    text = stringResource(tab.titleRes),
+                                    fontSize = 11.sp,
+                                )
+                            },
                             colors = NavigationBarItemDefaults.colors(
                                 selectedIconColor = CaregiverColors.Primary,
                                 unselectedIconColor = CaregiverColors.Muted,

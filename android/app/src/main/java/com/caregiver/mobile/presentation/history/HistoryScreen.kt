@@ -46,6 +46,8 @@ import androidx.compose.runtime.setValue
 import androidx.compose.runtime.snapshotFlow
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.semantics.semantics
+import androidx.compose.ui.semantics.stateDescription
 import androidx.compose.ui.platform.LocalLayoutDirection
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.res.stringResource
@@ -400,7 +402,9 @@ private fun PersonFilterChip(
                     fontWeight = FontWeight.Bold,
                 )
             },
-            modifier = Modifier.testTag("history_filter_person"),
+            modifier = Modifier
+                .testTag("history_filter_person")
+                .semantics { stateDescription = if (selected != null) "selected" else "all" },
         )
         DropdownMenu(expanded = expanded, onDismissRequest = { expanded = false }) {
             DropdownMenuItem(
@@ -440,7 +444,9 @@ private fun DateFilterChip(
                 fontWeight = FontWeight.Bold,
             )
         },
-        modifier = Modifier.testTag(tag),
+        modifier = Modifier
+            .testTag(tag)
+            .semantics { stateDescription = if (date != null) date.toString() else "none" },
     )
     if (open) {
         // UTC both ways: the picker deals in UTC-midnight millis, and the

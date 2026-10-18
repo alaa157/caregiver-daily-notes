@@ -111,13 +111,13 @@ fun AiSettingsScreen(graph: AppGraph, navController: NavController) {
                 Text(if (systemPrompt.isBlank()) stringResource(R.string.settings_ai_default) else stringResource(R.string.settings_ai_custom))
             }
             TextButton(onClick = { showSummaryPromptDialog = true }) {
-                Text("Summary: " + if (summaryPrompt.isBlank()) stringResource(R.string.settings_ai_default) else stringResource(R.string.settings_ai_custom))
+                Text(stringResource(R.string.settings_ai_summary_prompt) + ": " + if (summaryPrompt.isBlank()) stringResource(R.string.settings_ai_default) else stringResource(R.string.settings_ai_custom))
             }
             TextButton(onClick = { showTranslationPromptDialog = true }) {
-                Text("Translation: " + if (translationPrompt.isBlank()) stringResource(R.string.settings_ai_default) else stringResource(R.string.settings_ai_custom))
+                Text(stringResource(R.string.settings_ai_translation_prompt) + ": " + if (translationPrompt.isBlank()) stringResource(R.string.settings_ai_default) else stringResource(R.string.settings_ai_custom))
             }
             TextButton(onClick = { showPlanPromptDialog = true }) {
-                Text("Plan: " + if (planPrompt.isBlank()) stringResource(R.string.settings_ai_default) else stringResource(R.string.settings_ai_custom))
+                Text(stringResource(R.string.settings_ai_plan_prompt) + ": " + if (planPrompt.isBlank()) stringResource(R.string.settings_ai_default) else stringResource(R.string.settings_ai_custom))
             }
         }
 
@@ -229,11 +229,13 @@ fun AiSettingsScreen(graph: AppGraph, navController: NavController) {
                     AiProvider.values().forEach { p ->
                         TextButton(onClick = {
                             if (p != provider) {
+                                val previousDefault = provider.defaultModel
                                 provider = p
-                                // Provider-dependent defaults follow the
-                                // provider: a model or URL from the previous
-                                // provider is not meaningful for this one.
-                                model = p.defaultModel
+                                // Keep a deliberately entered custom model;
+                                // otherwise adopt the new provider's default.
+                                if (model.isBlank() || model == previousDefault) {
+                                    model = p.defaultModel
+                                }
                                 baseUrl = p.defaultBaseUrl
                             }
                             showProviderDialog = false
@@ -343,7 +345,7 @@ fun AiSettingsScreen(graph: AppGraph, navController: NavController) {
     if (showSummaryPromptDialog) {
         AlertDialog(
             onDismissRequest = { showSummaryPromptDialog = false },
-            title = { Text("Summary system prompt") },
+            title = { Text(stringResource(R.string.settings_ai_summary_system_prompt)) },
             text = { OutlinedTextField(value = summaryPrompt, onValueChange = { summaryPrompt = it }, modifier = Modifier.fillMaxWidth(), minLines = 3) },
             confirmButton = { TextButton(onClick = { showSummaryPromptDialog = false }) { Text(stringResource(R.string.common_ok)) } },
             dismissButton = { TextButton(onClick = { summaryPrompt = ""; showSummaryPromptDialog = false }) { Text(stringResource(R.string.settings_ai_reset_default)) } },
@@ -352,7 +354,7 @@ fun AiSettingsScreen(graph: AppGraph, navController: NavController) {
     if (showTranslationPromptDialog) {
         AlertDialog(
             onDismissRequest = { showTranslationPromptDialog = false },
-            title = { Text("Translation system prompt") },
+            title = { Text(stringResource(R.string.settings_ai_translation_system_prompt)) },
             text = { OutlinedTextField(value = translationPrompt, onValueChange = { translationPrompt = it }, modifier = Modifier.fillMaxWidth(), minLines = 3) },
             confirmButton = { TextButton(onClick = { showTranslationPromptDialog = false }) { Text(stringResource(R.string.common_ok)) } },
             dismissButton = { TextButton(onClick = { translationPrompt = ""; showTranslationPromptDialog = false }) { Text(stringResource(R.string.settings_ai_reset_default)) } },
@@ -361,7 +363,7 @@ fun AiSettingsScreen(graph: AppGraph, navController: NavController) {
     if (showPlanPromptDialog) {
         AlertDialog(
             onDismissRequest = { showPlanPromptDialog = false },
-            title = { Text("Plan system prompt") },
+            title = { Text(stringResource(R.string.settings_ai_plan_system_prompt)) },
             text = { OutlinedTextField(value = planPrompt, onValueChange = { planPrompt = it }, modifier = Modifier.fillMaxWidth(), minLines = 3) },
             confirmButton = { TextButton(onClick = { showPlanPromptDialog = false }) { Text(stringResource(R.string.common_ok)) } },
             dismissButton = { TextButton(onClick = { planPrompt = ""; showPlanPromptDialog = false }) { Text(stringResource(R.string.settings_ai_reset_default)) } },
