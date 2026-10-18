@@ -329,4 +329,5 @@
     <string name="plan_suggest_oversized">رد الذكاء الاصطناعي كبير جداً.</string>
     <string name="plan_suggest_invalid_evidence">بعض الأدلة غير صالحة.</string>
     <string name="plan_suggest_invalid_action">تم اقتراح إجراء غير مدعوم.</string>
+    <string name="plan_suggest_done">تم الاقتراح</string>
 </resources>

@@ -329,4 +329,5 @@
     <string name="plan_suggest_oversized">AI response too large.</string>
     <string name="plan_suggest_invalid_evidence">Some evidence was invalid.</string>
     <string name="plan_suggest_invalid_action">An unsupported action was suggested.</string>
+    <string name="plan_suggest_done">Suggested</string>
 </resources>
