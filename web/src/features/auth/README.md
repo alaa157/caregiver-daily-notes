@@ -71,8 +71,10 @@ navigation, validation/error focus, tab reload, logout/history, expiry, responsi
 layout and axe WCAG 2.1 A/AA scans in both languages at desktop, tablet, mobile
 and 320px widths.
 
-Frontend tests intercept responses with synthetic JWTs; they do not verify
-backend signatures or a live deployment. No live tunnel or test caregiver
-credentials were available during implementation. Live login smoke testing
-requires the owner's current backend/proxy configuration and an existing
-synthetic caregiver account. This change creates no accounts.
+The contract tests intercept responses with synthetic JWTs. The opt-in
+[real-backend suite](../../tests/integration/README.md) also exercises real
+login, rejected credentials, bearer requests, restoration and logout against a
+disposable local Spring Boot backend with real JWT verification. That suite
+creates synthetic test accounts in its disposable database. Verification of the
+owner's shared deployment still requires its current tunnel/proxy configuration
+and an existing synthetic caregiver account.

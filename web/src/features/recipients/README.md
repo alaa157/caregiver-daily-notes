@@ -33,6 +33,13 @@ Responses are validated and projected onto the documented safe fields.
 Unavailable/forbidden recipients share a generic message; raw backend error
 messages are never rendered.
 
+The current backend's POST response can contain `null` timestamps because it
+constructs the response before persistence flush. The create adapter validates
+and returns the identity/name/relationship/active fields needed for navigation.
+The details route then loads the committed record via GET, where timestamps
+remain mandatory and validated. The UI never fabricates dates or retries a
+successful POST to obtain them.
+
 The backend's 409 inactive-recipient conflict preserves entered values,
 blocks further saves, and offers an explicit reload. Deactivation uses the
 dedicated endpoint and keeps the returned record visible as inactive. The UI
@@ -82,10 +89,11 @@ handling, validation, all CRUD/deactivation interactions, errors, conflict
 recovery, cancelled/late requests, keyboard interaction, Arabic/RTL,
 WCAG 2.1 A/AA axe checks, and horizontal-overflow checks.
 
-Live recipient operations still require the owner's current backend/proxy
-configuration and a synthetic caregiver account. These were unavailable
-during implementation. Before merge, verify list/create/details/edit/deactivate
-against that backend and confirm cross-caregiver access is rejected there.
+The opt-in [real-backend suite](../../tests/integration/README.md) exercises
+list/create/details/edit/deactivate, cross-caregiver rejection and existing-note
+preservation against a disposable local backend. Verification of the owner's
+shared deployment still requires its current backend/proxy configuration and
+a synthetic caregiver account.
 Browser contract tests do not establish backend authorization or historical
 database preservation. No backend, mobile, infrastructure, or workflow changes
 are included.
