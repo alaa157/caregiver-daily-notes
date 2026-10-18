@@ -9,6 +9,7 @@ import { useI18n } from '../i18n/I18nProvider';
 import { LoginPage } from '../features/auth/LoginPage';
 import { ProtectedRoute } from './ProtectedRoute';
 import { RecipientsRoutes } from '../routes/RecipientsRoutes';
+import { NotesRoutes } from '../routes/NotesRoutes';
 
 function HomePage() {
   const { t } = useI18n();
@@ -37,7 +38,7 @@ function HomePage() {
             <p className="section-description">{t('foundationDescription')}</p>
           </div>
           <div className="features-grid">
-            <FeatureCard icon="journal" title={t('featureOne')} description={t('featureOneDescription')} status={t('comingSoon')} />
+            <FeatureCard icon="journal" title={t('featureOne')} description={t('featureOneDescription')} status={t('availableNow')} available />
             <FeatureCard icon="globe" title={t('featureTwo')} description={t('featureTwoDescription')} status={t('availableNow')} available />
             <FeatureCard icon="shield" title={t('featureThree')} description={t('featureThreeDescription')} status={t('ourApproach')} />
           </div>
@@ -52,6 +53,7 @@ function DashboardPage() {
   const { t } = useI18n();
   return <PagePanel icon="journal" eyebrow={t('dashboard')} title={t('dashboardTitle')} description={t('dashboardDescription')}>
     <ButtonLink to="/app/recipients">{t('recipientsTitle')}<Icon name="arrow-right" className="directional-icon" /></ButtonLink>
+    <ButtonLink variant="secondary" to="/app/notes/new">{t('notesCreate')}<Icon name="arrow-right" className="directional-icon" /></ButtonLink>
   </PagePanel>;
 }
 
@@ -73,6 +75,7 @@ export function App() {
         <Route element={<ProtectedRoute />}>
           <Route path="/app" element={<DashboardPage />} />
           <Route path="/app/recipients/*" element={<RecipientsRoutes />} />
+          <Route path="/app/notes/*" element={<NotesRoutes />} />
         </Route>
         <Route path="*" element={<NotFoundPage />} />
       </Routes>
