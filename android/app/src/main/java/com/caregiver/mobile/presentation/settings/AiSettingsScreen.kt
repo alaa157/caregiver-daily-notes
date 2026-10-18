@@ -41,17 +41,28 @@ fun AiSettingsScreen(graph: AppGraph, navController: NavController) {
     var provider by remember { mutableStateOf(store.provider() ?: AiProvider.OPENAI) }
     var apiKey by remember { mutableStateOf(store.apiKey().orEmpty()) }
     var model by remember { mutableStateOf(store.model() ?: provider.defaultModel) }
-    var baseUrl by remember { mutableStateOf(provider.defaultBaseUrl) }
+    var baseUrl by remember { mutableStateOf(store.baseUrlOrDefault(provider)) }
     var systemPrompt by remember { mutableStateOf(store.systemPrompt()) }
+    var summaryPrompt by remember { mutableStateOf(store.summarySystemPrompt()) }
+    var translationPrompt by remember { mutableStateOf(store.translationSystemPrompt()) }
+    var planPrompt by remember { mutableStateOf(store.planSystemPrompt()) }
+    // Connection status and feature-level format status are deliberately
+    // separate: reachability is not the same as a usable response shape.
     var status by remember { mutableStateOf<String?>(null) }
+    var formatStatus by remember { mutableStateOf<String?>(null) }
     var testing by remember { mutableStateOf(false) }
+    var validating by remember { mutableStateOf(false) }
 
     // Dialog visibility
     var showProviderDialog by remember { mutableStateOf(false) }
     var showKeyDialog by remember { mutableStateOf(false) }
+    var showClearKeyDialog by remember { mutableStateOf(false) }
     var showModelDialog by remember { mutableStateOf(false) }
     var showUrlDialog by remember { mutableStateOf(false) }
     var showPromptDialog by remember { mutableStateOf(false) }
+    var showSummaryPromptDialog by remember { mutableStateOf(false) }
+    var showTranslationPromptDialog by remember { mutableStateOf(false) }
+    var showPlanPromptDialog by remember { mutableStateOf(false) }
 
     Column(
         Modifier.fillMaxSize().padding(16.dp),
@@ -68,6 +79,11 @@ fun AiSettingsScreen(graph: AppGraph, navController: NavController) {
         SettingsGroup(title = stringResource(R.string.settings_ai_api_key)) {
             TextButton(onClick = { showKeyDialog = true }) {
                 Text(if (apiKey.isBlank()) stringResource(R.string.settings_ai_set_api_key) else "••••••••")
+            }
+            if (apiKey.isNotBlank()) {
+                TextButton(onClick = { showClearKeyDialog = true }) {
+                    Text(stringResource(R.string.settings_ai_clear_key))
+                }
             }
         }
 
@@ -87,36 +103,114 @@ fun AiSettingsScreen(graph: AppGraph, navController: NavController) {
             TextButton(onClick = { showPromptDialog = true }) {
                 Text(if (systemPrompt.isBlank()) stringResource(R.string.settings_ai_default) else stringResource(R.string.settings_ai_custom))
             }
+            TextButton(onClick = { showSummaryPromptDialog = true }) {
+                Text("Summary: " + if (summaryPrompt.isBlank()) stringResource(R.string.settings_ai_default) else stringResource(R.string.settings_ai_custom))
+            }
+            TextButton(onClick = { showTranslationPromptDialog = true }) {
+                Text("Translation: " + if (translationPrompt.isBlank()) stringResource(R.string.settings_ai_default) else stringResource(R.string.settings_ai_custom))
+            }
+            TextButton(onClick = { showPlanPromptDialog = true }) {
+                Text("Plan: " + if (planPrompt.isBlank()) stringResource(R.string.settings_ai_default) else stringResource(R.string.settings_ai_custom))
+            }
         }
 
         Button(onClick = {
+            if (apiKey.isBlank()) {
+                status = graph.context.getString(R.string.settings_ai_failed, "missing_key")
+                return@Button
+            }
             testing = true
             scope.launch {
-                val m = model.ifBlank { provider.defaultModel }
-                val bu = baseUrl.ifBlank { provider.defaultBaseUrl }
-                val client = when (provider) {
-                    AiProvider.OPENAI, AiProvider.XAI, AiProvider.OPEN_ROUTER -> graph.llmClientFactory.createClient(bu, m, apiKey)
-                    AiProvider.ANTHROPIC -> graph.llmClientFactory.createAnthropicClient(bu, m, apiKey)
-                    AiProvider.GEMINI -> graph.llmClientFactory.createGeminiClient(bu, m, apiKey)
+                try {
+                    val client = llmClientFor(
+                        graph,
+                        provider,
+                        baseUrl.ifBlank { provider.defaultBaseUrl },
+                        model.ifBlank { provider.defaultModel },
+                        apiKey,
+                    )
+                    val res = client.complete(LlmRequest("Reply with OK", "ping"))
+                    status = if (res.status == LlmStatus.OK) {
+                        graph.context.getString(R.string.settings_ai_connection_ok)
+                    } else {
+                        graph.context.getString(R.string.settings_ai_failed, res.error ?: "unknown")
+                    }
+                } catch (e: Exception) {
+                    status = graph.context.getString(R.string.settings_ai_failed, e.message ?: "error")
+                } finally {
+                    testing = false
                 }
-                val res = client.complete(LlmRequest("Reply with OK", "ping"))
-                status = if (res.status.name == "OK") graph.context.getString(R.string.settings_ai_connection_ok) else graph.context.getString(R.string.settings_ai_failed, res.error ?: "")
-                testing = false
             }
         }, enabled = !testing) {
             Text(if (testing) stringResource(R.string.settings_ai_testing) else stringResource(R.string.settings_ai_test_connection))
         }
         status?.let { Text(it) }
 
+        // Feature-level check, kept distinct from connectivity: asks for a real
+        // summary-format reply and validates its shape.
+        Button(onClick = {
+            if (apiKey.isBlank()) {
+                formatStatus = graph.context.getString(R.string.settings_ai_failed, "missing_key")
+                return@Button
+            }
+            validating = true
+            scope.launch {
+                try {
+                    val client = llmClientFor(
+                        graph,
+                        provider,
+                        baseUrl.ifBlank { provider.defaultBaseUrl },
+                        model.ifBlank { provider.defaultModel },
+                        apiKey,
+                    )
+                    val prompt = summaryPrompt.takeIf { it.isNotBlank() }
+                        ?: systemPrompt.takeIf { it.isNotBlank() }
+                        ?: Prompts.SUMMARY_SYSTEM
+                    val probe = "[NOTE id=\"probe\" date=${LocalDate.now()}]\nFormat validation probe: no concerns reported today.\n[/NOTE]"
+                    val res = client.complete(LlmRequest(prompt, probe))
+                    val reason = if (res.status == LlmStatus.FALLBACK) {
+                        res.error ?: "unavailable"
+                    } else {
+                        SummaryResponseFormat.validate(res.text)
+                    }
+                    formatStatus = if (reason == null) {
+                        graph.context.getString(R.string.settings_ai_format_ok)
+                    } else {
+                        graph.context.getString(R.string.settings_ai_format_invalid, reason)
+                    }
+                } catch (e: Exception) {
+                    formatStatus = graph.context.getString(R.string.settings_ai_format_invalid, e.message ?: "error")
+                } finally {
+                    validating = false
+                }
+            }
+        }, enabled = !validating) {
+            Text(if (validating) stringResource(R.string.settings_ai_validating) else stringResource(R.string.settings_ai_validate_format))
+        }
+        formatStatus?.let { Text(it) }
+
+        val baseUrlInvalid = !AiSettingsValidation.isAcceptableBaseUrl(baseUrl)
+        if (baseUrlInvalid) {
+            Text(
+                text = stringResource(R.string.settings_ai_invalid_base_url),
+                color = MaterialTheme.colorScheme.error,
+            )
+        }
         Button(onClick = {
             store.setProvider(provider)
-            store.setApiKey(apiKey)
-            store.setModel(model.ifBlank { provider.defaultModel })
+            store.setApiKey(apiKey.trim())
+            store.setModel(AiSettingsValidation.normalizedModel(model, provider))
+            store.setBaseUrl(AiSettingsValidation.normalizedBaseUrl(baseUrl, provider))
             store.setSystemPrompt(systemPrompt)
+            store.setSummarySystemPrompt(summaryPrompt)
+            store.setTranslationSystemPrompt(translationPrompt)
+            store.setPlanSystemPrompt(planPrompt)
             navController.popBackStack()
-        }) { Text(stringResource(R.string.settings_ai_save)) }
+        }, enabled = !baseUrlInvalid) { Text(stringResource(R.string.settings_ai_save)) }
 
         TextButton(onClick = { navController.popBackStack() }) { Text(stringResource(R.string.common_cancel)) }
+
+        TextButton(onClick = { store.revokeConsent() }) { Text(stringResource(R.string.settings_ai_revoke_consent)) }
     }
 
     if (showProviderDialog) {
@@ -213,6 +307,34 @@ fun AiSettingsScreen(graph: AppGraph, navController: NavController) {
                     showPromptDialog = false
                 }) { Text(stringResource(R.string.settings_ai_reset_default)) }
             },
+        )
+    }
+
+    if (showSummaryPromptDialog) {
+        AlertDialog(
+            onDismissRequest = { showSummaryPromptDialog = false },
+            title = { Text("Summary system prompt") },
+            text = { OutlinedTextField(value = summaryPrompt, onValueChange = { summaryPrompt = it }, modifier = Modifier.fillMaxWidth(), minLines = 3) },
+            confirmButton = { TextButton(onClick = { showSummaryPromptDialog = false }) { Text(stringResource(R.string.common_ok)) } },
+            dismissButton = { TextButton(onClick = { summaryPrompt = ""; showSummaryPromptDialog = false }) { Text(stringResource(R.string.settings_ai_reset_default)) } },
+        )
+    }
+    if (showTranslationPromptDialog) {
+        AlertDialog(
+            onDismissRequest = { showTranslationPromptDialog = false },
+            title = { Text("Translation system prompt") },
+            text = { OutlinedTextField(value = translationPrompt, onValueChange = { translationPrompt = it }, modifier = Modifier.fillMaxWidth(), minLines = 3) },
+            confirmButton = { TextButton(onClick = { showTranslationPromptDialog = false }) { Text(stringResource(R.string.common_ok)) } },
+            dismissButton = { TextButton(onClick = { translationPrompt = ""; showTranslationPromptDialog = false }) { Text(stringResource(R.string.settings_ai_reset_default)) } },
+        )
+    }
+    if (showPlanPromptDialog) {
+        AlertDialog(
+            onDismissRequest = { showPlanPromptDialog = false },
+            title = { Text("Plan system prompt") },
+            text = { OutlinedTextField(value = planPrompt, onValueChange = { planPrompt = it }, modifier = Modifier.fillMaxWidth(), minLines = 3) },
+            confirmButton = { TextButton(onClick = { showPlanPromptDialog = false }) { Text(stringResource(R.string.common_ok)) } },
+            dismissButton = { TextButton(onClick = { planPrompt = ""; showPlanPromptDialog = false }) { Text(stringResource(R.string.settings_ai_reset_default)) } },
         )
     }
 }

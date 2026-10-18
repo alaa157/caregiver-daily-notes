@@ -5,7 +5,9 @@ class TranslationService(
     private val keyStore: AiKeyStore? = null,
 ) {
     suspend fun translate(text: String, from: String, to: String): String? {
-        val prompt = keyStore?.systemPrompt()?.takeIf { it.isNotBlank() } ?: Prompts.TRANSLATE_SYSTEM
+        val prompt = keyStore?.translationSystemPrompt()?.takeIf { it.isNotBlank() }
+            ?: keyStore?.systemPrompt()?.takeIf { it.isNotBlank() }
+            ?: Prompts.TRANSLATE_SYSTEM
         val res = client.complete(
             LlmRequest(prompt, "Translate from $from to $to:\n$text"),
         )

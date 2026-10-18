@@ -153,6 +153,17 @@ fun SummaryResultScreen(
         SummaryViewModel(recipientId, graph.apis, graph.auth, null, periodDays, com.caregiver.mobile.ai.AiKeyStore(graph.context), graph.llmClientFactory)
     }
     val state by vm.state.collectAsState()
+    val showConsent = androidx.compose.runtime.remember { androidx.compose.runtime.mutableStateOf(false) }
+    if (showConsent.value) {
+        com.caregiver.mobile.ai.AiConsentDialog(
+            onAccept = {
+                com.caregiver.mobile.ai.AiKeyStore(graph.context).setConsentGiven()
+                showConsent.value = false
+                vm.suggestPlan()
+            },
+            onDismiss = { showConsent.value = false },
+        )
+    }
     Column(Modifier.fillMaxSize().padding(horizontal = AppDimens.ScreenHPadding)) {
         when (val s = state) {
             SummaryState.Loading -> {
@@ -188,9 +199,22 @@ fun SummaryResultScreen(
                     onClick = vm::refresh,
                 )
             }
+            is SummaryState.NeedsConsent -> {
+                com.caregiver.mobile.ai.AiConsentDialog(
+                    onAccept = { vm.grantConsent() },
+                    onDismiss = { navController.popBackStack() },
+                )
+            }
             is SummaryState.Content -> SummaryBody(
                 s.summary, periodDays, graph.isDemo, navController, s.aiGenerated,
-                onSuggestPlan = vm::suggestPlan,
+                onSuggestPlan = {
+                    val store = com.caregiver.mobile.ai.AiKeyStore(graph.context)
+                    if (!store.consentGiven()) {
+                        showConsent.value = true
+                    } else {
+                        vm.suggestPlan()
+                    }
+                },
                 suggesting = vm.suggesting.collectAsState().value,
             )
         }
