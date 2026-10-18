@@ -17,8 +17,8 @@ import androidx.sqlite.db.SupportSQLiteDatabase
  * adds the outbox.
  */
 @Database(
-    entities = [RecipientEntity::class, NoteEntity::class, OutboxEntity::class, PlanEntity::class],
-    version = 3,
+    entities = [RecipientEntity::class, NoteEntity::class, OutboxEntity::class, PlanEntity::class, AddendumEntity::class],
+    version = 4,
     exportSchema = true,
 )
 abstract class AppDatabase : RoomDatabase() {
@@ -29,6 +29,8 @@ abstract class AppDatabase : RoomDatabase() {
     abstract fun outboxDao(): OutboxDao
 
     abstract fun planDao(): PlanDao
+
+    abstract fun addendumDao(): AddendumDao
 
     companion object {
         /**

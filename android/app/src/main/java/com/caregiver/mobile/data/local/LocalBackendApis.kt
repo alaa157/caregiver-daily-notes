@@ -204,12 +204,14 @@ class LocalBackendApis(
         override suspend fun appendVersion(id: String, body: AppendVersionRequest): PlanDto {
             val entity = planDao.byId(id) ?: throw NoSuchElementException("plan $id")
             val versions = json.decodeFromString<MutableList<PlanVersionDto>>(entity.versionsJson)
+            val latest = versions.maxByOrNull { it.version }
             val next = (versions.maxOfOrNull { it.version } ?: 0) + 1
+            val items = body.items ?: latest?.items ?: emptyList()
             versions.add(
                 PlanVersionDto(
                     version = next,
                     status = body.status ?: "Edited-and-Accepted",
-                    items = body.items ?: emptyList(),
+                    items = items,
                     createdAt = LocalDate.now().toString(),
                     reason = "",
                 ),
