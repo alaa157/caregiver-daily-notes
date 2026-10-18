@@ -29,8 +29,6 @@ android {
         // Only en + ar ship in the app; strip other locales' resources
         // pulled in by dependencies.
         resourceConfigurations += listOf("en", "ar")
-        // Standalone local-first mode: no backend, no login.
-        buildConfigField("boolean", "LOCAL_MODE", "true")
     }
 
     buildTypes {
@@ -40,9 +38,14 @@ android {
         // `minified` is the R8-shrunk offline demo for smaller installs.
         debug {
             buildConfigField("boolean", "DEMO_BACKEND", "true")
+            // Standalone local-first mode: no backend, no login.
+            buildConfigField("boolean", "LOCAL_MODE", "true")
         }
         release {
             buildConfigField("boolean", "DEMO_BACKEND", "false")
+            // Standalone local-first mode: no backend, no login. Release is
+            // intentionally local-first (see docs); not inheriting from defaultConfig.
+            buildConfigField("boolean", "LOCAL_MODE", "true")
             // Keep minify off: the old cross-platform app crashed on launch with
             // R8 enabled and was never diagnosed. Revisit only with a device proof.
             isMinifyEnabled = false
@@ -54,6 +57,7 @@ android {
         // above stays minify-off with DEMO_BACKEND=false (real backend).
         create("minified") {
             buildConfigField("boolean", "DEMO_BACKEND", "true")
+            buildConfigField("boolean", "LOCAL_MODE", "true")
             isMinifyEnabled = true
             isShrinkResources = true
             proguardFiles(
