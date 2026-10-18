@@ -281,7 +281,7 @@
     <string name="section_interface">الواجهة</string>
     <string name="section_privacy">الخصوصية والأمان</string>
     <string name="section_storage">التخزين والبيانات</string>
-    <string name="section_system">النظام وحول</string>
+    <string name="section_system">النظام ومعلومات التطبيق</string>
     <string name="item_zero">صفر</string>
     <string name="item_privacy">الخصوصية</string>
     <string name="item_storage">التخزين</string>
