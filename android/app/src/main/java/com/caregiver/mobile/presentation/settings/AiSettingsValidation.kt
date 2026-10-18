@@ -23,9 +23,15 @@ object AiSettingsValidation {
         return url.substring(schemeLength).substringBefore('/').isNotBlank()
     }
 
-    /** Model to persist: trimmed, falling back to the provider default. */
-    fun normalizedModel(raw: String, provider: AiProvider): String =
-        raw.trim().ifEmpty { provider.defaultModel }
+    /**
+     * Model to persist: blank when the user kept the provider default (so
+     * later changes to the default are picked up), the trimmed custom id
+     * otherwise. Empty stored model means "follow app default".
+     */
+    fun normalizedModel(raw: String, provider: AiProvider): String {
+        val model = raw.trim()
+        return if (model.isEmpty() || model == provider.defaultModel) "" else model
+    }
 
     /**
      * Base URL to persist: blank when the user kept the provider default, so
