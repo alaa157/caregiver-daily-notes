@@ -232,7 +232,7 @@ fun MainScaffold(graph: AppGraph) {
                             avatarLetter = avatarLetter,
                             scrollBehavior = scrollBehavior,
                             onAvatarClick = { showAccountMenu = !showAccountMenu },
-                            avatarContentDescription = stringResource(R.string.drawer_open),
+                            avatarContentDescription = stringResource(R.string.account_menu_open),
                             avatarModifier = Modifier.testTag("drawer_avatar"),
                             actions = {
                                 // Task 8d: the end slot mirrors the outbox — synced,
@@ -505,6 +505,9 @@ fun MainScaffold(graph: AppGraph) {
                 onDismiss = { showAccountMenu = false },
                 accountName = displayName,
                 avatarLetter = avatarLetter,
+                // Standalone local-first builds have no accounts at all, so
+                // the Google row is hidden instead of showing a dead toast.
+                showSignInWithGoogle = !graph.isLocalMode,
                 onSignInWithGoogle = {
                     showAccountMenu = false
                     activity?.let { ctx ->

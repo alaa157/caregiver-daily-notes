@@ -29,7 +29,6 @@ import androidx.compose.material.icons.outlined.Storage
 import androidx.compose.material.icons.outlined.SmartToy
 import androidx.compose.material.icons.outlined.UploadFile
 import androidx.compose.material3.FilterChip
-import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.OutlinedTextFieldDefaults
 import androidx.compose.material3.SegmentedButton
@@ -112,7 +111,13 @@ fun SettingsScreen(graph: AppGraph, navController: NavController) {
         modifier = Modifier.fillMaxSize().padding(horizontal = 16.dp, vertical = 8.dp).verticalScroll(rememberScrollState()),
         verticalArrangement = Arrangement.spacedBy(16.dp),
     ) {
-        AppTopBar(title = stringResource(R.string.settings_title))
+        AppTopBar(
+            title = stringResource(R.string.settings_title),
+            // Settings is a pushed destination (the account pop-up opens it),
+            // so the top bar carries the visible way back; the system back
+            // button is no longer the only affordance.
+            onBack = { navController.popBackStack() },
+        )
 
         // Application-specific: Language
         CaregiverSettingsGroup(title = stringResource(R.string.settings_language)) {
@@ -147,21 +152,22 @@ fun SettingsScreen(graph: AppGraph, navController: NavController) {
             }
         }
 
-        // Application-specific: AI
-        CaregiverSettingsItem(
-            title = stringResource(R.string.settings_ai),
-            icon = Icons.Outlined.SmartToy,
-            description = stringResource(R.string.settings_ai),
-            onClick = { navController.navigate("ai-settings") },
-        )
-
-        // Application-specific: Theme and Colors
-        CaregiverSettingsItem(
-            title = stringResource(R.string.settings_theme_colors),
-            icon = Icons.Outlined.Palette,
-            description = null,
-            onClick = { navController.navigate("theme-colors") },
-        )
+        // Application-specific: AI and appearance. Untitled card so these
+        // rows carry the same card chrome as the titled sections above and
+        // below, instead of sitting outside every group as bare rows.
+        CaregiverSettingsGroup {
+            CaregiverSettingsItem(
+                title = stringResource(R.string.settings_ai),
+                icon = Icons.Outlined.SmartToy,
+                // No description: it used to repeat the title verbatim.
+                onClick = { navController.navigate("ai-settings") },
+            )
+            CaregiverSettingsItem(
+                title = stringResource(R.string.settings_theme_colors),
+                icon = Icons.Outlined.Palette,
+                onClick = { navController.navigate("theme-colors") },
+            )
+        }
 
         // Application-specific: Data & Backup — CSV import/export and full
         // backup/restore. The file pickers grant access to one document each;
@@ -227,46 +233,48 @@ fun SettingsScreen(graph: AppGraph, navController: NavController) {
 
         // Application-specific: Data
         if (com.caregiver.mobile.BuildConfig.LOCAL_MODE) {
-            CaregiverSettingsItem(
-                title = stringResource(R.string.settings_load_sample_data),
-                icon = Icons.Outlined.Storage,
-                onClick = {
-                    scope.launch {
-                        com.caregiver.mobile.data.SampleDataLoader.load(
-                            com.caregiver.mobile.data.local.AppDatabase.create(graph.context),
-                        )
-                    }
-                },
-            )
+            CaregiverSettingsGroup {
+                CaregiverSettingsItem(
+                    title = stringResource(R.string.settings_load_sample_data),
+                    icon = Icons.Outlined.Storage,
+                    onClick = {
+                        scope.launch {
+                            com.caregiver.mobile.data.SampleDataLoader.load(
+                                com.caregiver.mobile.data.local.AppDatabase.create(graph.context),
+                            )
+                        }
+                    },
+                )
+            }
         }
 
-        // Application-specific: About
-        CaregiverSettingsItem(
-            title = stringResource(R.string.settings_about),
-            icon = Icons.Outlined.Info,
-            description = stringResource(R.string.settings_app_version, com.caregiver.mobile.BuildConfig.VERSION_NAME),
-            onClick = { navController.navigate("about") },
-        )
+        // Application-specific: About. The About row keeps the version as its
+        // description; the duplicate footer line that used to repeat the same
+        // version below the list is gone.
+        CaregiverSettingsGroup {
+            CaregiverSettingsItem(
+                title = stringResource(R.string.settings_about),
+                icon = Icons.Outlined.Info,
+                description = stringResource(R.string.settings_app_version, com.caregiver.mobile.BuildConfig.VERSION_NAME),
+                onClick = { navController.navigate("about") },
+            )
+        }
 
         // Application-specific: Server / Logout
         if (!com.caregiver.mobile.BuildConfig.LOCAL_MODE) {
-            CaregiverSettingsItem(
-                title = stringResource(R.string.settings_server),
-                icon = Icons.Outlined.Dns,
-                onClick = { navController.navigate("server-url") },
-            )
-            CaregiverSettingsItem(
-                title = stringResource(R.string.settings_logout),
-                icon = Icons.Outlined.Logout,
-                onClick = { scope.launch { graph.auth.signOut() } },
-            )
+            CaregiverSettingsGroup {
+                CaregiverSettingsItem(
+                    title = stringResource(R.string.settings_server),
+                    icon = Icons.Outlined.Dns,
+                    onClick = { navController.navigate("server-url") },
+                )
+                CaregiverSettingsItem(
+                    title = stringResource(R.string.settings_logout),
+                    icon = Icons.Outlined.Logout,
+                    onClick = { scope.launch { graph.auth.signOut() } },
+                )
+            }
         }
-
-        Text(
-            text = stringResource(R.string.settings_app_version, com.caregiver.mobile.BuildConfig.VERSION_NAME),
-            style = MaterialTheme.typography.bodySmall,
-            color = MaterialTheme.colorScheme.onSurfaceVariant,
-        )
 
         csvState.preview?.let { plan ->
             CsvImportDialog(

@@ -219,7 +219,6 @@
     <!-- المهمة 6: صف رقائق التصفية القابل للطي في السجل. -->
     <string name="history_filters">تصفية</string>
     <!-- المهمة 7: درج الصورة الرمزية. -->
-    <string name="drawer_open">فتح قائمة التنقل</string>
     <string name="drawer_sync_synced">متزامن</string>
     <string name="settings_ai">إعدادات الذكاء الاصطناعي</string>
     <string name="settings_load_sample_data">تحميل بيانات نموذجية</string>
@@ -283,6 +282,8 @@
     <string name="summary_system_prompt_title">مطالبة النظام للملخص</string>
     <string name="translation_system_prompt_title">مطالبة النظام للترجمة</string>
     <string name="plan_system_prompt_title">مطالبة النظام للخطة</string>
+    <string name="action_back">رجوع</string>
+    <string name="account_menu_open">فتح قائمة الحساب</string>
     <string name="account_menu_close">إغلاق قائمة الحساب</string>
     <string name="account_menu_subtitle">حساب مقدم الرعاية</string>
     <string name="sign_in_with_google">تسجيل الدخول باستخدام Google</string>
