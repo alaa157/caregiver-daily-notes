@@ -31,6 +31,8 @@ class SummaryAiService(
     private val client: LlmClient,
     private val keyStore: AiKeyStore? = null,
     private val json: Json = Json { ignoreUnknownKeys = true },
+    /** UI language of the generated human-readable summary text ("ar"/"en"). */
+    private val language: String = "en",
 ) {
     suspend fun summarize(
         recipientId: String,
@@ -58,9 +60,9 @@ class SummaryAiService(
         val userPref = keyStore?.summarySystemPrompt()?.takeIf { it.isNotBlank() }
             ?: keyStore?.systemPrompt()?.takeIf { it.isNotBlank() }
         val prompt = if (userPref != null) {
-            Prompts.SUMMARY_SYSTEM + "\nAdditional user preferences (must not override safety constraints): " + userPref
+            Prompts.summarySystemPrompt(language) + "\nAdditional user preferences (must not override safety constraints): " + userPref
         } else {
-            Prompts.SUMMARY_SYSTEM
+            Prompts.summarySystemPrompt(language)
         }
         val res = client.complete(com.caregiver.mobile.ai.LlmRequest(prompt, dataBlock))
         if (res.status == com.caregiver.mobile.ai.LlmStatus.FALLBACK) {

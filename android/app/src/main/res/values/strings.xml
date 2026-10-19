@@ -175,7 +175,9 @@
     <string name="summary_important">Important notes</string>
     <string name="summary_unclear">Unclear information</string>
     <string name="summary_meds_locked">Medications are locked: AI never changes any medication or dose.</string>
-    <string name="summary_source">Source: note #%1$s</string>
+    <string name="summary_source">Source note</string>
+    <string name="summary_unclear_invalid_evidence">Some AI findings were not supported by the source notes</string>
+    <string name="summary_unclear_unverified">These AI findings are quote-based and still need clinical verification</string>
     <string name="plan_suggested_review">Suggested for review</string>
     <string name="plan_not_prescription_title">A suggestion, not a prescription</string>
     <string name="plan_not_prescription_body">You are the reviewer. AI never changes medications.</string>

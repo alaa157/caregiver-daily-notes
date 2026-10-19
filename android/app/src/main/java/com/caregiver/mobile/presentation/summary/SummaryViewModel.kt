@@ -41,6 +41,8 @@ class SummaryViewModel(
     initialPeriod: Int = DEFAULT_PERIOD_DAYS,
     private val aiKeyStore: com.caregiver.mobile.ai.AiKeyStore? = null,
     private val llmClientFactory: com.caregiver.mobile.ai.LlmClientFactory = com.caregiver.mobile.ai.LlmClientFactory(),
+    /** UI language for AI-generated summary text ("ar"/"en"); defaults to English. */
+    private val language: String = "en",
 ) : ViewModel() {
     private val exec: CoroutineScope = scope ?: viewModelScope
 
@@ -108,7 +110,7 @@ class SummaryViewModel(
                     com.caregiver.mobile.ai.AiProvider.GEMINI ->
                         llmClientFactory.createGeminiClient(baseUrl, model, key)
                 }
-                val service = com.caregiver.mobile.ai.SummaryAiService(client, store)
+                val service = com.caregiver.mobile.ai.SummaryAiService(client, store, language = language)
                 // Explicit inclusive window (Finding 3): today plus the
                 // preceding periodDays - 1 days, the same rule the backend
                 // applies. Both fetches are narrowed to it so notes and

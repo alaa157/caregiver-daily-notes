@@ -137,8 +137,22 @@ fun SummaryResultScreen(
         }
         return
     }
+    // Same effective locale the UI uses for its own copy: the AI summary
+    // should speak the language the user chose in the app, not the
+    // device's. Configuration.locales/LocaleList require API 24
+    // (minSdk is 23); on API 23 the wrapped configuration still carries
+    // its locale in the deprecated Configuration.locale.
+    val configuration = LocalConfiguration.current
+    @Suppress("DEPRECATION")
+    val effectiveLocale =
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.N) {
+            configuration.locales[0]
+        } else {
+            configuration.locale
+        }
+    val language = effectiveLocale.language
     val vm: SummaryViewModel = assistedViewModel("summary-$recipientId") {
-        SummaryViewModel(recipientId, graph.apis, graph.auth, null, periodDays, com.caregiver.mobile.ai.AiKeyStore(graph.context), graph.llmClientFactory)
+        SummaryViewModel(recipientId, graph.apis, graph.auth, null, periodDays, com.caregiver.mobile.ai.AiKeyStore(graph.context), graph.llmClientFactory, language = language)
     }
     val state by vm.state.collectAsState()
     val showConsent = androidx.compose.runtime.remember { androidx.compose.runtime.mutableStateOf(false) }
@@ -294,14 +308,24 @@ private fun SummaryBody(
                         fontSize = 15.sp,
                         color = CaregiverColors.Ink,
                     )
-                    GrayPill(stringResource(R.string.summary_source, Bidi.isolate(item.noteId.take(8))))
+                    GrayPill(stringResource(R.string.summary_source))
                 }
             }
         }
         if (summary.uncertainties.isNotEmpty()) {
             SectionTitle(stringResource(R.string.summary_unclear))
             summary.uncertainties.forEach { item ->
-                UnclearBox("${item.topic}: ${item.detail}")
+                // System-generated topics get localized copy; anything the
+                // model invents shows only its detail — never a raw English
+                // topic key on an Arabic phone.
+                UnclearBox(
+                    when (item.topic) {
+                        "ai_unavailable" -> stringResource(R.string.ai_unavailable)
+                        "invalid_evidence" -> stringResource(R.string.summary_unclear_invalid_evidence)
+                        "unverified_claim" -> stringResource(R.string.summary_unclear_unverified)
+                        else -> item.detail.ifBlank { item.topic }
+                    },
+                )
             }
         }
         Row(

@@ -10,6 +10,18 @@ object Prompts {
             "Mark unclear or conflicting information as uncertainty, never guess. " +
             "No diagnoses, no prescriptions."
 
+    // Arabic rule for the summary prompt. Quotes stay verbatim on purpose:
+    // the app verifies them against the source notes, so translating a
+    // quote would break the evidence check and drop the observation.
+    private const val AR_SUMMARY_RULE =
+        "\nAll human-readable values (the \"text\" of each observation and the \"topic\" and \"detail\" of each uncertainty) " +
+            "must be written in clear, simple Modern Standard Arabic. " +
+            "Keep every \"quote\" EXACTLY as it appears in its source note — same language, same characters — " +
+            "never translate or modify quotes. Note IDs are identifiers, not text."
+
+    fun summarySystemPrompt(language: String = "en"): String =
+        if (language == "ar") SUMMARY_SYSTEM + AR_SUMMARY_RULE else SUMMARY_SYSTEM
+
     fun planSystemPrompt(): String {
         val catalog = PlanSuggestionService.DEFAULT_ALLOWED_ACTIONS.sorted().joinToString("\n") { action ->
             val params = PlanSuggestionService.ALLOWED_PARAMS[action] ?: emptySet()
