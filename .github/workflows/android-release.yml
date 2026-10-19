@@ -55,15 +55,41 @@ jobs:
           APK=$(ls android/app/build/outputs/apk/release/*.apk | head -1)
           APKSIGNER=$(find "$ANDROID_HOME" -name apksigner -type f | head -1)
           "$APKSIGNER" verify --print-certs "$APK"
+      - name: Verify release certificate fingerprint
+        if: steps.secrets.outputs.available == 'true'
+        env:
+          EXPECTED_CERT_SHA256: ${{ secrets.EXPECTED_CERT_SHA256 }}
+        run: |
+          APK=$(ls android/app/build/outputs/apk/release/*.apk | head -1)
+          APKSIGNER=$(find "$ANDROID_HOME" -name apksigner -type f | head -1)
+          if [ -z "$EXPECTED_CERT_SHA256" ]; then
+            echo "Missing secret: EXPECTED_CERT_SHA256"
+            exit 1
+          fi
+          CERTS=$("$APKSIGNER" verify --print-certs "$APK")
+          echo "$CERTS"
+          FP=$(printf '%s\n' "$CERTS" | grep -i 'SHA-256' | head -1 | sed -E 's/.*SHA-256[[:space:]]*:[[:space:]]*//I; s/[[:space:]]//g' | tr '[:lower:]' '[:upper:]')
+          if [ -z "$FP" ]; then
+            echo "Could not extract SHA-256 certificate fingerprint"
+            exit 1
+          fi
+          EXPECTED=$(printf '%s' "$EXPECTED_CERT_SHA256" | tr -d ' :' | tr '[:lower:]' '[:upper:]')
+          if [ "$FP" != "$EXPECTED" ]; then
+            echo "Certificate fingerprint mismatch: got $FP, expected $EXPECTED"
+            exit 1
+          fi
+          echo "Certificate fingerprint verified: $FP"
       - name: Create GitHub Release
         if: steps.secrets.outputs.available == 'true'
         uses: softprops/action-gh-release@v2
         with:
           files: android/app/build/outputs/apk/release/*.apk
       - name: Build minified demo APK
+        continue-on-error: true
         working-directory: android
         run: ./gradlew :app:assembleMinified
       - name: Publish demo APK as prerelease
+        continue-on-error: true
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
