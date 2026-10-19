@@ -362,7 +362,7 @@ private fun SummaryBody(
                         }
                         graph.context.startActivity(Intent.createChooser(share, null))
                     } catch (e: Exception) {
-                        // ignore
+                        exportError = graph.context.getString(R.string.export_failed)
                     } finally {
                         exporting = false
                     }
