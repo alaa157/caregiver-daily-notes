@@ -30,17 +30,13 @@ import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.unit.dp
 import com.caregiver.mobile.core.theme.CaregiverColors
 
-data class CaregiverSettingsItem(
-    val title: String,
-    val icon: ImageVector? = null,
-    val leadingContent: (@Composable () -> Unit)? = null,
-    val description: String? = null,
-    val trailingContent: (@Composable () -> Unit)? = null,
-    val showBadge: Boolean = false,
-    val isHighlighted: Boolean = false,
-    val enabled: Boolean = true,
-    val onClick: (() -> Unit)? = null,
-)
+// NOTE: never declare a class or data class named `CaregiverSettingsItem`
+// here. When a class and a function share a name, Kotlin resolves every
+// `CaregiverSettingsItem(...)` call to the class constructor: the object is
+// built, discarded, and the row renders nothing. That silently emptied the
+// Settings list (AI, Theme & Colors, all four Data & Backup actions, About)
+// and the AI settings screen in the v0.3.0 demo. The composable below is the
+// only declaration with this name in the app.
 
 /**
  * Metrolist-style grouped settings card.

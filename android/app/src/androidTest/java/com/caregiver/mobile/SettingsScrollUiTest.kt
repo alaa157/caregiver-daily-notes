@@ -12,6 +12,7 @@ import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.platform.LocalLayoutDirection
 import androidx.compose.ui.test.assertIsDisplayed
 import androidx.compose.ui.test.junit4.createAndroidComposeRule
+import androidx.compose.ui.test.onNodeWithContentDescription
 import androidx.compose.ui.test.onNodeWithText
 import androidx.compose.ui.test.performClick
 import androidx.compose.ui.test.performScrollTo
@@ -24,6 +25,7 @@ import androidx.test.ext.junit.runners.AndroidJUnit4
 import com.caregiver.mobile.core.theme.CaregiverTheme
 import com.caregiver.mobile.presentation.settings.AiSettingsScreen
 import com.caregiver.mobile.presentation.settings.SettingsScreen
+import com.caregiver.mobile.presentation.settings.ThemeColorsScreen
 import com.caregiver.mobile.test.WithTestOwner
 import java.util.Locale
 import org.junit.Rule
@@ -123,10 +125,11 @@ class SettingsScrollUiTest {
     }
 
     @Test
-    fun settingsModeAndAccentLabelsFollowTheActiveLocale() {
-        // Cover chips used to leak English ("Light", "Teal") into the
-        // Arabic screen; the same rows must read Arabic under an Arabic
-        // context. The language names stay literal by design.
+    fun themeModeAndSectionLabelsFollowTheActiveLocale() {
+        // The mode/accent controls moved from the Settings list to the
+        // dedicated Theme and Colors screen; under an Arabic context every
+        // label there must read Arabic — the mode circles used to be
+        // hardcoded English and the section headers shipped untranslated.
         val localized = ApplicationProvider.getApplicationContext<Context>().withLocale("ar")
         val graph = AppGraph(localized)
 
@@ -137,7 +140,7 @@ class SettingsScrollUiTest {
             ) {
                 WithTestOwner {
                     CaregiverTheme {
-                        SettingsScreen(graph, rememberNavController())
+                        ThemeColorsScreen(graph, rememberNavController())
                     }
                 }
             }
@@ -146,31 +149,33 @@ class SettingsScrollUiTest {
             R.string.settings_mode_light,
             R.string.settings_mode_dark,
             R.string.settings_mode_system,
-            R.string.settings_palette_rose,
         ).forEach { id ->
             compose.onNodeWithText(localized.getString(id)).assertIsDisplayed()
         }
+        compose.onNodeWithText(localized.getString(R.string.theme_mode)).assertExists()
+        compose.onNodeWithText(localized.getString(R.string.color_palette)).assertExists()
+        compose.onNodeWithText(localized.getString(R.string.pure_black)).assertExists()
     }
 
     @Test
-    fun accentChipsWrapInsteadOfClippingOnANarrowScreen() {
+    fun paletteSwatchesStayReachableOnANarrowScreen() {
         val context = ApplicationProvider.getApplicationContext<Context>()
         val graph = AppGraph(context)
-        val rose = context.getString(R.string.settings_palette_rose)
+        val rose = context.getString(R.string.palette_rose)
 
         compose.setContent {
             WithTestOwner {
                 CaregiverTheme {
-                    // Narrower than the four chips need on one line: a chip
-                    // laid out past the edge is clipped, i.e. the accent
-                    // becomes unreachable.
+                    // Narrower than the swatch strip needs on one line: the
+                    // strip scrolls, so every accent stays reachable instead
+                    // of being clipped off the edge.
                     Box(Modifier.size(width = 260.dp, height = 480.dp)) {
-                        SettingsScreen(graph, rememberNavController())
+                        ThemeColorsScreen(graph, rememberNavController())
                     }
                 }
             }
         }
-        compose.onNodeWithText(rose).performScrollTo().assertIsDisplayed()
+        compose.onNodeWithContentDescription(rose).performScrollTo().assertIsDisplayed()
     }
 
     @Test

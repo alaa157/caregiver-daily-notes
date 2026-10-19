@@ -13,6 +13,19 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
+
+      - name: Verify the tag matches versionName
+        # vX.Y.Z must equal the app's versionName. This is the gate against a
+        # repeat of the drift where the v0.3.0 demo shipped internally as
+        # 0.2.0, leaving testers unable to tell builds apart.
+        run: |
+          VERSION_NAME=$(sed -nE 's/^[[:space:]]*versionName[[:space:]]*=[[:space:]]*"([^"]+)".*/\1/p' android/app/build.gradle.kts | head -1)
+          echo "build.gradle.kts versionName=${VERSION_NAME}, tag=${GITHUB_REF_NAME}"
+          if [ "v${VERSION_NAME}" != "${GITHUB_REF_NAME}" ]; then
+            echo "::error::Tag ${GITHUB_REF_NAME} does not match versionName ${VERSION_NAME}. Bump versionCode/versionName in android/app/build.gradle.kts before tagging."
+            exit 1
+          fi
+
       - uses: actions/setup-java@v4
         with:
           distribution: temurin
@@ -47,6 +60,7 @@ jobs:
           KEYSTORE_PASSWORD: ${{ secrets.KEYSTORE_PASSWORD }}
           KEY_ALIAS: ${{ secrets.KEY_ALIAS }}
           KEY_PASSWORD: ${{ secrets.KEY_PASSWORD }}
+          GIT_COMMIT: ${{ github.sha }}
         working-directory: android
         run: ./gradlew :app:assembleRelease
       - name: Verify release APK signature
@@ -84,17 +98,48 @@ jobs:
         uses: softprops/action-gh-release@v2
         with:
           files: android/app/build/outputs/apk/release/*.apk
+          body: |
+            Signed release build of `${{ github.ref_name }}`.
+
+            - Source commit: `${{ github.sha }}`
+            - Built by `.github/workflows/android-release.yml` from the tagged commit.
+
       - name: Build minified demo APK
-        continue-on-error: true
         working-directory: android
+        env:
+          # Traceability: surfaces in BuildConfig.GIT_COMMIT.
+          GIT_COMMIT: ${{ github.sha }}
         run: ./gradlew :app:assembleMinified
+
+      - name: Verify demo APK contents
+        # Hard gate: version, Settings actions, Arabic locale strings and the
+        # signer must all be right before anything is published. Runs before
+        # the publish step, so a bad APK never reaches a release.
+        run: bash .github/scripts/verify-demo-apk.sh android/app/build/outputs/apk/minified/app-minified.apk
+
       - name: Publish demo APK as prerelease
-        continue-on-error: true
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
-          gh release create "${GITHUB_REF_NAME}-demo" \
-            android/app/build/outputs/apk/minified/*.apk \
+          if gh release view "${GITHUB_REF_NAME}-demo" >/dev/null 2>&1; then
+            echo "Release ${GITHUB_REF_NAME}-demo already exists; leaving it untouched."
+            exit 0
+          fi
+          APK=android/app/build/outputs/apk/minified/app-minified.apk
+          VERSION_NAME=$(sed -nE 's/^[[:space:]]*versionName[[:space:]]*=[[:space:]]*"([^"]+)".*/\1/p' android/app/build.gradle.kts | head -1)
+          VERSION_CODE=$(sed -nE 's/^[[:space:]]*versionCode[[:space:]]*=[[:space:]]*([0-9]+).*/\1/p' android/app/build.gradle.kts | head -1)
+          APKSIGNER=$(find "$ANDROID_HOME" -name apksigner -type f | head -1)
+          FINGERPRINT=$("$APKSIGNER" verify --print-certs "$APK" | awk 'tolower($0) ~ /sha-256/ { print; exit }' | sed -E 's/.*SHA-256[[:space:]]*:[[:space:]]*//I; s/[[:space:]]//g')
+          SHA256=$(sha256sum "$APK" | cut -d' ' -f1)
+          NOTES=$(printf '%s\n' \
+            "Offline demo build for testers — not for production updates." \
+            "" \
+            "- Source commit: \`${GITHUB_SHA}\`" \
+            "- App version: ${VERSION_NAME} (versionCode ${VERSION_CODE})" \
+            "- APK SHA-256: \`${SHA256}\`" \
+            "- Signer SHA-256: \`${FINGERPRINT}\`" \
+            "- Signed with the shared demo key, so later demos install over this APK. Demos published before the shared key existed need one uninstall first.")
+          gh release create "${GITHUB_REF_NAME}-demo" "$APK" \
             --prerelease \
             --title "${GITHUB_REF_NAME} (demo)" \
-            --notes "Debug-signed minified demo build. Not for production updates."
+            --notes "$NOTES"

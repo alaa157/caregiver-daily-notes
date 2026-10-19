@@ -142,7 +142,6 @@
     <string name="settings_url_invalid">Invalid address. Example: https://example.com</string>
     <string name="settings_url_http_local">HTTP is allowed for local servers only.</string>
     <string name="settings_language">Language</string>
-    <string name="settings_language_restart">Reopen the app to fully apply direction.</string>
     <string name="settings_logout">Sign out</string>
     <string name="auth_server_link">Server settings</string>
     <!-- HTML 1:1 additions — exact reference copy, existing keys untouched -->

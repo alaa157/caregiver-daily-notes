@@ -5,6 +5,7 @@ on:
     branches: [main, preview/full-stack, feat/standalone-byok-ai]
     paths:
       - "android/**"
+      - ".github/scripts/**"
       - ".github/workflows/android.yml"
     tags:
       - "demo-v*"
@@ -12,6 +13,7 @@ on:
     branches: [main, preview/full-stack, feat/standalone-byok-ai]
     paths:
       - "android/**"
+      - ".github/scripts/**"
       - ".github/workflows/android.yml"
 
 jobs:
@@ -41,6 +43,8 @@ jobs:
         # x86_64) — no per-ABI splits.
         # Minify stays off (see app/build.gradle.kts): the old cross-platform
         # app crashed on launch with R8 and was never diagnosed.
+        env:
+          GIT_COMMIT: ${{ github.sha }}
         run: |
           chmod +x gradlew
           ./gradlew :app:assembleDebug --no-daemon
@@ -48,12 +52,21 @@ jobs:
 
       - name: Run debug unit tests
         # Task 9: JVM unit tests (incl. DemoBackendApis, provider selection,
-        # theme, ViewModels, string parity) run on every preview PR.
+        # theme, ViewModels, string parity) run on every preview PR. The
+        # Settings/locale regression tests (Robolectric Compose, no device)
+        # run here too.
         run: ./gradlew :app:testDebugUnitTest --no-daemon
         working-directory: android
 
       - name: Run debug lint
         run: ./gradlew :app:lintDebug --no-daemon
+        working-directory: android
+
+      - name: Compile instrumentation test APK
+        # The androidTest suite never executes in CI, but it must keep
+        # compiling: without this step it silently rots against renamed or
+        # moved composables and string keys.
+        run: ./gradlew :app:assembleDebugAndroidTest --no-daemon
         working-directory: android
 
       - name: Upload debug APK
@@ -62,13 +75,20 @@ jobs:
           name: android-debug-apk
           path: android/app/build/outputs/apk/debug/app-debug.apk
 
-      - name: Build squeezed APK (R8 + resource shrink, debug-signed)
+      - name: Build squeezed APK (R8 + resource shrink, shared demo key)
         # Separate `minified` buildType: `release` stays minify-off until real
-        # signing lands. First R8 build of the native app — smoke-test login
-        # on device before trusting it (the old cross-platform app once died
-        # under R8 and was never diagnosed).
+        # signing lands. Shipped to testers via releases; the content gate
+        # below checks the bytes before they are ever uploaded.
+        env:
+          GIT_COMMIT: ${{ github.sha }}
         run: ./gradlew :app:assembleMinified --no-daemon
         working-directory: android
+
+      - name: Verify squeezed APK contents
+        # Version, Data & Backup actions, Arabic strings, and signer must all
+        # be present in the actual demo artifact — catching R8/resource
+        # shrink regressions and mislabeled versions at build time.
+        run: bash .github/scripts/verify-demo-apk.sh android/app/build/outputs/apk/minified/app-minified.apk
 
       - name: Upload squeezed APK
         uses: actions/upload-artifact@v4
@@ -103,10 +123,17 @@ jobs:
           sdkmanager --install "platform-tools" "platforms;android-35" "build-tools;35.0.0"
 
       - name: Build minified APK only
+        env:
+          GIT_COMMIT: ${{ github.sha }}
         run: |
           chmod +x gradlew
           ./gradlew :app:assembleMinified --no-daemon
         working-directory: android
+
+      - name: Verify demo APK contents
+        # Same gate as the branch runs: never publish bytes whose version,
+        # Settings actions, Arabic strings or signer do not match.
+        run: bash .github/scripts/verify-demo-apk.sh android/app/build/outputs/apk/minified/app-minified.apk
 
       - name: Publish demo release
         uses: softprops/action-gh-release@v2

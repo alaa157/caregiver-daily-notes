@@ -19,12 +19,30 @@ android {
         }
     } else null
 
+    // Demo releases are handed to testers repeatedly. CI otherwise generates a
+    // fresh throwaway debug key per run, which makes every demo refuse to
+    // install over the previous one (INSTALL_FAILED_UPDATE_INCOMPATIBLE).
+    // The checked-in demo keystore is public by design (debug-grade, password
+    // "android") so successive demo builds share one signature and update in
+    // place. Falls back to the local debug key if the file is absent.
+    val demoSigning = rootProject.file("keystore/demo.keystore").takeIf { it.exists() }?.let {
+        signingConfigs.create("demo") {
+            storeFile = it
+            storePassword = "android"
+            keyAlias = "androiddebugkey"
+            keyPassword = "android"
+        }
+    }
+
     defaultConfig {
         applicationId = "com.caregiver.mobile"
         minSdk = 23
         targetSdk = 35
-        versionCode = 2
-        versionName = "0.2.0"
+        versionCode = 3
+        versionName = "0.3.1"
+        // Build traceability: CI passes the commit being built (GIT_COMMIT);
+        // local builds without the variable report "unknown".
+        buildConfigField("String", "GIT_COMMIT", "\"${(System.getenv("GIT_COMMIT") ?: "unknown").take(12)}\"")
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
         // Only en + ar ship in the app; strip other locales' resources
         // pulled in by dependencies.
@@ -51,10 +69,11 @@ android {
             isMinifyEnabled = false
             if (releaseSigning != null) signingConfig = releaseSigning
         }
-        // Squeezed offline demo: R8 + resource shrink, debug-signed so it
-        // installs like the debug APK, and DEMO_BACKEND=true so it runs with
-        // no backend. Smaller than `debug` for handing around; `release`
-        // above stays minify-off with DEMO_BACKEND=false (real backend).
+        // Squeezed offline demo: R8 + resource shrink, signed with the shared
+        // demo key so successive demos update in place (see demoSigning
+        // above), and DEMO_BACKEND=true so it runs with no backend. Smaller
+        // than `debug` for handing around; `release` above stays minify-off
+        // with DEMO_BACKEND=false (real backend).
         create("minified") {
             buildConfigField("boolean", "DEMO_BACKEND", "true")
             buildConfigField("boolean", "LOCAL_MODE", "true")
@@ -64,7 +83,7 @@ android {
                 getDefaultProguardFile("proguard-android-optimize.txt"),
                 "proguard-rules.pro",
             )
-            signingConfig = signingConfigs.getByName("debug")
+            signingConfig = demoSigning ?: signingConfigs.getByName("debug")
         }
     }
 
@@ -139,6 +158,11 @@ dependencies {
     testImplementation(libs.robolectric)
     testImplementation(libs.test.core)
     testImplementation(libs.work.testing)
+    // Compose UI tests also run on the JVM (Robolectric), so settings/locale
+    // regressions execute in CI's `testDebugUnitTest` without a device.
+    testImplementation(composeBom)
+    testImplementation(libs.compose.ui.test.junit4)
+    testImplementation(libs.test.ext.junit)
 
     androidTestImplementation(libs.compose.ui.test.junit4)
     androidTestImplementation(libs.test.runner)

@@ -43,6 +43,9 @@ class CaregiverApp : Application() {
         } catch (e: Exception) {
             SettingsStore.DEFAULT_LANGUAGE
         }
+        // Seed the process cache the activities wrap their base context
+        // with; activities are created after this runs.
+        LocaleHelper.cache(language)
         super.attachBaseContext(LocaleHelper.wrap(base, language))
     }
 
