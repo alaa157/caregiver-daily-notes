@@ -445,7 +445,7 @@ fun MainScaffold(graph: AppGraph) {
                 .clickable { showAccountMenu = false },
         )
         androidx.compose.ui.window.Popup(
-            alignment = Alignment.TopEnd,
+            alignment = Alignment.Center,
             onDismissRequest = { showAccountMenu = false },
         ) {
             com.caregiver.mobile.presentation.common.AccountPopupMenu(
