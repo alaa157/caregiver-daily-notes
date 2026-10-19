@@ -89,7 +89,10 @@ class SummaryAiService(
         // observation that survives these checks is still labelled unverified.
         val validObservations = mutableListOf<ModelObs>()
         var hadInvalid = false
-        for (obs in parsed.observations.take(50)) {
+        // Hard bound so a model that ignores the prompt (or a custom user
+        // prompt) cannot turn the Overview and "Important notes" back into a
+        // per-note dump. Keep in sync with Prompts.SUMMARY_SYSTEM.
+        for (obs in parsed.observations.take(MAX_OBSERVATIONS)) {
             val claim = if (obs.claim.isNotBlank()) obs.claim else obs.text
             val rawQuote = if (obs.quote.isNotBlank()) obs.quote else obs.evidence
             if (claim.isBlank()) {
@@ -174,5 +177,14 @@ class SummaryAiService(
             quoteTokens.any { qt -> qt.contains(ct) || ct.contains(qt) }
         }
         return supported * 100 >= claimTokens.size * 80
+    }
+
+    companion object {
+        /**
+         * Upper bound on issued findings so a summary stays a summary. The
+         * model is already told "at most 6" in [Prompts.SUMMARY_SYSTEM]; this
+         * is the enforcement point when it ignores that instruction.
+         */
+        const val MAX_OBSERVATIONS = 6
     }
 }
