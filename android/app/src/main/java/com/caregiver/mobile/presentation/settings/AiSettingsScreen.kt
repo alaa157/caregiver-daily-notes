@@ -1,5 +1,7 @@
 package com.caregiver.mobile.presentation.settings
 
+import android.content.Intent
+
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
@@ -71,6 +73,7 @@ fun AiSettingsScreen(graph: AppGraph, navController: NavController) {
 
     // Dialog visibility
     var showProviderDialog by remember { mutableStateOf(false) }
+    var showGuideDialog by remember { mutableStateOf(false) }
     var showKeyDialog by remember { mutableStateOf(false) }
     var showClearKeyDialog by remember { mutableStateOf(false) }
     var showModelDialog by remember { mutableStateOf(false) }
@@ -100,6 +103,12 @@ fun AiSettingsScreen(graph: AppGraph, navController: NavController) {
                 icon = Icons.Outlined.Cloud,
                 description = provider.displayName,
                 onClick = { showProviderDialog = true },
+            )
+            CaregiverSettingsItem(
+                title = stringResource(R.string.settings_ai_setup_guide),
+                icon = Icons.Outlined.Link,
+                description = provider.displayName,
+                onClick = { showGuideDialog = true },
             )
             CaregiverSettingsItem(
                 title = stringResource(R.string.settings_ai_api_key),
@@ -181,6 +190,36 @@ fun AiSettingsScreen(graph: AppGraph, navController: NavController) {
             Text(if (testing) stringResource(R.string.settings_ai_testing) else stringResource(R.string.settings_ai_test_connection))
         }
         status?.let { Text(it) }
+
+        if (showGuideDialog) {
+            val url = when (provider) {
+                AiProvider.OPENAI -> "https://help.openai.com/en/articles/4936850-where-do-i-find-my-openai-api-key"
+                AiProvider.GEMINI -> "https://aistudio.google.com/apikey"
+                AiProvider.ANTHROPIC -> "https://platform.claude.com/docs/en/get-api-key"
+                else -> "https://openrouter.ai"
+            }
+            AlertDialog(
+                onDismissRequest = { showGuideDialog = false },
+                title = { Text(stringResource(R.string.settings_ai_setup_guide_title, provider.displayName)) },
+                text = {
+                    Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                        Text(stringResource(R.string.settings_ai_setup_step1))
+                        Text(stringResource(R.string.settings_ai_setup_step2))
+                        Text(stringResource(R.string.settings_ai_setup_step3))
+                        Text(stringResource(R.string.settings_ai_setup_step4))
+                        Text(stringResource(R.string.settings_ai_cost_note))
+                        TextButton(onClick = {
+                            try {
+                                graph.context.startActivity(
+                                    Intent(Intent.ACTION_VIEW, android.net.Uri.parse(url))
+                                )
+                            } catch (e: Exception) { }
+                        }) { Text(stringResource(R.string.settings_ai_open_website)) }
+                    }
+                },
+                confirmButton = { TextButton(onClick = { showGuideDialog = false }) { Text("OK") } },
+            )
+        }
 
         // Feature-level check, kept distinct from connectivity: asks for a real
         // summary-format reply and validates its shape.
