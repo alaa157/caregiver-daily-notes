@@ -86,6 +86,17 @@ class SummaryViewModelModelResolutionTest {
         assertEquals("custom-model", factory.lastModel)
     }
 
+    @Test
+    fun planSuggestionUsesProviderDefaultForBlankModel() = runTest {
+        store.setModel("")
+        summaries.summarizeHandler = { summary() }
+        val vm = SummaryViewModel("r1", apis(), repository, this, aiKeyStore = store, llmClientFactory = factory)
+        vm.state.first { it is SummaryState.Content }
+        vm.suggestPlan()
+        advanceUntilIdle()
+        assertEquals(AiProvider.OPENAI.defaultModel, factory.lastModel)
+    }
+
     private class RecordingFactory : LlmClientFactory() {
         var lastModel: String? = null
         override fun createClient(baseUrl: String, model: String, apiKey: String): LlmClient {
