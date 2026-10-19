@@ -1,5 +1,6 @@
 package com.caregiver.mobile.presentation.summary
 
+import android.os.Build
 import android.util.Log
 
 import androidx.compose.foundation.layout.Arrangement
@@ -329,7 +330,18 @@ private fun SummaryBody(
         // not the process default: the app language may differ from the
         // device language, and the shared message — including its date
         // format — must follow the language the user actually sees.
-        val arabic = LocalConfiguration.current.locales[0].language == "ar"
+        // Configuration.locales/LocaleList require API 24 (minSdk is 23);
+        // on API 23 the wrapped configuration still carries its locale in
+        // the deprecated Configuration.locale.
+        val configuration = LocalConfiguration.current
+        @Suppress("DEPRECATION")
+        val effectiveLocale =
+            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.N) {
+                configuration.locales[0]
+            } else {
+                configuration.locale
+            }
+        val arabic = effectiveLocale.language == "ar"
         val appName = stringResource(R.string.app_name)
         val shareText = remember(summary.text, arabic) {
             CareSummaryShare.shareText(
