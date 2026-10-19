@@ -218,7 +218,7 @@ private fun HistoryFeed(
                 icon = Icons.Filled.EventNote,
                 title = stringResource(R.string.history_empty),
                 subtitle = stringResource(R.string.notes_empty),
-                actionLabel = stringResource(R.string.summary_period),
+                actionLabel = stringResource(R.string.choose_period),
                 onAction = onRefresh,
             )
         }
@@ -346,7 +346,8 @@ private fun HistoryFilterChips(
         horizontalArrangement = Arrangement.spacedBy(AppDimens.GapForm),
         modifier = Modifier
             .fillMaxWidth()
-            .horizontalScroll(rememberScrollState()),
+            .horizontalScroll(rememberScrollState())
+            .padding(end = AppDimens.ScreenHPadding),
     ) {
         AssistChip(
             onClick = { expanded = !expanded },

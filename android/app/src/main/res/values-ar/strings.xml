@@ -86,6 +86,7 @@
     <string name="history_empty">لا توجد ملاحظات</string>
     <string name="notes_today">ملاحظات اليوم</string>
     <string name="summary_title">ملخص ذكي</string>
+    <string name="choose_period">اختيار الفترة</string>
     <string name="summary_period">الفترة</string>
     <string name="summary_days_7">7 أيام</string>
     <string name="summary_days_14">14 يوم</string>
@@ -108,7 +109,7 @@
     <string name="flag_meds">الدواء غير مؤكد</string>
     <string name="common_offline">أنت غير متصل. عملك محفوظ — أعد المحاولة عند الاتصال.</string>
     <string name="people_empty">لا يوجد أشخاص بعد. أضف أول شخص.</string>
-    <string name="notes_empty">لا توجد ملاحظات لهذا اليوم.</string>
+    <string name="notes_empty">لا توجد ملاحظات في هذه الفترة.</string>
     <string name="plans_empty_title">لا توجد خطة رعاية نشطة حالياً</string>
     <string name="plans_empty_action">عرض المقترحات</string>
     <string name="safety_banner_cd">تنبيه أمان</string>

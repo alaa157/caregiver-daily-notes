@@ -13,6 +13,8 @@ datastore = "1.1.1"
 retrofit = "2.11.0"
 okhttp = "4.12.0"
 serializationJson = "1.7.3"
+coil = "3.6.3"
+media3 = "1.4.1"
 desugar = "2.1.4"
 room = "2.6.1"
 junit = "4.13.2"
@@ -55,6 +57,9 @@ retrofit-converter-kotlinx = { group = "com.jakewharton.retrofit", name = "retro
 okhttp = { group = "com.squareup.okhttp3", name = "okhttp", version.ref = "okhttp" }
 mockwebserver = { group = "com.squareup.okhttp3", name = "mockwebserver", version.ref = "okhttp" }
 serialization-json = { group = "org.jetbrains.kotlinx", name = "kotlinx-serialization-json", version.ref = "serializationJson" }
+coil = { module = "io.coil-kt.coil3:coil-compose", version.ref = "coil" }
+coil-network-okhttp = { module = "io.coil-kt.coil3:coil-network-okhttp", version.ref = "coil" }
+media3-common = { module = "androidx.media3:media3-common", version.ref = "media3" }
 desugar = { group = "com.android.tools", name = "desugar_jdk_libs", version.ref = "desugar" }
 room-runtime = { group = "androidx.room", name = "room-runtime", version.ref = "room" }
 room-ktx = { group = "androidx.room", name = "room-ktx", version.ref = "room" }

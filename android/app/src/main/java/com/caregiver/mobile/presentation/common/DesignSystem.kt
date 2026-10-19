@@ -130,14 +130,14 @@ fun AppTopBar(
         if (onBack != null) {
             Surface(
                 shape = RoundedCornerShape(AppDimens.ControlRadius),
-                color = Color.White,
+                color = CaregiverColors.AvatarContainer,
                 modifier = Modifier.size(AppDimens.BackSize),
             ) {
                 IconButton(onClick = onBack, modifier = Modifier.size(AppDimens.BackSize)) {
                     Icon(
                         Icons.AutoMirrored.Filled.ArrowBack,
                         contentDescription = null,
-                        tint = CaregiverColors.Ink,
+                        tint = Color.White,
                         modifier = Modifier.size(22.dp),
                     )
                 }
@@ -326,7 +326,7 @@ fun AppCard(
     Card(
         shape = RoundedCornerShape(AppDimens.CardRadius),
         border = BorderStroke(1.dp, CaregiverColors.BorderSoft),
-        colors = CardDefaults.cardColors(containerColor = Color.White),
+        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
         modifier = modifier
             .fillMaxWidth()
             .shadow(1.dp, RoundedCornerShape(AppDimens.CardRadius), clip = false),
@@ -529,7 +529,7 @@ fun AppEmptyState(
     Card(
         shape = RoundedCornerShape(AppDimens.CardRadius),
         border = BorderStroke(1.dp, CaregiverColors.BorderSoft),
-        colors = CardDefaults.cardColors(containerColor = Color.White),
+        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
         modifier = Modifier.fillMaxWidth(),
     ) {
         Column(
@@ -660,7 +660,7 @@ fun BusyBar(label: String, progress: Float = 0.6f) {
 @Composable
 fun BottomActionBar(content: @Composable ColumnScope.() -> Unit) {
     Surface(
-        color = Color.White,
+        color = MaterialTheme.colorScheme.surfaceContainer,
         border = BorderStroke(1.dp, CaregiverColors.BorderSoft),
         modifier = Modifier.fillMaxWidth(),
     ) {
