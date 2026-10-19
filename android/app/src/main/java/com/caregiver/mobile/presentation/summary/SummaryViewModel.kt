@@ -22,7 +22,7 @@ sealed interface SummaryState {
     data object Loading : SummaryState
     data object NeedsConsent : SummaryState
     data class Content(val summary: SummaryDto, val refreshing: Boolean = false, val aiGenerated: Boolean = false) : SummaryState
-    data class AiUnavailable(val last: SummaryDto? = null) : SummaryState
+    data class AiUnavailable(val last: SummaryDto? = null, val redFlags: List<String> = emptyList()) : SummaryState
     data class Rejected(val code: String?, val last: SummaryDto? = null) : SummaryState
 }
 
@@ -119,6 +119,10 @@ class SummaryViewModel(
                 val to = today.toString()
                 val notes = repository.authorized { apis.notes().history(recipientId, from, to) }
                 val signals = repository.authorized { apis.summaries().signals(recipientId, from, to) }
+                // Compute deterministic safety flags up front so they survive even
+                // when the AI provider throws instead of returning a fallback.
+                val windowedSignals = signals.filter { com.caregiver.mobile.ai.SummaryWindow.contains(it.date, today, _period.value) }
+                aiRedFlags = com.caregiver.mobile.ai.SafetySignalEvaluator.evaluate(windowedSignals)
                 when (val result = service.summarize(recipientId, _period.value, notes, signals, today)) {
                     is com.caregiver.mobile.ai.SummaryAiResult.Success -> {
                         _state.value = SummaryState.Content(result.summary, aiGenerated = true)
@@ -137,7 +141,8 @@ class SummaryViewModel(
                                 redFlags = result.redFlags,
                                 evidence = emptyList(),
                                 uncertainties = listOf(SummaryDto.UncertaintyDto("ai_unavailable", "AI unavailable")),
-                            )
+                            ),
+                            redFlags = result.redFlags,
                         )
                         return
                     }
@@ -145,7 +150,7 @@ class SummaryViewModel(
             } catch (e: kotlinx.coroutines.CancellationException) {
                 throw e
             } catch (e: Exception) {
-                _state.value = SummaryState.AiUnavailable(lastSummary())
+                _state.value = SummaryState.AiUnavailable(lastSummary(), redFlags = aiRedFlags)
                 return
             }
         }
@@ -165,7 +170,7 @@ class SummaryViewModel(
         } catch (e: HttpException) {
             _state.value = SummaryState.Rejected(ApiErrors.parse(e)?.code, lastSummary())
         } catch (e: IOException) {
-            _state.value = SummaryState.AiUnavailable(lastSummary())
+            _state.value = SummaryState.AiUnavailable(lastSummary(), redFlags = aiRedFlags)
         }
     }
 

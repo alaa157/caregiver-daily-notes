@@ -30,42 +30,74 @@ class GeminiLlmClient(
         if (httpUrl == null || httpUrl.host.isEmpty()) {
             return@withContext LlmResult(LlmStatus.FALLBACK, "", "invalid_url", null)
         }
-        val isLoopback = httpUrl.host == "localhost" || httpUrl.host == "127.0.0.1"
-        if (httpUrl.scheme == "http" && !isLoopback) {
+        if (httpUrl.query != null || httpUrl.fragment != null ||
+            httpUrl.username.isNotEmpty() || httpUrl.password.isNotEmpty()) {
+            return@withContext LlmResult(LlmStatus.FALLBACK, "", "invalid_url", null)
+        }
+        if (httpUrl.scheme == "http" && !com.caregiver.mobile.data.api.ApiClient.isDevHost(httpUrl.host)) {
             return@withContext LlmResult(LlmStatus.FALLBACK, "", "invalid_url", null)
         }
         if (httpUrl.scheme !in listOf("http", "https")) {
             return@withContext LlmResult(LlmStatus.FALLBACK, "", "invalid_url", null)
         }
-        if (apiKey.isBlank() || apiKey.any { it.isISOControl() }) {
+        if (apiKey.isBlank() || apiKey.any { it.isWhitespace() || it.isISOControl() }) {
             return@withContext LlmResult(LlmStatus.FALLBACK, "", "invalid_key", null)
         }
-        val url = httpUrl.newBuilder().addPathSegments("v1beta/models/$model:generateContent").build().toString()
-        val bodyObj = buildJsonObject {
-            putJsonArray("contents") {
-                add(buildJsonObject {
+        val url = try {
+            httpUrl.newBuilder()
+                .addPathSegment("v1beta")
+                .addPathSegment("models")
+                .addPathSegment("$model:generateContent")
+                .build().toString()
+        } catch (e: kotlinx.coroutines.CancellationException) {
+            throw e
+        } catch (e: Exception) {
+            return@withContext LlmResult(LlmStatus.FALLBACK, "", "invalid_url", null)
+        }
+        val finalHttpUrl = url.toHttpUrlOrNull()
+        if (finalHttpUrl == null || finalHttpUrl.host.isEmpty() ||
+            (finalHttpUrl.scheme == "http" && !com.caregiver.mobile.data.api.ApiClient.isDevHost(finalHttpUrl.host)) ||
+            finalHttpUrl.scheme !in listOf("http", "https")) {
+            return@withContext LlmResult(LlmStatus.FALLBACK, "", "invalid_url", null)
+        }
+        val safeUrl = finalHttpUrl.toString()
+        val bodyObj = try {
+            buildJsonObject {
+                putJsonArray("contents") {
+                    add(buildJsonObject {
+                        putJsonArray("parts") {
+                            add(buildJsonObject { put("text", request.dataBlock) })
+                        }
+                    })
+                }
+                put("systemInstruction", buildJsonObject {
                     putJsonArray("parts") {
-                        add(buildJsonObject { put("text", request.dataBlock) })
+                        add(buildJsonObject { put("text", request.systemPrompt) })
                     }
                 })
+                put("generationConfig", buildJsonObject {
+                    put("maxOutputTokens", maxTokens)
+                    put("temperature", 0.2)
+                })
             }
-            put("systemInstruction", buildJsonObject {
-                putJsonArray("parts") {
-                    add(buildJsonObject { put("text", request.systemPrompt) })
-                }
-            })
-            put("generationConfig", buildJsonObject {
-                put("maxOutputTokens", maxTokens)
-                put("temperature", 0.2)
-            })
+        } catch (e: kotlinx.coroutines.CancellationException) {
+            throw e
+        } catch (e: Exception) {
+            return@withContext LlmResult(LlmStatus.FALLBACK, "", "invalid_request", null)
         }
-        val reqBody = json.encodeToString(JsonObject.serializer(), bodyObj)
-            .toRequestBody("application/json".toMediaType())
+        val reqBody = try {
+            json.encodeToString(JsonObject.serializer(), bodyObj)
+                .toRequestBody("application/json".toMediaType())
+        } catch (e: kotlinx.coroutines.CancellationException) {
+            throw e
+        } catch (e: Exception) {
+            return@withContext LlmResult(LlmStatus.FALLBACK, "", "invalid_request", null)
+        }
         var last: LlmResult = LlmResult(LlmStatus.FALLBACK, "", "network", null)
         repeat(3) { attempt ->
             try {
                 val httpReq = Request.Builder()
-                    .url(url)
+                    .url(safeUrl)
                     .addHeader("Content-Type", "application/json")
                     .addHeader("x-goog-api-key", apiKey)
                     .post(reqBody)

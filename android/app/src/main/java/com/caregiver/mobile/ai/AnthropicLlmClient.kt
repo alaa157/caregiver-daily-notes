@@ -30,37 +30,71 @@ class AnthropicLlmClient(
         if (httpUrl == null || httpUrl.host.isEmpty()) {
             return@withContext LlmResult(LlmStatus.FALLBACK, "", "invalid_url", null)
         }
-        val isLoopback = httpUrl.host == "localhost" || httpUrl.host == "127.0.0.1"
-        if (httpUrl.scheme == "http" && !isLoopback) {
+        if (httpUrl.query != null || httpUrl.fragment != null ||
+            httpUrl.username.isNotEmpty() || httpUrl.password.isNotEmpty()) {
+            return@withContext LlmResult(LlmStatus.FALLBACK, "", "invalid_url", null)
+        }
+        if (httpUrl.scheme == "http" && !com.caregiver.mobile.data.api.ApiClient.isDevHost(httpUrl.host)) {
             return@withContext LlmResult(LlmStatus.FALLBACK, "", "invalid_url", null)
         }
         if (httpUrl.scheme !in listOf("http", "https")) {
             return@withContext LlmResult(LlmStatus.FALLBACK, "", "invalid_url", null)
         }
-        if (apiKey.isBlank() || apiKey.any { it.isISOControl() }) {
+        if (apiKey.isBlank() || apiKey.any { it.isWhitespace() || it.isISOControl() }) {
             return@withContext LlmResult(LlmStatus.FALLBACK, "", "invalid_key", null)
         }
-        val normalizedUrl = if (httpUrl.encodedPath.endsWith("/v1") || httpUrl.encodedPath.endsWith("/v1/")) {
-            httpUrl.newBuilder().encodedPath(httpUrl.encodedPath.removeSuffix("/").removeSuffix("/v1") + "/").build()
-        } else {
-            httpUrl
-        }
-        val url = normalizedUrl.newBuilder().addPathSegments("v1/messages").build().toString()
-        val bodyObj = buildJsonObject {
-            put("model", model)
-            put("max_tokens", maxTokens)
-            put("system", request.systemPrompt)
-            putJsonArray("messages") {
-                add(buildJsonObject { put("role", "user"); put("content", request.dataBlock) })
+        val normalizedUrl = try {
+            if (httpUrl.encodedPath.endsWith("/v1") || httpUrl.encodedPath.endsWith("/v1/")) {
+                httpUrl.newBuilder().encodedPath(httpUrl.encodedPath.removeSuffix("/").removeSuffix("/v1") + "/").build()
+            } else {
+                httpUrl
             }
+        } catch (e: kotlinx.coroutines.CancellationException) {
+            throw e
+        } catch (e: Exception) {
+            return@withContext LlmResult(LlmStatus.FALLBACK, "", "invalid_url", null)
         }
-        val reqBody = json.encodeToString(JsonObject.serializer(), bodyObj)
-            .toRequestBody("application/json".toMediaType())
+        val url = try {
+            normalizedUrl.newBuilder().addPathSegments("v1/messages").build().toString()
+        } catch (e: kotlinx.coroutines.CancellationException) {
+            throw e
+        } catch (e: Exception) {
+            return@withContext LlmResult(LlmStatus.FALLBACK, "", "invalid_url", null)
+        }
+        val finalHttpUrl = url.toHttpUrlOrNull()
+        if (finalHttpUrl == null || finalHttpUrl.host.isEmpty() ||
+            (finalHttpUrl.scheme == "http" && !com.caregiver.mobile.data.api.ApiClient.isDevHost(finalHttpUrl.host)) ||
+            finalHttpUrl.scheme !in listOf("http", "https")) {
+            return@withContext LlmResult(LlmStatus.FALLBACK, "", "invalid_url", null)
+        }
+        val safeUrl = finalHttpUrl.toString()
+        val bodyObj = try {
+            buildJsonObject {
+                put("model", model)
+                put("max_tokens", maxTokens)
+                put("system", request.systemPrompt)
+                putJsonArray("messages") {
+                    add(buildJsonObject { put("role", "user"); put("content", request.dataBlock) })
+                }
+            }
+        } catch (e: kotlinx.coroutines.CancellationException) {
+            throw e
+        } catch (e: Exception) {
+            return@withContext LlmResult(LlmStatus.FALLBACK, "", "invalid_request", null)
+        }
+        val reqBody = try {
+            json.encodeToString(JsonObject.serializer(), bodyObj)
+                .toRequestBody("application/json".toMediaType())
+        } catch (e: kotlinx.coroutines.CancellationException) {
+            throw e
+        } catch (e: Exception) {
+            return@withContext LlmResult(LlmStatus.FALLBACK, "", "invalid_request", null)
+        }
         var last: LlmResult = LlmResult(LlmStatus.FALLBACK, "", "network", null)
         repeat(3) { attempt ->
             try {
                 val httpReq = Request.Builder()
-                    .url(url)
+                    .url(safeUrl)
                     .addHeader("Content-Type", "application/json")
                     .addHeader("x-api-key", apiKey)
                     .addHeader("anthropic-version", "2023-06-01")

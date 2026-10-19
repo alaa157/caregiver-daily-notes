@@ -8,7 +8,13 @@ import kotlinx.serialization.Serializable
 import kotlinx.serialization.json.Json
 
 @Serializable
-private data class ModelObs(val text: String = "", val noteId: String = "", val quote: String = "")
+private data class ModelObs(
+    val text: String = "",
+    val claim: String = "",
+    val noteId: String = "",
+    val quote: String = "",
+    val evidence: String = "",
+)
 
 @Serializable
 private data class ModelUnc(val topic: String = "", val detail: String = "")
@@ -75,10 +81,16 @@ class SummaryAiService(
         }
 
         // Validate and reject unsupported observations; keep only grounded ones.
+        // A claim must be non-empty, cite an existing note, cite a non-empty
+        // quote that occurs in that note, and be lexically supported by that
+        // quote. String matching alone is never treated as proof of truth: any
+        // observation that survives these checks is still labelled unverified.
         val validObservations = mutableListOf<ModelObs>()
         var hadInvalid = false
         for (obs in parsed.observations.take(50)) {
-            if (obs.text.isBlank()) {
+            val claim = if (obs.claim.isNotBlank()) obs.claim else obs.text
+            val rawQuote = if (obs.quote.isNotBlank()) obs.quote else obs.evidence
+            if (claim.isBlank()) {
                 hadInvalid = true
                 continue
             }
@@ -87,12 +99,16 @@ class SummaryAiService(
                 hadInvalid = true
                 continue
             }
-            val quote = ArabicNormalizer.normalize(obs.quote)
+            val quote = ArabicNormalizer.normalize(rawQuote)
             if (quote.isEmpty() || !noteText.contains(quote)) {
                 hadInvalid = true
                 continue
             }
-            validObservations += obs
+            if (!claimSupportedByQuote(claim, rawQuote)) {
+                hadInvalid = true
+                continue
+            }
+            validObservations += ModelObs(text = claim, noteId = obs.noteId, quote = rawQuote)
         }
 
         val evidence = validObservations.map { SummaryDto.EvidenceDto(noteId = it.noteId, quote = it.quote) }
@@ -104,8 +120,10 @@ class SummaryAiService(
             uncertainties += SummaryDto.UncertaintyDto("unverified_claim", "AI-generated observations are based on quote matching and require clinical verification")
         }
         val text = validObservations.joinToString(" ") { it.text }
-        // If the model produced observations but none survived validation,
-        // treat as a failure rather than a (misleading) successful summary.
+        // A structurally valid response with no surviving observations is a
+        // legitimate empty result, not an AI failure: the model found no
+        // supported observations. Only reject when observations were present
+        // but none survived validation.
         if (parsed.observations.isNotEmpty() && validObservations.isEmpty()) {
             return SummaryAiResult.Failure(redFlags, "invalid_evidence")
         }
@@ -121,5 +139,38 @@ class SummaryAiService(
                 uncertainties = uncertainties,
             )
         )
+    }
+    /**
+     * Conservative lexical support check. It does not attempt to prove that a
+     * claim is true; it only rejects claims that introduce terms (or
+     * negations) not present in the cited quote. Claims that pass are still
+     * labelled as unverified by the caller.
+     */
+    private fun claimSupportedByQuote(claim: String, quote: String): Boolean {
+        val nClaim = ArabicNormalizer.normalize(claim)
+        val nQuote = ArabicNormalizer.normalize(quote)
+        if (nClaim.isEmpty() || nQuote.isEmpty()) return false
+        if (nQuote.contains(nClaim)) return true
+
+        val stopwords = setOf(
+            "a", "an", "the", "and", "or", "but", "if", "to", "of", "in", "on",
+            "at", "for", "with", "by", "as", "is", "are", "was", "were", "be",
+            "been", "has", "have", "had", "it", "its", "this", "that", "these",
+            "those", "patient", "today",
+            "في", "من", "على", "الى", "إلى", "عن", "مع", "و", "ف", "ب", "ل",
+            "هذا", "هذه", "هو", "هي", "كان", "قد", "أن", "إن",
+        )
+        val claimTokens = nClaim.split(Regex("\\s+")).filter { it.isNotBlank() && it !in stopwords }
+        if (claimTokens.isEmpty()) return true
+        val quoteTokens = nQuote.split(Regex("\\s+")).filter { it.isNotBlank() }
+        val negations = setOf("not", "no", "never", "without", "didn't", "doesnt", "don't", "cannot", "cant",
+            "لم", "لا", "لن", "ما", "بلا", "بدون")
+        for (token in claimTokens) {
+            if (token in negations && token !in quoteTokens) return false
+        }
+        val supported = claimTokens.count { ct ->
+            quoteTokens.any { qt -> qt.contains(ct) || ct.contains(qt) }
+        }
+        return supported * 100 >= claimTokens.size * 80
     }
 }
