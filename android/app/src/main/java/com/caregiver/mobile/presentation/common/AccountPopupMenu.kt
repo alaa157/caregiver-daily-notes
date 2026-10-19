@@ -37,7 +37,7 @@ fun AccountPopupMenu(
     modifier: Modifier = Modifier,
 ) {
     Surface(
-        modifier = modifier,
+        modifier = modifier.fillMaxWidth(0.9f),
         shape = RoundedCornerShape(16.dp),
         tonalElevation = 8.dp,
         color = MaterialTheme.colorScheme.surface,
