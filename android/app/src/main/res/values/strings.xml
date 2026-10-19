@@ -234,6 +234,14 @@
     <string name="settings_ai_provider">Provider</string>
     <string name="settings_ai_api_key">API key</string>
     <string name="settings_ai_set_api_key">Set API key</string>
+    <string name="settings_ai_setup_guide">Setup guide</string>
+    <string name="settings_ai_setup_guide_title">Set up %1$s</string>
+    <string name="settings_ai_setup_step1">1. Open the official provider website.</string>
+    <string name="settings_ai_setup_step2">2. Sign in or create an API account.</string>
+    <string name="settings_ai_setup_step3">3. Create an API key and copy it.</string>
+    <string name="settings_ai_setup_step4">4. Return here, paste the key, and test the connection.</string>
+    <string name="settings_ai_open_website">Open official website</string>
+    <string name="settings_ai_cost_note">API usage may incur charges. Costs depend on model and usage.</string>
     <string name="settings_ai_model">Model</string>
     <string name="settings_ai_custom_model">Custom model</string>
     <string name="settings_ai_suggestions">Suggestions:</string>

@@ -234,6 +234,14 @@
     <string name="settings_ai_provider">المزود</string>
     <string name="settings_ai_api_key">مفتاح API</string>
     <string name="settings_ai_set_api_key">تعيين مفتاح API</string>
+    <string name="settings_ai_setup_guide">دليل الإعداد</string>
+    <string name="settings_ai_setup_guide_title">إعداد %1$s</string>
+    <string name="settings_ai_setup_step1">1. افتح الموقع الرسمي للمزود.</string>
+    <string name="settings_ai_setup_step2">2. سجّل الدخول أو أنشئ حساب API.</string>
+    <string name="settings_ai_setup_step3">3. أنشئ مفتاح API وانسخه.</string>
+    <string name="settings_ai_setup_step4">4. عد إلى هنا، الصق المفتاح، واختبر الاتصال.</string>
+    <string name="settings_ai_open_website">فتح الموقع الرسمي</string>
+    <string name="settings_ai_cost_note">قد يترتب على استخدام API تكاليف. تعتمد التكلفة على النموذج والاستخدام.</string>
     <string name="settings_ai_model">النموذج</string>
     <string name="settings_ai_custom_model">نموذج مخصص</string>
     <string name="settings_ai_suggestions">اقتراحات:</string>
