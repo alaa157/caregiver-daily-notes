@@ -343,7 +343,10 @@ private fun SummaryBody(
                 exporting = true
                 exportScope.launch {
                     try {
-                        val notes = try { graph.apis.notes().history(summary.recipientId, null, null) } catch (e: Exception) { emptyList() }
+                        val today = java.time.LocalDate.now()
+                        val from = com.caregiver.mobile.ai.SummaryWindow.start(today, periodDays).toString()
+                        val to = today.toString()
+                        val notes = try { graph.apis.notes().history(summary.recipientId, from, to) } catch (e: Exception) { emptyList() }
                         val recipientName = try { graph.apis.recipients().get(summary.recipientId).name } catch (e: Exception) { null }
                         val uri = com.caregiver.mobile.data.export.CareSummaryPdfExporter.export(
                             graph.context,
@@ -455,7 +458,10 @@ private fun SummaryBody(
                                 showShareConfirm = false
                                 exportScope.launch {
                                     try {
-                                        val notes = try { graph.apis.notes().history(recipientId, null, null) } catch (e: Exception) { emptyList() }
+                                        val today = java.time.LocalDate.now()
+                                        val from = com.caregiver.mobile.ai.SummaryWindow.start(today, periodDays).toString()
+                                        val to = today.toString()
+                                        val notes = try { graph.apis.notes().history(recipientId, from, to) } catch (e: Exception) { emptyList() }
                                         val recipientName = try { graph.apis.recipients().get(recipientId).name } catch (e: Exception) { null }
                                         val uri = com.caregiver.mobile.data.export.CareSummaryPdfExporter.export(
                                             context,

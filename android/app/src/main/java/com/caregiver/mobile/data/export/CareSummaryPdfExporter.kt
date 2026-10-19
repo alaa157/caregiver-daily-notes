@@ -120,7 +120,7 @@ object CareSummaryPdfExporter {
             }
         }
 
-        drawTextBlock(if (ar) "الاتجاهات والملاحظات" else "Trends and observations", sectionPaint, 4f)
+        drawTextBlock(if (ar) "الملاحظات المسجلة" else "Recorded observations", sectionPaint, 4f)
         val trendLines = mutableListOf<String>()
         notes.sortedBy { it.date }.forEach { n ->
             val parts = mutableListOf<String>()
