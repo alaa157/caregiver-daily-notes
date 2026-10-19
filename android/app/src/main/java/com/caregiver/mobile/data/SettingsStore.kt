@@ -25,6 +25,7 @@ class SettingsStore(private val dataStore: DataStore<Preferences>) {
     val themeMode: Flow<String> = dataStore.data.map { it[THEME_MODE] ?: DEFAULT_THEME_MODE }
     val pureBlack: Flow<Boolean> = dataStore.data.map { it[PURE_BLACK] ?: false }
     val colorPalette: Flow<String> = dataStore.data.map { it[COLOR_PALETTE] ?: DEFAULT_COLOR_PALETTE }
+    val onboardingCompleted: Flow<Boolean> = dataStore.data.map { it[ONBOARDING_COMPLETED] ?: false }
 
     suspend fun setBaseUrl(url: String) {
         dataStore.edit { it[BASE_URL] = url }
@@ -70,6 +71,10 @@ class SettingsStore(private val dataStore: DataStore<Preferences>) {
         dataStore.edit { it[COLOR_PALETTE] = palette }
     }
 
+    suspend fun setOnboardingCompleted() {
+        dataStore.edit { it[ONBOARDING_COMPLETED] = true }
+    }
+
     suspend fun setColorPalette(palette: Any?) {
         setColorPalette(palette?.toString() ?: DEFAULT_COLOR_PALETTE)
     }
@@ -87,6 +92,7 @@ class SettingsStore(private val dataStore: DataStore<Preferences>) {
         private val THEME_MODE = stringPreferencesKey("theme_mode")
         private val COLOR_PALETTE = stringPreferencesKey("color_palette")
         private val PURE_BLACK = booleanPreferencesKey("pure_black")
+        private val ONBOARDING_COMPLETED = booleanPreferencesKey("onboarding_completed")
 
         fun create(context: Context, name: String = "settings"): SettingsStore =
             SettingsStoreRegistry.getOrCreate(name) { context.preferencesDataStoreFile(name) }
