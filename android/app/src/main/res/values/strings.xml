@@ -368,4 +368,66 @@
     <string name="reset">Reset</string>
     <string name="lyrics_offset">Lyrics offset</string>
     <string name="create_playlist">Create playlist</string>
+
+    <!-- CSV import/export (Data &amp; Backup): on-device note transfer. -->
+    <string name="settings_data_backup">Data &amp; Backup</string>
+    <string name="csv_import_title">Import from CSV</string>
+    <string name="csv_import_description">Import daily care notes from a CSV file.</string>
+    <string name="csv_export_title">Export to CSV</string>
+    <string name="csv_export_description">Export daily care notes to a spreadsheet.</string>
+    <string name="csv_export_file_name">caregiver-notes-%1$s.csv</string>
+    <string name="csv_export_working">Exporting notes…</string>
+    <string name="csv_export_success">Exported %1$d notes to the chosen file.</string>
+    <string name="csv_export_empty">There are no notes to export yet. A file with the header only was saved.</string>
+    <string name="csv_export_failed">Export failed. %1$s</string>
+    <string name="csv_import_working">Importing notes…</string>
+    <string name="csv_import_preview_title">Review import</string>
+    <string name="csv_import_total">Rows in file: %1$d</string>
+    <string name="csv_import_valid">Ready to import: %1$d</string>
+    <string name="csv_import_duplicates">Already recorded (will be skipped): %1$d</string>
+    <string name="csv_import_invalid">Invalid rows (will be skipped): %1$d</string>
+    <string name="csv_import_nothing_ready">Nothing is ready to import: every row was skipped, duplicated, or invalid.</string>
+    <string name="csv_import_unmatched_heading">Recipients not found</string>
+    <string name="csv_import_unmatched_entry">%1$s — %2$d rows</string>
+    <string name="csv_import_unmatched_hint">Choose the person these notes belong to, or leave them skipped. Notes are never attached to a different person automatically.</string>
+    <string name="csv_import_skip">Skip these rows</string>
+    <string name="csv_import_inactive">(inactive)</string>
+    <string name="csv_import_duplicate_policy">A note that already exists for the same person and day is skipped; nothing is overwritten or deleted.</string>
+    <string name="csv_import_server_date_note">This server assigns the date when a note is saved, so only rows dated today can be imported here. Other rows are skipped.</string>
+    <string name="csv_import_extra_headers">Columns not used by the app were ignored: %1$s</string>
+    <string name="csv_import_invalid_row">Row %1$d: %2$s</string>
+    <string name="csv_import_more_rows">…and %1$d more</string>
+    <string name="csv_import_start">Import</string>
+    <string name="csv_import_summary">Imported %1$d, skipped %2$d, duplicates %3$d, invalid %4$d.</string>
+    <string name="csv_import_summary_failed">Some rows could not be imported. Check that the app can store notes and try again.</string>
+    <string name="csv_import_failed">Import failed. %1$s</string>
+    <string name="csv_dismiss">Dismiss</string>
+
+    <!-- CSV errors and per-row reasons (technical context only, never note content). -->
+    <string name="csv_error_read">The file could not be read. Try copying it to this device and picking it again.</string>
+    <string name="csv_error_too_large">The file is larger than %1$d MB. Export first or split it into smaller files.</string>
+    <string name="csv_error_malformed">The file is not valid CSV (line %1$d).</string>
+    <string name="csv_error_malformed_generic">The file is not valid CSV.</string>
+    <string name="csv_error_missing_headers">Required columns are missing: %1$s.</string>
+    <string name="csv_error_duplicate_headers">The file has duplicate columns: %1$s.</string>
+    <string name="csv_error_empty">The file is empty.</string>
+    <string name="csv_error_no_rows">The file has a header but no note rows.</string>
+    <string name="csv_error_source">The current notes could not be read.</string>
+    <string name="csv_error_write">The file could not be saved. Try a different location.</string>
+    <string name="csv_error_insert">The notes could not be saved.</string>
+    <string name="csv_error_unknown">Something went wrong.</string>
+
+    <string name="csv_issue_field_count">wrong number of columns</string>
+    <string name="csv_issue_date_required">date is required</string>
+    <string name="csv_issue_date">invalid date (use YYYY-MM-DD)</string>
+    <string name="csv_issue_date_not_supported">only notes dated today can be imported to this server</string>
+    <string name="csv_issue_pain">pain must be a number from 0 to 10</string>
+    <string name="csv_issue_fall">fall must be true or false</string>
+    <string name="csv_issue_mood">mood is required</string>
+    <string name="csv_issue_too_long">%1$s is too long</string>
+    <string name="csv_issue_text">note text is required</string>
+    <string name="csv_issue_recipient">recipient is required</string>
+    <string name="csv_issue_unmatched">recipient was not found in this app</string>
+    <string name="csv_issue_duplicate">a note already exists for this person and day</string>
+    <string name="csv_issue_unknown">could not be read</string>
 </resources>

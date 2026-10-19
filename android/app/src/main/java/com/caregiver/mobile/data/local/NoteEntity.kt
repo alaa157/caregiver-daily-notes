@@ -112,6 +112,15 @@ interface NoteDao {
     @Insert(onConflict = OnConflictStrategy.REPLACE)
     suspend fun insertAll(items: List<NoteEntity>)
 
+    /**
+     * CSV import write: like [insertAll] but aborts on a primary-key
+     * collision instead of replacing the row. Imported rows always get
+     * fresh local ids, so a collision means a bug; it must roll the whole
+     * import transaction back rather than silently overwrite a note.
+     */
+    @Insert(onConflict = OnConflictStrategy.ABORT)
+    suspend fun insertImported(items: List<NoteEntity>)
+
     @Query(
         """
         DELETE FROM notes
