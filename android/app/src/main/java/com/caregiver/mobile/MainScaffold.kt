@@ -37,9 +37,6 @@ import androidx.compose.material.icons.outlined.People
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.FloatingActionButton
 import androidx.compose.material3.Icon
-import androidx.compose.material3.NavigationBar
-import androidx.compose.material3.NavigationBarItem
-import androidx.compose.material3.NavigationBarItemDefaults
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Surface
@@ -62,7 +59,6 @@ import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.dp
-import androidx.compose.ui.unit.sp
 import androidx.navigation.NavGraph.Companion.findStartDestination
 import androidx.navigation.NavType
 import androidx.navigation.compose.NavHost
@@ -103,6 +99,8 @@ import com.caregiver.mobile.presentation.recipients.RecipientsViewModel
 import com.caregiver.mobile.presentation.settings.SettingsScreen
 import com.caregiver.mobile.presentation.summary.SummaryPeriodScreen
 import com.caregiver.mobile.presentation.summary.SummaryResultScreen
+import com.caregiver.mobile.ui.component.AppNavigationBar
+import com.caregiver.mobile.ui.component.AppTabItem
 import java.time.LocalDate
 import kotlinx.coroutines.launch
 
@@ -123,6 +121,30 @@ fun MainScaffold(graph: AppGraph) {
     // forward moves enter from the right, back moves from the left.
     val routeIndexMap = remember {
         MainTab.entries.mapIndexed { index, tab -> tab.route to index }.toMap()
+    }
+
+    // Metrolist-pattern nav shell input (ui/component/AppNavigation.kt):
+    // each tab as an AppTabItem — route, label resource, and the
+    // filled/outlined icon pair the bar picks by selection state.
+    val navigationItems = remember {
+        MainTab.entries.map { tab ->
+            AppTabItem(
+                route = tab.route,
+                titleRes = tab.titleRes,
+                activeIcon = when (tab) {
+                    MainTab.Home -> Icons.Filled.Home
+                    MainTab.People -> Icons.Filled.People
+                    MainTab.Notes -> Icons.Filled.NoteAdd
+                    MainTab.History -> Icons.Filled.History
+                },
+                inactiveIcon = when (tab) {
+                    MainTab.Home -> Icons.Outlined.Home
+                    MainTab.People -> Icons.Outlined.People
+                    MainTab.Notes -> Icons.Outlined.NoteAdd
+                    MainTab.History -> Icons.Outlined.History
+                },
+            )
+        }
     }
 
     // X-style shared top bar, tab routes only; it hides on scroll-down and
@@ -237,70 +259,37 @@ fun MainScaffold(graph: AppGraph) {
                     // wrap the fixed height, otherwise the padding eats into the
                     // 64dp strip and squeezes the icons (visible on 3-button
                     // navigation, where the inset is ~48dp).
-                    NavigationBar(
-                        containerColor = MaterialTheme.colorScheme.surface,
-                        windowInsets = WindowInsets(0, 0, 0, 0),
+                    // Metrolist-pattern bar (ui/component/AppNavigation.kt):
+                    // route-template selection with a per-tab child-ownership
+                    // table; the active-tab re-tap contract (one
+                    // ScrollToTop.emit per tap), the tab_* test tags via the
+                    // itemModifier hook, the transparent selection indicator,
+                    // and the zero-inset compact strip all carry over.
+                    AppNavigationBar(
+                        navigationItems = navigationItems,
+                        currentRoute = currentRoute,
+                        onItemClick = { item, selected ->
+                            if (selected) {
+                                // X pattern: re-tapping the ACTIVE tab must not
+                                // navigate. It asks that tab's list to scroll
+                                // back to top (screens start collecting
+                                // ScrollToTop.events in a later task).
+                                ScrollToTop.emit(item.route)
+                            } else {
+                                // Save/restore each tab's state: switching
+                                // tabs keeps scroll position, and the re-tap
+                                // path above handles "back to top".
+                                navigateToTab(item.route)
+                            }
+                        },
                         modifier = Modifier
                             .fillMaxWidth()
                             .windowInsetsPadding(WindowInsets.navigationBars)
                             .height(AppDimens.BottomNavH),
-                    ) {
-                    MainTab.entries.forEach { tab ->
-                        val selected = currentRoute == tab.route
-                        NavigationBarItem(
-                            selected = selected,
-                            onClick = {
-                                if (selected) {
-                                    // X pattern: re-tapping the ACTIVE tab must not
-                                    // navigate. It asks that tab's list to scroll
-                                    // back to top (screens start collecting
-                                    // ScrollToTop.events in a later task).
-                                    ScrollToTop.emit(tab.route)
-                                } else {
-                                    // Save/restore each tab's state: switching
-                                    // tabs keeps scroll position, and the re-tap
-                                    // path above handles "back to top".
-                                    navigateToTab(tab.route)
-                                }
-                            },
-                            // Show labels so destinations are discoverable.
-                            alwaysShowLabel = true,
-                            icon = {
-                                Icon(
-                                    imageVector = if (selected) {
-                                        when (tab) {
-                                            MainTab.Home -> Icons.Filled.Home
-                                            MainTab.People -> Icons.Filled.People
-                                            MainTab.Notes -> Icons.Filled.NoteAdd
-                                            MainTab.History -> Icons.Filled.History
-                                        }
-                                    } else {
-                                        when (tab) {
-                                            MainTab.Home -> Icons.Outlined.Home
-                                            MainTab.People -> Icons.Outlined.People
-                                            MainTab.Notes -> Icons.Outlined.NoteAdd
-                                            MainTab.History -> Icons.Outlined.History
-                                        }
-                                    },
-                                    contentDescription = stringResource(tab.titleRes),
-                                    modifier = Modifier.size(AppDimens.BottomNavIcon),
-                                )
-                            },
-                            label = {
-                                Text(
-                                    text = stringResource(tab.titleRes),
-                                    fontSize = 11.sp,
-                                )
-                            },
-                            colors = NavigationBarItemDefaults.colors(
-                                selectedIconColor = MaterialTheme.colorScheme.primary,
-                                unselectedIconColor = MaterialTheme.colorScheme.onSurfaceVariant,
-                                indicatorColor = Color.Transparent,
-                            ),
-                            modifier = Modifier.testTag("tab_${tab.route}"),
-                        )
-                    }
-                    }
+                        // The bar's tag contract rides through the hook so
+                        // the shell keeps composing tags per tab.
+                        itemModifier = { item -> Modifier.testTag("tab_${item.route}") },
+                    )
                 }
             },
             floatingActionButton = {
