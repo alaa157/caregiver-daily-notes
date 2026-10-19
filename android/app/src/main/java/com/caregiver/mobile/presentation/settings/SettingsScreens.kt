@@ -55,7 +55,6 @@ import com.caregiver.mobile.AppGraph
 import com.caregiver.mobile.R
 import com.caregiver.mobile.core.theme.CaregiverColors
 import com.caregiver.mobile.core.theme.ColorPalettes
-import com.caregiver.mobile.core.theme.PlexArabic
 import com.caregiver.mobile.core.theme.THEME_MODE_DARK
 import com.caregiver.mobile.core.theme.THEME_MODE_LIGHT
 import com.caregiver.mobile.core.theme.THEME_MODE_SYSTEM
@@ -146,12 +145,6 @@ fun SettingsScreen(graph: AppGraph, navController: NavController) {
                     label = { Text("English") },
                 )
             }
-            Text(
-                text = stringResource(R.string.settings_language_restart),
-                fontFamily = PlexArabic,
-                style = MaterialTheme.typography.bodySmall,
-                color = MaterialTheme.colorScheme.onSurfaceVariant,
-            )
         }
 
         // Application-specific: AI

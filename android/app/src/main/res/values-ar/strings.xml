@@ -142,7 +142,6 @@
     <string name="settings_url_invalid">عنوان غير صالح. مثال: https://example.com</string>
     <string name="settings_url_http_local">يُسمح بـ HTTP للخوادم المحلية فقط.</string>
     <string name="settings_language">اللغة</string>
-    <string name="settings_language_restart">أعد فتح التطبيق لتطبيق الاتجاه.</string>
     <string name="settings_logout">تسجيل الخروج</string>
     <string name="auth_server_link">إعدادات الخادم</string>
     <!-- HTML 1:1 additions — نص المرجع حرفياً -->
@@ -321,9 +320,9 @@
     <string name="palette_grey">Grey</string>
     <string name="palette_blue_grey">Blue Grey</string>
     <string name="settings_theme_colors">Theme &amp; Colors</string>
-    <string name="theme_mode">Theme Mode</string>
-    <string name="color_palette">Color Palette</string>
-    <string name="pure_black">Pure black</string>
+    <string name="theme_mode">وضع المظهر</string>
+    <string name="color_palette">لوحة الألوان</string>
+    <string name="pure_black">أسود كامل</string>
     <string name="dark_theme_on">On</string>
     <string name="dark_theme_off">Off</string>
     <string name="dark_theme_follow_system">Follow system</string>

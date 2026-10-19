@@ -127,17 +127,17 @@ fun ThemeColorsScreen(graph: AppGraph, navController: NavController) {
                 verticalAlignment = Alignment.CenterVertically,
             ) {
                 ModeCircleOption(
-                    label = "System",
+                    label = stringResource(R.string.settings_mode_system),
                     selected = themeMode == "system",
                     onClick = { scope.launch { graph.settings.setThemeMode("system") } },
                 )
                 ModeCircleOption(
-                    label = "Light",
+                    label = stringResource(R.string.settings_mode_light),
                     selected = themeMode == "light",
                     onClick = { scope.launch { graph.settings.setThemeMode("light") } },
                 )
                 ModeCircleOption(
-                    label = "Dark",
+                    label = stringResource(R.string.settings_mode_dark),
                     selected = themeMode == "dark",
                     onClick = { scope.launch { graph.settings.setThemeMode("dark") } },
                 )
@@ -146,7 +146,7 @@ fun ThemeColorsScreen(graph: AppGraph, navController: NavController) {
                 modifier = Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 8.dp),
                 verticalAlignment = Alignment.CenterVertically,
             ) {
-                Text("Pure black", modifier = Modifier.weight(1f))
+                Text(stringResource(R.string.pure_black), modifier = Modifier.weight(1f))
                 androidx.compose.material3.Switch(
                     checked = pureBlack,
                     onCheckedChange = { scope.launch { graph.settings.setPureBlack(it) } },
@@ -224,11 +224,12 @@ private fun ModeCircleOption(label: String, selected: Boolean, onClick: () -> Un
 @Composable
 private fun PaletteSwatch(palette: ThemePalette, isSelected: Boolean, onClick: () -> Unit) {
     val seed = palette.seedColor
+    val label = stringResource(palette.nameRes)
     androidx.compose.material3.Surface(
         onClick = onClick,
         shape = RoundedCornerShape(12.dp),
         color = if (seed == androidx.compose.ui.graphics.Color.Transparent) MaterialTheme.colorScheme.surfaceVariant else seed,
-        modifier = Modifier.size(48.dp),
+        modifier = Modifier.size(48.dp).semantics { contentDescription = label },
         border = if (isSelected) androidx.compose.foundation.BorderStroke(3.dp, MaterialTheme.colorScheme.primary) else null,
     ) {
         Box(contentAlignment = Alignment.Center) {

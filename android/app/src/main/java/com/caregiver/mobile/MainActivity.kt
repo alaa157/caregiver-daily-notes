@@ -1,5 +1,6 @@
 package com.caregiver.mobile
 
+import android.content.Context
 import android.os.Bundle
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
@@ -9,11 +10,27 @@ import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import com.caregiver.mobile.core.theme.CaregiverTheme
 import com.caregiver.mobile.core.theme.resolveDarkTheme
+import com.caregiver.mobile.core.util.LocaleHelper
 import com.caregiver.mobile.data.SettingsStore
 import com.caregiver.mobile.ui.component.shimmer.ShimmerTheme
 import com.valentinilk.shimmer.LocalShimmerTheme
 
 class MainActivity : ComponentActivity() {
+
+    /**
+     * Apply the stored language to this activity's resources before the first
+     * frame. `CaregiverApp` seeds [LocaleHelper]'s cache from the settings
+     * store at process start and `SettingsStore.setLanguage` refreshes it, so
+     * the recreation the language chips trigger lands here with the new
+     * language: visible text, RTL direction, and every localized resource
+     * follow the selection without a flash of the old language.
+     */
+    override fun attachBaseContext(newBase: Context) {
+        super.attachBaseContext(
+            LocaleHelper.wrap(newBase, LocaleHelper.cachedOr(SettingsStore.DEFAULT_LANGUAGE)),
+        )
+    }
+
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         val graph = (application as CaregiverApp).graph
