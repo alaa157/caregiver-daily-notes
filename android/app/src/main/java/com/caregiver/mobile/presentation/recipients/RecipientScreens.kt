@@ -2,6 +2,7 @@ package com.caregiver.mobile.presentation.recipients
 
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
@@ -129,7 +130,7 @@ fun RecipientsScreen(graph: AppGraph, navController: NavController) {
                 )
                 if (count != null) {
                     Text(
-                        text = "$count",
+                        text = if (count == 1) "$count person" else "$count people",
                         fontFamily = PlexArabic,
                         fontSize = 13.sp,
                         color = CaregiverColors.Muted,
@@ -153,7 +154,7 @@ fun RecipientsScreen(graph: AppGraph, navController: NavController) {
                             onAction = { navController.navigate(AppDestinations.AddRecipient.base) },
                         )
                     } else {
-                        LazyColumn(state = listState, verticalArrangement = Arrangement.spacedBy(12.dp)) {
+                        LazyColumn(state = listState, verticalArrangement = Arrangement.spacedBy(12.dp), contentPadding = PaddingValues(bottom = 96.dp)) {
                             items(s.recipients, key = { it.id }) { recipient ->
                                 PersonRow(recipient) {
                                     navController.navigate(AppRoutes.recipientDetail(recipient.id))

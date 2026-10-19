@@ -1,6 +1,13 @@
 package com.caregiver.mobile
 
 import android.app.Application
+import coil3.SingletonImageLoader
+import coil3.ImageLoader
+import coil3.PlatformContext
+import coil3.request.crossfade
+import coil3.disk.DiskCache
+import coil3.memory.MemoryCache
+
 import android.content.Context
 import com.caregiver.mobile.core.network.TokenHolder
 import com.caregiver.mobile.core.util.LocaleHelper
@@ -25,7 +32,7 @@ import com.caregiver.mobile.ai.LlmClientFactory
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.runBlocking
 
-class CaregiverApp : Application() {
+class CaregiverApp : Application(), SingletonImageLoader.Factory {
     val graph: AppGraph by lazy { AppGraph(this) }
 
     override fun attachBaseContext(base: Context) {
@@ -47,6 +54,19 @@ class CaregiverApp : Application() {
         // with; activities are created after this runs.
         LocaleHelper.cache(language)
         super.attachBaseContext(LocaleHelper.wrap(base, language))
+    }
+
+    override fun newImageLoader(context: PlatformContext): ImageLoader {
+        return ImageLoader.Builder(this).apply {
+            crossfade(true)
+            allowHardware(android.os.Build.VERSION.SDK_INT >= android.os.Build.VERSION_CODES.P)
+            memoryCache {
+                MemoryCache.Builder().maxSizePercent(context, 0.15).build()
+            }
+            diskCache(
+                DiskCache.Builder().directory(cacheDir.resolve("coil")).maxSizeBytes(512L * 1024 * 1024).build()
+            )
+        }.build()
     }
 
     override fun onCreate() {
