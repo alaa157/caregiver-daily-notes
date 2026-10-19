@@ -14,16 +14,19 @@ import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.LocalTextStyle
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
+import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableIntStateOf
+import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.platform.LocalConfiguration
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontWeight
@@ -55,8 +58,8 @@ import com.caregiver.mobile.presentation.common.assistedViewModel
 import com.caregiver.mobile.presentation.home.LoadFailed
 import com.caregiver.mobile.presentation.home.LoadingRow
 import com.caregiver.mobile.ui.component.ChipsRow
+import com.caregiver.mobile.ui.component.DefaultDialog
 import java.time.LocalDate
-import java.util.Locale
 
 /**
  * Summary period picker (board 10): blue info alert + period chips +
@@ -313,12 +316,20 @@ private fun SummaryBody(
             )
         }
         // "Share with doctor": only when a real, usable summary exists.
-        // The offline demo summary is an illustration, never shareable. The
-        // chooser launches exactly once per tap (plain onClick — no
-        // composition-driven launch); a failed launch degrades silently, so
-        // it can never crash the screen or log the summary text.
+        // The offline demo summary is an illustration, never shareable.
+        //
+        // Tapping never shares on its own: the tap opens a privacy
+        // confirmation first (the summary may contain sensitive care or
+        // health information), and only "Continue" opens the system share
+        // sheet — exactly once per confirmation (launch guard), with
+        // failures degrading silently so the screen can never crash and the
+        // summary text can never leak into logs.
         val context = LocalContext.current
-        val arabic = Locale.getDefault().language == "ar"
+        // Effective per-app locale (the LocaleHelper-wrapped configuration),
+        // not the process default: the app language may differ from the
+        // device language, and the shared message — including its date
+        // format — must follow the language the user actually sees.
+        val arabic = LocalConfiguration.current.locales[0].language == "ar"
         val appName = stringResource(R.string.app_name)
         val shareText = remember(summary.text, arabic) {
             CareSummaryShare.shareText(
@@ -328,12 +339,54 @@ private fun SummaryBody(
                 arabic = arabic,
             )
         }
+        var showShareConfirm by rememberSaveable { mutableStateOf(false) }
+        var shareLaunched by remember { mutableStateOf(false) }
         if (shareText != null && !isDemo) {
             PrimaryButton(
                 label = stringResource(R.string.share_summary_action),
-                onClick = { CareSummaryShare.launch(context, shareText) },
+                onClick = {
+                    // Re-opening the confirmation rearms the launch guard.
+                    shareLaunched = false
+                    showShareConfirm = true
+                },
                 height = 52.dp,
             )
+        }
+        if (showShareConfirm && shareText != null) {
+            DefaultDialog(
+                onDismiss = { showShareConfirm = false },
+                title = {
+                    Text(
+                        text = stringResource(R.string.share_summary_confirm_title),
+                        style = MaterialTheme.typography.headlineSmall,
+                    )
+                },
+                buttons = {
+                    TextButton(
+                        onClick = { showShareConfirm = false },
+                        modifier = Modifier.weight(1f),
+                    ) {
+                        Text(stringResource(R.string.common_cancel))
+                    }
+                    TextButton(
+                        onClick = {
+                            if (!shareLaunched) {
+                                // Armed before the launch: a rapid double-tap
+                                // cannot open two share sheets from one
+                                // confirmation.
+                                shareLaunched = true
+                                showShareConfirm = false
+                                CareSummaryShare.launch(context, shareText)
+                            }
+                        },
+                        modifier = Modifier.weight(1f),
+                    ) {
+                        Text(stringResource(R.string.share_summary_confirm_continue))
+                    }
+                },
+            ) {
+                Text(stringResource(R.string.share_summary_confirm_body))
+            }
         }
         PrimaryButton(
             label = stringResource(R.string.summary_proposals),
