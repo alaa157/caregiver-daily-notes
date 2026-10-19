@@ -2,31 +2,29 @@ package com.caregiver.mobile.presentation.summary
 
 import android.util.Log
 
-import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
-import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.rememberScrollState
-import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
-import androidx.compose.material3.FilterChip
-import androidx.compose.material3.FilterChipDefaults
+import androidx.compose.material3.LocalTextStyle
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableIntStateOf
+import androidx.compose.runtime.remember
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
@@ -39,6 +37,7 @@ import com.caregiver.mobile.core.navigation.AppDestinations
 import com.caregiver.mobile.core.theme.CaregiverColors
 import com.caregiver.mobile.presentation.common.AppDimens
 import com.caregiver.mobile.core.theme.PlexArabic
+import com.caregiver.mobile.core.time.DateFormats
 import com.caregiver.mobile.data.api.SummaryDto
 import com.caregiver.mobile.presentation.common.AppCard
 import com.caregiver.mobile.presentation.common.AppTopBar
@@ -55,6 +54,9 @@ import com.caregiver.mobile.presentation.common.UnclearBox
 import com.caregiver.mobile.presentation.common.assistedViewModel
 import com.caregiver.mobile.presentation.home.LoadFailed
 import com.caregiver.mobile.presentation.home.LoadingRow
+import com.caregiver.mobile.ui.component.ChipsRow
+import java.time.LocalDate
+import java.util.Locale
 
 /**
  * Summary period picker (board 10): blue info alert + period chips +
@@ -85,40 +87,20 @@ fun SummaryPeriodScreen(recipientId: String, graph: AppGraph, navController: Nav
                 fontSize = 14.sp,
                 color = CaregiverColors.Ink,
             )
-            Row(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
-                SummaryViewModel.PERIODS.forEach { days ->
-                    FilterChip(
-                        selected = period == days,
-                        onClick = { period = days },
-                        label = {
-                            Row(
-                                horizontalArrangement = Arrangement.spacedBy(4.dp),
-                                verticalAlignment = Alignment.CenterVertically,
-                            ) {
-                                if (period == days) {
-                                    Text("✓", fontFamily = PlexArabic, fontWeight = FontWeight.Bold)
-                                }
-                                Text(
-                                    periodLabel(days),
-                                    fontFamily = PlexArabic,
-                                    fontWeight = FontWeight.Bold,
-                                )
-                            }
-                        },
-                        shape = RoundedCornerShape(AppDimens.CardRadius),
-                        border = BorderStroke(
-                            1.dp,
-                            if (period == days) CaregiverColors.Primary else CaregiverColors.Border,
-                        ),
-                        colors = FilterChipDefaults.filterChipColors(
-                            containerColor = CaregiverColors.Surface,
-                            labelColor = CaregiverColors.Ink,
-                            selectedContainerColor = CaregiverColors.PrimarySoft,
-                            selectedLabelColor = CaregiverColors.Primary,
-                        ),
-                    )
-                }
-            }
+            // Metrolist-pattern chips row (ui/component/ChipsRow.kt):
+            // borderless rounded-16 FilterChips in a horizontally scrolling
+            // row; board tint + PlexArabic labels passed through the
+            // personalization hooks. The old ✓ prefix is replaced by the
+            // M3 selected-chip highlight.
+            ChipsRow(
+                chips = SummaryViewModel.PERIODS.map { days -> days to periodLabel(days) },
+                currentValue = period,
+                onValueUpdate = { period = it },
+                containerColor = CaregiverColors.Surface,
+                textStyle = LocalTextStyle.current.copy(fontFamily = PlexArabic, fontWeight = FontWeight.Bold),
+                selectedContainerColor = CaregiverColors.PrimarySoft,
+                selectedLabelColor = CaregiverColors.Primary,
+            )
         }
         BottomActionBar {
             PrimaryButton(
@@ -328,6 +310,29 @@ private fun SummaryBody(
                 fontFamily = PlexArabic,
                 fontSize = 13.sp,
                 color = CaregiverColors.Muted,
+            )
+        }
+        // "Share with doctor": only when a real, usable summary exists.
+        // The offline demo summary is an illustration, never shareable. The
+        // chooser launches exactly once per tap (plain onClick — no
+        // composition-driven launch); a failed launch degrades silently, so
+        // it can never crash the screen or log the summary text.
+        val context = LocalContext.current
+        val arabic = Locale.getDefault().language == "ar"
+        val appName = stringResource(R.string.app_name)
+        val shareText = remember(summary.text, arabic) {
+            CareSummaryShare.shareText(
+                summaryText = summary.text,
+                dateText = DateFormats.historyDay(LocalDate.now().toString(), arabic),
+                appName = appName,
+                arabic = arabic,
+            )
+        }
+        if (shareText != null && !isDemo) {
+            PrimaryButton(
+                label = stringResource(R.string.share_summary_action),
+                onClick = { CareSummaryShare.launch(context, shareText) },
+                height = 52.dp,
             )
         }
         PrimaryButton(

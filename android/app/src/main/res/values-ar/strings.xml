@@ -97,6 +97,8 @@
     <string name="summary_ai_down">تعذر إنشاء الملخص — ملاحظاتك محفوظة وآمنة</string>
     <string name="summary_error_generic">تعذر إنشاء الملخص. حاول مرة أخرى.</string>
     <string name="summary_proposals">عرض المقترحات</string>
+    <!-- مشاركة الملخص المُنشأ مع الطبيب (قائمة المشاركة). -->
+    <string name="share_summary_action">مشاركة الملخص مع الطبيب</string>
     <string name="flag_fall">سقوط مبلغ عنه</string>
     <string name="flag_pain">ألم عال</string>
     <string name="flag_meds">الدواء غير مؤكد</string>
@@ -189,6 +191,7 @@
     <string name="state_field_pain">اختر مستوى الألم قبل الحفظ.</string>
     <!-- المهمة 4: صف الملاحظة بنمط X. -->
     <string name="note_row_show_more">عرض المزيد</string>
+    <string name="note_row_show_less">عرض أقل</string>
     <!-- المهمة 8b: أيقونة ساعة على الملاحظات في انتظار المزامنة. -->
     <string name="note_row_pending">لم تتم المزامنة بعد</string>
     <!-- المهمة 8d: حالة المزامنة في الشريط العلوي؛ اضغط على الفشل لإعادة المحاولة. -->
