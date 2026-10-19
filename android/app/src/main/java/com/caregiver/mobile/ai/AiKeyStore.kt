@@ -11,7 +11,16 @@ import javax.crypto.KeyGenerator
 import javax.crypto.SecretKey
 import javax.crypto.spec.GCMParameterSpec
 
-class AiKeyStore(private val context: Context) {
+class AiKeyStore(
+    private val context: Context,
+    /**
+     * Test/JVM seam: Robolectric (and devices with a broken keystore) cannot
+     * serve the "AndroidKeyStore" provider, so tests opt out and the API key
+     * is then stored Base64-encoded in prefs without hardware encryption.
+     * Production keeps the default (true) — hardware-backed storage.
+     */
+    private val allowHardwareKeystore: Boolean = true,
+) {
     private val prefs: SharedPreferences =
         context.getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE)
 
@@ -81,6 +90,11 @@ class AiKeyStore(private val context: Context) {
     }
 
     private fun encrypt(plain: String): String {
+        if (!allowHardwareKeystore) {
+            // Test/JVM path: no AndroidKeyStore available — store Base64
+            // directly (decrypt mirrors this shape).
+            return Base64.encodeToString(plain.toByteArray(Charsets.UTF_8), Base64.NO_WRAP)
+        }
         val cipher = Cipher.getInstance("AES/GCM/NoPadding")
         cipher.init(Cipher.ENCRYPT_MODE, getOrCreateKey())
         val iv = cipher.iv
@@ -90,9 +104,12 @@ class AiKeyStore(private val context: Context) {
     }
 
     private fun decryptOrNull(encoded: String): String? = runCatching {
-        val combined = Base64.decode(encoded, Base64.NO_WRAP)
-        val iv = combined.copyOfRange(0, IV_SIZE)
-        val ct = combined.copyOfRange(IV_SIZE, combined.size)
+        val decoded = Base64.decode(encoded, Base64.NO_WRAP)
+        if (!allowHardwareKeystore) {
+            return@runCatching String(decoded, Charsets.UTF_8)
+        }
+        val iv = decoded.copyOfRange(0, IV_SIZE)
+        val ct = decoded.copyOfRange(IV_SIZE, decoded.size)
         val cipher = Cipher.getInstance("AES/GCM/NoPadding")
         cipher.init(Cipher.DECRYPT_MODE, getOrCreateKey(), GCMParameterSpec(TAG_SIZE_BITS, iv))
         String(cipher.doFinal(ct), Charsets.UTF_8)
