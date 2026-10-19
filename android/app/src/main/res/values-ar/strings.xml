@@ -175,7 +175,9 @@
     <string name="summary_important">ملاحظات مهمة</string>
     <string name="summary_unclear">معلومات غير واضحة</string>
     <string name="summary_meds_locked">الأدوية محمية: الذكاء الاصطناعي لا يغيّر أي دواء أو جرعة.</string>
-    <string name="summary_source">المصدر: ملاحظة #%1$s</string>
+    <string name="summary_source">ملاحظة المصدر</string>
+    <string name="summary_unclear_invalid_evidence">بعض نتائج الذكاء الاصطناعي غير مدعومة بملاحظات المصدر</string>
+    <string name="summary_unclear_unverified">نتائج الذكاء الاصطناعي مبنية على الاقتباس ولا تزال بحاجة إلى تحقق طبي</string>
     <string name="plan_suggested_review">مقترحة للمراجعة</string>
     <string name="plan_not_prescription_title">اقتراح وليس وصفة طبية</string>
     <string name="plan_not_prescription_body">أنت المراجع. الذكاء الاصطناعي لا يغيّر الأدوية.</string>
