@@ -159,6 +159,7 @@ fun SummaryResultScreen(
         SummaryViewModel(recipientId, graph.apis, graph.auth, null, periodDays, com.caregiver.mobile.ai.AiKeyStore(graph.context), graph.llmClientFactory, language = language)
     }
     val state by vm.state.collectAsState()
+    val exportScope = rememberCoroutineScope()
     val showConsent = androidx.compose.runtime.remember { androidx.compose.runtime.mutableStateOf(false) }
     if (showConsent.value) {
         com.caregiver.mobile.ai.AiConsentDialog(
@@ -443,12 +444,25 @@ private fun SummaryBody(
                     TextButton(
                         onClick = {
                             if (!shareLaunched) {
-                                // Armed before the launch: a rapid double-tap
-                                // cannot open two share sheets from one
-                                // confirmation.
                                 shareLaunched = true
                                 showShareConfirm = false
-                                CareSummaryShare.launch(context, shareText)
+                                exportScope.launch {
+                                    try {
+                                        val uri = com.caregiver.mobile.data.export.CareSummaryPdfExporter.export(
+                                            context,
+                                            summary,
+                                            summary.recipientId,
+                                            java.util.Locale.getDefault().toLanguageTag(),
+                                        )
+                                        val share = Intent(Intent.ACTION_SEND).apply {
+                                            type = "application/pdf"
+                                            putExtra(Intent.EXTRA_STREAM, uri)
+                                            addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION)
+                                        }
+                                        context.startActivity(Intent.createChooser(share, null))
+                                    } catch (e: Exception) {
+                                    }
+                                }
                             }
                         },
                         modifier = Modifier.weight(1f),
