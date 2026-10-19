@@ -403,6 +403,48 @@
     <string name="csv_import_failed">Import failed. %1$s</string>
     <string name="csv_dismiss">Dismiss</string>
 
+    <!-- Full backup &amp; restore (Data &amp; Backup): versioned local JSON files. -->
+    <string name="backup_create_title">Create backup</string>
+    <string name="backup_create_description">Save notes, recipients, care plans and addenda to a file you choose. Settings and AI keys are not included.</string>
+    <string name="backup_create_working">Creating backup…</string>
+    <string name="backup_create_success">Backup created: %1$d records.</string>
+    <string name="backup_create_empty">Backup created. There is no data yet, so the file is empty.</string>
+    <string name="backup_create_failed">Backup failed. %1$s</string>
+    <string name="backup_restore_title">Restore from backup</string>
+    <string name="backup_restore_description">Replace all app data with a backup file you choose.</string>
+    <string name="backup_restore_working">Restoring backup…</string>
+    <string name="backup_restore_success">Backup restored: %1$d records.</string>
+    <string name="backup_restore_failed">Restore failed. %1$s</string>
+    <string name="backup_unavailable">Backup and restore are available in the standalone app only, where data is stored on this device.</string>
+    <string name="backup_restore_preview_title">Restore this backup?</string>
+    <string name="backup_restore_confirm">Restore</string>
+    <string name="backup_preview_created">Created: %1$s</string>
+    <string name="backup_preview_app_version">App version: %1$s</string>
+    <string name="backup_preview_version">Backup format version: %1$d</string>
+    <string name="backup_preview_notes">Notes in backup: %1$d</string>
+    <string name="backup_preview_recipients">Recipients in backup: %1$d</string>
+    <string name="backup_preview_addenda">Addenda in backup: %1$d</string>
+    <string name="backup_preview_plans">Care plans in backup: %1$d</string>
+    <string name="backup_preview_current">Current data that will be replaced: %1$d notes, %2$d recipients, %3$d addenda, %4$d care plans.</string>
+    <string name="backup_preview_warning">Restoring replaces all notes, recipients, care plans and addenda in this app. This cannot be undone.</string>
+    <string name="backup_preview_exclusions">App settings, AI keys and pending sync data are not part of backups and are not changed.</string>
+    <string name="backup_dismiss">Dismiss</string>
+    <string name="backup_error_empty">The file is empty.</string>
+    <string name="backup_error_read">The file could not be read. Try copying it to this device and picking it again.</string>
+    <string name="backup_error_too_large">The file is larger than %1$d MB.</string>
+    <string name="backup_error_write">The backup could not be saved. Try a different location.</string>
+    <string name="backup_error_unreadable">The file is not a valid backup: it is damaged or was edited.</string>
+    <string name="backup_error_not_a_backup">This file is not a caregiver app backup.</string>
+    <string name="backup_error_unsupported_version">This backup uses a newer format (version %1$s). Update the app and try again.</string>
+    <string name="backup_error_integrity">The backup is damaged: its integrity check failed. Nothing was restored.</string>
+    <string name="backup_error_integrity_unsupported">The backup uses an integrity check this app does not support.</string>
+    <string name="backup_error_invalid_data">The backup contains invalid records (%1$d problems). Nothing was restored.</string>
+    <string name="backup_error_source">The app data on this device could not be read.</string>
+    <string name="backup_error_restore">Restoring failed. Your data was not changed.</string>
+    <string name="backup_error_conflict">Your data changed while the preview was open, so nothing was restored. Try again.</string>
+    <string name="backup_error_unavailable">Backup and restore are not available in this mode.</string>
+    <string name="backup_error_unknown">Something went wrong. Nothing was restored.</string>
+
     <!-- CSV errors and per-row reasons (technical context only, never note content). -->
     <string name="csv_error_read">The file could not be read. Try copying it to this device and picking it again.</string>
     <string name="csv_error_too_large">The file is larger than %1$d MB. Export first or split it into smaller files.</string>

@@ -403,6 +403,48 @@
     <string name="csv_import_failed">فشل الاستيراد. %1$s</string>
     <string name="csv_dismiss">إغلاق</string>
 
+    <!-- Full backup &amp; restore (Data &amp; Backup): versioned local JSON files. -->
+    <string name="backup_create_title">إنشاء نسخة احتياطية</string>
+    <string name="backup_create_description">احفظ الملاحظات والمستلمين وخطط الرعاية والملاحق في ملف تختاره. لا تُضمَّن الإعدادات ومفاتيح الذكاء الاصطناعي.</string>
+    <string name="backup_create_working">جارٍ إنشاء النسخة الاحتياطية…</string>
+    <string name="backup_create_success">تم إنشاء النسخة الاحتياطية: %1$d سجلًا.</string>
+    <string name="backup_create_empty">تم إنشاء النسخة الاحتياطية. لا توجد بيانات بعد، لذا الملف فارغ.</string>
+    <string name="backup_create_failed">فشل إنشاء النسخة الاحتياطية. %1$s</string>
+    <string name="backup_restore_title">الاستعادة من نسخة احتياطية</string>
+    <string name="backup_restore_description">استبدل جميع بيانات التطبيق بملف نسخة احتياطية تختاره.</string>
+    <string name="backup_restore_working">جارٍ استعادة النسخة الاحتياطية…</string>
+    <string name="backup_restore_success">تمت استعادة النسخة الاحتياطية: %1$d سجلًا.</string>
+    <string name="backup_restore_failed">فشلت الاستعادة. %1$s</string>
+    <string name="backup_unavailable">النسخ الاحتياطي والاستعادة متاحان في الوضع المستقل فقط، حيث تُخزَّن البيانات على هذا الجهاز.</string>
+    <string name="backup_restore_preview_title">استعادة هذه النسخة الاحتياطية؟</string>
+    <string name="backup_restore_confirm">استعادة</string>
+    <string name="backup_preview_created">أُنشئت في: %1$s</string>
+    <string name="backup_preview_app_version">إصدار التطبيق: %1$s</string>
+    <string name="backup_preview_version">إصدار تنسيق النسخة الاحتياطية: %1$d</string>
+    <string name="backup_preview_notes">الملاحظات في النسخة: %1$d</string>
+    <string name="backup_preview_recipients">المستلمون في النسخة: %1$d</string>
+    <string name="backup_preview_addenda">الملاحق في النسخة: %1$d</string>
+    <string name="backup_preview_plans">خطط الرعاية في النسخة: %1$d</string>
+    <string name="backup_preview_current">البيانات الحالية التي ستُستبدل: %1$d ملاحظة، %2$d مستلمًا، %3$d ملحقًا، %4$d خطة رعاية.</string>
+    <string name="backup_preview_warning">تستبدل الاستعادة جميع الملاحظات والمستلمين وخطط الرعاية والملاحق في التطبيق. لا يمكن التراجع عن ذلك.</string>
+    <string name="backup_preview_exclusions">لا تُضمَّن إعدادات التطبيق ومفاتيح الذكاء الاصطناعي وبيانات المزامنة المعلّقة في النسخ الاحتياطية ولا تتغير.</string>
+    <string name="backup_dismiss">إغلاق</string>
+    <string name="backup_error_empty">الملف فارغ.</string>
+    <string name="backup_error_read">تعذّرت قراءة الملف. انسخه إلى هذا الجهاز ثم اختره مرة أخرى.</string>
+    <string name="backup_error_too_large">حجم الملف أكبر من %1$d ميغابايت.</string>
+    <string name="backup_error_write">تعذّر حفظ النسخة الاحتياطية. جرّب موقعًا آخر.</string>
+    <string name="backup_error_unreadable">الملف ليس نسخة احتياطية صالحة: إنه تالف أو تم تعديله.</string>
+    <string name="backup_error_not_a_backup">هذا الملف ليس نسخة احتياطية لتطبيق الرعاية.</string>
+    <string name="backup_error_unsupported_version">تستخدم هذه النسخة تنسيقًا أحدث (الإصدار %1$s). حدّث التطبيق ثم أعد المحاولة.</string>
+    <string name="backup_error_integrity">النسخة الاحتياطية تالفة: فشل فحص السلامة. لم تتم استعادة أي شيء.</string>
+    <string name="backup_error_integrity_unsupported">تستخدم النسخة الاحتياطية فحص سلامة لا يدعمه هذا التطبيق.</string>
+    <string name="backup_error_invalid_data">تحتوي النسخة الاحتياطية على سجلات غير صالحة (%1$d مشكلة). لم تتم استعادة أي شيء.</string>
+    <string name="backup_error_source">تعذّرت قراءة بيانات التطبيق على هذا الجهاز.</string>
+    <string name="backup_error_restore">فشلت الاستعادة. لم تتغير بياناتك.</string>
+    <string name="backup_error_conflict">تغيّرت بياناتك أثناء فتح المعاينة، لذا لم تتم استعادة أي شيء. حاول مرة أخرى.</string>
+    <string name="backup_error_unavailable">النسخ الاحتياطي والاستعادة غير متاحين في هذا الوضع.</string>
+    <string name="backup_error_unknown">حدث خطأ ما. لم تتم استعادة أي شيء.</string>
+
     <!-- CSV errors and per-row reasons (technical context only, never note content). -->
     <string name="csv_error_read">تعذّرت قراءة الملف. انسخه إلى هذا الجهاز ثم اختره مرة أخرى.</string>
     <string name="csv_error_too_large">حجم الملف أكبر من %1$d ميغابايت. صدّر أولًا أو قسّم الملف إلى ملفات أصغر.</string>

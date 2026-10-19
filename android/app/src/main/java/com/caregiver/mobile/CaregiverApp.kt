@@ -11,6 +11,8 @@ import com.caregiver.mobile.data.OutboxSyncWorker
 import com.caregiver.mobile.data.RecipientRepository
 import com.caregiver.mobile.data.RoomBackedBackendApis
 import com.caregiver.mobile.data.SettingsStore
+import com.caregiver.mobile.data.backup.BackupRestoreService
+import com.caregiver.mobile.data.backup.RoomBackupStore
 import com.caregiver.mobile.data.api.BackendApis
 import com.caregiver.mobile.data.api.RetrofitBackendApis
 import com.caregiver.mobile.data.csv.ApiCsvNoteStore
@@ -155,6 +157,21 @@ class AppGraph(val context: Context, val forceProduction: Boolean = false) {
             } else {
                 ApiCsvNoteStore(apis)
             },
+        )
+    }
+
+    /**
+     * Data & Backup (full backup/restore) over the standalone store only.
+     * [localDatabase] is null exactly when this graph has no authoritative
+     * local data (demo graphs have none; server graphs use Room as a cache),
+     * and restoring into a cache would fight the sync contract — so the
+     * service is created without a store there and the settings actions are
+     * disabled with an explanation. Files never leave the device.
+     */
+    val backupRestoreService: BackupRestoreService by lazy {
+        BackupRestoreService(
+            store = localDatabase?.let { RoomBackupStore(it) },
+            appVersion = "${BuildConfig.VERSION_NAME} (${BuildConfig.VERSION_CODE})",
         )
     }
 

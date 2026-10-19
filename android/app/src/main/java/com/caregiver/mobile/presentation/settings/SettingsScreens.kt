@@ -17,12 +17,14 @@ import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.outlined.Backup
 import androidx.compose.material.icons.outlined.Dns
 import androidx.compose.material.icons.outlined.FileDownload
 import androidx.compose.material.icons.outlined.Info
 import androidx.compose.material.icons.outlined.Logout
 import androidx.compose.material.icons.outlined.Palette
 import androidx.compose.material.icons.outlined.Settings
+import androidx.compose.material.icons.outlined.SettingsBackupRestore
 import androidx.compose.material.icons.outlined.Storage
 import androidx.compose.material.icons.outlined.SmartToy
 import androidx.compose.material.icons.outlined.UploadFile
@@ -61,6 +63,7 @@ import com.caregiver.mobile.data.SettingsStore
 import com.caregiver.mobile.data.api.ApiClient
 import com.caregiver.mobile.data.api.BaseUrlCheck
 import com.caregiver.mobile.data.api.UrlProblem
+import com.caregiver.mobile.data.backup.AndroidBackupDocumentIo
 import com.caregiver.mobile.data.csv.AndroidCsvDocumentIo
 import com.caregiver.mobile.presentation.common.AppTopBar
 import com.caregiver.mobile.presentation.common.AppDimens
@@ -90,6 +93,20 @@ fun SettingsScreen(graph: AppGraph, navController: NavController) {
     val importLauncher = rememberLauncherForActivityResult(
         ActivityResultContracts.OpenDocument(),
     ) { uri -> if (uri != null) csvVm.importFrom(uri) }
+
+    // Data & Backup: full backup/restore of the standalone store. Same SAF
+    // rule — one document, no storage permission.
+    val backupDocuments = remember(graph) { AndroidBackupDocumentIo(graph.context.contentResolver) }
+    val backupVm: BackupRestoreViewModel = assistedViewModel("backup-restore") {
+        BackupRestoreViewModel(graph.backupRestoreService, backupDocuments)
+    }
+    val backupState by backupVm.state.collectAsState()
+    val backupCreateLauncher = rememberLauncherForActivityResult(
+        ActivityResultContracts.CreateDocument("application/json"),
+    ) { uri -> if (uri != null) backupVm.createTo(uri) }
+    val backupRestoreLauncher = rememberLauncherForActivityResult(
+        ActivityResultContracts.OpenDocument(),
+    ) { uri -> if (uri != null) backupVm.restoreFrom(uri) }
 
     val language by graph.settings.language.collectAsState(initial = SettingsStore.DEFAULT_LANGUAGE)
     Column(
@@ -153,11 +170,14 @@ fun SettingsScreen(graph: AppGraph, navController: NavController) {
             onClick = { navController.navigate("theme-colors") },
         )
 
-        // Application-specific: Data & Backup — CSV import/export over the
-        // active data source. The file picker grants access to one document;
-        // no broad storage permission is requested.
+        // Application-specific: Data & Backup — CSV import/export and full
+        // backup/restore. The file pickers grant access to one document each;
+        // no broad storage permission is requested. Backup actions need the
+        // standalone store; where Room is a server cache they are disabled
+        // with an explanation instead of writing into the sync path.
         CaregiverSettingsGroup(title = stringResource(R.string.settings_data_backup)) {
-            val csvBusy = csvState.operation != null
+            val dataBusy = csvState.operation != null || backupState.operation != null
+            val backupAvailable = backupVm.available
             CaregiverSettingsItem(
                 title = stringResource(R.string.csv_import_title),
                 icon = Icons.Outlined.UploadFile,
@@ -166,7 +186,7 @@ fun SettingsScreen(graph: AppGraph, navController: NavController) {
                 } else {
                     stringResource(R.string.csv_import_description)
                 },
-                enabled = !csvBusy,
+                enabled = !dataBusy,
                 onClick = { importLauncher.launch(CSV_MIME_TYPES) },
             )
             CaregiverSettingsItem(
@@ -177,12 +197,39 @@ fun SettingsScreen(graph: AppGraph, navController: NavController) {
                 } else {
                     stringResource(R.string.csv_export_description)
                 },
-                enabled = !csvBusy,
+                enabled = !dataBusy,
                 onClick = { exportLauncher.launch(csvVm.exportFileName()) },
+            )
+            CaregiverSettingsItem(
+                title = stringResource(R.string.backup_create_title),
+                icon = Icons.Outlined.Backup,
+                description = when {
+                    !backupAvailable -> stringResource(R.string.backup_unavailable)
+                    backupState.operation == BackupOperation.CREATE ->
+                        stringResource(R.string.backup_create_working)
+                    else -> stringResource(R.string.backup_create_description)
+                },
+                enabled = backupAvailable && !dataBusy,
+                onClick = { backupCreateLauncher.launch(backupVm.fileName()) },
+            )
+            CaregiverSettingsItem(
+                title = stringResource(R.string.backup_restore_title),
+                icon = Icons.Outlined.SettingsBackupRestore,
+                description = when {
+                    !backupAvailable -> stringResource(R.string.backup_unavailable)
+                    backupState.operation == BackupOperation.RESTORE ->
+                        stringResource(R.string.backup_restore_working)
+                    else -> stringResource(R.string.backup_restore_description)
+                },
+                enabled = backupAvailable && !dataBusy,
+                onClick = { backupRestoreLauncher.launch(arrayOf("application/json")) },
             )
         }
         csvState.notice?.let { notice ->
             CsvNoticeLine(notice = notice, onDismiss = csvVm::dismissNotice)
+        }
+        backupState.notice?.let { notice ->
+            BackupNoticeLine(notice = notice, onDismiss = backupVm::dismissNotice)
         }
 
         // Application-specific: Data
@@ -235,6 +282,15 @@ fun SettingsScreen(graph: AppGraph, navController: NavController) {
                 onResolve = csvVm::resolveUnmatched,
                 onCommit = csvVm::commitImport,
                 onDismiss = csvVm::cancelImportPreview,
+            )
+        }
+
+        backupState.preview?.let { preview ->
+            RestorePreviewDialog(
+                preview = preview,
+                working = backupState.operation == BackupOperation.RESTORE,
+                onContinue = backupVm::commitRestore,
+                onCancel = backupVm::cancelRestorePreview,
             )
         }
     }

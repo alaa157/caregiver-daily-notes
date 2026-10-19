@@ -16,6 +16,14 @@ interface PlanDao {
     @Insert(onConflict = OnConflictStrategy.REPLACE)
     suspend fun upsert(entity: PlanEntity)
 
+    /** Backup restore write: aborts on a duplicate id instead of replacing. */
+    @Insert(onConflict = OnConflictStrategy.ABORT)
+    suspend fun insertImported(items: List<PlanEntity>)
+
     @Query("DELETE FROM plans WHERE id = :id")
     suspend fun delete(id: String)
+
+    /** Backup restore write: clears the table inside the restore transaction. */
+    @Query("DELETE FROM plans")
+    suspend fun deleteAll()
 }
