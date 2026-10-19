@@ -57,17 +57,42 @@ object CareSummaryPdfExporter {
         fun drawTextBlock(text: String, p: TextPaint = paint, spacing: Float = 6f) {
             if (text.isBlank()) return
             val width = (pageWidth - 2 * margin).toInt()
+            val alignment = if (ar) Layout.Alignment.ALIGN_OPPOSITE else Layout.Alignment.ALIGN_NORMAL
             val layout = StaticLayout.Builder.obtain(text, 0, text.length, p, width)
-                .setAlignment(Layout.Alignment.ALIGN_NORMAL)
+                .setAlignment(alignment)
                 .setLineSpacing(0f, 1.1f)
                 .setIncludePad(true)
                 .build()
-            ensureSpace(layout.height.toFloat())
-            canvas.save()
-            canvas.translate(margin, y)
-            layout.draw(canvas)
-            canvas.restore()
-            y += layout.height + spacing
+            val lineCount = layout.lineCount
+            var line = 0
+            while (line < lineCount) {
+                var linesOnPage = 0
+                var blockHeight = 0f
+                while (line + linesOnPage < lineCount) {
+                    val lineTop = layout.getLineTop(line + linesOnPage).toFloat()
+                    val lineBottom = layout.getLineBottom(line + linesOnPage).toFloat()
+                    val h = lineBottom - (if (linesOnPage == 0) layout.getLineTop(line).toFloat() else layout.getLineBottom(line + linesOnPage - 1).toFloat())
+                    if (y + blockHeight + h > pageHeight - margin && linesOnPage > 0) break
+                    if (y + blockHeight + h > pageHeight - margin && linesOnPage == 0 && y > margin) {
+                        newPage()
+                        continue
+                    }
+                    blockHeight += h
+                    linesOnPage++
+                }
+                if (linesOnPage == 0) {
+                    newPage()
+                    continue
+                }
+                canvas.save()
+                canvas.translate(margin, y - layout.getLineTop(line))
+                canvas.clipRect(0f, layout.getLineTop(line).toFloat(), width.toFloat(), (layout.getLineTop(line) + blockHeight))
+                layout.draw(canvas)
+                canvas.restore()
+                y += blockHeight + spacing
+                line += linesOnPage
+                if (line < lineCount) newPage()
+            }
         }
 
         val ar = languageTag.startsWith("ar")
