@@ -85,6 +85,7 @@
     <string name="history_to">To</string>
     <string name="history_empty">No notes</string>
     <string name="notes_today">Today\'s notes</string>
+    <string name="export_failed">Could not create the PDF. Please try again.</string>
     <string name="export_pdf">Export PDF</string>
     <string name="onboarding_title_1">Care starts with the little things.</string>
     <string name="onboarding_body_1">Keep daily notes about the person you care for, record observations, and look back at previous entries when you need them.</string>

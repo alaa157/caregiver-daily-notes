@@ -85,6 +85,7 @@
     <string name="history_to">إلى</string>
     <string name="history_empty">لا توجد ملاحظات</string>
     <string name="notes_today">ملاحظات اليوم</string>
+    <string name="export_failed">تعذر إنشاء ملف PDF. حاول مرة أخرى.</string>
     <string name="export_pdf">تصدير PDF</string>
     <string name="onboarding_title_1">الرعاية تبدأ بالتفاصيل الصغيرة.</string>
     <string name="onboarding_body_1">احتفظ بملاحظات يومية عن الشخص الذي ترعاه، وسجّل الملاحظات، وراجع الإدخالات السابقة عند الحاجة.</string>

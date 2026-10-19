@@ -160,6 +160,7 @@ fun SummaryResultScreen(
     }
     val state by vm.state.collectAsState()
     val exportScope = rememberCoroutineScope()
+    var exportError by remember { mutableStateOf<String?>(null) }
     val showConsent = androidx.compose.runtime.remember { androidx.compose.runtime.mutableStateOf(false) }
     if (showConsent.value) {
         com.caregiver.mobile.ai.AiConsentDialog(
@@ -336,6 +337,7 @@ private fun SummaryBody(
         }
         val exportScope = rememberCoroutineScope()
         var exporting by remember { mutableStateOf(false) }
+        var exportError by remember { mutableStateOf<String?>(null) }
         androidx.compose.material3.Button(
             onClick = {
                 exporting = true
@@ -366,6 +368,7 @@ private fun SummaryBody(
         ) {
             Text(if (exporting) "..." else stringResource(R.string.export_pdf))
         }
+        exportError?.let { Text(it, color = CaregiverColors.Danger) }
 
         Row(
             horizontalArrangement = Arrangement.spacedBy(6.dp),
@@ -427,6 +430,7 @@ private fun SummaryBody(
                 height = 52.dp,
             )
         }
+        exportError?.let { Text(it, color = CaregiverColors.Danger) }
         if (showShareConfirm && shareText != null) {
             DefaultDialog(
                 onDismiss = { showShareConfirm = false },
@@ -465,6 +469,7 @@ private fun SummaryBody(
                                         }
                                         context.startActivity(Intent.createChooser(share, null))
                                     } catch (e: Exception) {
+                                        exportError = context.getString(R.string.export_failed)
                                     }
                                 }
                             }
