@@ -17,7 +17,17 @@ import retrofit2.HttpException
 
 sealed interface PeopleState {
     data object Loading : PeopleState
-    data class Content(val recipients: List<RecipientDto>) : PeopleState
+
+    /**
+     * [refreshing] is true while a reload runs on top of already-loaded
+     * rows — pull-to-refresh (and error retry) shows the indicator over
+     * Content instead of flashing skeletons; Loading is only for the
+     * first load.
+     */
+    data class Content(
+        val recipients: List<RecipientDto>,
+        val refreshing: Boolean = false,
+    ) : PeopleState
     data object Error : PeopleState
 }
 
@@ -55,6 +65,13 @@ class RecipientsViewModel(
     }
 
     fun refresh() {
+        // Keep already-loaded rows composed while reloading — the
+        // pull-to-refresh spinner rides on Content (same contract as
+        // HistoryViewModel.refresh()); Loading is only for the first load.
+        _state.value = when (val current = _state.value) {
+            is PeopleState.Content -> current.copy(refreshing = true)
+            else -> PeopleState.Loading
+        }
         launch { load() }
     }
 

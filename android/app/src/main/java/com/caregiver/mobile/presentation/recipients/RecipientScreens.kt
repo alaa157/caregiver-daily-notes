@@ -19,8 +19,12 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.PersonAdd
+import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.OutlinedTextFieldDefaults
+import androidx.compose.material3.pulltorefresh.PullToRefreshBox
+import androidx.compose.material3.pulltorefresh.PullToRefreshDefaults.Indicator
+import androidx.compose.material3.pulltorefresh.rememberPullToRefreshState
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
@@ -73,6 +77,7 @@ import java.util.Locale
  * person cards (avatar 48 + name), bottom nav الأشخاص. No per-person
  * note captions: the list payload has no note data.
  */
+@OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun RecipientsScreen(graph: AppGraph, navController: NavController) {
     val activity = LocalContext.current as androidx.activity.ComponentActivity
@@ -83,6 +88,7 @@ fun RecipientsScreen(graph: AppGraph, navController: NavController) {
     val state by vm.state.collectAsState()
 
     val listState = rememberLazyListState()
+    val pullRefreshState = rememberPullToRefreshState()
     // Task 2 contract: re-tapping the active People tab publishes "people";
     // scroll the list back to the first person when the event is ours.
     LaunchedEffect(MainTab.People.route) {
@@ -92,49 +98,66 @@ fun RecipientsScreen(graph: AppGraph, navController: NavController) {
             }
         }
     }
-    Column(
-        Modifier.fillMaxSize().padding(horizontal = AppDimens.ScreenHPadding),
-        verticalArrangement = Arrangement.spacedBy(AppDimens.SectionGap),
-    ) {
-        val count = (state as? PeopleState.Content)?.recipients?.size
-        Column(modifier = Modifier.padding(top = 16.dp)) {
-            Text(
-                text = stringResource(R.string.tab_people),
-                fontFamily = PlexArabic,
-                fontWeight = FontWeight.Bold,
-                fontSize = 22.sp,
-                color = CaregiverColors.Ink,
+    // Pull-to-refresh (Metrolist idiom): bare M3 primitives around the list,
+    // stock Indicator re-anchored to the content top. The VM keeps loaded
+    // rows composed under Content.refreshing while the reload runs.
+    val refreshing = (state as? PeopleState.Content)?.refreshing ?: false
+    PullToRefreshBox(
+        state = pullRefreshState,
+        isRefreshing = refreshing,
+        onRefresh = vm::refresh,
+        indicator = {
+            Indicator(
+                isRefreshing = refreshing,
+                state = pullRefreshState,
+                modifier = Modifier.align(Alignment.TopCenter),
             )
-            if (count != null) {
+        },
+    ) {
+        Column(
+            Modifier.fillMaxSize().padding(horizontal = AppDimens.ScreenHPadding),
+            verticalArrangement = Arrangement.spacedBy(AppDimens.SectionGap),
+        ) {
+            val count = (state as? PeopleState.Content)?.recipients?.size
+            Column(modifier = Modifier.padding(top = 16.dp)) {
                 Text(
-                    text = "$count",
+                    text = stringResource(R.string.tab_people),
                     fontFamily = PlexArabic,
-                    fontSize = 13.sp,
-                    color = CaregiverColors.Muted,
+                    fontWeight = FontWeight.Bold,
+                    fontSize = 22.sp,
+                    color = CaregiverColors.Ink,
                 )
-            }
-        }
-        SecondaryButton(
-            label = stringResource(R.string.add_title),
-            onClick = { navController.navigate(AppDestinations.AddRecipient.base) },
-        )
-        when (val s = state) {
-            PeopleState.Loading -> LoadingRow()
-            PeopleState.Error -> LoadFailed(onRetry = vm::refresh)
-            is PeopleState.Content -> {
-                if (s.recipients.isEmpty()) {
-                    AppEmptyState(
-                        icon = Icons.Filled.PersonAdd,
-                        title = stringResource(R.string.people_empty),
-                        subtitle = stringResource(R.string.tab_people),
-                        actionLabel = stringResource(R.string.people_add),
-                        onAction = { navController.navigate(AppDestinations.AddRecipient.base) },
+                if (count != null) {
+                    Text(
+                        text = "$count",
+                        fontFamily = PlexArabic,
+                        fontSize = 13.sp,
+                        color = CaregiverColors.Muted,
                     )
-                } else {
-                    LazyColumn(state = listState, verticalArrangement = Arrangement.spacedBy(12.dp)) {
-                        items(s.recipients, key = { it.id }) { recipient ->
-                            PersonRow(recipient) {
-                                navController.navigate(AppRoutes.recipientDetail(recipient.id))
+                }
+            }
+            SecondaryButton(
+                label = stringResource(R.string.add_title),
+                onClick = { navController.navigate(AppDestinations.AddRecipient.base) },
+            )
+            when (val s = state) {
+                PeopleState.Loading -> LoadingRow()
+                PeopleState.Error -> LoadFailed(onRetry = vm::refresh)
+                is PeopleState.Content -> {
+                    if (s.recipients.isEmpty()) {
+                        AppEmptyState(
+                            icon = Icons.Filled.PersonAdd,
+                            title = stringResource(R.string.people_empty),
+                            subtitle = stringResource(R.string.tab_people),
+                            actionLabel = stringResource(R.string.people_add),
+                            onAction = { navController.navigate(AppDestinations.AddRecipient.base) },
+                        )
+                    } else {
+                        LazyColumn(state = listState, verticalArrangement = Arrangement.spacedBy(12.dp)) {
+                            items(s.recipients, key = { it.id }) { recipient ->
+                                PersonRow(recipient) {
+                                    navController.navigate(AppRoutes.recipientDetail(recipient.id))
+                                }
                             }
                         }
                     }

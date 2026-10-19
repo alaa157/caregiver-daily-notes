@@ -4,11 +4,14 @@ import android.os.Bundle
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
 import androidx.compose.foundation.isSystemInDarkTheme
+import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import com.caregiver.mobile.core.theme.CaregiverTheme
 import com.caregiver.mobile.core.theme.resolveDarkTheme
 import com.caregiver.mobile.data.SettingsStore
+import com.caregiver.mobile.ui.component.shimmer.ShimmerTheme
+import com.valentinilk.shimmer.LocalShimmerTheme
 
 class MainActivity : ComponentActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
@@ -20,7 +23,11 @@ class MainActivity : ComponentActivity() {
             val pureBlack by graph.settings.pureBlack.collectAsState(initial = false)
             val dark = resolveDarkTheme(themeMode, systemInDark = isSystemInDarkTheme())
             CaregiverTheme(darkTheme = dark, palette = colorPalette, pureBlack = pureBlack) {
-                CaregiverRoot(graph)
+                // One shimmer theme for every skeleton in the app; Metrolist
+                // distributes its ShimmerTheme from MainActivity the same way.
+                CompositionLocalProvider(LocalShimmerTheme provides ShimmerTheme) {
+                    CaregiverRoot(graph)
+                }
             }
         }
     }
