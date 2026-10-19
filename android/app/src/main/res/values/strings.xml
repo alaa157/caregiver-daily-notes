@@ -85,6 +85,7 @@
     <string name="history_to">To</string>
     <string name="history_empty">No notes</string>
     <string name="notes_today">Today\'s notes</string>
+    <string name="export_pdf">Export PDF</string>
     <string name="summary_title">Smart summary</string>
     <string name="choose_period">Choose period</string>
     <string name="summary_period">Period</string>

@@ -1,5 +1,8 @@
 package com.caregiver.mobile.presentation.summary
 
+import android.content.Intent
+import kotlinx.coroutines.launch
+
 import android.os.Build
 import android.util.Log
 
@@ -22,6 +25,7 @@ import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
@@ -209,7 +213,7 @@ fun SummaryResultScreen(
                 )
             }
             is SummaryState.Content -> SummaryBody(
-                s.summary, periodDays, graph.isDemo, navController, s.aiGenerated,
+                graph, s.summary, periodDays, graph.isDemo, navController, s.aiGenerated,
                 onSuggestPlan = {
                     val store = com.caregiver.mobile.ai.AiKeyStore(graph.context)
                     if (!store.consentGiven()) {
@@ -247,6 +251,7 @@ private fun FlagsBanner(redFlags: List<String>) {
 
 @Composable
 private fun SummaryBody(
+    graph: com.caregiver.mobile.AppGraph,
     summary: SummaryDto,
     periodDays: Int,
     isDemo: Boolean,
@@ -328,6 +333,37 @@ private fun SummaryBody(
                 )
             }
         }
+        val exportScope = rememberCoroutineScope()
+        var exporting by remember { mutableStateOf(false) }
+        androidx.compose.material3.Button(
+            onClick = {
+                exporting = true
+                exportScope.launch {
+                    try {
+                        val uri = com.caregiver.mobile.data.export.CareSummaryPdfExporter.export(
+                            graph.context,
+                            summary,
+                            summary.recipientId,
+                            java.util.Locale.getDefault().toLanguageTag(),
+                        )
+                        val share = Intent(Intent.ACTION_SEND).apply {
+                            type = "application/pdf"
+                            putExtra(Intent.EXTRA_STREAM, uri)
+                            addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION)
+                        }
+                        graph.context.startActivity(Intent.createChooser(share, null))
+                    } catch (e: Exception) {
+                        // ignore
+                    } finally {
+                        exporting = false
+                    }
+                }
+            },
+            enabled = !exporting,
+        ) {
+            Text(if (exporting) "..." else stringResource(R.string.export_pdf))
+        }
+
         Row(
             horizontalArrangement = Arrangement.spacedBy(6.dp),
             verticalAlignment = Alignment.CenterVertically,
