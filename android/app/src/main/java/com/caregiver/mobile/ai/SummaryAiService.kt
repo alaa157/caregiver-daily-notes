@@ -23,7 +23,15 @@ private data class ModelUnc(val topic: String = "", val detail: String = "")
 private data class ModelSummary(val observations: List<ModelObs> = emptyList(), val uncertainties: List<ModelUnc> = emptyList())
 
 sealed class SummaryAiResult {
-    data class Success(val summary: SummaryDto) : SummaryAiResult()
+    data class Success(
+        val summary: SummaryDto,
+        /**
+         * [LlmStatus.REPAIRED] when the reply only became readable after the
+         * single repair retry, [LlmStatus.OK] when it was clean.
+         */
+        val status: LlmStatus = LlmStatus.OK,
+    ) : SummaryAiResult()
+
     data class Failure(val redFlags: List<String>, val reasonCode: String) : SummaryAiResult()
 }
 
@@ -64,24 +72,26 @@ class SummaryAiService(
         } else {
             Prompts.summarySystemPrompt(language)
         }
-        val res = client.complete(com.caregiver.mobile.ai.LlmRequest(prompt, dataBlock))
-        if (res.status == com.caregiver.mobile.ai.LlmStatus.FALLBACK) {
-            return SummaryAiResult.Failure(redFlags, "unavailable")
+        // Native json mode keeps the provider from wrapping the answer in
+        // prose; the shared reader strips whatever wrapper is left and spends
+        // one repair retry when the payload still does not parse.
+        val request = com.caregiver.mobile.ai.LlmRequest(prompt, dataBlock, jsonMode = true)
+        val reply = LlmJson.decode(client, request, MAX_REPLY_CHARS) { text ->
+            runCatching { json.decodeFromString(ModelSummary.serializer(), text) }.getOrNull()
         }
-        if (res.text.length > 50000) {
-            return SummaryAiResult.Failure(redFlags, "oversized")
+        val parsed: ModelSummary
+        val replyStatus: LlmStatus
+        when (reply) {
+            is LlmJson.Reply.Parsed -> {
+                parsed = reply.value
+                replyStatus = reply.status
+            }
+            is LlmJson.Reply.Unavailable -> return SummaryAiResult.Failure(redFlags, "unavailable")
+            is LlmJson.Reply.Oversized -> return SummaryAiResult.Failure(redFlags, "oversized")
+            is LlmJson.Reply.Malformed -> return SummaryAiResult.Failure(redFlags, "malformed_output")
         }
         val noteTextsById = windowedNotes.associate { it.id to it.text }
         val normalizedNotes = noteTextsById.mapValues { ArabicNormalizer.normalize(it.value) }
-
-        val parsed = runCatching {
-            json.decodeFromString(ModelSummary.serializer(), res.text.trim())
-        }.getOrNull()
-
-        if (parsed == null) {
-            return SummaryAiResult.Failure(redFlags, "malformed_output")
-        }
-
         // Validate and reject unsupported observations; keep only grounded ones.
         // A claim must be non-empty, cite an existing note, cite a non-empty
         // quote that occurs in that note, and be lexically supported by that
@@ -142,7 +152,8 @@ class SummaryAiService(
                 redFlags = redFlags,
                 evidence = evidence,
                 uncertainties = uncertainties,
-            )
+            ),
+            status = replyStatus,
         )
     }
     /**
@@ -186,5 +197,8 @@ class SummaryAiService(
          * is the enforcement point when it ignores that instruction.
          */
         const val MAX_OBSERVATIONS = 6
+
+        /** Upper bound on the size of a model reply that is still parsed. */
+        const val MAX_REPLY_CHARS = 50000
     }
 }

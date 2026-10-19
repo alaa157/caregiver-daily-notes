@@ -162,6 +162,7 @@ stateDiagram-v2
 - **Uncertainty preserved** — unclear/conflicting stays in `unclear_or_conflicting`
 - **Prompt-injection defense** — notes are delimited untrusted data, never system instructions
 - **Fail-safe** — 30s timeout, 2 backoff retries + 1 JSON-repair retry, template fallback, “AI unavailable” UI. Saving a note never depends on AI.
+- **JSON replies (Android BYOK path)** — native json mode (Gemini `responseMimeType`, OpenAI `response_format`), fenced or prefixed replies are unwrapped by one shared reader, 1 JSON-repair retry, then “AI unavailable”
 
 ## Testing
 

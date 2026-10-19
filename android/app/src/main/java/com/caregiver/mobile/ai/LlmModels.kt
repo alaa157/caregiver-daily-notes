@@ -14,11 +14,27 @@ enum class AiProvider(
     OPEN_ROUTER("OpenRouter", "https://openrouter.ai/api/v1", "openai/gpt-4o-mini"),
 }
 
-data class LlmRequest(val systemPrompt: String, val dataBlock: String) {
+data class LlmRequest(
+    val systemPrompt: String,
+    val dataBlock: String,
+    /**
+     * Ask the provider for a json-only reply through its native json mode
+     * (Gemini `responseMimeType`, OpenAI `response_format`). Providers that do
+     * not implement it are detected and retried without it.
+     */
+    val jsonMode: Boolean = false,
+) {
     init {
         require(systemPrompt.isNotBlank()) { "systemPrompt must be non-blank" }
     }
 }
+
+/**
+ * Internal marker for a provider that rejected the native json-mode
+ * parameter. It never reaches the UI: the client retries without the
+ * parameter before giving up.
+ */
+internal const val JSON_MODE_UNSUPPORTED = "json_mode_unsupported"
 
 enum class LlmStatus { OK, REPAIRED, FALLBACK }
 

@@ -242,7 +242,9 @@ fun AiSettingsScreen(graph: AppGraph, navController: NavController) {
                         ?: systemPrompt.takeIf { it.isNotBlank() }
                         ?: Prompts.SUMMARY_SYSTEM
                     val probe = "[NOTE id=\"probe\" date=${LocalDate.now()}]\nFormat validation probe: no concerns reported today.\n[/NOTE]"
-                    val res = client.complete(LlmRequest(prompt, probe))
+                    // Same path production uses: native json mode, so the
+                    // check proves the provider can answer the real request.
+                    val res = client.complete(LlmRequest(prompt, probe, jsonMode = true))
                     val reason = if (res.status == LlmStatus.FALLBACK) {
                         res.error ?: "unavailable"
                     } else {

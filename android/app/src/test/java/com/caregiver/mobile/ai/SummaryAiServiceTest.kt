@@ -29,6 +29,74 @@ class SummaryAiServiceTest {
         return SummaryAiService(client)
     }
 
+    /** Client that answers with the next scripted reply and records requests. */
+    private class ScriptedClient(private val replies: List<String>) : LlmClient {
+        val requests = mutableListOf<LlmRequest>()
+        override suspend fun complete(request: LlmRequest): LlmResult {
+            requests += request
+            val index = (requests.size - 1).coerceAtMost(replies.lastIndex)
+            return LlmResult(LlmStatus.OK, replies[index])
+        }
+    }
+
+    private val validSummaryJson =
+        """{"observations":[{"text":"walked","noteId":"n1","quote":"walked"}],"uncertainties":[]}"""
+
+    @Test
+    fun fencedJsonIsAccepted() = runBlocking {
+        val svc = service("```json\n$validSummaryJson\n```")
+        val result = svc.summarize("r1", 7, listOf(note), emptyList(), LocalDate.parse("2026-10-01"))
+        assertTrue(result is SummaryAiResult.Success)
+        assertEquals(1, (result as SummaryAiResult.Success).summary.evidence.size)
+    }
+
+    @Test
+    fun preambleAroundJsonIsAccepted() = runBlocking {
+        val svc = service("Here is the summary:\n$validSummaryJson\nLet me know if you need more.")
+        val result = svc.summarize("r1", 7, listOf(note), emptyList(), LocalDate.parse("2026-10-01"))
+        assertTrue(result is SummaryAiResult.Success)
+        assertEquals(1, (result as SummaryAiResult.Success).summary.evidence.size)
+    }
+
+    @Test
+    fun malformedOutputTriggersOneRepairRetry() = runBlocking {
+        val client = ScriptedClient(listOf("not json", validSummaryJson))
+        val svc = SummaryAiService(client)
+        val result = svc.summarize("r1", 7, listOf(note), emptyList(), LocalDate.parse("2026-10-01"))
+        assertTrue(result is SummaryAiResult.Success)
+        assertEquals(LlmStatus.REPAIRED, (result as SummaryAiResult.Success).status)
+        assertEquals(2, client.requests.size)
+        assertTrue(client.requests[1].dataBlock.contains(LlmJson.REPAIR_INSTRUCTION))
+    }
+
+    @Test
+    fun repairRetryIsSpentOnlyOnce() = runBlocking {
+        val client = ScriptedClient(listOf("not json"))
+        val svc = SummaryAiService(client)
+        val result = svc.summarize("r1", 7, listOf(note), emptyList(), LocalDate.parse("2026-10-01"))
+        assertTrue(result is SummaryAiResult.Failure)
+        assertEquals("malformed_output", (result as SummaryAiResult.Failure).reasonCode)
+        assertEquals(2, client.requests.size)
+    }
+
+    @Test
+    fun cleanReplyIsNotRetried() = runBlocking {
+        val client = ScriptedClient(listOf(validSummaryJson))
+        val svc = SummaryAiService(client)
+        val result = svc.summarize("r1", 7, listOf(note), emptyList(), LocalDate.parse("2026-10-01"))
+        assertTrue(result is SummaryAiResult.Success)
+        assertEquals(LlmStatus.OK, (result as SummaryAiResult.Success).status)
+        assertEquals(1, client.requests.size)
+    }
+
+    @Test
+    fun summaryRequestAsksForNativeJsonMode() = runBlocking {
+        val client = ScriptedClient(listOf(validSummaryJson))
+        val svc = SummaryAiService(client)
+        svc.summarize("r1", 7, listOf(note), emptyList(), LocalDate.parse("2026-10-01"))
+        assertTrue(client.requests[0].jsonMode)
+    }
+
     @Test
     fun malformedJsonReturnsFailure() = runBlocking {
         val svc = service("not json")

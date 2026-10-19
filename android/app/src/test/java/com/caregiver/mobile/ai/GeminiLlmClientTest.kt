@@ -4,6 +4,8 @@ import okhttp3.mockwebserver.MockResponse
 import okhttp3.mockwebserver.MockWebServer
 import org.junit.After
 import org.junit.Assert.assertEquals
+import org.junit.Assert.assertFalse
+import org.junit.Assert.assertTrue
 import org.junit.Test
 
 class GeminiLlmClientTest {
@@ -40,5 +42,44 @@ class GeminiLlmClientTest {
         val res = kotlinx.coroutines.runBlocking { client.complete(LlmRequest("sys", "data")) }
         assertEquals(LlmStatus.FALLBACK, res.status)
         assertEquals("network", res.error)
+    }
+
+    @Test fun jsonModeAsksForJsonMimeType() {
+        server.start()
+        server.enqueue(MockResponse().setBody("""{"candidates":[{"content":{"parts":[{"text":"{}"}]}}]}"""))
+        val client = GeminiLlmClient(server.url("/").toString().trimEnd('/'), "m", "key")
+        val res = kotlinx.coroutines.runBlocking {
+            client.complete(LlmRequest("sys", "data", jsonMode = true))
+        }
+        assertEquals(LlmStatus.OK, res.status)
+        val body = server.takeRequest().body.readUtf8()
+        assertTrue(body.contains("\"responseMimeType\":\"application/json\""))
+    }
+
+    @Test fun plainRequestHasNoJsonMimeType() {
+        server.start()
+        server.enqueue(MockResponse().setBody("""{"candidates":[{"content":{"parts":[{"text":"{}"}]}}]}"""))
+        val client = GeminiLlmClient(server.url("/").toString().trimEnd('/'), "m", "key")
+        val res = kotlinx.coroutines.runBlocking { client.complete(LlmRequest("sys", "data")) }
+        assertEquals(LlmStatus.OK, res.status)
+        val body = server.takeRequest().body.readUtf8()
+        assertFalse(body.contains("responseMimeType"))
+    }
+
+    @Test fun unsupportedJsonModeIsRetriedWithoutIt() {
+        server.start()
+        server.enqueue(
+            MockResponse().setResponseCode(400).setBody(
+                """{"error":{"message":"Unknown parameter responseMimeType"}}""",
+            ),
+        )
+        server.enqueue(MockResponse().setBody("""{"candidates":[{"content":{"parts":[{"text":"{}"}]}}]}"""))
+        val client = GeminiLlmClient(server.url("/").toString().trimEnd('/'), "m", "key")
+        val res = kotlinx.coroutines.runBlocking {
+            client.complete(LlmRequest("sys", "data", jsonMode = true))
+        }
+        assertEquals(LlmStatus.OK, res.status)
+        assertTrue(server.takeRequest().body.readUtf8().contains("responseMimeType"))
+        assertFalse(server.takeRequest().body.readUtf8().contains("responseMimeType"))
     }
 }

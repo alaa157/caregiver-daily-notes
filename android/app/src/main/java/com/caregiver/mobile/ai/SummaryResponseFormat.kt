@@ -18,7 +18,10 @@ object SummaryResponseFormat {
 
     /** Returns null when [text] matches the expected shape, else a short reason. */
     fun validate(text: String): String? {
-        val root = runCatching { json.parseToJsonElement(text.trim()).jsonObject }.getOrNull()
+        // The provider may wrap the payload in a fence or a sentence; the
+        // shared reader extracts the json before the shape is checked.
+        val payload = ModelOutputSanitizer.extractJson(text) ?: return "not a JSON object"
+        val root = runCatching { json.parseToJsonElement(payload).jsonObject }.getOrNull()
             ?: return "not a JSON object"
         val observations = root["observations"] as? JsonArray ?: return "missing observations array"
         root["uncertainties"] as? JsonArray ?: return "missing uncertainties array"
