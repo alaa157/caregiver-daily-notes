@@ -344,7 +344,7 @@ private fun SummaryBody(
                         val uri = com.caregiver.mobile.data.export.CareSummaryPdfExporter.export(
                             graph.context,
                             summary,
-                            summary.recipientId,
+                            null,
                             java.util.Locale.getDefault().toLanguageTag(),
                         )
                         val share = Intent(Intent.ACTION_SEND).apply {
@@ -451,7 +451,7 @@ private fun SummaryBody(
                                         val uri = com.caregiver.mobile.data.export.CareSummaryPdfExporter.export(
                                             context,
                                             summary,
-                                            summary.recipientId,
+                                            null,
                                             java.util.Locale.getDefault().toLanguageTag(),
                                         )
                                         val share = Intent(Intent.ACTION_SEND).apply {
