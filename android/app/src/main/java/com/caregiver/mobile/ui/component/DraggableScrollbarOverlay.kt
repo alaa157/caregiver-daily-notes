@@ -246,7 +246,7 @@ fun DraggableScrollbar(
             drawRoundRect(
                 color = color,
                 topLeft = Offset(0f, animatedThumbY.value),
-                size = Size(this.size.width, constThumbHeight),
+                size = Size(this.size.width.coerceAtLeast(0f), constThumbHeight.coerceAtLeast(0f)),
                 cornerRadius = CornerRadius(cornerRadiusPx)
             )
         }

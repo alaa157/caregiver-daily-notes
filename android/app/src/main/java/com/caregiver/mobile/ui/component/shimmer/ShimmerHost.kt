@@ -48,10 +48,12 @@ fun ShimmerHost(
         modifier = if (showGradient) {
             baseModifier.drawWithContent {
                 drawContent()
-                drawRect(
-                    brush = Brush.verticalGradient(listOf(Color.Black, Color.Transparent)),
-                    blendMode = BlendMode.DstIn,
-                )
+                if (size.height > 0f && size.width > 0f) {
+                    drawRect(
+                        brush = Brush.verticalGradient(listOf(Color.Black, Color.Transparent)),
+                        blendMode = BlendMode.DstIn,
+                    )
+                }
             }
         } else {
             baseModifier
