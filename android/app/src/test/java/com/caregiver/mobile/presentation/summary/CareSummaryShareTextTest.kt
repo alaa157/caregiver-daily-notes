@@ -2,6 +2,7 @@ package com.caregiver.mobile.presentation.summary
 
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertNull
+import org.junit.Assert.assertTrue
 import org.junit.Test
 
 /**
@@ -21,7 +22,7 @@ class CareSummaryShareTextTest {
             arabic = false,
         )
         assertEquals(
-            "Care Summary\nDate: Oct 19, 2026\n\n$actualSummary\n\nShared from Caregiver Notes",
+            "Care Summary\nShared on: Oct 19, 2026\n\n$actualSummary\n\nShared from Caregiver Notes",
             text,
         )
     }
@@ -36,7 +37,7 @@ class CareSummaryShareTextTest {
             arabic = true,
         )
         assertEquals(
-            "ملخص الرعاية\nالتاريخ: 19 أكتوبر 2026\n\n$actualSummary\n\nتمت المشاركة من تطبيق ملاحظات مقدم الرعاية",
+            "ملخص الرعاية\nتاريخ المشاركة: 19 أكتوبر 2026\n\n$actualSummary\n\nتمت المشاركة من تطبيق ملاحظات مقدم الرعاية",
             text,
         )
     }
@@ -45,5 +46,20 @@ class CareSummaryShareTextTest {
     fun blankSummaryHidesShareAction() {
         assertNull(CareSummaryShare.shareText("", "Oct 19, 2026", "Caregiver Notes", arabic = false))
         assertNull(CareSummaryShare.shareText("   \n  ", "19 أكتوبر 2026", "ملاحظات مقدم الرعاية", arabic = true))
+    }
+
+    @Test
+    fun paragraphBreaksAndUnicodeSurviveIntoTheMessage() {
+        // The generated summary is multi-paragraph and bilingual; the
+        // outgoing plain-text message must carry it verbatim, spacing and
+        // Unicode (Arabic, dashes) included.
+        val summary = "نام المريض جيدًا.\n\nMorning walk taken — appetite improving.\n\nالرعاية مستقرة."
+        val text = CareSummaryShare.shareText(
+            summaryText = summary,
+            dateText = "Oct 19, 2026",
+            appName = "Caregiver Notes",
+            arabic = false,
+        )!!
+        assertTrue(text.contains(summary))
     }
 }

@@ -25,16 +25,17 @@ internal object CareSummaryShare {
      * there is nothing usable to share (blank summary text), so callers hide
      * the action entirely instead of sharing an empty shell.
      *
-     * Note: `SummaryDto` carries no date field, so the honest "summary date"
-     * is its generation date (today, in the user's device date), pre-formatted
-     * with the app's bilingual `DateFormats` before being passed here.
+     * Note: `SummaryDto` carries no trusted generation timestamp, so the
+     * date in the message is labelled for what it really is — the sharing /
+     * preparation date (today), pre-formatted with the app's bilingual
+     * `DateFormats` — and never claims to be the summary's own date.
      */
     fun shareText(summaryText: String, dateText: String, appName: String, arabic: Boolean): String? {
         if (summaryText.isBlank()) return null
         return if (arabic) {
-            "ملخص الرعاية\nالتاريخ: $dateText\n\n$summaryText\n\nتمت المشاركة من تطبيق $appName"
+            "ملخص الرعاية\nتاريخ المشاركة: $dateText\n\n$summaryText\n\nتمت المشاركة من تطبيق $appName"
         } else {
-            "Care Summary\nDate: $dateText\n\n$summaryText\n\nShared from $appName"
+            "Care Summary\nShared on: $dateText\n\n$summaryText\n\nShared from $appName"
         }
     }
 

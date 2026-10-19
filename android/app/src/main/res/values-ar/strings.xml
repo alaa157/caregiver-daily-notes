@@ -99,6 +99,10 @@
     <string name="summary_proposals">عرض المقترحات</string>
     <!-- مشاركة الملخص المُنشأ مع الطبيب (قائمة المشاركة). -->
     <string name="share_summary_action">مشاركة الملخص مع الطبيب</string>
+    <!-- تأكيد الخصوصية يظهر قبل فتح قائمة المشاركة. -->
+    <string name="share_summary_confirm_title">مشاركة ملخص الرعاية؟</string>
+    <string name="share_summary_confirm_body">قد يحتوي هذا الملخص على معلومات حساسة عن الرعاية أو الصحة. تابع فقط إذا كنت تنوي مشاركته مع شخص تثق به.</string>
+    <string name="share_summary_confirm_continue">متابعة</string>
     <string name="flag_fall">سقوط مبلغ عنه</string>
     <string name="flag_pain">ألم عال</string>
     <string name="flag_meds">الدواء غير مؤكد</string>
