@@ -80,4 +80,64 @@ class PlanSuggestionServiceTest {
         val result = service.suggest("summary", emptySet())
         assertTrue(result is PlanSuggestionResult.Failure)
     }
+
+    /** Client that answers with the next scripted reply and records requests. */
+    private class ScriptedClient(private val replies: List<String>) : LlmClient {
+        val requests = mutableListOf<LlmRequest>()
+        override suspend fun complete(request: LlmRequest): LlmResult {
+            requests += request
+            val index = (requests.size - 1).coerceAtMost(replies.lastIndex)
+            return LlmResult(LlmStatus.OK, replies[index])
+        }
+    }
+
+    private val validPlanJson =
+        """{"changes":[{"actionId":"monitor","params":{},"reason":"watch closely","evidenceNoteIds":["n1"]}],"proposedMedications":[]}"""
+
+    @Test
+    fun fencedJsonIsAccepted() = runBlocking {
+        val client = ScriptedClient(listOf("```json\n$validPlanJson\n```"))
+        val service = PlanSuggestionService(client)
+        val result = service.suggest("summary", setOf("n1"))
+        assertTrue(result is PlanSuggestionResult.Success)
+        assertEquals(1, (result as PlanSuggestionResult.Success).suggestion.changes.size)
+    }
+
+    @Test
+    fun preambleAroundJsonIsAccepted() = runBlocking {
+        val client = ScriptedClient(listOf("Sure!\n$validPlanJson\nHope that helps."))
+        val service = PlanSuggestionService(client)
+        val result = service.suggest("summary", setOf("n1"))
+        assertTrue(result is PlanSuggestionResult.Success)
+        assertEquals(1, (result as PlanSuggestionResult.Success).suggestion.changes.size)
+    }
+
+    @Test
+    fun malformedOutputTriggersOneRepairRetry() = runBlocking {
+        val client = ScriptedClient(listOf("not json", validPlanJson))
+        val service = PlanSuggestionService(client)
+        val result = service.suggest("summary", setOf("n1"))
+        assertTrue(result is PlanSuggestionResult.Success)
+        assertEquals(LlmStatus.REPAIRED, (result as PlanSuggestionResult.Success).status)
+        assertEquals(2, client.requests.size)
+        assertTrue(client.requests[1].dataBlock.contains(LlmJson.REPAIR_INSTRUCTION))
+    }
+
+    @Test
+    fun repairRetryIsSpentOnlyOnce() = runBlocking {
+        val client = ScriptedClient(listOf("not json"))
+        val service = PlanSuggestionService(client)
+        val result = service.suggest("summary", setOf("n1"))
+        assertTrue(result is PlanSuggestionResult.Failure)
+        assertEquals("parse_error", (result as PlanSuggestionResult.Failure).reasonCode)
+        assertEquals(2, client.requests.size)
+    }
+
+    @Test
+    fun planRequestAsksForNativeJsonMode() = runBlocking {
+        val client = ScriptedClient(listOf(validPlanJson))
+        val service = PlanSuggestionService(client)
+        service.suggest("summary", setOf("n1"))
+        assertTrue(client.requests[0].jsonMode)
+    }
 }

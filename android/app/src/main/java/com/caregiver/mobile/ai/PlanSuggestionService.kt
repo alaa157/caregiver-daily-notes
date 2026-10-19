@@ -26,7 +26,15 @@ data class PlanSuggestion(
 )
 
 sealed class PlanSuggestionResult {
-    data class Success(val suggestion: PlanSuggestion) : PlanSuggestionResult()
+    data class Success(
+        val suggestion: PlanSuggestion,
+        /**
+         * [LlmStatus.REPAIRED] when the reply only became readable after the
+         * single repair retry, [LlmStatus.OK] when it was clean.
+         */
+        val status: LlmStatus = LlmStatus.OK,
+    ) : PlanSuggestionResult()
+
     data class Failure(val reasonCode: String) : PlanSuggestionResult()
 }
 
@@ -36,26 +44,6 @@ class PlanSuggestionService(
     private val allowedActions: Set<String> = DEFAULT_ALLOWED_ACTIONS,
 ) {
     private val json = Json { ignoreUnknownKeys = false }
-
-    /**
-     * Partial acceptance is intentional: invalid individual changes are dropped
-     * while valid ones are kept. The whole payload is still rejected when
-     * proposedMedications is non-empty.
-     */
-    private fun stripFences(raw: String): String {
-        val trimmed = raw.trim()
-        val withoutFence = if (trimmed.startsWith("```")) {
-            val body = trimmed.removePrefix("```json").removePrefix("```").trim()
-            val end = body.lastIndexOf("```")
-            if (end >= 0) body.substring(0, end).trim() else body
-        } else {
-            trimmed
-        }
-        // Defensive: extract the outermost JSON object if present.
-        val first = withoutFence.indexOf('{')
-        val last = withoutFence.lastIndexOf('}')
-        return if (first >= 0 && last > first) withoutFence.substring(first, last + 1) else withoutFence
-    }
 
     suspend fun suggest(
         summaryText: String,
@@ -74,20 +62,31 @@ class PlanSuggestionService(
             basePrompt
         }
         val dataBlock = summaryText + "\n\nAllowed evidence note IDs (use only these in evidenceNoteIds): " + noteIds.joinToString(", ")
-        val res = client.complete(LlmRequest(prompt, dataBlock))
-        if (res.status == LlmStatus.FALLBACK) return PlanSuggestionResult.Failure("llm_fallback")
-        if (res.text.length > MAX_OUTPUT_CHARS) return PlanSuggestionResult.Failure("oversized")
-        val cleaned = stripFences(res.text)
-        val payload = try {
-            json.decodeFromString(PlanSuggestionPayload.serializer(), cleaned)
-        } catch (e: Exception) {
-            return PlanSuggestionResult.Failure("parse_error")
+        // Native json mode keeps the provider from wrapping the answer in
+        // prose; the shared reader strips whatever wrapper is left and spends
+        // one repair retry when the payload still does not parse.
+        val request = LlmRequest(prompt, dataBlock, jsonMode = true)
+        val reply = LlmJson.decode(client, request, MAX_OUTPUT_CHARS) { text ->
+            runCatching { json.decodeFromString(PlanSuggestionPayload.serializer(), text) }.getOrNull()
+        }
+        val payload: PlanSuggestionPayload
+        val replyStatus: LlmStatus
+        when (reply) {
+            is LlmJson.Reply.Parsed -> {
+                payload = reply.value
+                replyStatus = reply.status
+            }
+            is LlmJson.Reply.Unavailable -> return PlanSuggestionResult.Failure("llm_fallback")
+            is LlmJson.Reply.Oversized -> return PlanSuggestionResult.Failure("oversized")
+            is LlmJson.Reply.Malformed -> return PlanSuggestionResult.Failure("parse_error")
         }
         // Medications are never AI-proposed: any non-empty proposed list is
         // rejected outright, regardless of the current medication list.
         if (payload.proposedMedications.isNotEmpty()) {
             return PlanSuggestionResult.Failure("medications_rejected")
         }
+        // Partial acceptance is intentional: invalid individual changes are
+        // dropped while valid ones are kept.
         // Validate each change independently; drop invalid ones, keep valid.
         val accepted = mutableListOf<PlanChange>()
         for (change in payload.changes) {
@@ -102,7 +101,7 @@ class PlanSuggestionService(
             accepted.add(change)
         }
         if (accepted.isEmpty()) return PlanSuggestionResult.Failure("empty_after_filter")
-        return PlanSuggestionResult.Success(PlanSuggestion(accepted, emptyList()))
+        return PlanSuggestionResult.Success(PlanSuggestion(accepted, emptyList()), replyStatus)
     }
 
     companion object {

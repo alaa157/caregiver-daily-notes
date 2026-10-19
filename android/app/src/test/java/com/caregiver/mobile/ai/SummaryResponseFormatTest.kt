@@ -28,7 +28,22 @@ class SummaryResponseFormatTest {
     @Test
     fun nonJsonIsRejected() {
         assertNotNull(SummaryResponseFormat.validate("OK"))
-        assertNotNull(SummaryResponseFormat.validate("Here you go: {\"observations\":[],\"uncertainties\":[]}"))
+    }
+
+    @Test
+    fun wrappedJsonIsAccepted() {
+        // The app reads the payload out of a fence or a sentence, so a reply
+        // that only wraps the json still proves the format works.
+        assertNull(
+            SummaryResponseFormat.validate(
+                "Here you go: {\"observations\":[],\"uncertainties\":[]}",
+            ),
+        )
+        assertNull(
+            SummaryResponseFormat.validate(
+                "```json\n{\"observations\":[],\"uncertainties\":[]}\n```",
+            ),
+        )
     }
 
     @Test

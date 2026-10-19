@@ -50,22 +50,69 @@ class OpenAiCompatibleLlmClient(
             .ifEmpty { "/" }
         val normalizedUrl = httpUrl.newBuilder().encodedPath(if (basePath.endsWith("/")) basePath else "$basePath/").build()
         val url = normalizedUrl.newBuilder().addPathSegments("chat/completions").build().toString()
-        val isOpenAi = baseUrl.contains("api.openai.com", ignoreCase = true)
-        val bodyObj = buildJsonObject {
+
+        // Native json mode is opt-in per request. A server that does not
+        // implement `response_format` answers with a 400; the request is then
+        // retried without the parameter and the shared sanitizer plus the
+        // repair retry take over.
+        var useJsonMode = request.jsonMode
+        var result: LlmResult
+        while (true) {
+            result = send(url, buildBody(request, useJsonMode))
+            if (useJsonMode && result.error == JSON_MODE_UNSUPPORTED) {
+                useJsonMode = false
+                continue
+            }
+            break
+        }
+        return@withContext result
+    }
+
+    private fun buildBody(request: LlmRequest, jsonMode: Boolean): JsonObject {
+        val systemPrompt: String
+        val dataBlock: String
+        if (jsonMode) {
+            // OpenAI rejects a json-mode request whose messages never mention
+            // json, so the word is added when the prompt does not carry it.
+            val messages = request.systemPrompt + "\n" + request.dataBlock
+            systemPrompt = request.systemPrompt
+            dataBlock = if (messages.contains("json")) {
+                request.dataBlock
+            } else {
+                request.dataBlock + "\n\nReply with only json."
+            }
+        } else {
+            systemPrompt = request.systemPrompt
+            dataBlock = request.dataBlock
+        }
+        return buildJsonObject {
             put("model", model)
             putJsonArray("messages") {
-                add(buildJsonObject { put("role", "system"); put("content", request.systemPrompt) })
-                add(buildJsonObject { put("role", "user"); put("content", request.dataBlock) })
+                add(buildJsonObject { put("role", "system"); put("content", systemPrompt) })
+                add(buildJsonObject { put("role", "user"); put("content", dataBlock) })
             }
-            if (isOpenAi) {
+            if (baseUrl.contains("api.openai.com", ignoreCase = true)) {
                 put("max_completion_tokens", maxTokens)
             } else {
                 put("max_tokens", maxTokens)
             }
             put("temperature", 0.2)
+            if (jsonMode) {
+                // Ask the provider for a json reply instead of parsing prose.
+                put("response_format", buildJsonObject { put("type", "json_object") })
+            }
         }
-        val reqBody = json.encodeToString(JsonObject.serializer(), bodyObj)
-            .toRequestBody("application/json".toMediaType())
+    }
+
+    private suspend fun send(url: String, bodyObj: JsonObject): LlmResult {
+        val reqBody = try {
+            json.encodeToString(JsonObject.serializer(), bodyObj)
+                .toRequestBody("application/json".toMediaType())
+        } catch (e: kotlinx.coroutines.CancellationException) {
+            throw e
+        } catch (e: Exception) {
+            return LlmResult(LlmStatus.FALLBACK, "", "invalid_request", null)
+        }
         var last: LlmResult = LlmResult(LlmStatus.FALLBACK, "", "network", null)
         repeat(3) { attempt ->
             try {
@@ -76,7 +123,8 @@ class OpenAiCompatibleLlmClient(
                     .post(reqBody)
                     .build()
                 val call = okHttpClient.newCall(httpReq)
-                coroutineContext[kotlinx.coroutines.Job]?.invokeOnCompletion { cause -> if (cause is kotlinx.coroutines.CancellationException) call.cancel() }
+                kotlinx.coroutines.currentCoroutineContext()[kotlinx.coroutines.Job]
+                    ?.invokeOnCompletion { cause -> if (cause is kotlinx.coroutines.CancellationException) call.cancel() }
                 call.execute().use { resp ->
                     val raw = resp.body?.string().orEmpty()
                     if (!resp.isSuccessful) {
@@ -88,7 +136,12 @@ class OpenAiCompatibleLlmClient(
                         }
                         last = LlmResult(LlmStatus.FALLBACK, "", err, code)
                         if (code == 401 || code == 403) {
-                            return@withContext last
+                            return last
+                        }
+                        if (code == 400 && raw.contains("response_format", ignoreCase = true)) {
+                            // The endpoint does not know the native json
+                            // parameter; the caller retries without it.
+                            return LlmResult(LlmStatus.FALLBACK, "", JSON_MODE_UNSUPPORTED, code)
                         }
                         // 429 surfaces immediately: auto-retrying quota errors
                         // inside a user-triggered request stalls the UI in
@@ -98,7 +151,7 @@ class OpenAiCompatibleLlmClient(
                             if (attempt < 2) kotlinx.coroutines.delay(calculateBackoff(attempt))
                             return@use
                         }
-                        return@withContext last
+                        return last
                     }
                     val root = try { json.parseToJsonElement(raw).jsonObject } catch (e: Exception) { null }
                     val choice = root?.get("choices")?.jsonArray?.firstOrNull()?.jsonObject
@@ -114,7 +167,7 @@ class OpenAiCompatibleLlmClient(
                         if (attempt < 2) kotlinx.coroutines.delay(calculateBackoff(attempt))
                         return@use
                     }
-                    return@withContext LlmResult(LlmStatus.OK, content)
+                    return LlmResult(LlmStatus.OK, content)
                 }
             } catch (e: kotlinx.coroutines.CancellationException) {
                 throw e
@@ -123,7 +176,7 @@ class OpenAiCompatibleLlmClient(
                 if (attempt < 2) kotlinx.coroutines.delay(calculateBackoff(attempt))
             }
         }
-        return@withContext last
+        return last
     }
 
     fun calculateBackoff(attempt: Int, baseMs: Long = BACKOFF_BASE_MS): Long {
