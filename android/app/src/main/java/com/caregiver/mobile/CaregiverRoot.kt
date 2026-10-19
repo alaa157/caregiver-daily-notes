@@ -3,11 +3,14 @@ package com.caregiver.mobile
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.collectAsState
+import androidx.compose.runtime.getValue
 import androidx.navigation.compose.NavHost
 import androidx.navigation.compose.composable
 import androidx.navigation.compose.rememberNavController
 import com.caregiver.mobile.core.navigation.AppDestinations
 import com.caregiver.mobile.presentation.auth.LoginScreen
+import com.caregiver.mobile.presentation.onboarding.OnboardingScreen
 import com.caregiver.mobile.presentation.auth.RegisterScreen
 import com.caregiver.mobile.presentation.settings.ServerUrlScreen
 
@@ -17,6 +20,11 @@ import com.caregiver.mobile.presentation.settings.ServerUrlScreen
  */
 @Composable
 fun CaregiverRoot(graph: AppGraph) {
+    val onboardingCompleted by graph.settings.onboardingCompleted.collectAsState(initial = false)
+    if (!onboardingCompleted) {
+        OnboardingScreen(graph) { }
+        return
+    }
     if (com.caregiver.mobile.BuildConfig.LOCAL_MODE) {
         MainScaffold(graph)
         return
