@@ -163,6 +163,7 @@
     <string name="summary_demo_title">Illustrative demo summary</string>
     <string name="summary_demo_body">Generated offline from demo notes for illustration. Always check the source notes below.</string>
     <string name="summary_choose_period">Choose the time period</string>
+    <string name="summary_no_supported_observations">No supported observations found in the selected period.</string>
     <string name="summary_overview">Overview</string>
     <string name="summary_trends">Trends</string>
     <string name="summary_important">Important notes</string>

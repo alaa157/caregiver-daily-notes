@@ -7,7 +7,7 @@ import androidx.room.Query
 
 @Dao
 interface AddendumDao {
-    @Query("SELECT * FROM addenda WHERE noteId = :noteId ORDER BY createdAt ASC")
+    @Query("SELECT * FROM addenda WHERE noteId = :noteId ORDER BY createdAt ASC, id ASC")
     suspend fun byNoteId(noteId: String): List<AddendumEntity>
 
     @Insert(onConflict = OnConflictStrategy.REPLACE)

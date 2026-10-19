@@ -1,5 +1,7 @@
 package com.caregiver.mobile.presentation.summary
 
+import android.util.Log
+
 import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
@@ -174,7 +176,8 @@ fun SummaryResultScreen(
                 verticalArrangement = Arrangement.spacedBy(AppDimens.SectionGap),
                 modifier = Modifier.padding(top = 16.dp),
             ) {
-                s.last?.let { FlagsBanner(it.redFlags) }
+                val flags = ((s.last?.redFlags ?: emptyList()) + s.redFlags).distinct()
+                FlagsBanner(flags)
                 AppWarningState(
                     message = stringResource(R.string.state_ai_down),
                     detail = stringResource(R.string.state_ai_down_hint),
@@ -289,7 +292,7 @@ private fun SummaryBody(
         }
         SectionTitle(stringResource(R.string.summary_overview))
         Text(
-            text = summary.text,
+            text = if (summary.text.isBlank()) stringResource(R.string.summary_no_supported_observations) else summary.text,
             fontFamily = PlexArabic,
             fontSize = 16.sp,
             lineHeight = 29.sp,
@@ -365,7 +368,10 @@ private fun flagText(flag: String): String = when (flag) {
     "REPEATED_MISSED_MED" -> stringResource(R.string.flag_missed_med)
     "MEDICATION_UNVERIFIED" -> stringResource(R.string.flag_med_unverified)
     "POOR_APPETITE_DAYS" -> stringResource(R.string.flag_poor_appetite)
-    else -> stringResource(R.string.flag_unknown)
+    else -> {
+        Log.w("SummaryScreen", "Unknown safety flag: $flag")
+        stringResource(R.string.flag_unknown)
+    }
 }
 
 @Composable

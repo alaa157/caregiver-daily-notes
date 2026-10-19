@@ -34,43 +34,77 @@ class OpenAiCompatibleLlmClient(
         if (httpUrl == null || httpUrl.host.isEmpty()) {
             return@withContext LlmResult(LlmStatus.FALLBACK, "", "invalid_url", null)
         }
-        val isLoopback = httpUrl.host == "localhost" || httpUrl.host == "127.0.0.1"
-        if (httpUrl.scheme == "http" && !isLoopback) {
+        if (httpUrl.query != null || httpUrl.fragment != null ||
+            httpUrl.username.isNotEmpty() || httpUrl.password.isNotEmpty()) {
+            return@withContext LlmResult(LlmStatus.FALLBACK, "", "invalid_url", null)
+        }
+        if (httpUrl.scheme == "http" && !com.caregiver.mobile.data.api.ApiClient.isDevHost(httpUrl.host)) {
             return@withContext LlmResult(LlmStatus.FALLBACK, "", "invalid_url", null)
         }
         if (httpUrl.scheme !in listOf("http", "https")) {
             return@withContext LlmResult(LlmStatus.FALLBACK, "", "invalid_url", null)
         }
-        if (apiKey.isBlank() || apiKey.any { it.isISOControl() }) {
+        if (apiKey.isBlank() || apiKey.any { it.isWhitespace() || it.isISOControl() }) {
             return@withContext LlmResult(LlmStatus.FALLBACK, "", "invalid_key", null)
         }
         val basePath = httpUrl.encodedPath
             .removeSuffix("/chat/completions")
             .removeSuffix("/chat/completions/")
             .ifEmpty { "/" }
-        val normalizedUrl = httpUrl.newBuilder().encodedPath(if (basePath.endsWith("/")) basePath else "$basePath/").build()
-        val url = normalizedUrl.newBuilder().addPathSegments("chat/completions").build().toString()
-        val isOpenAi = baseUrl.contains("api.openai.com", ignoreCase = true)
-        val bodyObj = buildJsonObject {
-            put("model", model)
-            putJsonArray("messages") {
-                add(buildJsonObject { put("role", "system"); put("content", request.systemPrompt) })
-                add(buildJsonObject { put("role", "user"); put("content", request.dataBlock) })
-            }
-            if (isOpenAi) {
-                put("max_completion_tokens", maxTokens)
-            } else {
-                put("max_tokens", maxTokens)
-            }
-            put("temperature", 0.2)
+        val normalizedUrl = try {
+            httpUrl.newBuilder().encodedPath(if (basePath.endsWith("/")) basePath else "$basePath/").build()
+        } catch (e: kotlinx.coroutines.CancellationException) {
+            throw e
+        } catch (e: Exception) {
+            return@withContext LlmResult(LlmStatus.FALLBACK, "", "invalid_url", null)
         }
-        val reqBody = json.encodeToString(JsonObject.serializer(), bodyObj)
-            .toRequestBody("application/json".toMediaType())
+        val url = try {
+            normalizedUrl.newBuilder().addPathSegments("chat/completions").build().toString()
+        } catch (e: kotlinx.coroutines.CancellationException) {
+            throw e
+        } catch (e: Exception) {
+            return@withContext LlmResult(LlmStatus.FALLBACK, "", "invalid_url", null)
+        }
+        val finalHttpUrl = url.toHttpUrlOrNull()
+        if (finalHttpUrl == null || finalHttpUrl.host.isEmpty() ||
+            (finalHttpUrl.scheme == "http" && !com.caregiver.mobile.data.api.ApiClient.isDevHost(finalHttpUrl.host)) ||
+            finalHttpUrl.scheme !in listOf("http", "https")) {
+            return@withContext LlmResult(LlmStatus.FALLBACK, "", "invalid_url", null)
+        }
+        val safeUrl = finalHttpUrl.toString()
+        val isOpenAi = baseUrl.contains("api.openai.com", ignoreCase = true)
+        val bodyObj = try {
+            buildJsonObject {
+                put("model", model)
+                putJsonArray("messages") {
+                    add(buildJsonObject { put("role", "system"); put("content", request.systemPrompt) })
+                    add(buildJsonObject { put("role", "user"); put("content", request.dataBlock) })
+                }
+                if (isOpenAi) {
+                    put("max_completion_tokens", maxTokens)
+                } else {
+                    put("max_tokens", maxTokens)
+                }
+                put("temperature", 0.2)
+            }
+        } catch (e: kotlinx.coroutines.CancellationException) {
+            throw e
+        } catch (e: Exception) {
+            return@withContext LlmResult(LlmStatus.FALLBACK, "", "invalid_request", null)
+        }
+        val reqBody = try {
+            json.encodeToString(JsonObject.serializer(), bodyObj)
+                .toRequestBody("application/json".toMediaType())
+        } catch (e: kotlinx.coroutines.CancellationException) {
+            throw e
+        } catch (e: Exception) {
+            return@withContext LlmResult(LlmStatus.FALLBACK, "", "invalid_request", null)
+        }
         var last: LlmResult = LlmResult(LlmStatus.FALLBACK, "", "network", null)
         repeat(3) { attempt ->
             try {
                 val httpReq = Request.Builder()
-                    .url(url)
+                    .url(safeUrl)
                     .addHeader("Content-Type", "application/json")
                     .addHeader("Authorization", "Bearer $apiKey")
                     .post(reqBody)

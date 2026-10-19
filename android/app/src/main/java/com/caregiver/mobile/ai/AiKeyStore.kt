@@ -34,7 +34,8 @@ class AiKeyStore(private val context: Context) {
 
     fun hasKey(): Boolean = !apiKey().isNullOrBlank()
 
-    fun model(): String? = prefs.getString(KEY_MODEL, null)
+    fun model(): String? =
+        prefs.getString(KEY_MODEL, null)?.takeIf { it.isNotBlank() }
 
     fun setModel(m: String) {
         prefs.edit().putString(KEY_MODEL, m).apply()
