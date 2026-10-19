@@ -113,7 +113,11 @@ class GeminiLlmClient(
                         if (code == 401 || code == 403) {
                             return@withContext last
                         }
-                        if (code == 429 || code >= 500) {
+                        // 429 surfaces immediately: auto-retrying quota errors
+                        // inside a user-triggered request stalls the UI in
+                        // real backoff; the app shows "rate_limit" and the
+                        // user retries when ready. 5xx still retries.
+                        if (code >= 500) {
                             if (attempt < 2) kotlinx.coroutines.delay(calculateBackoff(attempt))
                             return@use
                         }

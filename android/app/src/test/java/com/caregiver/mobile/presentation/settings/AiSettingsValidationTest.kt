@@ -46,8 +46,11 @@ class AiSettingsValidationTest {
     }
 
     @Test
-    fun modelFallsBackToProviderDefaultWhenBlank() {
-        assertEquals(AiProvider.OPENAI.defaultModel, AiSettingsValidation.normalizedModel("  ", AiProvider.OPENAI))
+    fun blankModelIsStoredBlankSoDefaultsCanChange() {
+        // Same convention as the base URL below: blank means "use the
+        // provider default"; the read side resolves it against the current
+        // default (covered by SummaryViewModelModelResolutionTest).
+        assertEquals("", AiSettingsValidation.normalizedModel("  ", AiProvider.OPENAI))
         assertEquals("custom-model", AiSettingsValidation.normalizedModel(" custom-model ", AiProvider.OPENAI))
     }
 
