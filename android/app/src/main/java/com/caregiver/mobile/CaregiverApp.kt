@@ -3,7 +3,9 @@ package com.caregiver.mobile
 import android.app.Application
 
 import android.content.Context
+import android.util.Log
 import com.caregiver.mobile.core.network.TokenHolder
+import com.caregiver.mobile.core.util.LanguagePrefs
 import com.caregiver.mobile.core.util.LocaleHelper
 import com.caregiver.mobile.data.AuthRepository
 import com.caregiver.mobile.data.NoteRepository
@@ -26,26 +28,38 @@ import com.caregiver.mobile.ai.LlmClientFactory
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.runBlocking
 
+/** Log tag for language-restore diagnostics (Log.i/e survive the minified build). */
+private const val TAG = "Language"
+
 class CaregiverApp : Application() {
     val graph: AppGraph by lazy { AppGraph(this) }
 
     override fun attachBaseContext(base: Context) {
-        // Apply the stored language before any resource loads. A small
-        // blocking prefs read at startup; the settings screen recreates
-        // the activity so this re-runs on language change. Single small
-        // read only — if StrictMode ever flags it, move to a splash-gated
-        // async load with the default locale as fallback. The read goes
-        // through SettingsStores, so this handle and AppGraph.settings
-        // share the single DataStore for the file.
-        val language = try {
-            runBlocking {
-                SettingsStore.create(base).language.first()
+        // Apply the stored language before any resource loads. Language
+        // changes are mirrored synchronously into SharedPreferences
+        // (LanguagePrefs — plain commit(), no coroutines, no file parsing),
+        // so the mirror is read first and any language once picked survives
+        // process death. When the mirror is empty (first launch, or a device
+        // whose earlier DataStore path silently failed), fall back to the
+        // DataStore read through SettingsStore — this handle and
+        // AppGraph.settings share the single DataStore for the file — and
+        // self-heal that value back into the mirror for the next start.
+        LanguagePrefs.attachHost(base)
+        val language = LanguagePrefs.read()
+            ?: try {
+                runBlocking {
+                    SettingsStore.create(base).language.first()
+                }.also { Log.i(TAG, "mirror empty; DataStore holds $it") }
+            } catch (e: Exception) {
+                // A failed read has no other visible symptom than the
+                // language dropping to the default on restart; surface it.
+                Log.e(TAG, "DataStore language read failed at process start", e)
+                SettingsStore.DEFAULT_LANGUAGE
             }
-        } catch (e: Exception) {
-            SettingsStore.DEFAULT_LANGUAGE
-        }
+        if (LanguagePrefs.read() != language) LanguagePrefs.write(language)
         // Seed the process cache the activities wrap their base context
         // with; activities are created after this runs.
+        Log.i(TAG, "cold start language=$language")
         LocaleHelper.cache(language)
         super.attachBaseContext(LocaleHelper.wrap(base, language))
     }

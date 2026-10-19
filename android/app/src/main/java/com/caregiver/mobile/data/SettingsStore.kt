@@ -7,6 +7,7 @@ import androidx.datastore.preferences.core.edit
 import androidx.datastore.preferences.core.booleanPreferencesKey
 import androidx.datastore.preferences.core.stringPreferencesKey
 import androidx.datastore.preferences.preferencesDataStoreFile
+import com.caregiver.mobile.core.util.LanguagePrefs
 import com.caregiver.mobile.core.util.LocaleHelper
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.map
@@ -54,9 +55,12 @@ class SettingsStore(private val dataStore: DataStore<Preferences>) {
     suspend fun setLanguage(code: String) {
         dataStore.edit { it[LANGUAGE] = code }
         // Mirror the choice into the process cache the activities wrap their
-        // base context with. The DataStore value stays the source of truth;
-        // this only lets a recreation apply it without a disk read.
+        // base context with, and into the synchronous SharedPreferences
+        // mirror LanguagePrefs.read() serves `attachBaseContext` at cold
+        // start. The DataStore value stays the source of truth; the mirrors
+        // only make the choice survive the process with no interpreted read.
         LocaleHelper.cache(code)
+        LanguagePrefs.write(code)
     }
 
     suspend fun setThemeMode(mode: String) {
