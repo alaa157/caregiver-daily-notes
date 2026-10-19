@@ -8,6 +8,8 @@ import androidx.compose.animation.fadeIn
 import androidx.compose.animation.fadeOut
 import androidx.compose.animation.scaleIn
 import androidx.compose.animation.scaleOut
+import androidx.compose.animation.slideInHorizontally
+import androidx.compose.animation.slideOutHorizontally
 import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.background
@@ -19,6 +21,7 @@ import androidx.compose.ui.window.Popup
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.navigationBars
+import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.windowInsetsPadding
@@ -43,6 +46,7 @@ import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.material3.TopAppBarDefaults
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.derivedStateOf
 import androidx.compose.runtime.getValue
@@ -102,9 +106,6 @@ import com.caregiver.mobile.presentation.summary.SummaryResultScreen
 import java.time.LocalDate
 import kotlinx.coroutines.launch
 
-/** Destination cross-fade duration; shorter than Nav defaults so tab taps feel instant. */
-private const val TabTransitionMs = 180
-
 /**
  * Tab shell: 4 tabs plus the add-note action. All destinations are live;
  * detail screens navigate with typed [AppRoutes] builders.
@@ -116,9 +117,26 @@ fun MainScaffold(graph: AppGraph) {
     val backStack by navController.currentBackStackEntryAsState()
     val currentRoute = backStack?.destination?.route
 
+    // Tab order for the NavHost transitions below: each tab route maps to its
+    // bottom-bar index, every other destination reads as -1 ("deeper than a
+    // tab"), and comparing the two indices picks the slide direction —
+    // forward moves enter from the right, back moves from the left.
+    val routeIndexMap = remember {
+        MainTab.entries.mapIndexed { index, tab -> tab.route to index }.toMap()
+    }
+
     // X-style shared top bar, tab routes only; it hides on scroll-down and
     // returns on scroll-up (nested scroll is connected to the Scaffold below).
     val scrollBehavior = TopAppBarDefaults.enterAlwaysScrollBehavior()
+
+    // The shared bar now animates instead of appearing and vanishing: it
+    // fades out when a detail route takes over and fades back in on return.
+    // Re-deriving it from the back stack lets the fade run in step with the
+    // destination transition.
+    var shouldShowTopBar by rememberSaveable { mutableStateOf(false) }
+    LaunchedEffect(backStack) {
+        shouldShowTopBar = MainTab.isTabRoute(backStack?.destination?.route)
+    }
 
     // Account pop-up: opened from the top-bar avatar; dismissed by tapping
     // outside or choosing an item. (Replaces the old left drawer.)
@@ -179,25 +197,31 @@ fun MainScaffold(graph: AppGraph) {
             modifier = Modifier.nestedScroll(scrollBehavior.nestedScrollConnection),
             topBar = {
                 // The four tab routes share the center-aligned bar; detail routes
-                // keep drawing their own AppTopBar with a back button, so nothing
-                // is rendered here for them.
-                if (MainTab.isTabRoute(currentRoute)) {
-                    AppCenterTopBar(
-                        title = stringResource(R.string.app_name),
-                        avatarLetter = avatarLetter,
-                        scrollBehavior = scrollBehavior,
-                        onAvatarClick = { showAccountMenu = !showAccountMenu },
-                        avatarContentDescription = stringResource(R.string.drawer_open),
-                        avatarModifier = Modifier.testTag("drawer_avatar"),
-                        actions = {
-                            // Task 8d: the end slot mirrors the outbox — synced,
-                            // syncing, offline, or failed (tap to retry).
-                            SyncStatusIndicator(
-                                status = syncStatus,
-                                onRetry = syncStatusVm::retry,
-                            )
-                        },
-                    )
+                // keep drawing their own AppTopBar with a back button, so this
+                // one fades away for them instead of vanishing mid-transition.
+                AnimatedVisibility(
+                    visible = shouldShowTopBar,
+                    enter = fadeIn(animationSpec = tween(durationMillis = 300)),
+                    exit = fadeOut(animationSpec = tween(durationMillis = 200)),
+                ) {
+                    Row {
+                        AppCenterTopBar(
+                            title = stringResource(R.string.app_name),
+                            avatarLetter = avatarLetter,
+                            scrollBehavior = scrollBehavior,
+                            onAvatarClick = { showAccountMenu = !showAccountMenu },
+                            avatarContentDescription = stringResource(R.string.drawer_open),
+                            avatarModifier = Modifier.testTag("drawer_avatar"),
+                            actions = {
+                                // Task 8d: the end slot mirrors the outbox — synced,
+                                // syncing, offline, or failed (tap to retry).
+                                SyncStatusIndicator(
+                                    status = syncStatus,
+                                    onRetry = syncStatusVm::retry,
+                                )
+                            },
+                        )
+                    }
                 }
             },
             bottomBar = {
@@ -320,16 +344,56 @@ fun MainScaffold(graph: AppGraph) {
                 }
             },
         ) { innerPadding ->
-            // Fast cross-fade between destinations: the Navigation-Compose
-            // default is a 700ms tween, which reads as sluggish on tab switches.
+            // Direction-aware slide + fade (Metrolist pattern): a forward move
+            // — deeper than any tab, or a later tab — brings the incoming
+            // screen in from the right by an eighth of the width while the
+            // outgoing one leaves to the left; back mirrors both, and pops
+            // use the mirrored pop transitions. The 200ms fade keeps this
+            // far shorter than the Navigation-Compose 700ms default.
             NavHost(
                 navController = navController,
                 startDestination = MainTab.Home.route,
                 modifier = Modifier.padding(innerPadding),
-                enterTransition = { fadeIn(tween(TabTransitionMs)) },
-                exitTransition = { fadeOut(tween(TabTransitionMs)) },
-                popEnterTransition = { fadeIn(tween(TabTransitionMs)) },
-                popExitTransition = { fadeOut(tween(TabTransitionMs)) },
+                enterTransition = {
+                    val currentRouteIndex = routeIndexMap[targetState.destination.route] ?: -1
+                    val previousRouteIndex = routeIndexMap[initialState.destination.route] ?: -1
+
+                    if (currentRouteIndex == -1 || currentRouteIndex > previousRouteIndex) {
+                        slideInHorizontally { it / 8 } + fadeIn(tween(200))
+                    } else {
+                        slideInHorizontally { -it / 8 } + fadeIn(tween(200))
+                    }
+                },
+                exitTransition = {
+                    val currentRouteIndex = routeIndexMap[initialState.destination.route] ?: -1
+                    val targetRouteIndex = routeIndexMap[targetState.destination.route] ?: -1
+
+                    if (targetRouteIndex == -1 || targetRouteIndex > currentRouteIndex) {
+                        slideOutHorizontally { -it / 8 } + fadeOut(tween(200))
+                    } else {
+                        slideOutHorizontally { it / 8 } + fadeOut(tween(200))
+                    }
+                },
+                popEnterTransition = {
+                    val currentRouteIndex = routeIndexMap[targetState.destination.route] ?: -1
+                    val previousRouteIndex = routeIndexMap[initialState.destination.route] ?: -1
+
+                    if (previousRouteIndex != -1 && previousRouteIndex < currentRouteIndex) {
+                        slideInHorizontally { it / 8 } + fadeIn(tween(200))
+                    } else {
+                        slideInHorizontally { -it / 8 } + fadeIn(tween(200))
+                    }
+                },
+                popExitTransition = {
+                    val currentRouteIndex = routeIndexMap[initialState.destination.route] ?: -1
+                    val targetRouteIndex = routeIndexMap[targetState.destination.route] ?: -1
+
+                    if (currentRouteIndex != -1 && currentRouteIndex < targetRouteIndex) {
+                        slideOutHorizontally { -it / 8 } + fadeOut(tween(200))
+                    } else {
+                        slideOutHorizontally { it / 8 } + fadeOut(tween(200))
+                    }
+                },
             ) {
                 composable(MainTab.Home.route) { HomeScreen(graph, navController) }
                 composable(MainTab.People.route) { RecipientsScreen(graph, navController) }
