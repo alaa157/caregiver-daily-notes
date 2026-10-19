@@ -123,7 +123,12 @@ class SummaryViewModel(
                 val signals = repository.authorized { apis.summaries().signals(recipientId, from, to) }
                 // Compute deterministic safety flags up front so they survive even
                 // when the AI provider throws instead of returning a fallback.
-                val windowedSignals = signals.filter { com.caregiver.mobile.ai.SummaryWindow.contains(it.date, today, _period.value) }
+                // Scope by recipient here too: this path can surface flags in
+                // the AiUnavailable state without the service's own filter.
+                val windowedSignals = signals.filter {
+                    it.recipientId == recipientId &&
+                        com.caregiver.mobile.ai.SummaryWindow.contains(it.date, today, _period.value)
+                }
                 aiRedFlags = com.caregiver.mobile.ai.SafetySignalEvaluator.evaluate(windowedSignals)
                 when (val result = service.summarize(recipientId, _period.value, notes, signals, today)) {
                     is com.caregiver.mobile.ai.SummaryAiResult.Success -> {

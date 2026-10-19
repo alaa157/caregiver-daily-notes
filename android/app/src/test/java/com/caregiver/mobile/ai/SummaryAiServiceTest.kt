@@ -159,4 +159,23 @@ class SummaryAiServiceTest {
         assertEquals("invalid_evidence", (result as SummaryAiResult.Failure).reasonCode)
     }
 
+    @Test
+    fun observationsAreCappedAtTheSummaryLimit() = runBlocking {
+        // A model that ignores the prompt and returns one observation per note
+        // must still produce a summary, not a dump of the whole period.
+        val observations = (1..(SummaryAiService.MAX_OBSERVATIONS + 4)).joinToString(",") {
+            """{"text":"walked","noteId":"n1","quote":"walked"}"""
+        }
+        val json = """{"observations":[$observations],"uncertainties":[]}"""
+        val svc = service(json)
+        val result = svc.summarize("r1", 7, listOf(note), emptyList(), LocalDate.parse("2026-10-01"))
+        assertTrue(result is SummaryAiResult.Success)
+        val summary = (result as SummaryAiResult.Success).summary
+        assertEquals(SummaryAiService.MAX_OBSERVATIONS, summary.evidence.size)
+        assertEquals(
+            List(SummaryAiService.MAX_OBSERVATIONS) { "walked" }.joinToString(" "),
+            summary.text,
+        )
+    }
+
 }
