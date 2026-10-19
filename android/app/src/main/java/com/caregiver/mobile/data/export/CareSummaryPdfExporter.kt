@@ -24,7 +24,7 @@ object CareSummaryPdfExporter {
         notes: List<NoteDto> = emptyList(),
     ): android.net.Uri {
         val dir = File(context.cacheDir, "reports").apply { mkdirs() }
-        val file = File(dir, "care-summary-${LocalDate.now()}.pdf")
+        val file = File(dir, "care-summary-${System.currentTimeMillis()}.pdf")
         val doc = PdfDocument()
         val pageWidth = 595
         val pageHeight = 842
