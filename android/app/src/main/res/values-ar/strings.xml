@@ -277,6 +277,7 @@
     <string name="translation_system_prompt_title">مطالبة النظام للترجمة</string>
     <string name="plan_system_prompt_title">مطالبة النظام للخطة</string>
     <string name="account_menu_close">إغلاق قائمة الحساب</string>
+    <string name="account_menu_subtitle">حساب مقدم الرعاية</string>
     <string name="sign_in_with_google">تسجيل الدخول باستخدام Google</string>
     <string name="experimental_google_signin">ميزة تجريبية — تسجيل الدخول عبر Google غير متاح بعد</string>
     <string name="section_interface">الواجهة</string>
