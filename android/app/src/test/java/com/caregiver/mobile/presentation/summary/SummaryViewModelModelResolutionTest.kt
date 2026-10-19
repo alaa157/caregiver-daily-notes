@@ -53,7 +53,6 @@ class SummaryViewModelModelResolutionTest {
         store = AiKeyStore(ApplicationProvider.getApplicationContext(), allowHardwareKeystore = false)
         store.setConsentGiven()
         store.setProvider(AiProvider.OPENAI)
-        store.setApiKey("test-key")
         factory = RecordingFactory()
     }
 
@@ -71,6 +70,7 @@ class SummaryViewModelModelResolutionTest {
 
     @Test
     fun blankSavedModelUsesProviderDefault() = runTest {
+        store.setApiKey("test-key")
         store.setModel("")
         summaries.summarizeHandler = { summary() }
         val vm = SummaryViewModel("r1", apis(), repository, this, aiKeyStore = store, llmClientFactory = factory)
@@ -80,6 +80,7 @@ class SummaryViewModelModelResolutionTest {
 
     @Test
     fun customSavedModelIsUsed() = runTest {
+        store.setApiKey("test-key")
         store.setModel("custom-model")
         summaries.summarizeHandler = { summary() }
         val vm = SummaryViewModel("r1", apis(), repository, this, aiKeyStore = store, llmClientFactory = factory)
@@ -89,10 +90,21 @@ class SummaryViewModelModelResolutionTest {
 
     @Test
     fun planSuggestionUsesProviderDefaultForBlankModel() = runTest {
+        // suggestPlan() only runs from the Content state, and with an API key
+        // present load() always lands on AiUnavailable: the AI branch's notes
+        // fetch throws (no handler wired) and it never falls back to the
+        // backend summarize. So build the VM without a key — the backend
+        // fallback produces Content — and insert the key only afterwards.
+        // That makes the recorded model prove the SUGGEST path's own
+        // provider-default resolution (load() never even creates a client
+        // without a key). The suggest coroutine below then throws on its own
+        // notes fetch too — expected and harmless; the model was already
+        // recorded by createClient before that point.
         store.setModel("")
         summaries.summarizeHandler = { summary() }
         val vm = SummaryViewModel("r1", apis(), repository, this, aiKeyStore = store, llmClientFactory = factory)
         vm.state.first { it is SummaryState.Content }
+        store.setApiKey("test-key")
         vm.suggestPlan()
         advanceUntilIdle()
         assertEquals(AiProvider.OPENAI.defaultModel, factory.lastModel)
