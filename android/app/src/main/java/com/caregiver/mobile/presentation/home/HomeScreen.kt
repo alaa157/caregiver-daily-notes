@@ -26,6 +26,8 @@ import androidx.compose.material3.Tab
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.material3.pulltorefresh.PullToRefreshBox
+import androidx.compose.material3.pulltorefresh.PullToRefreshDefaults.Indicator
+import androidx.compose.material3.pulltorefresh.rememberPullToRefreshState
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
@@ -151,6 +153,7 @@ private fun HomeTimeline(
 ) {
     var selectedTab by rememberSaveable { mutableStateOf(HomeTab.Today) }
     val listState = rememberLazyListState()
+    val pullRefreshState = rememberPullToRefreshState()
     // Task 2 contract: re-tapping the active Home tab publishes "home";
     // scroll the feed back to the first row when the event is ours.
     LaunchedEffect(MainTab.Home.route) {
@@ -194,9 +197,20 @@ private fun HomeTimeline(
             }
         }
         PullToRefreshBox(
+            state = pullRefreshState,
             isRefreshing = refreshing,
             onRefresh = onRefresh,
             modifier = Modifier.fillMaxSize(),
+            // Metrolist keeps the stock M3 spinner, just re-anchored to the
+            // content top (their player-aware inset padding has no
+            // mini-player counterpart here, so no padding is needed).
+            indicator = {
+                Indicator(
+                    isRefreshing = refreshing,
+                    state = pullRefreshState,
+                    modifier = Modifier.align(Alignment.TopCenter),
+                )
+            },
         ) {
             val cards = homeCardsForTab(content.cards, selectedTab)
             LazyColumn(

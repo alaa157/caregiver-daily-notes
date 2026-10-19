@@ -33,6 +33,8 @@ import androidx.compose.material3.Icon
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.material3.pulltorefresh.PullToRefreshBox
+import androidx.compose.material3.pulltorefresh.PullToRefreshDefaults.Indicator
+import androidx.compose.material3.pulltorefresh.rememberPullToRefreshState
 import androidx.compose.material3.rememberDatePickerState
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
@@ -244,10 +246,20 @@ private fun HistoryFeed(
                 }
             }
     }
+    val pullRefreshState = rememberPullToRefreshState()
     PullToRefreshBox(
+        state = pullRefreshState,
         isRefreshing = refreshing,
         onRefresh = onRefresh,
         modifier = Modifier.fillMaxSize(),
+        // Metrolist idiom: stock M3 spinner re-anchored to the content top.
+        indicator = {
+            Indicator(
+                isRefreshing = refreshing,
+                state = pullRefreshState,
+                modifier = Modifier.align(Alignment.TopCenter),
+            )
+        },
     ) {
         LazyColumn(
             state = listState,
