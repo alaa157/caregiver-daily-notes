@@ -9,6 +9,7 @@ import android.text.Layout
 import android.text.StaticLayout
 import android.text.TextPaint
 import androidx.core.content.FileProvider
+import com.caregiver.mobile.data.api.NoteDto
 import com.caregiver.mobile.data.api.SummaryDto
 import java.io.File
 import java.io.FileOutputStream
@@ -20,6 +21,7 @@ object CareSummaryPdfExporter {
         summary: SummaryDto,
         recipientName: String?,
         languageTag: String,
+        notes: List<NoteDto> = emptyList(),
     ): android.net.Uri {
         val dir = File(context.cacheDir, "reports").apply { mkdirs() }
         val file = File(dir, "care-summary-${LocalDate.now()}.pdf")
@@ -91,6 +93,22 @@ object CareSummaryPdfExporter {
             summary.evidence.forEach { ev ->
                 drawTextBlock("${ev.noteId}: ${ev.quote}", paint, 8f)
             }
+        }
+
+        drawTextBlock(if (ar) "الاتجاهات والملاحظات" else "Trends and observations", sectionPaint, 4f)
+        val trendLines = mutableListOf<String>()
+        notes.sortedBy { it.date }.forEach { n ->
+            val parts = mutableListOf<String>()
+            if (n.pain >= 0) parts += (if (ar) "الألم: " else "Pain: ") + n.pain
+            if (n.sleep.isNotBlank()) parts += (if (ar) "النوم: " else "Sleep: ") + n.sleep
+            if (n.mood.isNotBlank()) parts += (if (ar) "المزاج: " else "Mood: ") + n.mood
+            if (parts.isNotEmpty()) trendLines += "${n.date}: " + parts.joinToString(", ")
+        }
+        if (trendLines.isEmpty()) {
+            drawTextBlock(if (ar) "لا توجد بيانات اتجاه مسجلة خلال هذه الفترة." else "No recorded trend data for this period.", paint, 12f)
+        } else {
+            trendLines.forEach { drawTextBlock(it, paint, 4f) }
+            y += 8f
         }
 
         if (summary.uncertainties.isNotEmpty()) {

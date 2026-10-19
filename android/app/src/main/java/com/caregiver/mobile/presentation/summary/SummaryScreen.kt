@@ -341,11 +341,13 @@ private fun SummaryBody(
                 exporting = true
                 exportScope.launch {
                     try {
+                        val notes = try { graph.apis.notes().history(summary.recipientId, null, null) } catch (e: Exception) { emptyList() }
                         val uri = com.caregiver.mobile.data.export.CareSummaryPdfExporter.export(
                             graph.context,
                             summary,
                             null,
                             java.util.Locale.getDefault().toLanguageTag(),
+                            notes,
                         )
                         val share = Intent(Intent.ACTION_SEND).apply {
                             type = "application/pdf"
@@ -448,11 +450,13 @@ private fun SummaryBody(
                                 showShareConfirm = false
                                 exportScope.launch {
                                     try {
+                                        val notes = try { graph.apis.notes().history(recipientId, null, null) } catch (e: Exception) { emptyList() }
                                         val uri = com.caregiver.mobile.data.export.CareSummaryPdfExporter.export(
                                             context,
                                             summary,
                                             null,
                                             java.util.Locale.getDefault().toLanguageTag(),
+                                            notes,
                                         )
                                         val share = Intent(Intent.ACTION_SEND).apply {
                                             type = "application/pdf"
