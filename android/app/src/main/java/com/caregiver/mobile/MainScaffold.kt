@@ -10,6 +10,7 @@ import androidx.compose.animation.scaleIn
 import androidx.compose.animation.scaleOut
 import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.WindowInsets
@@ -440,6 +441,7 @@ fun MainScaffold(graph: AppGraph) {
         Box(
             modifier = Modifier
                 .fillMaxSize()
+                .background(Color.Black.copy(alpha = 0.32f))
                 .clickable { showAccountMenu = false },
         )
         androidx.compose.ui.window.Popup(
@@ -448,6 +450,8 @@ fun MainScaffold(graph: AppGraph) {
         ) {
             com.caregiver.mobile.presentation.common.AccountPopupMenu(
                 onDismiss = { showAccountMenu = false },
+                accountName = displayName,
+                avatarLetter = avatarLetter,
                 onSignInWithGoogle = {
                     showAccountMenu = false
                     activity?.let { ctx ->

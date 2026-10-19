@@ -2,6 +2,7 @@ package com.caregiver.mobile.presentation.common
 
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
@@ -31,6 +32,8 @@ fun AccountPopupMenu(
     onDismiss: () -> Unit,
     onSignInWithGoogle: () -> Unit,
     onSettings: () -> Unit,
+    accountName: String? = null,
+    avatarLetter: String = "?",
     modifier: Modifier = Modifier,
 ) {
     Surface(
@@ -44,12 +47,32 @@ fun AccountPopupMenu(
                 modifier = Modifier.fillMaxWidth(),
                 verticalAlignment = Alignment.CenterVertically,
             ) {
-                Text(
-                    text = stringResource(R.string.app_name),
-                    style = MaterialTheme.typography.titleMedium,
-                    color = CaregiverColors.Ink,
-                    modifier = Modifier.weight(1f),
-                )
+                Surface(
+                    shape = androidx.compose.foundation.shape.CircleShape,
+                    color = MaterialTheme.colorScheme.primaryContainer,
+                    modifier = Modifier.size(40.dp),
+                ) {
+                    Box(contentAlignment = Alignment.Center, modifier = Modifier.fillMaxSize()) {
+                        Text(
+                            text = avatarLetter,
+                            style = MaterialTheme.typography.titleMedium,
+                            color = MaterialTheme.colorScheme.onPrimaryContainer,
+                        )
+                    }
+                }
+                Spacer(Modifier.size(12.dp))
+                Column(modifier = Modifier.weight(1f)) {
+                    Text(
+                        text = accountName ?: stringResource(R.string.app_name),
+                        style = MaterialTheme.typography.titleMedium,
+                        color = CaregiverColors.Ink,
+                    )
+                    Text(
+                        text = stringResource(R.string.account_menu_subtitle),
+                        style = MaterialTheme.typography.bodySmall,
+                        color = CaregiverColors.Muted,
+                    )
+                }
                 IconButton(onClick = onDismiss) {
                     Icon(
                         imageVector = Icons.Filled.Close,
