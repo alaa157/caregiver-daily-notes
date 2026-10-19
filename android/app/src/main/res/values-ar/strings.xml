@@ -368,4 +368,66 @@
     <string name="reset">إعادة تعيين</string>
     <string name="lyrics_offset">إزاحة الكلمات</string>
     <string name="create_playlist">إنشاء قائمة تشغيل</string>
+
+    <!-- CSV import/export (Data &amp; Backup): on-device note transfer. -->
+    <string name="settings_data_backup">البيانات والنسخ الاحتياطي</string>
+    <string name="csv_import_title">الاستيراد من CSV</string>
+    <string name="csv_import_description">استيراد ملاحظات الرعاية اليومية من ملف CSV.</string>
+    <string name="csv_export_title">التصدير إلى CSV</string>
+    <string name="csv_export_description">تصدير ملاحظات الرعاية اليومية إلى جدول بيانات.</string>
+    <string name="csv_export_file_name">ملاحظات-الرعاية-%1$s.csv</string>
+    <string name="csv_export_working">جارٍ تصدير الملاحظات…</string>
+    <string name="csv_export_success">تم تصدير %1$d ملاحظة إلى الملف المختار.</string>
+    <string name="csv_export_empty">لا توجد ملاحظات للتصدير بعد. تم حفظ ملف يحتوي على العناوين فقط.</string>
+    <string name="csv_export_failed">فشل التصدير. %1$s</string>
+    <string name="csv_import_working">جارٍ استيراد الملاحظات…</string>
+    <string name="csv_import_preview_title">مراجعة الاستيراد</string>
+    <string name="csv_import_total">الصفوف في الملف: %1$d</string>
+    <string name="csv_import_valid">جاهزة للاستيراد: %1$d</string>
+    <string name="csv_import_duplicates">مسجّلة مسبقًا (سيتم تخطيها): %1$d</string>
+    <string name="csv_import_invalid">صفوف غير صالحة (سيتم تخطيها): %1$d</string>
+    <string name="csv_import_nothing_ready">لا يوجد ما يمكن استيراده: تم تخطي كل الصفوف أو تكرارها أو كانت غير صالحة.</string>
+    <string name="csv_import_unmatched_heading">مستلمون غير موجودين</string>
+    <string name="csv_import_unmatched_entry">%1$s — %2$d صف</string>
+    <string name="csv_import_unmatched_hint">اختر الشخص الذي تنتمي إليه هذه الملاحظات، أو اتركها متخطاة. لا تُنسب الملاحظات تلقائيًا إلى شخص آخر.</string>
+    <string name="csv_import_skip">تخطي هذه الصفوف</string>
+    <string name="csv_import_inactive">(غير نشط)</string>
+    <string name="csv_import_duplicate_policy">تُتخطى أي ملاحظة موجودة مسبقًا لنفس الشخص واليوم؛ ولا يُستبدل أي شيء أو يُحذف.</string>
+    <string name="csv_import_server_date_note">يعيّن هذا الخادم تاريخ الحفظ، لذا يمكن استيراد الملاحظات المؤرخة اليوم فقط. يتم تخطي الصفوف الأخرى.</string>
+    <string name="csv_import_extra_headers">تم تجاهل أعمدة لا يستخدمها التطبيق: %1$s</string>
+    <string name="csv_import_invalid_row">الصف %1$d: %2$s</string>
+    <string name="csv_import_more_rows">…و%1$d أخرى</string>
+    <string name="csv_import_start">استيراد</string>
+    <string name="csv_import_summary">تم الاستيراد: %1$d، متخطاة: %2$d، مكرّرة: %3$d، غير صالحة: %4$d.</string>
+    <string name="csv_import_summary_failed">تعذّر استيراد بعض الصفوف. تأكد من إمكانية تخزين الملاحظات ثم أعد المحاولة.</string>
+    <string name="csv_import_failed">فشل الاستيراد. %1$s</string>
+    <string name="csv_dismiss">إغلاق</string>
+
+    <!-- CSV errors and per-row reasons (technical context only, never note content). -->
+    <string name="csv_error_read">تعذّرت قراءة الملف. انسخه إلى هذا الجهاز ثم اختره مرة أخرى.</string>
+    <string name="csv_error_too_large">حجم الملف أكبر من %1$d ميغابايت. صدّر أولًا أو قسّم الملف إلى ملفات أصغر.</string>
+    <string name="csv_error_malformed">الملف ليس بصيغة CSV صالحة (السطر %1$d).</string>
+    <string name="csv_error_malformed_generic">الملف ليس بصيغة CSV صالحة.</string>
+    <string name="csv_error_missing_headers">أعمدة مطلوبة مفقودة: %1$s.</string>
+    <string name="csv_error_duplicate_headers">يحتوي الملف على أعمدة مكرّرة: %1$s.</string>
+    <string name="csv_error_empty">الملف فارغ.</string>
+    <string name="csv_error_no_rows">يحتوي الملف على عنوان فقط بدون صفوف ملاحظات.</string>
+    <string name="csv_error_source">تعذّرت قراءة الملاحظات الحالية.</string>
+    <string name="csv_error_write">تعذّر حفظ الملف. جرّب موقعًا آخر.</string>
+    <string name="csv_error_insert">تعذّر حفظ الملاحظات.</string>
+    <string name="csv_error_unknown">حدث خطأ ما.</string>
+
+    <string name="csv_issue_field_count">عدد الأعمدة غير صحيح</string>
+    <string name="csv_issue_date_required">التاريخ مطلوب</string>
+    <string name="csv_issue_date">تاريخ غير صالح (استخدم YYYY-MM-DD)</string>
+    <string name="csv_issue_date_not_supported">يمكن استيراد الملاحظات المؤرخة اليوم فقط إلى هذا الخادم</string>
+    <string name="csv_issue_pain">يجب أن تكون شدة الألم رقمًا من 0 إلى 10</string>
+    <string name="csv_issue_fall">يجب أن تكون قيمة السقوط true أو false</string>
+    <string name="csv_issue_mood">الحالة المزاجية مطلوبة</string>
+    <string name="csv_issue_too_long">%1$s طويلة جدًا</string>
+    <string name="csv_issue_text">نص الملاحظة مطلوب</string>
+    <string name="csv_issue_recipient">المستلم مطلوب</string>
+    <string name="csv_issue_unmatched">لم يتم العثور على المستلم في هذا التطبيق</string>
+    <string name="csv_issue_duplicate">توجد ملاحظة مسجّلة مسبقًا لهذا الشخص واليوم</string>
+    <string name="csv_issue_unknown">تعذّرت القراءة</string>
 </resources>

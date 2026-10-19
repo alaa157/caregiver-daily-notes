@@ -1,6 +1,8 @@
 package com.caregiver.mobile.presentation.settings
 
 import android.app.Activity
+import androidx.activity.compose.rememberLauncherForActivityResult
+import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.ExperimentalLayoutApi
@@ -16,12 +18,14 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.outlined.Dns
+import androidx.compose.material.icons.outlined.FileDownload
 import androidx.compose.material.icons.outlined.Info
 import androidx.compose.material.icons.outlined.Logout
 import androidx.compose.material.icons.outlined.Palette
 import androidx.compose.material.icons.outlined.Settings
 import androidx.compose.material.icons.outlined.Storage
 import androidx.compose.material.icons.outlined.SmartToy
+import androidx.compose.material.icons.outlined.UploadFile
 import androidx.compose.material3.FilterChip
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedTextField
@@ -37,6 +41,7 @@ import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
+import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -56,12 +61,14 @@ import com.caregiver.mobile.data.SettingsStore
 import com.caregiver.mobile.data.api.ApiClient
 import com.caregiver.mobile.data.api.BaseUrlCheck
 import com.caregiver.mobile.data.api.UrlProblem
+import com.caregiver.mobile.data.csv.AndroidCsvDocumentIo
 import com.caregiver.mobile.presentation.common.AppTopBar
 import com.caregiver.mobile.presentation.common.AppDimens
 import com.caregiver.mobile.presentation.common.CaregiverSettingsGroup
 import com.caregiver.mobile.presentation.common.CaregiverSettingsItem
 import com.caregiver.mobile.presentation.common.PrimaryButton
 import com.caregiver.mobile.presentation.common.SecondaryButton
+import com.caregiver.mobile.presentation.common.assistedViewModel
 import kotlinx.coroutines.launch
 
 @OptIn(ExperimentalLayoutApi::class)
@@ -69,6 +76,21 @@ import kotlinx.coroutines.launch
 fun SettingsScreen(graph: AppGraph, navController: NavController) {
     val scope = rememberCoroutineScope()
     val activity = LocalContext.current as? Activity
+
+    // Data & Backup: the CSV actions read/write only the document the user
+    // picks in the system picker, so no storage permission is involved.
+    val csvDocuments = remember(graph) { AndroidCsvDocumentIo(graph.context.contentResolver) }
+    val csvVm: CsvTransferViewModel = assistedViewModel("csv-transfer") {
+        CsvTransferViewModel(graph.csvTransferService, csvDocuments)
+    }
+    val csvState by csvVm.state.collectAsState()
+    val exportLauncher = rememberLauncherForActivityResult(
+        ActivityResultContracts.CreateDocument("text/csv"),
+    ) { uri -> if (uri != null) csvVm.exportTo(uri) }
+    val importLauncher = rememberLauncherForActivityResult(
+        ActivityResultContracts.OpenDocument(),
+    ) { uri -> if (uri != null) csvVm.importFrom(uri) }
+
     val language by graph.settings.language.collectAsState(initial = SettingsStore.DEFAULT_LANGUAGE)
     Column(
         modifier = Modifier.fillMaxSize().padding(horizontal = 16.dp, vertical = 8.dp).verticalScroll(rememberScrollState()),
@@ -131,6 +153,38 @@ fun SettingsScreen(graph: AppGraph, navController: NavController) {
             onClick = { navController.navigate("theme-colors") },
         )
 
+        // Application-specific: Data & Backup — CSV import/export over the
+        // active data source. The file picker grants access to one document;
+        // no broad storage permission is requested.
+        CaregiverSettingsGroup(title = stringResource(R.string.settings_data_backup)) {
+            val csvBusy = csvState.operation != null
+            CaregiverSettingsItem(
+                title = stringResource(R.string.csv_import_title),
+                icon = Icons.Outlined.UploadFile,
+                description = if (csvState.operation == CsvOperation.IMPORT) {
+                    stringResource(R.string.csv_import_working)
+                } else {
+                    stringResource(R.string.csv_import_description)
+                },
+                enabled = !csvBusy,
+                onClick = { importLauncher.launch(CSV_MIME_TYPES) },
+            )
+            CaregiverSettingsItem(
+                title = stringResource(R.string.csv_export_title),
+                icon = Icons.Outlined.FileDownload,
+                description = if (csvState.operation == CsvOperation.EXPORT) {
+                    stringResource(R.string.csv_export_working)
+                } else {
+                    stringResource(R.string.csv_export_description)
+                },
+                enabled = !csvBusy,
+                onClick = { exportLauncher.launch(csvVm.exportFileName()) },
+            )
+        }
+        csvState.notice?.let { notice ->
+            CsvNoticeLine(notice = notice, onDismiss = csvVm::dismissNotice)
+        }
+
         // Application-specific: Data
         if (com.caregiver.mobile.BuildConfig.LOCAL_MODE) {
             CaregiverSettingsItem(
@@ -173,6 +227,16 @@ fun SettingsScreen(graph: AppGraph, navController: NavController) {
             style = MaterialTheme.typography.bodySmall,
             color = MaterialTheme.colorScheme.onSurfaceVariant,
         )
+
+        csvState.preview?.let { plan ->
+            CsvImportDialog(
+                plan = plan,
+                working = csvState.operation == CsvOperation.IMPORT,
+                onResolve = csvVm::resolveUnmatched,
+                onCommit = csvVm::commitImport,
+                onDismiss = csvVm::cancelImportPreview,
+            )
+        }
     }
 }
 
@@ -256,3 +320,16 @@ fun ServerUrlScreen(graph: AppGraph, navController: NavController) {
         }
     }
 }
+
+/**
+ * MIME types offered to the import picker. `text/csv` is the real type;
+ * `text/comma-separated-values` and `application/vnd.ms-excel` cover files
+ * some providers and spreadsheet exports report, and `text/plain` covers
+ * CSVs saved with a `.txt` extension.
+ */
+private val CSV_MIME_TYPES = arrayOf(
+    "text/csv",
+    "text/comma-separated-values",
+    "text/plain",
+    "application/vnd.ms-excel",
+)

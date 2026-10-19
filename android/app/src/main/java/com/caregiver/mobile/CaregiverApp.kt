@@ -13,6 +13,9 @@ import com.caregiver.mobile.data.RoomBackedBackendApis
 import com.caregiver.mobile.data.SettingsStore
 import com.caregiver.mobile.data.api.BackendApis
 import com.caregiver.mobile.data.api.RetrofitBackendApis
+import com.caregiver.mobile.data.csv.ApiCsvNoteStore
+import com.caregiver.mobile.data.csv.CsvTransferService
+import com.caregiver.mobile.data.csv.RoomCsvNoteStore
 import com.caregiver.mobile.data.demo.DemoBackendApis
 import com.caregiver.mobile.data.local.AppDatabase
 import com.caregiver.mobile.data.local.LocalBackendApis
@@ -78,9 +81,18 @@ class AppGraph(val context: Context, val forceProduction: Boolean = false) {
     private val localMode: Boolean
         get() = isLocalMode
 
+    /**
+     * Standalone storage for LOCAL_MODE, shared by the local API and CSV
+     * import/export so both read and write the same database. Null in
+     * demo/server graphs, which use their own (or no) cache.
+     */
+    private val localDatabase: AppDatabase? by lazy {
+        if (localMode) AppDatabase.create(context) else null
+    }
+
     private val live: BackendApis by lazy {
         when {
-            localMode -> LocalBackendApis(AppDatabase.create(context))
+            localMode -> LocalBackendApis(checkNotNull(localDatabase))
             else -> selectApis(
                 demoBackend,
                 DemoBackendApis(),
@@ -126,6 +138,24 @@ class AppGraph(val context: Context, val forceProduction: Boolean = false) {
                 notes = noteRepository,
             )
         }
+    }
+
+    /**
+     * Data & Backup (CSV import/export) over the active data source. In
+     * LOCAL_MODE the store is the same Room database the local API serves,
+     * and a CSV date is preserved verbatim; otherwise creates go through
+     * `apis.notes().create()` (repository/outbox path), where the server
+     * assigns the date, so the planner limits imports to today. Files are
+     * never sent anywhere: the user picks one document via the system picker.
+     */
+    val csvTransferService: CsvTransferService by lazy {
+        CsvTransferService(
+            store = if (localMode) {
+                RoomCsvNoteStore(checkNotNull(localDatabase))
+            } else {
+                ApiCsvNoteStore(apis)
+            },
+        )
     }
 
     /**
