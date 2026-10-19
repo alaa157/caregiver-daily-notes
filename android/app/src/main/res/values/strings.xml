@@ -334,4 +334,31 @@
     <string name="plan_suggest_done">Suggested</string>
     <string name="flag_med_unverified">Medication status unverified</string>
     <string name="flag_unknown">Safety alert</string>
+
+    <!-- Ported Metrolist dialogs: sleep-timer schedule editor -->
+    <string name="sleep_timer">Sleep timer</string>
+    <string name="sleep_timer_daily">Daily</string>
+    <string name="sleep_timer_weekdays">Monday to Friday</string>
+    <string name="sleep_timer_weekdays_weekends">Weekdays / Weekends</string>
+    <string name="sleep_timer_weekends">Saturday to Sunday</string>
+    <string name="sleep_timer_custom">Custom</string>
+    <string name="sleep_timer_start_time">Start time</string>
+    <string name="sleep_timer_end_time">End time</string>
+    <string name="sleep_timer_monday">Monday</string>
+    <string name="sleep_timer_tuesday">Tuesday</string>
+    <string name="sleep_timer_wednesday">Wednesday</string>
+    <string name="sleep_timer_thursday">Thursday</string>
+    <string name="sleep_timer_friday">Friday</string>
+    <string name="sleep_timer_saturday">Saturday</string>
+    <string name="sleep_timer_sunday">Sunday</string>
+
+    <!-- Ported Metrolist dialogs: media info, offset and create dialogs -->
+    <string name="general">General</string>
+    <string name="information">Information</string>
+    <string name="description">Description</string>
+    <string name="unknown">Unknown</string>
+    <string name="copied">Copied to clipboard</string>
+    <string name="reset">Reset</string>
+    <string name="lyrics_offset">Lyrics offset</string>
+    <string name="create_playlist">Create playlist</string>
 </resources>

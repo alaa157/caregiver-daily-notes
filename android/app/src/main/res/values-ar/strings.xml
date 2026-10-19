@@ -334,4 +334,31 @@
     <string name="plan_suggest_done">تم الاقتراح</string>
     <string name="flag_med_unverified">حالة الدواء غير مُؤكَّدة</string>
     <string name="flag_unknown">تنبيه أمان</string>
+
+    <!-- Ported Metrolist dialogs: sleep-timer schedule editor -->
+    <string name="sleep_timer">مؤقت النوم</string>
+    <string name="sleep_timer_daily">يوميًا</string>
+    <string name="sleep_timer_weekdays">من الاثنين إلى الجمعة</string>
+    <string name="sleep_timer_weekdays_weekends">أيام الأسبوع / نهاية الأسبوع</string>
+    <string name="sleep_timer_weekends">من السبت إلى الأحد</string>
+    <string name="sleep_timer_custom">مخصص</string>
+    <string name="sleep_timer_start_time">وقت البدء</string>
+    <string name="sleep_timer_end_time">وقت الانتهاء</string>
+    <string name="sleep_timer_monday">الاثنين</string>
+    <string name="sleep_timer_tuesday">الثلاثاء</string>
+    <string name="sleep_timer_wednesday">الأربعاء</string>
+    <string name="sleep_timer_thursday">الخميس</string>
+    <string name="sleep_timer_friday">الجمعة</string>
+    <string name="sleep_timer_saturday">السبت</string>
+    <string name="sleep_timer_sunday">الأحد</string>
+
+    <!-- Ported Metrolist dialogs: media info, offset and create dialogs -->
+    <string name="general">عام</string>
+    <string name="information">معلومات</string>
+    <string name="description">الوصف</string>
+    <string name="unknown">غير معروف</string>
+    <string name="copied">تم النسخ إلى الحافظة</string>
+    <string name="reset">إعادة تعيين</string>
+    <string name="lyrics_offset">إزاحة الكلمات</string>
+    <string name="create_playlist">إنشاء قائمة تشغيل</string>
 </resources>
