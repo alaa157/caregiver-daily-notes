@@ -23,6 +23,7 @@ import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.dp
 import com.caregiver.mobile.R
@@ -35,6 +36,7 @@ fun AccountPopupMenu(
     onSettings: () -> Unit,
     accountName: String? = null,
     avatarLetter: String = "?",
+    showSignInWithGoogle: Boolean = true,
     modifier: Modifier = Modifier,
 ) {
     Surface(
@@ -83,23 +85,28 @@ fun AccountPopupMenu(
                 }
             }
             Spacer(Modifier.height(8.dp))
-            // Sign in with Google row (integration point for Task 2).
-            Row(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .clickable(onClick = onSignInWithGoogle)
-                    .padding(vertical = 12.dp, horizontal = 8.dp),
-                verticalAlignment = Alignment.CenterVertically,
-            ) {
-                Text(
-                    text = stringResource(R.string.sign_in_with_google),
-                    style = MaterialTheme.typography.bodyLarge,
-                    color = CaregiverColors.Ink,
-                )
+            // Sign in with Google row (integration point for Task 2). Hidden
+            // in standalone local-first builds, where there is no account to
+            // sign into and the row could only show an "experimental" toast.
+            if (showSignInWithGoogle) {
+                Row(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .clickable(onClick = onSignInWithGoogle)
+                        .padding(vertical = 12.dp, horizontal = 8.dp),
+                    verticalAlignment = Alignment.CenterVertically,
+                ) {
+                    Text(
+                        text = stringResource(R.string.sign_in_with_google),
+                        style = MaterialTheme.typography.bodyLarge,
+                        color = CaregiverColors.Ink,
+                    )
+                }
             }
             Row(
                 modifier = Modifier
                     .fillMaxWidth()
+                    .testTag("drawer_item_settings")
                     .clickable(onClick = onSettings)
                     .padding(vertical = 12.dp, horizontal = 8.dp),
                 verticalAlignment = Alignment.CenterVertically,

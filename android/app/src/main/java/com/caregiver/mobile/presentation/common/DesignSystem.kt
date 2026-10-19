@@ -136,7 +136,7 @@ fun AppTopBar(
                 IconButton(onClick = onBack, modifier = Modifier.size(AppDimens.BackSize)) {
                     Icon(
                         Icons.AutoMirrored.Filled.ArrowBack,
-                        contentDescription = null,
+                        contentDescription = stringResource(R.string.action_back),
                         tint = Color.White,
                         modifier = Modifier.size(22.dp),
                     )

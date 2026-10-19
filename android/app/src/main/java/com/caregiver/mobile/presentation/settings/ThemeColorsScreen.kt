@@ -104,7 +104,7 @@ fun ThemeColorsScreen(graph: AppGraph, navController: NavController) {
                 title = { Text(stringResource(R.string.settings_theme_colors)) },
                 navigationIcon = {
                     IconButton(onClick = { navController.popBackStack() }) {
-                        Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = "Back")
+                        Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = stringResource(R.string.action_back))
                     }
                 },
             )

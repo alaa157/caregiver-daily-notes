@@ -219,7 +219,6 @@
     <!-- Task 6: History collapsible filter chip row. -->
     <string name="history_filters">Filters</string>
     <!-- Task 7: avatar drawer. -->
-    <string name="drawer_open">Open navigation menu</string>
     <string name="drawer_sync_synced">Synced</string>
     <string name="settings_ai">AI settings</string>
     <string name="settings_load_sample_data">Load sample data</string>
@@ -283,6 +282,8 @@
     <string name="summary_system_prompt_title">Summary system prompt</string>
     <string name="translation_system_prompt_title">Translation system prompt</string>
     <string name="plan_system_prompt_title">Plan system prompt</string>
+    <string name="action_back">Back</string>
+    <string name="account_menu_open">Open account menu</string>
     <string name="account_menu_close">Close account menu</string>
     <string name="account_menu_subtitle">Caregiver account</string>
     <string name="sign_in_with_google">Sign in with Google</string>

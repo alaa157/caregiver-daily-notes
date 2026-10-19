@@ -45,9 +45,9 @@ import com.caregiver.mobile.ai.LlmStatus
 import com.caregiver.mobile.ai.OpenAiCompatibleLlmClient
 import com.caregiver.mobile.ai.Prompts
 import com.caregiver.mobile.ai.SummaryResponseFormat
+import com.caregiver.mobile.presentation.common.AppTopBar
 import com.caregiver.mobile.presentation.common.CaregiverSettingsGroup
 import com.caregiver.mobile.presentation.common.CaregiverSettingsItem
-import com.caregiver.mobile.ui.component.SettingsGroup
 import java.time.LocalDate
 import kotlinx.coroutines.launch
 
@@ -83,16 +83,24 @@ fun AiSettingsScreen(graph: AppGraph, navController: NavController) {
         Modifier.fillMaxSize().padding(16.dp).verticalScroll(rememberScrollState()),
         verticalArrangement = Arrangement.spacedBy(12.dp),
     ) {
-        Text(text = stringResource(R.string.settings_ai))
-
-        CaregiverSettingsItem(
-            title = stringResource(R.string.settings_ai_provider),
-            icon = Icons.Outlined.Cloud,
-            description = provider.displayName,
-            onClick = { showProviderDialog = true },
+        // Detail routes draw their own top bar with a back button (the same
+        // contract as Settings and the other sub-screens), so this screen is
+        // not a dead-end that relies on the system back button.
+        AppTopBar(
+            title = stringResource(R.string.settings_ai),
+            onBack = { navController.popBackStack() },
         )
 
-        CaregiverSettingsGroup(title = stringResource(R.string.settings_ai_api_key)) {
+        // One untitled card holds the connection settings; the key rows keep
+        // their place between provider and model. The group headers used to
+        // repeat the first row's title ("API key", "System prompt").
+        CaregiverSettingsGroup {
+            CaregiverSettingsItem(
+                title = stringResource(R.string.settings_ai_provider),
+                icon = Icons.Outlined.Cloud,
+                description = provider.displayName,
+                onClick = { showProviderDialog = true },
+            )
             CaregiverSettingsItem(
                 title = stringResource(R.string.settings_ai_api_key),
                 icon = Icons.Outlined.Key,
@@ -103,27 +111,25 @@ fun AiSettingsScreen(graph: AppGraph, navController: NavController) {
                 CaregiverSettingsItem(
                     title = stringResource(R.string.settings_ai_clear_key),
                     icon = Icons.Outlined.Key,
-                    description = stringResource(R.string.settings_ai_clear_key),
+                    // No description: it repeated the title verbatim.
                     onClick = { showClearKeyDialog = true },
                 )
             }
+            CaregiverSettingsItem(
+                title = stringResource(R.string.settings_ai_model),
+                icon = Icons.Outlined.Memory,
+                description = model.ifBlank { provider.defaultModel },
+                onClick = { showModelDialog = true },
+            )
+            CaregiverSettingsItem(
+                title = stringResource(R.string.settings_ai_base_url),
+                icon = Icons.Outlined.Link,
+                description = baseUrl.ifBlank { provider.defaultBaseUrl },
+                onClick = { showUrlDialog = true },
+            )
         }
 
-        CaregiverSettingsItem(
-            title = stringResource(R.string.settings_ai_model),
-            icon = Icons.Outlined.Memory,
-            description = model.ifBlank { provider.defaultModel },
-            onClick = { showModelDialog = true },
-        )
-
-        CaregiverSettingsItem(
-            title = stringResource(R.string.settings_ai_base_url),
-            icon = Icons.Outlined.Link,
-            description = baseUrl.ifBlank { provider.defaultBaseUrl },
-            onClick = { showUrlDialog = true },
-        )
-
-        CaregiverSettingsGroup(title = stringResource(R.string.settings_ai_system_prompt)) {
+        CaregiverSettingsGroup {
             CaregiverSettingsItem(
                 title = stringResource(R.string.settings_ai_system_prompt),
                 icon = Icons.Outlined.Article,
