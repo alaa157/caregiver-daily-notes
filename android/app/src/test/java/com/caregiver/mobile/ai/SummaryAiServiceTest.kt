@@ -125,8 +125,8 @@ class SummaryAiServiceTest {
         val result = svc.summarize("r1", 7, listOf(note, otherNote), emptyList(), LocalDate.parse("2026-10-01"))
         assertTrue(result is SummaryAiResult.Success)
         val request = captured[0]!!
-        assertTrue(!request.data.contains("Other recipient secret"))
-        assertTrue(!request.data.contains("n2"))
+        assertTrue(!request.dataBlock.contains("Other recipient secret"))
+        assertTrue(!request.dataBlock.contains("n2"))
     }
 
     @Test
