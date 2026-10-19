@@ -13,6 +13,8 @@ import com.caregiver.mobile.core.network.TokenHolder
 import com.caregiver.mobile.data.AuthRepository
 import com.caregiver.mobile.data.FakeAuthApi
 import com.caregiver.mobile.data.FakeBackendApis
+import com.caregiver.mobile.data.FakeNoteApi
+import com.caregiver.mobile.data.FakeSummaryApi
 import com.caregiver.mobile.data.SettingsStore
 import com.caregiver.mobile.data.api.NoteDto
 import com.caregiver.mobile.data.api.SignalDto
@@ -128,12 +130,22 @@ class SummaryRecipientIsolationTest {
 
     @Test
     fun summaryForOneRecipientNeverSendsOrShowsAnotherRecipientsNotes() = runTest {
-        val apis = FakeBackendApis(FakeAuthApi())
+        // The store exposes fakes under their API types, so handlers are
+        // configured on concrete fakes first and the store then points at
+        // them (same pattern the rest of the suite uses with .also).
         // Simulate the worst case: the transport hands back both people's
         // records even though the caller filtered by recipient.
-        apis.noteApi.historyHandler = { _, _, _ -> listOf(r1Note, r2Note) }
-        apis.summaryApi.signalsHandler = { _, _, _ -> listOf(r1Signal, r2Signal) }
-        apis.summaryApi.summarizeHandler = { error("backend summarize must not run when a key is set") }
+        val noteFake = FakeNoteApi().also {
+            it.historyHandler = { _, _, _ -> listOf(r1Note, r2Note) }
+        }
+        val summaryFake = FakeSummaryApi().also {
+            it.signalsHandler = { _, _, _ -> listOf(r1Signal, r2Signal) }
+            it.summarizeHandler = { error("backend summarize must not run when a key is set") }
+        }
+        val apis = FakeBackendApis(FakeAuthApi()).also {
+            it.noteApi = noteFake
+            it.summaryApi = summaryFake
+        }
 
         val client = RecordingClient()
         val factory = FixedFactory(client)
@@ -148,7 +160,7 @@ class SummaryRecipientIsolationTest {
         val state = vm.state.first { it is SummaryState.Content || it is SummaryState.AiUnavailable }
 
         // The fetch is scoped to the selected recipient...
-        assertEquals("r1", apis.noteApi.lastHistory?.first)
+        assertEquals("r1", noteFake.lastHistory?.first)
 
         // ...the other person's note never reaches the model...
         val request = requireNotNull(client.lastRequest)
@@ -165,9 +177,16 @@ class SummaryRecipientIsolationTest {
 
     @Test
     fun aiFailureFlagsAreScopedToTheChosenRecipient() = runTest {
-        val apis = FakeBackendApis(FakeAuthApi())
-        apis.noteApi.historyHandler = { _, _, _ -> listOf(r1Note, r2Note) }
-        apis.summaryApi.signalsHandler = { _, _, _ -> listOf(r1Signal, r2Signal) }
+        val noteFake = FakeNoteApi().also {
+            it.historyHandler = { _, _, _ -> listOf(r1Note, r2Note) }
+        }
+        val summaryFake = FakeSummaryApi().also {
+            it.signalsHandler = { _, _, _ -> listOf(r1Signal, r2Signal) }
+        }
+        val apis = FakeBackendApis(FakeAuthApi()).also {
+            it.noteApi = noteFake
+            it.summaryApi = summaryFake
+        }
         val vm = SummaryViewModel(
             "r1",
             apis,
