@@ -53,6 +53,14 @@ interface RecipientDao {
     @Insert(onConflict = OnConflictStrategy.REPLACE)
     suspend fun insertAll(items: List<RecipientEntity>)
 
+    /**
+     * Backup restore write: like [insertAll] but aborts on a unique-key
+     * collision, so a duplicate id in a restored file rolls the whole restore
+     * back instead of silently replacing a row.
+     */
+    @Insert(onConflict = OnConflictStrategy.ABORT)
+    suspend fun insertImported(items: List<RecipientEntity>)
+
     @Query("DELETE FROM recipients")
     suspend fun clear()
 
