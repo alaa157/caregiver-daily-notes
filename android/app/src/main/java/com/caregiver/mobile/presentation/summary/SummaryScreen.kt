@@ -344,10 +344,11 @@ private fun SummaryBody(
                 exportScope.launch {
                     try {
                         val notes = try { graph.apis.notes().history(summary.recipientId, null, null) } catch (e: Exception) { emptyList() }
+                        val recipientName = try { graph.apis.recipients().get(summary.recipientId).name } catch (e: Exception) { null }
                         val uri = com.caregiver.mobile.data.export.CareSummaryPdfExporter.export(
                             graph.context,
                             summary,
-                            null,
+                            recipientName,
                             java.util.Locale.getDefault().toLanguageTag(),
                             notes,
                         )
@@ -455,10 +456,11 @@ private fun SummaryBody(
                                 exportScope.launch {
                                     try {
                                         val notes = try { graph.apis.notes().history(recipientId, null, null) } catch (e: Exception) { emptyList() }
+                                        val recipientName = try { graph.apis.recipients().get(recipientId).name } catch (e: Exception) { null }
                                         val uri = com.caregiver.mobile.data.export.CareSummaryPdfExporter.export(
                                             context,
                                             summary,
-                                            null,
+                                            recipientName,
                                             java.util.Locale.getDefault().toLanguageTag(),
                                             notes,
                                         )
