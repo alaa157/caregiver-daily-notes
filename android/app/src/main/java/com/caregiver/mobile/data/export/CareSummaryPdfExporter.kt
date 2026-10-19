@@ -38,6 +38,10 @@ object CareSummaryPdfExporter {
         val sectionPaint = TextPaint(paint).apply { textSize = 14f; isFakeBoldText = true }
 
         var pageNumber = 1
+        // RTL/alignment switch, resolved once from the requested language
+        // tag; declared before the nested drawing helpers so they can
+        // capture it (local functions cannot reference later declarations).
+        val ar = languageTag.startsWith("ar")
         var page = doc.startPage(PdfDocument.PageInfo.Builder(pageWidth, pageHeight, pageNumber).create())
         var canvas = page.canvas
         var y = margin
@@ -95,7 +99,6 @@ object CareSummaryPdfExporter {
             }
         }
 
-        val ar = languageTag.startsWith("ar")
         drawTextBlock(if (ar) "ملخص الرعاية" else "Care Summary", titlePaint, 4f)
         drawTextBlock("Caregiver Daily Notes", paint, 8f)
         recipientName?.takeIf { it.isNotBlank() }?.let { drawTextBlock((if (ar) "المستفيد: " else "Recipient: ") + it, paint, 4f) }
