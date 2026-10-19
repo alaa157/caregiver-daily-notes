@@ -461,8 +461,8 @@ private fun SummaryBody(
                                         val today = java.time.LocalDate.now()
                                         val from = com.caregiver.mobile.ai.SummaryWindow.start(today, periodDays).toString()
                                         val to = today.toString()
-                                        val notes = try { graph.apis.notes().history(recipientId, from, to) } catch (e: Exception) { emptyList() }
-                                        val recipientName = try { graph.apis.recipients().get(recipientId).name } catch (e: Exception) { null }
+                                        val notes = try { graph.apis.notes().history(summary.recipientId, from, to) } catch (e: Exception) { emptyList() }
+                                        val recipientName = try { graph.apis.recipients().get(summary.recipientId).name } catch (e: Exception) { null }
                                         val uri = com.caregiver.mobile.data.export.CareSummaryPdfExporter.export(
                                             context,
                                             summary,
