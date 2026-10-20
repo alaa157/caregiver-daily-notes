@@ -8,9 +8,9 @@ import java.time.Clock
 import java.time.Instant
 import java.time.ZoneId
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.launch
-import kotlinx.coroutines.test.ExperimentalCoroutinesApi
 import kotlinx.coroutines.test.StandardTestDispatcher
 import kotlinx.coroutines.test.advanceTimeBy
 import kotlinx.coroutines.test.resetMain
@@ -83,7 +83,7 @@ class MedicationViewModelTest {
         // stateIn(WhileSubscribed) only computes while collected; the
         // ticker flow lives inside the same subscription chain, so ending
         // the test (backgroundScope is cancelled) stops it cleanly.
-        backgroundScope.launch(dispatcher) { vm.state.collect() }
+        backgroundScope.launch(dispatcher) { vm.state.collect { } }
         advanceTimeBy(1_000)
 
         vm.add("r1", "Amlodipine", null, null)
@@ -120,7 +120,7 @@ class MedicationViewModelTest {
     @Test
     fun addingWithoutAPersonIsRefusedInsteadOfOrphaning() = runTest(dispatcher) {
         val vm = MedicationViewModel(store, clock)
-        backgroundScope.launch(dispatcher) { vm.state.collect() }
+        backgroundScope.launch(dispatcher) { vm.state.collect { } }
         advanceTimeBy(1_000)
 
         // No people in the household: the card cannot attribute the
