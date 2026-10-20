@@ -82,6 +82,11 @@ fun HomeScreen(graph: AppGraph, navController: NavController) {
         HomeViewModel(graph.auth, graph.settings)
     }
     val state by vm.state.collectAsState()
+    // Medication card over local tables; null (and hidden) in graphs with no
+    // local database, the same self-disabling the backup service uses.
+    val medicationsVm = graph.medications?.let { store ->
+        assistedViewModel("medications") { MedicationViewModel(store) }
+    }
     when (val s = state) {
         HomeState.Loading, HomeState.Idle -> HomeLoadingRows()
         is HomeState.Error -> HomeErrorState(
@@ -93,6 +98,7 @@ fun HomeScreen(graph: AppGraph, navController: NavController) {
             refreshing = s.refreshing,
             onRefresh = vm::refresh,
             navController = navController,
+            medications = medicationsVm,
         )
     }
 }
@@ -150,6 +156,7 @@ private fun HomeTimeline(
     refreshing: Boolean,
     onRefresh: () -> Unit,
     navController: NavController,
+    medications: MedicationViewModel?,
 ) {
     var selectedTab by rememberSaveable { mutableStateOf(HomeTab.Today) }
     val listState = rememberLazyListState()
@@ -240,6 +247,22 @@ private fun HomeTimeline(
                         total = content.total,
                         attention = content.cards.count(::needsAttention),
                     )
+                }
+                item(key = "medications") {
+                    // Medication tracker (standalone local tables): hidden
+                    // when the graph has no local database.
+                    if (medications != null) {
+                        val medState by medications.state.collectAsState()
+                        MedicationsCard(
+                            state = medState,
+                            people = content.cards.map { MedicationsPerson(it.recipientId, it.name) },
+                            onSetTaken = medications::setTaken,
+                            onAdd = medications::add,
+                            onUpdate = medications::update,
+                            onDelete = medications::delete,
+                            modifier = Modifier.padding(horizontal = AppDimens.ScreenHPadding),
+                        )
+                    }
                 }
                 when {
                     content.cards.isEmpty() -> item(key = "empty-people") {
