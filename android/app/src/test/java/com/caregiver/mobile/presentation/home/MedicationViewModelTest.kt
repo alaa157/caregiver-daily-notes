@@ -146,7 +146,7 @@ class MedicationViewModelTest {
         // Nothing may have been written under the blank recipient.
         assertEquals(
             emptyList<String>(),
-            store.observeActive().first().map { it.medicationId },
+            store.observeActive().first().map { it.id },
         )
 
         // A real recipient still lands.
