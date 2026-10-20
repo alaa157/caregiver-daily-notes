@@ -113,6 +113,31 @@ object AppDimens {
     val PillRadius = 999.dp
 }
 
+/**
+ * The shared back control: a 44-dp rounded button with the auto-mirrored
+ * arrow and a localized content description. [AppTopBar] uses it for titled
+ * detail screens; title-less screens (the saved confirmation) use it alone.
+ */
+@Composable
+fun AppBackButton(onBack: () -> Unit, modifier: Modifier = Modifier) {
+    Surface(
+        shape = RoundedCornerShape(AppDimens.ControlRadius),
+        color = CaregiverColors.AvatarContainer,
+        modifier = modifier.size(AppDimens.BackSize),
+    ) {
+        IconButton(onClick = onBack, modifier = Modifier.size(AppDimens.BackSize)) {
+            Icon(
+                Icons.AutoMirrored.Filled.ArrowBack,
+                contentDescription = stringResource(R.string.action_back),
+                // The paired token — a white icon on the light-blue
+                // avatar container was invisible in light mode.
+                tint = CaregiverColors.AvatarContent,
+                modifier = Modifier.size(22.dp),
+            )
+        }
+    }
+}
+
 @Composable
 fun AppTopBar(
     title: String,
@@ -128,22 +153,7 @@ fun AppTopBar(
             .padding(top = AppSpacing.md),
     ) {
         if (onBack != null) {
-            Surface(
-                shape = RoundedCornerShape(AppDimens.ControlRadius),
-                color = CaregiverColors.AvatarContainer,
-                modifier = Modifier.size(AppDimens.BackSize),
-            ) {
-                IconButton(onClick = onBack, modifier = Modifier.size(AppDimens.BackSize)) {
-                    Icon(
-                        Icons.AutoMirrored.Filled.ArrowBack,
-                        contentDescription = stringResource(R.string.action_back),
-                        // The paired token — a white icon on the light-blue
-                        // avatar container was invisible in light mode.
-                        tint = CaregiverColors.AvatarContent,
-                        modifier = Modifier.size(22.dp),
-                    )
-                }
-            }
+            AppBackButton(onBack = onBack)
         }
         Column(modifier = Modifier.weight(1f)) {
             Text(

@@ -52,6 +52,7 @@ import com.caregiver.mobile.core.theme.CaregiverColors
 import com.caregiver.mobile.presentation.common.AppDimens
 import com.caregiver.mobile.core.theme.PlexArabic
 import com.caregiver.mobile.core.time.DateFormats
+import com.caregiver.mobile.presentation.common.AppBackButton
 import com.caregiver.mobile.presentation.common.AppCard
 import com.caregiver.mobile.presentation.common.AppTopBar
 import com.caregiver.mobile.presentation.common.BottomActionBar
@@ -307,7 +308,13 @@ fun NoteSavedScreen(noteId: String, graph: AppGraph, navController: NavControlle
         verticalArrangement = Arrangement.spacedBy(12.dp),
         horizontalAlignment = Alignment.CenterHorizontally,
     ) {
-        Spacer(Modifier.height(120.dp))
+        Row(
+            modifier = Modifier.fillMaxWidth().padding(top = 12.dp),
+            verticalAlignment = Alignment.CenterVertically,
+        ) {
+            AppBackButton(onBack = { navController.popBackStack() })
+        }
+        Spacer(Modifier.height(80.dp))
         Box(
             contentAlignment = Alignment.Center,
             modifier = Modifier
@@ -362,6 +369,14 @@ fun NoteDetailScreen(noteId: String, graph: AppGraph, navController: NavControll
     }
     val state by vm.state.collectAsState()
     Column(Modifier.fillMaxSize()) {
+        if (state !is NoteDetailState.Content) {
+            Column(Modifier.padding(horizontal = 16.dp)) {
+                AppTopBar(
+                    title = stringResource(R.string.editor_title),
+                    onBack = { navController.popBackStack() },
+                )
+            }
+        }
         when (val s = state) {
             NoteDetailState.Loading -> LoadingRow()
             NoteDetailState.Error -> LoadFailed(onRetry = vm::refresh)

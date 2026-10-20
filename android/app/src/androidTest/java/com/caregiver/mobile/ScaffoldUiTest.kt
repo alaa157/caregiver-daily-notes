@@ -10,6 +10,7 @@ import androidx.compose.ui.test.assertIsSelected
 import androidx.compose.ui.test.assertHasClickAction
 import androidx.compose.ui.test.junit4.createComposeRule
 import androidx.compose.ui.test.onAllNodesWithTag
+import androidx.compose.ui.test.onAllNodesWithText
 import androidx.compose.ui.test.onNodeWithContentDescription
 import androidx.compose.ui.test.onNodeWithTag
 import androidx.compose.ui.test.onNodeWithText
@@ -144,6 +145,28 @@ class ScaffoldUiTest {
         compose.onNodeWithTag("tab_people").performClick()
         compose.onNodeWithTag("tab_people").assertIsSelected()
         compose.onNodeWithText(Bidi.isolate("ليلى حسن")).assertIsDisplayed()
+    }
+
+    @Test
+    fun tabTapFromRecipientDetailReturnsToTheTabRoot() {
+        setScaffold("en")
+
+        compose.onNodeWithTag("tab_people").performClick()
+        compose.waitUntil(timeoutMillis = 5_000) {
+            compose.onAllNodesWithText(Bidi.isolate("ليلى حسن"))
+                .fetchSemanticsNodes().isNotEmpty()
+        }
+        compose.onNodeWithText(Bidi.isolate("ليلى حسن")).performClick()
+        compose.waitUntil(timeoutMillis = 5_000) {
+            compose.onAllNodesWithText("Add note").fetchSemanticsNodes().isNotEmpty()
+        }
+
+        // People stays visually selected while RecipientDetail is open, but
+        // tapping it is still a request for the People root — not a no-op
+        // ScrollToTop event.
+        compose.onNodeWithTag("tab_people").performClick()
+
+        compose.onNodeWithText("Add a person in care").assertIsDisplayed()
     }
 
     private fun Context.withLocale(language: String): Context {
