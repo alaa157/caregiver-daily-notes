@@ -94,9 +94,15 @@ class SummaryAiService(
                 parsed = reply.value
                 replyStatus = reply.status
             }
-            is LlmJson.Reply.Unavailable -> return SummaryAiResult.Failure(redFlags, "unavailable")
-            is LlmJson.Reply.Oversized -> return SummaryAiResult.Failure(redFlags, "oversized")
-            is LlmJson.Reply.Malformed -> return SummaryAiResult.Failure(redFlags, "malformed_output")
+            // Keep the provider's own reason (invalid_key, rate_limit,
+            // http_400, ...) so the UI can explain the fix instead of
+            // collapsing every failure into a generic "unavailable".
+            is LlmJson.Reply.Unavailable ->
+                return SummaryAiResult.Failure(redFlags, reply.error ?: "unavailable")
+            is LlmJson.Reply.Oversized ->
+                return SummaryAiResult.Failure(redFlags, reply.error ?: "oversized")
+            is LlmJson.Reply.Malformed ->
+                return SummaryAiResult.Failure(redFlags, reply.error ?: "malformed_output")
         }
         val noteTextsById = windowedNotes.associate { it.id to it.text }
         val normalizedNotes = noteTextsById.mapValues { ArabicNormalizer.normalize(it.value) }
