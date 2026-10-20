@@ -205,6 +205,11 @@ class SettingsScreenTest {
 
     private fun enterCustomBaseUrl() {
         compose.onNodeWithText(context.getString(R.string.settings_ai_base_url)).performClick()
+        // The edit dialog materialises over a frame: wait for any text
+        // field to exist before addressing the last one.
+        compose.waitUntil(5_000) {
+            compose.onAllNodes(hasSetTextAction()).fetchSemanticsNodes().isNotEmpty()
+        }
         compose.onAllNodes(hasSetTextAction()).onLast()
             .performTextReplacement("https://proxy.example/v1")
         compose.onNodeWithText(context.getString(R.string.common_ok)).performClick()
@@ -253,6 +258,12 @@ class SettingsScreenTest {
         compose.onNodeWithText(context.getString(R.string.settings_ai_revoke_consent_confirm))
             .performClick()
 
+        // The revoked status is set from the confirmation click; give the
+        // recomposition a moment before asserting on it.
+        compose.waitUntil(5_000) {
+            compose.onAllNodesWithText(context.getString(R.string.settings_ai_consent_revoked))
+                .fetchSemanticsNodes().isNotEmpty()
+        }
         compose.onNodeWithText(context.getString(R.string.settings_ai_consent_revoked))
             .assertExists()
         compose.onNodeWithText(context.getString(R.string.settings_ai_revoke_consent))

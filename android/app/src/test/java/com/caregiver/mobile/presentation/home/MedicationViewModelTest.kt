@@ -12,6 +12,7 @@ import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.test.StandardTestDispatcher
+import kotlinx.coroutines.test.TestScope
 import kotlinx.coroutines.test.advanceTimeBy
 import kotlinx.coroutines.test.resetMain
 import kotlinx.coroutines.test.runTest
@@ -77,6 +78,20 @@ class MedicationViewModelTest {
         Dispatchers.resetMain()
     }
 
+    /** Room invalidation events arrive on real executor threads, so the
+     * state chain settles a moment after a write: walk the state with
+     * bounded pumps until the expectation holds instead of reading once.
+     */
+    private fun TestScope.awaitState(vm: MedicationViewModel, cond: (MedicationsState) -> Boolean): MedicationsState {
+        repeat(60) {
+            val now = vm.state.value
+            if (cond(now)) return now
+            advanceTimeBy(20_000)
+            Thread.sleep(2)
+        }
+        throw AssertionError("state never settled: ${vm.state.value}")
+    }
+
     @Test
     fun takenMarksRollOverAtMidnightAndTapsFollowTheNewDay() = runTest(dispatcher) {
         val vm = MedicationViewModel(store, clock)
@@ -88,11 +103,11 @@ class MedicationViewModelTest {
 
         vm.add("r1", "Amlodipine", null, null)
         advanceTimeBy(1_000)
-        val id = vm.state.value.meds.first().id
+        val id = awaitState(vm) { it.meds.isNotEmpty() }.meds.first().id
 
         vm.setTaken(id, true)
         advanceTimeBy(1_000)
-        assertTrue(id in vm.state.value.takenToday)
+        assertTrue(id in awaitState(vm) { id in it.takenToday }.takenToday)
 
         // The app stays open across midnight: the card flips to the new
         // day by itself. From the fixed start (2026-10-20T10:00Z), the
@@ -101,7 +116,7 @@ class MedicationViewModelTest {
         // next midnight (86.4m later), so the bounded advance cannot loop.
         clock.advanceTo(Instant.parse("2026-10-21T01:00:00Z"))
         advanceTimeBy(50_500_000)
-        assertFalse(id in vm.state.value.takenToday)
+        assertFalse(id in awaitState(vm) { id !in it.takenToday }.takenToday)
         assertEquals(
             emptyList<String>(),
             store.observeIntakes("2026-10-21").first()
@@ -111,7 +126,7 @@ class MedicationViewModelTest {
         // Taps after midnight write to the day the card is showing now.
         vm.setTaken(id, true)
         advanceTimeBy(1_000)
-        assertTrue(id in vm.state.value.takenToday)
+        assertTrue(id in awaitState(vm) { id in it.takenToday }.takenToday)
         val newRow = store.observeIntakes("2026-10-21").first().first()
         assertEquals(id, newRow.medicationId)
         assertEquals("2026-10-21", newRow.date)
@@ -128,10 +143,18 @@ class MedicationViewModelTest {
         vm.add("   ", "Ghost pill", null, null)
         advanceTimeBy(1_000)
         assertTrue(vm.state.value.meds.isEmpty())
+        // Nothing may have been written under the blank recipient.
+        assertEquals(
+            emptyList<String>(),
+            store.observeActive().first().map { it.medicationId },
+        )
 
         // A real recipient still lands.
         vm.add("r1", "Amlodipine", null, null)
         advanceTimeBy(1_000)
-        assertEquals(listOf("Amlodipine"), vm.state.value.meds.map { it.name })
+        assertEquals(
+            listOf("Amlodipine"),
+            awaitState(vm) { it.meds.any { m -> m.name == "Amlodipine" } }.meds.map { it.name },
+        )
     }
 }
