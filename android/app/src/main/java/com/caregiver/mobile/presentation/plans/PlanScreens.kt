@@ -41,6 +41,7 @@ import com.caregiver.mobile.core.theme.CaregiverColors
 import com.caregiver.mobile.presentation.common.AppDimens
 import com.caregiver.mobile.core.theme.PlexArabic
 import com.caregiver.mobile.data.api.PlanVersionDto
+import com.caregiver.mobile.data.plan.PlanStateMachine
 import com.caregiver.mobile.presentation.common.AppCard
 import com.caregiver.mobile.presentation.common.AppEmptyState
 import com.caregiver.mobile.presentation.common.AppTopBar
@@ -208,28 +209,44 @@ fun PlanProposalScreen(planId: String, graph: AppGraph, navController: NavContro
                         )
                     }
                 }
-                if (latest?.status != "Archived") {
+                // Only the moves the workflow allows for the current status:
+                // the backend rejects the rest with a 422, so they are not
+                // offered in the first place.
+                val latestStatus = latest?.status
+                val canAccept = latestStatus != null &&
+                    PlanStateMachine.canTransition(latestStatus, PlanStateMachine.ACCEPTED)
+                val canDismiss = latestStatus != null &&
+                    PlanStateMachine.canTransition(latestStatus, PlanStateMachine.DISMISSED)
+                val canEditAccept = latestStatus != null &&
+                    PlanStateMachine.canTransition(latestStatus, PlanStateMachine.EDITED_ACCEPTED)
+                if (canAccept || canDismiss || canEditAccept) {
                     BottomActionBar {
-                        PrimaryButton(
-                            label = stringResource(R.string.plan_accept_full),
-                            onClick = { vm.transition(PlanAction.Accept) },
-                            enabled = !busy,
-                            height = 52.dp,
-                        )
-                        Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                            SecondaryButton(
-                                label = stringResource(R.string.plan_edit_accept),
-                                onClick = { navController.navigate(AppRoutes.planEdit(planId)) },
-                                modifier = Modifier.weight(1f),
-                                height = 40.dp,
-                            )
-                            SecondaryButton(
-                                label = stringResource(R.string.plan_dismiss),
-                                onClick = { vm.transition(PlanAction.Dismiss) },
+                        if (canAccept) {
+                            PrimaryButton(
+                                label = stringResource(R.string.plan_accept_full),
+                                onClick = { vm.transition(PlanAction.Accept) },
                                 enabled = !busy,
-                                danger = true,
-                                modifier = Modifier.weight(1f),
+                                height = 52.dp,
                             )
+                        }
+                        Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                            if (canEditAccept) {
+                                SecondaryButton(
+                                    label = stringResource(R.string.plan_edit_accept),
+                                    onClick = { navController.navigate(AppRoutes.planEdit(planId)) },
+                                    modifier = Modifier.weight(1f),
+                                    height = 40.dp,
+                                )
+                            }
+                            if (canDismiss) {
+                                SecondaryButton(
+                                    label = stringResource(R.string.plan_dismiss),
+                                    onClick = { vm.transition(PlanAction.Dismiss) },
+                                    enabled = !busy,
+                                    danger = true,
+                                    modifier = Modifier.weight(1f),
+                                )
+                            }
                         }
                         SecondaryButton(
                             label = stringResource(R.string.plan_versions_title),
