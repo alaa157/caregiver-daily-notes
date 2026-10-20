@@ -328,7 +328,7 @@
     <string name="about_update_view_release">عرض صفحة الإصدار</string>
     <string name="about_footer">صُنع بعناية لمقدمي الرعاية.</string>
     <string name="settings_ai_revoke_consent">إلغاء الموافقة</string>
-    <string name="settings_ai_revoke_consent_confirm">إلغاء</string>
+    <string name="settings_ai_revoke_consent_confirm">سحب الموافقة</string>
     <string name="settings_ai_revoke_consent_title">إلغاء الموافقة على الذكاء الاصطناعي؟</string>
     <string name="settings_ai_revoke_consent_message">سيتوقف الملخص بالذكاء الاصطناعي والخطط والترجمة حتى توافق مجددًا. ملاحظاتك تبقى على هذا الجهاز.</string>
     <string name="settings_ai_consent_revoked">تم إلغاء الموافقة على الذكاء الاصطناعي. ستطلب ميزات الذكاء الاصطناعي الموافقة مجددًا.</string>
