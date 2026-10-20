@@ -21,20 +21,25 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.outlined.AlternateEmail
 import androidx.compose.material.icons.outlined.BugReport
 import androidx.compose.material.icons.outlined.Code
+import androidx.compose.material.icons.outlined.Download
 import androidx.compose.material.icons.outlined.Folder
 import androidx.compose.material.icons.outlined.Language
 import androidx.compose.material.icons.outlined.LocalCafe
 import androidx.compose.material.icons.outlined.MenuBook
 import androidx.compose.material.icons.outlined.Person
+import androidx.compose.material.icons.outlined.Refresh
 import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
+import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.ElevatedCard
 import androidx.compose.material3.FilledTonalButton
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
+import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.getValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.BlendMode
@@ -48,11 +53,14 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.caregiver.mobile.BuildConfig
 import com.caregiver.mobile.R
+import com.caregiver.mobile.data.update.UpdateChecker
 import com.caregiver.mobile.presentation.common.AppTopBar
 import com.caregiver.mobile.presentation.common.CaregiverSettingsGroup
 import com.caregiver.mobile.presentation.common.CaregiverSettingsItem
+import com.caregiver.mobile.presentation.common.assistedViewModel
 
 /**
  * Project links. The developer card intentionally uses placeholder icons and
@@ -66,12 +74,20 @@ private const val DOCUMENTATION_URL = "$REPOSITORY_URL#readme"
 
 /**
  * About page, laid out like the Metrolist about screen: app header card,
- * lead-developer hero card with socials, a grouped community/info list and
- * a footer. The top bar stays fixed while the cards scroll.
+ * update check, lead-developer hero card with socials, a grouped
+ * community/info list and a footer. The top bar stays fixed while the cards
+ * scroll.
  */
 @Composable
-fun AboutScreen(onBack: (() -> Unit)? = null) {
+fun AboutScreen(
+    updateChecker: UpdateChecker,
+    onBack: (() -> Unit)? = null,
+) {
     val uriHandler = LocalUriHandler.current
+    val updateVm: AboutViewModel = assistedViewModel("about-updates") {
+        AboutViewModel(updateChecker)
+    }
+    val updateState by updateVm.updateState.collectAsStateWithLifecycle()
 
     Column(
         modifier = Modifier.fillMaxSize().padding(horizontal = 16.dp),
@@ -92,6 +108,15 @@ fun AboutScreen(onBack: (() -> Unit)? = null) {
 
             AppHeaderCard()
 
+            Spacer(Modifier.height(16.dp))
+
+            UpdateSection(
+                state = updateState,
+                currentVersion = BuildConfig.VERSION_NAME,
+                onCheck = updateVm::check,
+                uriHandler = uriHandler,
+            )
+
             Spacer(Modifier.height(24.dp))
 
             LeadDeveloperCard(uriHandler)
@@ -111,6 +136,114 @@ fun AboutScreen(onBack: (() -> Unit)? = null) {
             )
 
             Spacer(Modifier.height(32.dp))
+        }
+    }
+}
+
+/**
+ * Update status lives beside the installed version. Checking happens once
+ * when the page opens; tapping the row retries after a failure or checks
+ * again later. The download action opens GitHub in the browser, so the app
+ * stays a plain APK notice and never asks for install permission.
+ */
+@Composable
+private fun UpdateSection(
+    state: AboutUpdateState,
+    currentVersion: String,
+    onCheck: () -> Unit,
+    uriHandler: UriHandler,
+) {
+    val checking = state is AboutUpdateState.Checking
+    val progress: (@Composable () -> Unit)? = if (checking) {
+        {
+            CircularProgressIndicator(
+                modifier = Modifier.size(20.dp),
+                strokeWidth = 2.dp,
+            )
+        }
+    } else {
+        null
+    }
+
+    CaregiverSettingsGroup(title = stringResource(R.string.about_updates)) {
+        CaregiverSettingsItem(
+            title = stringResource(R.string.about_check_updates),
+            icon = Icons.Outlined.Refresh,
+            description = when (state) {
+                AboutUpdateState.Checking ->
+                    stringResource(R.string.about_update_checking)
+                AboutUpdateState.UpToDate ->
+                    stringResource(R.string.about_update_up_to_date, currentVersion)
+                is AboutUpdateState.Available ->
+                    stringResource(R.string.about_update_available, state.version, currentVersion)
+                AboutUpdateState.Failed ->
+                    stringResource(R.string.about_update_failed)
+            },
+            trailingContent = progress,
+            enabled = !checking,
+            onClick = onCheck,
+        )
+    }
+
+    if (state is AboutUpdateState.Available) {
+        Spacer(Modifier.height(12.dp))
+        AvailableUpdateCard(state = state, uriHandler = uriHandler)
+    }
+}
+
+@Composable
+private fun AvailableUpdateCard(
+    state: AboutUpdateState.Available,
+    uriHandler: UriHandler,
+) {
+    ElevatedCard(
+        shape = RoundedCornerShape(24.dp),
+        modifier = Modifier.fillMaxWidth(),
+    ) {
+        Column(modifier = Modifier.padding(24.dp)) {
+            Text(
+                text = stringResource(R.string.about_update_available_title),
+                style = MaterialTheme.typography.titleLarge,
+                fontWeight = FontWeight.Bold,
+                color = MaterialTheme.colorScheme.onSurface,
+            )
+
+            Spacer(Modifier.height(8.dp))
+
+            Text(
+                text = stringResource(
+                    R.string.about_update_available_description,
+                    state.version,
+                ),
+                style = MaterialTheme.typography.bodyMedium,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+            )
+
+            Spacer(Modifier.height(16.dp))
+
+            Button(
+                onClick = { uriHandler.openUri(state.downloadUrl) },
+                modifier = Modifier.fillMaxWidth(),
+                shape = CircleShape,
+            ) {
+                Icon(
+                    imageVector = Icons.Outlined.Download,
+                    contentDescription = null,
+                    modifier = Modifier.size(20.dp),
+                )
+                Spacer(Modifier.width(8.dp))
+                Text(
+                    text = stringResource(R.string.about_update_download),
+                    fontWeight = FontWeight.SemiBold,
+                )
+            }
+
+            TextButton(
+                onClick = { uriHandler.openUri(state.releaseUrl) },
+                modifier = Modifier.fillMaxWidth(),
+            ) {
+                Text(stringResource(R.string.about_update_view_release))
+            }
         }
     }
 }
