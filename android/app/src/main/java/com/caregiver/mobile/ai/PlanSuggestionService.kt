@@ -1,5 +1,6 @@
 package com.caregiver.mobile.ai
 
+import kotlin.text.RegexOption
 import kotlinx.serialization.Serializable
 import kotlinx.serialization.json.Json
 
@@ -45,11 +46,7 @@ class PlanSuggestionService(
 ) {
     private val json = Json { ignoreUnknownKeys = false }
 
-    suspend fun suggest(
-        summaryText: String,
-        noteIds: Set<String>,
-        currentMedications: List<PlanMedication> = emptyList(),
-    ): PlanSuggestionResult {
+    suspend fun suggest(summaryText: String): PlanSuggestionResult {
         if (summaryText.isBlank()) {
             return PlanSuggestionResult.Failure("empty_after_filter")
         }
@@ -61,7 +58,10 @@ class PlanSuggestionService(
         } else {
             basePrompt
         }
-        val dataBlock = summaryText + "\n\nAllowed evidence note IDs (use only these in evidenceNoteIds): " + noteIds.joinToString(", ")
+        // The model sees the finished summary only. Note IDs are not sent:
+        // it cannot see the raw notes, so whatever attribution it returned
+        // would be decorative, and the payload contract drops it below.
+        val dataBlock = summaryText
         // Native json mode keeps the provider from wrapping the answer in
         // prose; the shared reader strips whatever wrapper is left and spends
         // one repair retry when the payload still does not parse.
@@ -93,8 +93,15 @@ class PlanSuggestionService(
             if (accepted.size >= MAX_CHANGES) break
             if (change.actionId.isBlank() || change.actionId !in allowedActions) continue
             if (change.reason.isBlank() || change.reason.length > MAX_REASON_LENGTH) continue
-            if (change.evidenceNoteIds.size > MAX_EVIDENCE_IDS) continue
-            if (change.evidenceNoteIds.any { it !in noteIds }) continue
+            // The proposedMedications lock covers the structured field, but
+            // the reason is free text and params are already allowlisted to
+            // empty sets — so the reason is screened for medication
+            // directives ("Consider doubling her insulin") too.
+            if (mentionsMedicationChange(change.reason)) continue
+            // Evidence IDs are decorative: the model only receives the
+            // finished summary, never the notes, so any IDs it emits cannot
+            // be attributed. Nothing downstream may show them — drop.
+            if (change.evidenceNoteIds.isNotEmpty()) continue
             val allowedParams = ALLOWED_PARAMS[change.actionId] ?: continue
             if (change.params.keys != allowedParams) continue
             if (change.params.any { it.value.isBlank() || it.value.length > MAX_PARAM_VALUE_LENGTH }) continue
@@ -124,9 +131,42 @@ class PlanSuggestionService(
         )
 
         const val MAX_CHANGES = 20
-        const val MAX_EVIDENCE_IDS = 50
         const val MAX_REASON_LENGTH = 500
         const val MAX_PARAM_VALUE_LENGTH = 200
         const val MAX_OUTPUT_CHARS = 100_000
+
+        // Free text can carry what the structured fields cannot: after the
+        // params allowlists, the reason is the only unvalidated channel, so
+        // it is screened for medication directives. Deliberately
+        // conservative — a false positive drops one suggestion, a miss would
+        // leak dosage advice into the plan.
+        private val DOSE_WITH_UNIT = Regex(
+            "[0-9٠-٩]+(?:[.,٫][0-9٠-٩]+)?\\s*" +
+                "(?:mg|mcg|milligram|ml|milliliter|iu|units?|doses?|tablets?|pills?|capsules?" +
+                "|drops?|puffs?|ملغ|ميكروجرام|مليلتر|وحد|جرع|قرص|أقرص|حبوب|حبة|حبت|قطرة|بخاخ)",
+            RegexOption.IGNORE_CASE,
+        )
+
+        // Change-intent verbs co-occurring with a medication noun ("doubling
+        // her insulin", "زد الأنسولين"). Neither alone is enough; word
+        // boundaries misbehave across scripts, so these are substring stems
+        // and the co-occurrence test keeps false positives rare.
+        private val MEDICATION_NOUN = Regex(
+            "insulin|doses?|dosage|medications?|medicines?|pills?|tablets?|capsules?" +
+                "|prescriptions?|drugs?|supplements?|نسولين|جرع|أقرص|قرص|حبت|حبوب|حبة|أدوي|دواء|علاج",
+            RegexOption.IGNORE_CASE,
+        )
+        private val CHANGE_VERB = Regex(
+            "doubl|halv|trip|increas|decreas|reduc|lower|rais|boost|cut|drop|stop|start|resume|skip|add|titrat" +
+                "|ضاعف|زد|زيادة|زود|خفض|خفّض|خفف|تخفيف|قلل|أوقف|وقف|توقف|ابدأ|بدأ|استئناف|استأنف|أضف|ارفع|رفع",
+            RegexOption.IGNORE_CASE,
+        )
+
+        internal fun mentionsMedicationChange(reason: String): Boolean =
+            DOSE_WITH_UNIT.containsMatchIn(reason) ||
+                (
+                    MEDICATION_NOUN.containsMatchIn(reason) &&
+                        CHANGE_VERB.containsMatchIn(reason)
+                )
     }
 }

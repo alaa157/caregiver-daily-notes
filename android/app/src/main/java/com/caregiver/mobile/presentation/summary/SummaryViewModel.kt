@@ -221,12 +221,15 @@ class SummaryViewModel(
                     val to = today.toString()
                     repository.authorized { apis.notes().history(recipientId, from, to) }.map { it.id }.toSet()
                 }
+                // Suggestions must be backed by tracked notes: only the
+                // emptiness of this set is checked — the plan call itself
+                // receives just the finished summary, never note IDs.
                 if (noteIds.isEmpty()) {
                     _suggestStatus.value = "empty_after_filter"
                     return@launch
                 }
                 val service = com.caregiver.mobile.ai.PlanSuggestionService(client, store)
-                val result = service.suggest(summaryText, noteIds)
+                val result = service.suggest(summaryText)
                 when (result) {
                     is com.caregiver.mobile.ai.PlanSuggestionResult.Success -> {
                         val items = result.suggestion.changes.mapNotNull { change ->
@@ -235,7 +238,6 @@ class SummaryViewModel(
                             buildString {
                                 append("[").append(change.actionId).append("] ")
                                 append(reason)
-                                if (change.evidenceNoteIds.isNotEmpty()) append(" (evidence: ").append(change.evidenceNoteIds.joinToString(",")).append(")")
                                 if (change.params.isNotEmpty()) append(" params=").append(change.params.entries.joinToString(",") { "${it.key}=${it.value}" })
                             }
                         }

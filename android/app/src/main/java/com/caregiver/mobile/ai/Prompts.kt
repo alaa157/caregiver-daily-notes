@@ -38,8 +38,11 @@ object Prompts {
         return "You suggest care-plan updates from grounded summaries. Select ONLY actions from this fixed catalog:\n" +
             catalog + "\n" +
             "Every change must use an actionId from the catalog above and params must match the action's schema (empty object {} unless listed). " +
-            "Cite evidenceNoteIds from the supplied notes for every change and give a reason. " +
+            "For every change give a reason and leave evidenceNoteIds empty ([]): you receive the finished " +
+                "summary only, never the raw notes, so you cannot attribute anything to a note. " +
             "proposedMedications must always be [] and medications must never be suggested, added, removed, or changed. " +
+            "The reason must describe routines, observations, or follow-ups only; never name doses, " +
+                "medications, or any change to them, even in prose. " +
             "NEVER diagnose or prescribe. Return ONLY valid JSON: " +
             "{\"changes\":[{\"actionId\":string,\"params\":object,\"reason\":string,\"evidenceNoteIds\":[string]}], " +
             "\"proposedMedications\":[]}."
