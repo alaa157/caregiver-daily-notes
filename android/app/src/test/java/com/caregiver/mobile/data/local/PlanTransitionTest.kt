@@ -35,7 +35,7 @@ class PlanTransitionTest {
         db.close()
     }
 
-    private fun statuses(planId: String, apis: LocalBackendApis): Map<Int, String> =
+    private suspend fun statuses(planId: String, apis: LocalBackendApis): Map<Int, String> =
         apis.plans().versions(planId).associate { it.version to it.status }
 
     private suspend fun illegalTransition(block: suspend () -> Unit): Int {
