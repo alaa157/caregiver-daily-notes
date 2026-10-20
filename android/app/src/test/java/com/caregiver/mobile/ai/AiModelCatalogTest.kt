@@ -53,6 +53,29 @@ class AiModelCatalogTest {
     }
 
     @Test
+    fun aProviderWithFreeModelsDefaultsToTheFreeOne() {
+        for (provider in AiProvider.entries) {
+            val free = AiModelCatalog.options(provider).firstOrNull { it.free } ?: continue
+            assertEquals(
+                "${provider.name} should default to its free model",
+                free.id,
+                provider.defaultModel,
+            )
+        }
+    }
+
+    @Test
+    fun aProviderWithoutFreeModelsDoesNotPretendToHaveOne() {
+        for (provider in AiProvider.entries) {
+            if (provider.freeTier == AiFreeTier.FREE_MODELS) continue
+            assertTrue(
+                "${provider.name} offers a free model it does not have",
+                AiModelCatalog.options(provider).none { it.free },
+            )
+        }
+    }
+
+    @Test
     fun modelIdsAreNotBlank() {
         for (provider in AiProvider.entries) {
             for (option in AiModelCatalog.options(provider)) {
