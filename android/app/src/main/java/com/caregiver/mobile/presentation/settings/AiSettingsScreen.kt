@@ -65,6 +65,10 @@ fun AiSettingsScreen(graph: AppGraph, navController: NavController) {
     val initialProvider = store.selectedProvider()
     var provider by remember { mutableStateOf(initialProvider) }
     var apiKey by remember { mutableStateOf(store.apiKey(initialProvider).orEmpty()) }
+    // A pasted key usually carries a trailing space or newline. The tests
+    // and the save have to use the same trimmed value, or a key that works
+    // fine after saving fails the connection test.
+    val trimmedKey = apiKey.trim()
     // A key that can no longer be decrypted (a lock-screen change invalidates
     // the keystore key) is not "no key": the caregiver has to enter it again.
     var keyState by remember { mutableStateOf(store.apiKeyState(initialProvider)) }
@@ -189,7 +193,7 @@ fun AiSettingsScreen(graph: AppGraph, navController: NavController) {
                         provider,
                         baseUrl.ifBlank { provider.defaultBaseUrl },
                         model.ifBlank { provider.defaultModel },
-                        apiKey,
+                        trimmedKey,
                     )
                     val res = client.complete(LlmRequest("Reply with OK", "ping"))
                     status = if (res.status == LlmStatus.OK) {
@@ -225,7 +229,10 @@ fun AiSettingsScreen(graph: AppGraph, navController: NavController) {
                 AiProvider.OPENAI -> "https://help.openai.com/en/articles/4936850-where-do-i-find-my-openai-api-key"
                 AiProvider.GEMINI -> "https://aistudio.google.com/apikey"
                 AiProvider.ANTHROPIC -> "https://platform.claude.com/docs/en/get-api-key"
-                else -> "https://openrouter.ai"
+                // xAI has its own console; the shared branch sent it to
+                // OpenRouter, which is a different company.
+                AiProvider.XAI -> "https://console.x.ai"
+                AiProvider.OPEN_ROUTER -> "https://openrouter.ai"
             }
             AlertDialog(
                 onDismissRequest = { showGuideDialog = false },
@@ -246,7 +253,11 @@ fun AiSettingsScreen(graph: AppGraph, navController: NavController) {
                         }) { Text(stringResource(R.string.settings_ai_open_website)) }
                     }
                 },
-                confirmButton = { TextButton(onClick = { showGuideDialog = false }) { Text("OK") } },
+                confirmButton = {
+                    TextButton(onClick = { showGuideDialog = false }) {
+                        Text(stringResource(R.string.common_ok))
+                    }
+                },
             )
         }
 
@@ -268,7 +279,7 @@ fun AiSettingsScreen(graph: AppGraph, navController: NavController) {
                         provider,
                         baseUrl.ifBlank { provider.defaultBaseUrl },
                         model.ifBlank { provider.defaultModel },
-                        apiKey,
+                        trimmedKey,
                     )
                     val prompt = summaryPrompt.takeIf { it.isNotBlank() }
                         ?: systemPrompt.takeIf { it.isNotBlank() }
@@ -331,7 +342,6 @@ fun AiSettingsScreen(graph: AppGraph, navController: NavController) {
             // Store the key in this provider's slot before selecting the
             // provider. A failed keystore write must not leave the app
             // pointing at a provider whose key was never saved.
-            val trimmedKey = apiKey.trim()
             val keyStored = trimmedKey.isEmpty() || store.setApiKey(trimmedKey, provider)
             if (!keyStored) {
                 keyError = graph.context.getString(R.string.settings_ai_key_store_failed)
@@ -399,6 +409,9 @@ fun AiSettingsScreen(graph: AppGraph, navController: NavController) {
                         value = apiKey,
                         onValueChange = { apiKey = it },
                         visualTransformation = PasswordVisualTransformation(),
+                        // A key is one line: a pasted newline must not turn
+                        // the field into a multi-line box.
+                        singleLine = true,
                         modifier = Modifier.fillMaxWidth(),
                     )
                     Text(
