@@ -50,13 +50,14 @@ class ThemeTest {
 
     @Test
     fun scaffoldVisibleRolesUsePaletteNotDefaults() {
+        val scheme = appLightScheme(caregiverScheme(dark = false, palette = "teal"))
         // FAB: solid teal with white content.
-        assertEquals(CaregiverColors.Primary, AppLightScheme.primaryContainer)
-        assertEquals(Color.White, AppLightScheme.onPrimaryContainer)
+        assertEquals(CaregiverColors.Primary, scheme.primaryContainer)
+        assertEquals(Color.White, scheme.onPrimaryContainer)
         // Selected tab pill: neutral surface with ink content; teal accent
         // is applied at the call site.
-        assertEquals(CaregiverColors.BorderSoft, AppLightScheme.secondaryContainer)
-        assertEquals(CaregiverColors.Ink, AppLightScheme.onSecondaryContainer)
+        assertEquals(CaregiverColors.BorderSoft, scheme.secondaryContainer)
+        assertEquals(CaregiverColors.Ink, scheme.onSecondaryContainer)
     }
 
     @Test
