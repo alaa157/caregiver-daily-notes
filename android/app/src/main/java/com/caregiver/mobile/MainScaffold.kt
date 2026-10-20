@@ -1,6 +1,7 @@
 package com.caregiver.mobile
 
 import androidx.activity.ComponentActivity
+import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.activity.compose.BackHandler
 import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.animation.core.tween
@@ -178,7 +179,7 @@ fun MainScaffold(graph: AppGraph) {
     val recipientsVm: RecipientsViewModel = assistedViewModel("people-shared", activity) {
         RecipientsViewModel(graph.apis, graph.auth)
     }
-    val peopleState by recipientsVm.state.collectAsState()
+    val peopleState by recipientsVm.state.collectAsStateWithLifecycle()
     val activeRecipients = (peopleState as? PeopleState.Content)
         ?.recipients?.filter { it.active }
         .orEmpty()

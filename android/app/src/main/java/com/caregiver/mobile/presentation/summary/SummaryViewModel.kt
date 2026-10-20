@@ -23,6 +23,7 @@ import java.time.LocalDate
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
+import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.launch
 import retrofit2.HttpException
 
@@ -61,16 +62,16 @@ class SummaryViewModel(
     private val exec: CoroutineScope = scope ?: viewModelScope
 
     private val _period = MutableStateFlow(initialPeriod)
-    val period: StateFlow<Int> = _period
+    val period: StateFlow<Int> = _period.asStateFlow()
 
     private val _state = MutableStateFlow<SummaryState>(SummaryState.Loading)
-    val state: StateFlow<SummaryState> = _state
+    val state: StateFlow<SummaryState> = _state.asStateFlow()
 
     private val _suggesting = MutableStateFlow(false)
-    val suggesting: StateFlow<Boolean> = _suggesting
+    val suggesting: StateFlow<Boolean> = _suggesting.asStateFlow()
 
     private val _suggestedForCurrent = MutableStateFlow(false)
-    val suggestedForCurrent: StateFlow<Boolean> = _suggestedForCurrent
+    val suggestedForCurrent: StateFlow<Boolean> = _suggestedForCurrent.asStateFlow()
 
     init {
         exec.launch { load(preserve = false) }
@@ -226,7 +227,7 @@ class SummaryViewModel(
     }
 
     private val _suggestStatus = MutableStateFlow<String?>(null)
-    val suggestStatus: StateFlow<String?> = _suggestStatus
+    val suggestStatus: StateFlow<String?> = _suggestStatus.asStateFlow()
 
     fun suggestPlan() {
         val store = aiKeyStore ?: return

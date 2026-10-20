@@ -16,6 +16,7 @@ import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
+import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.launch
 
 /** Which Data & Backup backup action is running; null means idle. */
@@ -60,7 +61,7 @@ class BackupRestoreViewModel(
     private val exec: CoroutineScope = scope ?: viewModelScope
 
     private val _state = MutableStateFlow(BackupRestoreState())
-    val state: StateFlow<BackupRestoreState> = _state
+    val state: StateFlow<BackupRestoreState> = _state.asStateFlow()
 
     /** False when this build has no local store (demo/server graphs). */
     val available: Boolean get() = service.available

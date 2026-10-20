@@ -15,6 +15,7 @@ import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
+import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.launch
 
 /** Which Data & Backup action is running; null means idle. */
@@ -58,7 +59,7 @@ class CsvTransferViewModel(
     private val exec: CoroutineScope = scope ?: viewModelScope
 
     private val _state = MutableStateFlow(CsvTransferState())
-    val state: StateFlow<CsvTransferState> = _state
+    val state: StateFlow<CsvTransferState> = _state.asStateFlow()
 
     /** Filename offered in the system save dialog. */
     fun exportFileName(): String = service.exportFileName()

@@ -6,6 +6,8 @@ import java.io.ByteArrayOutputStream
 import java.io.IOException
 import java.nio.charset.StandardCharsets
 import kotlinx.coroutines.CoroutineDispatcher
+import kotlinx.coroutines.currentCoroutineContext
+import kotlinx.coroutines.ensureActive
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
 
@@ -43,6 +45,10 @@ class AndroidBackupDocumentIo(
             val output = ByteArrayOutputStream()
             var total = 0
             while (true) {
+                // A cancelled import must stop reading: the stream read is
+                // blocking, so the coroutine would otherwise keep pulling
+                // megabytes nobody is waiting for.
+                currentCoroutineContext().ensureActive()
                 val read = input.read(buffer)
                 if (read < 0) break
                 total += read

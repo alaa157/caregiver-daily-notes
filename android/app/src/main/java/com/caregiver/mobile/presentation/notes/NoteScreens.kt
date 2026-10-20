@@ -1,6 +1,7 @@
 package com.caregiver.mobile.presentation.notes
 
 import androidx.activity.ComponentActivity
+import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Arrangement
@@ -77,7 +78,7 @@ fun NoteEditorScreen(recipientId: String, graph: AppGraph, navController: NavCon
     val vm: NoteEditorViewModel = assistedViewModel("editor-$recipientId") {
         NoteEditorViewModel(recipientId, graph.apis, graph.auth)
     }
-    val state by vm.state.collectAsState()
+    val state by vm.state.collectAsStateWithLifecycle()
     state.savedId?.let { noteId ->
         LaunchedEffect(noteId) {
             navController.navigate("note-saved/$noteId") {
@@ -301,7 +302,7 @@ fun NoteSavedScreen(noteId: String, graph: AppGraph, navController: NavControlle
     val vm: NoteDetailViewModel = assistedViewModel("note-$noteId", activity) {
         NoteDetailViewModel(noteId, graph.apis, graph.auth)
     }
-    val detail by vm.state.collectAsState()
+    val detail by vm.state.collectAsStateWithLifecycle()
     val recipientId = (detail as? NoteDetailState.Content)?.content?.note?.recipientId
     Column(
         modifier = Modifier.fillMaxSize().padding(horizontal = 16.dp),
@@ -367,7 +368,7 @@ fun NoteDetailScreen(noteId: String, graph: AppGraph, navController: NavControll
     val vm: NoteDetailViewModel = assistedViewModel("note-$noteId", activity) {
         NoteDetailViewModel(noteId, graph.apis, graph.auth)
     }
-    val state by vm.state.collectAsState()
+    val state by vm.state.collectAsStateWithLifecycle()
     Column(Modifier.fillMaxSize()) {
         if (state !is NoteDetailState.Content) {
             Column(Modifier.padding(horizontal = 16.dp)) {
@@ -541,7 +542,7 @@ fun AddendumScreen(noteId: String, graph: AppGraph, navController: NavController
     val vm: NoteDetailViewModel = assistedViewModel("note-$noteId", activity) {
         NoteDetailViewModel(noteId, graph.apis, graph.auth)
     }
-    val form by vm.addendum.collectAsState()
+    val form by vm.addendum.collectAsStateWithLifecycle()
     if (form.appended) {
         LaunchedEffect(Unit) { navController.popBackStack() }
     }

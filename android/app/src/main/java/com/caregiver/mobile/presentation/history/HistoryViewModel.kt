@@ -12,6 +12,7 @@ import java.time.LocalDate
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
+import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.launch
 import retrofit2.HttpException
 
@@ -50,16 +51,16 @@ class HistoryViewModel(
     private val exec: CoroutineScope = scope ?: viewModelScope
 
     private val _state = MutableStateFlow<HistoryState>(HistoryState.Loading)
-    val state: StateFlow<HistoryState> = _state
+    val state: StateFlow<HistoryState> = _state.asStateFlow()
 
     private val _recipientId = MutableStateFlow(initialRecipientId)
-    val recipientId: StateFlow<String?> = _recipientId
+    val recipientId: StateFlow<String?> = _recipientId.asStateFlow()
 
     private val _from = MutableStateFlow(initialFrom)
-    val from: StateFlow<LocalDate?> = _from
+    val from: StateFlow<LocalDate?> = _from.asStateFlow()
 
     private val _to = MutableStateFlow(initialTo)
-    val to: StateFlow<LocalDate?> = _to
+    val to: StateFlow<LocalDate?> = _to.asStateFlow()
 
     init {
         exec.launch { load() }

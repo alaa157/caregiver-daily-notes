@@ -11,6 +11,7 @@ import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
+import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.launch
 import retrofit2.HttpException
 
@@ -35,16 +36,16 @@ class PlanEditViewModel(
     private val exec: CoroutineScope = scope ?: viewModelScope
 
     private val _state = MutableStateFlow<PlanEditState>(PlanEditState.Loading)
-    val state: StateFlow<PlanEditState> = _state
+    val state: StateFlow<PlanEditState> = _state.asStateFlow()
 
     private val _busy = MutableStateFlow(false)
-    val busy: StateFlow<Boolean> = _busy
+    val busy: StateFlow<Boolean> = _busy.asStateFlow()
 
     private val _saved = MutableStateFlow(false)
-    val saved: StateFlow<Boolean> = _saved
+    val saved: StateFlow<Boolean> = _saved.asStateFlow()
 
     private val _saveFailed = MutableStateFlow(false)
-    val saveFailed: StateFlow<Boolean> = _saveFailed
+    val saveFailed: StateFlow<Boolean> = _saveFailed.asStateFlow()
 
     init {
         exec.launch { load() }
