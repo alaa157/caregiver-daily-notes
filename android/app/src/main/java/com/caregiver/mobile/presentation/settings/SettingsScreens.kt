@@ -2,6 +2,7 @@ package com.caregiver.mobile.presentation.settings
 
 import android.app.Activity
 import androidx.activity.compose.rememberLauncherForActivityResult
+import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
@@ -84,7 +85,7 @@ fun SettingsScreen(graph: AppGraph, navController: NavController) {
     val csvVm: CsvTransferViewModel = assistedViewModel("csv-transfer") {
         CsvTransferViewModel(graph.csvTransferService, csvDocuments)
     }
-    val csvState by csvVm.state.collectAsState()
+    val csvState by csvVm.state.collectAsStateWithLifecycle()
     val exportLauncher = rememberLauncherForActivityResult(
         ActivityResultContracts.CreateDocument("text/csv"),
     ) { uri -> if (uri != null) csvVm.exportTo(uri) }
@@ -98,7 +99,7 @@ fun SettingsScreen(graph: AppGraph, navController: NavController) {
     val backupVm: BackupRestoreViewModel = assistedViewModel("backup-restore") {
         BackupRestoreViewModel(graph.backupRestoreService, backupDocuments)
     }
-    val backupState by backupVm.state.collectAsState()
+    val backupState by backupVm.state.collectAsStateWithLifecycle()
     val backupCreateLauncher = rememberLauncherForActivityResult(
         ActivityResultContracts.CreateDocument("application/json"),
     ) { uri -> if (uri != null) backupVm.createTo(uri) }

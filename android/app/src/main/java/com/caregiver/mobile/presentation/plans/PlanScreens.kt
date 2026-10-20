@@ -1,6 +1,7 @@
 package com.caregiver.mobile.presentation.plans
 
 import androidx.compose.foundation.clickable
+import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
@@ -66,7 +67,7 @@ fun PlansScreen(graph: AppGraph, navController: NavController) {
     val vm: PlansViewModel = assistedViewModel("plans") {
         PlansViewModel(graph.apis, graph.auth)
     }
-    val state by vm.state.collectAsState()
+    val state by vm.state.collectAsStateWithLifecycle()
     Column(
         Modifier.fillMaxSize().padding(horizontal = AppDimens.ScreenHPadding),
         verticalArrangement = Arrangement.spacedBy(AppDimens.SectionGap),
@@ -147,9 +148,9 @@ fun PlanProposalScreen(planId: String, graph: AppGraph, navController: NavContro
     val vm: PlanDetailViewModel = assistedViewModel("plan-$planId") {
         PlanDetailViewModel(planId, graph.apis, graph.auth)
     }
-    val state by vm.state.collectAsState()
-    val error by vm.actionError.collectAsState()
-    val busy by vm.busy.collectAsState()
+    val state by vm.state.collectAsStateWithLifecycle()
+    val error by vm.actionError.collectAsStateWithLifecycle()
+    val busy by vm.busy.collectAsStateWithLifecycle()
     Column(Modifier.fillMaxSize()) {
         if (state !is PlanDetailState.Content) {
             Column(Modifier.padding(horizontal = AppDimens.ScreenHPadding)) {
@@ -286,10 +287,10 @@ fun PlanEditScreen(planId: String, graph: AppGraph, navController: NavController
     val vm: PlanEditViewModel = assistedViewModel("plan-edit-$planId") {
         PlanEditViewModel(planId, graph.apis, graph.auth)
     }
-    val state by vm.state.collectAsState()
-    val busy by vm.busy.collectAsState()
-    val saved by vm.saved.collectAsState()
-    val saveFailed by vm.saveFailed.collectAsState()
+    val state by vm.state.collectAsStateWithLifecycle()
+    val busy by vm.busy.collectAsStateWithLifecycle()
+    val saved by vm.saved.collectAsStateWithLifecycle()
+    val saveFailed by vm.saveFailed.collectAsStateWithLifecycle()
     if (saved) {
         LaunchedEffect(Unit) { navController.popBackStack() }
     }
@@ -371,7 +372,7 @@ fun PlanVersionsScreen(planId: String, graph: AppGraph, navController: NavContro
     val vm: PlanDetailViewModel = assistedViewModel("plan-versions-$planId") {
         PlanDetailViewModel(planId, graph.apis, graph.auth)
     }
-    val state by vm.state.collectAsState()
+    val state by vm.state.collectAsStateWithLifecycle()
     Column(
         Modifier.fillMaxSize().padding(horizontal = AppDimens.ScreenHPadding),
         verticalArrangement = Arrangement.spacedBy(AppDimens.SectionGap),

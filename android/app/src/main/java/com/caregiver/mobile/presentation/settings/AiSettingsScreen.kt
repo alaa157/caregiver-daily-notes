@@ -200,6 +200,9 @@ fun AiSettingsScreen(graph: AppGraph, navController: NavController) {
                                 .resolvedMessage(graph.context),
                         )
                     }
+                } catch (e: kotlinx.coroutines.CancellationException) {
+                    // The screen went away mid-request: let the scope cancel.
+                    throw e
                 } catch (e: Exception) {
                     // Exception text is not a recovery step and may contain
                     // transport internals; show the connect-and-retry copy.
@@ -299,6 +302,9 @@ fun AiSettingsScreen(graph: AppGraph, navController: NavController) {
                             AiRecovery.copyFor(reason).resolvedMessage(graph.context),
                         )
                     }
+                } catch (e: kotlinx.coroutines.CancellationException) {
+                    // The screen went away mid-request: let the scope cancel.
+                    throw e
                 } catch (e: Exception) {
                     formatStatus = graph.context.getString(
                         R.string.settings_ai_format_invalid,

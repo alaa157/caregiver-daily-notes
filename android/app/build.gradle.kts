@@ -136,6 +136,9 @@ dependencies {
     implementation(libs.navigation.compose)
     implementation(libs.lifecycle.viewmodel.compose)
     implementation(libs.lifecycle.viewmodel)
+    // collectAsStateWithLifecycle: the screens stop collecting while the app
+    // is in the background instead of keeping a live collector on every flow.
+    implementation(libs.lifecycle.runtime.compose)
     implementation(libs.activity.compose)
 
     implementation(libs.coroutines.core)

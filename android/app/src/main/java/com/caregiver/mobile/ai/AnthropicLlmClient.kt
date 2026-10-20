@@ -1,5 +1,6 @@
 package com.caregiver.mobile.ai
 
+import kotlinx.coroutines.CoroutineDispatcher
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
 import kotlinx.serialization.json.Json
@@ -26,9 +27,10 @@ class AnthropicLlmClient(
     private val apiKey: String,
     private val okHttpClient: OkHttpClient = OkHttpConfig.defaultOkHttpClient(),
     private val json: Json = Json { ignoreUnknownKeys = true },
+    private val ioDispatcher: CoroutineDispatcher = Dispatchers.IO,
     private val maxTokens: Int = 1024,
 ) : LlmClient {
-    override suspend fun complete(request: LlmRequest): LlmResult = withContext(Dispatchers.IO) {
+    override suspend fun complete(request: LlmRequest): LlmResult = withContext(ioDispatcher) {
         val httpUrl = baseUrl.toHttpUrlOrNull()
         if (httpUrl == null || httpUrl.host.isEmpty()) {
             return@withContext LlmResult(LlmStatus.FALLBACK, "", "invalid_url", null)

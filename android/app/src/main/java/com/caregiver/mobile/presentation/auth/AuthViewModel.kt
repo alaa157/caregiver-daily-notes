@@ -8,6 +8,7 @@ import java.nio.charset.StandardCharsets
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
+import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.launch
 
 enum class AuthMode { Login, Register }
@@ -58,7 +59,7 @@ class AuthViewModel(
     private val exec: CoroutineScope = scope ?: viewModelScope
 
     private val _state = MutableStateFlow(AuthUiState())
-    val state: StateFlow<AuthUiState> = _state
+    val state: StateFlow<AuthUiState> = _state.asStateFlow()
 
     fun onEmail(value: String) {
         _state.value = _state.value.copy(email = value, emailError = null, formError = null)

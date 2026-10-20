@@ -1,6 +1,7 @@
 package com.caregiver.mobile.presentation.history
 
 import androidx.compose.foundation.clickable
+import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
@@ -104,10 +105,10 @@ fun HistoryScreen(
     val vm: HistoryViewModel = assistedViewModel(key) {
         HistoryViewModel(graph.apis, graph.auth, null, initialRecipientId, initialFrom, initialTo)
     }
-    val state by vm.state.collectAsState()
-    val recipientId by vm.recipientId.collectAsState()
-    val from by vm.from.collectAsState()
-    val to by vm.to.collectAsState()
+    val state by vm.state.collectAsStateWithLifecycle()
+    val recipientId by vm.recipientId.collectAsStateWithLifecycle()
+    val from by vm.from.collectAsStateWithLifecycle()
+    val to by vm.to.collectAsStateWithLifecycle()
 
     val listState = rememberLazyListState()
     // Task 2 contract: re-tapping the active tab publishes its route; scroll

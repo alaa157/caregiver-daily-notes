@@ -10,6 +10,7 @@ import java.io.IOException
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
+import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.launch
 import retrofit2.HttpException
 
@@ -43,7 +44,7 @@ class RecipientDetailViewModel(
     // Production uses viewModelScope; tests inject their TestScope.
     private val execScope: CoroutineScope = scope ?: viewModelScope
     private val _state = MutableStateFlow<DetailState>(DetailState.Loading)
-    val state: StateFlow<DetailState> = _state
+    val state: StateFlow<DetailState> = _state.asStateFlow()
 
     init {
         execScope.launch { load() }

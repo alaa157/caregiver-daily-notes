@@ -1,6 +1,7 @@
 package com.caregiver.mobile.presentation.auth
 
 import androidx.compose.runtime.Composable
+import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.ui.Modifier
@@ -15,7 +16,7 @@ import com.caregiver.mobile.data.AuthRepository
 @Composable
 fun LoginScreen(repository: AuthRepository, navController: NavController) {
     val vm: AuthViewModel = authViewModel(AuthMode.Login, repository)
-    val state by vm.state.collectAsState()
+    val state by vm.state.collectAsStateWithLifecycle()
     AuthForm(
         state = state,
         mode = AuthMode.Login,
@@ -41,7 +42,7 @@ fun LoginScreen(repository: AuthRepository, navController: NavController) {
 @Composable
 fun RegisterScreen(repository: AuthRepository, navController: NavController) {
     val vm: AuthViewModel = authViewModel(AuthMode.Register, repository)
-    val state by vm.state.collectAsState()
+    val state by vm.state.collectAsStateWithLifecycle()
     val backToLogin: () -> Unit = {
         if (!navController.popBackStack()) {
             navController.navigate(AppDestinations.Login.base)

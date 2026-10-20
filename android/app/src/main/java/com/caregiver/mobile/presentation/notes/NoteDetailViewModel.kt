@@ -13,6 +13,7 @@ import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
+import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.launch
 import retrofit2.HttpException
 
@@ -46,10 +47,10 @@ class NoteDetailViewModel(
     private val exec: CoroutineScope = scope ?: viewModelScope
 
     private val _state = MutableStateFlow<NoteDetailState>(NoteDetailState.Loading)
-    val state: StateFlow<NoteDetailState> = _state
+    val state: StateFlow<NoteDetailState> = _state.asStateFlow()
 
     private val _addendum = MutableStateFlow(AddendumState())
-    val addendum: StateFlow<AddendumState> = _addendum
+    val addendum: StateFlow<AddendumState> = _addendum.asStateFlow()
 
     init {
         exec.launch { load() }

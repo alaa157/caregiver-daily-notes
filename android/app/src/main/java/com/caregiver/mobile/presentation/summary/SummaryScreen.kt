@@ -7,6 +7,7 @@ import android.os.Build
 import android.util.Log
 
 import androidx.compose.foundation.layout.Arrangement
+import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
@@ -56,6 +57,7 @@ import com.caregiver.mobile.presentation.common.AppDimens
 import com.caregiver.mobile.core.theme.PlexArabic
 import com.caregiver.mobile.core.time.DateFormats
 import com.caregiver.mobile.data.api.SummaryDto
+import com.caregiver.mobile.data.export.CareSummaryPdfExporter
 import com.caregiver.mobile.presentation.common.AppCard
 import com.caregiver.mobile.presentation.common.AppTopBar
 import com.caregiver.mobile.presentation.common.AppWarningState
@@ -189,8 +191,8 @@ fun SummaryResultScreen(
     val vm: SummaryViewModel = assistedViewModel("summary-$recipientId") {
         SummaryViewModel(recipientId, graph.apis, graph.auth, null, periodDays, AiKeyStore(graph.context), graph.llmClientFactory, language = language)
     }
-    val state by vm.state.collectAsState()
-    val activePeriodDays by vm.period.collectAsState()
+    val state by vm.state.collectAsStateWithLifecycle()
+    val activePeriodDays by vm.period.collectAsStateWithLifecycle()
     val onRecoveryAction: (AiRecoveryAction) -> Unit = { action ->
         when (action) {
             AiRecoveryAction.Retry -> vm.refresh()
@@ -268,9 +270,9 @@ fun SummaryResultScreen(
                         vm.suggestPlan()
                     }
                 },
-                suggesting = vm.suggesting.collectAsState().value,
-                suggestedForCurrent = vm.suggestedForCurrent.collectAsState().value,
-                suggestStatus = vm.suggestStatus.collectAsState().value,
+                suggesting = vm.suggesting.collectAsStateWithLifecycle().value,
+                suggestedForCurrent = vm.suggestedForCurrent.collectAsStateWithLifecycle().value,
+                suggestStatus = vm.suggestStatus.collectAsStateWithLifecycle().value,
             )
         }
     }
@@ -426,9 +428,13 @@ private fun SummaryBody(
                         val today = java.time.LocalDate.now()
                         val from = SummaryWindow.start(today, periodDays).toString()
                         val to = today.toString()
-                        val notes = try { graph.apis.notes().history(summary.recipientId, from, to) } catch (e: Exception) { emptyList() }
-                        val recipientName = try { graph.apis.recipients().get(summary.recipientId).name } catch (e: Exception) { null }
-                        val uri = com.caregiver.mobile.data.export.CareSummaryPdfExporter.export(
+                        val notes = try { graph.apis.notes().history(summary.recipientId, from, to) } catch (e: kotlinx.coroutines.CancellationException) {
+                            throw e
+                        } catch (e: Exception) { emptyList() }
+                        val recipientName = try { graph.apis.recipients().get(summary.recipientId).name } catch (e: kotlinx.coroutines.CancellationException) {
+                            throw e
+                        } catch (e: Exception) { null }
+                        val uri = CareSummaryPdfExporter.export(
                             graph.context,
                             summary,
                             recipientName,
@@ -441,6 +447,9 @@ private fun SummaryBody(
                             addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION)
                         }
                         graph.context.startActivity(Intent.createChooser(share, null))
+                    } catch (e: kotlinx.coroutines.CancellationException) {
+                        // The screen went away mid-export: let the scope cancel.
+                        throw e
                     } catch (e: Exception) {
                         exportError = graph.context.getString(R.string.export_failed)
                     } finally {
@@ -541,9 +550,13 @@ private fun SummaryBody(
                                         val today = java.time.LocalDate.now()
                                         val from = SummaryWindow.start(today, periodDays).toString()
                                         val to = today.toString()
-                                        val notes = try { graph.apis.notes().history(summary.recipientId, from, to) } catch (e: Exception) { emptyList() }
-                                        val recipientName = try { graph.apis.recipients().get(summary.recipientId).name } catch (e: Exception) { null }
-                                        val uri = com.caregiver.mobile.data.export.CareSummaryPdfExporter.export(
+                                        val notes = try { graph.apis.notes().history(summary.recipientId, from, to) } catch (e: kotlinx.coroutines.CancellationException) {
+                                            throw e
+                                        } catch (e: Exception) { emptyList() }
+                                        val recipientName = try { graph.apis.recipients().get(summary.recipientId).name } catch (e: kotlinx.coroutines.CancellationException) {
+                                            throw e
+                                        } catch (e: Exception) { null }
+                                        val uri = CareSummaryPdfExporter.export(
                                             context,
                                             summary,
                                             recipientName,

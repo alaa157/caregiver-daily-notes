@@ -12,6 +12,7 @@ import java.time.LocalTime
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
+import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.launch
 import retrofit2.HttpException
@@ -92,7 +93,7 @@ class HomeViewModel(
     // Production uses viewModelScope; tests inject their TestScope.
     private val execScope: CoroutineScope = scope ?: viewModelScope
     private val _state = MutableStateFlow<HomeState>(HomeState.Loading)
-    val state: StateFlow<HomeState> = _state
+    val state: StateFlow<HomeState> = _state.asStateFlow()
 
     init {
         execScope.launch { load(preserve = false) }

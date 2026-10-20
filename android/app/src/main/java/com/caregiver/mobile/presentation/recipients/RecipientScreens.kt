@@ -1,6 +1,7 @@
 package com.caregiver.mobile.presentation.recipients
 
 import androidx.compose.foundation.clickable
+import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Column
@@ -86,7 +87,7 @@ fun RecipientsScreen(graph: AppGraph, navController: NavController) {
         RecipientsViewModel(graph.apis, graph.auth)
     }
     LaunchedEffect(Unit) { vm.refresh() }
-    val state by vm.state.collectAsState()
+    val state by vm.state.collectAsStateWithLifecycle()
 
     val listState = rememberLazyListState()
     val pullRefreshState = rememberPullToRefreshState()
@@ -199,7 +200,7 @@ fun AddRecipientScreen(graph: AppGraph, navController: NavController) {
     val vm: RecipientsViewModel = assistedViewModel("people-shared", activity) {
         RecipientsViewModel(graph.apis, graph.auth)
     }
-    val addState by vm.addState.collectAsState()
+    val addState by vm.addState.collectAsStateWithLifecycle()
     addState.addedId?.let {
         LaunchedEffect(it) {
             vm.consumeAdded()
@@ -276,7 +277,7 @@ fun RecipientDetailScreen(recipientId: String, graph: AppGraph, navController: N
     val vm: RecipientDetailViewModel = assistedViewModel("detail-$recipientId") {
         RecipientDetailViewModel(recipientId, graph.apis, graph.auth)
     }
-    val state by vm.state.collectAsState()
+    val state by vm.state.collectAsStateWithLifecycle()
     Column(Modifier.fillMaxSize().padding(horizontal = AppDimens.ScreenHPadding)) {
         if (state !is DetailState.Content) {
             AppTopBar(

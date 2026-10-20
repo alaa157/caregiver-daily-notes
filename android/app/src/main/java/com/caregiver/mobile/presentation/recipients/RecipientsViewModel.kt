@@ -12,6 +12,7 @@ import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
+import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.launch
 import retrofit2.HttpException
 
@@ -55,10 +56,10 @@ class RecipientsViewModel(
     private val exec: CoroutineScope? = scope
 
     private val _state = MutableStateFlow<PeopleState>(PeopleState.Loading)
-    val state: StateFlow<PeopleState> = _state
+    val state: StateFlow<PeopleState> = _state.asStateFlow()
 
     private val _addState = MutableStateFlow(AddPersonState())
-    val addState: StateFlow<AddPersonState> = _addState
+    val addState: StateFlow<AddPersonState> = _addState.asStateFlow()
 
     init {
         launch { refresh() }

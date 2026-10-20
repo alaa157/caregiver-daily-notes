@@ -13,6 +13,7 @@ import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
+import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.launch
 import retrofit2.HttpException
 
@@ -64,7 +65,7 @@ class NoteEditorViewModel(
     private val exec: CoroutineScope = scope ?: viewModelScope
 
     private val _state = MutableStateFlow(EditorState())
-    val state: StateFlow<EditorState> = _state
+    val state: StateFlow<EditorState> = _state.asStateFlow()
 
     fun select(group: OptionGroup, value: String) {
         val current = _state.value.current(group)

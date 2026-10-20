@@ -1,6 +1,7 @@
 package com.caregiver.mobile.presentation.home
 
 import androidx.compose.foundation.layout.Arrangement
+import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
@@ -81,7 +82,7 @@ fun HomeScreen(graph: AppGraph, navController: NavController) {
     val vm: HomeViewModel = assistedViewModel("home") {
         HomeViewModel(graph.auth, graph.settings)
     }
-    val state by vm.state.collectAsState()
+    val state by vm.state.collectAsStateWithLifecycle()
     // Medication card over local tables; null (and hidden) in graphs with no
     // local database, the same self-disabling the backup service uses.
     val medicationsVm = graph.medications?.let { store ->
@@ -252,7 +253,7 @@ private fun HomeTimeline(
                     // Medication tracker (standalone local tables): hidden
                     // when the graph has no local database.
                     if (medications != null) {
-                        val medState by medications.state.collectAsState()
+                        val medState by medications.state.collectAsStateWithLifecycle()
                         MedicationsCard(
                             state = medState,
                             people = content.cards.map { MedicationsPerson(it.recipientId, it.name) },
