@@ -41,36 +41,25 @@ jobs:
           yes | sdkmanager --licenses > /dev/null
           sdkmanager --install "platform-tools" "platforms;android-35" "build-tools;35.0.0"
 
-      - name: Build debug APK (universal, minSdk 21)
+      - name: Build, test and lint (debug APK, unit tests, lint, instrumentation APK)
         # Native Kotlin/Compose: one universal APK. Supported ABIs are whatever
         # the Android Gradle Plugin packages by default (arm64-v8a, armeabi-v7a,
         # x86_64) — no per-ABI splits.
         # Minify stays off (see app/build.gradle.kts): the old cross-platform
         # app crashed on launch with R8 and was never diagnosed.
+        #
+        # One Gradle invocation for every check. A second invocation would
+        # start a fresh JVM and re-run the configuration phase, and because
+        # GIT_COMMIT lands in the generated BuildConfig it would compile the
+        # debug variant a second time — the same sources against a different
+        # BuildConfig. GIT_COMMIT is set for the whole invocation, so the APK,
+        # the unit tests, lint and the instrumentation APK all read the same
+        # BuildConfig.
         env:
           GIT_COMMIT: ${{ github.sha }}
         run: |
           chmod +x gradlew
-          ./gradlew :app:assembleDebug --no-daemon
-        working-directory: android
-
-      - name: Run debug unit tests
-        # Task 9: JVM unit tests (incl. DemoBackendApis, provider selection,
-        # theme, ViewModels, string parity) run on every preview PR. The
-        # Settings/locale regression tests (Robolectric Compose, no device)
-        # run here too.
-        run: ./gradlew :app:testDebugUnitTest --no-daemon
-        working-directory: android
-
-      - name: Run debug lint
-        run: ./gradlew :app:lintDebug --no-daemon
-        working-directory: android
-
-      - name: Compile instrumentation test APK
-        # The androidTest suite never executes in CI, but it must keep
-        # compiling: without this step it silently rots against renamed or
-        # moved composables and string keys.
-        run: ./gradlew :app:assembleDebugAndroidTest --no-daemon
+          ./gradlew :app:assembleDebug :app:testDebugUnitTest :app:lintDebug :app:assembleDebugAndroidTest
         working-directory: android
 
       - name: Upload debug APK
@@ -85,7 +74,7 @@ jobs:
         # below checks the bytes before they are ever uploaded.
         env:
           GIT_COMMIT: ${{ github.sha }}
-        run: ./gradlew :app:assembleMinified --no-daemon
+        run: ./gradlew :app:assembleMinified
         working-directory: android
 
       - name: Verify squeezed APK contents
@@ -131,7 +120,7 @@ jobs:
           GIT_COMMIT: ${{ github.sha }}
         run: |
           chmod +x gradlew
-          ./gradlew :app:assembleMinified --no-daemon
+          ./gradlew :app:assembleMinified
         working-directory: android
 
       - name: Verify demo APK contents
