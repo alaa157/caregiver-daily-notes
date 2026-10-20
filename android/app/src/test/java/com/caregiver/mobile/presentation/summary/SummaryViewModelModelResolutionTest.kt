@@ -90,6 +90,21 @@ class SummaryViewModelModelResolutionTest {
     }
 
     @Test
+    fun selectedProviderUsesOnlyItsOwnKeyAndModel() = runTest {
+        store.setApiKey("openai-key", AiProvider.OPENAI)
+        store.setModel("openai-model", AiProvider.OPENAI)
+        store.setApiKey("gemini-key", AiProvider.GEMINI)
+        store.setModel("gemini-model", AiProvider.GEMINI)
+        store.setProvider(AiProvider.GEMINI)
+
+        val vm = SummaryViewModel("r1", apis(), repository, this, aiKeyStore = store, llmClientFactory = factory)
+        vm.state.first { it !is SummaryState.Loading }
+
+        assertEquals("gemini-key", factory.lastApiKey)
+        assertEquals("gemini-model", factory.lastModel)
+    }
+
+    @Test
     fun planSuggestionUsesProviderDefaultForBlankModel() = runTest {
         // suggestPlan() only runs from the Content state, and with an API key
         // present load() always lands on AiUnavailable: the AI branch's notes
@@ -113,18 +128,22 @@ class SummaryViewModelModelResolutionTest {
 
     private class RecordingFactory : LlmClientFactory() {
         var lastModel: String? = null
-        override fun createClient(baseUrl: String, model: String, apiKey: String): LlmClient {
+        var lastApiKey: String? = null
+
+        private fun record(model: String, apiKey: String): LlmClient {
             lastModel = model
+            lastApiKey = apiKey
             return FakeLlmClient()
         }
-        override fun createAnthropicClient(baseUrl: String, model: String, apiKey: String): LlmClient {
-            lastModel = model
-            return FakeLlmClient()
-        }
-        override fun createGeminiClient(baseUrl: String, model: String, apiKey: String): LlmClient {
-            lastModel = model
-            return FakeLlmClient()
-        }
+
+        override fun createClient(baseUrl: String, model: String, apiKey: String): LlmClient =
+            record(model, apiKey)
+
+        override fun createAnthropicClient(baseUrl: String, model: String, apiKey: String): LlmClient =
+            record(model, apiKey)
+
+        override fun createGeminiClient(baseUrl: String, model: String, apiKey: String): LlmClient =
+            record(model, apiKey)
     }
 
     private class FakeLlmClient : LlmClient {

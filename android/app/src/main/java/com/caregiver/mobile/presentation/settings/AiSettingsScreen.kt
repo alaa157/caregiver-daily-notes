@@ -62,14 +62,15 @@ import kotlinx.coroutines.launch
 fun AiSettingsScreen(graph: AppGraph, navController: NavController) {
     val scope = rememberCoroutineScope()
     val store = remember { AiKeyStore(graph.context) }
-    var provider by remember { mutableStateOf(store.provider() ?: AiProvider.OPENAI) }
-    var apiKey by remember { mutableStateOf(store.apiKey().orEmpty()) }
+    val initialProvider = store.selectedProvider()
+    var provider by remember { mutableStateOf(initialProvider) }
+    var apiKey by remember { mutableStateOf(store.apiKey(initialProvider).orEmpty()) }
     // A key that can no longer be decrypted (a lock-screen change invalidates
     // the keystore key) is not "no key": the caregiver has to enter it again.
-    var keyState by remember { mutableStateOf(store.apiKeyState()) }
+    var keyState by remember { mutableStateOf(store.apiKeyState(initialProvider)) }
     var keyError by remember { mutableStateOf<String?>(null) }
-    var model by remember { mutableStateOf(store.model() ?: provider.defaultModel) }
-    var baseUrl by remember { mutableStateOf(store.baseUrlOrDefault(provider)) }
+    var model by remember { mutableStateOf(store.model(initialProvider) ?: initialProvider.defaultModel) }
+    var baseUrl by remember { mutableStateOf(store.baseUrlOrDefault(initialProvider)) }
     var systemPrompt by remember { mutableStateOf(store.systemPrompt()) }
     var summaryPrompt by remember { mutableStateOf(store.summarySystemPrompt()) }
     var planPrompt by remember { mutableStateOf(store.planSystemPrompt()) }
@@ -327,24 +328,24 @@ fun AiSettingsScreen(graph: AppGraph, navController: NavController) {
             )
         }
         Button(onClick = {
-            store.setProvider(provider)
-            // A keystore that refuses the write must not take the screen down
-            // with it: the other settings still save, and the caregiver is
-            // told to try again.
+            // Store the key in this provider's slot before selecting the
+            // provider. A failed keystore write must not leave the app
+            // pointing at a provider whose key was never saved.
             val trimmedKey = apiKey.trim()
-            val keyStored = trimmedKey.isEmpty() || store.setApiKey(trimmedKey)
-            store.setModel(AiSettingsValidation.normalizedModel(model, provider))
-            store.setBaseUrl(AiSettingsValidation.normalizedBaseUrl(baseUrl, provider))
+            val keyStored = trimmedKey.isEmpty() || store.setApiKey(trimmedKey, provider)
+            if (!keyStored) {
+                keyError = graph.context.getString(R.string.settings_ai_key_store_failed)
+                keyState = store.apiKeyState(provider)
+                return@Button
+            }
+            store.setProvider(provider)
+            store.setModel(AiSettingsValidation.normalizedModel(model, provider), provider)
+            store.setBaseUrl(AiSettingsValidation.normalizedBaseUrl(baseUrl, provider), provider)
             store.setSystemPrompt(systemPrompt)
             store.setSummarySystemPrompt(summaryPrompt)
             store.setPlanSystemPrompt(planPrompt)
-            if (!keyStored) {
-                keyError = graph.context.getString(R.string.settings_ai_key_store_failed)
-                keyState = store.apiKeyState()
-                return@Button
-            }
             keyError = null
-            keyState = store.apiKeyState()
+            keyState = store.apiKeyState(provider)
             navController.popBackStack()
         }, enabled = !baseUrlInvalid) { Text(stringResource(R.string.settings_ai_save)) }
 
@@ -366,14 +367,18 @@ fun AiSettingsScreen(graph: AppGraph, navController: NavController) {
                     AiProvider.values().forEach { p ->
                         TextButton(onClick = {
                             if (p != provider) {
-                                val previousDefault = provider.defaultModel
                                 provider = p
-                                // Keep a deliberately entered custom model;
-                                // otherwise adopt the new provider's default.
-                                if (model.isBlank() || model == previousDefault) {
-                                    model = p.defaultModel
-                                }
-                                baseUrl = p.defaultBaseUrl
+                                // Every provider has its own key, model, and
+                                // base URL. Loading them here keeps one
+                                // provider's credential and endpoint from
+                                // leaking into another.
+                                apiKey = store.apiKey(p).orEmpty()
+                                keyState = store.apiKeyState(p)
+                                model = store.model(p) ?: p.defaultModel
+                                baseUrl = store.baseUrlOrDefault(p)
+                                keyError = null
+                                status = null
+                                formatStatus = null
                             }
                             showProviderDialog = false
                         }) { Text(p.displayName) }
@@ -389,12 +394,19 @@ fun AiSettingsScreen(graph: AppGraph, navController: NavController) {
             onDismissRequest = { showKeyDialog = false },
             title = { Text(stringResource(R.string.settings_ai_api_key)) },
             text = {
-                OutlinedTextField(
-                    value = apiKey,
-                    onValueChange = { apiKey = it },
-                    visualTransformation = PasswordVisualTransformation(),
-                    modifier = Modifier.fillMaxWidth(),
-                )
+                Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                    OutlinedTextField(
+                        value = apiKey,
+                        onValueChange = { apiKey = it },
+                        visualTransformation = PasswordVisualTransformation(),
+                        modifier = Modifier.fillMaxWidth(),
+                    )
+                    Text(
+                        text = stringResource(R.string.settings_ai_key_saved_for, provider.displayName),
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    )
+                }
             },
             confirmButton = { TextButton(onClick = { showKeyDialog = false }) { Text(stringResource(R.string.common_ok)) } },
         )
@@ -404,11 +416,14 @@ fun AiSettingsScreen(graph: AppGraph, navController: NavController) {
         AlertDialog(
             onDismissRequest = { showClearKeyDialog = false },
             title = { Text(stringResource(R.string.settings_ai_clear_key)) },
-            text = { Text(stringResource(R.string.settings_ai_clear_key_message)) },
+            text = { Text(stringResource(R.string.settings_ai_clear_key_message, provider.displayName)) },
             confirmButton = {
                 TextButton(onClick = {
-                    store.clearApiKey()
+                    store.clearApiKey(provider)
                     apiKey = ""
+                    keyState = store.apiKeyState(provider)
+                    status = null
+                    formatStatus = null
                     showClearKeyDialog = false
                 }) { Text(stringResource(R.string.settings_ai_clear_key)) }
             },
