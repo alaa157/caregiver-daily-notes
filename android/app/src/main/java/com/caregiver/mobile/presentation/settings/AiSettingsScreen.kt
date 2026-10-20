@@ -6,6 +6,7 @@ import androidx.activity.compose.BackHandler
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
+import androidx.compose.ui.Alignment
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
@@ -35,6 +36,7 @@ import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalUriHandler
+import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.input.PasswordVisualTransformation
 import androidx.compose.ui.unit.dp
@@ -42,7 +44,9 @@ import androidx.navigation.NavController
 import com.caregiver.mobile.AppGraph
 import com.caregiver.mobile.R
 import com.caregiver.mobile.ai.ApiKeyState
+import com.caregiver.mobile.ai.AiFreeTier
 import com.caregiver.mobile.ai.AiKeyStore
+import com.caregiver.mobile.ai.AiModelCatalog
 import com.caregiver.mobile.ai.AiProvider
 import com.caregiver.mobile.ai.AnthropicLlmClient
 import com.caregiver.mobile.ai.GeminiLlmClient
@@ -61,6 +65,7 @@ import com.caregiver.mobile.presentation.common.CaregiverSettingsGroup
 import com.caregiver.mobile.presentation.common.CaregiverSettingsItem
 import com.caregiver.mobile.presentation.common.resolvedMessage
 import java.time.LocalDate
+import kotlinx.coroutines.Job
 import kotlinx.coroutines.launch
 
 @Composable
@@ -100,6 +105,10 @@ fun AiSettingsScreen(graph: AppGraph, navController: NavController) {
     var formatStatus by remember { mutableStateOf<String?>(null) }
     var testing by remember { mutableStateOf(false) }
     var validating by remember { mutableStateOf(false) }
+    // The in-flight test, so the caregiver can stop waiting for a provider
+    // that is not going to answer.
+    var testJob by remember { mutableStateOf<Job?>(null) }
+    var formatJob by remember { mutableStateOf<Job?>(null) }
     var consentGiven by remember { mutableStateOf(store.consentGiven()) }
     var consentStatus by remember { mutableStateOf<String?>(null) }
 
@@ -278,7 +287,7 @@ fun AiSettingsScreen(graph: AppGraph, navController: NavController) {
                 return@Button
             }
             testing = true
-            scope.launch {
+            testJob = scope.launch {
                 try {
                     val client = llmClientFor(
                         graph,
@@ -287,7 +296,11 @@ fun AiSettingsScreen(graph: AppGraph, navController: NavController) {
                         model.ifBlank { provider.defaultModel },
                         trimmedKey,
                     )
-                    val res = client.complete(LlmRequest("Reply with OK", "ping"))
+                    // A ping that has not answered in twenty seconds is not
+                    // going to answer.
+                    val res = client.complete(
+                        LlmRequest("Reply with OK", "ping", timeoutSeconds = TEST_TIMEOUT_SECONDS),
+                    )
                     status = if (res.status == LlmStatus.OK) {
                         graph.context.getString(R.string.settings_ai_connection_ok)
                     } else {
@@ -313,6 +326,17 @@ fun AiSettingsScreen(graph: AppGraph, navController: NavController) {
             }
         }, enabled = !testing) {
             Text(if (testing) stringResource(R.string.settings_ai_testing) else stringResource(R.string.settings_ai_test_connection))
+        }
+        if (testing) {
+            // Without this the button stays disabled until the client gives
+            // up, and a provider that never answers looks like a frozen
+            // screen.
+            TextButton(onClick = {
+                testJob?.cancel()
+                testJob = null
+                testing = false
+                status = graph.context.getString(R.string.settings_ai_test_cancelled)
+            }) { Text(stringResource(R.string.common_cancel)) }
         }
         status?.let { Text(it) }
 
@@ -376,7 +400,7 @@ fun AiSettingsScreen(graph: AppGraph, navController: NavController) {
                 return@Button
             }
             validating = true
-            scope.launch {
+            formatJob = scope.launch {
                 try {
                     val client = llmClientFor(
                         graph,
@@ -399,7 +423,9 @@ fun AiSettingsScreen(graph: AppGraph, navController: NavController) {
                     )
                     // Same path production uses: native json mode, so the
                     // check proves the provider can answer the real request.
-                    val res = client.complete(LlmRequest(prompt, probe, jsonMode = true))
+                    val res = client.complete(
+                        LlmRequest(prompt, probe, jsonMode = true, timeoutSeconds = TEST_TIMEOUT_SECONDS),
+                    )
                     val reason = if (res.status == LlmStatus.FALLBACK) {
                         res.error ?: "unavailable"
                     } else if (SummaryResponseFormat.validate(res.text) != null) {
@@ -432,6 +458,14 @@ fun AiSettingsScreen(graph: AppGraph, navController: NavController) {
             }
         }, enabled = !validating) {
             Text(if (validating) stringResource(R.string.settings_ai_validating) else stringResource(R.string.settings_ai_validate_format))
+        }
+        if (validating) {
+            TextButton(onClick = {
+                formatJob?.cancel()
+                formatJob = null
+                validating = false
+                formatStatus = graph.context.getString(R.string.settings_ai_test_cancelled)
+            }) { Text(stringResource(R.string.common_cancel)) }
         }
         formatStatus?.let { Text(it) }
 
@@ -632,9 +666,34 @@ fun AiSettingsScreen(graph: AppGraph, navController: NavController) {
                         label = { Text(stringResource(R.string.settings_ai_custom_model)) },
                         modifier = Modifier.fillMaxWidth(),
                     )
+                    // What the provider offers for free, so the choice is
+                    // made with the cost in view.
+                    provider.freeTier?.let { tier ->
+                        Text(
+                            text = stringResource(
+                                when (tier) {
+                                    AiFreeTier.FREE_MODELS -> R.string.settings_ai_tier_free_models
+                                    AiFreeTier.TRIAL_CREDITS -> R.string.settings_ai_tier_trial_credits
+                                },
+                            ),
+                            style = MaterialTheme.typography.bodySmall,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        )
+                    }
                     Text(stringResource(R.string.settings_ai_suggestions))
-                    listOf(provider.defaultModel).forEach { s ->
-                        TextButton(onClick = { model = s }) { Text(s) }
+                    AiModelCatalog.options(provider).forEach { option ->
+                        Row(
+                            modifier = Modifier.fillMaxWidth(),
+                            verticalAlignment = Alignment.CenterVertically,
+                        ) {
+                            TextButton(
+                                onClick = { model = option.id },
+                                modifier = Modifier.weight(1f),
+                            ) { Text(option.id) }
+                            if (option.free) {
+                                FreeTag()
+                            }
+                        }
                     }
                 }
             },
@@ -714,3 +773,23 @@ private fun llmClientFor(
     AiProvider.ANTHROPIC -> graph.llmClientFactory.createAnthropicClient(baseUrl, model, apiKey)
     AiProvider.GEMINI -> graph.llmClientFactory.createGeminiClient(baseUrl, model, apiKey)
 }
+
+/** The "free" marker on a model the caregiver does not have to pay for. */
+@Composable
+private fun FreeTag() {
+    Text(
+        text = stringResource(R.string.settings_ai_model_free),
+        style = MaterialTheme.typography.labelSmall,
+        color = MaterialTheme.colorScheme.primary,
+        modifier = Modifier
+            .padding(horizontal = 6.dp, vertical = 2.dp)
+            .testTag("model_free_tag"),
+    )
+}
+
+/**
+ * The budget for a connection test or a format check. The client's own
+ * timeout is two minutes per attempt, which is a long time to stare at a
+ * disabled button; a ping answers in seconds or not at all.
+ */
+private const val TEST_TIMEOUT_SECONDS = 20

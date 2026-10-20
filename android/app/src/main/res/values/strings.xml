@@ -281,6 +281,10 @@
     <string name="settings_ai_model">Model</string>
     <string name="settings_ai_custom_model">Custom model</string>
     <string name="settings_ai_suggestions">Suggestions:</string>
+    <string name="settings_ai_model_free">Free</string>
+    <string name="settings_ai_tier_free_models">This provider serves models that cost nothing to use.</string>
+    <string name="settings_ai_tier_trial_credits">A new API account gets free credits to try the paid models with.</string>
+    <string name="settings_ai_test_cancelled">Test cancelled.</string>
     <string name="settings_ai_base_url">Base URL</string>
     <string name="settings_ai_system_prompt">System prompt</string>
     <string name="settings_ai_save">Save</string>
