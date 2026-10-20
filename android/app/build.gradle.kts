@@ -38,8 +38,8 @@ android {
         applicationId = "com.caregiver.mobile"
         minSdk = 23
         targetSdk = 35
-        versionCode = 3
-        versionName = "0.3.1"
+        versionCode = 4
+        versionName = "0.3.4"
         // Build traceability: CI passes the commit being built (GIT_COMMIT);
         // local builds without the variable report "unknown".
         buildConfigField("String", "GIT_COMMIT", "\"${(System.getenv("GIT_COMMIT") ?: "unknown").take(12)}\"")
