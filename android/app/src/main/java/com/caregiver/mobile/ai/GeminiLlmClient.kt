@@ -75,7 +75,7 @@ class GeminiLlmClient(
         var useJsonMode = request.jsonMode
         var result: LlmResult
         while (true) {
-            result = send(safeUrl, buildBody(request, useJsonMode))
+            result = send(request, safeUrl, buildBody(request, useJsonMode))
             if (useJsonMode && result.error == JSON_MODE_UNSUPPORTED) {
                 useJsonMode = false
                 continue
@@ -108,7 +108,7 @@ class GeminiLlmClient(
         })
     }
 
-    private suspend fun send(url: String, bodyObj: JsonObject): LlmResult {
+    private suspend fun send(request: LlmRequest, url: String, bodyObj: JsonObject): LlmResult {
         val reqBody = try {
             json.encodeToString(JsonObject.serializer(), bodyObj)
                 .toRequestBody("application/json".toMediaType())
