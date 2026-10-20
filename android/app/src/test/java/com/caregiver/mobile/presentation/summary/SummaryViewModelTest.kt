@@ -107,6 +107,23 @@ class SummaryViewModelTest {
     }
 
     @Test
+    fun noKeyFallbackKeepsFlagsAndExplainsMissingAiConfiguration() = runTest {
+        summaries.summarizeHandler = {
+            summary().copy(
+                text = "",
+                redFlags = listOf("FALL_REPORTED"),
+                uncertainties = listOf(SummaryDto.UncertaintyDto("ai_not_configured", "")),
+            )
+        }
+        val vm = SummaryViewModel("r1", apis(), repository, this)
+
+        val loaded = content(vm)
+
+        assertEquals(listOf("FALL_REPORTED"), loaded.redFlags)
+        assertEquals("ai_not_configured", loaded.uncertainties.single().topic)
+    }
+
+    @Test
     fun networkFailureSurfacesAiUnavailable() = runTest {
         summaries.summarizeHandler = { throw IOException("down") }
         val vm = SummaryViewModel("r1", apis(), repository, this)

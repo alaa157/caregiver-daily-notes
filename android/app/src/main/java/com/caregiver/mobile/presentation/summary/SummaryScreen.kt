@@ -328,6 +328,7 @@ private fun SummaryBody(
                 UnclearBox(
                     when (item.topic) {
                         "ai_unavailable" -> stringResource(R.string.ai_unavailable)
+                        "ai_not_configured" -> stringResource(R.string.summary_ai_not_configured)
                         "invalid_evidence" -> stringResource(R.string.summary_unclear_invalid_evidence)
                         "unverified_claim" -> stringResource(R.string.summary_unclear_unverified)
                         else -> item.detail.ifBlank { item.topic }

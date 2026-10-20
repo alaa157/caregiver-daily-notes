@@ -162,6 +162,10 @@ class SummaryViewModel(
             }
         }
         try {
+            // No AI key: the backend (or the local-mode fallback) is the
+            // summary source. It is still responsible for returning the
+            // deterministic safety flags; an empty payload must never hide a
+            // reported fall. LocalBackendApis computes them from Room.
             val summary = repository.authorized {
                 apis.summaries().summarize(SummaryRequest(recipientId, _period.value))
             }

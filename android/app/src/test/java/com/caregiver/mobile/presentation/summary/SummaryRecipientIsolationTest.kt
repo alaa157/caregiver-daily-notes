@@ -176,6 +176,38 @@ class SummaryRecipientIsolationTest {
     }
 
     @Test
+    fun aiFailureKeepsTheChosenRecipientsFlags() = runTest {
+        val noteFake = FakeNoteApi().also {
+            it.historyHandler = { _, _, _ -> listOf(r1Note, r2Note) }
+        }
+        val summaryFake = FakeSummaryApi().also {
+            it.signalsHandler = { _, _, _ ->
+                listOf(r1Signal.copy(fallReported = true), r2Signal)
+            }
+        }
+        val apis = FakeBackendApis(FakeAuthApi()).also {
+            it.noteApi = noteFake
+            it.summaryApi = summaryFake
+        }
+        val vm = SummaryViewModel(
+            "r1",
+            apis,
+            repository,
+            this,
+            aiKeyStore = store,
+            llmClientFactory = FixedFactory(ThrowingClient()),
+        )
+        val state = vm.state.first { it is SummaryState.AiUnavailable } as SummaryState.AiUnavailable
+
+        // The provider throw happens after the deterministic signals were
+        // evaluated, so r1's fall must still reach the banner; r2's flags
+        // must not. The null `last` proves the flag came from signals, not
+        // from a previous summary.
+        assertEquals(null, state.last)
+        assertEquals(listOf("FALL_REPORTED"), state.redFlags)
+    }
+
+    @Test
     fun aiFailureFlagsAreScopedToTheChosenRecipient() = runTest {
         val noteFake = FakeNoteApi().also {
             it.historyHandler = { _, _, _ -> listOf(r1Note, r2Note) }

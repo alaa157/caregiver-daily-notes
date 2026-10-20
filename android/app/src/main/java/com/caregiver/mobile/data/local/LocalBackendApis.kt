@@ -1,5 +1,7 @@
 package com.caregiver.mobile.data.local
 
+import com.caregiver.mobile.ai.SafetySignalEvaluator
+import com.caregiver.mobile.ai.SummaryWindow
 import com.caregiver.mobile.data.api.AddendumDto
 import com.caregiver.mobile.data.api.AppendVersionRequest
 import com.caregiver.mobile.data.api.AuthApi
@@ -155,15 +157,28 @@ class LocalBackendApis(
         }
 
         override suspend fun summarize(body: SummaryRequest): SummaryDto {
-            // Real generation happens in Phase 3 via AI layer; placeholder here.
+            // Local mode generates summaries on-device through the AI path.
+            // This server-style fallback is reached when no API key is
+            // configured, so there is no generated text — but the
+            // deterministic safety flags must still be returned. An empty
+            // payload here would silently hide a reported fall.
+            val today = LocalDate.now()
+            val from = SummaryWindow.start(today, body.periodDays).toString()
+            val to = today.toString()
+            val scopedSignals = signals(body.recipientId, from, to)
             return SummaryDto(
                 id = UUID.randomUUID().toString(),
                 recipientId = body.recipientId,
                 periodDays = body.periodDays,
                 text = "",
-                redFlags = emptyList(),
+                redFlags = SafetySignalEvaluator.evaluate(scopedSignals),
                 evidence = emptyList(),
-                uncertainties = emptyList(),
+                uncertainties = listOf(
+                    SummaryDto.UncertaintyDto(
+                        topic = "ai_not_configured",
+                        detail = "",
+                    ),
+                ),
             )
         }
     }
