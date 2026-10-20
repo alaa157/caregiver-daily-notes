@@ -539,6 +539,7 @@ private fun flagText(flag: String): String = when (flag) {
     "REPEATED_MISSED_MED" -> stringResource(R.string.flag_missed_med)
     "MEDICATION_UNVERIFIED" -> stringResource(R.string.flag_med_unverified)
     "POOR_APPETITE_DAYS" -> stringResource(R.string.flag_poor_appetite)
+    "MODEL_URGENT" -> stringResource(R.string.flag_model_urgent)
     else -> {
         Log.w("SummaryScreen", "Unknown safety flag: $flag")
         stringResource(R.string.flag_unknown)

@@ -53,12 +53,13 @@ public final class SyntheticNotes {
   }
 
   /**
-   * Clean previous week; current week has three poor-appetite days.
+   * Clean previous week; current week has a three-day poor-appetite
+   * streak (the flag requires CONSECUTIVE days — scattered days stay quiet).
    */
   public static List<NoteSignals> appetiteWeek(String recipientId, LocalDate end) {
     List<NoteSignals> days = new ArrayList<>(fourteenDays(recipientId, end));
-    days.set(9, new NoteSignals(recipientId, end.minusDays(4), false, null, null, false, true, ""));
     days.set(11, new NoteSignals(recipientId, end.minusDays(2), false, null, null, false, true, ""));
+    days.set(12, new NoteSignals(recipientId, end.minusDays(1), false, null, null, false, true, ""));
     days.set(13, new NoteSignals(recipientId, end, false, null, null, false, true, ""));
     return List.copyOf(days);
   }

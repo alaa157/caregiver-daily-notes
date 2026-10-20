@@ -1,6 +1,7 @@
 package com.caregiver.ai;
 
 import com.caregiver.common.NoteSignals;
+import com.caregiver.common.Severity;
 
 import java.time.LocalDate;
 import java.util.ArrayList;
@@ -62,11 +63,23 @@ public class SummaryService {
     ModelSummary parsed =
         StrictJsonParser.parse(result.text(), ModelSummary.class, Set.of("observations", "uncertainties"));
     GroundedSummary summary = new GroundedSummary(parsed.observations(), parsed.uncertainties(), false);
+    // "LLM can raise urgency, never lower it": the model's urgent flag can
+    // only APPEND a HIGH signal; deterministic flags stay untouched and the
+    // banner keeps deriving from severities (a missing urgent parses as
+    // false, so older model shapes stay valid).
+    List<SafetySignal> mergedSignals = safety.signals();
+    if (parsed.urgent()) {
+      mergedSignals = new ArrayList<>(mergedSignals);
+      mergedSignals.add(new SafetySignal(
+          SafetyRuleId.MODEL_URGENT, Severity.HIGH, "The AI marked this summary as urgent"));
+      boolean banner = mergedSignals.stream().anyMatch(s -> s.severity() == Severity.HIGH);
+      safety = new SafetyEvaluation(mergedSignals, banner);
+    }
     return new SummaryResult(EvidenceValidator.validate(summary, noteTextsById), safety, trendResults);
   }
 
   /** The model's permitted JSON shape; provider status is owned by this service. */
-  public record ModelSummary(List<SummaryObservation> observations, List<SummaryUncertainty> uncertainties) {
+  public record ModelSummary(List<SummaryObservation> observations, List<SummaryUncertainty> uncertainties, boolean urgent) {
   }
 
   private static List<SummaryNote> windowed(List<SummaryNote> notes, LocalDate end, int days) {

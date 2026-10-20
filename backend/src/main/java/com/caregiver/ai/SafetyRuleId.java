@@ -10,6 +10,12 @@ public enum SafetyRuleId {
   REPEATED_MISSED_MED("REPEATED_MISSED_MED"),
   POOR_APPETITE_DAYS("POOR_APPETITE_DAYS");
 
+  /**
+   * Raised by the LLM when its summary marks the window urgent. Lives on
+   * after the deterministic merge: the model may ADD urgency (this rule),
+   * never remove or downgrade a deterministic one. */
+  MODEL_URGENT("MODEL_URGENT");
+
   private final String id;
 
   SafetyRuleId(String id) {

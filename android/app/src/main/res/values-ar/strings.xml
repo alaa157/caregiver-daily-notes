@@ -383,7 +383,8 @@
     <string name="plan_suggest_failed">تعذر اقتراح خطة.</string>
     <string name="plan_suggest_empty">لم يتم اقتراح تغييرات للخطة.</string>
     <string name="flag_missed_med">أدوية فائتة متكررة</string>
-    <string name="flag_poor_appetite">ضعف الشهية لعدة أيام</string>
+    <string name="flag_poor_appetite">ضعف الشهية لعدة أيام متتالية</string>
+    <string name="flag_model_urgent">الذكاء الاصطناعي يشير إلى حالة طارئة محتملة</string>
     <string name="plan_suggest_parse_error">تعذر قراءة رد الذكاء الاصطناعي.</string>
     <string name="plan_suggest_llm_fallback">خدمة الذكاء الاصطناعي غير متاحة.</string>
     <string name="plan_suggest_medications_rejected">تغييرات الأدوية غير مسموح بها.</string>

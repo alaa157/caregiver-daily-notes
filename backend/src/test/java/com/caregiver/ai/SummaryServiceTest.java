@@ -115,4 +115,34 @@ class SummaryServiceTest {
     assertThat(result.safety().signals()).extracting(SafetySignal::ruleId)
         .doesNotContain(SafetyRuleId.REPEATED_MISSED_MED);
   }
+
+  @Test
+  void modelUrgency_appendsTheFlagItCanNeverLower() {
+    var svc = service(ok("{\"observations\":[{\"text\":\"walked\",\"noteId\":\"n1\",\"quote\":\"walked\"}],"
+        + "\"uncertainties\":[],\"urgent\":true}"));
+    var notes = List.of(new SummaryNote("n1", END, "she walked but the note worries me"));
+    var signals = List.of(signal(END, true, null));
+
+    var result = svc.summarize(new AiSummaryRequest("r1", END, 7), notes, signals);
+
+    // The model may only ADD urgency: deterministic flags keep their order,
+    // MODEL_URGENT appends at the end, and the banner derives from severity.
+    assertThat(result.safety().signals()).extracting(SafetySignal::ruleId)
+        .containsExactly(SafetyRuleId.FALL_DETECTED, SafetyRuleId.MODEL_URGENT);
+    assertThat(result.safety().needsDoctorBanner()).isTrue();
+  }
+
+  @Test
+  void payloadWithoutUrgent_keepsDeterministicSafetyOnly() {
+    var svc = service(ok("{\"observations\":[{\"text\":\"ate\",\"noteId\":\"n1\",\"quote\":\"ate well\"}],"
+        + "\"uncertainties\":[]}"));
+    var notes = List.of(new SummaryNote("n1", END, "she ate well today"));
+    var signals = List.of(signal(END, false, 2));
+
+    var result = svc.summarize(new AiSummaryRequest("r1", END, 7), notes, signals);
+
+    assertThat(result.safety().signals()).extracting(SafetySignal::ruleId)
+        .doesNotContain(SafetyRuleId.MODEL_URGENT);
+    assertThat(result.safety().needsDoctorBanner()).isFalse();
+  }
 }
