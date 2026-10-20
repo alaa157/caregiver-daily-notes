@@ -25,6 +25,8 @@ import com.caregiver.mobile.data.demo.DemoBackendApis
 import com.caregiver.mobile.data.local.AppDatabase
 import com.caregiver.mobile.data.local.LocalBackendApis
 import com.caregiver.mobile.data.local.MedicationStore
+import com.caregiver.mobile.data.update.GitHubReleaseChecker
+import com.caregiver.mobile.data.update.UpdateChecker
 import com.caregiver.mobile.ai.LlmClientFactory
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.runBlocking
@@ -218,6 +220,12 @@ class AppGraph(val context: Context, val forceProduction: Boolean = false) {
     suspend fun drainOutbox(): OutboxDrain = noteRepository.drainOutbox()
 
     val auth: AuthRepository by lazy { AuthRepository(apis, settings, tokens) }
+
+    /**
+     * Public GitHub Releases check for the About page. It reads only the
+     * app's own release feed and never sends caregiver or note data.
+     */
+    val updateChecker: UpdateChecker by lazy { GitHubReleaseChecker() }
 }
 
 /**

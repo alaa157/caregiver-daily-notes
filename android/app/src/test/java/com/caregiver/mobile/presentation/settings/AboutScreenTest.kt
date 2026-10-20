@@ -16,7 +16,11 @@ import androidx.test.ext.junit.runners.AndroidJUnit4
 import com.caregiver.mobile.BuildConfig
 import com.caregiver.mobile.R
 import com.caregiver.mobile.core.theme.CaregiverTheme
+import com.caregiver.mobile.data.update.AvailableUpdate
+import com.caregiver.mobile.data.update.UpdateChecker
+import com.caregiver.mobile.data.update.UpdateResult
 import com.caregiver.mobile.test.WithTestOwner
+import java.io.IOException
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertTrue
 import org.junit.Rule
@@ -24,9 +28,10 @@ import org.junit.Test
 import org.junit.runner.RunWith
 
 /**
- * Locks the Metrolist-style About page contract: app identity, the lead
- * developer card, the real GitHub link, and the disabled placeholder slots.
- * Runs on the JVM under Robolectric so it is part of `testDebugUnitTest`.
+ * Locks the Metrolist-style About page contract: app identity, the update
+ * check, the lead developer card, the real GitHub link, and the disabled
+ * placeholder slots. Runs on the JVM under Robolectric so it is part of
+ * `testDebugUnitTest`.
  */
 @RunWith(AndroidJUnit4::class)
 class AboutScreenTest {
@@ -44,13 +49,16 @@ class AboutScreenTest {
         }
     }
 
-    private fun renderAbout(onBack: () -> Unit = {}): RecordingUriHandler {
+    private fun renderAbout(
+        onBack: () -> Unit = {},
+        checker: UpdateChecker = UpdateChecker { UpdateResult.UpToDate },
+    ): RecordingUriHandler {
         val uriHandler = RecordingUriHandler()
         compose.setContent {
             WithTestOwner {
                 CaregiverTheme {
                     CompositionLocalProvider(LocalUriHandler provides uriHandler) {
-                        AboutScreen(onBack = onBack)
+                        AboutScreen(updateChecker = checker, onBack = onBack)
                     }
                 }
             }
@@ -113,6 +121,72 @@ class AboutScreenTest {
             .performScrollTo()
             .performClick()
         assertEquals("https://github.com/alaa157/caregiver-daily-notes/issues", uriHandler.opened.last())
+    }
+
+    @Test
+    fun updateCheckReportsWhenTheInstalledVersionIsLatest() {
+        renderAbout()
+        compose.waitForIdle()
+
+        compose.onNodeWithText(
+            context.getString(R.string.about_update_up_to_date, BuildConfig.VERSION_NAME),
+        )
+            .performScrollTo()
+            .assertExists()
+    }
+
+    @Test
+    fun availableUpdateOpensTheApkDownloadAndReleasePage() {
+        val update = AvailableUpdate(
+            version = "0.3.5",
+            releaseUrl = "https://github.com/alaa157/caregiver-daily-notes/releases/tag/android-0.3.5-demo",
+            downloadUrl = "https://github.com/alaa157/caregiver-daily-notes/releases/download/android-0.3.5-demo/app-minified.apk",
+        )
+        val uriHandler = renderAbout(
+            checker = UpdateChecker { UpdateResult.Available(update) },
+        )
+        compose.waitForIdle()
+
+        compose.onNodeWithText(context.getString(R.string.about_update_available_title))
+            .performScrollTo()
+            .assertExists()
+
+        compose.onNodeWithText(context.getString(R.string.about_update_download))
+            .performScrollTo()
+            .performClick()
+        assertEquals(update.downloadUrl, uriHandler.opened.last())
+
+        compose.onNodeWithText(context.getString(R.string.about_update_view_release))
+            .performScrollTo()
+            .performClick()
+        assertEquals(update.releaseUrl, uriHandler.opened.last())
+    }
+
+    @Test
+    fun failedUpdateUsesPlainLanguageAndTheRowRetries() {
+        var calls = 0
+        val checker = UpdateChecker {
+            calls += 1
+            if (calls == 1) throw IOException("offline") else UpdateResult.UpToDate
+        }
+        renderAbout(checker = checker)
+        compose.waitForIdle()
+
+        compose.onNodeWithText(context.getString(R.string.about_update_failed))
+            .performScrollTo()
+            .assertExists()
+
+        compose.onNodeWithText(context.getString(R.string.about_check_updates))
+            .performScrollTo()
+            .performClick()
+        compose.waitForIdle()
+
+        compose.onNodeWithText(
+            context.getString(R.string.about_update_up_to_date, BuildConfig.VERSION_NAME),
+        )
+            .performScrollTo()
+            .assertExists()
+        assertEquals(2, calls)
     }
 
     @Test

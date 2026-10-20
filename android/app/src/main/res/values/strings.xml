@@ -299,6 +299,16 @@
     <string name="about_report_issue_description">Bugs and feature requests</string>
     <string name="about_documentation">Documentation</string>
     <string name="about_documentation_description">README and setup guide</string>
+    <string name="about_updates">App updates</string>
+    <string name="about_check_updates">Check for updates</string>
+    <string name="about_update_checking">Checking for updates…</string>
+    <string name="about_update_up_to_date">You\'re on the latest version (%1$s).</string>
+    <string name="about_update_available">Version %1$s is available. You\'re on %2$s.</string>
+    <string name="about_update_failed">Couldn\'t check GitHub for updates. Check your internet connection or try again later.</string>
+    <string name="about_update_available_title">A newer version is available</string>
+    <string name="about_update_available_description">Download version %1$s from GitHub Releases.</string>
+    <string name="about_update_download">Download update</string>
+    <string name="about_update_view_release">View release</string>
     <string name="about_footer">Made with care for caregivers.</string>
     <string name="settings_ai_revoke_consent">Revoke consent</string>
     <string name="settings_ai_clear_key">Clear API key</string>

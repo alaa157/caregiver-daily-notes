@@ -299,6 +299,16 @@
     <string name="about_report_issue_description">الأخطاء وطلبات الميزات</string>
     <string name="about_documentation">التوثيق</string>
     <string name="about_documentation_description">README ودليل الإعداد</string>
+    <string name="about_updates">تحديثات التطبيق</string>
+    <string name="about_check_updates">التحقق من التحديثات</string>
+    <string name="about_update_checking">جارٍ التحقق من التحديثات…</string>
+    <string name="about_update_up_to_date">أنت تستخدم أحدث إصدار (%1$s).</string>
+    <string name="about_update_available">الإصدار %1$s متاح. أنت تستخدم %2$s.</string>
+    <string name="about_update_failed">تعذر التحقق من تحديثات GitHub. تحقق من اتصالك بالإنترنت أو حاول مرة أخرى لاحقًا.</string>
+    <string name="about_update_available_title">يتوفر إصدار أحدث</string>
+    <string name="about_update_available_description">نزّل الإصدار %1$s من إصدارات GitHub.</string>
+    <string name="about_update_download">تنزيل التحديث</string>
+    <string name="about_update_view_release">عرض صفحة الإصدار</string>
     <string name="about_footer">صُنع بعناية لمقدمي الرعاية.</string>
     <string name="settings_ai_revoke_consent">إلغاء الموافقة</string>
     <string name="settings_ai_clear_key">مسح مفتاح API</string>
