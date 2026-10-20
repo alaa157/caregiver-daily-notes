@@ -2,15 +2,21 @@ package com.caregiver.mobile.presentation.settings
 
 import android.content.Context
 import androidx.compose.material3.Text
+import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.runtime.Composable
+import androidx.compose.ui.platform.LocalUriHandler
+import androidx.compose.ui.platform.UriHandler
 import androidx.compose.ui.test.assertCountEquals
 import androidx.compose.ui.test.assertIsEnabled
 import androidx.compose.ui.test.assertIsNotEnabled
+import androidx.compose.ui.test.hasSetTextAction
 import androidx.compose.ui.test.junit4.createComposeRule
 import androidx.compose.ui.test.onAllNodesWithText
+import androidx.compose.ui.test.onLast
 import androidx.compose.ui.test.onNodeWithContentDescription
 import androidx.compose.ui.test.onNodeWithText
 import androidx.compose.ui.test.performClick
+import androidx.compose.ui.test.performTextReplacement
 import androidx.navigation.NavHostController
 import androidx.navigation.compose.NavHost
 import androidx.navigation.compose.composable
@@ -20,8 +26,10 @@ import androidx.test.ext.junit.runners.AndroidJUnit4
 import com.caregiver.mobile.AppGraph
 import com.caregiver.mobile.BuildConfig
 import com.caregiver.mobile.R
+import com.caregiver.mobile.ai.AiProvider
 import com.caregiver.mobile.core.theme.CaregiverTheme
 import com.caregiver.mobile.test.WithTestOwner
+import org.junit.Before
 import org.junit.Rule
 import org.junit.Test
 import org.junit.runner.RunWith
@@ -53,6 +61,14 @@ class SettingsScreenTest {
 
     private val context: Context = ApplicationProvider.getApplicationContext()
 
+    @Before
+    fun clearAiPreferences() {
+        context.getSharedPreferences("ai_settings", Context.MODE_PRIVATE)
+            .edit()
+            .clear()
+            .commit()
+    }
+
     private fun renderScreen(content: @Composable (NavHostController) -> Unit) {
         compose.setContent {
             WithTestOwner {
@@ -64,6 +80,22 @@ class SettingsScreenTest {
     }
 
     private fun renderSettings(graph: AppGraph) = renderScreen { SettingsScreen(graph, it) }
+
+    private fun renderAiSettings(uriHandler: UriHandler? = null) {
+        compose.setContent {
+            WithTestOwner {
+                CaregiverTheme {
+                    if (uriHandler == null) {
+                        AiSettingsScreen(AppGraph(context), rememberNavController())
+                    } else {
+                        CompositionLocalProvider(LocalUriHandler provides uriHandler) {
+                            AiSettingsScreen(AppGraph(context), rememberNavController())
+                        }
+                    }
+                }
+            }
+        }
+    }
 
     @Test
     fun everySectionAndAllFourDataBackupActionsRender() {
@@ -169,5 +201,78 @@ class SettingsScreenTest {
         compose.onAllNodesWithText(context.getString(R.string.settings_ai_system_prompt)).assertCountEquals(1)
         // The screen carries the same back arrow as every other detail route.
         compose.onNodeWithContentDescription(context.getString(R.string.action_back)).assertExists()
+    }
+
+    private fun enterCustomBaseUrl() {
+        compose.onNodeWithText(context.getString(R.string.settings_ai_base_url)).performClick()
+        compose.onAllNodes(hasSetTextAction()).onLast()
+            .performTextReplacement("https://proxy.example/v1")
+        compose.onNodeWithText(context.getString(R.string.common_ok)).performClick()
+    }
+
+    @Test
+    fun unsavedBaseUrlAsksBeforeLeaving() {
+        renderAiSettings()
+        enterCustomBaseUrl()
+
+        compose.onNodeWithContentDescription(context.getString(R.string.action_back)).performClick()
+
+        compose.onNodeWithText(context.getString(R.string.settings_ai_unsaved_title))
+            .assertExists()
+    }
+
+    @Test
+    fun switchingProviderWithUnsavedBaseUrlAsksBeforeDiscarding() {
+        renderAiSettings()
+        enterCustomBaseUrl()
+
+        compose.onNodeWithText(context.getString(R.string.settings_ai_provider)).performClick()
+        compose.onNodeWithText(AiProvider.GEMINI.displayName).performClick()
+
+        compose.onNodeWithText(context.getString(R.string.settings_ai_unsaved_title))
+            .assertExists()
+
+        // Discarding keeps the switch moving and loads Gemini's own default
+        // instead of leaking the custom OpenAI endpoint.
+        compose.onNodeWithText(context.getString(R.string.settings_ai_discard)).performClick()
+        compose.onNodeWithText(AiProvider.GEMINI.defaultBaseUrl).assertExists()
+    }
+
+    @Test
+    fun revokeConsentAsksForConfirmationAndShowsFeedback() {
+        context.getSharedPreferences("ai_settings", Context.MODE_PRIVATE)
+            .edit()
+            .putBoolean("consent", true)
+            .commit()
+        renderAiSettings()
+
+        compose.onNodeWithText(context.getString(R.string.settings_ai_revoke_consent))
+            .performClick()
+        compose.onNodeWithText(context.getString(R.string.settings_ai_revoke_consent_title))
+            .assertExists()
+        compose.onNodeWithText(context.getString(R.string.settings_ai_revoke_consent_confirm))
+            .performClick()
+
+        compose.onNodeWithText(context.getString(R.string.settings_ai_consent_revoked))
+            .assertExists()
+        compose.onNodeWithText(context.getString(R.string.settings_ai_revoke_consent))
+            .assertDoesNotExist()
+    }
+
+    @Test
+    fun setupGuideShowsAnErrorWhenNoBrowserCanOpenTheLink() {
+        renderAiSettings(object : UriHandler {
+            override fun openUri(uri: String) {
+                throw IllegalStateException("no browser")
+            }
+        })
+
+        compose.onNodeWithText(context.getString(R.string.settings_ai_setup_guide))
+            .performClick()
+        compose.onNodeWithText(context.getString(R.string.settings_ai_open_website))
+            .performClick()
+
+        compose.onNodeWithText(context.getString(R.string.settings_ai_browser_unavailable))
+            .assertExists()
     }
 }

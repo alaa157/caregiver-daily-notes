@@ -259,6 +259,10 @@
     <string name="ai_consent_body">Care notes are sent to the chosen AI provider. This app is not a medical device and is not HIPAA-compliant.</string>
     <string name="ai_consent_accept">I understand</string>
     <string name="common_cancel">Cancel</string>
+    <string name="unsaved_changes_title">Discard unsaved changes?</string>
+    <string name="unsaved_changes_message">Your changes have not been saved. Discard them?</string>
+    <string name="unsaved_changes_discard">Discard</string>
+    <string name="unsaved_changes_keep_editing">Keep editing</string>
     <string name="settings_ai_provider">Provider</string>
     <string name="settings_ai_api_key">API key</string>
     <string name="settings_ai_set_api_key">Set API key</string>
@@ -272,6 +276,7 @@
     <string name="settings_ai_setup_step3">3. Create an API key and copy it.</string>
     <string name="settings_ai_setup_step4">4. Return here, paste the key, and test the connection.</string>
     <string name="settings_ai_open_website">Open official website</string>
+    <string name="settings_ai_browser_unavailable">No browser app is available to open this link.</string>
     <string name="settings_ai_cost_note">API usage may incur charges. Costs depend on model and usage.</string>
     <string name="settings_ai_model">Model</string>
     <string name="settings_ai_custom_model">Custom model</string>
@@ -279,6 +284,10 @@
     <string name="settings_ai_base_url">Base URL</string>
     <string name="settings_ai_system_prompt">System prompt</string>
     <string name="settings_ai_save">Save</string>
+    <string name="settings_ai_unsaved_title">Discard unsaved changes?</string>
+    <string name="settings_ai_unsaved_message">Your changes to %1$s have not been saved. Discard them?</string>
+    <string name="settings_ai_discard">Discard</string>
+    <string name="settings_ai_keep_editing">Keep editing</string>
     <string name="settings_ai_close">Close</string>
     <string name="settings_ai_reset_default">Reset to default</string>
     <string name="settings_ai_test_connection">Test connection</string>
@@ -315,6 +324,10 @@
     <string name="about_update_view_release">View release</string>
     <string name="about_footer">Made with care for caregivers.</string>
     <string name="settings_ai_revoke_consent">Revoke consent</string>
+    <string name="settings_ai_revoke_consent_confirm">Revoke</string>
+    <string name="settings_ai_revoke_consent_title">Revoke AI consent?</string>
+    <string name="settings_ai_revoke_consent_message">AI summaries, plans, and translation will pause until you agree again. Your notes stay on this device.</string>
+    <string name="settings_ai_consent_revoked">AI consent revoked. AI features will ask for consent again.</string>
     <string name="settings_ai_clear_key">Clear API key</string>
     <string name="settings_ai_clear_key_message">Remove the API key saved for %1$s? AI features stay off for this provider until a new key is added.</string>
     <string name="settings_ai_validate_format">Validate summary format</string>
