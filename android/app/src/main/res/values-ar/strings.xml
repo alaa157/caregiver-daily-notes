@@ -324,6 +324,7 @@
     <string name="settings_ai_status_missing_key">missing_key</string>
     <string name="ai_generated">مُولَّد بالذكاء الاصطناعي</string>
     <string name="ai_unavailable">الذكاء الاصطناعي غير متاح</string>
+    <string name="summary_ai_not_configured">لم يتم إعداد ملخصات الذكاء الاصطناعي. لا تزال تنبيهات السلامة تُحتسب من الملاحظات.</string>
     <string name="ai_malformed_output">مخرجات الذكاء الاصطناعي ليست JSON صالحة</string>
     <string name="no_source_notes">لا توجد ملاحظات مصدر متاحة</string>
     <string name="settings_data_section">البيانات</string>

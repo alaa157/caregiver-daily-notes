@@ -324,6 +324,7 @@
     <string name="settings_ai_status_missing_key">missing_key</string>
     <string name="ai_generated">AI-generated</string>
     <string name="ai_unavailable">AI unavailable</string>
+    <string name="summary_ai_not_configured">AI summaries are not configured. Safety flags are still calculated from the notes.</string>
     <string name="ai_malformed_output">AI output was not valid JSON</string>
     <string name="no_source_notes">No source notes available</string>
     <string name="settings_data_section">Data</string>
