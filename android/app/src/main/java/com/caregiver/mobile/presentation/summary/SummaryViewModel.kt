@@ -22,7 +22,12 @@ sealed interface SummaryState {
     data object Loading : SummaryState
     data object NeedsConsent : SummaryState
     data class Content(val summary: SummaryDto, val refreshing: Boolean = false, val aiGenerated: Boolean = false) : SummaryState
-    data class AiUnavailable(val last: SummaryDto? = null, val redFlags: List<String> = emptyList()) : SummaryState
+    data class AiUnavailable(
+        val last: SummaryDto? = null,
+        val redFlags: List<String> = emptyList(),
+        /** Provider/service code; the UI turns it into recovery copy. */
+        val reasonCode: String? = null,
+    ) : SummaryState
     data class Rejected(val code: String?, val last: SummaryDto? = null) : SummaryState
 }
 
@@ -30,8 +35,9 @@ sealed interface SummaryState {
  * Summary (boards 10-11): 7/14/30-day periods over stored notes. Known flags
  * survive refresh and failure — clearing happens only when a successful
  * response reports none, or when the session ends upstream. Transport
- * failures surface AiUnavailable (notes-safe copy + retry); HTTP failures
- * surface a localized generic error carrying the code, never raw text.
+ * failures surface AiUnavailable and HTTP failures surface Rejected; both
+ * carry a reason code so the UI can show localized recovery copy, never the
+ * raw code.
  */
 class SummaryViewModel(
     private val recipientId: String,
@@ -150,14 +156,33 @@ class SummaryViewModel(
                                 uncertainties = listOf(SummaryDto.UncertaintyDto("ai_unavailable", "AI unavailable")),
                             ),
                             redFlags = result.redFlags,
+                            reasonCode = result.reasonCode,
                         )
                         return
                     }
                 }
             } catch (e: kotlinx.coroutines.CancellationException) {
                 throw e
+            } catch (e: HttpException) {
+                _state.value = SummaryState.AiUnavailable(
+                    lastSummary(),
+                    redFlags = aiRedFlags,
+                    reasonCode = ApiErrors.parse(e)?.code ?: "http_${e.code()}",
+                )
+                return
+            } catch (e: IOException) {
+                _state.value = SummaryState.AiUnavailable(
+                    lastSummary(),
+                    redFlags = aiRedFlags,
+                    reasonCode = "network",
+                )
+                return
             } catch (e: Exception) {
-                _state.value = SummaryState.AiUnavailable(lastSummary(), redFlags = aiRedFlags)
+                _state.value = SummaryState.AiUnavailable(
+                    lastSummary(),
+                    redFlags = aiRedFlags,
+                    reasonCode = "unavailable",
+                )
                 return
             }
         }
@@ -179,9 +204,16 @@ class SummaryViewModel(
                 lastSummary()?.let { _state.value = SummaryState.Content(it) }
             }
         } catch (e: HttpException) {
-            _state.value = SummaryState.Rejected(ApiErrors.parse(e)?.code, lastSummary())
+            _state.value = SummaryState.Rejected(
+                ApiErrors.parse(e)?.code ?: "http_${e.code()}",
+                lastSummary(),
+            )
         } catch (e: IOException) {
-            _state.value = SummaryState.AiUnavailable(lastSummary(), redFlags = aiRedFlags)
+            _state.value = SummaryState.AiUnavailable(
+                lastSummary(),
+                redFlags = aiRedFlags,
+                reasonCode = "network",
+            )
         }
     }
 

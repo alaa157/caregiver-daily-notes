@@ -234,6 +234,32 @@ class SummaryRecipientIsolationTest {
         assertFalse(state.redFlags.contains("HIGH_PAIN"))
     }
 
+    @Test
+    fun providerReasonCodeReachesTheUiForRecoveryCopy() = runTest {
+        val noteFake = FakeNoteApi().also {
+            it.historyHandler = { _, _, _ -> listOf(r1Note) }
+        }
+        val summaryFake = FakeSummaryApi().also {
+            it.signalsHandler = { _, _, _ -> listOf(r1Signal) }
+        }
+        val apis = FakeBackendApis(FakeAuthApi()).also {
+            it.noteApi = noteFake
+            it.summaryApi = summaryFake
+        }
+        val vm = SummaryViewModel(
+            "r1",
+            apis,
+            repository,
+            this,
+            aiKeyStore = store,
+            llmClientFactory = FixedFactory(FallbackClient("invalid_key")),
+        )
+
+        val state = vm.state.first { it is SummaryState.AiUnavailable } as SummaryState.AiUnavailable
+
+        assertEquals("invalid_key", state.reasonCode)
+    }
+
     private class FixedFactory(private val client: LlmClient) : LlmClientFactory() {
         override fun createClient(baseUrl: String, model: String, apiKey: String): LlmClient = client
 
@@ -245,6 +271,11 @@ class SummaryRecipientIsolationTest {
     private class ThrowingClient : LlmClient {
         override suspend fun complete(request: LlmRequest): LlmResult =
             throw java.io.IOException("provider unreachable")
+    }
+
+    private class FallbackClient(private val code: String) : LlmClient {
+        override suspend fun complete(request: LlmRequest): LlmResult =
+            LlmResult(LlmStatus.FALLBACK, "", code)
     }
 
     private class RecordingClient : LlmClient {

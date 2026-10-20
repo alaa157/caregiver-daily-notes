@@ -42,7 +42,12 @@ import com.caregiver.mobile.AppGraph
 import com.caregiver.mobile.R
 import com.caregiver.mobile.core.i18n.Bidi
 import com.caregiver.mobile.core.navigation.AppDestinations
+import com.caregiver.mobile.core.navigation.AppRoutes
 import com.caregiver.mobile.core.theme.CaregiverColors
+import com.caregiver.mobile.presentation.common.AiFailureSource
+import com.caregiver.mobile.presentation.common.AiRecovery
+import com.caregiver.mobile.presentation.common.AiRecoveryAction
+import com.caregiver.mobile.presentation.common.AiRecoveryCopy
 import com.caregiver.mobile.presentation.common.AppDimens
 import com.caregiver.mobile.core.theme.PlexArabic
 import com.caregiver.mobile.core.time.DateFormats
@@ -57,9 +62,11 @@ import com.caregiver.mobile.presentation.common.InfoAlertCard
 import com.caregiver.mobile.presentation.common.LockBar
 import com.caregiver.mobile.presentation.common.PrimaryButton
 import com.caregiver.mobile.presentation.common.SafetyAlertCard
+import com.caregiver.mobile.presentation.common.SecondaryButton
 import com.caregiver.mobile.presentation.common.SectionTitle
 import com.caregiver.mobile.presentation.common.UnclearBox
 import com.caregiver.mobile.presentation.common.assistedViewModel
+import com.caregiver.mobile.presentation.common.resolvedMessage
 import com.caregiver.mobile.presentation.home.LoadFailed
 import com.caregiver.mobile.presentation.home.LoadingRow
 import com.caregiver.mobile.ui.component.ChipsRow
@@ -135,7 +142,10 @@ fun SummaryResultScreen(
 ) {
     val keyState = com.caregiver.mobile.ai.AiKeyStore(graph.context).apiKeyState()
     if (keyState !is com.caregiver.mobile.ai.ApiKeyState.Readable) {
-        Column(Modifier.fillMaxSize().padding(horizontal = AppDimens.ScreenHPadding)) {
+        Column(
+            modifier = Modifier.fillMaxSize().padding(horizontal = AppDimens.ScreenHPadding),
+            verticalArrangement = Arrangement.spacedBy(AppDimens.SectionGap),
+        ) {
             AppTopBar(
                 title = stringResource(R.string.summary_title),
                 onBack = { navController.popBackStack() },
@@ -148,6 +158,12 @@ fun SummaryResultScreen(
                 } else {
                     stringResource(R.string.summary_setup_ai)
                 },
+            )
+            // The copy says where to fix it; the button takes the caregiver
+            // there instead of leaving this screen as a dead end.
+            PrimaryButton(
+                label = stringResource(R.string.ai_action_open_settings),
+                onClick = { navController.navigate(AppDestinations.AiSettings.base) },
             )
         }
         return
@@ -170,6 +186,18 @@ fun SummaryResultScreen(
         SummaryViewModel(recipientId, graph.apis, graph.auth, null, periodDays, com.caregiver.mobile.ai.AiKeyStore(graph.context), graph.llmClientFactory, language = language)
     }
     val state by vm.state.collectAsState()
+    val activePeriodDays by vm.period.collectAsState()
+    val onRecoveryAction: (AiRecoveryAction) -> Unit = { action ->
+        when (action) {
+            AiRecoveryAction.Retry -> vm.refresh()
+            AiRecoveryAction.OpenAiSettings ->
+                navController.navigate(AppDestinations.AiSettings.base)
+            AiRecoveryAction.AddNote ->
+                navController.navigate(AppRoutes.noteEditor(recipientId))
+            AiRecoveryAction.ExtendPeriod ->
+                vm.setPeriod(AiRecovery.EXTENDED_PERIOD_DAYS)
+        }
+    }
     val exportScope = rememberCoroutineScope()
     var exportError by remember { mutableStateOf<String?>(null) }
     val showConsent = androidx.compose.runtime.remember { androidx.compose.runtime.mutableStateOf(false) }
@@ -201,13 +229,9 @@ fun SummaryResultScreen(
             ) {
                 val flags = ((s.last?.redFlags ?: emptyList()) + s.redFlags).distinct()
                 FlagsBanner(flags)
-                AppWarningState(
-                    message = stringResource(R.string.state_ai_down),
-                    detail = stringResource(R.string.state_ai_down_hint),
-                )
-                PrimaryButton(
-                    label = stringResource(R.string.common_retry),
-                    onClick = vm::refresh,
+                SummaryFailureCard(
+                    copy = AiRecovery.copyFor(s.reasonCode, activePeriodDays),
+                    onAction = onRecoveryAction,
                 )
             }
             is SummaryState.Rejected -> Column(
@@ -215,14 +239,13 @@ fun SummaryResultScreen(
                 modifier = Modifier.padding(top = 16.dp),
             ) {
                 s.last?.let { FlagsBanner(it.redFlags) }
-                Text(
-                    text = stringResource(R.string.summary_error_generic),
-                    fontFamily = PlexArabic,
-                    color = CaregiverColors.Danger,
-                )
-                PrimaryButton(
-                    label = stringResource(R.string.common_retry),
-                    onClick = vm::refresh,
+                SummaryFailureCard(
+                    copy = AiRecovery.copyFor(
+                        s.code,
+                        activePeriodDays,
+                        AiFailureSource.Service,
+                    ),
+                    onAction = onRecoveryAction,
                 )
             }
             is SummaryState.NeedsConsent -> {
@@ -232,7 +255,7 @@ fun SummaryResultScreen(
                 )
             }
             is SummaryState.Content -> SummaryBody(
-                graph, s.summary, periodDays, graph.isDemo, navController, s.aiGenerated,
+                graph, s.summary, activePeriodDays, graph.isDemo, navController, s.aiGenerated,
                 onSuggestPlan = {
                     val store = com.caregiver.mobile.ai.AiKeyStore(graph.context)
                     if (!store.consentGiven()) {
@@ -247,6 +270,41 @@ fun SummaryResultScreen(
             )
         }
     }
+}
+
+/**
+ * One recovery step per failure: plain-language cause first, then the
+ * smallest set of buttons that can actually fix it. Raw reason codes never
+ * reach this card.
+ */
+@Composable
+private fun SummaryFailureCard(
+    copy: AiRecoveryCopy,
+    onAction: (AiRecoveryAction) -> Unit,
+) {
+    Column(verticalArrangement = Arrangement.spacedBy(AppDimens.GapForm)) {
+        AppWarningState(message = copy.resolvedMessage())
+        copy.primary?.let { action ->
+            PrimaryButton(
+                label = recoveryActionLabel(action),
+                onClick = { onAction(action) },
+            )
+        }
+        copy.secondary?.let { action ->
+            SecondaryButton(
+                label = recoveryActionLabel(action),
+                onClick = { onAction(action) },
+            )
+        }
+    }
+}
+
+@Composable
+private fun recoveryActionLabel(action: AiRecoveryAction): String = when (action) {
+    AiRecoveryAction.Retry -> stringResource(R.string.common_retry)
+    AiRecoveryAction.OpenAiSettings -> stringResource(R.string.ai_action_open_settings)
+    AiRecoveryAction.AddNote -> stringResource(R.string.ai_action_add_note)
+    AiRecoveryAction.ExtendPeriod -> stringResource(R.string.ai_action_try_30_days)
 }
 
 /**

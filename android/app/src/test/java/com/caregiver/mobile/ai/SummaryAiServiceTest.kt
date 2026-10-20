@@ -142,6 +142,20 @@ class SummaryAiServiceTest {
     }
 
     @Test
+    fun providerFailureKeepsItsReasonCode() = runBlocking {
+        val client = object : LlmClient {
+            override suspend fun complete(request: LlmRequest): LlmResult =
+                LlmResult(LlmStatus.FALLBACK, "", "invalid_key")
+        }
+        val svc = SummaryAiService(client)
+
+        val result = svc.summarize("r1", 7, listOf(note), emptyList(), LocalDate.parse("2026-10-01"))
+
+        assertTrue(result is SummaryAiResult.Failure)
+        assertEquals("invalid_key", (result as SummaryAiResult.Failure).reasonCode)
+    }
+
+    @Test
     fun fabricatedNoteIdIsRejected() = runBlocking {
         val json = """{"observations":[{"text":"x","noteId":"nope","quote":"walked"}],"uncertainties":[]}"""
         val svc = service(json)

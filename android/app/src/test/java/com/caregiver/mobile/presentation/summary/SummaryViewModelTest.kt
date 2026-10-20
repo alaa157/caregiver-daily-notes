@@ -128,10 +128,10 @@ class SummaryViewModelTest {
         summaries.summarizeHandler = { throw IOException("down") }
         val vm = SummaryViewModel("r1", apis(), repository, this)
 
-        val state = vm.state.first { it is SummaryState.AiUnavailable }
+        val state = vm.state.first { it is SummaryState.AiUnavailable } as SummaryState.AiUnavailable
 
-        assertTrue(state is SummaryState.AiUnavailable)
-        assertEquals(null, (state as SummaryState.AiUnavailable).last)
+        assertEquals(null, state.last)
+        assertEquals("network", state.reasonCode)
     }
 
     @Test

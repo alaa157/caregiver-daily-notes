@@ -50,9 +50,11 @@ import com.caregiver.mobile.ai.PromptNote
 import com.caregiver.mobile.ai.PromptNotes
 import com.caregiver.mobile.ai.Prompts
 import com.caregiver.mobile.ai.SummaryResponseFormat
+import com.caregiver.mobile.presentation.common.AiRecovery
 import com.caregiver.mobile.presentation.common.AppTopBar
 import com.caregiver.mobile.presentation.common.CaregiverSettingsGroup
 import com.caregiver.mobile.presentation.common.CaregiverSettingsItem
+import com.caregiver.mobile.presentation.common.resolvedMessage
 import java.time.LocalDate
 import kotlinx.coroutines.launch
 
@@ -172,7 +174,10 @@ fun AiSettingsScreen(graph: AppGraph, navController: NavController) {
 
         Button(onClick = {
             if (apiKey.isBlank()) {
-                status = graph.context.getString(R.string.settings_ai_failed, "missing_key")
+                status = graph.context.getString(
+                    R.string.settings_ai_failed,
+                    AiRecovery.copyFor("missing_key").resolvedMessage(graph.context),
+                )
                 return@Button
             }
             testing = true
@@ -189,10 +194,19 @@ fun AiSettingsScreen(graph: AppGraph, navController: NavController) {
                     status = if (res.status == LlmStatus.OK) {
                         graph.context.getString(R.string.settings_ai_connection_ok)
                     } else {
-                        graph.context.getString(R.string.settings_ai_failed, res.error ?: "unknown")
+                        graph.context.getString(
+                            R.string.settings_ai_failed,
+                            AiRecovery.copyFor(res.error ?: "unavailable")
+                                .resolvedMessage(graph.context),
+                        )
                     }
                 } catch (e: Exception) {
-                    status = graph.context.getString(R.string.settings_ai_failed, e.message ?: "error")
+                    // Exception text is not a recovery step and may contain
+                    // transport internals; show the connect-and-retry copy.
+                    status = graph.context.getString(
+                        R.string.settings_ai_failed,
+                        AiRecovery.copyFor("unavailable").resolvedMessage(graph.context),
+                    )
                 } finally {
                     testing = false
                 }
@@ -236,7 +250,10 @@ fun AiSettingsScreen(graph: AppGraph, navController: NavController) {
         // summary-format reply and validates its shape.
         Button(onClick = {
             if (apiKey.isBlank()) {
-                formatStatus = graph.context.getString(R.string.settings_ai_failed, "missing_key")
+                formatStatus = graph.context.getString(
+                    R.string.settings_ai_format_invalid,
+                    AiRecovery.copyFor("missing_key").resolvedMessage(graph.context),
+                )
                 return@Button
             }
             validating = true
@@ -266,16 +283,27 @@ fun AiSettingsScreen(graph: AppGraph, navController: NavController) {
                     val res = client.complete(LlmRequest(prompt, probe, jsonMode = true))
                     val reason = if (res.status == LlmStatus.FALLBACK) {
                         res.error ?: "unavailable"
+                    } else if (SummaryResponseFormat.validate(res.text) != null) {
+                        // The shape validator's English debug strings are not
+                        // user copy; map every shape failure to the localized
+                        // "couldn't read the response" recovery message.
+                        "malformed_output"
                     } else {
-                        SummaryResponseFormat.validate(res.text)
+                        null
                     }
                     formatStatus = if (reason == null) {
                         graph.context.getString(R.string.settings_ai_format_ok)
                     } else {
-                        graph.context.getString(R.string.settings_ai_format_invalid, reason)
+                        graph.context.getString(
+                            R.string.settings_ai_format_invalid,
+                            AiRecovery.copyFor(reason).resolvedMessage(graph.context),
+                        )
                     }
                 } catch (e: Exception) {
-                    formatStatus = graph.context.getString(R.string.settings_ai_format_invalid, e.message ?: "error")
+                    formatStatus = graph.context.getString(
+                        R.string.settings_ai_format_invalid,
+                        AiRecovery.copyFor("unavailable").resolvedMessage(graph.context),
+                    )
                 } finally {
                     validating = false
                 }
