@@ -23,7 +23,11 @@ fun LoginScreen(repository: AuthRepository, navController: NavController) {
         onPassword = vm::onPassword,
         onConfirm = vm::onConfirm,
         onSubmit = vm::submit,
-        onSwitchMode = { navController.navigate(AppDestinations.Register.base) },
+        onSwitchMode = {
+            navController.navigate(AppDestinations.Register.base) {
+                launchSingleTop = true
+            }
+        },
         onServerSettings = { navController.navigate(AppDestinations.ServerUrl.base) },
         // Demo builds (debug + minified) show the offline demo entry
         // (gated inside AuthForm by BuildConfig.DEMO_BACKEND); release
@@ -38,6 +42,11 @@ fun LoginScreen(repository: AuthRepository, navController: NavController) {
 fun RegisterScreen(repository: AuthRepository, navController: NavController) {
     val vm: AuthViewModel = authViewModel(AuthMode.Register, repository)
     val state by vm.state.collectAsState()
+    val backToLogin: () -> Unit = {
+        if (!navController.popBackStack()) {
+            navController.navigate(AppDestinations.Login.base)
+        }
+    }
     AuthForm(
         state = state,
         mode = AuthMode.Register,
@@ -45,8 +54,9 @@ fun RegisterScreen(repository: AuthRepository, navController: NavController) {
         onPassword = vm::onPassword,
         onConfirm = vm::onConfirm,
         onSubmit = vm::submit,
-        onSwitchMode = { navController.navigate(AppDestinations.Login.base) },
+        onSwitchMode = backToLogin,
         modifier = Modifier,
+        onBack = backToLogin,
     )
 }
 

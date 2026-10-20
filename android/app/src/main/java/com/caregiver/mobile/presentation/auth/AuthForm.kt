@@ -42,6 +42,7 @@ import com.caregiver.mobile.BuildConfig
 import com.caregiver.mobile.R
 import com.caregiver.mobile.core.theme.CaregiverColors
 import com.caregiver.mobile.core.theme.PlexArabic
+import com.caregiver.mobile.presentation.common.AppBackButton
 import com.caregiver.mobile.presentation.common.AppDimens
 
 /**
@@ -53,6 +54,9 @@ import com.caregiver.mobile.presentation.common.AppDimens
  * labels 14sp Bold, inputs 52dp border #C5CDD1 radius 12, CTA 56dp 17sp.
  * The auth heading (تسجيل الدخول / Sign in) is kept for the existing
  * navigation/tests; the hero carries the HTML board title.
+ *
+ * [onBack] adds the shared back control to the header. Register passes it
+ * because it is reached from Login; Login is the root and leaves it null.
  */
 @Composable
 fun AuthForm(
@@ -66,6 +70,7 @@ fun AuthForm(
     modifier: Modifier = Modifier,
     onServerSettings: (() -> Unit)? = null,
     onDemo: (() -> Unit)? = null,
+    onBack: (() -> Unit)? = null,
 ) {
     Column(
         modifier = modifier
@@ -79,11 +84,15 @@ fun AuthForm(
         // Language switching lives in Settings; this mirrors the board
         // affordance without hijacking the auth mode switch below.
         Row(
-            horizontalArrangement = Arrangement.Start,
+            horizontalArrangement = Arrangement.spacedBy(AppDimens.GapForm),
+            verticalAlignment = Alignment.CenterVertically,
             modifier = Modifier
                 .fillMaxWidth()
                 .padding(top = 16.dp),
         ) {
+            if (onBack != null) {
+                AppBackButton(onBack = onBack)
+            }
             OutlinedButton(
                 onClick = {},
                 modifier = Modifier.heightIn(min = 48.dp).height(48.dp),

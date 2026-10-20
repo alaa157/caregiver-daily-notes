@@ -136,7 +136,10 @@ fun SummaryResultScreen(
     val hasKey = com.caregiver.mobile.ai.AiKeyStore(graph.context).hasKey()
     if (!hasKey) {
         Column(Modifier.fillMaxSize().padding(horizontal = AppDimens.ScreenHPadding)) {
-            AppTopBar(title = stringResource(R.string.summary_title))
+            AppTopBar(
+                title = stringResource(R.string.summary_title),
+                onBack = { navController.popBackStack() },
+            )
             Text(stringResource(R.string.summary_setup_ai))
         }
         return
@@ -173,6 +176,12 @@ fun SummaryResultScreen(
         )
     }
     Column(Modifier.fillMaxSize().padding(horizontal = AppDimens.ScreenHPadding)) {
+        if (state !is SummaryState.Content) {
+            AppTopBar(
+                title = stringResource(R.string.summary_title),
+                onBack = { navController.popBackStack() },
+            )
+        }
         when (val s = state) {
             SummaryState.Loading -> {
                 Spacer(Modifier.height(16.dp))

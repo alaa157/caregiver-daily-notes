@@ -199,13 +199,18 @@ fun MainScaffold(graph: AppGraph) {
     // person goes straight to the editor instead.
     var showRecipientPicker by rememberSaveable { mutableStateOf(false) }
 
-    // Single tab-navigation path: the bottom bar and the drawer's People
-    // entry behave identically (each tab's state is saved and restored).
+    // Single tab-navigation path: every tab tap lands on that tab's root.
+    // If the tab is already in the back stack (for example People while a
+    // recipient detail is open), pop its children so the existing root entry
+    // — and its scroll position — is reused. Otherwise pop back to Home
+    // before pushing the tab. restoreState is deliberately off: restoring a
+    // saved child stack would reopen a detail screen instead of the tab.
     val navigateToTab: (String) -> Unit = { route ->
-        navController.navigate(route) {
-            popUpTo(navController.graph.findStartDestination().id) { saveState = true }
-            launchSingleTop = true
-            restoreState = true
+        if (!navController.popBackStack(route, inclusive = false)) {
+            navController.navigate(route) {
+                popUpTo(navController.graph.findStartDestination().id)
+                launchSingleTop = true
+            }
         }
     }
 
@@ -261,24 +266,23 @@ fun MainScaffold(graph: AppGraph) {
                     // navigation, where the inset is ~48dp).
                     // Metrolist-pattern bar (ui/component/AppNavigation.kt):
                     // route-template selection with a per-tab child-ownership
-                    // table; the active-tab re-tap contract (one
+                    // table; the tab-root re-tap contract (one
                     // ScrollToTop.emit per tap), the tab_* test tags via the
                     // itemModifier hook, the transparent selection indicator,
                     // and the zero-inset compact strip all carry over.
                     AppNavigationBar(
                         navigationItems = navigationItems,
                         currentRoute = currentRoute,
-                        onItemClick = { item, selected ->
-                            if (selected) {
-                                // X pattern: re-tapping the ACTIVE tab must not
-                                // navigate. It asks that tab's list to scroll
-                                // back to top (screens start collecting
-                                // ScrollToTop.events in a later task).
+                        onItemClick = { item, _ ->
+                            if (currentRoute == item.route) {
+                                // Re-tapping the tab that is already the
+                                // current destination asks its list to scroll
+                                // back to top; it must not push a duplicate.
                                 ScrollToTop.emit(item.route)
                             } else {
-                                // Save/restore each tab's state: switching
-                                // tabs keeps scroll position, and the re-tap
-                                // path above handles "back to top".
+                                // A tab stays visually selected while one of
+                                // its children is open. Tapping it is still a
+                                // request for the tab root, not a no-op.
                                 navigateToTab(item.route)
                             }
                         },

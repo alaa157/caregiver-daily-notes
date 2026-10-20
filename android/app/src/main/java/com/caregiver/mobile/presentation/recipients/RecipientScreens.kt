@@ -278,6 +278,12 @@ fun RecipientDetailScreen(recipientId: String, graph: AppGraph, navController: N
     }
     val state by vm.state.collectAsState()
     Column(Modifier.fillMaxSize().padding(horizontal = AppDimens.ScreenHPadding)) {
+        if (state !is DetailState.Content) {
+            AppTopBar(
+                title = stringResource(R.string.tab_people),
+                onBack = { navController.popBackStack() },
+            )
+        }
         when (val s = state) {
             DetailState.Loading -> LoadingRow()
             DetailState.Error -> LoadFailed(onRetry = vm::refresh)

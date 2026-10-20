@@ -71,7 +71,10 @@ fun PlansScreen(graph: AppGraph, navController: NavController) {
         Modifier.fillMaxSize().padding(horizontal = AppDimens.ScreenHPadding),
         verticalArrangement = Arrangement.spacedBy(AppDimens.SectionGap),
     ) {
-        AppTopBar(title = stringResource(R.string.plans_title))
+        AppTopBar(
+            title = stringResource(R.string.plans_title),
+            onBack = { navController.popBackStack() },
+        )
         when (val s = state) {
             PlansState.Loading -> LoadingRow()
             PlansState.Error -> LoadFailed(onRetry = vm::refresh)
@@ -148,6 +151,14 @@ fun PlanProposalScreen(planId: String, graph: AppGraph, navController: NavContro
     val error by vm.actionError.collectAsState()
     val busy by vm.busy.collectAsState()
     Column(Modifier.fillMaxSize()) {
+        if (state !is PlanDetailState.Content) {
+            Column(Modifier.padding(horizontal = AppDimens.ScreenHPadding)) {
+                AppTopBar(
+                    title = stringResource(R.string.plan_proposal_title),
+                    onBack = { navController.popBackStack() },
+                )
+            }
+        }
         when (val s = state) {
             PlanDetailState.Loading -> LoadingRow()
             PlanDetailState.Error -> LoadFailed(onRetry = vm::refresh)
@@ -283,6 +294,14 @@ fun PlanEditScreen(planId: String, graph: AppGraph, navController: NavController
         LaunchedEffect(Unit) { navController.popBackStack() }
     }
     Column(Modifier.fillMaxSize()) {
+        if (state !is PlanEditState.Content) {
+            Column(Modifier.padding(horizontal = AppDimens.ScreenHPadding)) {
+                AppTopBar(
+                    title = stringResource(R.string.plan_edit_title),
+                    onBack = { navController.popBackStack() },
+                )
+            }
+        }
         when (val s = state) {
             PlanEditState.Loading -> LoadingRow()
             PlanEditState.Error -> LoadFailed(onRetry = vm::refresh)
