@@ -114,7 +114,7 @@ object AppDimens {
 }
 
 /**
- * The shared back control: a 44-dp rounded button with the auto-mirrored
+ * The shared back control: a 48-dp rounded button with the auto-mirrored
  * arrow and a localized content description. [AppTopBar] uses it for titled
  * detail screens; title-less screens (the saved confirmation) use it alone.
  */
