@@ -20,7 +20,13 @@ private data class ModelObs(
 private data class ModelUnc(val topic: String = "", val detail: String = "")
 
 @Serializable
-private data class ModelSummary(val observations: List<ModelObs> = emptyList(), val uncertainties: List<ModelUnc> = emptyList())
+private data class ModelSummary(
+    val observations: List<ModelObs> = emptyList(),
+    val uncertainties: List<ModelUnc> = emptyList(),
+    // The model may RAISE urgency (README contract: raise, never lower);
+    // missing/older payloads parse as false.
+    val urgent: Boolean = false,
+)
 
 sealed class SummaryAiResult {
     data class Success(
@@ -146,13 +152,16 @@ class SummaryAiService(
             return SummaryAiResult.Failure(redFlags, "invalid_evidence")
         }
 
+        // The model may only ADD urgency — deterministic flags are never
+        // removed or reordered; the flag id matches the backend mirror.
+        val mergedFlags = if (parsed.urgent) redFlags + "MODEL_URGENT" else redFlags
         return SummaryAiResult.Success(
             SummaryDto(
                 id = "",
                 recipientId = recipientId,
                 periodDays = periodDays,
                 text = text,
-                redFlags = redFlags,
+                redFlags = mergedFlags,
                 evidence = evidence,
                 uncertainties = uncertainties,
             ),

@@ -40,4 +40,50 @@ class ArabicNormalizerTest {
     ArabicNormalizer.normalize(stored);
     assertThat(stored).isEqualTo("يَأْكُلُ جَيِّدًا  ");
   }
+
+  @Test
+  void foldsArabicIndicAndPersianDigits() {
+    // "ألم ٧" vs "ألم 7" used to be different strings, so a model quote that
+    // re-wrote the digit failed quote matching and the observation dropped.
+    assertThat(ArabicNormalizer.normalize("ألم ٧")).isEqualTo("الم 7");
+    assertThat(ArabicNormalizer.normalize("٧")).isEqualTo("7");
+    assertThat(ArabicNormalizer.normalize("۷")).isEqualTo("7");
+    assertThat(ArabicNormalizer.normalize("١٢")).isEqualTo("12");
+    assertThat(ArabicNormalizer.normalize("۱۲")).isEqualTo("12");
+    assertThat(ArabicNormalizer.normalize("الألم ٧ من ١٠"))
+        .isEqualTo(ArabicNormalizer.normalize("الألم 7 من 10"));
+  }
+
+  @Test
+  void stripsZeroWidthAndDirectionMarks() {
+    var plain = ArabicNormalizer.normalize("سقطت اليوم");
+    assertThat(ArabicNormalizer.normalize("سقطت\u200B اليوم")).isEqualTo(plain);
+    assertThat(ArabicNormalizer.normalize("سقط\u200Cت اليوم")).isEqualTo(plain);
+    assertThat(ArabicNormalizer.normalize("سقط\u200Dت اليوم")).isEqualTo(plain);
+    assertThat(ArabicNormalizer.normalize("\u200Fسقطت اليوم")).isEqualTo(plain);
+    assertThat(ArabicNormalizer.normalize("سقطت \u200Eاليوم")).isEqualTo(plain);
+    assertThat(ArabicNormalizer.normalize("\uFEFFسقطت اليوم")).isEqualTo(plain);
+    assertThat(ArabicNormalizer.normalize("سـ\u00ADـقطت اليوم")).isEqualTo(plain);
+  }
+
+  @Test
+  void unifiesArabicAndLatinPunctuation() {
+    // Codepoint escapes keep both members of each pair visibly different
+    // characters: ، (\u060C) vs ',', ؟ (\u061F) vs '?', « (\u00AB) and
+    // » (\u00BB) vs '"', ؛ (\u061B) vs ';'.
+    assertThat(ArabicNormalizer.normalize("ألم\u060C سقطت\u061F"))
+        .isEqualTo(ArabicNormalizer.normalize("ألم, سقطت?"));
+    assertThat(ArabicNormalizer.normalize("الرأي \u00ABجيد\u00BB\u061B"))
+        .isEqualTo(ArabicNormalizer.normalize("الرأي \"جيد\";"));
+  }
+
+  @Test
+  void foldsPersianLetterVariants() {
+    // Persian kaf \u06A9 folds to Arabic kaf \u0643; Persian yeh \u06CC
+    // folds to Arabic yeh \u064A.
+    assertThat(ArabicNormalizer.normalize("\u06A9\u062A\u0627\u0628"))
+        .isEqualTo(ArabicNormalizer.normalize("\u0643\u062A\u0627\u0628"));
+    assertThat(ArabicNormalizer.normalize("\u0631\u0623\u06CC\u064A"))
+        .isEqualTo(ArabicNormalizer.normalize("\u0631\u0623\u064A\u064A"));
+  }
 }

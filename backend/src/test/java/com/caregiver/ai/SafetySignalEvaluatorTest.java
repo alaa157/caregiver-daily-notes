@@ -20,6 +20,15 @@ class SafetySignalEvaluatorTest {
     return new NoteSignals(id, date, fall, pain, missed, unverified, appetite, "");
   }
 
+  /**
+   * Same structured shape with the free text the caregiver actually wrote —
+   * the path the text rules guard ("she fell down today" with the checkbox
+   * still unticked, "chest pain" with pain unrecorded).
+   */
+  private static NoteSignals noteText(LocalDate date, String freeText) {
+    return new NoteSignals("r1", date, false, 1, null, false, null, freeText);
+  }
+
   private static NoteSignals clean(LocalDate date) {
     return note("r1", date, false, null, null, false, null);
   }
@@ -114,5 +123,78 @@ class SafetySignalEvaluatorTest {
     var fromEmpty = evaluator.evaluate(List.of(), END, 7);
     assertThat(fromEmpty.signals()).isEmpty();
     assertThat(fromEmpty.needsDoctorBanner()).isFalse();
+  }
+
+  // ---- Free-text rules (mirrored from the app's SafetySignalEvaluatorTest) ----
+
+  @Test
+  void scatteredPoorAppetiteDays_doNotFlag() {
+    // The old rule counted distinct days ANYWHERE in the window, so a
+    // 30-day summary fired on three loose bad days. Streak semantics
+    // require adjacency; gaps reset the run.
+    var eval = evaluator.evaluate(List.of(
+        note("r1", END.minusDays(6), false, null, null, false, true),
+        note("r1", END.minusDays(3), false, null, null, false, true),
+        note("r1", END, false, null, null, false, true)), END, 7);
+    assertThat(eval.signals()).extracting(SafetySignal::ruleId)
+        .doesNotContain(SafetyRuleId.POOR_APPETITE_DAYS);
+    assertThat(eval.needsDoctorBanner()).isFalse();
+  }
+
+  @Test
+  void textDescribingAFall_raisesTheFlagEvenWithoutTheCheckbox() {
+    var eval = evaluator.evaluate(List.of(noteText(END, "She fell down in the kitchen today")), END, 7);
+    assertThat(eval.signals()).hasSize(1);
+    assertThat(eval.signals().get(0).ruleId()).isEqualTo(SafetyRuleId.FALL_DETECTED);
+    assertThat(eval.signals().get(0).reason()).isEqualTo("Note text describes a fall");
+    assertThat(eval.needsDoctorBanner()).isTrue();
+  }
+
+  @Test
+  void textMentioningChestPain_raisesHighPainEvenWithLowScores() {
+    var eval = evaluator.evaluate(List.of(noteText(END, "chest pain started at night")), END, 7);
+    assertThat(eval.signals()).hasSize(1);
+    assertThat(eval.signals().get(0).ruleId()).isEqualTo(SafetyRuleId.HIGH_PAIN);
+    assertThat(eval.signals().get(0).reason()).isEqualTo("Note text describes chest pain");
+  }
+
+  @Test
+  void arabicText_survivesTypesettingVariants() {
+    // Zero-width and direction marks, an Arabic comma (folded to ','), and
+    // an Arabic-Indic digit — re-typesetting must not lose the match.
+    var eval = evaluator.evaluate(
+        List.of(noteText(END, "سقطت\u200F بالأمس\u200B\u060C ألم في صدرها ٧ مرات")),
+        END,
+        7);
+    assertThat(eval.signals()).extracting(SafetySignal::ruleId)
+        .containsExactlyInAnyOrder(SafetyRuleId.FALL_DETECTED, SafetyRuleId.HIGH_PAIN);
+  }
+
+  @Test
+  void fellAsleep_isNotAFall() {
+    var eval = evaluator.evaluate(
+        List.of(noteText(END, "she fell asleep peacefully after dinner")), END, 7);
+    assertThat(eval.signals()).isEmpty();
+  }
+
+  @Test
+  void cleanText_staysClean() {
+    var eval = evaluator.evaluate(
+        List.of(noteText(END, "she ate well, walked in the garden")), END, 7);
+    assertThat(eval.signals()).isEmpty();
+    assertThat(eval.needsDoctorBanner()).isFalse();
+  }
+
+  @Test
+  void checkboxAndScore_keepTheirStructuredReasonWhenTextAlsoMatches() {
+    // Structured sources win the reason wording; the text rules only
+    // rescue flags the pills missed.
+    var eval = evaluator.evaluate(
+        List.of(new NoteSignals("r1", END, true, 9, null, false, false,
+            "she fell down and has chest pain")),
+        END,
+        7);
+    assertThat(eval.signals()).extracting(SafetySignal::reason)
+        .containsExactly("Fall reported in period", "Max pain 9 in period");
   }
 }

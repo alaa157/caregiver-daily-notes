@@ -383,7 +383,8 @@
     <string name="plan_suggest_failed">Could not suggest a plan.</string>
     <string name="plan_suggest_empty">No plan changes suggested.</string>
     <string name="flag_missed_med">Repeated missed medication</string>
-    <string name="flag_poor_appetite">Poor appetite for several days</string>
+    <string name="flag_poor_appetite">Poor appetite for several days in a row</string>
+    <string name="flag_model_urgent">AI flagged a possible emergency</string>
     <string name="plan_suggest_parse_error">Could not read the AI response.</string>
     <string name="plan_suggest_llm_fallback">AI service unavailable.</string>
     <string name="plan_suggest_medications_rejected">Medication changes are not allowed.</string>
