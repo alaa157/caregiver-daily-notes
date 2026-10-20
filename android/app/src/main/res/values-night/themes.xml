@@ -1,0 +1,10 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <!-- Dark twin of the startup theme (same style name, android picks this
+        one whenever the system is dark): the pre-Compose launch frame must
+        not flash the beige light background behind a dark app. The hex
+        matches caregiverScheme(dark = true).Background. -->
+    <style name="Theme.Caregiver.Startup" parent="@android:style/Theme.Material.NoActionBar">
+        <item name="android:windowBackground">#121616</item>
+    </style>
+</resources>
