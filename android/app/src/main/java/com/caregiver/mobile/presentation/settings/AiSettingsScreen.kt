@@ -1,7 +1,8 @@
 package com.caregiver.mobile.presentation.settings
 
-import android.content.Intent
+import android.util.Log
 
+import androidx.activity.compose.BackHandler
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
@@ -25,12 +26,15 @@ import androidx.compose.material.icons.outlined.Memory
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.DisposableEffect
+import androidx.compose.runtime.SideEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.platform.LocalUriHandler
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.input.PasswordVisualTransformation
 import androidx.compose.ui.unit.dp
@@ -50,6 +54,7 @@ import com.caregiver.mobile.ai.PromptNote
 import com.caregiver.mobile.ai.PromptNotes
 import com.caregiver.mobile.ai.Prompts
 import com.caregiver.mobile.ai.SummaryResponseFormat
+import com.caregiver.mobile.core.navigation.markUnsavedChanges
 import com.caregiver.mobile.presentation.common.AiRecovery
 import com.caregiver.mobile.presentation.common.AppTopBar
 import com.caregiver.mobile.presentation.common.CaregiverSettingsGroup
@@ -62,9 +67,13 @@ import kotlinx.coroutines.launch
 fun AiSettingsScreen(graph: AppGraph, navController: NavController) {
     val scope = rememberCoroutineScope()
     val store = remember { AiKeyStore(graph.context) }
+    val uriHandler = LocalUriHandler.current
+    val navEntry = remember(navController) { navController.currentBackStackEntry }
     val initialProvider = store.selectedProvider()
+    val initialStoredKey = store.apiKey(initialProvider).orEmpty()
     var provider by remember { mutableStateOf(initialProvider) }
-    var apiKey by remember { mutableStateOf(store.apiKey(initialProvider).orEmpty()) }
+    var apiKey by remember { mutableStateOf(initialStoredKey) }
+    var savedApiKey by remember { mutableStateOf(initialStoredKey) }
     // A pasted key usually carries a trailing space or newline. The tests
     // and the save have to use the same trimmed value, or a key that works
     // fine after saving fails the connection test.
@@ -73,17 +82,26 @@ fun AiSettingsScreen(graph: AppGraph, navController: NavController) {
     // the keystore key) is not "no key": the caregiver has to enter it again.
     var keyState by remember { mutableStateOf(store.apiKeyState(initialProvider)) }
     var keyError by remember { mutableStateOf<String?>(null) }
-    var model by remember { mutableStateOf(store.model(initialProvider) ?: initialProvider.defaultModel) }
-    var baseUrl by remember { mutableStateOf(store.baseUrlOrDefault(initialProvider)) }
+    val initialStoredModel = store.model(initialProvider).orEmpty()
+    var model by remember { mutableStateOf(initialStoredModel.ifBlank { initialProvider.defaultModel }) }
+    var savedModel by remember { mutableStateOf(initialStoredModel) }
+    val initialStoredBaseUrl = store.baseUrl(initialProvider).orEmpty()
+    var baseUrl by remember { mutableStateOf(initialStoredBaseUrl.ifBlank { initialProvider.defaultBaseUrl }) }
+    var savedBaseUrl by remember { mutableStateOf(initialStoredBaseUrl) }
     var systemPrompt by remember { mutableStateOf(store.systemPrompt()) }
     var summaryPrompt by remember { mutableStateOf(store.summarySystemPrompt()) }
     var planPrompt by remember { mutableStateOf(store.planSystemPrompt()) }
+    val savedSystemPrompt = remember { store.systemPrompt() }
+    val savedSummaryPrompt = remember { store.summarySystemPrompt() }
+    val savedPlanPrompt = remember { store.planSystemPrompt() }
     // Connection status and feature-level format status are deliberately
     // separate: reachability is not the same as a usable response shape.
     var status by remember { mutableStateOf<String?>(null) }
     var formatStatus by remember { mutableStateOf<String?>(null) }
     var testing by remember { mutableStateOf(false) }
     var validating by remember { mutableStateOf(false) }
+    var consentGiven by remember { mutableStateOf(store.consentGiven()) }
+    var consentStatus by remember { mutableStateOf<String?>(null) }
 
     // Dialog visibility
     var showProviderDialog by remember { mutableStateOf(false) }
@@ -95,6 +113,77 @@ fun AiSettingsScreen(graph: AppGraph, navController: NavController) {
     var showPromptDialog by remember { mutableStateOf(false) }
     var showSummaryPromptDialog by remember { mutableStateOf(false) }
     var showPlanPromptDialog by remember { mutableStateOf(false) }
+    var showDiscardDialog by remember { mutableStateOf(false) }
+    var showRevokeConsentDialog by remember { mutableStateOf(false) }
+    var pendingProvider by remember { mutableStateOf<AiProvider?>(null) }
+    var guideLinkError by remember { mutableStateOf(false) }
+
+    val hasUnsavedChanges =
+        apiKey.trim() != savedApiKey.trim() ||
+            AiSettingsValidation.normalizedModel(model, provider) !=
+            AiSettingsValidation.normalizedModel(savedModel, provider) ||
+            AiSettingsValidation.normalizedBaseUrl(baseUrl, provider) !=
+            AiSettingsValidation.normalizedBaseUrl(savedBaseUrl, provider) ||
+            systemPrompt != savedSystemPrompt ||
+            summaryPrompt != savedSummaryPrompt ||
+            planPrompt != savedPlanPrompt
+
+    // The tab bar is outside this screen. Publish the dirty flag on the
+    // screen's back-stack entry so a tab tap can ask before popping the
+    // screen and throwing the edits away.
+    SideEffect {
+        navEntry?.markUnsavedChanges(hasUnsavedChanges)
+    }
+    DisposableEffect(navEntry) {
+        onDispose { navEntry?.markUnsavedChanges(false) }
+    }
+
+    fun loadProvider(target: AiProvider) {
+        provider = target
+        val storedKey = store.apiKey(target).orEmpty()
+        apiKey = storedKey
+        savedApiKey = storedKey
+        keyState = store.apiKeyState(target)
+        val storedModel = store.model(target).orEmpty()
+        model = storedModel.ifBlank { target.defaultModel }
+        savedModel = storedModel
+        val storedBaseUrl = store.baseUrl(target).orEmpty()
+        baseUrl = storedBaseUrl.ifBlank { target.defaultBaseUrl }
+        savedBaseUrl = storedBaseUrl
+        keyError = null
+        status = null
+        formatStatus = null
+        guideLinkError = false
+    }
+
+    fun requestExit() {
+        if (hasUnsavedChanges) {
+            pendingProvider = null
+            showDiscardDialog = true
+        } else {
+            navController.popBackStack()
+        }
+    }
+
+    fun discardAndContinue() {
+        val target = pendingProvider
+        showDiscardDialog = false
+        pendingProvider = null
+        systemPrompt = savedSystemPrompt
+        summaryPrompt = savedSummaryPrompt
+        planPrompt = savedPlanPrompt
+        if (target == null) {
+            navController.popBackStack()
+        } else {
+            loadProvider(target)
+        }
+    }
+
+    // The top bar, Cancel, and the system back button all take the same exit
+    // path, so unsaved edits cannot disappear without a confirmation.
+    BackHandler(enabled = hasUnsavedChanges && !showDiscardDialog) {
+        requestExit()
+    }
 
     Column(
         Modifier.fillMaxSize().padding(16.dp).verticalScroll(rememberScrollState()),
@@ -105,7 +194,7 @@ fun AiSettingsScreen(graph: AppGraph, navController: NavController) {
         // not a dead-end that relies on the system back button.
         AppTopBar(
             title = stringResource(R.string.settings_ai),
-            onBack = { navController.popBackStack() },
+            onBack = { requestExit() },
         )
 
         // One untitled card holds the connection settings; the key rows keep
@@ -122,7 +211,10 @@ fun AiSettingsScreen(graph: AppGraph, navController: NavController) {
                 title = stringResource(R.string.settings_ai_setup_guide),
                 icon = Icons.Outlined.Link,
                 description = provider.displayName,
-                onClick = { showGuideDialog = true },
+                onClick = {
+                    guideLinkError = false
+                    showGuideDialog = true
+                },
             )
             CaregiverSettingsItem(
                 title = stringResource(R.string.settings_ai_api_key),
@@ -245,12 +337,24 @@ fun AiSettingsScreen(graph: AppGraph, navController: NavController) {
                         Text(stringResource(R.string.settings_ai_setup_step4))
                         Text(stringResource(R.string.settings_ai_cost_note))
                         TextButton(onClick = {
+                            guideLinkError = false
                             try {
-                                graph.context.startActivity(
-                                    Intent(Intent.ACTION_VIEW, android.net.Uri.parse(url))
-                                )
-                            } catch (e: Exception) { }
+                                uriHandler.openUri(url)
+                            } catch (e: Exception) {
+                                // A device with no browser must not fail
+                                // silently: keep the dialog open and explain
+                                // why the link did not open.
+                                Log.w("AiSettings", "Unable to open the AI setup guide", e)
+                                guideLinkError = true
+                            }
                         }) { Text(stringResource(R.string.settings_ai_open_website)) }
+                        if (guideLinkError) {
+                            Text(
+                                text = stringResource(R.string.settings_ai_browser_unavailable),
+                                color = MaterialTheme.colorScheme.error,
+                                style = MaterialTheme.typography.bodySmall,
+                            )
+                        }
                     }
                 },
                 confirmButton = {
@@ -341,8 +445,17 @@ fun AiSettingsScreen(graph: AppGraph, navController: NavController) {
         Button(onClick = {
             // Store the key in this provider's slot before selecting the
             // provider. A failed keystore write must not leave the app
-            // pointing at a provider whose key was never saved.
-            val keyStored = trimmedKey.isEmpty() || store.setApiKey(trimmedKey, provider)
+            // pointing at a provider whose key was never saved. Emptying a
+            // saved key is an explicit removal; leaving the field untouched
+            // keeps it.
+            val keyStored = when {
+                trimmedKey.isNotEmpty() -> store.setApiKey(trimmedKey, provider)
+                savedApiKey.isNotBlank() -> {
+                    store.clearApiKey(provider)
+                    true
+                }
+                else -> true
+            }
             if (!keyStored) {
                 keyError = graph.context.getString(R.string.settings_ai_key_store_failed)
                 keyState = store.apiKeyState(provider)
@@ -363,9 +476,70 @@ fun AiSettingsScreen(graph: AppGraph, navController: NavController) {
             Text(text = it, color = MaterialTheme.colorScheme.error)
         }
 
-        TextButton(onClick = { navController.popBackStack() }) { Text(stringResource(R.string.common_cancel)) }
+        TextButton(onClick = { requestExit() }) { Text(stringResource(R.string.common_cancel)) }
 
-        TextButton(onClick = { store.revokeConsent() }) { Text(stringResource(R.string.settings_ai_revoke_consent)) }
+        if (consentGiven) {
+            TextButton(onClick = { showRevokeConsentDialog = true }) {
+                Text(stringResource(R.string.settings_ai_revoke_consent))
+            }
+        }
+        consentStatus?.let {
+            Text(text = it, color = MaterialTheme.colorScheme.primary)
+        }
+    }
+
+    if (showDiscardDialog) {
+        AlertDialog(
+            onDismissRequest = {
+                showDiscardDialog = false
+                pendingProvider = null
+            },
+            title = { Text(stringResource(R.string.settings_ai_unsaved_title)) },
+            text = {
+                Text(
+                    stringResource(
+                        R.string.settings_ai_unsaved_message,
+                        provider.displayName,
+                    ),
+                )
+            },
+            confirmButton = {
+                TextButton(onClick = { discardAndContinue() }) {
+                    Text(stringResource(R.string.settings_ai_discard))
+                }
+            },
+            dismissButton = {
+                TextButton(onClick = {
+                    showDiscardDialog = false
+                    pendingProvider = null
+                }) {
+                    Text(stringResource(R.string.settings_ai_keep_editing))
+                }
+            },
+        )
+    }
+
+    if (showRevokeConsentDialog) {
+        AlertDialog(
+            onDismissRequest = { showRevokeConsentDialog = false },
+            title = { Text(stringResource(R.string.settings_ai_revoke_consent_title)) },
+            text = { Text(stringResource(R.string.settings_ai_revoke_consent_message)) },
+            confirmButton = {
+                TextButton(onClick = {
+                    store.revokeConsent()
+                    consentGiven = false
+                    consentStatus = graph.context.getString(R.string.settings_ai_consent_revoked)
+                    showRevokeConsentDialog = false
+                }) {
+                    Text(stringResource(R.string.settings_ai_revoke_consent_confirm))
+                }
+            },
+            dismissButton = {
+                TextButton(onClick = { showRevokeConsentDialog = false }) {
+                    Text(stringResource(R.string.common_cancel))
+                }
+            },
+        )
     }
 
     if (showProviderDialog) {
@@ -376,21 +550,19 @@ fun AiSettingsScreen(graph: AppGraph, navController: NavController) {
                 Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
                     AiProvider.values().forEach { p ->
                         TextButton(onClick = {
-                            if (p != provider) {
-                                provider = p
-                                // Every provider has its own key, model, and
-                                // base URL. Loading them here keeps one
-                                // provider's credential and endpoint from
-                                // leaking into another.
-                                apiKey = store.apiKey(p).orEmpty()
-                                keyState = store.apiKeyState(p)
-                                model = store.model(p) ?: p.defaultModel
-                                baseUrl = store.baseUrlOrDefault(p)
-                                keyError = null
-                                status = null
-                                formatStatus = null
-                            }
                             showProviderDialog = false
+                            if (p != provider) {
+                                if (hasUnsavedChanges) {
+                                    pendingProvider = p
+                                    showDiscardDialog = true
+                                } else {
+                                    // Every provider has its own key, model,
+                                    // and base URL. Loading them here keeps
+                                    // one provider's credential and endpoint
+                                    // from leaking into another.
+                                    loadProvider(p)
+                                }
+                            }
                         }) { Text(p.displayName) }
                     }
                 }
@@ -434,7 +606,9 @@ fun AiSettingsScreen(graph: AppGraph, navController: NavController) {
                 TextButton(onClick = {
                     store.clearApiKey(provider)
                     apiKey = ""
+                    savedApiKey = ""
                     keyState = store.apiKeyState(provider)
+                    keyError = null
                     status = null
                     formatStatus = null
                     showClearKeyDialog = false
@@ -540,4 +714,3 @@ private fun llmClientFor(
     AiProvider.ANTHROPIC -> graph.llmClientFactory.createAnthropicClient(baseUrl, model, apiKey)
     AiProvider.GEMINI -> graph.llmClientFactory.createGeminiClient(baseUrl, model, apiKey)
 }
-

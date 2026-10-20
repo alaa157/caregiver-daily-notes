@@ -36,6 +36,7 @@ import androidx.compose.material.icons.outlined.History
 import androidx.compose.material.icons.outlined.Home
 import androidx.compose.material.icons.outlined.NoteAdd
 import androidx.compose.material.icons.outlined.People
+import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.FloatingActionButton
 import androidx.compose.material3.Icon
@@ -43,6 +44,7 @@ import androidx.compose.material3.Scaffold
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
+import androidx.compose.material3.TextButton
 import androidx.compose.material3.TopAppBarDefaults
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
@@ -71,6 +73,7 @@ import com.caregiver.mobile.core.navigation.AppDestinations
 import com.caregiver.mobile.core.navigation.AppRoutes
 import com.caregiver.mobile.core.navigation.MainTab
 import com.caregiver.mobile.core.navigation.ScrollToTop
+import com.caregiver.mobile.core.navigation.hasUnsavedChanges
 import com.caregiver.mobile.core.network.networkAvailabilityFlow
 import com.caregiver.mobile.core.theme.CaregiverColors
 import com.caregiver.mobile.data.OutboxSyncWorker
@@ -200,18 +203,29 @@ fun MainScaffold(graph: AppGraph) {
     // person goes straight to the editor instead.
     var showRecipientPicker by rememberSaveable { mutableStateOf(false) }
 
+    // A tab tap can leave a detail form. Wait for confirmation instead of
+    // letting the pop discard edits the screen has marked as unsaved.
+    var pendingTabRoute by remember { mutableStateOf<String?>(null) }
+
     // Single tab-navigation path: every tab tap lands on that tab's root.
     // If the tab is already in the back stack (for example People while a
     // recipient detail is open), pop its children so the existing root entry
     // — and its scroll position — is reused. Otherwise pop back to Home
     // before pushing the tab. restoreState is deliberately off: restoring a
     // saved child stack would reopen a detail screen instead of the tab.
-    val navigateToTab: (String) -> Unit = { route ->
+    val navigateToTabNow: (String) -> Unit = { route ->
         if (!navController.popBackStack(route, inclusive = false)) {
             navController.navigate(route) {
                 popUpTo(navController.graph.findStartDestination().id)
                 launchSingleTop = true
             }
+        }
+    }
+    val navigateToTab: (String) -> Unit = { route ->
+        if (backStack?.hasUnsavedChanges() == true) {
+            pendingTabRoute = route
+        } else {
+            navigateToTabNow(route)
         }
     }
 
@@ -494,6 +508,27 @@ fun MainScaffold(graph: AppGraph) {
                 }
             }
         }
+
+    pendingTabRoute?.let { route ->
+        AlertDialog(
+            onDismissRequest = { pendingTabRoute = null },
+            title = { Text(stringResource(R.string.unsaved_changes_title)) },
+            text = { Text(stringResource(R.string.unsaved_changes_message)) },
+            confirmButton = {
+                TextButton(onClick = {
+                    pendingTabRoute = null
+                    navigateToTabNow(route)
+                }) {
+                    Text(stringResource(R.string.unsaved_changes_discard))
+                }
+            },
+            dismissButton = {
+                TextButton(onClick = { pendingTabRoute = null }) {
+                    Text(stringResource(R.string.unsaved_changes_keep_editing))
+                }
+            },
+        )
+    }
 
     // Account pop-up (replaces the old left drawer).
     if (showAccountMenu) {

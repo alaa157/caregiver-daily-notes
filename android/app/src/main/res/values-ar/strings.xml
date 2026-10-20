@@ -256,6 +256,10 @@
     <string name="ai_consent_body">يتم إرسال ملاحظات الرعاية إلى مزود الذكاء الاصطناعي المختار. هذا التطبيق ليس جهازاً طبياً ولا يتوافق مع HIPAA.</string>
     <string name="ai_consent_accept">أتفهم</string>
     <string name="common_cancel">إلغاء</string>
+    <string name="unsaved_changes_title">تجاهل التغييرات غير المحفوظة؟</string>
+    <string name="unsaved_changes_message">لم يتم حفظ تغييراتك. هل تريد تجاهلها؟</string>
+    <string name="unsaved_changes_discard">تجاهل</string>
+    <string name="unsaved_changes_keep_editing">متابعة التحرير</string>
     <string name="settings_ai_provider">المزود</string>
     <string name="settings_ai_api_key">مفتاح API</string>
     <string name="settings_ai_set_api_key">تعيين مفتاح API</string>
@@ -269,6 +273,7 @@
     <string name="settings_ai_setup_step3">3. أنشئ مفتاح API وانسخه.</string>
     <string name="settings_ai_setup_step4">4. عد إلى هنا، الصق المفتاح، واختبر الاتصال.</string>
     <string name="settings_ai_open_website">فتح الموقع الرسمي</string>
+    <string name="settings_ai_browser_unavailable">لا يوجد تطبيق متصفح متاح لفتح هذا الرابط.</string>
     <string name="settings_ai_cost_note">قد يترتب على استخدام API تكاليف. تعتمد التكلفة على النموذج والاستخدام.</string>
     <string name="settings_ai_model">النموذج</string>
     <string name="settings_ai_custom_model">نموذج مخصص</string>
@@ -276,6 +281,10 @@
     <string name="settings_ai_base_url">عنوان URL الأساسي</string>
     <string name="settings_ai_system_prompt">موجه النظام</string>
     <string name="settings_ai_save">حفظ</string>
+    <string name="settings_ai_unsaved_title">تجاهل التغييرات غير المحفوظة؟</string>
+    <string name="settings_ai_unsaved_message">لم تُحفظ تغييراتك في %1$s. هل تريد تجاهلها؟</string>
+    <string name="settings_ai_discard">تجاهل</string>
+    <string name="settings_ai_keep_editing">متابعة التحرير</string>
     <string name="settings_ai_close">إغلاق</string>
     <string name="settings_ai_reset_default">إعادة تعيين إلى الافتراضي</string>
     <string name="settings_ai_test_connection">اختبار الاتصال</string>
@@ -312,6 +321,10 @@
     <string name="about_update_view_release">عرض صفحة الإصدار</string>
     <string name="about_footer">صُنع بعناية لمقدمي الرعاية.</string>
     <string name="settings_ai_revoke_consent">إلغاء الموافقة</string>
+    <string name="settings_ai_revoke_consent_confirm">إلغاء</string>
+    <string name="settings_ai_revoke_consent_title">إلغاء موافقة الذكاء الاصطناعي؟</string>
+    <string name="settings_ai_revoke_consent_message">ستتوقف الملخصات والخطط والترجمة بالذكاء الاصطناعي حتى توافق مرة أخرى. ستبقى ملاحظاتك على هذا الجهاز.</string>
+    <string name="settings_ai_consent_revoked">تم إلغاء موافقة الذكاء الاصطناعي. ستطلب ميزات الذكاء الاصطناعي الموافقة مرة أخرى.</string>
     <string name="settings_ai_clear_key">مسح مفتاح API</string>
     <string name="settings_ai_clear_key_message">إزالة مفتاح API المحفوظ لـ %1$s؟ ستبقى ميزات الذكاء الاصطناعي متوقفة لهذا المزود حتى إضافة مفتاح جديد.</string>
     <string name="settings_ai_validate_format">التحقق من تنسيق الملخص</string>
