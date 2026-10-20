@@ -98,6 +98,38 @@ class SummaryAiServiceTest {
     }
 
     @Test
+    fun claimThatDropsTheQuotesNegationIsRejected() = runBlocking {
+        // The note denies the pain, so the claim cannot report it.
+        val denyingNote = note.copy(text = "Patient had no pain today")
+        val json = """{"observations":[{"text":"had pain","noteId":"n1","quote":"had no pain"}],"uncertainties":[]}"""
+        val svc = service(json)
+        val result = svc.summarize("r1", 7, listOf(denyingNote), emptyList(), LocalDate.parse("2026-10-01"))
+        assertTrue(result is SummaryAiResult.Failure)
+        assertEquals("invalid_evidence", (result as SummaryAiResult.Failure).reasonCode)
+    }
+
+    @Test
+    fun claimThatKeepsTheQuotesNegationIsKept() = runBlocking {
+        val denyingNote = note.copy(text = "Patient had no pain today")
+        val json = """{"observations":[{"text":"had no pain","noteId":"n1","quote":"had no pain"}],"uncertainties":[]}"""
+        val svc = service(json)
+        val result = svc.summarize("r1", 7, listOf(denyingNote), emptyList(), LocalDate.parse("2026-10-01"))
+        assertTrue(result is SummaryAiResult.Success)
+        assertEquals(1, (result as SummaryAiResult.Success).summary.evidence.size)
+    }
+
+    @Test
+    fun trivialQuoteIsRejected() = runBlocking {
+        // A one-letter quote sits inside any note and supports nothing.
+        val chattyNote = note.copy(text = "Patient was a bit tired today")
+        val json = """{"observations":[{"text":"had severe pain","noteId":"n1","quote":"a"}],"uncertainties":[]}"""
+        val svc = service(json)
+        val result = svc.summarize("r1", 7, listOf(chattyNote), emptyList(), LocalDate.parse("2026-10-01"))
+        assertTrue(result is SummaryAiResult.Failure)
+        assertEquals("invalid_evidence", (result as SummaryAiResult.Failure).reasonCode)
+    }
+
+    @Test
     fun malformedJsonReturnsFailure() = runBlocking {
         val svc = service("not json")
         val result = svc.summarize("r1", 7, listOf(note), emptyList(), LocalDate.parse("2026-10-01"))

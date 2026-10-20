@@ -119,7 +119,7 @@ class SummaryAiService(
                 hadInvalid = true
                 continue
             }
-            if (!claimSupportedByQuote(claim, rawQuote)) {
+            if (!ClaimGrounding.isSupported(claim, rawQuote)) {
                 hadInvalid = true
                 continue
             }
@@ -155,39 +155,6 @@ class SummaryAiService(
             ),
             status = replyStatus,
         )
-    }
-    /**
-     * Conservative lexical support check. It does not attempt to prove that a
-     * claim is true; it only rejects claims that introduce terms (or
-     * negations) not present in the cited quote. Claims that pass are still
-     * labelled as unverified by the caller.
-     */
-    private fun claimSupportedByQuote(claim: String, quote: String): Boolean {
-        val nClaim = ArabicNormalizer.normalize(claim)
-        val nQuote = ArabicNormalizer.normalize(quote)
-        if (nClaim.isEmpty() || nQuote.isEmpty()) return false
-        if (nQuote.contains(nClaim)) return true
-
-        val stopwords = setOf(
-            "a", "an", "the", "and", "or", "but", "if", "to", "of", "in", "on",
-            "at", "for", "with", "by", "as", "is", "are", "was", "were", "be",
-            "been", "has", "have", "had", "it", "its", "this", "that", "these",
-            "those", "patient", "today",
-            "في", "من", "على", "الى", "إلى", "عن", "مع", "و", "ف", "ب", "ل",
-            "هذا", "هذه", "هو", "هي", "كان", "قد", "أن", "إن",
-        )
-        val claimTokens = nClaim.split(Regex("\\s+")).filter { it.isNotBlank() && it !in stopwords }
-        if (claimTokens.isEmpty()) return true
-        val quoteTokens = nQuote.split(Regex("\\s+")).filter { it.isNotBlank() }
-        val negations = setOf("not", "no", "never", "without", "didn't", "doesnt", "don't", "cannot", "cant",
-            "لم", "لا", "لن", "ما", "بلا", "بدون")
-        for (token in claimTokens) {
-            if (token in negations && token !in quoteTokens) return false
-        }
-        val supported = claimTokens.count { ct ->
-            quoteTokens.any { qt -> qt.contains(ct) || ct.contains(qt) }
-        }
-        return supported * 100 >= claimTokens.size * 80
     }
 
     companion object {
