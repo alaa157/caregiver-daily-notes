@@ -2,6 +2,16 @@ package com.caregiver.mobile.ai
 
 import kotlinx.serialization.Serializable
 
+/**
+ * The largest model reply the app will read.
+ *
+ * Both payloads are far below this in practice — a summary is a handful of
+ * observations, a plan a few dozen lines — so the cap guards against a
+ * rambling reply rather than limiting real content. The same number for
+ * both services keeps the behaviour identical whichever one is asked.
+ */
+const val MAX_REPLY_CHARS = 50_000
+
 enum class AiProvider(
     val displayName: String,
     val defaultBaseUrl: String,

@@ -2,7 +2,6 @@ package com.caregiver.mobile.ai
 
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
-import kotlinx.serialization.Serializable
 import kotlinx.serialization.json.Json
 import kotlinx.serialization.json.JsonObject
 import kotlinx.serialization.json.buildJsonObject
@@ -12,20 +11,19 @@ import kotlinx.serialization.json.jsonObject
 import kotlinx.serialization.json.jsonPrimitive
 import kotlinx.serialization.json.put
 import kotlinx.serialization.json.putJsonArray
+import com.caregiver.mobile.core.network.OkHttpConfig
 import okhttp3.HttpUrl.Companion.toHttpUrlOrNull
 import okhttp3.MediaType.Companion.toMediaType
 import okhttp3.OkHttpClient
 import okhttp3.Request
+import okhttp3.RequestBody
 import okhttp3.RequestBody.Companion.toRequestBody
-
-@Serializable
-private data class ChatMessage(val role: String, val content: String)
 
 class OpenAiCompatibleLlmClient(
     private val baseUrl: String,
     private val model: String,
     private val apiKey: String,
-    private val okHttpClient: OkHttpClient = com.caregiver.mobile.core.network.OkHttpConfig.defaultOkHttpClient(),
+    private val okHttpClient: OkHttpClient = OkHttpConfig.defaultOkHttpClient(),
     private val json: Json = Json { ignoreUnknownKeys = true },
     private val maxTokens: Int = 1024,
 ) : LlmClient {
@@ -113,6 +111,20 @@ class OpenAiCompatibleLlmClient(
         } catch (e: Exception) {
             return LlmResult(LlmStatus.FALLBACK, "", "invalid_request", null)
         }
+        val cancellation = CallCancellation()
+        cancellation.install()
+        try {
+            return attempt(url, reqBody, cancellation)
+        } finally {
+            cancellation.close()
+        }
+    }
+
+    private suspend fun attempt(
+        url: String,
+        reqBody: RequestBody,
+        cancellation: CallCancellation,
+    ): LlmResult {
         var last: LlmResult = LlmResult(LlmStatus.FALLBACK, "", "network", null)
         repeat(3) { attempt ->
             try {
@@ -123,8 +135,7 @@ class OpenAiCompatibleLlmClient(
                     .post(reqBody)
                     .build()
                 val call = okHttpClient.newCall(httpReq)
-                kotlinx.coroutines.currentCoroutineContext()[kotlinx.coroutines.Job]
-                    ?.invokeOnCompletion { cause -> if (cause is kotlinx.coroutines.CancellationException) call.cancel() }
+                cancellation.track(call)
                 call.execute().use { resp ->
                     val raw = resp.body?.string().orEmpty()
                     if (!resp.isSuccessful) {

@@ -40,6 +40,10 @@ import androidx.compose.ui.unit.sp
 import androidx.navigation.NavController
 import com.caregiver.mobile.AppGraph
 import com.caregiver.mobile.R
+import com.caregiver.mobile.ai.AiConsentDialog
+import com.caregiver.mobile.ai.AiKeyStore
+import com.caregiver.mobile.ai.ApiKeyState
+import com.caregiver.mobile.ai.SummaryWindow
 import com.caregiver.mobile.core.i18n.Bidi
 import com.caregiver.mobile.core.navigation.AppDestinations
 import com.caregiver.mobile.core.navigation.AppRoutes
@@ -140,8 +144,8 @@ fun SummaryResultScreen(
     graph: AppGraph,
     navController: NavController,
 ) {
-    val keyState = com.caregiver.mobile.ai.AiKeyStore(graph.context).apiKeyState()
-    if (keyState !is com.caregiver.mobile.ai.ApiKeyState.Readable) {
+    val keyState = AiKeyStore(graph.context).apiKeyState()
+    if (keyState !is ApiKeyState.Readable) {
         Column(
             modifier = Modifier.fillMaxSize().padding(horizontal = AppDimens.ScreenHPadding),
             verticalArrangement = Arrangement.spacedBy(AppDimens.SectionGap),
@@ -153,7 +157,7 @@ fun SummaryResultScreen(
             // A key that was invalidated is not the same as no key at all:
             // the caregiver has to enter the one they already have again.
             Text(
-                if (keyState is com.caregiver.mobile.ai.ApiKeyState.Invalidated) {
+                if (keyState is ApiKeyState.Invalidated) {
                     stringResource(R.string.summary_ai_key_invalidated)
                 } else {
                     stringResource(R.string.summary_setup_ai)
@@ -183,7 +187,7 @@ fun SummaryResultScreen(
         }
     val language = effectiveLocale.language
     val vm: SummaryViewModel = assistedViewModel("summary-$recipientId") {
-        SummaryViewModel(recipientId, graph.apis, graph.auth, null, periodDays, com.caregiver.mobile.ai.AiKeyStore(graph.context), graph.llmClientFactory, language = language)
+        SummaryViewModel(recipientId, graph.apis, graph.auth, null, periodDays, AiKeyStore(graph.context), graph.llmClientFactory, language = language)
     }
     val state by vm.state.collectAsState()
     val activePeriodDays by vm.period.collectAsState()
@@ -202,9 +206,9 @@ fun SummaryResultScreen(
     var exportError by remember { mutableStateOf<String?>(null) }
     val showConsent = androidx.compose.runtime.remember { androidx.compose.runtime.mutableStateOf(false) }
     if (showConsent.value) {
-        com.caregiver.mobile.ai.AiConsentDialog(
+        AiConsentDialog(
             onAccept = {
-                com.caregiver.mobile.ai.AiKeyStore(graph.context).setConsentGiven()
+                AiKeyStore(graph.context).setConsentGiven()
                 showConsent.value = false
                 vm.suggestPlan()
             },
@@ -249,7 +253,7 @@ fun SummaryResultScreen(
                 )
             }
             is SummaryState.NeedsConsent -> {
-                com.caregiver.mobile.ai.AiConsentDialog(
+                AiConsentDialog(
                     onAccept = { vm.grantConsent() },
                     onDismiss = { navController.popBackStack() },
                 )
@@ -257,7 +261,7 @@ fun SummaryResultScreen(
             is SummaryState.Content -> SummaryBody(
                 graph, s.summary, activePeriodDays, graph.isDemo, navController, s.aiGenerated,
                 onSuggestPlan = {
-                    val store = com.caregiver.mobile.ai.AiKeyStore(graph.context)
+                    val store = AiKeyStore(graph.context)
                     if (!store.consentGiven()) {
                         showConsent.value = true
                     } else {
@@ -420,7 +424,7 @@ private fun SummaryBody(
                 exportScope.launch {
                     try {
                         val today = java.time.LocalDate.now()
-                        val from = com.caregiver.mobile.ai.SummaryWindow.start(today, periodDays).toString()
+                        val from = SummaryWindow.start(today, periodDays).toString()
                         val to = today.toString()
                         val notes = try { graph.apis.notes().history(summary.recipientId, from, to) } catch (e: Exception) { emptyList() }
                         val recipientName = try { graph.apis.recipients().get(summary.recipientId).name } catch (e: Exception) { null }
@@ -535,7 +539,7 @@ private fun SummaryBody(
                                 exportScope.launch {
                                     try {
                                         val today = java.time.LocalDate.now()
-                                        val from = com.caregiver.mobile.ai.SummaryWindow.start(today, periodDays).toString()
+                                        val from = SummaryWindow.start(today, periodDays).toString()
                                         val to = today.toString()
                                         val notes = try { graph.apis.notes().history(summary.recipientId, from, to) } catch (e: Exception) { emptyList() }
                                         val recipientName = try { graph.apis.recipients().get(summary.recipientId).name } catch (e: Exception) { null }

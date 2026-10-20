@@ -228,4 +228,57 @@ class PlanSuggestionServiceTest {
         val survivor = (result as PlanSuggestionResult.Success).suggestion.changes.single()
         assertEquals("راجع قياسات الضغط الأسبوعية", survivor.reason)
     }
+
+    @Test
+    fun aFollowUpCarriesItsDate() = runBlocking {
+        val client = client(
+            """{"changes":[{"actionId":"schedule_followup","params":{"date":"2026-10-25"},"reason":"review next week","evidenceNoteIds":[]}],"proposedMedications":[]}""",
+        )
+        val result = PlanSuggestionService(client).suggest("summary")
+        assertTrue(result is PlanSuggestionResult.Success)
+        val change = (result as PlanSuggestionResult.Success).suggestion.changes.single()
+        assertEquals("2026-10-25", change.params["date"])
+    }
+
+    @Test
+    fun aFollowUpWithoutAUsableDateIsDropped() = runBlocking {
+        val withoutDate = """{"changes":[{"actionId":"schedule_followup","params":{},"reason":"review next week","evidenceNoteIds":[]}],"proposedMedications":[]}"""
+        val withBadDate = """{"changes":[{"actionId":"schedule_followup","params":{"date":"next tuesday"},"reason":"review next week","evidenceNoteIds":[]}],"proposedMedications":[]}"""
+        for (json in listOf(withoutDate, withBadDate)) {
+            val result = PlanSuggestionService(client(json)).suggest("summary")
+            assertTrue(result is PlanSuggestionResult.Failure)
+            assertEquals("empty_after_filter", (result as PlanSuggestionResult.Failure).reasonCode)
+        }
+    }
+
+    @Test
+    fun repeatedChangesAreStoredOnce() = runBlocking {
+        val json = """{"changes":[{"actionId":"monitor","params":{},"reason":"watch her appetite","evidenceNoteIds":[]},{"actionId":"monitor","params":{},"reason":"watch her appetite","evidenceNoteIds":[]}],"proposedMedications":[]}"""
+        val result = PlanSuggestionService(client(json)).suggest("summary")
+        assertTrue(result is PlanSuggestionResult.Success)
+        assertEquals(1, (result as PlanSuggestionResult.Success).suggestion.changes.size)
+    }
+
+    @Test
+    fun differentReasonsForTheSameActionAreBothKept() = runBlocking {
+        val json = """{"changes":[{"actionId":"monitor","params":{},"reason":"watch her appetite","evidenceNoteIds":[]},{"actionId":"monitor","params":{},"reason":"watch her sleep","evidenceNoteIds":[]}],"proposedMedications":[]}"""
+        val result = PlanSuggestionService(client(json)).suggest("summary")
+        assertTrue(result is PlanSuggestionResult.Success)
+        assertEquals(2, (result as PlanSuggestionResult.Success).suggestion.changes.size)
+    }
+
+    @Test
+    fun unknownKeysAreTolerated() = runBlocking {
+        // The gate on a change is the catalog, not the json shape: an extra
+        // field must not throw the whole suggestion away.
+        val json = """{"changes":[{"actionId":"monitor","params":{},"reason":"watch her appetite","evidenceNoteIds":[],"confidence":0.9}],"proposedMedications":[],"meta":{"x":1}}"""
+        val result = PlanSuggestionService(client(json)).suggest("summary")
+        assertTrue(result is PlanSuggestionResult.Success)
+        assertEquals(1, (result as PlanSuggestionResult.Success).suggestion.changes.size)
+    }
+
+    private fun client(response: String): LlmClient = object : LlmClient {
+        override suspend fun complete(request: LlmRequest): LlmResult =
+            LlmResult(LlmStatus.OK, response)
+    }
 }

@@ -16,6 +16,10 @@ import androidx.sqlite.db.SupportSQLiteDatabase
  * baseline to diff against: 1.json is the Task 8a cache-only shape, 2.json
  * adds the outbox, 3.json the plans, 4.json the addenda and 5.json the
  * standalone medication tracker.
+ *
+ * File-backed database for production graphs. Demo graphs never call this:
+ * demo data must not reach disk (Task 8a rule), so `AppGraph` only creates
+ * the database when the real backend is in use.
  */
 @Database(
     entities = [
@@ -72,10 +76,8 @@ abstract class AppDatabase : RoomDatabase() {
         }
 
         /**
-         * File-backed database for production graphs. Demo graphs never
-         * call this: demo data must not reach disk (Task 8a rule), so
-         * `AppGraph` only creates the database when the real backend is in
-         * use.
+         * Adds the plans table: one plan per id, its version chain as JSON,
+         * and the last-write timestamp.
          */
         val MIGRATION_2_3: Migration = object : Migration(2, 3) {
             override fun migrate(db: SupportSQLiteDatabase) {

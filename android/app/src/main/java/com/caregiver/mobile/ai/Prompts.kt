@@ -75,4 +75,5 @@ object Prompts {
             "NEVER diagnose or prescribe. Return ONLY valid JSON: " +
             "{\"changes\":[{\"actionId\":string,\"params\":object,\"reason\":string,\"evidenceNoteIds\":[string]}], " +
             "\"proposedMedications\":[]}."
-    }}
+    }
+}

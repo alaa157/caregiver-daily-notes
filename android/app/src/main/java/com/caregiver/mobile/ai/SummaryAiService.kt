@@ -181,8 +181,5 @@ class SummaryAiService(
          * is the enforcement point when it ignores that instruction.
          */
         const val MAX_OBSERVATIONS = 6
-
-        /** Upper bound on the size of a model reply that is still parsed. */
-        const val MAX_REPLY_CHARS = 50000
     }
 }

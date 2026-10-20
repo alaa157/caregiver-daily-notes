@@ -2,6 +2,14 @@ package com.caregiver.mobile.presentation.summary
 
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
+import com.caregiver.mobile.ai.AiKeyStore
+import com.caregiver.mobile.ai.AiProvider
+import com.caregiver.mobile.ai.LlmClientFactory
+import com.caregiver.mobile.ai.PlanSuggestionResult
+import com.caregiver.mobile.ai.PlanSuggestionService
+import com.caregiver.mobile.ai.SafetySignalEvaluator
+import com.caregiver.mobile.ai.SummaryAiResult
+import com.caregiver.mobile.ai.SummaryAiService
 import com.caregiver.mobile.ai.SummaryWindow
 import com.caregiver.mobile.data.AuthRepository
 import com.caregiver.mobile.data.LoggedOutException
@@ -45,8 +53,8 @@ class SummaryViewModel(
     private val repository: AuthRepository,
     scope: CoroutineScope? = null,
     initialPeriod: Int = DEFAULT_PERIOD_DAYS,
-    private val aiKeyStore: com.caregiver.mobile.ai.AiKeyStore? = null,
-    private val llmClientFactory: com.caregiver.mobile.ai.LlmClientFactory = com.caregiver.mobile.ai.LlmClientFactory(),
+    private val aiKeyStore: AiKeyStore? = null,
+    private val llmClientFactory: LlmClientFactory = LlmClientFactory(),
     /** UI language for AI-generated summary text ("ar"/"en"); defaults to English. */
     private val language: String = "en",
 ) : ViewModel() {
@@ -102,21 +110,21 @@ class SummaryViewModel(
                 return
             }
             try {
-                val provider = store.provider() ?: com.caregiver.mobile.ai.AiProvider.OPENAI
+                val provider = store.provider() ?: AiProvider.OPENAI
                 val key = store.apiKey().orEmpty()
                 val model = store.model() ?: provider.defaultModel
                 val baseUrl = store.baseUrlOrDefault(provider)
                 val client = when (provider) {
-                    com.caregiver.mobile.ai.AiProvider.OPENAI,
-                    com.caregiver.mobile.ai.AiProvider.XAI,
-                    com.caregiver.mobile.ai.AiProvider.OPEN_ROUTER ->
+                    AiProvider.OPENAI,
+                    AiProvider.XAI,
+                    AiProvider.OPEN_ROUTER ->
                         llmClientFactory.createClient(baseUrl, model, key)
-                    com.caregiver.mobile.ai.AiProvider.ANTHROPIC ->
+                    AiProvider.ANTHROPIC ->
                         llmClientFactory.createAnthropicClient(baseUrl, model, key)
-                    com.caregiver.mobile.ai.AiProvider.GEMINI ->
+                    AiProvider.GEMINI ->
                         llmClientFactory.createGeminiClient(baseUrl, model, key)
                 }
-                val service = com.caregiver.mobile.ai.SummaryAiService(client, store, language = language)
+                val service = SummaryAiService(client, store, language = language)
                 // Explicit inclusive window (Finding 3): today plus the
                 // preceding periodDays - 1 days, the same rule the backend
                 // applies. Both fetches are narrowed to it so notes and
@@ -133,17 +141,17 @@ class SummaryViewModel(
                 // the AiUnavailable state without the service's own filter.
                 val windowedSignals = signals.filter {
                     it.recipientId == recipientId &&
-                        com.caregiver.mobile.ai.SummaryWindow.contains(it.date, today, _period.value)
+                        SummaryWindow.contains(it.date, today, _period.value)
                 }
-                aiRedFlags = com.caregiver.mobile.ai.SafetySignalEvaluator.evaluate(windowedSignals)
+                aiRedFlags = SafetySignalEvaluator.evaluate(windowedSignals)
                 when (val result = service.summarize(recipientId, _period.value, notes, signals, today)) {
-                    is com.caregiver.mobile.ai.SummaryAiResult.Success -> {
+                    is SummaryAiResult.Success -> {
                         _state.value = SummaryState.Content(result.summary, aiGenerated = true)
                         _suggestedForCurrent.value = false
                         _suggestStatus.value = null
                         return
                     }
-                    is com.caregiver.mobile.ai.SummaryAiResult.Failure -> {
+                    is SummaryAiResult.Failure -> {
                         aiRedFlags = result.redFlags
                         _state.value = SummaryState.AiUnavailable(
                             SummaryDto(
@@ -234,18 +242,18 @@ class SummaryViewModel(
         _suggestStatus.value = null
         exec.launch {
             try {
-                val provider = store.provider() ?: com.caregiver.mobile.ai.AiProvider.OPENAI
+                val provider = store.provider() ?: AiProvider.OPENAI
                 val key = store.apiKey().orEmpty()
                 val model = store.model() ?: provider.defaultModel
                 val baseUrl = store.baseUrlOrDefault(provider)
                 val client = when (provider) {
-                    com.caregiver.mobile.ai.AiProvider.OPENAI,
-                    com.caregiver.mobile.ai.AiProvider.XAI,
-                    com.caregiver.mobile.ai.AiProvider.OPEN_ROUTER ->
+                    AiProvider.OPENAI,
+                    AiProvider.XAI,
+                    AiProvider.OPEN_ROUTER ->
                         llmClientFactory.createClient(baseUrl, model, key)
-                    com.caregiver.mobile.ai.AiProvider.ANTHROPIC ->
+                    AiProvider.ANTHROPIC ->
                         llmClientFactory.createAnthropicClient(baseUrl, model, key)
-                    com.caregiver.mobile.ai.AiProvider.GEMINI ->
+                    AiProvider.GEMINI ->
                         llmClientFactory.createGeminiClient(baseUrl, model, key)
                 }
                 val summaryIds = (_state.value as? SummaryState.Content)?.summary?.evidence?.map { it.noteId }?.toSet().orEmpty()
@@ -253,7 +261,7 @@ class SummaryViewModel(
                     summaryIds
                 } else {
                     val today = java.time.LocalDate.now()
-                    val from = com.caregiver.mobile.ai.SummaryWindow.start(today, _period.value).toString()
+                    val from = SummaryWindow.start(today, _period.value).toString()
                     val to = today.toString()
                     repository.authorized { apis.notes().history(recipientId, from, to) }.map { it.id }.toSet()
                 }
@@ -264,10 +272,10 @@ class SummaryViewModel(
                     _suggestStatus.value = "empty_after_filter"
                     return@launch
                 }
-                val service = com.caregiver.mobile.ai.PlanSuggestionService(client, store)
+                val service = PlanSuggestionService(client, store)
                 val result = service.suggest(summaryText)
                 when (result) {
-                    is com.caregiver.mobile.ai.PlanSuggestionResult.Success -> {
+                    is PlanSuggestionResult.Success -> {
                         val items = result.suggestion.changes.mapNotNull { change ->
                             val reason = change.reason.trim()
                             if (reason.isBlank()) return@mapNotNull null
@@ -293,7 +301,7 @@ class SummaryViewModel(
                             _suggestStatus.value = "error"
                         }
                     }
-                    is com.caregiver.mobile.ai.PlanSuggestionResult.Failure -> {
+                    is PlanSuggestionResult.Failure -> {
                         _suggestStatus.value = result.reasonCode
                     }
                 }
