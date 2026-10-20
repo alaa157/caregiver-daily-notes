@@ -91,11 +91,11 @@
     <string name="onboarding_body_1">احتفظ بملاحظات يومية عن الشخص الذي ترعاه، وسجّل الملاحظات، وراجع الإدخالات السابقة عند الحاجة.</string>
     <string name="onboarding_point_1">سجّل الملاحظات اليومية.</string>
     <string name="onboarding_title_2">اجعل الصورة أوضح.</string>
-    <string name="onboarding_body_2">مراجعة ملاحظاتك بمرور الوقت helps you remember what happened and explain your observations more clearly.</string>
+    <string name="onboarding_body_2">مراجعة ملاحظاتك بمرور الوقت قد تساعدك على تذكّر ما حدث وشرح ملاحظاتك بوضوح أكبر.</string>
     <string name="onboarding_point_2">راجع الملاحظات السابقة.</string>
     <string name="onboarding_title_3">رعاية بوضوح وتحكم.</string>
-    <string name="onboarding_body_3">ملاحظاتك help you keep track of everyday care. You decide when to use optional AI features and when to share information.</string>
-    <string name="onboarding_point_3">You can use core care-record features without AI.</string>
+    <string name="onboarding_body_3">ملاحظاتك تساعدك على متابعة الرعاية اليومية. أنت تقرر متى تستخدم ميزات الذكاء الاصطناعي الاختيارية ومتى تشارك المعلومات.</string>
+    <string name="onboarding_point_3">يمكنك استخدام ميزات تسجيل الرعاية الأساسية دون الذكاء الاصطناعي.</string>
     <string name="onboarding_skip">تخطي</string>
     <string name="onboarding_back">رجوع</string>
     <string name="onboarding_next">التالي</string>
