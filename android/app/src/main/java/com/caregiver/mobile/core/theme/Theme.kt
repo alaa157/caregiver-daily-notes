@@ -11,29 +11,54 @@ import androidx.compose.ui.unit.dp
 import com.caregiver.mobile.R
 
 /**
- * Explicit roles for everything the scaffold visibly uses. Container colors
- * come from the design palette — no Material3 purple defaults survive:
- * the FAB is solid teal (primaryContainer) and the selected tab pill is a
- * neutral surface (secondaryContainer) with teal icon/label at the call site.
+ * Explicit roles for everything the scaffold visibly uses, built fresh from
+ * the live [CaregiverColorScheme] each composition so dark mode moves every
+ * role with it. The earlier top-level schemes locked the light palette at
+ * class load (and the dark one was stock Material purple), which mismatched
+ * every raw `colorScheme` consumer — drawer, avatar pop-up, FAB, top bar —
+ * in the opposite mode. Container roles keep the light treatment in both
+ * modes: solid accent pill with white content, neutral secondary container.
  */
-internal val AppLightScheme = lightColorScheme(
-    primary = CaregiverColors.Primary,
+internal fun appLightScheme(cs: CaregiverColorScheme) = lightColorScheme(
+    primary = cs.Primary,
     onPrimary = Color.White,
-    primaryContainer = CaregiverColors.Primary,
+    primaryContainer = cs.Primary,
     onPrimaryContainer = Color.White,
-    secondaryContainer = CaregiverColors.BorderSoft,
-    onSecondaryContainer = CaregiverColors.Ink,
-    background = CaregiverColors.Background,
-    onBackground = CaregiverColors.Ink,
-    surface = CaregiverColors.Surface,
-    onSurface = CaregiverColors.Ink,
-    surfaceVariant = CaregiverColors.BorderSoft,
-    onSurfaceVariant = CaregiverColors.Muted,
-    outline = CaregiverColors.Border,
-    error = CaregiverColors.Danger,
+    secondaryContainer = cs.BorderSoft,
+    onSecondaryContainer = cs.Ink,
+    background = cs.Background,
+    onBackground = cs.Ink,
+    surface = cs.Surface,
+    onSurface = cs.Ink,
+    surfaceVariant = cs.BorderSoft,
+    onSurfaceVariant = cs.Muted,
+    outline = cs.Border,
+    error = cs.Danger,
     onError = Color.White,
-    errorContainer = CaregiverColors.DangerContainer,
-    onErrorContainer = CaregiverColors.Danger,
+    errorContainer = cs.DangerContainer,
+    onErrorContainer = cs.Danger,
+    surfaceContainer = cs.Surface,
+)
+
+internal fun appDarkScheme(cs: CaregiverColorScheme) = darkColorScheme(
+    primary = cs.Primary,
+    onPrimary = Color.White,
+    primaryContainer = cs.Primary,
+    onPrimaryContainer = Color.White,
+    secondaryContainer = cs.BorderSoft,
+    onSecondaryContainer = cs.Ink,
+    background = cs.Background,
+    onBackground = cs.Ink,
+    surface = cs.Surface,
+    onSurface = cs.Ink,
+    surfaceVariant = cs.BorderSoft,
+    onSurfaceVariant = cs.Muted,
+    outline = cs.Border,
+    error = cs.Danger,
+    onError = Color(0xFF2E1412),
+    errorContainer = cs.DangerContainer,
+    onErrorContainer = cs.Danger,
+    surfaceContainer = cs.Surface,
 )
 
 /**
@@ -46,36 +71,6 @@ internal val AppShapes = Shapes(
     medium = RoundedCornerShape(12.dp),
     large = RoundedCornerShape(14.dp),
     extraLarge = RoundedCornerShape(28.dp),
-)
-
-/**
- * App theme. The design is light-only, so dynamic color is deliberately off:
- * fidelity to the boards beats wallpaper tinting on every device.
- */
-internal val AppDarkScheme = darkColorScheme(
-    primary = Color(0xFFD0BCFF),
-    onPrimary = Color(0xFF381E72),
-    primaryContainer = Color(0xFF4F378B),
-    onPrimaryContainer = Color(0xFFEADDFF),
-    secondary = Color(0xFFCCC2DC),
-    onSecondary = Color(0xFF332D41),
-    secondaryContainer = Color(0xFF4A4458),
-    onSecondaryContainer = Color(0xFFE8DEF8),
-    tertiary = Color(0xFFEFB8C8),
-    onTertiary = Color(0xFF492532),
-    tertiaryContainer = Color(0xFF633B48),
-    onTertiaryContainer = Color(0xFFFFD8E4),
-    background = Color(0xFF1C1B1F),
-    onBackground = Color(0xFFE6E1E5),
-    surface = Color(0xFF1C1B1F),
-    onSurface = Color(0xFFE6E1E5),
-    surfaceVariant = Color(0xFF49454F),
-    onSurfaceVariant = Color(0xFFCAC4D0),
-    outline = Color(0xFF938F99),
-    error = Color(0xFFF2B8B5),
-    onError = Color(0xFF601410),
-    errorContainer = Color(0xFF8C1D18),
-    onErrorContainer = Color(0xFFF9DEDC),
 )
 
 /**
@@ -195,18 +190,23 @@ val PaletteColors = listOf(
 @Composable
 fun CaregiverTheme(darkTheme: Boolean = false, palette: Any? = null, pureBlack: Boolean = false, content: @Composable () -> Unit) {
     val p = palette?.toString()?.lowercase() ?: "teal"
+    // The scheme input is built here — not from a class-load snapshot — so
+    // the Material roles and the [CaregiverColors] tokens both follow the
+    // dark flag of THIS render.
+    val cs = caregiverScheme(darkTheme, p)
     androidx.compose.runtime.SideEffect {
         com.caregiver.mobile.core.theme.CaregiverColors.update(darkTheme, p)
     }
     val base = when (p) {
         ColorPalettes.METROLIST -> if (darkTheme) MetrolistDarkScheme else MetrolistLightScheme
-        else -> if (darkTheme) AppDarkScheme else AppLightScheme
+        else -> if (darkTheme) appDarkScheme(cs) else appLightScheme(cs)
     }
     val primary = palettePrimary(p)
+    // Same treatment in both modes: the accent stays one solid pill for the
+    // FAB/avatar/pop-up containers, and secondary/container surfaces keep
+    // their neutral caregiver colors.
     val scheme = if (p == ColorPalettes.METROLIST) {
         base
-    } else if (darkTheme) {
-        base.copy(primary = primary)
     } else {
         base.copy(primary = primary, primaryContainer = primary)
     }

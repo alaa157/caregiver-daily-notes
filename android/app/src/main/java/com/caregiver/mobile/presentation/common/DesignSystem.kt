@@ -137,7 +137,9 @@ fun AppTopBar(
                     Icon(
                         Icons.AutoMirrored.Filled.ArrowBack,
                         contentDescription = stringResource(R.string.action_back),
-                        tint = Color.White,
+                        // The paired token — a white icon on the light-blue
+                        // avatar container was invisible in light mode.
+                        tint = CaregiverColors.AvatarContent,
                         modifier = Modifier.size(22.dp),
                     )
                 }
@@ -300,7 +302,9 @@ fun SecondaryButton(
         shape = RoundedCornerShape(AppDimens.ControlRadius),
         border = BorderStroke(1.dp, CaregiverColors.Border),
         colors = ButtonDefaults.outlinedButtonColors(
-            containerColor = Color.White,
+            // Theme surface, not fixed white: on dark backgrounds a white
+            // button read as a glowing block.
+            containerColor = MaterialTheme.colorScheme.surface,
             contentColor = if (danger) CaregiverColors.Danger else CaregiverColors.Ink,
         ),
         modifier = modifier
