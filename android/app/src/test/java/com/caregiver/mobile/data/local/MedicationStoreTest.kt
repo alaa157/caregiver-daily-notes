@@ -62,7 +62,7 @@ class MedicationStoreTest {
         store.setTaken(id, d1, true)
         store.setTaken(id, d2, true)
 
-        fun takenIds(date: LocalDate) =
+        suspend fun takenIds(date: LocalDate) =
             store.observeIntakes(date.toString()).first()
                 .filter { it.times > 0 }.map { it.medicationId }
         assertEquals(listOf(id), takenIds(d1))
