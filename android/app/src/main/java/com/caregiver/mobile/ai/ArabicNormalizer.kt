@@ -18,7 +18,7 @@ object ArabicNormalizer {
 
     /** Zero-width joiners/separators, bidi marks, word joiners, BOM, soft hyphen. */
     private val INVISIBLE_AND_CONTROLS: Pattern =
-        Pattern.compile("[\\u200B-\\u200D\\u2066-\\u2069\\u202A-\\u202E\\uFEFF\\u061C\\u00AD]")
+        Pattern.compile("[\\u200B-\\u200F\\u2066-\\u2069\\u202A-\\u202E\\uFEFF\\u061C\\u00AD]")
     private val ALEF_FORMS: Pattern = Pattern.compile("[أإآٱ]")
     private val WHITESPACE: Pattern = Pattern.compile("\\s+")
 
