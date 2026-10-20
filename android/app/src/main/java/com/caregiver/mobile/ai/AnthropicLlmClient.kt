@@ -11,17 +11,20 @@ import kotlinx.serialization.json.jsonObject
 import kotlinx.serialization.json.jsonPrimitive
 import kotlinx.serialization.json.put
 import kotlinx.serialization.json.putJsonArray
+import com.caregiver.mobile.core.network.OkHttpConfig
+import com.caregiver.mobile.data.api.ApiClient
 import okhttp3.HttpUrl.Companion.toHttpUrlOrNull
 import okhttp3.MediaType.Companion.toMediaType
 import okhttp3.OkHttpClient
 import okhttp3.Request
+import okhttp3.RequestBody
 import okhttp3.RequestBody.Companion.toRequestBody
 
 class AnthropicLlmClient(
     private val baseUrl: String,
     private val model: String,
     private val apiKey: String,
-    private val okHttpClient: OkHttpClient = com.caregiver.mobile.core.network.OkHttpConfig.defaultOkHttpClient(),
+    private val okHttpClient: OkHttpClient = OkHttpConfig.defaultOkHttpClient(),
     private val json: Json = Json { ignoreUnknownKeys = true },
     private val maxTokens: Int = 1024,
 ) : LlmClient {
@@ -34,7 +37,7 @@ class AnthropicLlmClient(
             httpUrl.username.isNotEmpty() || httpUrl.password.isNotEmpty()) {
             return@withContext LlmResult(LlmStatus.FALLBACK, "", "invalid_url", null)
         }
-        if (httpUrl.scheme == "http" && !com.caregiver.mobile.data.api.ApiClient.isDevHost(httpUrl.host)) {
+        if (httpUrl.scheme == "http" && !ApiClient.isDevHost(httpUrl.host)) {
             return@withContext LlmResult(LlmStatus.FALLBACK, "", "invalid_url", null)
         }
         if (httpUrl.scheme !in listOf("http", "https")) {
@@ -63,7 +66,7 @@ class AnthropicLlmClient(
         }
         val finalHttpUrl = url.toHttpUrlOrNull()
         if (finalHttpUrl == null || finalHttpUrl.host.isEmpty() ||
-            (finalHttpUrl.scheme == "http" && !com.caregiver.mobile.data.api.ApiClient.isDevHost(finalHttpUrl.host)) ||
+            (finalHttpUrl.scheme == "http" && !ApiClient.isDevHost(finalHttpUrl.host)) ||
             finalHttpUrl.scheme !in listOf("http", "https")) {
             return@withContext LlmResult(LlmStatus.FALLBACK, "", "invalid_url", null)
         }
@@ -90,18 +93,32 @@ class AnthropicLlmClient(
         } catch (e: Exception) {
             return@withContext LlmResult(LlmStatus.FALLBACK, "", "invalid_request", null)
         }
+        val cancellation = CallCancellation()
+        cancellation.install()
+        try {
+            return@withContext attempt(safeUrl, reqBody, cancellation)
+        } finally {
+            cancellation.close()
+        }
+    }
+
+    private suspend fun attempt(
+        url: String,
+        reqBody: RequestBody,
+        cancellation: CallCancellation,
+    ): LlmResult {
         var last: LlmResult = LlmResult(LlmStatus.FALLBACK, "", "network", null)
         repeat(3) { attempt ->
             try {
                 val httpReq = Request.Builder()
-                    .url(safeUrl)
+                    .url(url)
                     .addHeader("Content-Type", "application/json")
                     .addHeader("x-api-key", apiKey)
                     .addHeader("anthropic-version", "2023-06-01")
                     .post(reqBody)
                     .build()
                 val call = okHttpClient.newCall(httpReq)
-                coroutineContext[kotlinx.coroutines.Job]?.invokeOnCompletion { cause -> if (cause is kotlinx.coroutines.CancellationException) call.cancel() }
+                cancellation.track(call)
                 call.execute().use { resp ->
                     val raw = resp.body?.string().orEmpty()
                     if (!resp.isSuccessful) {
@@ -109,7 +126,7 @@ class AnthropicLlmClient(
                         val err = when (code) { 401, 403 -> "invalid_key"; 429 -> "rate_limit"; else -> "http_$code" }
                         last = LlmResult(LlmStatus.FALLBACK, "", err, code)
                         if (code == 401 || code == 403) {
-                            return@withContext last
+                            return last
                         }
                         // 429 surfaces immediately: auto-retrying quota errors
                         // inside a user-triggered request stalls the UI in
@@ -119,7 +136,7 @@ class AnthropicLlmClient(
                             if (attempt < 2) kotlinx.coroutines.delay(calculateBackoff(attempt))
                             return@use
                         }
-                        return@withContext last
+                        return last
                     }
                     val root = try { json.parseToJsonElement(raw).jsonObject } catch (e: Exception) { null }
                     val content = root?.get("content")?.jsonArray?.firstOrNull()
@@ -135,7 +152,7 @@ class AnthropicLlmClient(
                         if (attempt < 2) kotlinx.coroutines.delay(calculateBackoff(attempt))
                         return@use
                     }
-                    return@withContext LlmResult(LlmStatus.OK, content)
+                    return LlmResult(LlmStatus.OK, content)
                 }
             } catch (e: kotlinx.coroutines.CancellationException) {
                 throw e
@@ -144,7 +161,7 @@ class AnthropicLlmClient(
                 if (attempt < 2) kotlinx.coroutines.delay(calculateBackoff(attempt))
             }
         }
-        return@withContext last
+        return last
     }
 
     fun calculateBackoff(attempt: Int, baseMs: Long = BACKOFF_BASE_MS): Long {

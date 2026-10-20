@@ -1,0 +1,12 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!--
+    Legacy backup rules for Android 11 and below. The Android 12+ file
+    (data_extraction_rules.xml) uses a different schema, so
+    android:fullBackupContent must point here, not there.
+
+    The AI settings hold the provider's API key: it must never travel to a
+    backup or a device transfer.
+-->
+<full-backup-content>
+    <exclude domain="sharedpref" path="ai_settings.xml" />
+</full-backup-content>

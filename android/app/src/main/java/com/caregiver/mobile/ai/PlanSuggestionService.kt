@@ -44,7 +44,12 @@ class PlanSuggestionService(
     private val keyStore: AiKeyStore? = null,
     private val allowedActions: Set<String> = DEFAULT_ALLOWED_ACTIONS,
 ) {
-    private val json = Json { ignoreUnknownKeys = false }
+    /**
+     * Unknown keys are tolerated, like in the summary payload: the gate on
+     * a plan change is the per-change validation below (catalog action,
+     * exact params, reason, no medications), not the json shape.
+     */
+    private val json = Json { ignoreUnknownKeys = true }
 
     suspend fun suggest(summaryText: String): PlanSuggestionResult {
         if (summaryText.isBlank()) {
@@ -64,7 +69,7 @@ class PlanSuggestionService(
         // prose; the shared reader strips whatever wrapper is left and spends
         // one repair retry when the payload still does not parse.
         val request = LlmRequest(prompt, dataBlock, jsonMode = true)
-        val reply = LlmJson.decode(client, request, MAX_OUTPUT_CHARS) { text ->
+        val reply = LlmJson.decode(client, request, MAX_REPLY_CHARS) { text ->
             runCatching { json.decodeFromString(PlanSuggestionPayload.serializer(), text) }.getOrNull()
         }
         val payload: PlanSuggestionPayload
@@ -87,6 +92,7 @@ class PlanSuggestionService(
         // dropped while valid ones are kept.
         // Validate each change independently; drop invalid ones, keep valid.
         val accepted = mutableListOf<PlanChange>()
+        val seen = mutableSetOf<String>()
         for (change in payload.changes) {
             if (accepted.size >= MAX_CHANGES) break
             if (change.actionId.isBlank() || change.actionId !in allowedActions) continue
@@ -103,6 +109,10 @@ class PlanSuggestionService(
             val allowedParams = ALLOWED_PARAMS[change.actionId] ?: continue
             if (change.params.keys != allowedParams) continue
             if (change.params.any { it.value.isBlank() || it.value.length > MAX_PARAM_VALUE_LENGTH }) continue
+            if (!paramsAreWellFormed(change)) continue
+            // A model that repeats the same change must not turn it into
+            // three plan items.
+            if (!seen.add(changeKey(change))) continue
             accepted.add(change)
         }
         if (accepted.isEmpty()) return PlanSuggestionResult.Failure("empty_after_filter")
@@ -118,20 +128,56 @@ class PlanSuggestionService(
             "schedule_followup",
         )
 
-        // Strict per-action parameter allowlists. Empty means the action takes
-        // no parameters; any unexpected key is rejected.
+        /**
+         * Strict per-action parameter allowlists: the action's parameters
+         * must match exactly, and any unexpected key is rejected.
+         *
+         * A follow-up without a date is not a follow-up, so
+         * [SCHEDULE_FOLLOWUP] carries the day it refers to. The other actions
+         * describe a routine, a watch item or a review, and their detail
+         * belongs in the reason, not in a parameter the plan cannot use.
+         */
         val ALLOWED_PARAMS: Map<String, Set<String>> = mapOf(
             "monitor" to emptySet(),
             "adjust_routine" to emptySet(),
             "review_with_clinician" to emptySet(),
             "add_safety_measure" to emptySet(),
-            "schedule_followup" to emptySet(),
+            SCHEDULE_FOLLOWUP to setOf(DATE_PARAM),
         )
+
+        /** A follow-up action; it carries the day the follow-up is for. */
+        const val SCHEDULE_FOLLOWUP = "schedule_followup"
+
+        /** The parameter that holds the follow-up date (ISO, yyyy-mm-dd). */
+        const val DATE_PARAM = "date"
 
         const val MAX_CHANGES = 20
         const val MAX_REASON_LENGTH = 500
         const val MAX_PARAM_VALUE_LENGTH = 200
-        const val MAX_OUTPUT_CHARS = 100_000
+
+        /**
+         * True when the change's parameters carry what the action needs: a
+         * follow-up needs a real date, every other action has no parameters
+         * to check.
+         */
+        internal fun paramsAreWellFormed(change: PlanChange): Boolean {
+            if (change.actionId != SCHEDULE_FOLLOWUP) return true
+            val date = change.params[DATE_PARAM] ?: return false
+            return runCatching { java.time.LocalDate.parse(date) }.isSuccess
+        }
+
+        /**
+         * The identity of a change, so the same suggestion repeated by the
+         * model is stored once.
+         */
+        internal fun changeKey(change: PlanChange): String = buildString {
+            append(change.actionId.lowercase())
+            append('|')
+            change.params.entries.sortedBy { it.key }.forEach { (key, value) ->
+                append(key.lowercase()).append('=').append(value.trim().lowercase()).append(';')
+            }
+            append('|').append(change.reason.trim().lowercase())
+        }
 
         // Free text can carry what the structured fields cannot: after the
         // params allowlists, the reason is the only unvalidated channel, so
