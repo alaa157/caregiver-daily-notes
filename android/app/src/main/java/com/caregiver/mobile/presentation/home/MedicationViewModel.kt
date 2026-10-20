@@ -56,6 +56,7 @@ import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.flow.flatMapLatest
+import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.flow.flow
 import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.launch
@@ -166,7 +167,7 @@ class MedicationViewModel(
 
     /** Marks one dose of a medication; each dose of the day is its own mark. */
     fun setTaken(id: String, doseIndex: Int, taken: Boolean) =
-        viewModelScope.launch { store.setTaken(id, todayFlow.value, doseIndex, taken) }
+        viewModelScope.launch { store.setTaken(id, todayFlow.first(), doseIndex, taken) }
 }
 
 /**
