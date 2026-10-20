@@ -12,16 +12,35 @@ import kotlinx.serialization.Serializable
  */
 const val MAX_REPLY_CHARS = 50_000
 
+/**
+ * What a provider offers to someone who does not want to pay yet.
+ */
+enum class AiFreeTier {
+    /** The provider serves these models for free. */
+    FREE_MODELS,
+
+    /** A new API account gets credits to try the paid models with. */
+    TRIAL_CREDITS,
+}
+
 enum class AiProvider(
     val displayName: String,
     val defaultBaseUrl: String,
+    /**
+     * The model the app falls back to. Kept in step with
+     * [AiModelCatalog]: the ids the providers still serve in 2026 (the old
+     * defaults — gpt-4o-mini, gemini-2.0-flash, grok-3 — are retired or
+     * deprecated).
+     */
     val defaultModel: String,
+    /** What this provider offers for free, if anything. */
+    val freeTier: AiFreeTier? = null,
 ) {
-    OPENAI("OpenAI", "https://api.openai.com/v1", "gpt-4o-mini"),
-    ANTHROPIC("Anthropic", "https://api.anthropic.com", "claude-3-5-sonnet-20241022"),
-    GEMINI("Gemini", "https://generativelanguage.googleapis.com", "gemini-2.0-flash"),
-    XAI("xAI", "https://api.x.ai/v1", "grok-3"),
-    OPEN_ROUTER("OpenRouter", "https://openrouter.ai/api/v1", "openai/gpt-4o-mini"),
+    OPENAI("OpenAI", "https://api.openai.com/v1", "gpt-6-luna", AiFreeTier.TRIAL_CREDITS),
+    ANTHROPIC("Anthropic", "https://api.anthropic.com", "claude-sonnet-5-5"),
+    GEMINI("Gemini", "https://generativelanguage.googleapis.com", "gemini-3.8-flash", AiFreeTier.FREE_MODELS),
+    XAI("xAI", "https://api.x.ai/v1", "grok-4.7"),
+    OPEN_ROUTER("OpenRouter", "https://openrouter.ai/api/v1", "openai/gpt-4o-mini", AiFreeTier.FREE_MODELS),
 }
 
 data class LlmRequest(
@@ -33,6 +52,12 @@ data class LlmRequest(
      * not implement it are detected and retried without it.
      */
     val jsonMode: Boolean = false,
+    /**
+     * A budget for this call, in seconds; 0 means the client's own timeout.
+     * A connection test uses a short one: a ping that has not answered in
+     * twenty seconds is not going to answer.
+     */
+    val timeoutSeconds: Int = 0,
 ) {
     init {
         require(systemPrompt.isNotBlank()) { "systemPrompt must be non-blank" }

@@ -177,6 +177,9 @@
     <string name="home_medications_menu">More options</string>
     <string name="home_medications_edit">Edit</string>
     <string name="home_medications_delete">Delete</string>
+    <string name="home_medications_delete_title">Delete medication?</string>
+    <string name="home_medications_delete_body">“%1$s” and its taken history will be removed. This cannot be undone.</string>
+    <string name="home_medications_delete_confirm">Delete</string>
     <string name="editor_section_general">General state</string>
     <string name="editor_section_meds_fall">Medication and falls</string>
     <string name="editor_section_pain">Pain</string>

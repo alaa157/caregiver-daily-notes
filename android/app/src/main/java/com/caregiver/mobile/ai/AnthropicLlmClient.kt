@@ -98,7 +98,7 @@ class AnthropicLlmClient(
         val cancellation = CallCancellation()
         cancellation.install()
         try {
-            return@withContext attempt(safeUrl, reqBody, cancellation)
+            return@withContext attempt(safeUrl, reqBody, request, cancellation)
         } finally {
             cancellation.close()
         }
@@ -107,6 +107,7 @@ class AnthropicLlmClient(
     private suspend fun attempt(
         url: String,
         reqBody: RequestBody,
+        request: LlmRequest,
         cancellation: CallCancellation,
     ): LlmResult {
         var last: LlmResult = LlmResult(LlmStatus.FALLBACK, "", "network", null)
@@ -120,6 +121,9 @@ class AnthropicLlmClient(
                     .post(reqBody)
                     .build()
                 val call = okHttpClient.newCall(httpReq)
+                if (request.timeoutSeconds > 0) {
+                    call.timeout().timeout(request.timeoutSeconds.toLong(), java.util.concurrent.TimeUnit.SECONDS)
+                }
                 cancellation.track(call)
                 call.execute().use { resp ->
                     val raw = resp.body?.string().orEmpty()
