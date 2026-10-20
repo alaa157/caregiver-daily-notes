@@ -62,9 +62,12 @@ class SummaryAiService(
         if (windowedNotes.isEmpty()) {
             return SummaryAiResult.Failure(redFlags, "no_source_data")
         }
-        val dataBlock = windowedNotes.joinToString("\n") { note ->
-            "[NOTE id=\"${note.id}\" date=${note.date}]\n${note.text}\n[/NOTE]"
-        }
+        // JSON escaping, not text delimiters: note text is untrusted and may
+        // contain "[/NOTE]" or a forged "[NOTE ...]" block. Serialized as a
+        // string value it can never terminate the data payload.
+        val dataBlock = PromptNotes.dataBlock(
+            windowedNotes.map { note -> PromptNote(id = note.id, date = note.date, text = note.text) },
+        )
         val userPref = keyStore?.summarySystemPrompt()?.takeIf { it.isNotBlank() }
             ?: keyStore?.systemPrompt()?.takeIf { it.isNotBlank() }
         val prompt = if (userPref != null) {

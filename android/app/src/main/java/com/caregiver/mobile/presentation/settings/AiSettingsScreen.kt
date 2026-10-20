@@ -45,6 +45,8 @@ import com.caregiver.mobile.ai.LlmClient
 import com.caregiver.mobile.ai.LlmRequest
 import com.caregiver.mobile.ai.LlmStatus
 import com.caregiver.mobile.ai.OpenAiCompatibleLlmClient
+import com.caregiver.mobile.ai.PromptNote
+import com.caregiver.mobile.ai.PromptNotes
 import com.caregiver.mobile.ai.Prompts
 import com.caregiver.mobile.ai.SummaryResponseFormat
 import com.caregiver.mobile.presentation.common.AppTopBar
@@ -241,7 +243,15 @@ fun AiSettingsScreen(graph: AppGraph, navController: NavController) {
                     val prompt = summaryPrompt.takeIf { it.isNotBlank() }
                         ?: systemPrompt.takeIf { it.isNotBlank() }
                         ?: Prompts.SUMMARY_SYSTEM
-                    val probe = "[NOTE id=\"probe\" date=${LocalDate.now()}]\nFormat validation probe: no concerns reported today.\n[/NOTE]"
+                    val probe = PromptNotes.dataBlock(
+                        listOf(
+                            PromptNote(
+                                id = "probe",
+                                date = LocalDate.now().toString(),
+                                text = "Format validation probe: no concerns reported today.",
+                            ),
+                        ),
+                    )
                     // Same path production uses: native json mode, so the
                     // check proves the provider can answer the real request.
                     val res = client.complete(LlmRequest(prompt, probe, jsonMode = true))
