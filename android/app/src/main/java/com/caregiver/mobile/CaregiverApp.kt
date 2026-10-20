@@ -24,6 +24,7 @@ import com.caregiver.mobile.data.csv.RoomCsvNoteStore
 import com.caregiver.mobile.data.demo.DemoBackendApis
 import com.caregiver.mobile.data.local.AppDatabase
 import com.caregiver.mobile.data.local.LocalBackendApis
+import com.caregiver.mobile.data.local.MedicationStore
 import com.caregiver.mobile.ai.LlmClientFactory
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.runBlocking
@@ -192,6 +193,16 @@ class AppGraph(val context: Context, val forceProduction: Boolean = false) {
             store = localDatabase?.let { RoomBackupStore(it) },
             appVersion = "${BuildConfig.VERSION_NAME} (${BuildConfig.VERSION_CODE})",
         )
+    }
+
+    /**
+     * Medication card (home) over standalone local tables — see
+     * [MedicationStore]. Null exactly when the graph has no local database
+     * (forceProduction/server-only test graphs), and the home card hides
+     * itself then, the same self-disabling as [backupRestoreService].
+     */
+    val medications: MedicationStore? by lazy {
+        localDatabase?.let { MedicationStore(it) }
     }
 
     /**

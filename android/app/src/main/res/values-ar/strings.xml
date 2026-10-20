@@ -166,6 +166,17 @@
     <string name="home_section_today">الأشخاص تحت الرعاية اليوم</string>
     <string name="home_notes_today">ملاحظات اليوم</string>
     <string name="home_needs_attention">تحتاج إلى الانتباه</string>
+    <string name="home_medications">الأدوية</string>
+    <string name="home_medications_add">إضافة دواء</string>
+    <string name="home_medications_empty">لا توجد أدوية بعد — اضغط + لإضافة أول دواء.</string>
+    <string name="home_medications_name">الاسم</string>
+    <string name="home_medications_dose">الجرعة (اختياري)</string>
+    <string name="home_medications_when">الموعد (اختياري)</string>
+    <string name="home_medications_taken">تم تناولها اليوم</string>
+    <string name="home_medications_not_taken">لم تؤخذ بعد</string>
+    <string name="home_medications_menu">خيارات إضافية</string>
+    <string name="home_medications_edit">تعديل</string>
+    <string name="home_medications_delete">حذف</string>
     <string name="editor_section_general">الحالة العامة</string>
     <string name="editor_section_meds_fall">الأدوية والسقوط</string>
     <string name="editor_section_pain">الألم</string>

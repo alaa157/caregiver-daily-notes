@@ -166,6 +166,17 @@
     <string name="home_section_today">People in care today</string>
     <string name="home_notes_today">Today\'s notes</string>
     <string name="home_needs_attention">Needs attention</string>
+    <string name="home_medications">Medications</string>
+    <string name="home_medications_add">Add medication</string>
+    <string name="home_medications_empty">No medications yet — tap + to track the first one.</string>
+    <string name="home_medications_name">Name</string>
+    <string name="home_medications_dose">Dose (optional)</string>
+    <string name="home_medications_when">When (optional)</string>
+    <string name="home_medications_taken">Taken today</string>
+    <string name="home_medications_not_taken">Not taken yet</string>
+    <string name="home_medications_menu">More options</string>
+    <string name="home_medications_edit">Edit</string>
+    <string name="home_medications_delete">Delete</string>
     <string name="editor_section_general">General state</string>
     <string name="editor_section_meds_fall">Medication and falls</string>
     <string name="editor_section_pain">Pain</string>

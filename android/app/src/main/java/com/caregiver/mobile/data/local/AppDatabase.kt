@@ -14,11 +14,20 @@ import androidx.sqlite.db.SupportSQLiteDatabase
  *
  * The exported schema (`app/schemas/`) is committed so migrations have a
  * baseline to diff against: 1.json is the Task 8a cache-only shape, 2.json
- * adds the outbox.
+ * adds the outbox, 3.json the plans, 4.json the addenda and 5.json the
+ * standalone medication tracker.
  */
 @Database(
-    entities = [RecipientEntity::class, NoteEntity::class, OutboxEntity::class, PlanEntity::class, AddendumEntity::class],
-    version = 4,
+    entities = [
+        RecipientEntity::class,
+        NoteEntity::class,
+        OutboxEntity::class,
+        PlanEntity::class,
+        AddendumEntity::class,
+        MedicationEntity::class,
+        MedicationIntakeEntity::class,
+    ],
+    version = 5,
     exportSchema = true,
 )
 abstract class AppDatabase : RoomDatabase() {
@@ -31,6 +40,8 @@ abstract class AppDatabase : RoomDatabase() {
     abstract fun planDao(): PlanDao
 
     abstract fun addendumDao(): AddendumDao
+
+    abstract fun medicationDao(): MedicationDao
 
     companion object {
         /**
@@ -92,9 +103,43 @@ abstract class AppDatabase : RoomDatabase() {
             }
         }
 
+        /**
+         * Medication tracker tables (5.json): seed data behind the home
+         * card. Column order and names must stay identical to the
+         * `CREATE TABLE` Room generates for [MedicationEntity] and
+         * [MedicationIntakeEntity] so post-migration validation passes on
+         * devices upgrading from v0.3.x installs.
+         */
+        val MIGRATION_4_5: Migration = object : Migration(4, 5) {
+            override fun migrate(db: SupportSQLiteDatabase) {
+                db.execSQL(
+                    "CREATE TABLE IF NOT EXISTS `medications` (" +
+                        "`id` TEXT NOT NULL, " +
+                        "`recipientId` TEXT NOT NULL, " +
+                        "`name` TEXT NOT NULL, " +
+                        "`dose` TEXT, " +
+                        "`schedule` TEXT, " +
+                        "`active` INTEGER NOT NULL, " +
+                        "`createdAt` INTEGER NOT NULL, " +
+                        "PRIMARY KEY(`id`))",
+                )
+                db.execSQL(
+                    "CREATE INDEX IF NOT EXISTS `index_medications_recipientId` ON `medications` (`recipientId`)",
+                )
+                db.execSQL(
+                    "CREATE TABLE IF NOT EXISTS `medication_intakes` (" +
+                        "`id` TEXT NOT NULL, " +
+                        "`medicationId` TEXT NOT NULL, " +
+                        "`date` TEXT NOT NULL, " +
+                        "`times` INTEGER NOT NULL, " +
+                        "PRIMARY KEY(`id`))",
+                )
+            }
+        }
+
         fun create(context: Context): AppDatabase =
             Room.databaseBuilder(context.applicationContext, AppDatabase::class.java, "caregiver-db")
-                .addMigrations(MIGRATION_1_2, MIGRATION_2_3, MIGRATION_3_4)
+                .addMigrations(MIGRATION_1_2, MIGRATION_2_3, MIGRATION_3_4, MIGRATION_4_5)
                 .build()
     }
 }
