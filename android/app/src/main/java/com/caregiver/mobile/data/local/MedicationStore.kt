@@ -25,6 +25,7 @@ class MedicationStore(private val db: AppDatabase) {
         name: String,
         dose: String? = null,
         schedule: String? = null,
+        dosesPerDay: Int = 1,
     ): String {
         val entity = MedicationEntity(
             id = UUID.randomUUID().toString(),
@@ -34,13 +35,16 @@ class MedicationStore(private val db: AppDatabase) {
             schedule = schedule?.trim()?.takeIf { it.isNotEmpty() },
             active = true,
             createdAt = System.currentTimeMillis(),
+            dosesPerDay = dosesPerDay.coerceIn(1, MAX_DOSES_PER_DAY),
         )
         dao.upsert(entity)
         return entity.id
     }
 
-    /** Edit in place (name/dose/schedule/active) without touching the id. */
-    suspend fun update(entity: MedicationEntity) = dao.update(entity)
+    /** Edit in place (name/dose/schedule/doses/active) without touching the id. */
+    suspend fun update(entity: MedicationEntity) = dao.update(
+        entity.copy(dosesPerDay = entity.dosesPerDay.coerceIn(1, MAX_DOSES_PER_DAY)),
+    )
 
     /** Deleting a medication also forgets its history — nothing dangles. */
     suspend fun delete(id: String) {
@@ -48,23 +52,40 @@ class MedicationStore(private val db: AppDatabase) {
         dao.delete(id)
     }
 
-    suspend fun setTaken(medicationId: String, date: LocalDate, taken: Boolean) {
+    /** Marks the first dose of the day. */
+    suspend fun setTaken(medicationId: String, date: LocalDate, taken: Boolean) =
+        setTaken(medicationId, date, 0, taken)
+
+    /**
+     * Marks one dose of the day. Each dose of a medication is its own mark,
+     * so a twice-daily medication can have its morning dose taken and its
+     * evening dose still due.
+     */
+    suspend fun setTaken(medicationId: String, date: LocalDate, doseIndex: Int, taken: Boolean) {
+        val id = intakeId(medicationId, date, doseIndex)
         if (taken) {
             dao.upsertIntake(
                 MedicationIntakeEntity(
-                    id = "$medicationId:$date",
+                    id = id,
                     medicationId = medicationId,
                     date = date.toString(),
                     times = 1,
                 ),
             )
         } else {
-            dao.clearIntake("$medicationId:$date")
+            dao.clearIntake(id)
         }
     }
 
     companion object {
         /** The date a tick belongs to — refreshed per action, so midnight is even. */
         fun today(): LocalDate = LocalDate.now()
+
+        /** The most doses a day the tracker tracks. */
+        const val MAX_DOSES_PER_DAY = 4
+
+        /** The intake key: one row per medication, per date, per dose. */
+        fun intakeId(medicationId: String, date: LocalDate, doseIndex: Int): String =
+            "$medicationId:$date:$doseIndex"
     }
 }
