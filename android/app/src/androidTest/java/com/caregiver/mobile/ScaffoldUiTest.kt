@@ -117,11 +117,13 @@ class ScaffoldUiTest {
         setScaffold("en")
 
         // The FAB is tab-shell chrome: available from each of the four tabs,
-        // and (covered by DrawerUiTest) never on detail/form screens.
-        listOf("tab_home", "tab_people", "tab_notes", "tab_history").forEach { tab ->
-            compose.onNodeWithTag(tab).performClick()
-            compose.onNodeWithTag("fab_add_note").assertIsDisplayed()
-        }
+        // and (covered by DrawerUiTest) never on detail/form screens. The
+        // People tab adds a person, every other tab adds a note.
+        listOf("tab_home" to "fab_add_note", "tab_people" to "fab_add_person", "tab_notes" to "fab_add_note", "tab_history" to "fab_add_note")
+            .forEach { (tab, fab) ->
+                compose.onNodeWithTag(tab).performClick()
+                compose.onNodeWithTag(fab).assertIsDisplayed()
+            }
     }
 
     @Test

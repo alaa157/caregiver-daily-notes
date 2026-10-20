@@ -60,7 +60,6 @@ import com.caregiver.mobile.presentation.common.ForwardChevron
 import com.caregiver.mobile.presentation.common.GrayPill
 import com.caregiver.mobile.presentation.common.GreenPill
 import com.caregiver.mobile.presentation.common.PrimaryButton
-import com.caregiver.mobile.presentation.common.SecondaryButton
 import com.caregiver.mobile.presentation.common.SectionTitle
 import com.caregiver.mobile.presentation.common.assistedViewModel
 import com.caregiver.mobile.presentation.home.LoadFailed
@@ -138,10 +137,6 @@ fun RecipientsScreen(graph: AppGraph, navController: NavController) {
                     )
                 }
             }
-            SecondaryButton(
-                label = stringResource(R.string.add_title),
-                onClick = { navController.navigate(AppDestinations.AddRecipient.base) },
-            )
             when (val s = state) {
                 PeopleState.Loading -> LoadingRow()
                 PeopleState.Error -> LoadFailed(onRetry = vm::refresh)
