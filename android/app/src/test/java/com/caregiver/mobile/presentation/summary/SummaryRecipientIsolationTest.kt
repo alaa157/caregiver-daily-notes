@@ -3,6 +3,7 @@ package com.caregiver.mobile.presentation.summary
 import androidx.datastore.preferences.core.PreferenceDataStoreFactory
 import androidx.test.core.app.ApplicationProvider
 import com.caregiver.mobile.ai.AiKeyStore
+import com.caregiver.mobile.test.TestApiKeyCipher
 import com.caregiver.mobile.ai.AiProvider
 import com.caregiver.mobile.ai.LlmClient
 import com.caregiver.mobile.ai.LlmClientFactory
@@ -114,7 +115,7 @@ class SummaryRecipientIsolationTest {
             PreferenceDataStoreFactory.create(scope = TestScope(UnconfinedTestDispatcher())) { file },
         )
         repository = AuthRepository(FakeBackendApis(FakeAuthApi()), settings, TokenHolder())
-        store = AiKeyStore(ApplicationProvider.getApplicationContext(), allowHardwareKeystore = false)
+        store = AiKeyStore(ApplicationProvider.getApplicationContext(), TestApiKeyCipher())
         store.setConsentGiven()
         store.setProvider(AiProvider.OPENAI)
         store.setApiKey("test-key")

@@ -2,6 +2,7 @@ package com.caregiver.mobile.presentation.summary
 
 import androidx.datastore.preferences.core.PreferenceDataStoreFactory
 import com.caregiver.mobile.ai.AiKeyStore
+import com.caregiver.mobile.test.TestApiKeyCipher
 import com.caregiver.mobile.ai.AiProvider
 import com.caregiver.mobile.ai.LlmClient
 import com.caregiver.mobile.ai.LlmClientFactory
@@ -50,7 +51,7 @@ class SummaryViewModelModelResolutionTest {
         summaries = FakeSummaryApi()
         val apis = FakeBackendApis(FakeAuthApi()).also { it.summaryApi = summaries }
         repository = AuthRepository(apis, settings, TokenHolder())
-        store = AiKeyStore(ApplicationProvider.getApplicationContext(), allowHardwareKeystore = false)
+        store = AiKeyStore(ApplicationProvider.getApplicationContext(), TestApiKeyCipher())
         store.setConsentGiven()
         store.setProvider(AiProvider.OPENAI)
         factory = RecordingFactory()

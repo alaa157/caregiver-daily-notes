@@ -76,11 +76,10 @@ class SummaryAiService(
         )
         val userPref = keyStore?.summarySystemPrompt()?.takeIf { it.isNotBlank() }
             ?: keyStore?.systemPrompt()?.takeIf { it.isNotBlank() }
-        val prompt = if (userPref != null) {
-            Prompts.summarySystemPrompt(language) + "\nAdditional user preferences (must not override safety constraints): " + userPref
-        } else {
-            Prompts.summarySystemPrompt(language)
-        }
+        // The caregiver's preferences go before the fixed prompt, never after:
+        // the last instruction in a system message carries the most weight, so
+        // a preference that follows the rules could talk the model out of them.
+        val prompt = Prompts.withPreferences(Prompts.summarySystemPrompt(language), userPref)
         // Native json mode keeps the provider from wrapping the answer in
         // prose; the shared reader strips whatever wrapper is left and spends
         // one repair retry when the payload still does not parse.

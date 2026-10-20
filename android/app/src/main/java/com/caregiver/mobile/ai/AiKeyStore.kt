@@ -2,25 +2,54 @@ package com.caregiver.mobile.ai
 
 import android.content.Context
 import android.content.SharedPreferences
-import android.security.keystore.KeyGenParameterSpec
-import android.security.keystore.KeyProperties
-import android.util.Base64
-import java.security.KeyStore
-import javax.crypto.Cipher
-import javax.crypto.KeyGenerator
-import javax.crypto.SecretKey
-import javax.crypto.spec.GCMParameterSpec
 
-class AiKeyStore(
+/**
+ * The state of the stored API key.
+ *
+ * [Invalidated] is the state that used to be invisible: the keystore key was
+ * invalidated (a lock-screen change) or lost, the stored bytes can no longer
+ * be decrypted, and the user has to enter the key again. Reporting it as
+ * "no key" would send the caregiver looking for a key they never removed.
+ */
+sealed interface ApiKeyState {
+    /** No key saved yet. */
+    data object Absent : ApiKeyState
+
+    /** A saved key that can be used. */
+    data class Readable(val key: String) : ApiKeyState
+
+    /** A saved key that can no longer be decrypted: enter it again. */
+    data object Invalidated : ApiKeyState
+
+    /** The keystore itself failed; the stored key may still be intact. */
+    data object Unavailable : ApiKeyState
+}
+
+/**
+ * Encrypts the API key at rest.
+ *
+ * Production uses the hardware-backed AndroidKeyStore ([AndroidKeyStoreCipher]).
+ * The interface exists so tests can run on a JVM that has no keystore
+ * provider at all: the only plaintext implementation lives in the test source
+ * set, so production code cannot store an unencrypted key by accident.
+ */
+interface ApiKeyCipher {
+    /** The stored form of [plain], or null when the keystore refused the write. */
+    fun encrypt(plain: String): String?
+
+    /** Reads back a stored key. Never returns [ApiKeyState.Absent]. */
+    fun decrypt(stored: String): ApiKeyState
+}
+
+class AiKeyStore internal constructor(
     private val context: Context,
-    /**
-     * Test/JVM seam: Robolectric (and devices with a broken keystore) cannot
-     * serve the "AndroidKeyStore" provider, so tests opt out and the API key
-     * is then stored Base64-encoded in prefs without hardware encryption.
-     * Production keeps the default (true) — hardware-backed storage.
-     */
-    private val allowHardwareKeystore: Boolean = true,
+    private val cipher: ApiKeyCipher,
 ) {
+    /**
+     * Production: the key is encrypted with a hardware-backed keystore key.
+     */
+    constructor(context: Context) : this(context, AndroidKeyStoreCipher())
+
     private val prefs: SharedPreferences =
         context.getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE)
 
@@ -31,17 +60,34 @@ class AiKeyStore(
         prefs.edit().putString(KEY_PROVIDER, p.name).apply()
     }
 
-    fun apiKey(): String? = prefs.getString(KEY_API, null)?.let { decryptOrNull(it) }
+    /** The stored key and what can be done with it. */
+    fun apiKeyState(): ApiKeyState {
+        val stored = prefs.getString(KEY_API, null) ?: return ApiKeyState.Absent
+        return cipher.decrypt(stored)
+    }
 
-    fun setApiKey(key: String) {
-        prefs.edit().putString(KEY_API, encrypt(key)).apply()
+    /** The stored key, or null when there is none or it cannot be read. */
+    fun apiKey(): String? = (apiKeyState() as? ApiKeyState.Readable)?.key
+
+    /**
+     * Stores the key.
+     *
+     * Returns false when the keystore refused the write. The caller tells the
+     * user; the screen never crashes on a keystore failure.
+     */
+    fun setApiKey(key: String): Boolean {
+        val stored = cipher.encrypt(key) ?: return false
+        prefs.edit().putString(KEY_API, stored).apply()
+        return true
     }
 
     fun clearApiKey() {
         prefs.edit().remove(KEY_API).apply()
     }
 
-    fun hasKey(): Boolean = !apiKey().isNullOrBlank()
+    /** True when a usable, non-blank key is stored. */
+    fun hasKey(): Boolean =
+        (apiKeyState() as? ApiKeyState.Readable)?.key?.isNotBlank() == true
 
     fun model(): String? =
         prefs.getString(KEY_MODEL, null)?.takeIf { it.isNotBlank() }
@@ -89,51 +135,8 @@ class AiKeyStore(
         prefs.edit().putString(KEY_PLAN_PROMPT, value).apply()
     }
 
-    private fun encrypt(plain: String): String {
-        if (!allowHardwareKeystore) {
-            // Test/JVM path: no AndroidKeyStore available — store Base64
-            // directly (decrypt mirrors this shape).
-            return Base64.encodeToString(plain.toByteArray(Charsets.UTF_8), Base64.NO_WRAP)
-        }
-        val cipher = Cipher.getInstance("AES/GCM/NoPadding")
-        cipher.init(Cipher.ENCRYPT_MODE, getOrCreateKey())
-        val iv = cipher.iv
-        val ct = cipher.doFinal(plain.toByteArray(Charsets.UTF_8))
-        val combined = iv + ct
-        return Base64.encodeToString(combined, Base64.NO_WRAP)
-    }
-
-    private fun decryptOrNull(encoded: String): String? = runCatching {
-        val decoded = Base64.decode(encoded, Base64.NO_WRAP)
-        if (!allowHardwareKeystore) {
-            return@runCatching String(decoded, Charsets.UTF_8)
-        }
-        val iv = decoded.copyOfRange(0, IV_SIZE)
-        val ct = decoded.copyOfRange(IV_SIZE, decoded.size)
-        val cipher = Cipher.getInstance("AES/GCM/NoPadding")
-        cipher.init(Cipher.DECRYPT_MODE, getOrCreateKey(), GCMParameterSpec(TAG_SIZE_BITS, iv))
-        String(cipher.doFinal(ct), Charsets.UTF_8)
-    }.getOrNull()
-
-    private fun getOrCreateKey(): SecretKey {
-        val ks = KeyStore.getInstance("AndroidKeyStore").apply { load(null) }
-        ks.getKey(ALIAS, null)?.let { return it as SecretKey }
-        val spec = KeyGenParameterSpec.Builder(
-            ALIAS,
-            KeyProperties.PURPOSE_ENCRYPT or KeyProperties.PURPOSE_DECRYPT,
-        )
-            .setBlockModes(KeyProperties.BLOCK_MODE_GCM)
-            .setEncryptionPaddings(KeyProperties.ENCRYPTION_PADDING_NONE)
-            .setKeySize(256)
-            .build()
-        val gen = KeyGenerator.getInstance(KeyProperties.KEY_ALGORITHM_AES, "AndroidKeyStore")
-        gen.init(spec)
-        return gen.generateKey()
-    }
-
     companion object {
         private const val PREFS_NAME = "ai_settings"
-        private const val ALIAS = "caregiver_ai_key_v1"
         private const val KEY_PROVIDER = "provider"
         private const val KEY_API = "api_key"
         private const val KEY_MODEL = "model"
@@ -142,7 +145,5 @@ class AiKeyStore(
         private const val KEY_SYSTEM_PROMPT = "system_prompt"
         private const val KEY_SUMMARY_PROMPT = "summary_prompt"
         private const val KEY_PLAN_PROMPT = "plan_prompt"
-        private const val IV_SIZE = 12
-        private const val TAG_SIZE_BITS = 128
     }
 }

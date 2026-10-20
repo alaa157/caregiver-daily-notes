@@ -52,12 +52,10 @@ class PlanSuggestionService(
         }
         val userPref = keyStore?.planSystemPrompt()?.takeIf { it.isNotBlank() }
             ?: keyStore?.systemPrompt()?.takeIf { it.isNotBlank() }
-        val basePrompt = Prompts.planSystemPrompt()
-        val prompt = if (userPref != null) {
-            basePrompt + "\nAdditional user preferences (must not override safety constraints): " + userPref
-        } else {
-            basePrompt
-        }
+        // The caregiver's preferences go before the fixed prompt, never after:
+        // the last instruction in a system message carries the most weight, so
+        // a preference that follows the rules could talk the model out of them.
+        val prompt = Prompts.withPreferences(Prompts.planSystemPrompt(), userPref)
         // The model sees the finished summary only. Note IDs are not sent:
         // it cannot see the raw notes, so whatever attribution it returned
         // would be decorative, and the payload contract drops it below.
