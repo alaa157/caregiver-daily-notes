@@ -120,7 +120,7 @@ class GeminiLlmClient(
         val cancellation = CallCancellation()
         cancellation.install()
         try {
-            return attempt(url, reqBody, cancellation)
+            return attempt(url, reqBody, request, cancellation)
         } finally {
             cancellation.close()
         }
@@ -129,6 +129,7 @@ class GeminiLlmClient(
     private suspend fun attempt(
         url: String,
         reqBody: RequestBody,
+        request: LlmRequest,
         cancellation: CallCancellation,
     ): LlmResult {
         var last: LlmResult = LlmResult(LlmStatus.FALLBACK, "", "network", null)
@@ -141,6 +142,9 @@ class GeminiLlmClient(
                     .post(reqBody)
                     .build()
                 val call = okHttpClient.newCall(httpReq)
+                if (request.timeoutSeconds > 0) {
+                    call.timeout().timeout(request.timeoutSeconds.toLong(), java.util.concurrent.TimeUnit.SECONDS)
+                }
                 cancellation.track(call)
                 call.execute().use { resp ->
                     val raw = resp.body?.string().orEmpty()
