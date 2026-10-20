@@ -174,6 +174,10 @@
     <string name="home_medications_when">When (optional)</string>
     <string name="home_medications_taken">Taken today</string>
     <string name="home_medications_not_taken">Not taken yet</string>
+    <string name="home_medications_dose_taken">Dose %1$d of %2$d, taken</string>
+    <string name="home_medications_dose_not_taken">Dose %1$d of %2$d, not taken</string>
+    <string name="home_medications_doses_per_day">Doses a day</string>
+    <string name="home_medications_doses_count">%1$d×</string>
     <string name="home_medications_menu">More options</string>
     <string name="home_medications_edit">Edit</string>
     <string name="home_medications_delete">Delete</string>

@@ -31,7 +31,7 @@ import androidx.sqlite.db.SupportSQLiteDatabase
         MedicationEntity::class,
         MedicationIntakeEntity::class,
     ],
-    version = 5,
+    version = 6,
     exportSchema = true,
 )
 abstract class AppDatabase : RoomDatabase() {
@@ -139,9 +139,49 @@ abstract class AppDatabase : RoomDatabase() {
             }
         }
 
+        /**
+         * Doses a day (6.json): a twice-daily medication needs one mark per
+         * dose, so the medication carries how many doses a day it is taken
+         * and each dose of a day gets its own intake row.
+         */
+        val MIGRATION_5_6: Migration = object : Migration(5, 6) {
+            override fun migrate(db: SupportSQLiteDatabase) {
+                // The new column is last, so a plain ALTER matches the
+                // table Room now expects.
+                db.execSQL(
+                    "ALTER TABLE `medications` ADD COLUMN `dosesPerDay` INTEGER NOT NULL DEFAULT 1",
+                )
+                // The intake key carries the dose, so a day holds one row per
+                // dose instead of a single count. The old rows are the first
+                // dose of their day.
+                db.execSQL(
+                    "CREATE TABLE IF NOT EXISTS `medication_intakes_new` (" +
+                        "`id` TEXT NOT NULL, " +
+                        "`medicationId` TEXT NOT NULL, " +
+                        "`date` TEXT NOT NULL, " +
+                        "`times` INTEGER NOT NULL, " +
+                        "PRIMARY KEY(`id`))",
+                )
+                db.execSQL(
+                    "INSERT OR REPLACE INTO `medication_intakes_new` " +
+                        "(`id`, `medicationId`, `date`, `times`) " +
+                        "SELECT `medicationId` || ':0', `medicationId`, `date`, `times` " +
+                        "FROM `medication_intakes`",
+                )
+                db.execSQL("DROP TABLE `medication_intakes`")
+                db.execSQL("ALTER TABLE `medication_intakes_new` RENAME TO `medication_intakes`")
+            }
+        }
+
         fun create(context: Context): AppDatabase =
             Room.databaseBuilder(context.applicationContext, AppDatabase::class.java, "caregiver-db")
-                .addMigrations(MIGRATION_1_2, MIGRATION_2_3, MIGRATION_3_4, MIGRATION_4_5)
+                .addMigrations(
+                    MIGRATION_1_2,
+                    MIGRATION_2_3,
+                    MIGRATION_3_4,
+                    MIGRATION_4_5,
+                    MIGRATION_5_6,
+                )
                 .build()
     }
 }
