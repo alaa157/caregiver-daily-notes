@@ -26,6 +26,9 @@ import com.caregiver.mobile.data.api.SuggestPlanRequest
 import com.caregiver.mobile.data.api.UpdateRecipientRequest
 import com.caregiver.mobile.data.local.toDto
 import com.caregiver.mobile.data.local.toEntity
+import com.caregiver.mobile.data.plan.IllegalPlanTransitionException
+import com.caregiver.mobile.data.plan.PlanStateMachine
+import com.caregiver.mobile.data.plan.planTransitionError
 import kotlinx.serialization.encodeToString
 import kotlinx.serialization.json.Json
 import java.time.LocalDate
@@ -200,34 +203,32 @@ class LocalBackendApis(
         override suspend fun appendVersion(id: String, body: AppendVersionRequest): PlanDto {
             val entity = planDao.byId(id) ?: throw NoSuchElementException("plan $id")
             val versions = json.decodeFromString<MutableList<PlanVersionDto>>(entity.versionsJson)
-            val latest = versions.maxByOrNull { it.version }
-            val next = (versions.maxOfOrNull { it.version } ?: 0) + 1
-            val items = body.items ?: latest?.items ?: emptyList()
-            versions.add(
-                PlanVersionDto(
-                    version = next,
-                    status = body.status ?: "Edited-and-Accepted",
-                    items = items,
-                    createdAt = LocalDate.now().toString(),
-                    reason = "",
-                ),
-            )
-            val updated = PlanDto(id = entity.id, recipientId = entity.recipientId, versions = versions)
+            val latest = versions.maxByOrNull { it.version } ?: throw NoSuchElementException("plan $id")
+            val items = body.items ?: latest.items
+            val status = body.status ?: PlanStateMachine.EDITED_ACCEPTED
+            val updatedVersions = try {
+                PlanStateMachine.append(versions, status, items, LocalDate.now().toString())
+            } catch (e: IllegalPlanTransitionException) {
+                throw planTransitionError(e)
+            }
+            val updated = PlanDto(id = entity.id, recipientId = entity.recipientId, versions = updatedVersions)
             savePlan(updated)
             return updated
         }
 
-        override suspend fun accept(id: String): PlanDto = transition(id, "Accepted")
-        override suspend fun editAccept(id: String): PlanDto = transition(id, "Edited-and-Accepted")
-        override suspend fun dismiss(id: String): PlanDto = transition(id, "Dismissed")
-        override suspend fun archive(id: String): PlanDto = transition(id, "Archived")
+        override suspend fun accept(id: String): PlanDto = transition(id, PlanStateMachine.ACCEPTED)
+        override suspend fun editAccept(id: String): PlanDto = transition(id, PlanStateMachine.EDITED_ACCEPTED)
+        override suspend fun dismiss(id: String): PlanDto = transition(id, PlanStateMachine.DISMISSED)
+        override suspend fun archive(id: String): PlanDto = transition(id, PlanStateMachine.ARCHIVED)
 
         private suspend fun transition(id: String, status: String): PlanDto {
             val entity = planDao.byId(id) ?: throw NoSuchElementException("plan $id")
             val versions = json.decodeFromString<MutableList<PlanVersionDto>>(entity.versionsJson)
-            val latest = versions.maxByOrNull { it.version } ?: throw NoSuchElementException("plan $id")
-            val updatedVersions = versions.map { v ->
-                if (v.version == latest.version) v.copy(status = status) else v
+            if (versions.isEmpty()) throw NoSuchElementException("plan $id")
+            val updatedVersions = try {
+                PlanStateMachine.transition(versions, status)
+            } catch (e: IllegalPlanTransitionException) {
+                throw planTransitionError(e)
             }
             val updated = PlanDto(id = entity.id, recipientId = entity.recipientId, versions = updatedVersions)
             savePlan(updated)

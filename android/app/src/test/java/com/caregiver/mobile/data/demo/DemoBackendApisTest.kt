@@ -103,22 +103,59 @@ class DemoBackendApisTest {
 
         backend.plans().accept("p1")
         assertEquals("Accepted", backend.plans().versions("p1").maxByOrNull { it.version }?.status)
-
-        backend.plans().dismiss("p1")
-        assertEquals("Dismissed", backend.plans().versions("p1").maxByOrNull { it.version }?.status)
+        // The accepted version supersedes the one before it.
+        assertEquals("Archived", backend.plans().versions("p1").first { it.version == 1 }.status)
 
         backend.plans().archive("p1")
         assertEquals("Archived", backend.plans().versions("p1").maxByOrNull { it.version }?.status)
+    }
 
-        val before = backend.plans().versions("p1").size
+    @Test
+    fun illegalPlanTransitionsAreRejected() = runTest {
+        val backend = apis()
+        backend.plans().dismiss("p1")
+        assertEquals("Dismissed", backend.plans().versions("p1").maxByOrNull { it.version }?.status)
+
+        // A dismissed plan cannot be accepted or dismissed again.
+        assertEquals(422, illegalTransition { backend.plans().accept("p1") })
+        assertEquals(422, illegalTransition { backend.plans().dismiss("p1") })
+
+        // It can still be edited and accepted, which supersedes it.
+        backend.plans().editAccept("p1")
+        val versions = backend.plans().versions("p1")
+        assertEquals("Edited-and-Accepted", versions.maxByOrNull { it.version }?.status)
+        assertEquals("Archived", versions.first { it.version == 1 }.status)
+    }
+
+    @Test
+    fun anArchivedPlanIsFinal() = runTest {
+        val backend = apis()
+        backend.plans().archive("p1")
+        assertEquals(422, illegalTransition { backend.plans().accept("p1") })
+        assertEquals(422, illegalTransition { backend.plans().dismiss("p1") })
+        assertEquals(422, illegalTransition { backend.plans().editAccept("p1") })
+        assertEquals(
+            422,
+            illegalTransition {
+                backend.plans().appendVersion(
+                    "p1",
+                    com.caregiver.mobile.data.api.AppendVersionRequest("Edited-and-Accepted", listOf("x")),
+                )
+            },
+        )
+    }
+
+    @Test
+    fun aNewVersionSupersedesTheAcceptedOne() = runTest {
+        val backend = apis()
+        backend.plans().accept("p1")
         backend.plans().appendVersion(
             "p1",
-            com.caregiver.mobile.data.api.AppendVersionRequest("Edited-and-Accepted", listOf("demo item")),
+            com.caregiver.mobile.data.api.AppendVersionRequest("Accepted", listOf("demo item")),
         )
-        val after = backend.plans().versions("p1")
-        assertEquals(before + 1, after.size)
-        assertEquals("Edited-and-Accepted", after.maxByOrNull { it.version }?.status)
-        assertEquals(listOf("demo item"), after.maxByOrNull { it.version }?.items)
+        val versions = backend.plans().versions("p1")
+        assertEquals(1, versions.count { it.status == "Accepted" })
+        assertEquals("Accepted", versions.maxByOrNull { it.version }?.status)
     }
 
     @Test
@@ -137,6 +174,15 @@ class DemoBackendApisTest {
             throw AssertionError("expected 404 HttpException")
         } catch (e: HttpException) {
             assertEquals(404, e.code())
+        }
+    }
+
+    private suspend fun illegalTransition(block: suspend () -> Unit): Int {
+        try {
+            block()
+            throw AssertionError("expected an illegal transition to be rejected")
+        } catch (e: HttpException) {
+            return e.code()
         }
     }
 

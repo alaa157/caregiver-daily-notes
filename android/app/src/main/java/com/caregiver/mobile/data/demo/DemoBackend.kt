@@ -24,6 +24,9 @@ import com.caregiver.mobile.data.api.SummaryApi
 import com.caregiver.mobile.data.api.SummaryDto
 import com.caregiver.mobile.data.api.SummaryRequest
 import com.caregiver.mobile.data.api.UpdateRecipientRequest
+import com.caregiver.mobile.data.plan.IllegalPlanTransitionException
+import com.caregiver.mobile.data.plan.PlanStateMachine
+import com.caregiver.mobile.data.plan.planTransitionError
 import java.time.LocalDate
 import java.time.LocalDateTime
 import java.util.concurrent.atomic.AtomicInteger
@@ -264,33 +267,34 @@ class DemoBackendApis : BackendApis {
         override suspend fun appendVersion(id: String, body: AppendVersionRequest): PlanDto =
             synchronized(lock) {
                 val plan = findPlan(id)
-                val next = (plan.versions.maxOfOrNull { it.version } ?: 0) + 1
-                updatePlan(
-                    plan.copy(
-                        versions = plan.versions + PlanVersionDto(
-                            version = next, status = body.status ?: "Edited-and-Accepted",
-                            items = body.items.orEmpty(),
-                            createdAt = LocalDate.now().toString(), reason = "",
-                        ),
-                    ),
-                )
+                if (plan.versions.isEmpty()) throw notFound("plan")
+                val status = body.status ?: PlanStateMachine.EDITED_ACCEPTED
+                val versions = try {
+                    PlanStateMachine.append(
+                        plan.versions,
+                        status,
+                        body.items.orEmpty(),
+                        LocalDate.now().toString(),
+                    )
+                } catch (e: IllegalPlanTransitionException) {
+                    throw planTransitionError(e)
+                }
+                updatePlan(plan.copy(versions = versions))
             }
 
-        override suspend fun accept(id: String): PlanDto = transition(id, "Accepted")
-        override suspend fun editAccept(id: String): PlanDto = transition(id, "Edited-and-Accepted")
-        override suspend fun dismiss(id: String): PlanDto = transition(id, "Dismissed")
-        override suspend fun archive(id: String): PlanDto = transition(id, "Archived")
+        override suspend fun accept(id: String): PlanDto = transition(id, PlanStateMachine.ACCEPTED)
+        override suspend fun editAccept(id: String): PlanDto = transition(id, PlanStateMachine.EDITED_ACCEPTED)
+        override suspend fun dismiss(id: String): PlanDto = transition(id, PlanStateMachine.DISMISSED)
+        override suspend fun archive(id: String): PlanDto = transition(id, PlanStateMachine.ARCHIVED)
 
         private fun transition(id: String, status: String): PlanDto = synchronized(lock) {
             val plan = findPlan(id)
-            val latest = plan.versions.maxByOrNull { it.version } ?: throw notFound("plan")
-            updatePlan(
-                plan.copy(
-                    versions = plan.versions.map {
-                        if (it.version == latest.version) it.copy(status = status) else it
-                    },
-                ),
-            )
+            val versions = try {
+                PlanStateMachine.transition(plan.versions, status)
+            } catch (e: IllegalPlanTransitionException) {
+                throw planTransitionError(e)
+            }
+            updatePlan(plan.copy(versions = versions))
         }
 
         private fun findPlan(id: String): PlanDto =
