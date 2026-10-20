@@ -259,6 +259,8 @@
     <string name="settings_ai_provider">المزود</string>
     <string name="settings_ai_api_key">مفتاح API</string>
     <string name="settings_ai_set_api_key">تعيين مفتاح API</string>
+    <string name="settings_ai_key_invalidated">تعذّرت قراءة المفتاح — أدخله مرة أخرى</string>
+    <string name="settings_ai_key_store_failed">رفض مخزن المفاتيح في الجهاز تخزين المفتاح. حاول مرة أخرى.</string>
     <string name="settings_ai_setup_guide">دليل الإعداد</string>
     <string name="settings_ai_setup_guide_title">إعداد %1$s</string>
     <string name="settings_ai_setup_step1">1. افتح الموقع الرسمي للمزود.</string>
@@ -282,6 +284,7 @@
     <string name="settings_ai_custom">مخصص</string>
     <string name="settings_ai_failed">فشل: %1$s</string>
     <string name="summary_setup_ai">قم بإعداد الذكاء الاصطناعي في الإعدادات لإنشاء الملخصات.</string>
+    <string name="summary_ai_key_invalidated">لم يعد بالإمكان قراءة مفتاح الذكاء الاصطناعي (تغيّرت شاشة قفل الهاتف). افتح الإعدادات وأدخله مرة أخرى.</string>
     <string name="about_lead_developer_name">Alaa Shehata</string>
     <string name="about_lead_developer_role">المطور الرئيسي</string>
     <string name="about_github">GitHub</string>

@@ -133,14 +133,22 @@ fun SummaryResultScreen(
     graph: AppGraph,
     navController: NavController,
 ) {
-    val hasKey = com.caregiver.mobile.ai.AiKeyStore(graph.context).hasKey()
-    if (!hasKey) {
+    val keyState = com.caregiver.mobile.ai.AiKeyStore(graph.context).apiKeyState()
+    if (keyState !is com.caregiver.mobile.ai.ApiKeyState.Readable) {
         Column(Modifier.fillMaxSize().padding(horizontal = AppDimens.ScreenHPadding)) {
             AppTopBar(
                 title = stringResource(R.string.summary_title),
                 onBack = { navController.popBackStack() },
             )
-            Text(stringResource(R.string.summary_setup_ai))
+            // A key that was invalidated is not the same as no key at all:
+            // the caregiver has to enter the one they already have again.
+            Text(
+                if (keyState is com.caregiver.mobile.ai.ApiKeyState.Invalidated) {
+                    stringResource(R.string.summary_ai_key_invalidated)
+                } else {
+                    stringResource(R.string.summary_setup_ai)
+                },
+            )
         }
         return
     }

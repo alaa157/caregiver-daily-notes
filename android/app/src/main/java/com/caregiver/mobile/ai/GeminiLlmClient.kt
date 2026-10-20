@@ -4,6 +4,7 @@ import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
 import kotlinx.serialization.json.Json
 import kotlinx.serialization.json.JsonObject
+import kotlinx.serialization.json.booleanOrNull
 import kotlinx.serialization.json.buildJsonObject
 import kotlinx.serialization.json.contentOrNull
 import kotlinx.serialization.json.jsonArray
@@ -148,11 +149,32 @@ class GeminiLlmClient(
                         return last
                     }
                     val root = try { json.parseToJsonElement(raw).jsonObject } catch (e: Exception) { null }
+                    // A prompt the safety filter refuses comes back without
+                    // any candidate at all, and says why. Retrying it three
+                    // times only wastes the caregiver's time and their quota.
+                    val blockReason = root?.get("promptFeedback")?.jsonObject
+                        ?.get("blockReason")?.jsonPrimitive?.contentOrNull
+                    if (!blockReason.isNullOrBlank()) {
+                        return LlmResult(LlmStatus.FALLBACK, "", BLOCKED, resp.code)
+                    }
                     val candidate = root?.get("candidates")?.jsonArray?.firstOrNull()?.jsonObject
-                    val content = candidate?.get("content")?.jsonObject
-                        ?.get("parts")?.jsonArray?.firstOrNull()
-                        ?.jsonObject?.get("text")?.jsonPrimitive?.contentOrNull
                     val finishReason = candidate?.get("finishReason")?.jsonPrimitive?.contentOrNull
+                    if (finishReason in BLOCKED_FINISH_REASONS) {
+                        // The model refused on safety grounds: notes about a
+                        // fall or pain can trip the filter. Retrying the same
+                        // prompt cannot help.
+                        return LlmResult(LlmStatus.FALLBACK, "", BLOCKED, resp.code)
+                    }
+                    // A thinking model answers with a thought part first and
+                    // the answer after it, and a reply can be split over
+                    // several parts. Reading only the first part drops the
+                    // answer (or the reasoning that precedes it).
+                    val parts = candidate?.get("content")?.jsonObject?.get("parts")?.jsonArray
+                    val content = parts?.mapNotNull { part ->
+                        val obj = part.jsonObject
+                        if (obj["thought"]?.jsonPrimitive?.booleanOrNull == true) return@mapNotNull null
+                        obj["text"]?.jsonPrimitive?.contentOrNull
+                    }?.joinToString("")?.takeIf { it.isNotBlank() }
                     if (content.isNullOrBlank()) {
                         last = LlmResult(LlmStatus.FALLBACK, "", "empty_output", resp.code)
                         if (attempt < 2) kotlinx.coroutines.delay(calculateBackoff(attempt))
@@ -181,5 +203,23 @@ class GeminiLlmClient(
 
     companion object {
         const val BACKOFF_BASE_MS = 500L
+
+        /**
+         * The provider refused the request on safety grounds. A note about a
+         * fall or pain can trip the filter, so this is a distinct answer,
+         * not a failure to answer.
+         */
+        const val BLOCKED = "blocked_safety"
+
+        /** Finish reasons that mean the provider refused, not that it failed. */
+        val BLOCKED_FINISH_REASONS = setOf(
+            "SAFETY",
+            "RECITATION",
+            "BLOCKLIST",
+            "PROHIBITED_CONTENT",
+            "SPII",
+            "IMAGE_SAFETY",
+            "IMAGE_PROHIBITED_CONTENT",
+        )
     }
 }

@@ -82,4 +82,60 @@ class GeminiLlmClientTest {
         assertTrue(server.takeRequest().body.readUtf8().contains("responseMimeType"))
         assertFalse(server.takeRequest().body.readUtf8().contains("responseMimeType"))
     }
+
+    @Test fun blockedPromptIsReportedAndNotRetried() {
+        server.start()
+        server.enqueue(
+            MockResponse().setBody(
+                """{"promptFeedback":{"blockReason":"SAFETY","blockReasonMessage":"notes about a fall"}}""",
+            ),
+        )
+        val client = GeminiLlmClient(server.url("/").toString().trimEnd('/'), "m", "key")
+        val res = kotlinx.coroutines.runBlocking { client.complete(LlmRequest("sys", "data")) }
+        assertEquals(LlmStatus.FALLBACK, res.status)
+        assertEquals(GeminiLlmClient.BLOCKED, res.error)
+        // Retrying a request the provider refused only wastes the caregiver's
+        // time and quota.
+        assertEquals(1, server.requestCount)
+    }
+
+    @Test fun safetyFinishReasonIsReportedAndNotRetried() {
+        server.start()
+        server.enqueue(
+            MockResponse().setBody(
+                """{"candidates":[{"finishReason":"SAFETY","content":{"parts":[]}}]}""",
+            ),
+        )
+        val client = GeminiLlmClient(server.url("/").toString().trimEnd('/'), "m", "key")
+        val res = kotlinx.coroutines.runBlocking { client.complete(LlmRequest("sys", "data")) }
+        assertEquals(LlmStatus.FALLBACK, res.status)
+        assertEquals(GeminiLlmClient.BLOCKED, res.error)
+        assertEquals(1, server.requestCount)
+    }
+
+    @Test fun severalPartsAreJoined() {
+        server.start()
+        server.enqueue(
+            MockResponse().setBody(
+                """{"candidates":[{"content":{"parts":[{"text":"{\"observations\":"},{"text":"[]}"}]}}]}""",
+            ),
+        )
+        val client = GeminiLlmClient(server.url("/").toString().trimEnd('/'), "m", "key")
+        val res = kotlinx.coroutines.runBlocking { client.complete(LlmRequest("sys", "data")) }
+        assertEquals(LlmStatus.OK, res.status)
+        assertEquals("""{"observations":[]}""", res.text)
+    }
+
+    @Test fun thinkingPartIsSkipped() {
+        server.start()
+        server.enqueue(
+            MockResponse().setBody(
+                """{"candidates":[{"content":{"parts":[{"text":"thinking about it","thought":true},{"text":"{\"ok\":true}"}]}}]}""",
+            ),
+        )
+        val client = GeminiLlmClient(server.url("/").toString().trimEnd('/'), "m", "key")
+        val res = kotlinx.coroutines.runBlocking { client.complete(LlmRequest("sys", "data")) }
+        assertEquals(LlmStatus.OK, res.status)
+        assertEquals("""{"ok":true}""", res.text)
+    }
 }

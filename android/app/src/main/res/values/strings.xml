@@ -259,6 +259,8 @@
     <string name="settings_ai_provider">Provider</string>
     <string name="settings_ai_api_key">API key</string>
     <string name="settings_ai_set_api_key">Set API key</string>
+    <string name="settings_ai_key_invalidated">Key can no longer be read — enter it again</string>
+    <string name="settings_ai_key_store_failed">The device keystore refused to store the key. Try again.</string>
     <string name="settings_ai_setup_guide">Setup guide</string>
     <string name="settings_ai_setup_guide_title">Set up %1$s</string>
     <string name="settings_ai_setup_step1">1. Open the official provider website.</string>
@@ -282,6 +284,7 @@
     <string name="settings_ai_custom">Custom</string>
     <string name="settings_ai_failed">Failed: %1$s</string>
     <string name="summary_setup_ai">Set up AI in Settings to generate summaries.</string>
+    <string name="summary_ai_key_invalidated">Your AI key can no longer be read (the phone\'s lock screen changed). Open Settings and enter it again.</string>
     <string name="about_lead_developer_name">Alaa Shehata</string>
     <string name="about_lead_developer_role">Lead Developer</string>
     <string name="about_github">GitHub</string>

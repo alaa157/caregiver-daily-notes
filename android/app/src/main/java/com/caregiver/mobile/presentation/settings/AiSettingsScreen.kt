@@ -37,6 +37,7 @@ import androidx.compose.ui.unit.dp
 import androidx.navigation.NavController
 import com.caregiver.mobile.AppGraph
 import com.caregiver.mobile.R
+import com.caregiver.mobile.ai.ApiKeyState
 import com.caregiver.mobile.ai.AiKeyStore
 import com.caregiver.mobile.ai.AiProvider
 import com.caregiver.mobile.ai.AnthropicLlmClient
@@ -61,6 +62,10 @@ fun AiSettingsScreen(graph: AppGraph, navController: NavController) {
     val store = remember { AiKeyStore(graph.context) }
     var provider by remember { mutableStateOf(store.provider() ?: AiProvider.OPENAI) }
     var apiKey by remember { mutableStateOf(store.apiKey().orEmpty()) }
+    // A key that can no longer be decrypted (a lock-screen change invalidates
+    // the keystore key) is not "no key": the caregiver has to enter it again.
+    var keyState by remember { mutableStateOf(store.apiKeyState()) }
+    var keyError by remember { mutableStateOf<String?>(null) }
     var model by remember { mutableStateOf(store.model() ?: provider.defaultModel) }
     var baseUrl by remember { mutableStateOf(store.baseUrlOrDefault(provider)) }
     var systemPrompt by remember { mutableStateOf(store.systemPrompt()) }
@@ -115,7 +120,11 @@ fun AiSettingsScreen(graph: AppGraph, navController: NavController) {
             CaregiverSettingsItem(
                 title = stringResource(R.string.settings_ai_api_key),
                 icon = Icons.Outlined.Key,
-                description = if (apiKey.isBlank()) stringResource(R.string.settings_ai_set_api_key) else "••••••••",
+                description = when {
+                    apiKey.isNotBlank() -> "••••••••"
+                    keyState is ApiKeyState.Invalidated -> stringResource(R.string.settings_ai_key_invalidated)
+                    else -> stringResource(R.string.settings_ai_set_api_key)
+                },
                 onClick = { showKeyDialog = true },
             )
             if (apiKey.isNotBlank()) {
@@ -285,14 +294,29 @@ fun AiSettingsScreen(graph: AppGraph, navController: NavController) {
         }
         Button(onClick = {
             store.setProvider(provider)
-            store.setApiKey(apiKey.trim())
+            // A keystore that refuses the write must not take the screen down
+            // with it: the other settings still save, and the caregiver is
+            // told to try again.
+            val trimmedKey = apiKey.trim()
+            val keyStored = trimmedKey.isEmpty() || store.setApiKey(trimmedKey)
             store.setModel(AiSettingsValidation.normalizedModel(model, provider))
             store.setBaseUrl(AiSettingsValidation.normalizedBaseUrl(baseUrl, provider))
             store.setSystemPrompt(systemPrompt)
             store.setSummarySystemPrompt(summaryPrompt)
             store.setPlanSystemPrompt(planPrompt)
+            if (!keyStored) {
+                keyError = graph.context.getString(R.string.settings_ai_key_store_failed)
+                keyState = store.apiKeyState()
+                return@Button
+            }
+            keyError = null
+            keyState = store.apiKeyState()
             navController.popBackStack()
         }, enabled = !baseUrlInvalid) { Text(stringResource(R.string.settings_ai_save)) }
+
+        keyError?.let {
+            Text(text = it, color = MaterialTheme.colorScheme.error)
+        }
 
         TextButton(onClick = { navController.popBackStack() }) { Text(stringResource(R.string.common_cancel)) }
 
