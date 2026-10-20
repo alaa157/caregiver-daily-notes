@@ -261,6 +261,7 @@
     <string name="settings_ai_set_api_key">Set API key</string>
     <string name="settings_ai_key_invalidated">Key can no longer be read — enter it again</string>
     <string name="settings_ai_key_store_failed">The device keystore refused to store the key. Try again.</string>
+    <string name="settings_ai_key_saved_for">This key is only used for %1$s.</string>
     <string name="settings_ai_setup_guide">Setup guide</string>
     <string name="settings_ai_setup_guide_title">Set up %1$s</string>
     <string name="settings_ai_setup_step1">1. Open the official provider website.</string>
@@ -312,7 +313,7 @@
     <string name="about_footer">Made with care for caregivers.</string>
     <string name="settings_ai_revoke_consent">Revoke consent</string>
     <string name="settings_ai_clear_key">Clear API key</string>
-    <string name="settings_ai_clear_key_message">Remove the stored API key? AI features stay off until a new key is added.</string>
+    <string name="settings_ai_clear_key_message">Remove the API key saved for %1$s? AI features stay off for this provider until a new key is added.</string>
     <string name="settings_ai_validate_format">Validate summary format</string>
     <string name="settings_ai_validating">Validating...</string>
     <string name="settings_ai_format_ok">Summary format OK</string>

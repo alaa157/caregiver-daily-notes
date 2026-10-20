@@ -261,6 +261,7 @@
     <string name="settings_ai_set_api_key">تعيين مفتاح API</string>
     <string name="settings_ai_key_invalidated">تعذّرت قراءة المفتاح — أدخله مرة أخرى</string>
     <string name="settings_ai_key_store_failed">رفض مخزن المفاتيح في الجهاز تخزين المفتاح. حاول مرة أخرى.</string>
+    <string name="settings_ai_key_saved_for">يُستخدم هذا المفتاح مع %1$s فقط.</string>
     <string name="settings_ai_setup_guide">دليل الإعداد</string>
     <string name="settings_ai_setup_guide_title">إعداد %1$s</string>
     <string name="settings_ai_setup_step1">1. افتح الموقع الرسمي للمزود.</string>
@@ -312,7 +313,7 @@
     <string name="about_footer">صُنع بعناية لمقدمي الرعاية.</string>
     <string name="settings_ai_revoke_consent">إلغاء الموافقة</string>
     <string name="settings_ai_clear_key">مسح مفتاح API</string>
-    <string name="settings_ai_clear_key_message">إزالة مفتاح API المحفوظ؟ ستبقى ميزات الذكاء الاصطناعي متوقفة حتى إضافة مفتاح جديد.</string>
+    <string name="settings_ai_clear_key_message">إزالة مفتاح API المحفوظ لـ %1$s؟ ستبقى ميزات الذكاء الاصطناعي متوقفة لهذا المزود حتى إضافة مفتاح جديد.</string>
     <string name="settings_ai_validate_format">التحقق من تنسيق الملخص</string>
     <string name="settings_ai_validating">جارٍ التحقق...</string>
     <string name="settings_ai_format_ok">تنسيق الملخص سليم</string>

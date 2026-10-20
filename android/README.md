@@ -39,7 +39,7 @@ your own API key.
 - xAI: https://console.x.ai
 - OpenRouter: https://openrouter.ai/keys
 
-The key is stored encrypted in the Android Keystore and never leaves the device.
+Each provider's key is stored encrypted in the Android Keystore and never leaves the device. Keys are kept in separate slots, so switching providers never reuses the previous provider's key.
 
 ## Commands (run in `android/`)
 

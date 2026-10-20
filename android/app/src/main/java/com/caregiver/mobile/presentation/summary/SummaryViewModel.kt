@@ -104,16 +104,16 @@ class SummaryViewModel(
 
     private suspend fun load(preserve: Boolean) {
         val store = aiKeyStore
+        val provider = store?.selectedProvider()
         var aiRedFlags: List<String> = emptyList()
-        if (store != null && store.hasKey()) {
+        if (store != null && provider != null && store.hasKey(provider)) {
             if (!store.consentGiven()) {
                 _state.value = SummaryState.NeedsConsent
                 return
             }
             try {
-                val provider = store.provider() ?: AiProvider.OPENAI
-                val key = store.apiKey().orEmpty()
-                val model = store.model() ?: provider.defaultModel
+                val key = store.apiKey(provider).orEmpty()
+                val model = store.model(provider) ?: provider.defaultModel
                 val baseUrl = store.baseUrlOrDefault(provider)
                 val client = when (provider) {
                     AiProvider.OPENAI,
@@ -231,7 +231,8 @@ class SummaryViewModel(
 
     fun suggestPlan() {
         val store = aiKeyStore ?: return
-        if (!store.hasKey()) return
+        val provider = store.selectedProvider()
+        if (!store.hasKey(provider)) return
         if (!store.consentGiven()) return
         if (_suggesting.value || _suggestedForCurrent.value) return
         val summaryText = (_state.value as? SummaryState.Content)?.summary?.text.orEmpty()
@@ -243,9 +244,8 @@ class SummaryViewModel(
         _suggestStatus.value = null
         exec.launch {
             try {
-                val provider = store.provider() ?: AiProvider.OPENAI
-                val key = store.apiKey().orEmpty()
-                val model = store.model() ?: provider.defaultModel
+                val key = store.apiKey(provider).orEmpty()
+                val model = store.model(provider) ?: provider.defaultModel
                 val baseUrl = store.baseUrlOrDefault(provider)
                 val client = when (provider) {
                     AiProvider.OPENAI,
