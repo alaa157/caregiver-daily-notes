@@ -4,6 +4,7 @@ import androidx.compose.foundation.layout.Arrangement
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
@@ -224,6 +225,8 @@ private fun HomeTimeline(
             LazyColumn(
                 state = listState,
                 modifier = Modifier.fillMaxSize(),
+                // The shell's FAB floats over the last row otherwise.
+                contentPadding = PaddingValues(bottom = 88.dp),
             ) {
                 item(key = "greeting") {
                     // Greeting is the first feed item (Task 1 moved it out

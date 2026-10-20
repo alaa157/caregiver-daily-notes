@@ -27,6 +27,7 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.windowInsetsPadding
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.Add
 import androidx.compose.material.icons.filled.History
 import androidx.compose.material.icons.filled.Home
 import androidx.compose.material.icons.filled.NoteAdd
@@ -46,7 +47,6 @@ import androidx.compose.material3.TopAppBarDefaults
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
-import androidx.compose.runtime.derivedStateOf
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
@@ -298,40 +298,40 @@ fun MainScaffold(graph: AppGraph) {
                 }
             },
             floatingActionButton = {
-                // X pattern: the round add-note button hides while content
-                // scrolls down and returns on scroll-up — driven by the same
-                // nested-scroll behavior that hides the top bar.
-                val fabVisible by remember {
-                    derivedStateOf { scrollBehavior.state.heightOffset == 0f }
-                }
-                // The add-note action belongs to the tab shell only. Detail,
-                // form and settings screens carry their own bottom action
-                // bars, and a floating button there competes with them, so
-                // the FAB fades out with the tab chrome.
+                // The add action belongs to the tab shell only. Detail, form
+                // and settings screens carry their own bottom action bars, and
+                // a floating button there competes with them, so the FAB only
+                // shows on a tab route. It stays put while the list scrolls.
+                val onPeople = currentRoute == MainTab.People.route
                 AnimatedVisibility(
-                    visible = fabVisible && MainTab.isTabRoute(currentRoute),
+                    visible = MainTab.isTabRoute(currentRoute),
                     enter = fadeIn() + scaleIn(),
                     exit = fadeOut() + scaleOut(),
                 ) {
                     FloatingActionButton(
                         onClick = {
-                            val only = activeRecipients.singleOrNull()
-                            if (only != null) {
-                                // Exactly one active person: skip the picker.
-                                navController.navigate(AppRoutes.noteEditor(only.id))
+                            if (onPeople) {
+                                navController.navigate(AppDestinations.AddRecipient.base) { launchSingleTop = true }
                             } else {
-                                showRecipientPicker = true
+                                val only = activeRecipients.singleOrNull()
+                                if (only != null) {
+                                    // Exactly one active person: skip the picker.
+                                    navController.navigate(AppRoutes.noteEditor(only.id))
+                                } else {
+                                    showRecipientPicker = true
+                                }
                             }
                         },
                         containerColor = MaterialTheme.colorScheme.primary,
                         contentColor = MaterialTheme.colorScheme.surface,
-                        modifier = Modifier
-                            .size(AppDimens.FabSize)
-                            .testTag("fab_add_note"),
+                        modifier = Modifier.size(AppDimens.FabSize)
+                            .testTag(if (onPeople) "fab_add_person" else "fab_add_note"),
                     ) {
                         Icon(
-                            Icons.Filled.NoteAdd,
-                            contentDescription = stringResource(R.string.fab_add_note),
+                            Icons.Filled.Add,
+                            contentDescription = stringResource(
+                                if (onPeople) R.string.people_add else R.string.fab_add_note,
+                            ),
                             modifier = Modifier.size(AppDimens.IconMd),
                         )
                     }

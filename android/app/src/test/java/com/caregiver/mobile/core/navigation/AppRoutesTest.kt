@@ -39,7 +39,7 @@ class AppRoutesTest {
         val en = readStrings("values")
         val ar = readStrings("values-ar")
         (listOf("tab_home", "tab_people", "tab_notes", "tab_history") +
-            listOf("fab_add_note")).forEach { key ->
+            listOf("fab_add_note", "people_add")).forEach { key ->
             val english = en[key]
             val arabic = ar[key]
             assertTrue("missing English string: $key", !english.isNullOrBlank())

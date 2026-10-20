@@ -93,6 +93,9 @@ class RecipientPickerUiTest {
         compose.waitUntil(timeoutMillis = 5_000) {
             compose.onAllNodesWithText("ليلى حسن").fetchSemanticsNodes().isNotEmpty()
         }
+        // The People tab's FAB adds a person; the note FAB lives on the other
+        // tabs, so go back to Home before tapping it.
+        compose.onNodeWithTag("tab_home").performClick()
 
         compose.onNodeWithTag("fab_add_note").performClick()
         compose.onNodeWithText("Today's note").assertIsDisplayed()
