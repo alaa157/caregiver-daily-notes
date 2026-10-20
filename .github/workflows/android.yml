@@ -1,18 +1,18 @@
 name: Android
 
-# CI is temporarily paused for push events at the maintainer's request.
-# To resume: revert this commit or un-comment the push block below.
-# Manual runs remain available: Actions → Android → Run workflow.
+# CI runs on push to the active branches and can also be run manually:
+# Actions → Android → Run workflow. The push trigger was temporarily
+# paused once at the maintainer's request and is back on.
 on:
   workflow_dispatch:
-  # push:
-  #   branches: [main, preview/full-stack, feat/standalone-byok-ai]
-  #   paths:
-  #     - "android/**"
-  #     - ".github/scripts/**"
-  #     - ".github/workflows/android.yml"
-  #   tags:
-  #     - "demo-v*"
+  push:
+    branches: [main, preview/full-stack, feat/standalone-byok-ai]
+    paths:
+      - "android/**"
+      - ".github/scripts/**"
+      - ".github/workflows/android.yml"
+    tags:
+      - "demo-v*"
   pull_request:
     branches: [main, preview/full-stack, feat/standalone-byok-ai]
     paths:
