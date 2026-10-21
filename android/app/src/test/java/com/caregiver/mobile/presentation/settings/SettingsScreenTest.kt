@@ -9,14 +9,11 @@ import androidx.compose.ui.platform.UriHandler
 import androidx.compose.ui.test.assertCountEquals
 import androidx.compose.ui.test.assertIsEnabled
 import androidx.compose.ui.test.assertIsNotEnabled
-import androidx.compose.ui.test.and
-import androidx.compose.ui.test.hasAnyDescendant
-import androidx.compose.ui.test.hasClickAction
-import androidx.compose.ui.test.hasText
 import androidx.compose.ui.test.hasSetTextAction
 import androidx.compose.ui.test.junit4.createComposeRule
 import androidx.compose.ui.test.onAllNodesWithText
 import androidx.compose.ui.test.onLast
+import androidx.compose.ui.test.onNodeWithTag
 import androidx.compose.ui.test.onNodeWithContentDescription
 import androidx.compose.ui.test.onNodeWithText
 import androidx.compose.ui.test.performClick
@@ -211,9 +208,7 @@ class SettingsScreenTest {
      * not on the title text node; select the clickable that owns the title.
      */
     private fun clickRow(title: String) {
-        compose.onNode(
-            hasAnyDescendant(hasText(title)) and hasClickAction(),
-        ).performClick()
+        compose.onNodeWithTag(title).performClick()
     }
 
     private fun enterCustomBaseUrl() {

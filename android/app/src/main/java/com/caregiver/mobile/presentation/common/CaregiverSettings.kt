@@ -27,6 +27,7 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.vector.ImageVector
+import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.unit.dp
 import com.caregiver.mobile.core.theme.CaregiverColors
 
@@ -105,6 +106,7 @@ fun CaregiverSettingsItem(
     Row(
         modifier = modifier
             .fillMaxWidth()
+            .testTag(title)
             .clickable(enabled = enabled && onClick != null) { onClick?.invoke() }
             .padding(horizontal = 20.dp, vertical = 16.dp),
         verticalAlignment = Alignment.CenterVertically,
