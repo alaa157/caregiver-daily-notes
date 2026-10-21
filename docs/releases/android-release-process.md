@@ -14,7 +14,7 @@ keep the artifacts identifiable.
   a mislabeled release (e.g. the `v0.3.0 (demo)` APK that reported `0.2.0`)
   cannot ship again.
 
-Current version: `versionCode 3`, `versionName "0.3.1"` → next tag `v0.3.1`.
+Current version: `versionCode 5`, `versionName "0.3.5"` → next tag `v0.3.5`.
 
 ## New line: `v*` tags (signed release + demo prerelease)
 
@@ -38,8 +38,8 @@ Exact commands for the next demo:
 grep -E 'version(Code|Name)' android/app/build.gradle.kts
 
 # 2. Tag and push (the tag is what triggers the workflow).
-git tag v0.3.1
-git push origin v0.3.1
+git tag v0.3.5
+git push origin v0.3.5
 ```
 
 ## Legacy line: `demo-v*` tags (offline demo app)
@@ -83,11 +83,11 @@ If a tag cannot be pushed, publish from a branch CI artifact — this is how
 ```bash
 # Download the artifact from the successful "Android" workflow run,
 # then verify it locally with .github/scripts/verify-demo-apk.sh first.
-gh release create v0.3.1-demo app-minified.apk \
-  --prerelease --title "v0.3.1 (demo)" \
+gh release create v0.3.5-demo app-minified.apk \
+  --prerelease --title "v0.3.5 (demo)" \
   --notes "Offline demo build for testers — not for production updates.
 - Source commit: <sha>
-- App version: 0.3.1 (versionCode 3)"
+- App version: 0.3.5 (versionCode 5)"
 ```
 
 ## Identifying the build installed on a device

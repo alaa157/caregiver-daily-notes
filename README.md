@@ -1,222 +1,233 @@
 # Caregiver Daily Notes
 
-A cloud-hosted care-support system for caregivers to record structured daily observations, generate grounded AI summaries, and manage AI-suggested care plans — in Arabic and English.
+A care-support app for family caregivers: structured daily notes, medication tracking, and
+grounded AI summaries — in Arabic and English, offline-first on the phone, with **your own** AI key.
 
-> **Disclaimer:** Care-support suggestions generated from your notes. Not medical advice. Synthetic data only — do not use with real patient data.
+> **Not a medical device.** The suggestions this app produces come from the notes you write, not
+> from clinical judgement. Synthetic data only — do not use with real patient data.
 
-## Highlights
+---
 
-- **One caregiver role**, strict ownership — each caregiver sees only their own recipients
-- **Structured + free-text notes** (AR / EN / mixed), append-only with addendums — never edited in place
-- **On-demand AI summaries** (7 / 14 / 30 days) with deterministic safety flags, grounding, and fallbacks
-- **AI-suggested care plans** from a fixed action catalog — accept, edit-and-accept, dismiss, versioned
-- **Bilingual UI with RTL** — same workflows in العربية and English on web and Android
-- **Backend-enforced safety** — red flags, trends, medication lock, and validators run server-side
+## What this branch delivers
+
+`feat/standalone-byok-ai` is the **standalone (BYOK — bring your own key) release line**. The
+Android app is the product: it installs from an APK, works with no account and no server, and
+talks to whichever AI provider you already pay for.
+
+| | |
+|---|---|
+| **Local-first** | Room is the source of truth. No login, no backend, no network needed to record a note. |
+| **Your key, your provider** | OpenAI, Anthropic, Gemini, xAI, OpenRouter. The key is encrypted in the Android Keystore, stored in a separate slot per provider, and never leaves the device. |
+| **Consent before the first send** | A dialog states exactly what leaves the phone and to whom. Nothing is sent until you accept. |
+| **Grounded, not generated** | Every AI claim must cite a note and quote it verbatim. Unclear or conflicting observations stay unclear. |
+| **Deterministic safety** | Falls, high pain, missed medication and poor-appetite streaks are computed on-device. The model can raise urgency; it can never lower it. |
+| **The medication hard lock** | The AI can propose a plan item. It can never add, remove or change a dose. |
+| **Never loses a note** | Saving a note never depends on AI. On failure you get a template summary, then “AI unavailable”. |
+| **Bilingual, RTL-first** | Arabic and English, same workflows, with proper bidi isolation and a right-to-left layout that is not a mirror of the English one. |
+| **Your data stays yours** | JSON backup/restore, CSV import/export, and a PDF summary export. |
+
+### The AI layer
+
+The app ships its own small AI layer rather than depending on a server:
+
+- **One provider boundary** — `LlmClient` + `LlmClientFactory`; native JSON modes where the
+  provider has them (Gemini `responseMimeType`, OpenAI `response_format`).
+- **One shared reader** — `ModelOutputSanitizer` unwraps code fences, preambles and `<think>`
+  blocks; `LlmJson.decode` allows a single repair retry before giving up.
+- **Grounding** — `ClaimGrounding` matches each claim back to a note by stem, checks negation in
+  both directions, and requires a quote with real substance.
+- **A closed plan state machine** — `PlanStateMachine` (5 statuses, one transition table) instead
+  of ad-hoc status writes; accepting a new plan archives the previous version.
+- **Predictable failures** — per-call timeout, one cancellation handler, `blocked_safety` reported
+  without a pointless retry.
+- **A model catalogue** — a free model is offered first wherever a provider has one; the model
+  field stays free text so a provider can serve anything else.
+
+### The safety layer
+
+Deterministic signals are computed from the structured observations, not from the model:
+falls, pain above threshold, missed medication, and poor-appetite streaks. Trends are computed
+over the same data. The model may only *add* urgency to those signals, never remove it, and the
+action catalogue is fixed — the model selects and parameterises allowed items, it does not invent
+new ones. Notes are delimited and treated as data, so text inside a note can never become an
+instruction.
+
+---
 
 ## Architecture
 
 ```mermaid
 flowchart LR
-  Web["Web<br/>React + TS"] -->|HTTPS| API["Spring Boot API<br/>Java 21 + JWT"]
-  Android["Android<br/>Kotlin + Compose"] -->|HTTPS| API
-  API -->|JPA / Flyway| DB[("Supabase PostgreSQL<br/>source of truth")]
-  API -.->|cache / rate-limit| Redis[("Upstash Redis<br/>ephemeral")]
-  API -->|LlmClient| Gemini["Gemini<br/>primary"]
-  Gemini -.->|failover| OpenRouter["OpenRouter<br/>backup"]
-  OpenRouter -.->|fallback| Template["Template summary<br/>AI unavailable"]
+  subgraph App["Android app — standalone"]
+    UI["Compose UI<br/>AR / EN, RTL"]
+    Store[("Room<br/>source of truth")]
+    Layer["AI layer<br/>BYOK + safety"]
+  end
+  Provider["Gemini · OpenAI<br/>Anthropic · xAI · OpenRouter"]
+  API["Spring Boot API<br/>team backend"]
+  Web["React web client<br/>team"]
+
+  UI --> Store
+  UI --> Layer
+  Layer -->|"HTTPS with your key"| Provider
+  API -.->|"optional sync"| Store
+  Web -->|"HTTPS + JWT"| API
 ```
 
-- Backend is the source of truth for auth, business rules, AI validation, versioning, and audit.
-- Clients are thin: web and Android consume the same REST API, no shared frontend code, no separate databases.
-- LLM is behind an `LlmClient` interface — provider/model can change without touching app logic.
+- The app is **usable on its own**. The backend is optional: it is there for shared data between
+  caregivers and for the web client, and the app can sync to it through an outbox.
+- The backend keeps its own AI path (`backend/…/ai/`) for the web client — Gemini primary,
+  OpenRouter backup, template fallback.
+- Neither client shares frontend source with the other.
 
-See [ARCHITECTURE.md](./ARCHITECTURE.md) for boundaries, ownership, and dependency rules.
+See [ARCHITECTURE.md](./ARCHITECTURE.md) for boundaries, ownership and dependency rules, and
+[android/README.md](./android/README.md) for the app-level build, runtime modes and device
+walkthrough.
 
-## Tech Stack
+---
+
+## Tech stack
 
 | Layer | Stack |
 |---|---|
+| Mobile | Kotlin, Jetpack Compose, Material3, Navigation Compose, Coroutines + Flow, Room, DataStore, WorkManager, Retrofit/OkHttp, kotlinx.serialization, JUnit + Compose UI + Robolectric |
 | Backend | Java 21, Spring Boot 3.3, Maven, Spring Security + JWT, JPA / Flyway, springdoc OpenAPI |
-| Database | Supabase PostgreSQL (persistent source of truth, versioned migrations) |
-| Cache | Upstash Redis (LLM cache, regeneration limits — never source of truth) |
+| Database | PostgreSQL via Supabase (persistent source of truth, versioned migrations) |
 | Web | React + TypeScript, i18n AR/EN, RTL, Playwright + axe |
-| Mobile | Native Kotlin, Jetpack Compose + Material3, Gradle, JUnit + Compose UI tests |
-| AI | OpenAI-compatible Chat Completions (`ChatCompletionsLlmClient`), `FakeLlmClient` in tests |
-| Infra | Local JVM + Cloudflare Tunnel (demo sharing), Cloudflare (web), GitHub Actions, GitHub Releases (APK) |
+| AI (app) | Provider-agnostic `LlmClient`; Gemini, OpenAI, Anthropic, xAI, OpenRouter |
+| AI (backend) | OpenAI-compatible `ChatCompletionsLlmClient` with `FailoverLlmClient`, `FakeLlmClient` in tests |
+| Infra | GitHub Actions, GitHub Releases (APK), Cloudflare Tunnel for demo sharing |
 
-## Repository Structure
+---
+
+## Repository layout
 
 ```text
 .
-├── backend/   # Spring Boot API — auth, recipient, notes, plans, ai, audit, common, config
+├── android/        # Native Kotlin/Compose app — the standalone release
+├── backend/        # Spring Boot API — auth, recipients, notes, plans, ai, audit
 │   ├── src/main/java/com/caregiver/
-│   ├── src/main/resources/db/migration/  # Flyway migrations (V1__, V2__, …)
-│   └── src/main/resources/prompts/        # AI prompt templates
-├── web/src/   # React app — app/, features/{auth,recipients,notes,history,ai,plans}, components/, lib/, i18n/
-├── android/   # Native app — com.caregiver.mobile (core/, data/, presentation/)
-├── docs/      # api/, ai/eval-harness + golden/, demo/, security/, privacy/, testing/, releases/
-├── .github/workflows/  # ci.yml, android.yml
+│   └── src/main/resources/db/migration/   # Flyway migrations
+├── docs/           # api, ai, android, demo, design-reference, presentations, releases
+├── .github/        # CI workflows + APK verification script
 ├── ARCHITECTURE.md
-└── .env.example
+├── CONTRIBUTING.md
+└── LICENSE
 ```
+
+> **Branch note.** This branch was cut before the web client and the `notes/`, `recipient/` and
+> `audit/` backend modules landed on `main`, so they are not in the tree yet. Merging `main` into
+> this branch is the next step — see [Team](#team--ownership) for who owns what.
+
+---
 
 ## Quickstart
 
-### 1. Prerequisites
+### 1. Install the app (no backend needed)
 
-- Java 21 + Maven (backend)
-- JDK 17 + Android SDK 35 (Android only)
-- Node 20+ (web, when `web/package.json` lands)
-- Supabase Postgres + Upstash Redis accounts for real runs
+1. Download the latest APK from [GitHub Releases](https://github.com/alaa157/caregiver-daily-notes/releases).
+2. Install it (allow installing from unknown sources).
+3. Open **Settings → AI**, choose a provider, paste your key and the model id, then tap
+   **Test connection**.
 
-### 2. Configure environment
+Getting a key: [OpenAI](https://platform.openai.com/api-keys) ·
+[Anthropic](https://console.anthropic.com/settings/keys) ·
+[Gemini](https://aistudio.google.com/app/apikey) ·
+[xAI](https://console.x.ai) ·
+[OpenRouter](https://openrouter.ai/keys)
+
+### 2. Build from source
 
 ```bash
-cp .env.example .env
-# fill in real values — never commit .env
-source .env
+cd android
+./gradlew :app:assembleDebug      # → app/build/outputs/apk/debug/app-debug.apk
+./gradlew :app:testDebugUnitTest  # JVM unit tests, no device needed
+```
+
+Requirements: **JDK 17** (newer JDKs fail the AGP build), Android SDK platform 35, build-tools
+35.0.0. `minSdk 23`, `target/compile 35`.
+
+Runtime modes: `debug` builds carry `DEMO_BACKEND=true` (illustrative data, no network) and
+`LOCAL_MODE=true`. `release` builds are `DEMO_BACKEND=false` — the demo banner is driven by
+`DEMO_BACKEND`, not by `LOCAL_MODE`, so production content is never mislabelled as demo data.
+
+### 3. Run the backend (optional)
+
+```bash
+cp .env.example .env     # fill in real values — never commit .env
+mvn -f backend/pom.xml spring-boot:run
+# API: http://localhost:8080   OpenAPI: http://localhost:8080/swagger-ui.html
 ```
 
 | Variable | Purpose |
 |---|---|
-| `DATABASE_URL`, `DATABASE_USERNAME`, `DATABASE_PASSWORD` | Supabase Postgres (pooler URL preferred) |
+| `DATABASE_URL`, `DATABASE_USERNAME`, `DATABASE_PASSWORD` | PostgreSQL (Supabase pooler URL preferred) |
 | `JWT_SECRET` | JWT signing secret (`openssl rand -base64 32`) |
-| `GEMINI_API_KEY` | Primary LLM key (optional locally — falls back to “AI unavailable”) |
-| `OPENROUTER_API_KEY` | Backup LLM key (optional) |
-| `REDIS_URL` | Upstash Redis (optional cache) |
+| `GEMINI_API_KEY` | Backend primary LLM key (optional — falls back to “AI unavailable”) |
+| `OPENROUTER_API_KEY` | Backend backup LLM key (optional) |
 
-Canonical names must match GitHub Actions Secrets.
+Names match the GitHub Actions Secrets exactly. The clients read the backend base URL from a
+single runtime setting, so a fresh tunnel URL never needs a rebuild.
 
-### 3. Run the backend
-
-```bash
-mvn -f backend/pom.xml spring-boot:run
-# API: http://localhost:8080
-# OpenAPI: http://localhost:8080/swagger-ui.html
-```
-
-Share with phone / evaluators:
-
-```bash
-cloudflared tunnel --url http://localhost:8080
-```
-
-Both clients read the backend base URL from a single runtime setting — a fresh tunnel URL never requires a rebuild.
-
-### 4. Run the clients
-
-**Android:**
-
-```bash
-cd android
-./gradlew :app:assembleDebug          # → app/build/outputs/apk/debug/app-debug.apk
-./gradlew :app:testDebugUnitTest       # unit tests, no device needed
-./gradlew :app:connectedDebugAndroidTest  # UI tests, needs emulator/device
-```
-
-**Web:** scaffold under `web/src/` (see `web/` owners). Once wired:
-
-```bash
-# cd web && npm install && npm run dev
-```
-
-## Core Workflows
-
-```mermaid
-flowchart TD
-  Login["Login<br/>JWT + ownership checks"] --> Recipients["Recipients<br/>caregiver-scoped CRUD"]
-  Recipients --> Note["Daily note<br/>structured + free text AR/EN"]
-  Note -->|immutable| Addendum["Addendum<br/>correction, original kept"]
-  Note --> History["History<br/>filter by recipient / date"]
-  History --> Summary["Summary<br/>7 / 14 / 30 days + flags + trends"]
-  Summary --> Plan["Plan<br/>suggest → accept / edit / dismiss"]
-  Plan -->|accept new| Archive["Archive previous<br/>v1 → v2 → …"]
-```
-
-1. **Login** → JWT, server-side ownership checks + IDOR protection on every request
-2. **Recipients** → caregiver-scoped CRUD
-3. **Daily note** → mood, appetite, sleep, mobility, meds taken, pain 0–10, falls + free text
-4. **Correction** → addendum note (original immutable)
-5. **History** → filter by recipient / date, full audit trail
-6. **Summary** → 7/14/30-day grounded summary + deterministic flags + trends + uncertainties
-7. **Plan** → Suggested → Accepted / Edited-and-Accepted / Dismissed → Archived, versioned `v1 → v2 → …`
-
-```mermaid
-stateDiagram-v2
-  [*] --> Suggested
-  Suggested --> Accepted : accept
-  Suggested --> EditedAccepted : edit then accept
-  Suggested --> Dismissed : dismiss
-  Accepted --> Archived : new plan accepted
-  EditedAccepted --> Archived : new plan accepted
-  Dismissed --> Archived : new plan accepted
-```
-
-## AI Safety (enforced by backend)
-
-- **Deterministic red flags** (falls, high pain, missed meds, poor appetite streaks) — LLM can raise urgency, never lower it
-- **Backend trends** — LLM never computes trends
-- **Fixed action catalog** — LLM selects/parameterizes allowed items with evidence, invents nothing
-- **Medication hard lock** — any add/remove/dose change by AI is rejected
-- **Grounding** — observations cite note IDs + verbatim quotes, verified after Arabic normalization
-- **Uncertainty preserved** — unclear/conflicting stays in `unclear_or_conflicting`
-- **Prompt-injection defense** — notes are delimited untrusted data, never system instructions
-- **Fail-safe** — 30s timeout, 2 backoff retries + 1 JSON-repair retry, template fallback, “AI unavailable” UI. Saving a note never depends on AI.
-- **JSON replies (Android BYOK path)** — native json mode (Gemini `responseMimeType`, OpenAI `response_format`), fenced or prefixed replies are unwrapped by one shared reader, 1 JSON-repair retry, then “AI unavailable”
+---
 
 ## Testing
 
 ```bash
-mvn -f backend/pom.xml test          # unit: red flags, trends, plan transitions, validators, auth
-# integration: Testcontainers + FakeLlmClient (timeout, 500, truncated JSON, bad enum, fake quotes, med edits)
-cd android && ./gradlew :app:testDebugUnitTest
+mvn -f backend/pom.xml test          # backend unit + integration
+cd android && ./gradlew :app:testDebugUnitTest       # JVM unit tests, no device
+cd android && ./gradlew :app:connectedDebugAndroidTest   # Compose UI tests, needs a device
 ```
 
-- **Decision-table tests** for red-flag combinations + boundaries
-- **State-transition tests** for all legal / illegal plan transitions
-- **Golden dataset** (~22 notes: MSA / Egyptian / mixed / messy / contradictory / injection) — red-flag recall, schema-valid rate, groundedness
-- **Metamorphic**: irrelevant sentence, paraphrase, negation flips
-- **Web**: Playwright core flows (AR/EN, RTL, mobile/desktop) + axe scan
-- **Security**: cross-caregiver access must fail
+- **Decision-table tests** for red-flag combinations and boundaries
+- **State-transition tests** for every legal and illegal plan transition
+- **Golden dataset** (~22 notes: MSA / Egyptian / mixed / messy / contradictory / injection) —
+  red-flag recall, schema-valid rate, groundedness
+- **Metamorphic tests** — irrelevant sentence, paraphrase, negation flips
+- **Security** — cross-caregiver access must fail
 
-CI (`ci.yml`, `android.yml`) runs backend, integration, web, and mobile checks + coverage on every push/PR. APK builds publish via GitHub Releases.
+### CI
 
-## Deployment
+| Workflow | Trigger | What it does |
+|---|---|---|
+| `android.yml` | push/PR touching `android/**`, manual dispatch | One Gradle invocation: debug APK, unit tests, lint, instrumentation APK |
+| `ci.yml` | push/PR on `main` | Backend tests with JaCoCo coverage + container build |
+| `android-release.yml` | tags `v*` | Signed release APK, published to GitHub Releases (fails if the tag does not match `versionName`) |
 
-| Target | Where |
-|---|---|
-| Web | Cloudflare |
-| API | Local JVM, shared via Cloudflare Tunnel (hosted PaaS deferred) |
-| DB | Supabase |
-| Cache | Upstash Redis |
-| APK | GitHub Releases |
+---
 
 ## Documentation
 
-- [ARCHITECTURE.md](./ARCHITECTURE.md) — layout, domains, ownership
-- [android/README.md](./android/README.md) — build, states, device walkthrough
-- `docs/api/android-gaps.md` — known API gaps clients must not work around
-- `docs/ai/eval-harness.md` + `docs/ai/golden/` — evaluation methodology
-- `docs/demo/seed-demo.sh` — demo seeding
-- `docs/releases/android-0.1.0-draft.md` — release notes draft
+- [ARCHITECTURE.md](./ARCHITECTURE.md) — layout, domains, ownership, dependency rules
+- [android/README.md](./android/README.md) — build, runtime modes, device walkthrough
+- [docs/api/android-gaps.md](./docs/api/android-gaps.md) — known API gaps clients must not work around
+- [docs/ai/eval-harness.md](./docs/ai/eval-harness.md) + [docs/ai/golden/](./docs/ai/golden/) — evaluation methodology
+- [docs/android/](./docs/android/) — backup/restore, CSV transfer, language notes
+- [docs/demo/seed-demo.sh](./docs/demo/seed-demo.sh) — demo seeding
+- [docs/releases/](./docs/releases/) — release process
+- [docs/presentations/](./docs/presentations/) — product decks (English and Arabic)
+- [docs/design-reference/](./docs/design-reference/) — brand and design references
+- [docs/superpowers/plans/](./docs/superpowers/plans/) — the implementation plans this branch was built from
 
-## Internationalization
+---
 
-Arabic + English everywhere, with proper RTL/bidi, locale-aware dates, and string-parity tests. Same features in both languages.
+## Team & ownership
 
-## Security & Privacy
+Four people build this. Each area below is owned by one person and tracked by their own issues —
+follow the link to see the work, the discussion and the Definition of Done.
 
-HTTPS, JWT, server-side authz, IDOR protection, env-only secrets, input + AI-output validation, write audit log, least privilege, synthetic data only. Privacy considerations align with Egypt Personal Data Protection Law No. 151 of 2020 — see `docs/privacy/`.
+| Person | Part | Issues |
+|---|---|---|
+| **Alaa** ([`alaa157`](https://github.com/alaa157)) | AI foundation and evaluation harness (backend `ai/`), the native Android app (`android/`), cross-module integration and release readiness | [#22](https://github.com/alaa157/caregiver-daily-notes/issues/22) – [#29](https://github.com/alaa157/caregiver-daily-notes/issues/29) |
+| **Ebrahim Ahmed** ([`ebrahimahmedss47-commits`](https://github.com/ebrahimahmedss47-commits)) | Daily-notes API — note model and creation, append-only addendums, history and filtering, validation and idempotency, structured observation signals (backend `notes/`) | [#30](https://github.com/alaa157/caregiver-daily-notes/issues/30) – [#34](https://github.com/alaa157/caregiver-daily-notes/issues/34) |
+| **Mohamed Hemdan** ([`mohamed-hemdan1`](https://github.com/mohamed-hemdan1)) | Caregiver authentication and JWT, care-recipient management, plan persistence and versioning, append-only audit log, backend hardening (backend `auth/`, `recipient/`, `plans/`, `audit/`) | [#8](https://github.com/alaa157/caregiver-daily-notes/issues/8) – [#12](https://github.com/alaa157/caregiver-daily-notes/issues/12) |
+| **Mahmoud Hewidy** ([`hewidyy`](https://github.com/hewidyy)) | React + TypeScript web client — foundation, auth, recipients, notes and addendums, history, AI summary and plan screens, RTL and accessibility, Playwright E2E (`web/`) | [#13](https://github.com/alaa157/caregiver-daily-notes/issues/13) – [#21](https://github.com/alaa157/caregiver-daily-notes/issues/21) |
 
-## Contributing
+Ownership is primary responsibility, not permission to skip review. Cross-area changes are
+coordinated through an issue and a PR, and nobody merges their own PR.
 
-Issues own the work. One issue = one scope. Read existing code first, don’t rewrite unrelated code, add required tests, keep PRs reviewable, never commit secrets, never merge your own PR. See `ARCHITECTURE.md` → Ownership boundaries.
+---
 
-## Scope
+## License
 
-**In:** login, recipients, structured notes, addendums, history + filters, summaries, red flags, suggested plans + versioning, audit, AR/EN + RTL, web + Android, CI/CD, eval set.
-**Out:** doctor role, approvals, plan diff, notifications, iOS, voice, offline, fine-tuning, confidence scores, Arabizi, diagnosis, monitoring, real patient data.
-
-## Status
-
-DEPI Software Testing capstone — implementation, tests, deployment, and evaluation tracked via GitHub milestones/issues on `preview/full-stack`.
+[MIT](./LICENSE) © 2026 the Caregiver Daily Notes contributors.

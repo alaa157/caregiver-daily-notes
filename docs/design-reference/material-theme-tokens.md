@@ -1,3 +1,10 @@
+# Material 3 theme tokens — "Calm Clinical Warmth"
+
+Reference dump of the Material 3 colour scheme the app is built on. The live
+implementation is `android/app/src/main/java/com/caregiver/mobile/core/theme/` —
+this file is the record of the palette, not the source of truth.
+
+```yaml
 name: Calm Clinical Warmth
 colors:
   surface: '#f2fbff'
@@ -98,9 +105,13 @@ spacing:
   space-md: 16px
   space-lg: 24px
   space-xl: 32px
+```
 
-Brand & Style
-This design system is tailored for healthcare aides, nurses, and residential caregivers documenting daily care under demanding physical and emotional conditions. It mediates the boundary between clinical precision and emotional decompression. The visual posture rejects both the sterile, intimidating aesthetics of legacy electronic health records (EHR) and the trivializing softness of generic lifestyle apps.
+---
+
+## Brand & style
+
+The design system is tailored for healthcare aides, nurses, and residential caregivers documenting daily care under demanding physical and emotional conditions. It mediates the boundary between clinical precision and emotional decompression. The visual posture rejects both the sterile, intimidating aesthetics of legacy electronic health records (EHR) and the trivializing softness of generic lifestyle apps.
 The aesthetic fuses Tactile Modernism with Native Android Material 3 ergonomics. It prioritizes grounding tactile cues, calm focus, and rapid glanceability: - Atmosphere: Reassuring, unhurried, clean, and warm. Designed to reduce cognitive fatigue during 12-hour shifts. - Bi-directional Integrity: Fully responsive to both Left-to-Right (LTR) and Right-to-Left (RTL) reading flows, respecting Arabic and Latin typographical balance equally. - Urgency Scaffolding: Medical alerts, pain indicators, and missed notes command immediate situational awareness through soft, tinted container tiers rather than glaring alarms.
 Colors
 The palette grounds the caregiver through deep organic teals, low-strain paper tones, and functionally differentiated status containers.

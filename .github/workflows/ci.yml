@@ -2,9 +2,7 @@ name: CI
 
 on:
   push:
-    branches: [main]
   pull_request:
-    branches: [main]
 
 jobs:
   backend:
@@ -45,10 +43,11 @@ jobs:
   docker:
     needs: backend
     runs-on: ubuntu-latest
-    # No @SpringBootApplication main class exists yet (foundation work pending,
-    # Member 3 #12), so `mvn package` fails at spring-boot:repackage and this
-    # job fails too. Non-blocking until the entrypoint lands; then delete the
-    # `continue-on-error` line to make image builds enforcing.
+    # The Spring Boot entrypoint exists now
+    # (backend/src/main/java/com/caregiver/config/CaregiverApplication.java),
+    # so this image build should succeed. It stays non-blocking until someone
+    # confirms a green image build; then delete the `continue-on-error` line
+    # to make image builds enforcing.
     continue-on-error: true
     steps:
       - uses: actions/checkout@v4

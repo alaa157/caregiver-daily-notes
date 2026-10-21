@@ -5,7 +5,8 @@ import java.util.Objects;
 
 /**
  * Immutable input struct for one day of caregiver note signals.
- * Stub for Member 2 TASK 1/5 schema. {@code freeText} is ignored by the evaluator.
+ * Stub for the notes schema owned by Ebrahim Ahmed (issues #30 and #34).
+ * {@code freeText} is ignored by the evaluator.
  */
 public record NoteSignals(
     String recipientId,
