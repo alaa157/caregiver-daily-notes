@@ -174,3 +174,13 @@ dependencies {
     androidTestImplementation(libs.coroutines.core)
     debugImplementation(libs.compose.ui.test.manifest)
 }
+
+// Print full test exception messages (assertion text, stack traces) in the
+// Gradle console so flaky-test evidence is readable directly in CI logs
+// instead of only inside the HTML report.
+tasks.withType(Test::class.java).configureEach {
+    testLogging {
+        events("failed")
+        exceptionFormat = org.gradle.api.tasks.testing.logging.TestExceptionFormat.FULL
+    }
+}
