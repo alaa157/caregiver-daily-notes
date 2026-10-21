@@ -14,6 +14,8 @@ import androidx.compose.ui.test.junit4.createComposeRule
 import androidx.compose.ui.test.onAllNodesWithText
 import androidx.compose.ui.test.onLast
 import androidx.compose.ui.test.onNodeWithTag
+import androidx.compose.ui.test.onRoot
+import androidx.compose.ui.test.printToString
 import androidx.compose.ui.test.onNodeWithContentDescription
 import androidx.compose.ui.test.onNodeWithText
 import androidx.compose.ui.test.performClick
@@ -24,6 +26,8 @@ import androidx.navigation.compose.composable
 import androidx.navigation.compose.rememberNavController
 import androidx.test.core.app.ApplicationProvider
 import androidx.test.ext.junit.runners.AndroidJUnit4
+import java.util.Locale
+
 import com.caregiver.mobile.AppGraph
 import com.caregiver.mobile.BuildConfig
 import com.caregiver.mobile.R
@@ -64,10 +68,27 @@ class SettingsScreenTest {
 
     @Before
     fun clearAiPreferences() {
+        // Other suites touch the process locale (language switching);
+        // these tests match English string resources.
+        Locale.setDefault(Locale.US)
         context.getSharedPreferences("ai_settings", Context.MODE_PRIVATE)
             .edit()
             .clear()
             .commit()
+    }
+
+    /** Bounded wait with evidence: on timeout, dump the semantics tree
+     * into the failure so the CI log shows what the screen rendered.
+     */
+    private fun waitFor(label: String, cond: () -> Boolean) {
+        try {
+            compose.waitUntil(5_000) { cond() }
+        } catch (t: Throwable) {
+            throw AssertionError(
+                "$label did not settle within 5s\n" + compose.onRoot().printToString(),
+                t,
+            )
+        }
     }
 
     private fun renderScreen(content: @Composable (NavHostController) -> Unit) {
@@ -215,7 +236,7 @@ class SettingsScreenTest {
         clickRow(context.getString(R.string.settings_ai_base_url))
         // The edit dialog materialises over a frame: wait for any text
         // field to exist before addressing the last one.
-        compose.waitUntil(5_000) {
+        waitFor("base url edit dialog") {
             compose.onAllNodes(hasSetTextAction()).fetchSemanticsNodes().isNotEmpty()
         }
         compose.onAllNodes(hasSetTextAction()).onLast()
@@ -268,7 +289,7 @@ class SettingsScreenTest {
 
         // The revoked status is set from the confirmation click; give the
         // recomposition a moment before asserting on it.
-        compose.waitUntil(5_000) {
+        waitFor("revoked consent status") {
             compose.onAllNodesWithText(context.getString(R.string.settings_ai_consent_revoked))
                 .fetchSemanticsNodes().isNotEmpty()
         }
