@@ -19,6 +19,10 @@
 
   <properties>
     <java.version>21</java.version>
+    <!-- Arabic literals appear throughout main and test sources; pin UTF-8 so
+         compilation never depends on the builder machine's default charset. -->
+    <project.build.sourceEncoding>UTF-8</project.build.sourceEncoding>
+    <project.reporting.outputEncoding>UTF-8</project.reporting.outputEncoding>
   </properties>
 
   <dependencies>

@@ -34,8 +34,7 @@ backend/src/main/java/com/caregiver/
 ├── ai/
 ├── audit/
 ├── common/
-├── config/         # entrypoint (CaregiverApplication) and configuration
-└── preview/        # in-progress preview API on this branch
+└── config/         # entrypoint (CaregiverApplication) and configuration
 ```
 The package namespace is intentionally generic and does not contain a person's name. The project uses `com.caregiver` as its application package namespace.
 
@@ -45,22 +44,23 @@ Each feature owns its controllers, services, repositories, DTOs, domain models, 
 
 - `auth/`: caregiver authentication and JWT/Spring Security.
 - `recipient/`: care-recipient ownership and CRUD.
-- `notes/`: daily notes, append-only addendums, history, filtering.
+- `notes/`: daily notes, append-only addendums, history, filtering, structured observation signals.
 - `plans/`: plan versions, statuses, acceptance/editing/dismissal/archive transitions.
 - `ai/`: LLM client abstraction, OpenAI-compatible provider integration with failover, summaries, grounded plan suggestions, validators, red flags, fallback handling, and AI evaluation support.
 - `audit/`: persistent audit events for writes and important state changes.
 - `common/`: genuinely cross-cutting exceptions, API utilities, security helpers, and validation utilities.
 - `config/`: the application entrypoint and configuration such as OpenAPI and infrastructure client configuration.
-- `preview/`: the in-progress preview API on this branch; superseded by the feature packages above once they are merged in.
+
+> A `preview/` package existed on this branch as a stopgap while the feature packages above
+> were still being written. It duplicated the `/api/notes` and `/api/recipients` mappings, the
+> `notes` and `recipients` tables, and a Flyway version number, so it was removed when `main`
+> was merged in. The feature packages are the implementation.
 
 Database migrations live under `backend/src/main/resources/db/migration/`. AI prompt templates live under `backend/src/main/resources/prompts/`. Tests mirror backend feature boundaries under `backend/src/test/java/` and `backend/src/test/resources/`.
 
 ## Web
 
 The web application uses React + TypeScript and is organized by product feature.
-
-> The web client currently lives on `main`. It has not been merged into
-> `feat/standalone-byok-ai` yet; see the branch note in `README.md`.
 
 ```
 web/src/

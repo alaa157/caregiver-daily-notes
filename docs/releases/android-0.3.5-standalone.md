@@ -53,7 +53,7 @@ means no AI — everything else still works.
 
 ## Not in this build
 
-- The web client and the `notes/`, `recipient/` and `audit/` backend modules are still on
-  `main`; they are not in this APK.
+- The APK needs no backend: the web client and the `notes/`, `recipient/` and `audit/` backend
+  modules are in the repository, but they are server-side and are not part of the app.
 - Play Store release — this line ships as a GitHub Release APK.
 - The app is **not a medical device** and is not HIPAA-compliant.
