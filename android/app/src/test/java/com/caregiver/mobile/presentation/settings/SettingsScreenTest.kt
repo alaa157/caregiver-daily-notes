@@ -9,6 +9,10 @@ import androidx.compose.ui.platform.UriHandler
 import androidx.compose.ui.test.assertCountEquals
 import androidx.compose.ui.test.assertIsEnabled
 import androidx.compose.ui.test.assertIsNotEnabled
+import androidx.compose.ui.test.and
+import androidx.compose.ui.test.hasAnyDescendant
+import androidx.compose.ui.test.hasClickAction
+import androidx.compose.ui.test.hasText
 import androidx.compose.ui.test.hasSetTextAction
 import androidx.compose.ui.test.junit4.createComposeRule
 import androidx.compose.ui.test.onAllNodesWithText
@@ -203,8 +207,17 @@ class SettingsScreenTest {
         compose.onNodeWithContentDescription(context.getString(R.string.action_back)).assertExists()
     }
 
+    /** CaregiverSettingsItem rows carry the click on the row container,
+     * not on the title text node; select the clickable that owns the title.
+     */
+    private fun clickRow(title: String) {
+        compose.onNode(
+            hasAnyDescendant(hasText(title)) and hasClickAction(),
+        ).performClick()
+    }
+
     private fun enterCustomBaseUrl() {
-        compose.onNodeWithText(context.getString(R.string.settings_ai_base_url)).performClick()
+        clickRow(context.getString(R.string.settings_ai_base_url))
         // The edit dialog materialises over a frame: wait for any text
         // field to exist before addressing the last one.
         compose.waitUntil(5_000) {
@@ -231,7 +244,7 @@ class SettingsScreenTest {
         renderAiSettings()
         enterCustomBaseUrl()
 
-        compose.onNodeWithText(context.getString(R.string.settings_ai_provider)).performClick()
+        clickRow(context.getString(R.string.settings_ai_provider))
         compose.onNodeWithText(AiProvider.GEMINI.displayName).performClick()
 
         compose.onNodeWithText(context.getString(R.string.settings_ai_unsaved_title))
@@ -264,8 +277,6 @@ class SettingsScreenTest {
             compose.onAllNodesWithText(context.getString(R.string.settings_ai_consent_revoked))
                 .fetchSemanticsNodes().isNotEmpty()
         }
-        compose.onNodeWithText(context.getString(R.string.settings_ai_consent_revoked))
-            .assertExists()
         compose.onNodeWithText(context.getString(R.string.settings_ai_revoke_consent))
             .assertDoesNotExist()
     }
