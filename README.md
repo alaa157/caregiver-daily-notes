@@ -108,6 +108,7 @@ walkthrough.
 ├── backend/        # Spring Boot API — auth, recipients, notes, plans, ai, audit
 │   ├── src/main/java/com/caregiver/
 │   └── src/main/resources/db/migration/   # Flyway migrations
+├── web/            # React + TypeScript web client
 ├── docs/           # api, ai, android, demo, design-reference, presentations, releases
 ├── .github/        # CI workflows + APK verification script
 ├── ARCHITECTURE.md
@@ -116,8 +117,9 @@ walkthrough.
 ```
 
 > **Branch note.** This branch was cut before the web client and the `notes/`, `recipient/` and
-> `audit/` backend modules landed on `main`, so they are not in the tree yet. Merging `main` into
-> this branch is the next step — see [Team](#team--ownership) for who owns what.
+> `audit/` backend modules landed on `main`. `main` has since been merged in, so the whole
+> system is in one tree: the standalone Android app, the backend behind it, and the web client.
+> The Android app still runs with no backend at all — the merge did not change that.
 
 ---
 
