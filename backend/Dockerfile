@@ -1,9 +1,11 @@
 # Backend image for Render (Docker runtime — Render has no native Java buildpack).
 # Build context is backend/ (Render: dockerContext "backend", dockerfilePath "./Dockerfile").
-# NOTE: no @SpringBootApplication main class exists yet (foundation work pending,
-# Member 3 #12), so the `mvn package` step currently fails at spring-boot:repackage
-# ("Unable to find main class"). The image becomes buildable AND runnable once
-# CaregiverApplication.java lands — no Dockerfile change needed then.
+# The Spring Boot entrypoint now exists at
+# src/main/java/com/caregiver/config/CaregiverApplication.java, so `mvn package`
+# produces a runnable jar. The CI image build is still marked non-blocking
+# because it has not been re-verified green since the entrypoint landed —
+# make it enforcing (drop `continue-on-error` in .github/workflows/ci.yml)
+# once someone confirms a successful build.
 
 FROM maven:3.9-eclipse-temurin-21 AS build
 WORKDIR /app

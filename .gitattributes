@@ -1,0 +1,33 @@
+# Normalise line endings: check out LF everywhere, commit with LF.
+* text=auto eol=lf
+
+# Scripts must run with LF even on Windows checkouts.
+*.sh text eol=lf
+*.bash text eol=lf
+
+# Windows-only scripts keep CRLF.
+*.bat text eol=crlf
+*.cmd text eol=crlf
+*.ps1 text eol=crlf
+
+# Binary assets — never diffed, never line-ending converted.
+*.ttf binary
+*.otf binary
+*.woff binary
+*.woff2 binary
+*.png binary
+*.jpg binary
+*.jpeg binary
+*.gif binary
+*.webp binary
+*.ico binary
+*.jar binary
+*.apk binary
+*.aab binary
+*.keystore binary
+*.jks binary
+*.pdf binary
+
+# Lockfiles and generated schemas are not worth diffing line-by-line.
+package-lock.json linguist-generated=true -diff
+android/app/schemas/** linguist-generated=true

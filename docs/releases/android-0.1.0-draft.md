@@ -1,5 +1,9 @@
 # Android 0.1.0 — debug draft (Task 8)
 
+> **Historical.** This describes the 0.1.0 debug build, kept as a record of that release
+> line. The current standalone build is documented in
+> [android-0.3.5-standalone.md](./android-0.3.5-standalone.md).
+
 > Draft only. Debug APK from CI (`android-debug-apk` artifact in the
 > `Android` workflow). No Play release. No secrets bundled — token lives in
 > DataStore, base URL is a runtime setting.

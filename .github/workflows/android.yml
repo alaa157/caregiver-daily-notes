@@ -1,12 +1,10 @@
 name: Android
 
-# CI runs on push to the active branches and can also be run manually:
-# Actions → Android → Run workflow. The push trigger was temporarily
-# paused once at the maintainer's request and is back on.
+# CI runs on any push or PR that touches the Android app, and can also be run
+# manually: Actions → Android → Run workflow.
 on:
   workflow_dispatch:
   push:
-    branches: [main, preview/full-stack, feat/standalone-byok-ai]
     paths:
       - "android/**"
       - ".github/scripts/**"
@@ -14,7 +12,6 @@ on:
     tags:
       - "demo-v*"
   pull_request:
-    branches: [main, preview/full-stack, feat/standalone-byok-ai]
     paths:
       - "android/**"
       - ".github/scripts/**"

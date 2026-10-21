@@ -1,4 +1,4 @@
-# Auth/JWT configuration (Member 3 — Task 1 foundation).
+# Auth/JWT configuration (Mohamed Hemdan — issue #12).
 # Signing secret comes from the environment only. Never commit a real secret.
 auth:
   jwt:
@@ -17,7 +17,7 @@ spring:
   flyway:
     enabled: true
 
-# LLM provider configuration (Member 1 — Task 1 foundation).
+# LLM provider configuration (Alaa — issue #22).
 # Tests never touch the network: they script HttpExchange / FakeLlmClient.
 llm:
   # Chat-completions base. Requests go to POST {base-url}/chat/completions.

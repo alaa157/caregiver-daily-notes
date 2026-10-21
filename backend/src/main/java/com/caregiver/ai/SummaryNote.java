@@ -5,7 +5,8 @@ import java.util.Objects;
 
 /**
  * Service input for one stored note. Carries the caller-supplied note id so
- * evidence can cite it, keeping the service decoupled from Member 2 storage.
+ * evidence can cite it, keeping the service decoupled from the notes storage
+ * owned by Ebrahim Ahmed (issues #30-#34).
  */
 public record SummaryNote(String noteId, LocalDate date, String text) {
 

@@ -1,5 +1,10 @@
 # X-Style Redesign Spec: Caregiver Daily Notes (Android)
 
+> **Historical document.** This was the spec for the `feat/premium-android-redesign` work
+> (branch `feat/premium-android-redesign`, commit `99bac54`). It is kept as a record of the
+> redesign decisions — the tab shell, collapsing header and the FAB all shipped from it.
+> Current behaviour is documented in `android/README.md` and the code.
+
 Target repo: `alaa157/caregiver-daily-notes`
 Target branch: `feat/premium-android-redesign` (latest, commit `99bac54`)
 Stack: native Kotlin, Jetpack Compose, Material3, Navigation Compose. Package `com.caregiver.mobile`.
