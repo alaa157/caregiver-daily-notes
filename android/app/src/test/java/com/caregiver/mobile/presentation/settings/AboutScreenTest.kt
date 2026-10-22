@@ -199,4 +199,44 @@ class AboutScreenTest {
 
         assertTrue(backed)
     }
+
+    @Test
+    fun collaboratorsAreListedWithTheirPartAndOpenTheirProfile() {
+        val uriHandler = renderAbout()
+
+        compose.onNodeWithText(context.getString(R.string.about_collaborators))
+            .performScrollTo()
+            .assertExists()
+
+        val collaborators = listOf(
+            Triple(
+                R.string.about_collaborator_ebrahim_name,
+                R.string.about_role_daily_notes,
+                "https://github.com/ebrahimahmedss47-commits",
+            ),
+            Triple(
+                R.string.about_collaborator_mohamed_name,
+                R.string.about_role_auth_people_plans,
+                "https://github.com/mohamed-hemdan1",
+            ),
+            Triple(
+                R.string.about_collaborator_mahmoud_name,
+                R.string.about_role_web_app,
+                "https://github.com/hewidyy",
+            ),
+        )
+
+        collaborators.forEach { (nameRes, roleRes, profile) ->
+            compose.onNodeWithText(context.getString(nameRes))
+                .performScrollTo()
+                .assertExists()
+            compose.onNodeWithText(context.getString(roleRes))
+                .performScrollTo()
+                .assertExists()
+            compose.onNodeWithText(context.getString(nameRes))
+                .performScrollTo()
+                .performClick()
+            assertEquals(profile, uriHandler.opened.last())
+        }
+    }
 }

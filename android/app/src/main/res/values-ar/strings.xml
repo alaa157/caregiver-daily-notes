@@ -313,6 +313,13 @@
     <string name="about_website">الموقع الإلكتروني</string>
     <string name="about_instagram">إنستغرام</string>
     <string name="about_buy_coffee">اشترِ لي قهوة!</string>
+    <string name="about_collaborators">المتعاونون</string>
+    <string name="about_collaborator_ebrahim_name">Ebrahim Ahmed</string>
+    <string name="about_collaborator_mohamed_name">Mohamed Hemdan</string>
+    <string name="about_collaborator_mahmoud_name">Mahmoud Hewidy</string>
+    <string name="about_role_daily_notes">واجهة الملاحظات اليومية</string>
+    <string name="about_role_auth_people_plans">المصادقة والأشخاص والخطط</string>
+    <string name="about_role_web_app">تطبيق الويب</string>
     <string name="about_community_info">المجتمع والمعلومات</string>
     <string name="about_github_description">@alaa157</string>
     <string name="about_repository">مستودع المشروع</string>

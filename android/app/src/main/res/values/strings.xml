@@ -313,6 +313,13 @@
     <string name="about_website">Website</string>
     <string name="about_instagram">Instagram</string>
     <string name="about_buy_coffee">Buy me a coffee!</string>
+    <string name="about_collaborators">Collaborators</string>
+    <string name="about_collaborator_ebrahim_name">Ebrahim Ahmed</string>
+    <string name="about_collaborator_mohamed_name">Mohamed Hemdan</string>
+    <string name="about_collaborator_mahmoud_name">Mahmoud Hewidy</string>
+    <string name="about_role_daily_notes">Daily notes API</string>
+    <string name="about_role_auth_people_plans">Auth, people &amp; plans</string>
+    <string name="about_role_web_app">Web app</string>
     <string name="about_community_info">Community &amp; Info</string>
     <string name="about_github_description">@alaa157</string>
     <string name="about_repository">Project repository</string>
