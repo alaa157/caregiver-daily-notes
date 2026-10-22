@@ -5,12 +5,15 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.ui.platform.LocalUriHandler
 import androidx.compose.ui.platform.UriHandler
+import androidx.compose.ui.semantics.SemanticsActions
 import androidx.compose.ui.test.assertIsNotEnabled
 import androidx.compose.ui.test.junit4.createComposeRule
 import androidx.compose.ui.test.onNodeWithContentDescription
+import androidx.compose.ui.test.onNodeWithTag
 import androidx.compose.ui.test.onNodeWithText
 import androidx.compose.ui.test.performClick
 import androidx.compose.ui.test.performScrollTo
+import androidx.compose.ui.test.performSemanticsAction
 import androidx.test.core.app.ApplicationProvider
 import androidx.test.ext.junit.runners.AndroidJUnit4
 import com.caregiver.mobile.BuildConfig
@@ -66,6 +69,16 @@ class AboutScreenTest {
         return uriHandler
     }
 
+    /** Settings rows carry the title as their test tag. Robolectric does
+     * not deliver a tap to a row inside the scrolling card after
+     * `performScrollTo`; invoke the row's OnClick semantics action instead,
+     * which is the same handler a real tap runs. */
+    private fun clickRow(title: String) {
+        compose.onNodeWithTag(title).performScrollTo()
+        compose.waitForIdle()
+        compose.onNodeWithTag(title).performSemanticsAction(SemanticsActions.OnClick)
+    }
+
     @Test
     fun aboutShowsAppIdentityLeadDeveloperAndVersion() {
         renderAbout()
@@ -107,19 +120,13 @@ class AboutScreenTest {
     fun communityRowsOpenTheGitHubRepositoryLinks() {
         val uriHandler = renderAbout()
 
-        compose.onNodeWithText(context.getString(R.string.about_repository))
-            .performScrollTo()
-            .performClick()
+        clickRow(context.getString(R.string.about_repository))
         assertEquals("https://github.com/alaa157/caregiver-daily-notes", uriHandler.opened.last())
 
-        compose.onNodeWithText(context.getString(R.string.about_github))
-            .performScrollTo()
-            .performClick()
+        clickRow(context.getString(R.string.about_github))
         assertEquals("https://github.com/alaa157", uriHandler.opened.last())
 
-        compose.onNodeWithText(context.getString(R.string.about_report_issue))
-            .performScrollTo()
-            .performClick()
+        clickRow(context.getString(R.string.about_report_issue))
         assertEquals("https://github.com/alaa157/caregiver-daily-notes/issues", uriHandler.opened.last())
     }
 
@@ -233,9 +240,7 @@ class AboutScreenTest {
             compose.onNodeWithText(context.getString(roleRes))
                 .performScrollTo()
                 .assertExists()
-            compose.onNodeWithText(context.getString(nameRes))
-                .performScrollTo()
-                .performClick()
+            clickRow(context.getString(nameRes))
             assertEquals(profile, uriHandler.opened.last())
         }
     }
