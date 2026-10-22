@@ -17,8 +17,8 @@ export function AppShell({ children }: { children: ReactNode }) {
       : pathname === '/app' ? t('dashboardTitle')
       : pathname === '/app/recipients/new' ? t('recipientCreate')
       : pathname === '/app/notes/new' ? t('notesCreate')
+      : pathname === '/app/notes' || pathname === '/app/notes/history' ? t('historyTitle')
       : pathname.startsWith('/app/notes/') ? t(pathname.endsWith('/addenda/new') ? 'notesAppend' : 'notesDetails')
-      : pathname === '/app/notes' ? t('notesTitle')
       : pathname.startsWith('/app/recipients/') ? t(pathname.endsWith('/edit') ? 'recipientEdit' : 'recipientDetails')
       : pathname === '/app/recipients' ? t('recipientsTitle') : t('pageNotFound');
     document.title = `${title} · ${t('brand')}`;
