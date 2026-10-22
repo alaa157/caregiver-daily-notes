@@ -20,7 +20,7 @@ public final class ArabicNormalizer {
   private static final Pattern DIACRITICS = Pattern.compile("[\\u064B-\\u065F\\u0670]");
   /** Zero-width joiners/separators, bidi marks, word joiners, BOM, soft hyphen. */
   private static final Pattern INVISIBLE_AND_CONTROLS =
-      Pattern.compile("[\\u200B-\\u200D\\u2066-\\u2069\\u202A-\\u202E\\uFEFF\\u061C\\u00AD]");
+      Pattern.compile("[\\u200B-\\u200F\\u2066-\\u2069\\u202A-\\u202E\\uFEFF\\u061C\\u00AD]");
   private static final Pattern ALEF_FORMS = Pattern.compile("[أإآٱ]");
   private static final Pattern WHITESPACE = Pattern.compile("\\s+");
 
