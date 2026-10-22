@@ -63,4 +63,40 @@ class AiSettingsValidationTest {
             AiSettingsValidation.normalizedBaseUrl(" https://proxy.example.com/v1 ", AiProvider.OPENAI),
         )
     }
+
+    @Test
+    fun aTestedKeyIsStoredWithItsProviderModelAndBaseUrl() {
+        // A connection test that worked is a setup the caregiver expects to
+        // stick: the rest of the app reads the stored key, so a key that
+        // only sits in the text field is a key the app does not have.
+        val credentials = AiSettingsValidation.credentialsFor(
+            provider = AiProvider.GEMINI,
+            apiKey = "  secret-key  ",
+            model = "gemini-3.1-flash-lite",
+            baseUrl = "https://proxy.example.com/v1",
+        )
+        assertEquals(AiProvider.GEMINI, credentials?.provider)
+        assertEquals("secret-key", credentials?.apiKey)
+        // The provider default is stored blank so a later default change is
+        // picked up, the same convention the Save button uses.
+        assertEquals("", credentials?.model)
+        assertEquals("https://proxy.example.com/v1", credentials?.baseUrl)
+    }
+
+    @Test
+    fun aCustomModelIsStoredAsGiven() {
+        val credentials = AiSettingsValidation.credentialsFor(
+            provider = AiProvider.OPENAI,
+            apiKey = "k",
+            model = " my-model ",
+            baseUrl = "",
+        )
+        assertEquals("my-model", credentials?.model)
+        assertEquals("", credentials?.baseUrl)
+    }
+
+    @Test
+    fun withoutAKeyThereIsNothingToStore() {
+        assertEquals(null, AiSettingsValidation.credentialsFor(AiProvider.OPENAI, "   ", "m", ""))
+    }
 }

@@ -73,19 +73,30 @@ class GeminiLlmClient(
         // retried without the parameter and the shared sanitizer plus the
         // repair retry take over.
         var useJsonMode = request.jsonMode
+        var budget = maxTokens
         var result: LlmResult
         while (true) {
-            result = send(request, safeUrl, buildBody(request, useJsonMode))
+            result = send(request, safeUrl, buildBody(request, useJsonMode, budget))
             if (useJsonMode && result.error == JSON_MODE_UNSUPPORTED) {
                 useJsonMode = false
                 continue
+            }
+            // A reply that was cut short, or that came back empty because
+            // the budget went on the model's own thinking, is asked again
+            // with a larger budget. The same request with the same budget
+            // fails the same way.
+            if (result.error == "truncated" || result.error == "empty_output") {
+                if (budget < MAX_TOKEN_BUDGET) {
+                    budget = (budget * 2).coerceAtMost(MAX_TOKEN_BUDGET)
+                    continue
+                }
             }
             break
         }
         return@withContext result
     }
 
-    private fun buildBody(request: LlmRequest, jsonMode: Boolean): JsonObject = buildJsonObject {
+    private fun buildBody(request: LlmRequest, jsonMode: Boolean, budget: Int): JsonObject = buildJsonObject {
         putJsonArray("contents") {
             add(buildJsonObject {
                 putJsonArray("parts") {
@@ -99,7 +110,7 @@ class GeminiLlmClient(
             }
         })
         put("generationConfig", buildJsonObject {
-            put("maxOutputTokens", maxTokens)
+            put("maxOutputTokens", budget)
             put("temperature", 0.2)
             if (jsonMode) {
                 // Ask Gemini for a json reply instead of parsing prose.
@@ -198,14 +209,16 @@ class GeminiLlmClient(
                         obj["text"]?.jsonPrimitive?.contentOrNull
                     }?.joinToString("")?.takeIf { it.isNotBlank() }
                     if (content.isNullOrBlank()) {
-                        last = LlmResult(LlmStatus.FALLBACK, "", "empty_output", resp.code)
-                        if (attempt < 2) kotlinx.coroutines.delay(calculateBackoff(attempt))
-                        return@use
+                        // The budget may have gone on the model's own
+                        // thinking. The caller asks again with a larger
+                        // budget; the same request with the same budget
+                        // comes back the same way.
+                        return LlmResult(LlmStatus.FALLBACK, "", "empty_output", resp.code)
                     }
                     if (finishReason == "MAX_TOKENS") {
-                        last = LlmResult(LlmStatus.FALLBACK, "", "truncated", resp.code)
-                        if (attempt < 2) kotlinx.coroutines.delay(calculateBackoff(attempt))
-                        return@use
+                        // Cut off at the token limit. The caller raises the
+                        // budget instead of repeating the same request.
+                        return LlmResult(LlmStatus.FALLBACK, "", "truncated", resp.code)
                     }
                     return LlmResult(LlmStatus.OK, content)
                 }

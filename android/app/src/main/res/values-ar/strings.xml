@@ -301,6 +301,7 @@
     <string name="settings_ai_test_connection">اختبار الاتصال</string>
     <string name="settings_ai_testing">جارٍ الاختبار...</string>
     <string name="settings_ai_connection_ok">الاتصال ناجح</string>
+    <string name="settings_ai_connection_ok_saved">الاتصال ناجح. تم حفظ المزود ومفتاح API والنموذج.</string>
     <string name="settings_ai_default">افتراضي</string>
     <string name="settings_ai_custom">مخصص</string>
     <string name="settings_ai_failed">فشل: %1$s</string>

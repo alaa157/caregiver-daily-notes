@@ -150,4 +150,39 @@ class GeminiLlmClientTest {
         assertEquals(LlmStatus.OK, res.status)
         assertEquals("""{"ok":true}""", res.text)
     }
+
+    @Test fun aTruncatedAnswerIsAskedAgainWithALargerBudget() {
+        // Asking again with the same budget cuts the answer off again.
+        server.start()
+        server.enqueue(
+            MockResponse().setBody(
+                """{"candidates":[{"content":{"parts":[{"text":"half"}]},"finishReason":"MAX_TOKENS"}]}""",
+            ),
+        )
+        server.enqueue(
+            MockResponse().setBody("""{"candidates":[{"content":{"parts":[{"text":"whole"}]}}]}"""),
+        )
+        val client = GeminiLlmClient(server.url("/").toString().trimEnd('/'), "m", "key")
+        val res = kotlinx.coroutines.runBlocking { client.complete(LlmRequest("sys", "data")) }
+        assertEquals(LlmStatus.OK, res.status)
+        assertEquals("whole", res.text)
+        assertTrue(server.takeRequest().body.readUtf8().contains("\"maxOutputTokens\":4096"))
+        assertTrue(server.takeRequest().body.readUtf8().contains("\"maxOutputTokens\":8192"))
+    }
+
+    @Test fun aTruncatedAnswerGivesUpAtTheBudgetCeiling() {
+        server.start()
+        repeat(4) {
+            server.enqueue(
+                MockResponse().setBody(
+                    """{"candidates":[{"content":{"parts":[{"text":"half"}]},"finishReason":"MAX_TOKENS"}]}""",
+                ),
+            )
+        }
+        val client = GeminiLlmClient(server.url("/").toString().trimEnd('/'), "m", "key")
+        val res = kotlinx.coroutines.runBlocking { client.complete(LlmRequest("sys", "data")) }
+        assertEquals(LlmStatus.FALLBACK, res.status)
+        assertEquals("truncated", res.error)
+        assertEquals(3, server.requestCount)
+    }
 }

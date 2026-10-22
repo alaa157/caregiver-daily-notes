@@ -27,7 +27,7 @@ class OpenAiCompatibleLlmClient(
     private val okHttpClient: OkHttpClient = OkHttpConfig.defaultOkHttpClient(),
     private val json: Json = Json { ignoreUnknownKeys = true },
     private val ioDispatcher: CoroutineDispatcher = Dispatchers.IO,
-    private val maxTokens: Int = 1024,
+    private val maxTokens: Int = DEFAULT_TOKEN_BUDGET,
 ) : LlmClient {
     override suspend fun complete(request: LlmRequest): LlmResult = withContext(ioDispatcher) {
         val httpUrl = baseUrl.toHttpUrlOrNull()
@@ -51,24 +51,53 @@ class OpenAiCompatibleLlmClient(
         val normalizedUrl = httpUrl.newBuilder().encodedPath(if (basePath.endsWith("/")) basePath else "$basePath/").build()
         val url = normalizedUrl.newBuilder().addPathSegments("chat/completions").build().toString()
 
-        // Native json mode is opt-in per request. A server that does not
-        // implement `response_format` answers with a 400; the request is then
-        // retried without the parameter and the shared sanitizer plus the
-        // repair retry take over.
+        // Three provider quirks are handled by adapting the request instead
+        // of guessing which models have them:
+        //  - a model that refuses a custom temperature answers 400; the
+        //    request is retried without the parameter.
+        //  - a server that does not implement the native json parameter
+        //    answers 400; the request is retried without it.
+        //  - a reply that was cut short, or that came back empty because the
+        //    budget went on the model's own reasoning, is retried with a
+        //    larger budget. Asking again with the same budget fails the
+        //    same way.
         var useJsonMode = request.jsonMode
+        var useTemperature = true
+        var budget = maxTokens
         var result: LlmResult
         while (true) {
-            result = send(request, url, buildBody(request, useJsonMode))
+            result = send(request, url, buildBody(request, useJsonMode, useTemperature, budget))
             if (useJsonMode && result.error == JSON_MODE_UNSUPPORTED) {
                 useJsonMode = false
                 continue
             }
+            if (useTemperature && result.error == TEMPERATURE_UNSUPPORTED) {
+                useTemperature = false
+                continue
+            }
+            if (result.error == "truncated" || result.error == "empty_output") {
+                if (budget < MAX_TOKEN_BUDGET) {
+                    budget = (budget * 2).coerceAtMost(MAX_TOKEN_BUDGET)
+                    continue
+                }
+            }
             break
+        }
+        // The markers are for the retry above, not for the UI: a provider
+        // that keeps refusing the same request has to look like the plain
+        // bad request it is.
+        if (result.error == JSON_MODE_UNSUPPORTED || result.error == TEMPERATURE_UNSUPPORTED) {
+            return@withContext LlmResult(LlmStatus.FALLBACK, "", "http_400", result.httpCode)
         }
         return@withContext result
     }
 
-    private fun buildBody(request: LlmRequest, jsonMode: Boolean): JsonObject {
+    private fun buildBody(
+        request: LlmRequest,
+        jsonMode: Boolean,
+        temperature: Boolean,
+        budget: Int,
+    ): JsonObject {
         val systemPrompt: String
         val dataBlock: String
         if (jsonMode) {
@@ -92,11 +121,16 @@ class OpenAiCompatibleLlmClient(
                 add(buildJsonObject { put("role", "user"); put("content", dataBlock) })
             }
             if (baseUrl.contains("api.openai.com", ignoreCase = true)) {
-                put("max_completion_tokens", maxTokens)
+                put("max_completion_tokens", budget)
             } else {
-                put("max_tokens", maxTokens)
+                put("max_tokens", budget)
             }
-            put("temperature", 0.2)
+            if (temperature) {
+                // A low temperature keeps the prose plain. Models that refuse
+                // a custom one answer 400 and the request is retried without
+                // it, so the parameter never decides whether a summary works.
+                put("temperature", 0.2)
+            }
             if (jsonMode) {
                 // Ask the provider for a json reply instead of parsing prose.
                 put("response_format", buildJsonObject { put("type", "json_object") })
@@ -156,6 +190,13 @@ class OpenAiCompatibleLlmClient(
                             // parameter; the caller retries without it.
                             return LlmResult(LlmStatus.FALLBACK, "", JSON_MODE_UNSUPPORTED, code)
                         }
+                        if (code == 400 && raw.contains("temperature", ignoreCase = true)) {
+                            // The model refuses a custom temperature; the
+                            // caller retries without it. Which models do
+                            // this changes with every release, so the answer
+                            // is what decides, not a list of model ids.
+                            return LlmResult(LlmStatus.FALLBACK, "", TEMPERATURE_UNSUPPORTED, code)
+                        }
                         // 429 surfaces immediately: auto-retrying quota errors
                         // inside a user-triggered request stalls the UI in
                         // real backoff; the app shows "rate_limit" and the
@@ -171,14 +212,18 @@ class OpenAiCompatibleLlmClient(
                     val content = choice?.get("message")?.jsonObject?.get("content")?.jsonPrimitive?.contentOrNull
                     val finishReason = choice?.get("finish_reason")?.jsonPrimitive?.contentOrNull
                     if (content.isNullOrBlank()) {
-                        last = LlmResult(LlmStatus.FALLBACK, "", "empty_output", resp.code)
-                        if (attempt < 2) kotlinx.coroutines.delay(calculateBackoff(attempt))
-                        return@use
+                        // An empty answer is usually a model that spent the
+                        // whole budget on its own reasoning. It comes back
+                        // to the caller, which asks again with a larger
+                        // budget; repeating the same request with the same
+                        // budget would fail the same way.
+                        return LlmResult(LlmStatus.FALLBACK, "", "empty_output", resp.code)
                     }
                     if (finishReason == "length" || finishReason == "max_tokens") {
-                        last = LlmResult(LlmStatus.FALLBACK, "", "truncated", resp.code)
-                        if (attempt < 2) kotlinx.coroutines.delay(calculateBackoff(attempt))
-                        return@use
+                        // The answer was cut off at the token limit. Asking
+                        // again with the same budget cuts it off again, so
+                        // the caller raises the budget instead.
+                        return LlmResult(LlmStatus.FALLBACK, "", "truncated", resp.code)
                     }
                     return LlmResult(LlmStatus.OK, content)
                 }
