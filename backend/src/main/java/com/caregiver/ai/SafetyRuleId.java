@@ -8,7 +8,7 @@ public enum SafetyRuleId {
   FALL_DETECTED("FALL_DETECTED"),
   HIGH_PAIN("HIGH_PAIN"),
   REPEATED_MISSED_MED("REPEATED_MISSED_MED"),
-  POOR_APPETITE_DAYS("POOR_APPETITE_DAYS");
+  POOR_APPETITE_DAYS("POOR_APPETITE_DAYS"),
 
   /**
    * Raised by the LLM when its summary marks the window urgent. Lives on
