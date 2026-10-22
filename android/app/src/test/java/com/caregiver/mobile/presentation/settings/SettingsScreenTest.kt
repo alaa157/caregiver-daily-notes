@@ -6,6 +6,7 @@ import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.platform.LocalUriHandler
 import androidx.compose.ui.platform.UriHandler
+import androidx.compose.ui.semantics.SemanticsActions
 import androidx.compose.ui.test.assertCountEquals
 import androidx.compose.ui.test.assertIsEnabled
 import androidx.compose.ui.test.assertIsNotEnabled
@@ -14,9 +15,11 @@ import androidx.compose.ui.test.junit4.createComposeRule
 import androidx.compose.ui.test.onAllNodesWithText
 import androidx.compose.ui.test.onLast
 import androidx.compose.ui.test.onNodeWithContentDescription
+import androidx.compose.ui.test.onNodeWithTag
 import androidx.compose.ui.test.onNodeWithText
 import androidx.compose.ui.test.performClick
 import androidx.compose.ui.test.performScrollTo
+import androidx.compose.ui.test.performSemanticsAction
 import androidx.compose.ui.test.performTextReplacement
 import androidx.navigation.NavHostController
 import androidx.navigation.compose.NavHost
@@ -217,16 +220,14 @@ class SettingsScreenTest {
         compose.onNodeWithContentDescription(context.getString(R.string.action_back)).assertExists()
     }
 
-    /** CaregiverSettingsItem rows carry the click on the row container,
-     * which the merged semantics of the title text node already exposes.
-     *
-     * The AI screen scrolls and the Robolectric viewport is only 320x470dp,
-     * so rows below the fold are laid out with zero bounds. Clicking one
-     * without scrolling fails to inject the touch at all, so scroll the row
-     * into view first.
-     */
+    /** Rows carry the title as their test tag. Robolectric does not deliver
+     * a tap to a row inside the scrolling card after `performScrollTo`, so
+     * invoke the row's OnClick semantics action instead; that is the same
+     * handler a real tap runs. */
     private fun clickRow(title: String) {
-        compose.onNodeWithText(title).performScrollTo().performClick()
+        compose.onNodeWithTag(title).performScrollTo()
+        compose.waitForIdle()
+        compose.onNodeWithTag(title).performSemanticsAction(SemanticsActions.OnClick)
     }
 
     private fun enterCustomBaseUrl() {
