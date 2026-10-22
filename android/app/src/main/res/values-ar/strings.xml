@@ -309,6 +309,7 @@
     <string name="summary_ai_key_invalidated">لم يعد بالإمكان قراءة مفتاح الذكاء الاصطناعي (تغيّرت شاشة قفل الهاتف). افتح الإعدادات وأدخله مرة أخرى.</string>
     <string name="about_lead_developer_name">Alaa Shehata</string>
     <string name="about_lead_developer_role">المطور الرئيسي</string>
+    <string name="about_open_github_profile">فتح ملف GitHub</string>
     <string name="about_github">GitHub</string>
     <string name="about_website">الموقع الإلكتروني</string>
     <string name="about_instagram">إنستغرام</string>

@@ -29,7 +29,6 @@ import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.unit.dp
-import com.caregiver.mobile.core.theme.CaregiverColors
 
 // NOTE: never declare a class or data class named `CaregiverSettingsItem`
 // here. When a class and a function share a name, Kotlin resolves every
@@ -40,7 +39,29 @@ import com.caregiver.mobile.core.theme.CaregiverColors
 // only declaration with this name in the app.
 
 /**
- * Metrolist-style grouped settings card.
+ * One row of a settings group.
+ *
+ * The rows are data rather than composable calls because the group has to
+ * know how many of them there are: the first and the last row of a group are
+ * rounded at the group's ends, the rows in between are squared off against
+ * their neighbours, exactly as Metrolist draws them.
+ */
+data class CaregiverSettingsRow(
+    val title: String,
+    val icon: ImageVector? = null,
+    /** Drawn instead of [icon] — a profile photo, a badge. */
+    val leadingContent: (@Composable () -> Unit)? = null,
+    val description: String? = null,
+    val trailingContent: (@Composable () -> Unit)? = null,
+    val showBadge: Boolean = false,
+    val isHighlighted: Boolean = false,
+    val enabled: Boolean = true,
+    val onClick: (() -> Unit)? = null,
+)
+
+/**
+ * Metrolist-style settings group: one card per row, 4.dp apart, the group
+ * rounded at both ends and the rows between them squared off.
  *
  * Shape rules (computed by item index; pass the full list for correct
  * segmentation):
@@ -48,9 +69,58 @@ import com.caregiver.mobile.core.theme.CaregiverColors
  * - first item → topStart/topEnd 24.dp, bottomStart/bottomEnd 6.dp
  * - middle items → RoundedCornerShape(6.dp)
  * - last item → topStart/topEnd 6.dp, bottomStart/bottomEnd 24.dp
- *
- * Items are rendered with 4.dp vertical spacing. Use CaregiverSettingsItem
- * for each row.
+ */
+@Composable
+fun CaregiverSettingsGroup(
+    title: String? = null,
+    modifier: Modifier = Modifier,
+    items: List<CaregiverSettingsRow>,
+) {
+    Column(modifier = modifier.fillMaxWidth()) {
+        title?.let {
+            Text(
+                text = it,
+                style = MaterialTheme.typography.labelLarge,
+                color = MaterialTheme.colorScheme.primary,
+                modifier = Modifier.padding(top = 8.dp, bottom = 8.dp),
+            )
+        }
+        Column(
+            modifier = Modifier.fillMaxWidth(),
+            verticalArrangement = Arrangement.spacedBy(4.dp),
+        ) {
+            items.forEachIndexed { index, row ->
+                Card(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .animateContentSize(),
+                    shape = groupRowShape(index, items.size),
+                    colors = CardDefaults.cardColors(
+                        containerColor = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.3f),
+                    ),
+                    elevation = CardDefaults.cardElevation(defaultElevation = 0.dp),
+                ) {
+                    CaregiverSettingsItem(
+                        title = row.title,
+                        icon = row.icon,
+                        leadingContent = row.leadingContent,
+                        description = row.description,
+                        trailingContent = row.trailingContent,
+                        showBadge = row.showBadge,
+                        isHighlighted = row.isHighlighted,
+                        enabled = row.enabled,
+                        onClick = row.onClick,
+                    )
+                }
+            }
+        }
+    }
+}
+
+/**
+ * A group whose content is not a list of rows — a row of chips, a custom
+ * control. It is drawn as a single card, which is what Metrolist's groups
+ * look like when they hold one thing.
  */
 @Composable
 fun CaregiverSettingsGroup(
@@ -84,6 +154,27 @@ fun CaregiverSettingsGroup(
             )
         }
     }
+}
+
+/**
+ * The shape of one row's card: the group's ends are rounded, the rows in
+ * between are squared off against their neighbours.
+ */
+private fun groupRowShape(index: Int, count: Int): RoundedCornerShape = when {
+    count <= 1 -> RoundedCornerShape(24.dp)
+    index == 0 -> RoundedCornerShape(
+        topStart = 24.dp,
+        topEnd = 24.dp,
+        bottomStart = 6.dp,
+        bottomEnd = 6.dp,
+    )
+    index == count - 1 -> RoundedCornerShape(
+        topStart = 6.dp,
+        topEnd = 6.dp,
+        bottomStart = 24.dp,
+        bottomEnd = 24.dp,
+    )
+    else -> RoundedCornerShape(6.dp)
 }
 
 /**
@@ -127,7 +218,11 @@ fun CaregiverSettingsItem(
                 contentAlignment = Alignment.Center,
             ) {
                 if (showBadge) {
-                    BadgedBox(badge = { Badge(containerColor = MaterialTheme.colorScheme.error) }) {
+                    BadgedBox(
+                        badge = {
+                            Badge(containerColor = MaterialTheme.colorScheme.error)
+                        },
+                    ) {
                         Icon(
                             imageVector = icon,
                             contentDescription = null,
@@ -164,6 +259,10 @@ fun CaregiverSettingsItem(
                     else MaterialTheme.colorScheme.onSurfaceVariant,
                 )
             }
+        }
+        trailingContent?.let { trailing ->
+            Spacer(Modifier.width(8.dp))
+            trailing()
         }
     }
 }

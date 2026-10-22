@@ -59,7 +59,7 @@ import com.caregiver.mobile.R
 import com.caregiver.mobile.data.update.UpdateChecker
 import com.caregiver.mobile.presentation.common.AppTopBar
 import com.caregiver.mobile.presentation.common.CaregiverSettingsGroup
-import com.caregiver.mobile.presentation.common.CaregiverSettingsItem
+import com.caregiver.mobile.presentation.common.CaregiverSettingsRow
 import com.caregiver.mobile.presentation.common.assistedViewModel
 
 /**
@@ -206,25 +206,28 @@ private fun UpdateSection(
         null
     }
 
-    CaregiverSettingsGroup(title = stringResource(R.string.about_updates)) {
-        CaregiverSettingsItem(
-            title = stringResource(R.string.about_check_updates),
-            icon = Icons.Outlined.Refresh,
-            description = when (state) {
-                AboutUpdateState.Checking ->
-                    stringResource(R.string.about_update_checking)
-                AboutUpdateState.UpToDate ->
-                    stringResource(R.string.about_update_up_to_date, currentVersion)
-                is AboutUpdateState.Available ->
-                    stringResource(R.string.about_update_available, state.version, currentVersion)
-                AboutUpdateState.Failed ->
-                    stringResource(R.string.about_update_failed)
-            },
-            trailingContent = progress,
-            enabled = !checking,
-            onClick = onCheck,
-        )
-    }
+    CaregiverSettingsGroup(
+        title = stringResource(R.string.about_updates),
+        items = listOf(
+            CaregiverSettingsRow(
+                title = stringResource(R.string.about_check_updates),
+                icon = Icons.Outlined.Refresh,
+                description = when (state) {
+                    AboutUpdateState.Checking ->
+                        stringResource(R.string.about_update_checking)
+                    AboutUpdateState.UpToDate ->
+                        stringResource(R.string.about_update_up_to_date, currentVersion)
+                    is AboutUpdateState.Available ->
+                        stringResource(R.string.about_update_available, state.version, currentVersion)
+                    AboutUpdateState.Failed ->
+                        stringResource(R.string.about_update_failed)
+                },
+                trailingContent = progress,
+                enabled = !checking,
+                onClick = onCheck,
+            ),
+        ),
+    )
 
     if (state is AboutUpdateState.Available) {
         Spacer(Modifier.height(12.dp))
@@ -508,25 +511,26 @@ private fun DeveloperSocials(uriHandler: UriHandler) {
  */
 @Composable
 private fun CollaboratorsSection(uriHandler: UriHandler) {
-    CaregiverSettingsGroup(title = stringResource(R.string.about_collaborators)) {
-        collaborators.forEach { collaborator ->
+    CaregiverSettingsGroup(
+        title = stringResource(R.string.about_collaborators),
+        items = collaborators.map { collaborator ->
             val name = stringResource(collaborator.nameRes)
-            CaregiverSettingsItem(
+            CaregiverSettingsRow(
                 title = name,
                 description = stringResource(collaborator.roleRes),
                 leadingContent = { CollaboratorMark(name) },
                 trailingContent = {
                     Icon(
                         imageVector = Icons.Outlined.Code,
-                        contentDescription = stringResource(R.string.about_github),
+                        contentDescription = stringResource(R.string.about_open_github_profile),
                         modifier = Modifier.size(24.dp),
                         tint = MaterialTheme.colorScheme.onSurfaceVariant,
                     )
                 },
                 onClick = { uriHandler.openUri(collaborator.githubUrl) },
             )
-        }
-    }
+        },
+    )
 }
 
 /**
@@ -558,30 +562,33 @@ private fun CollaboratorMark(name: String) {
 /** GitHub, repository, issues and documentation links. */
 @Composable
 private fun CommunityAndInfo(uriHandler: UriHandler) {
-    CaregiverSettingsGroup(title = stringResource(R.string.about_community_info)) {
-        CaregiverSettingsItem(
-            title = stringResource(R.string.about_github),
-            icon = Icons.Outlined.Code,
-            description = stringResource(R.string.about_github_description),
-            onClick = { uriHandler.openUri(GITHUB_PROFILE_URL) },
-        )
-        CaregiverSettingsItem(
-            title = stringResource(R.string.about_repository),
-            icon = Icons.Outlined.Folder,
-            description = stringResource(R.string.about_repository_description),
-            onClick = { uriHandler.openUri(REPOSITORY_URL) },
-        )
-        CaregiverSettingsItem(
-            title = stringResource(R.string.about_report_issue),
-            icon = Icons.Outlined.BugReport,
-            description = stringResource(R.string.about_report_issue_description),
-            onClick = { uriHandler.openUri(ISSUES_URL) },
-        )
-        CaregiverSettingsItem(
-            title = stringResource(R.string.about_documentation),
-            icon = Icons.Outlined.MenuBook,
-            description = stringResource(R.string.about_documentation_description),
-            onClick = { uriHandler.openUri(DOCUMENTATION_URL) },
-        )
-    }
+    CaregiverSettingsGroup(
+        title = stringResource(R.string.about_community_info),
+        items = listOf(
+            CaregiverSettingsRow(
+                title = stringResource(R.string.about_github),
+                icon = Icons.Outlined.Code,
+                description = stringResource(R.string.about_github_description),
+                onClick = { uriHandler.openUri(GITHUB_PROFILE_URL) },
+            ),
+            CaregiverSettingsRow(
+                title = stringResource(R.string.about_repository),
+                icon = Icons.Outlined.Folder,
+                description = stringResource(R.string.about_repository_description),
+                onClick = { uriHandler.openUri(REPOSITORY_URL) },
+            ),
+            CaregiverSettingsRow(
+                title = stringResource(R.string.about_report_issue),
+                icon = Icons.Outlined.BugReport,
+                description = stringResource(R.string.about_report_issue_description),
+                onClick = { uriHandler.openUri(ISSUES_URL) },
+            ),
+            CaregiverSettingsRow(
+                title = stringResource(R.string.about_documentation),
+                icon = Icons.Outlined.MenuBook,
+                description = stringResource(R.string.about_documentation_description),
+                onClick = { uriHandler.openUri(DOCUMENTATION_URL) },
+            ),
+        ),
+    )
 }

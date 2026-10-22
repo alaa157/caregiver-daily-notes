@@ -309,6 +309,7 @@
     <string name="summary_ai_key_invalidated">Your AI key can no longer be read (the phone\'s lock screen changed). Open Settings and enter it again.</string>
     <string name="about_lead_developer_name">Alaa Shehata</string>
     <string name="about_lead_developer_role">Lead Developer</string>
+    <string name="about_open_github_profile">Open GitHub profile</string>
     <string name="about_github">GitHub</string>
     <string name="about_website">Website</string>
     <string name="about_instagram">Instagram</string>
