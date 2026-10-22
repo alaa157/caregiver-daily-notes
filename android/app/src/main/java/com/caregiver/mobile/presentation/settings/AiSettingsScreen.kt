@@ -62,7 +62,7 @@ import com.caregiver.mobile.core.navigation.markUnsavedChanges
 import com.caregiver.mobile.presentation.common.AiRecovery
 import com.caregiver.mobile.presentation.common.AppTopBar
 import com.caregiver.mobile.presentation.common.CaregiverSettingsGroup
-import com.caregiver.mobile.presentation.common.CaregiverSettingsItem
+import com.caregiver.mobile.presentation.common.CaregiverSettingsRow
 import com.caregiver.mobile.presentation.common.resolvedMessage
 import java.time.LocalDate
 import kotlinx.coroutines.Job
@@ -228,74 +228,90 @@ fun AiSettingsScreen(graph: AppGraph, navController: NavController, navEntry: Na
         // One untitled card holds the connection settings; the key rows keep
         // their place between provider and model. The group headers used to
         // repeat the first row's title ("API key", "System prompt").
-        CaregiverSettingsGroup {
-            CaregiverSettingsItem(
-                title = stringResource(R.string.settings_ai_provider),
-                icon = Icons.Outlined.Cloud,
-                description = provider.displayName,
-                onClick = { showProviderDialog = true },
-            )
-            CaregiverSettingsItem(
-                title = stringResource(R.string.settings_ai_setup_guide),
-                icon = Icons.Outlined.Link,
-                description = provider.displayName,
-                onClick = {
-                    guideLinkError = false
-                    showGuideDialog = true
-                },
-            )
-            CaregiverSettingsItem(
-                title = stringResource(R.string.settings_ai_api_key),
-                icon = Icons.Outlined.Key,
-                description = when {
-                    apiKey.isNotBlank() -> "••••••••"
-                    keyState is ApiKeyState.Invalidated -> stringResource(R.string.settings_ai_key_invalidated)
-                    else -> stringResource(R.string.settings_ai_set_api_key)
-                },
-                onClick = { showKeyDialog = true },
-            )
-            if (apiKey.isNotBlank()) {
-                CaregiverSettingsItem(
-                    title = stringResource(R.string.settings_ai_clear_key),
-                    icon = Icons.Outlined.Key,
-                    // No description: it repeated the title verbatim.
-                    onClick = { showClearKeyDialog = true },
+        CaregiverSettingsGroup(
+            items = buildList {
+                add(
+                    CaregiverSettingsRow(
+                        title = stringResource(R.string.settings_ai_provider),
+                        icon = Icons.Outlined.Cloud,
+                        description = provider.displayName,
+                        onClick = { showProviderDialog = true },
+                    ),
                 )
-            }
-            CaregiverSettingsItem(
-                title = stringResource(R.string.settings_ai_model),
-                icon = Icons.Outlined.Memory,
-                description = model.ifBlank { provider.defaultModel },
-                onClick = { showModelDialog = true },
-            )
-            CaregiverSettingsItem(
-                title = stringResource(R.string.settings_ai_base_url),
-                icon = Icons.Outlined.Link,
-                description = baseUrl.ifBlank { provider.defaultBaseUrl },
-                onClick = { showUrlDialog = true },
-            )
-        }
+                add(
+                    CaregiverSettingsRow(
+                        title = stringResource(R.string.settings_ai_setup_guide),
+                        icon = Icons.Outlined.Link,
+                        description = provider.displayName,
+                        onClick = {
+                            guideLinkError = false
+                            showGuideDialog = true
+                        },
+                    ),
+                )
+                add(
+                    CaregiverSettingsRow(
+                        title = stringResource(R.string.settings_ai_api_key),
+                        icon = Icons.Outlined.Key,
+                        description = when {
+                            apiKey.isNotBlank() -> "••••••••"
+                            keyState is ApiKeyState.Invalidated -> stringResource(R.string.settings_ai_key_invalidated)
+                            else -> stringResource(R.string.settings_ai_set_api_key)
+                        },
+                        onClick = { showKeyDialog = true },
+                    ),
+                )
+                if (apiKey.isNotBlank()) {
+                    add(
+                        CaregiverSettingsRow(
+                            title = stringResource(R.string.settings_ai_clear_key),
+                            icon = Icons.Outlined.Key,
+                            // No description: it repeated the title verbatim.
+                            onClick = { showClearKeyDialog = true },
+                        ),
+                    )
+                }
+                add(
+                    CaregiverSettingsRow(
+                        title = stringResource(R.string.settings_ai_model),
+                        icon = Icons.Outlined.Memory,
+                        description = model.ifBlank { provider.defaultModel },
+                        onClick = { showModelDialog = true },
+                    ),
+                )
+                add(
+                    CaregiverSettingsRow(
+                        title = stringResource(R.string.settings_ai_base_url),
+                        icon = Icons.Outlined.Link,
+                        description = baseUrl.ifBlank { provider.defaultBaseUrl },
+                        onClick = { showUrlDialog = true },
+                    ),
+                )
+            },
+        )
 
-        CaregiverSettingsGroup {
-            CaregiverSettingsItem(
-                title = stringResource(R.string.settings_ai_system_prompt),
-                icon = Icons.Outlined.Article,
-                description = if (systemPrompt.isBlank()) stringResource(R.string.settings_ai_default) else stringResource(R.string.settings_ai_custom),
-                onClick = { showPromptDialog = true },
-            )
-            CaregiverSettingsItem(
-                title = stringResource(R.string.settings_ai_summary_prompt),
-                icon = Icons.Outlined.Description,
-                description = if (summaryPrompt.isBlank()) stringResource(R.string.settings_ai_default) else stringResource(R.string.settings_ai_custom),
-                onClick = { showSummaryPromptDialog = true },
-            )
-            CaregiverSettingsItem(
-                title = stringResource(R.string.settings_ai_plan_prompt),
-                icon = Icons.Outlined.List,
-                description = if (planPrompt.isBlank()) stringResource(R.string.settings_ai_default) else stringResource(R.string.settings_ai_custom),
-                onClick = { showPlanPromptDialog = true },
-            )
-        }
+        CaregiverSettingsGroup(
+            items = listOf(
+                CaregiverSettingsRow(
+                    title = stringResource(R.string.settings_ai_system_prompt),
+                    icon = Icons.Outlined.Article,
+                    description = if (systemPrompt.isBlank()) stringResource(R.string.settings_ai_default) else stringResource(R.string.settings_ai_custom),
+                    onClick = { showPromptDialog = true },
+                ),
+                CaregiverSettingsRow(
+                    title = stringResource(R.string.settings_ai_summary_prompt),
+                    icon = Icons.Outlined.Description,
+                    description = if (summaryPrompt.isBlank()) stringResource(R.string.settings_ai_default) else stringResource(R.string.settings_ai_custom),
+                    onClick = { showSummaryPromptDialog = true },
+                ),
+                CaregiverSettingsRow(
+                    title = stringResource(R.string.settings_ai_plan_prompt),
+                    icon = Icons.Outlined.List,
+                    description = if (planPrompt.isBlank()) stringResource(R.string.settings_ai_default) else stringResource(R.string.settings_ai_custom),
+                    onClick = { showPlanPromptDialog = true },
+                ),
+            ),
+        )
 
         Button(onClick = {
             if (apiKey.isBlank()) {

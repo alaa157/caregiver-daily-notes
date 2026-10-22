@@ -67,7 +67,7 @@ import com.caregiver.mobile.data.csv.AndroidCsvDocumentIo
 import com.caregiver.mobile.presentation.common.AppTopBar
 import com.caregiver.mobile.presentation.common.AppDimens
 import com.caregiver.mobile.presentation.common.CaregiverSettingsGroup
-import com.caregiver.mobile.presentation.common.CaregiverSettingsItem
+import com.caregiver.mobile.presentation.common.CaregiverSettingsRow
 import com.caregiver.mobile.presentation.common.PrimaryButton
 import com.caregiver.mobile.presentation.common.SecondaryButton
 import com.caregiver.mobile.presentation.common.assistedViewModel
@@ -156,75 +156,80 @@ fun SettingsScreen(graph: AppGraph, navController: NavController) {
         // Application-specific: AI and appearance. Untitled card so these
         // rows carry the same card chrome as the titled sections above and
         // below, instead of sitting outside every group as bare rows.
-        CaregiverSettingsGroup {
-            CaregiverSettingsItem(
-                title = stringResource(R.string.settings_ai),
-                icon = Icons.Outlined.SmartToy,
-                // No description: it used to repeat the title verbatim.
-                onClick = { navController.navigate("ai-settings") },
-            )
-            CaregiverSettingsItem(
-                title = stringResource(R.string.settings_theme_colors),
-                icon = Icons.Outlined.Palette,
-                onClick = { navController.navigate("theme-colors") },
-            )
-        }
+        CaregiverSettingsGroup(
+            items = listOf(
+                CaregiverSettingsRow(
+                    title = stringResource(R.string.settings_ai),
+                    icon = Icons.Outlined.SmartToy,
+                    // No description: it used to repeat the title verbatim.
+                    onClick = { navController.navigate("ai-settings") },
+                ),
+                CaregiverSettingsRow(
+                    title = stringResource(R.string.settings_theme_colors),
+                    icon = Icons.Outlined.Palette,
+                    onClick = { navController.navigate("theme-colors") },
+                ),
+            ),
+        )
 
         // Application-specific: Data & Backup — CSV import/export and full
         // backup/restore. The file pickers grant access to one document each;
         // no broad storage permission is requested. Backup actions need the
         // standalone store; where Room is a server cache they are disabled
         // with an explanation instead of writing into the sync path.
-        CaregiverSettingsGroup(title = stringResource(R.string.settings_data_backup)) {
-            val dataBusy = csvState.operation != null || backupState.operation != null
-            val backupAvailable = backupVm.available
-            CaregiverSettingsItem(
-                title = stringResource(R.string.csv_import_title),
-                icon = Icons.Outlined.UploadFile,
-                description = if (csvState.operation == CsvOperation.IMPORT) {
-                    stringResource(R.string.csv_import_working)
-                } else {
-                    stringResource(R.string.csv_import_description)
-                },
-                enabled = !dataBusy,
-                onClick = { importLauncher.launch(CSV_MIME_TYPES) },
-            )
-            CaregiverSettingsItem(
-                title = stringResource(R.string.csv_export_title),
-                icon = Icons.Outlined.FileDownload,
-                description = if (csvState.operation == CsvOperation.EXPORT) {
-                    stringResource(R.string.csv_export_working)
-                } else {
-                    stringResource(R.string.csv_export_description)
-                },
-                enabled = !dataBusy,
-                onClick = { exportLauncher.launch(csvVm.exportFileName()) },
-            )
-            CaregiverSettingsItem(
-                title = stringResource(R.string.backup_create_title),
-                icon = Icons.Outlined.Backup,
-                description = when {
-                    !backupAvailable -> stringResource(R.string.backup_unavailable)
-                    backupState.operation == BackupOperation.CREATE ->
-                        stringResource(R.string.backup_create_working)
-                    else -> stringResource(R.string.backup_create_description)
-                },
-                enabled = backupAvailable && !dataBusy,
-                onClick = { backupCreateLauncher.launch(backupVm.fileName()) },
-            )
-            CaregiverSettingsItem(
-                title = stringResource(R.string.backup_restore_title),
-                icon = Icons.Outlined.SettingsBackupRestore,
-                description = when {
-                    !backupAvailable -> stringResource(R.string.backup_unavailable)
-                    backupState.operation == BackupOperation.RESTORE ->
-                        stringResource(R.string.backup_restore_working)
-                    else -> stringResource(R.string.backup_restore_description)
-                },
-                enabled = backupAvailable && !dataBusy,
-                onClick = { backupRestoreLauncher.launch(arrayOf("application/json")) },
-            )
-        }
+        val dataBusy = csvState.operation != null || backupState.operation != null
+        val backupAvailable = backupVm.available
+        CaregiverSettingsGroup(
+            title = stringResource(R.string.settings_data_backup),
+            items = listOf(
+                CaregiverSettingsRow(
+                    title = stringResource(R.string.csv_import_title),
+                    icon = Icons.Outlined.UploadFile,
+                    description = if (csvState.operation == CsvOperation.IMPORT) {
+                        stringResource(R.string.csv_import_working)
+                    } else {
+                        stringResource(R.string.csv_import_description)
+                    },
+                    enabled = !dataBusy,
+                    onClick = { importLauncher.launch(CSV_MIME_TYPES) },
+                ),
+                CaregiverSettingsRow(
+                    title = stringResource(R.string.csv_export_title),
+                    icon = Icons.Outlined.FileDownload,
+                    description = if (csvState.operation == CsvOperation.EXPORT) {
+                        stringResource(R.string.csv_export_working)
+                    } else {
+                        stringResource(R.string.csv_export_description)
+                    },
+                    enabled = !dataBusy,
+                    onClick = { exportLauncher.launch(csvVm.exportFileName()) },
+                ),
+                CaregiverSettingsRow(
+                    title = stringResource(R.string.backup_create_title),
+                    icon = Icons.Outlined.Backup,
+                    description = when {
+                        !backupAvailable -> stringResource(R.string.backup_unavailable)
+                        backupState.operation == BackupOperation.CREATE ->
+                            stringResource(R.string.backup_create_working)
+                        else -> stringResource(R.string.backup_create_description)
+                    },
+                    enabled = backupAvailable && !dataBusy,
+                    onClick = { backupCreateLauncher.launch(backupVm.fileName()) },
+                ),
+                CaregiverSettingsRow(
+                    title = stringResource(R.string.backup_restore_title),
+                    icon = Icons.Outlined.SettingsBackupRestore,
+                    description = when {
+                        !backupAvailable -> stringResource(R.string.backup_unavailable)
+                        backupState.operation == BackupOperation.RESTORE ->
+                            stringResource(R.string.backup_restore_working)
+                        else -> stringResource(R.string.backup_restore_description)
+                    },
+                    enabled = backupAvailable && !dataBusy,
+                    onClick = { backupRestoreLauncher.launch(arrayOf("application/json")) },
+                ),
+            ),
+        )
         csvState.notice?.let { notice ->
             CsvNoticeLine(notice = notice, onDismiss = csvVm::dismissNotice)
         }
@@ -234,47 +239,53 @@ fun SettingsScreen(graph: AppGraph, navController: NavController) {
 
         // Application-specific: Data
         if (com.caregiver.mobile.BuildConfig.LOCAL_MODE) {
-            CaregiverSettingsGroup {
-                CaregiverSettingsItem(
-                    title = stringResource(R.string.settings_load_sample_data),
-                    icon = Icons.Outlined.Storage,
-                    onClick = {
-                        scope.launch {
-                            com.caregiver.mobile.data.SampleDataLoader.load(
-                                com.caregiver.mobile.data.local.AppDatabase.create(graph.context),
-                            )
-                        }
-                    },
-                )
-            }
+            CaregiverSettingsGroup(
+                items = listOf(
+                    CaregiverSettingsRow(
+                        title = stringResource(R.string.settings_load_sample_data),
+                        icon = Icons.Outlined.Storage,
+                        onClick = {
+                            scope.launch {
+                                com.caregiver.mobile.data.SampleDataLoader.load(
+                                    com.caregiver.mobile.data.local.AppDatabase.create(graph.context),
+                                )
+                            }
+                        },
+                    ),
+                ),
+            )
         }
 
         // Application-specific: About. The About row keeps the version as its
         // description; the duplicate footer line that used to repeat the same
         // version below the list is gone.
-        CaregiverSettingsGroup {
-            CaregiverSettingsItem(
-                title = stringResource(R.string.settings_about),
-                icon = Icons.Outlined.Info,
-                description = stringResource(R.string.settings_app_version, com.caregiver.mobile.BuildConfig.VERSION_NAME),
-                onClick = { navController.navigate("about") },
-            )
-        }
+        CaregiverSettingsGroup(
+            items = listOf(
+                CaregiverSettingsRow(
+                    title = stringResource(R.string.settings_about),
+                    icon = Icons.Outlined.Info,
+                    description = stringResource(R.string.settings_app_version, com.caregiver.mobile.BuildConfig.VERSION_NAME),
+                    onClick = { navController.navigate("about") },
+                ),
+            ),
+        )
 
         // Application-specific: Server / Logout
         if (!com.caregiver.mobile.BuildConfig.LOCAL_MODE) {
-            CaregiverSettingsGroup {
-                CaregiverSettingsItem(
-                    title = stringResource(R.string.settings_server),
-                    icon = Icons.Outlined.Dns,
-                    onClick = { navController.navigate("server-url") },
-                )
-                CaregiverSettingsItem(
-                    title = stringResource(R.string.settings_logout),
-                    icon = Icons.Outlined.Logout,
-                    onClick = { scope.launch { graph.auth.signOut() } },
-                )
-            }
+            CaregiverSettingsGroup(
+                items = listOf(
+                    CaregiverSettingsRow(
+                        title = stringResource(R.string.settings_server),
+                        icon = Icons.Outlined.Dns,
+                        onClick = { navController.navigate("server-url") },
+                    ),
+                    CaregiverSettingsRow(
+                        title = stringResource(R.string.settings_logout),
+                        icon = Icons.Outlined.Logout,
+                        onClick = { scope.launch { graph.auth.signOut() } },
+                    ),
+                ),
+            )
         }
 
         csvState.preview?.let { plan ->
