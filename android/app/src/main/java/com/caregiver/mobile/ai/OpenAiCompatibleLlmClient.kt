@@ -146,11 +146,7 @@ class OpenAiCompatibleLlmClient(
                     val raw = resp.body?.string().orEmpty()
                     if (!resp.isSuccessful) {
                         val code = resp.code
-                        val err = when (code) {
-                            401, 403 -> "invalid_key"
-                            429 -> "rate_limit"
-                            else -> "http_$code"
-                        }
+                        val err = classifyLlmHttpError(code, raw)
                         last = LlmResult(LlmStatus.FALLBACK, "", err, code)
                         if (code == 401 || code == 403) {
                             return last

@@ -37,6 +37,18 @@ class GeminiLlmClientTest {
         assertEquals("rate_limit", res.error)
     }
 
+    @Test fun modelNotFound404PointsAtTheModelNotTheUrl() {
+        server.start()
+        server.enqueue(
+            MockResponse().setResponseCode(404)
+                .setBody("""{"error":{"code":404,"status":"NOT_FOUND","message":"Models 'models/m' not found"}}"""),
+        )
+        val client = GeminiLlmClient(server.url("/").toString().trimEnd('/'), "m", "key")
+        val res = kotlinx.coroutines.runBlocking { client.complete(LlmRequest("sys", "data")) }
+        assertEquals(LlmStatus.FALLBACK, res.status)
+        assertEquals("invalid_model", res.error)
+    }
+
     @Test fun networkFailure() {
         val client = GeminiLlmClient("http://127.0.0.1:1", "m", "key")
         val res = kotlinx.coroutines.runBlocking { client.complete(LlmRequest("sys", "data")) }

@@ -372,6 +372,7 @@
     <string name="ai_recovery_invalid_evidence">The AI couldn\'t tie its findings to your notes. Try again.</string>
     <string name="ai_recovery_oversized">The AI response was too long. Try again or choose a different model in Settings.</string>
     <string name="ai_recovery_invalid_url">The AI provider address or model wasn\'t found. Check it in Settings.</string>
+    <string name="ai_recovery_invalid_model">The provider has no model with this id. Check the model id in Settings.</string>
     <string name="ai_recovery_json_mode">This model doesn\'t support the summary format. Choose another model in Settings.</string>
     <string name="ai_recovery_blocked">The AI provider blocked this response. Try again or adjust the prompt in Settings.</string>
     <string name="ai_recovery_request">The AI provider rejected the request. Check the model and connection settings.</string>

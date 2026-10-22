@@ -45,6 +45,31 @@ class OpenAiCompatibleLlmClientTest {
     }
 
     @Test
+    fun modelNotFound404PointsAtTheModelNotTheUrl() {
+        server.start()
+        server.enqueue(
+            MockResponse().setResponseCode(404)
+                .setBody("""{"error":{"code":"model_not_found","message":"The model 'm' does not exist"}}"""),
+        )
+        val client = OpenAiCompatibleLlmClient(server.url("/").toString().trimEnd('/'), "m", "key")
+        val res = kotlinx.coroutines.runBlocking { client.complete(LlmRequest("sys", "data")) }
+        assertEquals(LlmStatus.FALLBACK, res.status)
+        assertEquals("invalid_model", res.error)
+    }
+
+    @Test
+    fun plain404WithoutAModelMarkerStaysOnTheUrlCopy() {
+        server.start()
+        server.enqueue(
+            MockResponse().setResponseCode(404).setBody("""{"message":"unknown path"}"""),
+        )
+        val client = OpenAiCompatibleLlmClient(server.url("/").toString().trimEnd('/'), "m", "key")
+        val res = kotlinx.coroutines.runBlocking { client.complete(LlmRequest("sys", "data")) }
+        assertEquals(LlmStatus.FALLBACK, res.status)
+        assertEquals("http_404", res.error)
+    }
+
+    @Test
     fun networkFailure() {
         server.start()
         server.shutdown()
