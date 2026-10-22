@@ -73,6 +73,43 @@ private const val ISSUES_URL = "$REPOSITORY_URL/issues"
 private const val DOCUMENTATION_URL = "$REPOSITORY_URL#readme"
 
 /**
+ * One collaborator of the project.
+ *
+ * The lead developer has the hero card above; these are the people who built
+ * the rest of it with them. Each row opens that person's GitHub profile.
+ */
+private data class Collaborator(
+    val nameRes: Int,
+    /** The part of the project this person owns. */
+    val roleRes: Int,
+    val githubHandle: String,
+) {
+    val githubUrl: String get() = "https://github.com/$githubHandle"
+}
+
+/**
+ * The team behind the app, one row each, in the order the project was
+ * built: the notes API, the accounts and plans, and the web client.
+ */
+private val collaborators = listOf(
+    Collaborator(
+        nameRes = R.string.about_collaborator_ebrahim_name,
+        roleRes = R.string.about_role_daily_notes,
+        githubHandle = "ebrahimahmedss47-commits",
+    ),
+    Collaborator(
+        nameRes = R.string.about_collaborator_mohamed_name,
+        roleRes = R.string.about_role_auth_people_plans,
+        githubHandle = "mohamed-hemdan1",
+    ),
+    Collaborator(
+        nameRes = R.string.about_collaborator_mahmoud_name,
+        roleRes = R.string.about_role_web_app,
+        githubHandle = "hewidyy",
+    ),
+)
+
+/**
  * About page, laid out like the Metrolist about screen: app header card,
  * update check, lead-developer hero card with socials, a grouped
  * community/info list and a footer. The top bar stays fixed while the cards
@@ -120,6 +157,10 @@ fun AboutScreen(
             Spacer(Modifier.height(24.dp))
 
             LeadDeveloperCard(uriHandler)
+
+            Spacer(Modifier.height(32.dp))
+
+            CollaboratorsSection(uriHandler)
 
             Spacer(Modifier.height(32.dp))
 
@@ -455,6 +496,60 @@ private fun DeveloperSocials(uriHandler: UriHandler) {
             Icon(
                 imageVector = Icons.Outlined.AlternateEmail,
                 contentDescription = stringResource(R.string.about_instagram),
+            )
+        }
+    }
+}
+
+/**
+ * The people who built the app with the lead developer, in Metrolist's
+ * style: a grouped card, one row per person with a round mark, the name, the
+ * part they own, and a GitHub mark that opens their profile.
+ */
+@Composable
+private fun CollaboratorsSection(uriHandler: UriHandler) {
+    CaregiverSettingsGroup(title = stringResource(R.string.about_collaborators)) {
+        collaborators.forEach { collaborator ->
+            val name = stringResource(collaborator.nameRes)
+            CaregiverSettingsItem(
+                title = name,
+                description = stringResource(collaborator.roleRes),
+                leadingContent = { CollaboratorMark(name) },
+                trailingContent = {
+                    Icon(
+                        imageVector = Icons.Outlined.Code,
+                        contentDescription = stringResource(R.string.about_github),
+                        modifier = Modifier.size(24.dp),
+                        tint = MaterialTheme.colorScheme.onSurfaceVariant,
+                    )
+                },
+                onClick = { uriHandler.openUri(collaborator.githubUrl) },
+            )
+        }
+    }
+}
+
+/**
+ * The round mark that stands in for a profile photo.
+ *
+ * This build has no image loader, so a GitHub avatar would be a broken
+ * image; the lead developer card above uses a placeholder for the same
+ * reason. The person's initial identifies them without one.
+ */
+@Composable
+private fun CollaboratorMark(name: String) {
+    Surface(
+        modifier = Modifier.size(44.dp),
+        shape = CircleShape,
+        color = MaterialTheme.colorScheme.surfaceContainerHighest,
+        tonalElevation = 4.dp,
+    ) {
+        Box(contentAlignment = Alignment.Center) {
+            Text(
+                text = name.trim().take(1).uppercase(),
+                style = MaterialTheme.typography.titleMedium,
+                fontWeight = FontWeight.Bold,
+                color = MaterialTheme.colorScheme.primary,
             )
         }
     }

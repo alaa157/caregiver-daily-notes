@@ -216,17 +216,27 @@ cd android && ./gradlew :app:connectedDebugAndroidTest   # Compose UI tests, nee
 ## Team & ownership
 
 Four people build this. Each area below is owned by one person and tracked by their own issues —
-follow the link to see the work, the discussion and the Definition of Done.
+follow the link to see the work, the discussion and the Definition of Done. The same four are
+credited inside the app, on the **About** page, and each one is asked for a review on the paths
+they own (see [`.github/CODEOWNERS`](./.github/CODEOWNERS)).
 
 | Person | Part | Issues |
 |---|---|---|
-| **Alaa** ([`alaa157`](https://github.com/alaa157)) | AI foundation and evaluation harness (backend `ai/`), the native Android app (`android/`), cross-module integration and release readiness | [#22](https://github.com/alaa157/caregiver-daily-notes/issues/22) – [#29](https://github.com/alaa157/caregiver-daily-notes/issues/29) |
+| **Alaa Shehata** ([`alaa157`](https://github.com/alaa157)) | AI foundation and evaluation harness (backend `ai/`), the native Android app (`android/`), cross-module integration and release readiness | [#22](https://github.com/alaa157/caregiver-daily-notes/issues/22) – [#29](https://github.com/alaa157/caregiver-daily-notes/issues/29) |
 | **Ebrahim Ahmed** ([`ebrahimahmedss47-commits`](https://github.com/ebrahimahmedss47-commits)) | Daily-notes API — note model and creation, append-only addendums, history and filtering, validation and idempotency, structured observation signals (backend `notes/`) | [#30](https://github.com/alaa157/caregiver-daily-notes/issues/30) – [#34](https://github.com/alaa157/caregiver-daily-notes/issues/34) |
 | **Mohamed Hemdan** ([`mohamed-hemdan1`](https://github.com/mohamed-hemdan1)) | Caregiver authentication and JWT, care-recipient management, plan persistence and versioning, append-only audit log, backend hardening (backend `auth/`, `recipient/`, `plans/`, `audit/`) | [#8](https://github.com/alaa157/caregiver-daily-notes/issues/8) – [#12](https://github.com/alaa157/caregiver-daily-notes/issues/12) |
 | **Mahmoud Hewidy** ([`hewidyy`](https://github.com/hewidyy)) | React + TypeScript web client — foundation, auth, recipients, notes and addendums, history, AI summary and plan screens, RTL and accessibility, Playwright E2E (`web/`) | [#13](https://github.com/alaa157/caregiver-daily-notes/issues/13) – [#21](https://github.com/alaa157/caregiver-daily-notes/issues/21) |
 
 Ownership is primary responsibility, not permission to skip review. Cross-area changes are
 coordinated through an issue and a PR, and nobody merges their own PR.
+
+The repository owner grants write access, which is what makes the code-owner requests work:
+
+```bash
+gh api -X PUT repos/alaa157/caregiver-daily-notes/collaborators/mohamed-hemdan1 -f permission=push
+gh api -X PUT repos/alaa157/caregiver-daily-notes/collaborators/ebrahimahmedss47-commits -f permission=push
+gh api -X PUT repos/alaa157/caregiver-daily-notes/collaborators/hewidyy -f permission=push
+```
 
 ---
 

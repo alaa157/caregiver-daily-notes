@@ -1,0 +1,43 @@
+# People who own the areas they build.
+#
+# The same split as the ownership table in ARCHITECTURE.md and the team
+# section in README.md, and the same split the About page shows inside the
+# app. A pull request that touches an owned path asks its owner for a
+# review.
+#
+# CODEOWNERS only takes effect for people who have write access to the
+# repository, so the owner has to grant it first:
+#
+#   gh api -X PUT repos/alaa157/caregiver-daily-notes/collaborators/<login> \
+#       -f permission=push
+#
+# Order matters: the last matching pattern wins, so the specific paths come
+# after the broad ones.
+
+# --- The Android app: one owner, end to end -------------------------------
+/android/                                     @alaa157
+
+# --- Backend: one owner per domain ----------------------------------------
+/backend/src/main/java/com/caregiver/ai/      @alaa157
+/backend/src/test/java/com/caregiver/ai/      @alaa157
+/backend/src/main/java/com/caregiver/notes/   @ebrahimahmedss47-commits
+/backend/src/test/java/com/caregiver/notes/   @ebrahimahmedss47-commits
+/backend/src/main/java/com/caregiver/auth/    @mohamed-hemdan1
+/backend/src/test/java/com/caregiver/auth/    @mohamed-hemdan1
+/backend/src/main/java/com/caregiver/recipient/ @mohamed-hemdan1
+/backend/src/test/java/com/caregiver/recipient/ @mohamed-hemdan1
+/backend/src/main/java/com/caregiver/plans/   @mohamed-hemdan1
+/backend/src/test/java/com/caregiver/plans/   @mohamed-hemdan1
+/backend/src/main/java/com/caregiver/audit/   @mohamed-hemdan1
+/backend/src/test/java/com/caregiver/audit/   @mohamed-hemdan1
+
+# --- The web client ------------------------------------------------------
+/web/                                         @hewidyy
+
+# --- Repository and infrastructure administration ------------------------
+/docs/                                        @alaa157
+/.github/                                     @alaa157
+/LICENSE                                       @alaa157
+/ARCHITECTURE.md                              @alaa157
+/README.md                                     @alaa157
+/CONTRIBUTING.md                              @alaa157
