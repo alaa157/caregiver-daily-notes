@@ -27,7 +27,6 @@ import androidx.compose.material.icons.outlined.Memory
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
-import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.SideEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
@@ -40,6 +39,7 @@ import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.input.PasswordVisualTransformation
 import androidx.compose.ui.unit.dp
+import androidx.navigation.NavBackStackEntry
 import androidx.navigation.NavController
 import com.caregiver.mobile.AppGraph
 import com.caregiver.mobile.R
@@ -69,11 +69,10 @@ import kotlinx.coroutines.Job
 import kotlinx.coroutines.launch
 
 @Composable
-fun AiSettingsScreen(graph: AppGraph, navController: NavController) {
+fun AiSettingsScreen(graph: AppGraph, navController: NavController, navEntry: NavBackStackEntry) {
     val scope = rememberCoroutineScope()
     val store = remember { AiKeyStore(graph.context) }
     val uriHandler = LocalUriHandler.current
-    val navEntry = remember(navController) { navController.currentBackStackEntry }
     val initialProvider = store.selectedProvider()
     val initialStoredKey = store.apiKey(initialProvider).orEmpty()
     var provider by remember { mutableStateOf(initialProvider) }
@@ -141,10 +140,7 @@ fun AiSettingsScreen(graph: AppGraph, navController: NavController) {
     // screen's back-stack entry so a tab tap can ask before popping the
     // screen and throwing the edits away.
     SideEffect {
-        navEntry?.markUnsavedChanges(hasUnsavedChanges)
-    }
-    DisposableEffect(navEntry) {
-        onDispose { navEntry?.markUnsavedChanges(false) }
+        navEntry.markUnsavedChanges(hasUnsavedChanges)
     }
 
     fun loadProvider(target: AiProvider) {

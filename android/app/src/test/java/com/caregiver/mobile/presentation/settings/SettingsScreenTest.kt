@@ -86,11 +86,20 @@ class SettingsScreenTest {
         compose.setContent {
             WithTestOwner {
                 CaregiverTheme {
+                    val nav = rememberNavController()
                     if (uriHandler == null) {
-                        AiSettingsScreen(AppGraph(context), rememberNavController())
+                        NavHost(nav, startDestination = "ai") {
+                            composable("ai") { entry ->
+                                AiSettingsScreen(AppGraph(context), nav, entry)
+                            }
+                        }
                     } else {
                         CompositionLocalProvider(LocalUriHandler provides uriHandler) {
-                            AiSettingsScreen(AppGraph(context), rememberNavController())
+                            NavHost(nav, startDestination = "ai") {
+                                composable("ai") { entry ->
+                                    AiSettingsScreen(AppGraph(context), nav, entry)
+                                }
+                            }
                         }
                     }
                 }
@@ -187,7 +196,11 @@ class SettingsScreenTest {
         // The same name-collision bug emptied the AI settings screen: row
         // calls built a data-class instance and rendered nothing. The
         // provider, model and base-URL rows prove it is populated again.
-        renderScreen { nav -> AiSettingsScreen(AppGraph(context), nav) }
+        renderScreen { nav ->
+            NavHost(nav, startDestination = "ai") {
+                composable("ai") { entry -> AiSettingsScreen(AppGraph(context), nav, entry) }
+            }
+        }
 
         listOf(
             R.string.settings_ai_provider,
