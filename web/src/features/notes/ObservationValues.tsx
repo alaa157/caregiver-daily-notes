@@ -17,4 +17,3 @@ export function ObservationValues({ values, correction = false }: { values: Obse
     <dt>{t(fieldLabels[field])}</dt><dd dir="auto" className="note-verbatim">{renderValue(field)}</dd>
   </div>)}</dl>;
 }
-
