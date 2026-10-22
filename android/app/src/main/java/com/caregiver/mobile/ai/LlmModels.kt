@@ -76,6 +76,31 @@ internal const val JSON_MODE_UNSUPPORTED = "json_mode_unsupported"
 
 enum class LlmStatus { OK, REPAIRED, FALLBACK }
 
+/**
+ * HTTP status → reason code for every LLM client, with 404 refined by the
+ * error body. A mistaken model id almost always arrives as a 404 whose body
+ * names the model — OpenAI-family bodies carry `error.code = model_not_found`,
+ * Anthropic uses `error.type = not_found_error`, and Gemini's message says the
+ * model does not exist — while a wrong base URL produces a bare 404. Without a
+ * body marker the code stays `http_404`: those users are pointed at the base
+ * URL, model users at the model id (Finding: the misleading 404 copy).
+ */
+internal fun classifyLlmHttpError(code: Int, body: String): String {
+    if (code == 401 || code == 403) return "invalid_key"
+    if (code == 429) return "rate_limit"
+    if (code == 404) {
+        val haystack = body.lowercase()
+        val namesModel = listOf("model_not_found", "not_found_error").any(haystack::contains) ||
+            (
+                haystack.contains("model") &&
+                    (haystack.contains("not found") || haystack.contains("does not exist"))
+                )
+        return if (namesModel) "invalid_model" else "http_404"
+    }
+    return "http_$code"
+}
+
+
 data class LlmResult(
     val status: LlmStatus,
     val text: String = "",

@@ -372,6 +372,7 @@
     <string name="ai_recovery_invalid_evidence">تعذر على الذكاء الاصطناعي ربط نتائجه بملاحظاتك. حاول مرة أخرى.</string>
     <string name="ai_recovery_oversized">كان رد الذكاء الاصطناعي طويلاً جداً. حاول مرة أخرى أو اختر نموذجاً آخر في الإعدادات.</string>
     <string name="ai_recovery_invalid_url">تعذر العثور على عنوان مزود الذكاء الاصطناعي أو النموذج. تحقق من الإعدادات.</string>
+    <string name="ai_recovery_invalid_model">المزوّد لا يقدّم نموذجًا بهذا المعرّف. تحقق من معرّف النموذج في الإعدادات.</string>
     <string name="ai_recovery_json_mode">هذا النموذج لا يدعم تنسيق الملخص. اختر نموذجاً آخر في الإعدادات.</string>
     <string name="ai_recovery_blocked">حجب مزود الذكاء الاصطناعي هذا الرد. حاول مرة أخرى أو عدّل الموجه في الإعدادات.</string>
     <string name="ai_recovery_request">رفض مزود الذكاء الاصطناعي الطلب. تحقق من النموذج وإعدادات الاتصال.</string>

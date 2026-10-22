@@ -86,6 +86,14 @@ object AiRecovery {
                 primary = AiRecoveryAction.OpenAiSettings,
                 secondary = AiRecoveryAction.Retry,
             )
+        code == "invalid_model" ->
+            // The provider's own 404 body named the model, so the address is
+            // likely fine and the model id is the wrong knob.
+            AiRecoveryCopy(
+                R.string.ai_recovery_invalid_model,
+                primary = AiRecoveryAction.OpenAiSettings,
+                secondary = AiRecoveryAction.Retry,
+            )
         code == "json_mode_unsupported" ->
             AiRecoveryCopy(
                 R.string.ai_recovery_json_mode,

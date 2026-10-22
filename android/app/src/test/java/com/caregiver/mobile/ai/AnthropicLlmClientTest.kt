@@ -41,4 +41,16 @@ class AnthropicLlmClientTest {
         assertEquals(LlmStatus.FALLBACK, res.status)
         assertEquals("network", res.error)
     }
+
+    @Test fun modelNotFound404PointsAtTheModelNotTheUrl() {
+        server.start()
+        server.enqueue(
+            MockResponse().setResponseCode(404)
+                .setBody("""{"type":"error","error":{"type":"not_found_error","message":"model: m"}}"""),
+        )
+        val client = AnthropicLlmClient(server.url("/").toString().trimEnd('/'), "m", "key")
+        val res = kotlinx.coroutines.runBlocking { client.complete(LlmRequest("sys", "data")) }
+        assertEquals(LlmStatus.FALLBACK, res.status)
+        assertEquals("invalid_model", res.error)
+    }
 }
