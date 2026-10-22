@@ -43,7 +43,6 @@ import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.material3.TopAppBarDefaults
-import androidx.compose.material3.TopAppBarScrollBehavior
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -184,10 +183,11 @@ fun AppTopBar(
  * inset is reserved ABOVE the bar, not squeezed into it — the same
  * pattern the bottom navigation strip uses.
  *
- * The bar hides on scroll-down and returns on scroll-up through the
- * caller's [scrollBehavior]; the owner must connect
- * `Modifier.nestedScroll(scrollBehavior.nestedScrollConnection)` to the
- * Scaffold for those events to reach it.
+ * The bar hides on scroll-down and returns on scroll-up: the shell translates
+ * it with the offset from [TopBarHideState] and connects that state's
+ * `nestedScrollConnection` to the Scaffold. Material3's stock scroll behavior
+ * is deliberately not used — it collapses by a hardcoded 64dp and crashes a
+ * shorter bar (see [TopBarHideState]).
  *
  * The avatar is the bar's start action (in this app it opens the drawer):
  * [avatarContentDescription] is its TalkBack name and [avatarModifier]
@@ -198,7 +198,6 @@ fun AppTopBar(
 fun AppCenterTopBar(
     title: String,
     avatarLetter: String,
-    scrollBehavior: TopAppBarScrollBehavior,
     onAvatarClick: () -> Unit,
     avatarContentDescription: String,
     modifier: Modifier = Modifier,
@@ -230,7 +229,6 @@ fun AppCenterTopBar(
             containerColor = CaregiverColors.Surface,
         ),
         windowInsets = WindowInsets(0, 0, 0, 0),
-        scrollBehavior = scrollBehavior,
         modifier = modifier
             .fillMaxWidth()
             .windowInsetsPadding(WindowInsets.statusBars)
