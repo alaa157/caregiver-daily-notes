@@ -230,7 +230,8 @@ they own (see [`.github/CODEOWNERS`](./.github/CODEOWNERS)).
 Ownership is primary responsibility, not permission to skip review. Cross-area changes are
 coordinated through an issue and a PR, and nobody merges their own PR.
 
-The repository owner grants write access, which is what makes the code-owner requests work:
+All four have write access to the repository, which is what makes the code-owner requests work.
+The owner re-grants it with:
 
 ```bash
 gh api -X PUT repos/alaa157/caregiver-daily-notes/collaborators/mohamed-hemdan1 -f permission=push

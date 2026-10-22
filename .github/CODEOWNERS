@@ -5,8 +5,8 @@
 # app. A pull request that touches an owned path asks its owner for a
 # review.
 #
-# CODEOWNERS only takes effect for people who have write access to the
-# repository, so the owner has to grant it first:
+# All four have write access to the repository, which is what makes these
+# requests work. If that ever changes, the owner re-grants it with:
 #
 #   gh api -X PUT repos/alaa157/caregiver-daily-notes/collaborators/<login> \
 #       -f permission=push
@@ -29,7 +29,6 @@
 /backend/src/main/java/com/caregiver/plans/   @mohamed-hemdan1
 /backend/src/test/java/com/caregiver/plans/   @mohamed-hemdan1
 /backend/src/main/java/com/caregiver/audit/   @mohamed-hemdan1
-/backend/src/test/java/com/caregiver/audit/   @mohamed-hemdan1
 
 # --- The web client ------------------------------------------------------
 /web/                                         @hewidyy
