@@ -208,13 +208,19 @@ class AppGraph(val context: Context, val forceProduction: Boolean = false) {
     }
 
     /**
-     * True when this graph serves the offline demo backend (and therefore
-     * has no Room cache). Screens use this — never the bare build type — to
-     * label illustrative demo content, so production summaries are never
+     * True when this graph genuinely serves canned demo data: the demo
+     * backend **and** not local-first mode. The debug and minified variants
+     * ship with BOTH DEMO_BACKEND=true and LOCAL_MODE=true — local mode
+     * takes priority and serves the real Room store, so those summaries
+     * are real output: no illustrative-demo card, Share with doctor and
+     * PDF export enabled. Labelling by the bare DEMO_BACKEND hidden real
+     * content behind the demo card (Finding 4).
+     * Screens use this — never the bare build type — to label
+     * illustrative demo content, so production summaries are never
      * mislabeled and `forceProduction` test graphs never claim demo data.
      */
     val isDemo: Boolean
-        get() = demoBackend
+        get() = demoBackend && !isLocalMode
 
     /** One outbox drain pass; the WorkManager worker (Task 8c) calls this. */
     suspend fun drainOutbox(): OutboxDrain = noteRepository.drainOutbox()
