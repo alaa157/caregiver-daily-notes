@@ -134,6 +134,36 @@ class SummaryAiServiceTest {
     }
 
     @Test
+    fun claimInAnotherLanguageKeepsTheObservation() = runBlocking {
+        // The summary is written in the app's language while the quote stays
+        // in the language of the note. The quote is verified against the
+        // note, so the observation has to survive: dropping it would lose
+        // the whole summary and show a failure screen instead.
+        val englishNote = note.copy(text = "Patient fell in the kitchen this morning")
+        val json =
+            """{"observations":[{"text":"سقطت المريضة في المطبخ","noteId":"n1","quote":"fell in the kitchen"}],"uncertainties":[]}"""
+        val svc = service(json)
+        val result = svc.summarize("r1", 7, listOf(englishNote), emptyList(), LocalDate.parse("2026-10-01"))
+        assertTrue(result is SummaryAiResult.Success)
+        val summary = (result as SummaryAiResult.Success).summary
+        assertEquals(1, summary.evidence.size)
+        assertEquals("fell in the kitchen", summary.evidence[0].quote)
+    }
+
+    @Test
+    fun claimInAnotherLanguageStillNeedsTheQuoteInTheNote() = runBlocking {
+        // Being in another language does not excuse a quote that is not in
+        // the note: that check does not depend on the language.
+        val englishNote = note.copy(text = "Patient fell in the kitchen this morning")
+        val json =
+            """{"observations":[{"text":"سقطت المريضة في المطبخ","noteId":"n1","quote":"never happened"}],"uncertainties":[]}"""
+        val svc = service(json)
+        val result = svc.summarize("r1", 7, listOf(englishNote), emptyList(), LocalDate.parse("2026-10-01"))
+        assertTrue(result is SummaryAiResult.Failure)
+        assertEquals("invalid_evidence", (result as SummaryAiResult.Failure).reasonCode)
+    }
+
+    @Test
     fun malformedJsonReturnsFailure() = runBlocking {
         val svc = service("not json")
         val result = svc.summarize("r1", 7, listOf(note), emptyList(), LocalDate.parse("2026-10-01"))
