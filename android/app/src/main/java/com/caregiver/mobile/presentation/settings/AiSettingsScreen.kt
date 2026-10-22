@@ -165,6 +165,29 @@ fun AiSettingsScreen(graph: AppGraph, navController: NavController) {
         guideLinkError = false
     }
 
+    /**
+     * Stores the credentials the caregiver is working with: the key in the
+     * provider's own slot, the provider itself, the model and the base URL.
+     *
+     * The key is written before the provider is selected, so a refused
+     * keystore write can never leave the app pointing at a provider whose
+     * key was never saved. Returns false when the keystore refused the key.
+     */
+    fun persistCredentials(): Boolean {
+        val credentials = AiSettingsValidation.credentialsFor(provider, trimmedKey, model, baseUrl)
+        if (credentials == null) {
+            // Emptying a saved key is an explicit removal; leaving the field
+            // untouched keeps the key that is already stored.
+            if (savedApiKey.isNotBlank()) store.clearApiKey(provider)
+        } else if (!store.setApiKey(credentials.apiKey, credentials.provider)) {
+            return false
+        }
+        store.setProvider(provider)
+        store.setModel(AiSettingsValidation.normalizedModel(model, provider), provider)
+        store.setBaseUrl(AiSettingsValidation.normalizedBaseUrl(baseUrl, provider), provider)
+        return true
+    }
+
     fun requestExit() {
         if (hasUnsavedChanges) {
             pendingProvider = null
@@ -302,7 +325,25 @@ fun AiSettingsScreen(graph: AppGraph, navController: NavController) {
                         LlmRequest("Reply with OK", "ping", timeoutSeconds = TEST_TIMEOUT_SECONDS),
                     )
                     status = if (res.status == LlmStatus.OK) {
-                        graph.context.getString(R.string.settings_ai_connection_ok)
+                        // A test that worked is a setup the caregiver expects
+                        // to stick. Without this the key stays in the text
+                        // field only, and the summary screen — which reads
+                        // the stored key — tells them to set AI up again.
+                        if (persistCredentials()) {
+                            savedApiKey = trimmedKey
+                            savedModel = model
+                            savedBaseUrl = baseUrl
+                            keyState = store.apiKeyState(provider)
+                            keyError = null
+                            graph.context.getString(R.string.settings_ai_connection_ok_saved)
+                        } else {
+                            // The keystore refused the key: the caregiver has
+                            // to know that it was not stored.
+                            val failure = graph.context.getString(R.string.settings_ai_key_store_failed)
+                            keyError = failure
+                            keyState = store.apiKeyState(provider)
+                            graph.context.getString(R.string.settings_ai_failed, failure)
+                        }
                     } else {
                         graph.context.getString(
                             R.string.settings_ai_failed,
@@ -477,27 +518,14 @@ fun AiSettingsScreen(graph: AppGraph, navController: NavController) {
             )
         }
         Button(onClick = {
-            // Store the key in this provider's slot before selecting the
-            // provider. A failed keystore write must not leave the app
-            // pointing at a provider whose key was never saved. Emptying a
-            // saved key is an explicit removal; leaving the field untouched
-            // keeps it.
-            val keyStored = when {
-                trimmedKey.isNotEmpty() -> store.setApiKey(trimmedKey, provider)
-                savedApiKey.isNotBlank() -> {
-                    store.clearApiKey(provider)
-                    true
-                }
-                else -> true
-            }
-            if (!keyStored) {
+            // The key, the provider, the model and the base URL are stored
+            // the same way whether the caregiver pressed Save or checked the
+            // connection first: a key that works is a key that is kept.
+            if (!persistCredentials()) {
                 keyError = graph.context.getString(R.string.settings_ai_key_store_failed)
                 keyState = store.apiKeyState(provider)
                 return@Button
             }
-            store.setProvider(provider)
-            store.setModel(AiSettingsValidation.normalizedModel(model, provider), provider)
-            store.setBaseUrl(AiSettingsValidation.normalizedBaseUrl(baseUrl, provider), provider)
             store.setSystemPrompt(systemPrompt)
             store.setSummarySystemPrompt(summaryPrompt)
             store.setPlanSystemPrompt(planPrompt)

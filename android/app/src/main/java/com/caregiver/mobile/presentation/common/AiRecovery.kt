@@ -107,7 +107,10 @@ object AiRecovery {
                 secondary = AiRecoveryAction.OpenAiSettings,
             )
         code == "invalid_request" || code == "http_400" ||
-            code == "http_422" || code == "validation_error" ->
+            code == "http_422" || code == "validation_error" ||
+            // The clients retry a refused temperature themselves, so this is
+            // only a safety net for a provider that keeps refusing it.
+            code == "temperature_unsupported" ->
             AiRecoveryCopy(
                 R.string.ai_recovery_request,
                 primary = AiRecoveryAction.OpenAiSettings,

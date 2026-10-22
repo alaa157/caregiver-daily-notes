@@ -301,6 +301,7 @@
     <string name="settings_ai_test_connection">Test connection</string>
     <string name="settings_ai_testing">Testing...</string>
     <string name="settings_ai_connection_ok">Connection OK</string>
+    <string name="settings_ai_connection_ok_saved">Connection OK. Your provider, key and model are saved.</string>
     <string name="settings_ai_default">Default</string>
     <string name="settings_ai_custom">Custom</string>
     <string name="settings_ai_failed">Failed: %1$s</string>

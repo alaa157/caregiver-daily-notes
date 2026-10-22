@@ -74,6 +74,31 @@ data class LlmRequest(
  */
 internal const val JSON_MODE_UNSUPPORTED = "json_mode_unsupported"
 
+/**
+ * Internal marker for a provider that rejected a custom temperature.
+ *
+ * Newer and reasoning models refuse a temperature other than their default
+ * and answer 400. Which models do this changes with every release, so the
+ * client reacts to the answer instead of keeping a list of model ids: the
+ * request is retried without the parameter before giving up. The marker
+ * never reaches the UI.
+ */
+internal const val TEMPERATURE_UNSUPPORTED = "temperature_unsupported"
+
+/**
+ * How much a request may ask for when the provider cut the answer short.
+ *
+ * A reply that stops at the token limit, or that comes back empty because
+ * the budget went on the model's own reasoning, is not a transient failure:
+ * asking the same question with the same budget fails the same way. The
+ * client doubles the budget instead, up to this ceiling, and a bigger
+ * budget than this is not what a caregiver's summary needs.
+ */
+const val MAX_TOKEN_BUDGET = 16_384
+
+/** The output budget a request starts with. */
+const val DEFAULT_TOKEN_BUDGET = 4_096
+
 enum class LlmStatus { OK, REPAIRED, FALLBACK }
 
 /**
@@ -99,7 +124,6 @@ internal fun classifyLlmHttpError(code: Int, body: String): String {
     }
     return "http_$code"
 }
-
 
 data class LlmResult(
     val status: LlmStatus,

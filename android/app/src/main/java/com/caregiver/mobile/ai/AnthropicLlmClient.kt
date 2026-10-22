@@ -28,7 +28,7 @@ class AnthropicLlmClient(
     private val okHttpClient: OkHttpClient = OkHttpConfig.defaultOkHttpClient(),
     private val json: Json = Json { ignoreUnknownKeys = true },
     private val ioDispatcher: CoroutineDispatcher = Dispatchers.IO,
-    private val maxTokens: Int = 1024,
+    private val maxTokens: Int = DEFAULT_TOKEN_BUDGET,
 ) : LlmClient {
     override suspend fun complete(request: LlmRequest): LlmResult = withContext(ioDispatcher) {
         val httpUrl = baseUrl.toHttpUrlOrNull()
@@ -73,32 +73,48 @@ class AnthropicLlmClient(
             return@withContext LlmResult(LlmStatus.FALLBACK, "", "invalid_url", null)
         }
         val safeUrl = finalHttpUrl.toString()
-        val bodyObj = try {
-            buildJsonObject {
-                put("model", model)
-                put("max_tokens", maxTokens)
-                put("system", request.systemPrompt)
-                putJsonArray("messages") {
-                    add(buildJsonObject { put("role", "user"); put("content", request.dataBlock) })
-                }
-            }
-        } catch (e: kotlinx.coroutines.CancellationException) {
-            throw e
-        } catch (e: Exception) {
-            return@withContext LlmResult(LlmStatus.FALLBACK, "", "invalid_request", null)
-        }
-        val reqBody = try {
-            json.encodeToString(JsonObject.serializer(), bodyObj)
-                .toRequestBody("application/json".toMediaType())
-        } catch (e: kotlinx.coroutines.CancellationException) {
-            throw e
-        } catch (e: Exception) {
-            return@withContext LlmResult(LlmStatus.FALLBACK, "", "invalid_request", null)
-        }
         val cancellation = CallCancellation()
         cancellation.install()
         try {
-            return@withContext attempt(safeUrl, reqBody, request, cancellation)
+            // A reply that was cut short, or that came back empty because the
+            // budget went on the model's own thinking, is asked again with a
+            // larger budget. Asking again with the same budget fails the
+            // same way, so the answer would never arrive.
+            var budget = maxTokens
+            var result: LlmResult
+            while (true) {
+                val bodyObj = try {
+                    buildJsonObject {
+                        put("model", model)
+                        put("max_tokens", budget)
+                        put("system", request.systemPrompt)
+                        putJsonArray("messages") {
+                            add(buildJsonObject { put("role", "user"); put("content", request.dataBlock) })
+                        }
+                    }
+                } catch (e: kotlinx.coroutines.CancellationException) {
+                    throw e
+                } catch (e: Exception) {
+                    return@withContext LlmResult(LlmStatus.FALLBACK, "", "invalid_request", null)
+                }
+                val reqBody = try {
+                    json.encodeToString(JsonObject.serializer(), bodyObj)
+                        .toRequestBody("application/json".toMediaType())
+                } catch (e: kotlinx.coroutines.CancellationException) {
+                    throw e
+                } catch (e: Exception) {
+                    return@withContext LlmResult(LlmStatus.FALLBACK, "", "invalid_request", null)
+                }
+                result = attempt(safeUrl, reqBody, request, cancellation)
+                if (result.error == "truncated" || result.error == "empty_output") {
+                    if (budget < MAX_TOKEN_BUDGET) {
+                        budget = (budget * 2).coerceAtMost(MAX_TOKEN_BUDGET)
+                        continue
+                    }
+                }
+                break
+            }
+            return@withContext result
         } finally {
             cancellation.close()
         }
@@ -149,14 +165,16 @@ class AnthropicLlmClient(
                         ?.jsonObject?.get("text")?.jsonPrimitive?.contentOrNull
                     val stopReason = root?.get("stop_reason")?.jsonPrimitive?.contentOrNull
                     if (content.isNullOrBlank()) {
-                        last = LlmResult(LlmStatus.FALLBACK, "", "empty_output", resp.code)
-                        if (attempt < 2) kotlinx.coroutines.delay(calculateBackoff(attempt))
-                        return@use
+                        // The budget may have gone on the model's own
+                        // thinking. The caller asks again with a larger
+                        // budget; the same request with the same budget
+                        // would come back the same way.
+                        return LlmResult(LlmStatus.FALLBACK, "", "empty_output", resp.code)
                     }
                     if (stopReason == "max_tokens") {
-                        last = LlmResult(LlmStatus.FALLBACK, "", "truncated", resp.code)
-                        if (attempt < 2) kotlinx.coroutines.delay(calculateBackoff(attempt))
-                        return@use
+                        // Cut off at the token limit. The caller raises the
+                        // budget instead of repeating the same request.
+                        return LlmResult(LlmStatus.FALLBACK, "", "truncated", resp.code)
                     }
                     return LlmResult(LlmStatus.OK, content)
                 }
