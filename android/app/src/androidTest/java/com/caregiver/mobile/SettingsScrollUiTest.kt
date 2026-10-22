@@ -19,6 +19,8 @@ import androidx.compose.ui.test.performScrollTo
 import androidx.compose.ui.unit.Density
 import androidx.compose.ui.unit.LayoutDirection
 import androidx.compose.ui.unit.dp
+import androidx.navigation.compose.NavHost
+import androidx.navigation.compose.composable
 import androidx.navigation.compose.rememberNavController
 import androidx.test.core.app.ApplicationProvider
 import androidx.test.ext.junit.runners.AndroidJUnit4
@@ -188,7 +190,10 @@ class SettingsScrollUiTest {
             WithTestOwner {
                 CaregiverTheme {
                     Box(Modifier.size(width = 360.dp, height = 320.dp)) {
-                        AiSettingsScreen(graph, rememberNavController())
+                        val nav = rememberNavController()
+                        NavHost(nav, startDestination = "ai") {
+                            composable("ai") { entry -> AiSettingsScreen(graph, nav, entry) }
+                        }
                     }
                 }
             }
@@ -206,7 +211,10 @@ class SettingsScrollUiTest {
                 WithTestOwner {
                     CaregiverTheme {
                         Box(Modifier.size(width = 360.dp, height = 320.dp)) {
-                            AiSettingsScreen(graph, rememberNavController())
+                            val nav = rememberNavController()
+                            NavHost(nav, startDestination = "ai") {
+                                composable("ai") { entry -> AiSettingsScreen(graph, nav, entry) }
+                            }
                         }
                     }
                 }

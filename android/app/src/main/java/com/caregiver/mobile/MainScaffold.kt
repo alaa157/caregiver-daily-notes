@@ -495,8 +495,8 @@ fun MainScaffold(graph: AppGraph) {
                 composable(AppDestinations.Settings.base) {
                     SettingsScreen(graph, navController)
                 }
-                composable(AppDestinations.AiSettings.base) {
-                    com.caregiver.mobile.presentation.settings.AiSettingsScreen(graph, navController)
+                composable(AppDestinations.AiSettings.base) { entry ->
+                    com.caregiver.mobile.presentation.settings.AiSettingsScreen(graph, navController, entry)
                 }
                 composable(AppDestinations.About.base) {
                     com.caregiver.mobile.presentation.settings.AboutScreen(
