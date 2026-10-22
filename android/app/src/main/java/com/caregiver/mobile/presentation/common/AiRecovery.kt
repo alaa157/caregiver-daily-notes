@@ -111,7 +111,8 @@ object AiRecovery {
                 primary = AiRecoveryAction.OpenAiSettings,
                 secondary = AiRecoveryAction.Retry,
             )
-        code == "network" || code == "unavailable" || code == "llm_fallback" ->
+        code == "network" || code == "unavailable" || code == "llm_fallback" ||
+            code == "timeout" || code == "cancelled" ->
             AiRecoveryCopy(
                 R.string.ai_recovery_unavailable,
                 primary = AiRecoveryAction.Retry,

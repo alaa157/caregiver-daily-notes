@@ -11,10 +11,13 @@ import com.caregiver.mobile.data.api.SummaryRequest
 import androidx.datastore.preferences.core.PreferenceDataStoreFactory
 import java.io.File
 import java.io.IOException
+import kotlinx.coroutines.CompletableDeferred
 import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.test.TestScope
 import kotlinx.coroutines.test.UnconfinedTestDispatcher
+import kotlinx.coroutines.test.advanceUntilIdle
+import kotlinx.coroutines.test.runCurrent
 import kotlinx.coroutines.test.runTest
 import org.junit.After
 import org.junit.Assert.assertEquals
@@ -91,6 +94,41 @@ class SummaryViewModelTest {
         }
 
         assertEquals(30, summaries.lastSummarize?.periodDays)
+    }
+
+    @Test
+    fun newerPeriodWinsWhenOlderRequestFinishesLast() = runTest {
+        summaries.summarizeHandler = { summary().copy(periodDays = it.periodDays) }
+        val vm = SummaryViewModel("r1", apis(), repository, this)
+        content(vm)
+
+        val slowFourteenDay = CompletableDeferred<SummaryDto>()
+        val fastThirtyDay = CompletableDeferred<SummaryDto>()
+        summaries.summarizeHandler = { request ->
+            when (request.periodDays) {
+                14 -> slowFourteenDay.await()
+                30 -> fastThirtyDay.await()
+                else -> error("unexpected period ${request.periodDays}")
+            }
+        }
+
+        vm.setPeriod(14)
+        runCurrent()
+        vm.setPeriod(30)
+        runCurrent()
+
+        fastThirtyDay.complete(summary().copy(periodDays = 30, text = "30-day summary"))
+        advanceUntilIdle()
+        assertEquals(30, (vm.state.value as SummaryState.Content).summary.periodDays)
+
+        // The 14-day request is now stale. Even if it finishes later, it must
+        // not replace the 30-day result.
+        slowFourteenDay.complete(summary().copy(periodDays = 14, text = "14-day summary"))
+        advanceUntilIdle()
+
+        val result = vm.state.value as SummaryState.Content
+        assertEquals(30, result.summary.periodDays)
+        assertEquals("30-day summary", result.summary.text)
     }
 
     @Test
@@ -191,5 +229,42 @@ class SummaryViewModelTest {
         } as SummaryState.Content
 
         assertTrue(state.summary.redFlags.isEmpty())
+    }
+
+    @Test
+    fun overallDeadlineEndsAHungGeneration() = runTest {
+        // A provider that never answers must end in a bounded error state,
+        // not a spinner forever: the overall deadline fires over virtual time.
+        summaries.summarizeHandler = { kotlinx.coroutines.awaitCancellation() }
+        val vm = SummaryViewModel("r1", apis(), repository, this)
+
+        val state = vm.state.first { it !is SummaryState.Loading } as SummaryState.AiUnavailable
+
+        assertEquals("timeout", state.reasonCode)
+    }
+
+    @Test
+    fun unexpectedFailureEndsInBoundedErrorState() = runTest {
+        // Non-AI path used to catch only LoggedOut/Http/IO: an unexpected
+        // exception escaped the coroutine (stuck or crash). Now it is caught.
+        summaries.summarizeHandler = { throw IllegalStateException("boom") }
+        val vm = SummaryViewModel("r1", apis(), repository, this)
+
+        val state = vm.state.first { it !is SummaryState.Loading } as SummaryState.AiUnavailable
+
+        assertEquals("unavailable", state.reasonCode)
+    }
+
+    @Test
+    fun cancelEndsAHungGenerationAndQueuedLoadsHonourIt() = runTest {
+        summaries.summarizeHandler = { kotlinx.coroutines.awaitCancellation() }
+        val vm = SummaryViewModel("r1", apis(), repository, this)
+
+        vm.cancelGeneration()
+        advanceUntilIdle()
+
+        val state = vm.state.value
+        assertTrue("expected AiUnavailable, was $state", state is SummaryState.AiUnavailable)
+        assertEquals("cancelled", (state as SummaryState.AiUnavailable).reasonCode)
     }
 }

@@ -12,10 +12,12 @@ import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
+import androidx.compose.material3.Button
 import androidx.compose.material3.LocalTextStyle
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
@@ -34,6 +36,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalConfiguration
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
@@ -228,6 +231,15 @@ fun SummaryResultScreen(
             SummaryState.Loading -> {
                 Spacer(Modifier.height(16.dp))
                 BusyBar(stringResource(R.string.state_summary_loading))
+                Spacer(Modifier.height(12.dp))
+                // The user can always stop waiting: bounded generation means
+                // an escape hatch visible in the same place as the spinner.
+                Button(
+                    onClick = vm::cancelGeneration,
+                    modifier = Modifier.fillMaxWidth().testTag("summary_cancel"),
+                ) {
+                    Text(stringResource(R.string.common_cancel))
+                }
             }
             is SummaryState.AiUnavailable -> Column(
                 verticalArrangement = Arrangement.spacedBy(AppDimens.SectionGap),
