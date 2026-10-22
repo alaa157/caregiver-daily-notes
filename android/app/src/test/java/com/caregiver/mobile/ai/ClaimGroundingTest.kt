@@ -1,5 +1,6 @@
 package com.caregiver.mobile.ai
 
+import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
 import org.junit.Assert.assertTrue
 import org.junit.Test
@@ -98,5 +99,57 @@ class ClaimGroundingTest {
     fun emptyInputIsRejected() {
         assertFalse(ClaimGrounding.isSupported("", "walked"))
         assertFalse(ClaimGrounding.isSupported("walked", ""))
+    }
+
+    @Test
+    fun aClaimInAnotherLanguageIsNotComparable() {
+        // The app writes the summary in its own language while the quote
+        // stays in the language of the note. A translated claim shares no
+        // word with the quote it cites, so the check cannot judge it and
+        // must not reject it: that would drop every observation of a good
+        // summary and leave the caregiver with a failure screen.
+        assertEquals(
+            ClaimGrounding.Verdict.NOT_COMPARABLE,
+            ClaimGrounding.verdict("سقطت المريضة في المطبخ", "she fell in the kitchen"),
+        )
+        assertEquals(
+            ClaimGrounding.Verdict.NOT_COMPARABLE,
+            ClaimGrounding.verdict("she fell in the kitchen", "سقطت المريضة في المطبخ"),
+        )
+    }
+
+    @Test
+    fun claimsInTheSameLanguageAreStillCompared() {
+        // The language-aware path must not weaken the check for the normal
+        // case: a claim and a quote in one language are still judged.
+        assertEquals(
+            ClaimGrounding.Verdict.SUPPORTED,
+            ClaimGrounding.verdict("walked", "walked"),
+        )
+        assertEquals(
+            ClaimGrounding.Verdict.UNSUPPORTED,
+            ClaimGrounding.verdict("took medication", "walked"),
+        )
+        assertEquals(
+            ClaimGrounding.Verdict.UNSUPPORTED,
+            ClaimGrounding.verdict("had pain", "had no pain"),
+        )
+    }
+
+    @Test
+    fun arabicPronounMaIsNotTreatedAsANegation() {
+        // "ما" is also a pronoun ("ما هذا" = "what is this?"). A claim that
+        // carries it is not adding a negation the quote lacks, so it must
+        // not be rejected for that.
+        assertTrue(ClaimGrounding.isSupported("ما هذا مهم", "هذا مهم"))
+        assertTrue(ClaimGrounding.isSupported("هذا مهم", "ما هذا مهم"))
+    }
+
+    @Test
+    fun arabicNegationsAreStillRecognised() {
+        // The Egyptian negations keep their meaning after the change.
+        assertFalse(ClaimGrounding.isSupported("ألم", "مفيش ألم"))
+        assertFalse(ClaimGrounding.isSupported("ألم شديد", "مفيش ألم شديد"))
+        assertFalse(ClaimGrounding.isSupported("ماشي", "مش ماشي"))
     }
 }

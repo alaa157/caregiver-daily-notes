@@ -16,7 +16,10 @@ object Prompts {
             "never one observation per note. Prefer new or worsening symptoms, falls, pain, " +
             "medication problems, and clear changes; merge repeated routine mentions into " +
             "one observation and omit stable, uneventful days. " +
-            "Every quote must be verbatim from the cited note. Every claim must be directly supported by its quote; if support is uncertain, omit the observation or report it as an uncertainty. Quote matching is evidence, not proof. " +
+            "Every quote must be verbatim from the cited note. Only the quote is matched against the note, " +
+                "so a claim may be written in a different language than the note it cites: never omit an observation for that reason, " +
+                "and never translate or reword a quote to fit a claim. " +
+            "Every claim must be directly supported by its quote; if support is uncertain, omit the observation or report it as an uncertainty. Quote matching is evidence, not proof. " +
             "Mark unclear or conflicting information as uncertainty, never guess. " +
             "Set urgent to true only when the notes clearly describe something acutely dangerous " +
                 "(a fall, chest pain, breathing trouble, loss of consciousness); otherwise urgent must be false. " +

@@ -133,7 +133,14 @@ class SummaryAiService(
                 hadInvalid = true
                 continue
             }
-            if (!ClaimGrounding.isSupported(claim, rawQuote)) {
+            // The claim is checked against the quote it cites, but only when
+            // the two can be compared at all. A claim in the app's language
+            // and a quote in the note's language share no word, so the check
+            // cannot judge it: dropping the observation then would lose a
+            // good summary for a reason that says nothing about the model.
+            // The quote itself was verified against the note above, and the
+            // observation stays labelled unverified.
+            if (ClaimGrounding.verdict(claim, rawQuote) == ClaimGrounding.Verdict.UNSUPPORTED) {
                 hadInvalid = true
                 continue
             }
