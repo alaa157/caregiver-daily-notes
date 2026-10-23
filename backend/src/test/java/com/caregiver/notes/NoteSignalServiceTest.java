@@ -78,6 +78,7 @@ class NoteSignalServiceTest {
     assertThat(day.get("appetite").asText()).isEqualTo("poor");
     assertThat(day.get("sleep").asText()).isEqualTo("good");
     assertThat(day.get("mobility").asText()).isEqualTo("normal");
+    assertThat(day.get("medicationStatus").asText()).isEqualTo("TAKEN");
     assertThat(day.get("date").asText()).isEqualTo("2026-10-01");
     assertThat(day.get("fallReported").asBoolean()).isTrue();
     assertThat(day.get("painScore").asInt()).isEqualTo(7);
