@@ -74,6 +74,10 @@ class NoteSignalServiceTest {
     assertThat(signals).hasSize(1);
     JsonNode day = signals.get(0);
     assertThat(day.get("recipientId").asText()).isEqualTo(recipientId);
+    assertThat(day.get("mood").asText()).isEqualTo("good");
+    assertThat(day.get("appetite").asText()).isEqualTo("poor");
+    assertThat(day.get("sleep").asText()).isEqualTo("good");
+    assertThat(day.get("mobility").asText()).isEqualTo("normal");
     assertThat(day.get("date").asText()).isEqualTo("2026-10-01");
     assertThat(day.get("fallReported").asBoolean()).isTrue();
     assertThat(day.get("painScore").asInt()).isEqualTo(7);
