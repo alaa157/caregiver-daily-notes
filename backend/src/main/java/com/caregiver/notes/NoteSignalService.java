@@ -73,8 +73,12 @@ public class NoteSignalService {
    * confirmed missed (or taken) dose.
    */
   private NoteSignalResponse merge(DailyNote note, List<NoteAddendum> addendaForNote) {
+    String mood = note.getMood();
+    String appetite = note.getAppetite();
+    String sleep = note.getSleep();
+    String mobility = note.getMobility();
     Boolean fall = note.getFallReported();
-    Boolean poorAppetite = poor(note.getAppetite());
+    Boolean poorAppetite = poor(appetite);
     Integer pain = note.getPainScore();
     String medication = note.getMedicationStatus();
     Boolean medicationVerified = note.getMedicationVerified();
@@ -82,6 +86,10 @@ public class NoteSignalService {
 
     // Latest non-null addendum wins independently for each field.
     for (NoteAddendum addendum : addendaForNote) {
+      if (addendum.getMood() != null) mood = addendum.getMood();
+      if (addendum.getAppetite() != null) appetite = addendum.getAppetite();
+      if (addendum.getSleep() != null) sleep = addendum.getSleep();
+      if (addendum.getMobility() != null) mobility = addendum.getMobility();
       if (addendum.getFallReported() != null) fall = addendum.getFallReported();
       if (addendum.getPainScore() != null) pain = addendum.getPainScore();
       if (addendum.getAppetite() != null) poorAppetite = poor(addendum.getAppetite());
@@ -113,8 +121,8 @@ public class NoteSignalService {
       else if ("TAKEN".equals(medication)) missedMedication = false;
     }
 
-    return new NoteSignalResponse(note.getRecipient().getId(), note.getDate(), fall, pain,
-        missedMedication, medicationUnverified, poorAppetite, freeText);
+    return new NoteSignalResponse(note.getRecipient().getId(), note.getDate(), mood, appetite, sleep, mobility,
+        fall, pain, missedMedication, medicationUnverified, poorAppetite, freeText);
   }
 
   private boolean isKnownMedication(String value) {
