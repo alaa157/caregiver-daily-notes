@@ -21,6 +21,13 @@ export interface DailyNote extends Observations {
 export interface NoteAddendum extends Observations { id: string; noteId: string; createdAt: string }
 export interface CreateNoteInput extends Observations { recipientId: string; date: string }
 export type AddendumInput = Partial<Observations>;
+export interface NotesHistoryQuery {
+  from: string; to: string; recipientId?: string; page?: number; size?: number;
+}
+export interface NotesHistoryPage {
+  content: DailyNote[]; number: number; size: number;
+  totalElements: number; totalPages: number; first: boolean; last: boolean;
+}
 
 export function isNoteDate(value: string): boolean {
   return /^\d{4}-\d{2}-\d{2}$/.test(value) && Number.isFinite(Date.parse(`${value}T00:00:00Z`))
@@ -78,6 +85,25 @@ function writeHeaders(key: string) {
 }
 export function createNotesApi(client: ApiClient) {
   return {
+    async history({ from, to, recipientId, page = 0, size = 20 }: NotesHistoryQuery, signal?: AbortSignal): Promise<NotesHistoryPage> {
+      if (!isNoteDate(from) || !isNoteDate(to) || from > to
+        || (recipientId !== undefined && !isRecipientId(recipientId))
+        || !Number.isSafeInteger(page) || page < 0 || !Number.isInteger(size) || size < 1 || size > 100) throw new ApiError(400, null);
+      const query = new URLSearchParams({ from, to, page: String(page), size: String(size) });
+      if (recipientId) query.set('recipientId', recipientId);
+      const item = object(await client.request({ path: `/api/notes?${query}`, signal }));
+      if (!Array.isArray(item.content) || item.number !== page || item.size !== size
+        || typeof item.totalElements !== 'number' || !Number.isSafeInteger(item.totalElements) || item.totalElements < 0
+        || item.totalPages !== Math.ceil(item.totalElements / size)
+        || item.first !== (page === 0) || item.last !== (page >= (item.totalPages as number) - 1)
+        || item.content.length > size) throw new Error('Invalid history response.');
+      const content = item.content.map(readNote);
+      if (new Set(content.map((note) => note.id)).size !== content.length
+        || content.some((note) => note.date < from || note.date > to || (recipientId && note.recipientId !== recipientId))
+        || (content.length > 0 && page * size + content.length > item.totalElements)) throw new Error('Invalid history response.');
+      return { content, number: page, size, totalElements: item.totalElements,
+        totalPages: item.totalPages as number, first: item.first as boolean, last: item.last as boolean };
+    },
     async get(id: string, signal?: AbortSignal) {
       const result = readNote(await client.request({ path: notePath(id), signal }));
       if (result.id !== id) throw new Error('Invalid note response.');

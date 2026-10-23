@@ -1,11 +1,11 @@
 import { useCallback, useEffect, useRef, type ReactNode } from 'react';
 import { useLocation, useNavigate, useParams } from 'react-router-dom';
-import { noteErrorMessage, observationFields, type AddendumInput, type CreateNoteInput, type Observations } from '../../api/notes';
+import { noteErrorMessage, type AddendumInput, type CreateNoteInput } from '../../api/notes';
 import { ButtonLink } from '../../components/Button';
 import { EmptyState, ErrorState, LoadingState } from '../../components/Feedback';
 import { useI18n } from '../../i18n/I18nProvider';
 import { NoteForm } from './NoteForm';
-import { fieldLabels } from './noteForm';
+import { ObservationValues } from './ObservationValues';
 import { useNoteResource, useNotesApis } from './useNotes';
 import './notes.css';
 
@@ -15,6 +15,7 @@ function NotesLayout({ title, description, children, action }: { title: string; 
   const { t } = useI18n();
   return <section className="notes-page container" aria-labelledby="notes-heading">
     <header className="notes-heading"><div><p className="eyebrow">{t('dashboardTitle')}</p><h1 id="notes-heading">{title}</h1><p>{description}</p></div>{action}</header>
+    <p className="notes-history-link"><ButtonLink variant="text" to={notesPath}>{t('historyTitle')}</ButtonLink></p>
     {children}
   </section>;
 }
@@ -38,22 +39,6 @@ export function CreateNotePage() {
         if (!signal.aborted) navigate(`${notesPath}/${note.id}`);
       }} /></div>)}
   </NotesLayout>;
-}
-
-function ObservationValues({ values, correction = false }: { values: Observations; correction?: boolean }) {
-  const { t, language } = useI18n();
-  function renderValue(field: keyof Observations) {
-    const value = values[field];
-    if (value === null) return t('notesNotRecorded');
-    if (value === '') return t('notesEmptyValue');
-    if (typeof value === 'boolean') return t(value ? 'notesYes' : 'notesNo');
-    if (field === 'medicationStatus') return t(value === 'TAKEN' ? 'notesTaken' : value === 'MISSED' ? 'notesMissed' : 'notesUnknown');
-    if (typeof value === 'number') return new Intl.NumberFormat(language === 'ar' ? 'ar-EG' : 'en').format(value);
-    return value;
-  }
-  return <dl className="note-values">{observationFields.filter((field) => !correction || values[field] !== null).map((field) => <div key={field} className={field === 'freeText' ? 'note-field--wide' : ''}>
-    <dt>{t(fieldLabels[field])}</dt><dd dir="auto" className="note-verbatim">{renderValue(field)}</dd>
-  </div>)}</dl>;
 }
 
 function NoteRecord({ id, append }: { id: string; append: boolean }) {
