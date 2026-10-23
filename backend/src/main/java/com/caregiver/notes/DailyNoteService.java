@@ -277,7 +277,7 @@ public class DailyNoteService {
     Map<UUID, Long> counts = new HashMap<>();
     List<UUID> ids = rows.map(DailyNote::getId).toList();
     if (!ids.isEmpty()) {
-      for (Object[] row : notes.countAddendaByNoteIds(ids)) {
+      for (Object[] row : notes.countAddendaByNoteIds(ids, owner)) {
         counts.put((UUID) row[0], (Long) row[1]);
       }
     }
