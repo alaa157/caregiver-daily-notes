@@ -9,6 +9,11 @@ import java.util.UUID;
 public record NoteSignalResponse(
     UUID recipientId,
     LocalDate date,
+    String mood,
+    String appetite,
+    String sleep,
+    String mobility,
+    String medicationStatus,
     Boolean fallReported,
     Integer painScore,
     Boolean missedMedication,
@@ -20,6 +25,11 @@ public record NoteSignalResponse(
     return new NoteSignals(
         recipientId.toString(),
         date,
+        mood,
+        appetite,
+        sleep,
+        mobility,
+        medicationStatus,
         fallReported,
         painScore,
         missedMedication,

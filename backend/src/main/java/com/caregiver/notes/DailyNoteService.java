@@ -221,6 +221,28 @@ public class DailyNoteService {
   }
 
   @Transactional(readOnly = true)
+  public NoteDetailResponse getDetail(UUID id) {
+    UUID owner = AuthContext.currentCaregiverId();
+    DailyNote note = notes.findByIdAndCaregiver_Id(id, owner)
+        .orElseThrow(NoteNotFoundException::new);
+    List<NoteAddendumResponse> ordered = addenda
+        .findAllByNote_IdAndCaregiver_IdOrderByCreatedAtAscIdAsc(id, owner)
+        .stream().map(NoteAddendumResponse::from).toList();
+    return NoteDetailResponse.from(note, ordered);
+  }
+
+  @Transactional(readOnly = true)
+  public NoteDetailResponse getByRecipientDateDetail(UUID recipientId, LocalDate date) {
+    UUID owner = AuthContext.currentCaregiverId();
+    DailyNote note = notes.findByRecipient_IdAndCaregiver_IdAndDate(recipientId, owner, date)
+        .orElseThrow(NoteNotFoundException::new);
+    List<NoteAddendumResponse> ordered = addenda
+        .findAllByNote_IdAndCaregiver_IdOrderByCreatedAtAscIdAsc(note.getId(), owner)
+        .stream().map(NoteAddendumResponse::from).toList();
+    return NoteDetailResponse.from(note, ordered);
+  }
+
+  @Transactional(readOnly = true)
   public NoteResponse get(UUID id) {
     UUID owner = AuthContext.currentCaregiverId();
     return notes.findByIdAndCaregiver_Id(id, owner).map(this::response)
@@ -255,7 +277,7 @@ public class DailyNoteService {
     Map<UUID, Long> counts = new HashMap<>();
     List<UUID> ids = rows.map(DailyNote::getId).toList();
     if (!ids.isEmpty()) {
-      for (Object[] row : notes.countAddendaByNoteIds(ids)) {
+      for (Object[] row : notes.countAddendaByNoteIds(ids, owner)) {
         counts.put((UUID) row[0], (Long) row[1]);
       }
     }
@@ -268,7 +290,7 @@ public class DailyNoteService {
     if (!notes.existsByIdAndCaregiver_Id(noteId, owner)) {
       throw new NoteNotFoundException();
     }
-    return addenda.findAllByNote_IdAndCaregiver_IdOrderByCreatedAtAsc(noteId, owner)
+    return addenda.findAllByNote_IdAndCaregiver_IdOrderByCreatedAtAscIdAsc(noteId, owner)
         .stream().map(NoteAddendumResponse::from).toList();
   }
 
