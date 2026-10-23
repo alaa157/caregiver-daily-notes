@@ -8,6 +8,6 @@ public interface DailyNoteRepository extends JpaRepository<DailyNote,UUID>{
  Page<DailyNote> findAllByCaregiver_IdAndRecipient_IdAndDateBetween(UUID owner,UUID recipient,LocalDate from,LocalDate to,Pageable p);
  List<DailyNote> findAllByCaregiver_IdAndRecipient_IdAndDateBetweenOrderByDateAsc(UUID owner,UUID recipient,LocalDate from,LocalDate to);
  /** Single aggregate query backing history addendum counts; avoids one count query per row. */
- @Query("select a.note.id, count(a) from NoteAddendum a where a.note.id in :noteIds group by a.note.id")
- List<Object[]> countAddendaByNoteIds(@Param("noteIds") Collection<UUID> noteIds);
+ @Query("select a.note.id, count(a) from NoteAddendum a where a.note.id in :noteIds and a.caregiver.id = :owner group by a.note.id")
+ List<Object[]> countAddendaByNoteIds(@Param("noteIds") Collection<UUID> noteIds, @Param("owner") UUID owner);
 }

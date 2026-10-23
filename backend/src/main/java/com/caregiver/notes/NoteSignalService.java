@@ -1,5 +1,7 @@
 package com.caregiver.notes;
 
+import com.caregiver.common.NoteSignals;
+
 import com.caregiver.auth.AuthContext;
 import com.caregiver.recipient.CareRecipientRepository;
 import com.caregiver.recipient.RecipientNotFoundException;
@@ -29,7 +31,7 @@ public class NoteSignalService {
   }
 
   @Transactional(readOnly = true)
-  public List<NoteSignalResponse> forRange(UUID recipientId, LocalDate from, LocalDate to) {
+  public List<NoteSignals> forRange(UUID recipientId, LocalDate from, LocalDate to) {
     UUID caregiverId = AuthContext.currentCaregiverId();
     if (recipientId == null || from == null || to == null || from.isAfter(to)) {
       throw new IllegalArgumentException("recipientId, from and to are required, and from must be on or before to.");
@@ -44,13 +46,13 @@ public class NoteSignalService {
     if (!found.isEmpty()) {
       Collection<UUID> noteIds = found.stream().map(DailyNote::getId).toList();
       addendaByNote = addenda
-          .findAllByNote_IdInAndCaregiver_IdOrderByCreatedAtAsc(noteIds, caregiverId)
+          .findAllByNote_IdInAndCaregiver_IdOrderByCreatedAtAscIdAsc(noteIds, caregiverId)
           .stream()
           .collect(Collectors.groupingBy(addendum -> addendum.getNote().getId()));
     }
     final Map<UUID, List<NoteAddendum>> grouped = addendaByNote;
     return found.stream()
-        .map(note -> merge(note, grouped.getOrDefault(note.getId(), List.of())))
+        .map(note -> merge(note, grouped.getOrDefault(note.getId(), List.of())).toNoteSignals())
         .toList();
   }
 
@@ -73,8 +75,12 @@ public class NoteSignalService {
    * confirmed missed (or taken) dose.
    */
   private NoteSignalResponse merge(DailyNote note, List<NoteAddendum> addendaForNote) {
+    String mood = note.getMood();
+    String appetite = note.getAppetite();
+    String sleep = note.getSleep();
+    String mobility = note.getMobility();
     Boolean fall = note.getFallReported();
-    Boolean poorAppetite = poor(note.getAppetite());
+    Boolean poorAppetite = poor(appetite);
     Integer pain = note.getPainScore();
     String medication = note.getMedicationStatus();
     Boolean medicationVerified = note.getMedicationVerified();
@@ -82,6 +88,10 @@ public class NoteSignalService {
 
     // Latest non-null addendum wins independently for each field.
     for (NoteAddendum addendum : addendaForNote) {
+      if (addendum.getMood() != null) mood = addendum.getMood();
+      if (addendum.getAppetite() != null) appetite = addendum.getAppetite();
+      if (addendum.getSleep() != null) sleep = addendum.getSleep();
+      if (addendum.getMobility() != null) mobility = addendum.getMobility();
       if (addendum.getFallReported() != null) fall = addendum.getFallReported();
       if (addendum.getPainScore() != null) pain = addendum.getPainScore();
       if (addendum.getAppetite() != null) poorAppetite = poor(addendum.getAppetite());
@@ -113,8 +123,8 @@ public class NoteSignalService {
       else if ("TAKEN".equals(medication)) missedMedication = false;
     }
 
-    return new NoteSignalResponse(note.getRecipient().getId(), note.getDate(), fall, pain,
-        missedMedication, medicationUnverified, poorAppetite, freeText);
+    return new NoteSignalResponse(note.getRecipient().getId(), note.getDate(), mood, appetite, sleep, mobility,
+        medication, fall, pain, missedMedication, medicationUnverified, poorAppetite, freeText);
   }
 
   private boolean isKnownMedication(String value) {

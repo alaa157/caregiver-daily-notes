@@ -74,6 +74,11 @@ class NoteSignalServiceTest {
     assertThat(signals).hasSize(1);
     JsonNode day = signals.get(0);
     assertThat(day.get("recipientId").asText()).isEqualTo(recipientId);
+    assertThat(day.get("mood").asText()).isEqualTo("good");
+    assertThat(day.get("appetite").asText()).isEqualTo("poor");
+    assertThat(day.get("sleep").asText()).isEqualTo("good");
+    assertThat(day.get("mobility").asText()).isEqualTo("normal");
+    assertThat(day.get("medicationStatus").asText()).isEqualTo("TAKEN");
     assertThat(day.get("date").asText()).isEqualTo("2026-10-01");
     assertThat(day.get("fallReported").asBoolean()).isTrue();
     assertThat(day.get("painScore").asInt()).isEqualTo(7);
@@ -193,15 +198,20 @@ class NoteSignalServiceTest {
     TestCaregiver owner = register("signal-override@example.com");
     String recipientId = createRecipient(owner.token());
     String noteId = createNote(owner.token(), recipientId, "2026-10-10",
-        "{\"painScore\":3,\"fallReported\":false,\"appetite\":\"good\","
-            + "\"freeText\":\"original\"}");
-    append(owner.token(), noteId, "{\"painScore\":9}");
-    append(owner.token(), noteId, "{\"fallReported\":true,\"freeText\":\"corrected\"}");
+        "{\"mood\":\"neutral\",\"appetite\":\"good\",\"sleep\":\"poor\",\"mobility\":\"limited\","
+            + "\"painScore\":3,\"fallReported\":false,\"freeText\":\"original\"}");
+    append(owner.token(), noteId, "{\"mood\":\"good\",\"sleep\":\"good\",\"painScore\":9}");
+    append(owner.token(), noteId, "{\"appetite\":\"poor\",\"mobility\":\"walking with help\","
+        + "\"fallReported\":true,\"freeText\":\"corrected\"}");
 
     JsonNode day = signals(owner.token(), recipientId, "2026-10-10", "2026-10-10").get(0);
+    assertThat(day.get("mood").asText()).isEqualTo("good");
+    assertThat(day.get("appetite").asText()).isEqualTo("poor");
+    assertThat(day.get("sleep").asText()).isEqualTo("good");
+    assertThat(day.get("mobility").asText()).isEqualTo("walking with help");
     assertThat(day.get("painScore").asInt()).isEqualTo(9);
     assertThat(day.get("fallReported").asBoolean()).isTrue();
-    assertThat(day.get("poorAppetite").asBoolean()).isFalse();
+    assertThat(day.get("poorAppetite").asBoolean()).isTrue();
     assertThat(day.get("freeText").asText()).isEqualTo("corrected");
   }
 
