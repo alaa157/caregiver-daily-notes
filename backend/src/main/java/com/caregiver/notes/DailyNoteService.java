@@ -221,6 +221,28 @@ public class DailyNoteService {
   }
 
   @Transactional(readOnly = true)
+  public NoteDetailResponse getDetail(UUID id) {
+    UUID owner = AuthContext.currentCaregiverId();
+    DailyNote note = notes.findByIdAndCaregiver_Id(id, owner)
+        .orElseThrow(NoteNotFoundException::new);
+    List<NoteAddendumResponse> ordered = addenda
+        .findAllByNote_IdAndCaregiver_IdOrderByCreatedAtAsc(id, owner)
+        .stream().map(NoteAddendumResponse::from).toList();
+    return NoteDetailResponse.from(note, ordered);
+  }
+
+  @Transactional(readOnly = true)
+  public NoteDetailResponse getByRecipientDateDetail(UUID recipientId, LocalDate date) {
+    UUID owner = AuthContext.currentCaregiverId();
+    DailyNote note = notes.findByRecipient_IdAndCaregiver_IdAndDate(recipientId, owner, date)
+        .orElseThrow(NoteNotFoundException::new);
+    List<NoteAddendumResponse> ordered = addenda
+        .findAllByNote_IdAndCaregiver_IdOrderByCreatedAtAsc(note.getId(), owner)
+        .stream().map(NoteAddendumResponse::from).toList();
+    return NoteDetailResponse.from(note, ordered);
+  }
+
+  @Transactional(readOnly = true)
   public NoteResponse get(UUID id) {
     UUID owner = AuthContext.currentCaregiverId();
     return notes.findByIdAndCaregiver_Id(id, owner).map(this::response)
