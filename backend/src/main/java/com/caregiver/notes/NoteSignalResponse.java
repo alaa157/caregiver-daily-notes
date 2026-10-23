@@ -9,6 +9,10 @@ import java.util.UUID;
 public record NoteSignalResponse(
     UUID recipientId,
     LocalDate date,
+    String mood,
+    String appetite,
+    String sleep,
+    String mobility,
     Boolean fallReported,
     Integer painScore,
     Boolean missedMedication,
