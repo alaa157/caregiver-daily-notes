@@ -1,0 +1,32 @@
+.history-filters h2 { margin-block: 0 .6rem; font-size: 1.3rem; }
+.history-recipient-filter { margin-block: 1.25rem; }
+.history-date-mode { border: 0; padding: 0; margin-block: 0 1.25rem; display: flex; flex-wrap: wrap; gap: .65rem 1.5rem; }
+.history-date-mode legend { font-weight: 600; margin-block-end: .6rem; }
+.history-date-mode label { display: flex; gap: .6rem; align-items: center; min-height: 44px; cursor: pointer; }
+.history-date-mode input { width: 1.15rem; height: 1.15rem; accent-color: #486b48; }
+.history-results h2 { font-size: 1.5rem; margin-block: 1.5rem .75rem; }
+.history-results h2:focus { outline: 2px solid #486b48; outline-offset: 5px; }
+.history-page-size { max-width: 15rem; margin-block-end: 1.5rem; }
+.history-result-count { font-weight: 600; margin-block-end: .5rem; }
+.history-order { margin-block-end: 1.5rem; }
+.history-list, .history-corrections-list { list-style: none; padding: 0; margin: 0; }
+.history-note-heading { display: flex; align-items: start; justify-content: space-between; gap: 1rem; flex-wrap: wrap; }
+.history-note-heading > div { min-width: 0; flex: 1 1 16rem; }
+.history-note-heading h3 { font-size: 1.2rem; overflow-wrap: anywhere; margin-block: .65rem .4rem; }
+.history-note-heading p { margin: 0; color: #59675d; }
+.history-note .button { max-width: 100%; white-space: normal; text-align: center; overflow-wrap: anywhere; }
+.history-original-label { display: inline-block; color: #315534; background: #f1f6ec; border: 1px solid #a9c29c; border-radius: 6px; padding: .2rem .65rem; font-size: .88rem; font-weight: 600; }
+.history-original { margin-block: 1.25rem; }
+.history-original summary { cursor: pointer; padding-block: .75rem; color: #315534; font-weight: 600; }
+.history-addenda > section:not([hidden]) { margin-block-start: 1rem; }
+.history-correction { border-inline-start: 3px solid #ac8a51; background: #fcf7e9; border-radius: 8px; padding: 1.25rem; margin-block-start: 1rem; min-width: 0; }
+.history-correction h4 { font-size: 1.05rem; margin-block: 0 .5rem; }
+.history-no-corrections { margin-block-start: 1rem; }
+.history-pagination { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 1rem; margin-block: 1.5rem; }
+.history-pagination .button { white-space: normal; text-align: center; }
+@media (max-width: 600px) {
+  .history-correction { padding: 1rem; }
+  .history-pagination { justify-content: center; }
+  .history-pagination span { flex-basis: 100%; text-align: center; order: -1; }
+  .history-pagination .button { flex: 1 1 8rem; }
+}
