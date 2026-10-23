@@ -1,7 +1,8 @@
 name: CI
 
+# Manual runs and PR checks only: a full CI run on every push got too
+# expensive for the demo workflow.
 on:
-  push:
   pull_request:
 
 jobs:
