@@ -1,5 +1,7 @@
 package com.caregiver.notes;
 
+import com.caregiver.common.NoteSignals;
+
 import com.caregiver.auth.AuthContext;
 import com.caregiver.recipient.CareRecipientRepository;
 import com.caregiver.recipient.RecipientNotFoundException;
@@ -29,7 +31,7 @@ public class NoteSignalService {
   }
 
   @Transactional(readOnly = true)
-  public List<NoteSignalResponse> forRange(UUID recipientId, LocalDate from, LocalDate to) {
+  public List<NoteSignals> forRange(UUID recipientId, LocalDate from, LocalDate to) {
     UUID caregiverId = AuthContext.currentCaregiverId();
     if (recipientId == null || from == null || to == null || from.isAfter(to)) {
       throw new IllegalArgumentException("recipientId, from and to are required, and from must be on or before to.");
@@ -50,7 +52,7 @@ public class NoteSignalService {
     }
     final Map<UUID, List<NoteAddendum>> grouped = addendaByNote;
     return found.stream()
-        .map(note -> merge(note, grouped.getOrDefault(note.getId(), List.of())))
+        .map(note -> merge(note, grouped.getOrDefault(note.getId(), List.of())).toNoteSignals())
         .toList();
   }
 
