@@ -24,6 +24,11 @@ public record NoteSignalResponse(
     return new NoteSignals(
         recipientId.toString(),
         date,
+        mood,
+        appetite,
+        sleep,
+        mobility,
+        null,
         fallReported,
         painScore,
         missedMedication,
