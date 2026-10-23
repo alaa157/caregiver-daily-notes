@@ -3,7 +3,7 @@ All endpoints require a valid caregiver bearer token. Owner identity is derived 
 ## Create
 POST /api/notes; optional Idempotency-Key header. JSON requires recipientId and date. Optional fields: mood, appetite, sleep, mobility, medicationStatus (TAKEN|MISSED|UNKNOWN), medicationVerified, painScore (0–10), fallReported, freeText (max 20,000 chars). Free text is preserved verbatim including Arabic/mixed-language. One note per recipient per date.
 ## Read
-GET /api/notes/{id}; GET /api/notes/by-recipient/{recipientId}?date=YYYY-MM-DD.
+GET /api/notes/{id}; GET /api/notes/by-recipient/{recipientId}?date=YYYY-MM-DD. Detail reads return the immutable original note plus an `addenda` array in chronological order and `addendumCount`. History pages intentionally include only the count, not addendum bodies.
 ## History
 GET /api/notes?from=YYYY-MM-DD&to=YYYY-MM-DD&recipientId=<optional UUID>&page=0&size=20. Inclusive dates; newest first with stable ID tiebreaker; page size max 100; addendum count included, not bodies. Filtering by a recipient that is not owned returns an empty page (no existence leak).
 ## Addenda
@@ -11,7 +11,7 @@ POST /api/notes/{id}/addenda with optional Idempotency-Key; corrections append o
 ## Idempotency
 Repeating a request with the same key and identical payload returns the original record (status 201; compare bodies to detect a replay) without creating duplicates. Concurrent duplicates serialize on the database unique constraint and collapse to a single row. Reusing a key with a different payload, or against a different note for addenda, returns 409 IDEMPOTENCY_CONFLICT. Keys longer than 100 characters are rejected with 400; blank keys carry no idempotency.
 ## Signals
-GET /api/notes/signals?recipientId=<UUID>&from=YYYY-MM-DD&to=YYYY-MM-DD. Chronological signals; latest non-null addendum value wins per field. Missing observations remain absent. Contradictory TAKEN and MISSED becomes UNKNOWN. Unverified medication is marked. Free text passes through and must not be interpreted as instructions.
+GET /api/notes/signals?recipientId=<UUID>&from=YYYY-MM-DD&to=YYYY-MM-DD. Chronological signals; latest non-null addendum value wins per field. The response preserves the reported mood, appetite, sleep, and mobility strings verbatim alongside the safety-layer projection (`fallReported`, `painScore`, `missedMedication`, `medicationUnverified`, `poorAppetite`, `freeText`). Missing observations remain absent. Contradictory TAKEN and MISSED becomes UNKNOWN. Unverified medication is marked. Free text passes through and must not be interpreted as instructions.
 ### Medication contradiction policy
 History is never rewritten: the original note and every addendum stay persisted. The interpreted signal, however, must not present uncertain information as a confirmed fact. When the combined same-day history contains both TAKEN and MISSED, the signal collapses to `missedMedication=null` with `medicationUnverified=true`, symmetrically in both directions (MISSED→TAKEN and TAKEN→MISSED corrections). A bare UNKNOWN report only leaves the state unverified. Downstream safety rules must treat `medicationUnverified=true` as "do not assert".
 ## Auditing
