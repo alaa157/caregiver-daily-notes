@@ -122,7 +122,7 @@ public class NoteSignalService {
     }
 
     return new NoteSignalResponse(note.getRecipient().getId(), note.getDate(), mood, appetite, sleep, mobility,
-        fall, pain, missedMedication, medicationUnverified, poorAppetite, freeText);
+        medication, fall, pain, missedMedication, medicationUnverified, poorAppetite, freeText);
   }
 
   private boolean isKnownMedication(String value) {
