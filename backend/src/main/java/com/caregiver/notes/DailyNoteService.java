@@ -226,7 +226,7 @@ public class DailyNoteService {
     DailyNote note = notes.findByIdAndCaregiver_Id(id, owner)
         .orElseThrow(NoteNotFoundException::new);
     List<NoteAddendumResponse> ordered = addenda
-        .findAllByNote_IdAndCaregiver_IdOrderByCreatedAtAsc(id, owner)
+        .findAllByNote_IdAndCaregiver_IdOrderByCreatedAtAscIdAsc(id, owner)
         .stream().map(NoteAddendumResponse::from).toList();
     return NoteDetailResponse.from(note, ordered);
   }
@@ -237,7 +237,7 @@ public class DailyNoteService {
     DailyNote note = notes.findByRecipient_IdAndCaregiver_IdAndDate(recipientId, owner, date)
         .orElseThrow(NoteNotFoundException::new);
     List<NoteAddendumResponse> ordered = addenda
-        .findAllByNote_IdAndCaregiver_IdOrderByCreatedAtAsc(note.getId(), owner)
+        .findAllByNote_IdAndCaregiver_IdOrderByCreatedAtAscIdAsc(note.getId(), owner)
         .stream().map(NoteAddendumResponse::from).toList();
     return NoteDetailResponse.from(note, ordered);
   }
@@ -290,7 +290,7 @@ public class DailyNoteService {
     if (!notes.existsByIdAndCaregiver_Id(noteId, owner)) {
       throw new NoteNotFoundException();
     }
-    return addenda.findAllByNote_IdAndCaregiver_IdOrderByCreatedAtAsc(noteId, owner)
+    return addenda.findAllByNote_IdAndCaregiver_IdOrderByCreatedAtAscIdAsc(noteId, owner)
         .stream().map(NoteAddendumResponse::from).toList();
   }
 
