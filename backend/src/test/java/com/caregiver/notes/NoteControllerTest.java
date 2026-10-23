@@ -355,7 +355,10 @@ class NoteControllerTest {
         .andExpect(status().isOk())
         .andExpect(jsonPath("$.painScore").value(3))
         .andExpect(jsonPath("$.freeText").value("Evening note"))
-        .andExpect(jsonPath("$.addendumCount").value(1));
+        .andExpect(jsonPath("$.addendumCount").value(1))
+        .andExpect(jsonPath("$.addenda.length()").value(1))
+        .andExpect(jsonPath("$.addenda[0].painScore").value(8))
+        .andExpect(jsonPath("$.addenda[0].freeText").value("Correction: pain is worse in the evening."));
 
     // Second addendum; chronological listing.
     Thread.sleep(5);
