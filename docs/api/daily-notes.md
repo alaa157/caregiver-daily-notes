@@ -7,7 +7,7 @@ GET /api/notes/{id}; GET /api/notes/by-recipient/{recipientId}?date=YYYY-MM-DD. 
 ## History
 GET /api/notes?from=YYYY-MM-DD&to=YYYY-MM-DD&recipientId=<optional UUID>&page=0&size=20. Inclusive dates; newest first with stable ID tiebreaker; page size max 100; addendum count included, not bodies. Filtering by a recipient that is not owned returns an empty page (no existence leak).
 ## Addenda
-POST /api/notes/{id}/addenda with optional Idempotency-Key; corrections append only and never modify original note. An addendum must correct at least one field (empty `{}` is rejected). GET /api/notes/{id}/addenda returns chronological addenda.
+POST /api/notes/{id}/addenda with optional Idempotency-Key; corrections append only and never modify original note. An addendum must correct at least one field (empty `{}` is rejected). GET /api/notes/{id}/addenda returns addenda ordered by creation time, with ID as a stable tiebreaker.
 ## Idempotency
 Repeating a request with the same key and identical payload returns the original record (status 201; compare bodies to detect a replay) without creating duplicates. Concurrent duplicates serialize on the database unique constraint and collapse to a single row. Reusing a key with a different payload, or against a different note for addenda, returns 409 IDEMPOTENCY_CONFLICT. Keys longer than 100 characters are rejected with 400; blank keys carry no idempotency.
 ## Signals
