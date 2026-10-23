@@ -4,8 +4,8 @@ import io.swagger.v3.oas.annotations.Operation; import io.swagger.v3.oas.annotat
 public class NoteController{
  private final DailyNoteService service; private final NoteSignalService signals; public NoteController(DailyNoteService s,NoteSignalService n){service=s;signals=n;}
  @PostMapping @ResponseStatus(HttpStatus.CREATED) @Operation(summary="Create a note; optional Idempotency-Key makes retries safe") public NoteResponse create(@Valid @RequestBody NoteRequest r,@RequestHeader(value="Idempotency-Key",required=false) String key){return service.create(r,key);}
- @GetMapping("/{id}") public NoteResponse get(@PathVariable UUID id){return service.get(id);}
- @GetMapping("/by-recipient/{recipientId}") public NoteResponse byDate(@PathVariable UUID recipientId,@RequestParam @DateTimeFormat(iso=DateTimeFormat.ISO.DATE) LocalDate date){return service.getByRecipientDate(recipientId,date);}
+ @GetMapping("/{id}") public NoteDetailResponse get(@PathVariable UUID id){return service.getDetail(id);}
+ @GetMapping("/by-recipient/{recipientId}") public NoteDetailResponse byDate(@PathVariable UUID recipientId,@RequestParam @DateTimeFormat(iso=DateTimeFormat.ISO.DATE) LocalDate date){return service.getByRecipientDateDetail(recipientId,date);}
  @GetMapping public Page<NoteResponse> history(@RequestParam(required=false) UUID recipientId,@RequestParam @DateTimeFormat(iso=DateTimeFormat.ISO.DATE) LocalDate from,@RequestParam @DateTimeFormat(iso=DateTimeFormat.ISO.DATE) LocalDate to,@RequestParam(defaultValue="0") int page,@RequestParam(defaultValue="20") int size){return service.history(recipientId,from,to,page,size);}
  @PostMapping("/{id}/addenda") @ResponseStatus(HttpStatus.CREATED) @Operation(summary="Append a correction without modifying the original note") public NoteAddendumResponse append(@PathVariable UUID id,@Valid @RequestBody AddendumRequest r,@RequestHeader(value="Idempotency-Key",required=false) String key){return service.append(id,r,key);}
  @GetMapping("/{id}/addenda") public List<NoteAddendumResponse> addenda(@PathVariable UUID id){return service.addenda(id);}
