@@ -44,7 +44,7 @@ public class NoteSignalService {
     if (!found.isEmpty()) {
       Collection<UUID> noteIds = found.stream().map(DailyNote::getId).toList();
       addendaByNote = addenda
-          .findAllByNote_IdInAndCaregiver_IdOrderByCreatedAtAsc(noteIds, caregiverId)
+          .findAllByNote_IdInAndCaregiver_IdOrderByCreatedAtAscIdAsc(noteIds, caregiverId)
           .stream()
           .collect(Collectors.groupingBy(addendum -> addendum.getNote().getId()));
     }
