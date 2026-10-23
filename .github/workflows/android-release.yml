@@ -1,9 +1,11 @@
 name: Android Release
 
+# Manual only: dispatch on the tag you want to release
+# (gh workflow run android-release.yml --ref v0.3.6) so GITHUB_REF_NAME keeps
+# meaning vX.Y.Z in the steps below. Every pushed tag used to cost a full
+# build.
 on:
-  push:
-    tags:
-      - 'v*'
+  workflow_dispatch:
 
 permissions:
   contents: write

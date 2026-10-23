@@ -1,16 +1,10 @@
 name: Android
 
-# CI runs on any push or PR that touches the Android app, and can also be run
-# manually: Actions → Android → Run workflow.
+# Manual runs and PR checks only: a full build on every push got too
+# expensive for the demo workflow. Actions → Android → Run workflow to run
+# it by hand.
 on:
   workflow_dispatch:
-  push:
-    paths:
-      - "android/**"
-      - ".github/scripts/**"
-      - ".github/workflows/android.yml"
-    tags:
-      - "demo-v*"
   pull_request:
     paths:
       - "android/**"
