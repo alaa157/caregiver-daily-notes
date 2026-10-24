@@ -544,7 +544,10 @@ fun AddendumScreen(noteId: String, graph: AppGraph, navController: NavController
     }
     val form by vm.addendum.collectAsStateWithLifecycle()
     if (form.appended) {
-        LaunchedEffect(Unit) { navController.popBackStack() }
+        LaunchedEffect(Unit) {
+            vm.consumeAppended()
+            navController.popBackStack()
+        }
     }
     Column(Modifier.fillMaxSize()) {
         Column(

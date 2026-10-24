@@ -69,6 +69,10 @@ class NoteDetailViewModel(
         )
     }
 
+    fun consumeAppended() {
+        _addendum.value = _addendum.value.copy(appended = false)
+    }
+
     fun submitAddendum() {
         if (_addendum.value.text.isBlank()) {
             _addendum.value = _addendum.value.copy(addendumError = true)
