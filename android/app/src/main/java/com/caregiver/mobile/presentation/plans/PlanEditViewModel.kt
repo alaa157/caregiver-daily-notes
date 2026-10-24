@@ -6,6 +6,7 @@ import com.caregiver.mobile.data.AuthRepository
 import com.caregiver.mobile.data.LoggedOutException
 import com.caregiver.mobile.data.api.AppendVersionRequest
 import com.caregiver.mobile.data.api.BackendApis
+import com.caregiver.mobile.data.local.ArchivedRecipientException
 import java.io.IOException
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.CoroutineScope
@@ -47,6 +48,9 @@ class PlanEditViewModel(
     private val _saveFailed = MutableStateFlow(false)
     val saveFailed: StateFlow<Boolean> = _saveFailed.asStateFlow()
 
+    private val _archivedRecipient = MutableStateFlow(false)
+    val archivedRecipient: StateFlow<Boolean> = _archivedRecipient.asStateFlow()
+
     init {
         exec.launch { load() }
     }
@@ -55,6 +59,7 @@ class PlanEditViewModel(
     fun refresh() {
         _state.value = PlanEditState.Loading
         _saveFailed.value = false
+        _archivedRecipient.value = false
         exec.launch { load() }
     }
 
@@ -65,12 +70,14 @@ class PlanEditViewModel(
         }
         _state.value = PlanEditState.Content(lines.toMutableList().also { it[index] = value })
         _saveFailed.value = false
+        _archivedRecipient.value = false
     }
 
     fun addLine() {
         val lines = (state.value as? PlanEditState.Content)?.lines ?: return
         _state.value = PlanEditState.Content(lines + "")
         _saveFailed.value = false
+        _archivedRecipient.value = false
     }
 
     fun removeLine(index: Int) {
@@ -80,12 +87,14 @@ class PlanEditViewModel(
         }
         _state.value = PlanEditState.Content(lines.toMutableList().also { it.removeAt(index) })
         _saveFailed.value = false
+        _archivedRecipient.value = false
     }
 
     fun save() {
         val lines = (state.value as? PlanEditState.Content)?.lines ?: return
         _busy.value = true
         _saveFailed.value = false
+        _archivedRecipient.value = false
         exec.launch {
             try {
                 repository.authorized {

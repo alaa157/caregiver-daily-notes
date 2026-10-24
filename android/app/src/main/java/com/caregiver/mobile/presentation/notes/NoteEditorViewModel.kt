@@ -8,6 +8,7 @@ import com.caregiver.mobile.data.LoggedOutException
 import com.caregiver.mobile.data.api.ApiErrors
 import com.caregiver.mobile.data.api.BackendApis
 import com.caregiver.mobile.data.api.CreateNoteRequest
+import com.caregiver.mobile.data.local.ArchivedRecipientException
 import java.io.IOException
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.CoroutineScope
@@ -22,6 +23,7 @@ sealed interface EditorError {
     data object TextRequired : EditorError
     data class Rejected(val code: String?) : EditorError
     data object Unreachable : EditorError
+    data object ArchivedRecipient : EditorError
 }
 
 /**
@@ -116,6 +118,11 @@ class NoteEditorViewModel(
                 _state.value = _state.value.copy(busy = false, savedId = created.id)
             } catch (e: LoggedOutException) {
                 _state.value = _state.value.copy(busy = false)
+            } catch (e: ArchivedRecipientException) {
+                _state.value = _state.value.copy(
+                    busy = false,
+                    formError = EditorError.ArchivedRecipient,
+                )
             } catch (e: HttpException) {
                 _state.value = _state.value.copy(
                     busy = false,

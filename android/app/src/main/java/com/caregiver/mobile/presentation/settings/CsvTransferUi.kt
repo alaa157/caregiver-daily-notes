@@ -41,6 +41,7 @@ import com.caregiver.mobile.data.csv.ImportPlan
 import com.caregiver.mobile.data.csv.ImportSummary
 import com.caregiver.mobile.data.csv.RecipientRef
 import com.caregiver.mobile.data.csv.UnmatchedRecipient
+import com.caregiver.mobile.presentation.common.selectableCsvRecipients
 import com.caregiver.mobile.ui.component.DefaultDialog
 
 /** Max invalid rows listed in the preview; the rest are summarized by count. */
@@ -297,7 +298,7 @@ private fun UnmatchedRecipientRow(
                     onSelect(null)
                 },
             )
-            recipients
+            selectableCsvRecipients(recipients)
                 .sortedWith(compareBy(String.CASE_INSENSITIVE_ORDER) { it.name })
                 .forEach { recipient ->
                     DropdownMenuItem(

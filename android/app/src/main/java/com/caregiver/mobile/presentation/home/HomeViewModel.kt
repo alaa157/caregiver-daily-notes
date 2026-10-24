@@ -5,6 +5,7 @@ import androidx.lifecycle.viewModelScope
 import com.caregiver.mobile.data.AuthRepository
 import com.caregiver.mobile.data.LoggedOutException
 import com.caregiver.mobile.data.SettingsStore
+import com.caregiver.mobile.presentation.common.selectableRecipients
 import java.io.IOException
 import java.time.Clock
 import java.time.LocalDate
@@ -115,7 +116,7 @@ class HomeViewModel(
             val windowStart = LocalDate.now(clock).minusDays(HOME_WINDOW_DAYS - 1).toString()
             val email = settings.email.first()
             val recipients = repository.authorized { recipients().list() }
-            val active = recipients.filter { it.active }
+            val active = selectableRecipients(recipients)
             val notes = repository.authorized { notes().history(null, windowStart, today) }
             val byRecipient = notes.groupBy { it.recipientId }
             val cards = active.map { recipient ->
