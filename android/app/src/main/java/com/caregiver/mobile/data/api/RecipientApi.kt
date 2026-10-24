@@ -23,7 +23,12 @@ interface RecipientApi {
 }
 
 @Serializable
-data class RecipientDto(val id: String, val name: String, val active: Boolean)
+data class RecipientDto(
+    val id: String,
+    val name: String,
+    val active: Boolean,
+    val archivedAt: Long? = null,
+)
 
 @Serializable
 data class CreateRecipientRequest(val name: String)

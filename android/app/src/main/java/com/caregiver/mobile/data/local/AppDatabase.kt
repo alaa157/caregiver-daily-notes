@@ -31,7 +31,7 @@ import androidx.sqlite.db.SupportSQLiteDatabase
         MedicationEntity::class,
         MedicationIntakeEntity::class,
     ],
-    version = 6,
+    version = 7,
     exportSchema = true,
 )
 abstract class AppDatabase : RoomDatabase() {
@@ -173,6 +173,16 @@ abstract class AppDatabase : RoomDatabase() {
             }
         }
 
+        /**
+         * Recipient archive state (7.json): nullable timestamp, null for every
+         * existing row. Plain ALTER keeps the column last, matching Room.
+         */
+        val MIGRATION_6_7: Migration = object : Migration(6, 7) {
+            override fun migrate(db: SupportSQLiteDatabase) {
+                db.execSQL("ALTER TABLE `recipients` ADD COLUMN `archivedAt` INTEGER")
+            }
+        }
+
         fun create(context: Context): AppDatabase =
             Room.databaseBuilder(context.applicationContext, AppDatabase::class.java, "caregiver-db")
                 .addMigrations(
@@ -181,6 +191,7 @@ abstract class AppDatabase : RoomDatabase() {
                     MIGRATION_3_4,
                     MIGRATION_4_5,
                     MIGRATION_5_6,
+                    MIGRATION_6_7,
                 )
                 .build()
     }
