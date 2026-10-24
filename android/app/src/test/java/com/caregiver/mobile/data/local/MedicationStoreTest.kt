@@ -104,4 +104,31 @@ class MedicationStoreTest {
         assertTrue(store.observeActive().first().isEmpty())
         assertTrue(store.observeIntakes(day.toString()).first().isEmpty())
     }
+
+    @Test
+    fun recipientScopedDeletesRemoveOnlyThatRecipientsRows() = runTest {
+        val r1Med = store.add("r1", "Amlodipine")
+        val r2Med = store.add("r2", "Metformin")
+        val day = LocalDate.of(2026, 10, 20)
+        store.setTaken(r1Med, day, true)
+        store.setTaken(r2Med, day, true)
+
+        assertEquals(listOf(r1Med), db.medicationDao().idsByRecipient("r1"))
+        assertEquals(1, db.medicationDao().countByRecipient("r1"))
+        assertEquals(1, db.medicationDao().countIntakesForRecipient("r1"))
+        assertEquals(r1Med, db.medicationDao().byId(r1Med)?.id)
+
+        db.medicationDao().clearIntakesForMedications(emptyList())
+        assertEquals(1, db.medicationDao().countIntakesForRecipient("r1"))
+        db.medicationDao().clearIntakesForMedications(listOf(r1Med))
+        assertEquals(0, db.medicationDao().countIntakesForRecipient("r1"))
+        assertEquals(1, db.medicationDao().countIntakesForRecipient("r2"))
+
+        db.medicationDao().deleteByRecipient("r1")
+        assertTrue(db.medicationDao().idsByRecipient("r1").isEmpty())
+        assertEquals(listOf(r2Med), db.medicationDao().idsByRecipient("r2"))
+
+        db.medicationDao().deleteByRecipient("r1")
+        assertEquals(listOf(r2Med), db.medicationDao().idsByRecipient("r2"))
+    }
 }

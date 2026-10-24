@@ -111,6 +111,29 @@ class RecipientDeletionTest {
         )
     }
 
+    @Test
+    fun deletingAnArchivedRecipientWithNoOwnedRowsIsSafe() = runTest {
+        db.recipientDao().insertAll(
+            listOf(
+                RecipientEntity(
+                    serverId = "empty",
+                    name = "Empty",
+                    active = true,
+                    archivedAt = 1L,
+                ),
+            ),
+        )
+
+        db.deleteArchivedRecipient("empty")
+        db.deleteArchivedRecipient("empty")
+
+        assertNull(db.recipientDao().byServerId("empty"))
+        assertEquals(
+            RecipientDeletionCounts(0, 0, 0, 0, 0, 0),
+            db.recipientDataCounts("empty"),
+        )
+    }
+
     private suspend fun seed(id: String, archivedAt: Long?) {
         db.recipientDao().insertAll(
             listOf(
