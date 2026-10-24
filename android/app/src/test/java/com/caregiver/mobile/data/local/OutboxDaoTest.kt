@@ -91,4 +91,20 @@ class OutboxDaoTest {
         dao.delete("o1")
         assertNull(dao.byLocalId("o1"))
     }
+
+    @Test
+    fun recipientScopedCountAndDeleteLeaveOtherQueues() = runTest {
+        dao.insert(row("o1", recipientId = "r1"))
+        dao.insert(row("o2", recipientId = "r1"))
+        dao.insert(row("o3", recipientId = "r2"))
+
+        assertEquals(2, dao.countByRecipient("r1"))
+
+        dao.deleteByRecipient("r1")
+        assertEquals(0, dao.countByRecipient("r1"))
+        assertEquals(listOf("o3"), dao.query(null, null, null).map { it.localId })
+
+        dao.deleteByRecipient("r1")
+        assertEquals(listOf("o3"), dao.query(null, null, null).map { it.localId })
+    }
 }

@@ -13,6 +13,7 @@ import kotlinx.coroutines.test.runTest
 import org.junit.After
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertNotNull
+import org.junit.Assert.assertNull
 import org.junit.Assert.assertTrue
 import org.junit.Before
 import org.junit.Test
@@ -42,8 +43,17 @@ class RoomBackupStoreTest {
         db.close()
     }
 
-    private fun recipientRow(serverId: String, name: String = "Mona", active: Boolean = true) =
-        RecipientEntity(serverId = serverId, name = name, active = active)
+    private fun recipientRow(
+        serverId: String,
+        name: String = "Mona",
+        active: Boolean = true,
+        archivedAt: Long? = null,
+    ) = RecipientEntity(
+        serverId = serverId,
+        name = name,
+        active = active,
+        archivedAt = archivedAt,
+    )
 
     private fun noteRow(
         serverId: String,
@@ -101,6 +111,40 @@ class RoomBackupStoreTest {
         assertEquals(listOf("a1"), snapshot.addenda.map { it.id })
         assertEquals(listOf("p1"), snapshot.plans.map { it.id })
         assertEquals(BackupCounts(recipients = 2, notes = 3, addenda = 1, plans = 1), snapshot.counts)
+    }
+
+    @Test
+    fun snapshotAndRestorePreserveArchiveState() = runTest {
+        db.recipientDao().insertAll(
+            listOf(
+                recipientRow("r1", archivedAt = 111L),
+                recipientRow("r2"),
+            ),
+        )
+        db.noteDao().insertAll(listOf(noteRow("n1", recipientId = "r1")))
+        val store = RoomBackupStore(db)
+
+        val snapshot = store.snapshot()
+        assertEquals(listOf(111L, null), snapshot.recipients.map { it.archivedAt })
+
+        assertEquals(BackupReplaceResult.Replaced, store.replaceAll(snapshot, store.counts()))
+        assertEquals(111L, db.recipientDao().byServerId("r1")?.archivedAt)
+        assertNull(db.recipientDao().byServerId("r2")?.archivedAt)
+    }
+
+    @Test
+    fun restoringAPreDeletionSnapshotRecreatesADeletedRecipient() = runTest {
+        db.recipientDao().insertAll(listOf(recipientRow("r1", archivedAt = 111L)))
+        db.noteDao().insertAll(listOf(noteRow("n1", recipientId = "r1")))
+        val store = RoomBackupStore(db)
+        val snapshot = store.snapshot()
+
+        db.deleteArchivedRecipient("r1")
+        assertNull(db.recipientDao().byServerId("r1"))
+
+        assertEquals(BackupReplaceResult.Replaced, store.replaceAll(snapshot, store.counts()))
+        assertEquals(111L, db.recipientDao().byServerId("r1")?.archivedAt)
+        assertNotNull(db.noteDao().byServerId("n1"))
     }
 
     @Test

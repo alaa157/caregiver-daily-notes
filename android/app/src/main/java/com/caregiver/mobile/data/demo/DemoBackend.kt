@@ -24,6 +24,10 @@ import com.caregiver.mobile.data.api.SummaryApi
 import com.caregiver.mobile.data.api.SummaryDto
 import com.caregiver.mobile.data.api.SummaryRequest
 import com.caregiver.mobile.data.api.UpdateRecipientRequest
+import com.caregiver.mobile.data.local.ActiveRecipientDeleteException
+import com.caregiver.mobile.data.local.ArchivedRecipientException
+import com.caregiver.mobile.data.local.RecipientAdmin
+import com.caregiver.mobile.data.local.RecipientDeletionCounts
 import com.caregiver.mobile.data.plan.IllegalPlanTransitionException
 import com.caregiver.mobile.data.plan.PlanStateMachine
 import com.caregiver.mobile.data.plan.planTransitionError
@@ -45,9 +49,15 @@ import retrofit2.Response
  * through end to end; nothing leaves the device. Unknown ids raise a 404
  * [HttpException] so screens render their normal error states.
  */
-class DemoBackendApis : BackendApis {
+class DemoBackendApis : BackendApis, RecipientAdmin {
     private val lock = Any()
     private val ids = AtomicInteger(0)
+
+    private fun requireNotArchived(recipientId: String) {
+        if (recipients.firstOrNull { it.id == recipientId }?.archivedAt != null) {
+            throw ArchivedRecipientException(recipientId)
+        }
+    }
 
     private val recipients = mutableListOf(
         RecipientDto(id = "r1", name = "ليلى حسن", active = true),
@@ -141,6 +151,7 @@ class DemoBackendApis : BackendApis {
 
     private val noteApi = object : NoteApi {
         override suspend fun create(body: CreateNoteRequest): NoteDto = synchronized(lock) {
+            requireNotArchived(body.recipientId)
             NoteDto(
                 id = "n-demo-${ids.incrementAndGet()}", recipientId = body.recipientId,
                 date = LocalDate.now().toString(), mood = body.mood, appetite = body.appetite,
@@ -161,7 +172,8 @@ class DemoBackendApis : BackendApis {
 
         override suspend fun append(id: String, body: CreateAddendumRequest): AddendumDto =
             synchronized(lock) {
-                if (notes.none { it.id == id }) throw notFound("note")
+                val note = notes.firstOrNull { it.id == id } ?: throw notFound("note")
+                requireNotArchived(note.recipientId)
                 AddendumDto(
                     id = "a-demo-${ids.incrementAndGet()}", noteId = id,
                     createdAt = LocalDateTime.now().toString(), text = body.text,
@@ -249,6 +261,7 @@ class DemoBackendApis : BackendApis {
         }
 
         override suspend fun suggest(body: SuggestPlanRequest): PlanDto = synchronized(lock) {
+            requireNotArchived(body.recipientId)
             PlanDto(
                 id = "p-demo-${ids.incrementAndGet()}", recipientId = body.recipientId,
                 versions = listOf(
@@ -267,6 +280,7 @@ class DemoBackendApis : BackendApis {
         override suspend fun appendVersion(id: String, body: AppendVersionRequest): PlanDto =
             synchronized(lock) {
                 val plan = findPlan(id)
+                requireNotArchived(plan.recipientId)
                 if (plan.versions.isEmpty()) throw notFound("plan")
                 val status = body.status ?: PlanStateMachine.EDITED_ACCEPTED
                 val versions = try {
@@ -289,6 +303,7 @@ class DemoBackendApis : BackendApis {
 
         private fun transition(id: String, status: String): PlanDto = synchronized(lock) {
             val plan = findPlan(id)
+            requireNotArchived(plan.recipientId)
             val versions = try {
                 PlanStateMachine.transition(plan.versions, status)
             } catch (e: IllegalPlanTransitionException) {
@@ -304,6 +319,50 @@ class DemoBackendApis : BackendApis {
             plans[plans.indexOfFirst { it.id == updated.id }] = updated
             return updated
         }
+    }
+
+    override suspend fun archive(id: String): RecipientDto = synchronized(lock) {
+        val index = recipients.indexOfFirst { it.id == id }
+        if (index < 0) throw notFound("recipient")
+        val existing = recipients[index]
+        val updated = if (existing.archivedAt == null) {
+            existing.copy(archivedAt = System.currentTimeMillis())
+        } else {
+            existing
+        }
+        recipients[index] = updated
+        updated
+    }
+
+    override suspend fun unarchive(id: String): RecipientDto = synchronized(lock) {
+        val index = recipients.indexOfFirst { it.id == id }
+        if (index < 0) throw notFound("recipient")
+        recipients[index].copy(archivedAt = null).also { recipients[index] = it }
+    }
+
+    override suspend fun deleteArchived(id: String) {
+        synchronized(lock) {
+            val index = recipients.indexOfFirst { it.id == id }
+            if (index < 0) return@synchronized
+            if (recipients[index].archivedAt == null) throw ActiveRecipientDeleteException(id)
+            val noteIds = notes.filter { it.recipientId == id }.map { it.id }.toSet()
+            notes.removeAll { it.recipientId == id }
+            addenda.removeAll { it.noteId in noteIds }
+            plans.removeAll { it.recipientId == id }
+            recipients.removeAt(index)
+        }
+    }
+
+    override suspend fun counts(id: String): RecipientDeletionCounts = synchronized(lock) {
+        val noteIds = notes.filter { it.recipientId == id }.map { it.id }.toSet()
+        RecipientDeletionCounts(
+            notes = noteIds.size,
+            addenda = addenda.count { it.noteId in noteIds },
+            plans = plans.count { it.recipientId == id },
+            medications = 0,
+            intakes = 0,
+            outbox = 0,
+        )
     }
 
     override suspend fun auth(): AuthApi = authApi

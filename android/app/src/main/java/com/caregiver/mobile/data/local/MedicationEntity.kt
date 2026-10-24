@@ -76,6 +76,27 @@ interface MedicationDao {
     @Query("DELETE FROM medications WHERE id = :id")
     suspend fun delete(id: String)
 
+    @Query("SELECT * FROM medications WHERE id = :id")
+    suspend fun byId(id: String): MedicationEntity?
+
+    @Query("SELECT id FROM medications WHERE recipientId = :recipientId")
+    suspend fun idsByRecipient(recipientId: String): List<String>
+
+    @Query("SELECT COUNT(*) FROM medications WHERE recipientId = :recipientId")
+    suspend fun countByRecipient(recipientId: String): Int
+
+    @Query(
+        "SELECT COUNT(*) FROM medication_intakes WHERE medicationId IN " +
+            "(SELECT id FROM medications WHERE recipientId = :recipientId)",
+    )
+    suspend fun countIntakesForRecipient(recipientId: String): Int
+
+    @Query("DELETE FROM medication_intakes WHERE medicationId IN (:medicationIds)")
+    suspend fun clearIntakesForMedications(medicationIds: List<String>)
+
+    @Query("DELETE FROM medications WHERE recipientId = :recipientId")
+    suspend fun deleteByRecipient(recipientId: String)
+
     @Query("SELECT * FROM medication_intakes WHERE date = :date")
     fun observeIntakes(date: String): Flow<List<MedicationIntakeEntity>>
 
