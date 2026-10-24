@@ -14,6 +14,15 @@ interface AddendumDao {
     @Query("SELECT * FROM addenda ORDER BY createdAt ASC, id ASC")
     suspend fun all(): List<AddendumEntity>
 
+    @Query(
+        "SELECT COUNT(*) FROM addenda WHERE noteId IN " +
+            "(SELECT serverId FROM notes WHERE recipientId = :recipientId)",
+    )
+    suspend fun countForRecipient(recipientId: String): Int
+
+    @Query("DELETE FROM addenda WHERE noteId IN (:noteIds)")
+    suspend fun deleteByNoteIds(noteIds: List<String>)
+
     @Insert(onConflict = OnConflictStrategy.REPLACE)
     suspend fun insert(addendum: AddendumEntity)
 

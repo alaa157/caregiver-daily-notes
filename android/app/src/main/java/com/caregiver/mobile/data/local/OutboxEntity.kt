@@ -119,6 +119,12 @@ interface OutboxDao {
     @Query("SELECT * FROM outbox WHERE localId = :localId")
     suspend fun byLocalId(localId: String): OutboxEntity?
 
+    @Query("SELECT COUNT(*) FROM outbox WHERE recipientId = :recipientId")
+    suspend fun countByRecipient(recipientId: String): Int
+
+    @Query("DELETE FROM outbox WHERE recipientId = :recipientId")
+    suspend fun deleteByRecipient(recipientId: String)
+
     /** Observes every queued row, newest first (Task 8d sync status). */
     @Query("SELECT * FROM outbox ORDER BY createdAt DESC")
     fun observeAll(): Flow<List<OutboxEntity>>

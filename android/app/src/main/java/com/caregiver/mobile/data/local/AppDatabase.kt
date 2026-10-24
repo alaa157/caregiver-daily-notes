@@ -5,6 +5,7 @@ import androidx.room.Database
 import androidx.room.Room
 import androidx.room.RoomDatabase
 import androidx.room.migration.Migration
+import androidx.room.withTransaction
 import androidx.sqlite.db.SupportSQLiteDatabase
 
 /**
@@ -47,7 +48,48 @@ abstract class AppDatabase : RoomDatabase() {
 
     abstract fun medicationDao(): MedicationDao
 
+    /**
+     * Removes an archived recipient and every row it owns in one transaction.
+     * A missing recipient is a no-op (another delete or a stale screen may
+     * race this); an unarchived recipient is refused before any mutation.
+     */
+    suspend fun deleteArchivedRecipient(recipientId: String) {
+        withTransaction {
+            val recipient = recipientDao().byServerId(recipientId) ?: return@withTransaction
+            if (recipient.archivedAt == null) {
+                throw ActiveRecipientDeleteException(recipientId)
+            }
+
+            noteDao().serverIdsByRecipient(recipientId)
+                .chunked(IN_CHUNK_SIZE)
+                .forEach { addendumDao().deleteByNoteIds(it) }
+            noteDao().deleteByRecipient(recipientId)
+            planDao().deleteByRecipient(recipientId)
+            medicationDao().idsByRecipient(recipientId)
+                .chunked(IN_CHUNK_SIZE)
+                .forEach { medicationDao().clearIntakesForMedications(it) }
+            medicationDao().deleteByRecipient(recipientId)
+            outboxDao().deleteByRecipient(recipientId)
+            recipientDao().deleteByServerId(recipientId)
+        }
+    }
+
+    /** Counts every row [deleteArchivedRecipient] would remove, in one read transaction. */
+    suspend fun recipientDataCounts(recipientId: String): RecipientDeletionCounts =
+        withTransaction {
+            RecipientDeletionCounts(
+                notes = noteDao().countByRecipient(recipientId),
+                addenda = addendumDao().countForRecipient(recipientId),
+                plans = planDao().countByRecipient(recipientId),
+                medications = medicationDao().countByRecipient(recipientId),
+                intakes = medicationDao().countIntakesForRecipient(recipientId),
+                outbox = outboxDao().countByRecipient(recipientId),
+            )
+        }
+
     companion object {
+        private const val IN_CHUNK_SIZE = 500
+
         /**
          * Task 8b: adds the outbox table. Must stay identical to the
          * `CREATE TABLE` Room generates for [OutboxEntity] (see the
