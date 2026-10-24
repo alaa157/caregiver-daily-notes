@@ -24,6 +24,8 @@ import com.caregiver.mobile.data.api.SummaryApi
 import com.caregiver.mobile.data.api.SummaryDto
 import com.caregiver.mobile.data.api.SummaryRequest
 import com.caregiver.mobile.data.api.UpdateRecipientRequest
+import com.caregiver.mobile.data.local.RecipientAdmin
+import com.caregiver.mobile.data.local.RecipientDeletionCounts
 import okhttp3.MediaType.Companion.toMediaType
 import okhttp3.ResponseBody.Companion.toResponseBody
 import retrofit2.HttpException
@@ -65,6 +67,58 @@ class FakeBackendApis(val authApi: AuthApi) : BackendApis {
     override suspend fun notes(): NoteApi = noteApi
     override suspend fun summaries(): SummaryApi = summaryApi
     override suspend fun plans(): PlanApi = planApi
+}
+
+/**
+ * In-memory [RecipientAdmin] for presentation tests. Mutations update
+ * [recipients] just like the real local store, so a list handler can read
+ * `recipients.values` back after archive/unarchive/delete.
+ */
+class FakeRecipientAdmin(initial: List<RecipientDto> = emptyList()) : RecipientAdmin {
+    val recipients = LinkedHashMap<String, RecipientDto>().apply {
+        initial.forEach { put(it.id, it) }
+    }
+
+    var archiveError: Exception? = null
+    var unarchiveError: Exception? = null
+    var deleteError: Exception? = null
+    var countsError: Exception? = null
+    var deletionCounts = RecipientDeletionCounts(0, 0, 0, 0, 0, 0)
+
+    val archiveCalls = mutableListOf<String>()
+    val unarchiveCalls = mutableListOf<String>()
+    val deleteCalls = mutableListOf<String>()
+    val countsCalls = mutableListOf<String>()
+
+    override suspend fun archive(id: String): RecipientDto {
+        archiveCalls += id
+        archiveError?.let { throw it }
+        val current = recipients[id] ?: throw NoSuchElementException("recipient $id")
+        val updated = current.copy(archivedAt = current.archivedAt ?: 1_000L)
+        recipients[id] = updated
+        return updated
+    }
+
+    override suspend fun unarchive(id: String): RecipientDto {
+        unarchiveCalls += id
+        unarchiveError?.let { throw it }
+        val current = recipients[id] ?: throw NoSuchElementException("recipient $id")
+        val updated = current.copy(archivedAt = null)
+        recipients[id] = updated
+        return updated
+    }
+
+    override suspend fun deleteArchived(id: String) {
+        deleteCalls += id
+        deleteError?.let { throw it }
+        recipients.remove(id)
+    }
+
+    override suspend fun counts(id: String): RecipientDeletionCounts {
+        countsCalls += id
+        countsError?.let { throw it }
+        return deletionCounts
+    }
 }
 
 class FakeRecipientApi : RecipientApi {

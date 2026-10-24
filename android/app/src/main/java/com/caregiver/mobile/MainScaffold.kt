@@ -83,6 +83,7 @@ import com.caregiver.mobile.presentation.common.AppCenterTopBar
 import com.caregiver.mobile.presentation.common.AppDimens
 import com.caregiver.mobile.presentation.common.assistedViewModel
 import com.caregiver.mobile.presentation.common.rememberTopBarHideState
+import com.caregiver.mobile.presentation.common.selectableRecipients
 import com.caregiver.mobile.presentation.common.SyncStatus
 import com.caregiver.mobile.presentation.common.SyncStatusIndicator
 import com.caregiver.mobile.presentation.common.SyncStatusViewModel
@@ -190,9 +191,9 @@ fun MainScaffold(graph: AppGraph) {
         RecipientsViewModel(graph.apis, graph.auth)
     }
     val peopleState by recipientsVm.state.collectAsStateWithLifecycle()
-    val activeRecipients = (peopleState as? PeopleState.Content)
-        ?.recipients?.filter { it.active }
-        .orEmpty()
+    val activeRecipients = selectableRecipients(
+        (peopleState as? PeopleState.Content)?.recipients.orEmpty(),
+    )
 
     // Task 8d: real sync status for the bar's end slot — the outbox rows
     // plus connectivity; tapping a failed state re-queues the same

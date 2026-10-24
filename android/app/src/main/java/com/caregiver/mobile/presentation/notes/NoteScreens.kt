@@ -201,6 +201,8 @@ fun NoteEditorScreen(recipientId: String, graph: AppGraph, navController: NavCon
                     when (it) {
                         is EditorError.Rejected -> stringResource(EditorErrorText.res(it.code))
                         EditorError.Unreachable -> stringResource(R.string.auth_error_unreachable)
+                        EditorError.ArchivedRecipient ->
+                            stringResource(R.string.people_archived_recipient_unavailable)
                         else -> ""
                     },
                 )
