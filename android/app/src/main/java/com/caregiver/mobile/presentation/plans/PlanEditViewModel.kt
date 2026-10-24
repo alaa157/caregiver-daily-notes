@@ -110,6 +110,9 @@ class PlanEditViewModel(
                 _saved.value = true
             } catch (e: LoggedOutException) {
                 _busy.value = false
+            } catch (e: ArchivedRecipientException) {
+                _busy.value = false
+                _archivedRecipient.value = true
             } catch (e: HttpException) {
                 _busy.value = false
                 _saveFailed.value = true

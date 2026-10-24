@@ -8,6 +8,7 @@ import com.caregiver.mobile.data.api.AddendumDto
 import com.caregiver.mobile.data.api.BackendApis
 import com.caregiver.mobile.data.api.CreateAddendumRequest
 import com.caregiver.mobile.data.api.NoteDto
+import com.caregiver.mobile.data.local.ArchivedRecipientException
 import java.io.IOException
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.CoroutineScope
@@ -31,6 +32,7 @@ data class AddendumState(
     val busy: Boolean = false,
     val sendFailed: Boolean = false,
     val appended: Boolean = false,
+    val archivedRecipient: Boolean = false,
 )
 
 /**
@@ -66,6 +68,7 @@ class NoteDetailViewModel(
             text = value,
             addendumError = false,
             sendFailed = false,
+            archivedRecipient = false,
         )
     }
 
@@ -89,6 +92,11 @@ class NoteDetailViewModel(
                 load()
             } catch (e: LoggedOutException) {
                 _addendum.value = _addendum.value.copy(busy = false)
+            } catch (e: ArchivedRecipientException) {
+                _addendum.value = _addendum.value.copy(
+                    busy = false,
+                    archivedRecipient = true,
+                )
             } catch (e: HttpException) {
                 // Text is kept for retry; the form shows localized copy.
                 _addendum.value = _addendum.value.copy(busy = false, sendFailed = true)

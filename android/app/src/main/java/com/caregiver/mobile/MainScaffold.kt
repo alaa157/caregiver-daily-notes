@@ -188,7 +188,7 @@ fun MainScaffold(graph: AppGraph) {
     // store owner, mirroring RecipientsScreen.
     val activity = LocalContext.current as? ComponentActivity
     val recipientsVm: RecipientsViewModel = assistedViewModel("people-shared", activity) {
-        RecipientsViewModel(graph.apis, graph.auth)
+        RecipientsViewModel(graph.apis, graph.auth, admin = graph.recipientAdmin)
     }
     val peopleState by recipientsVm.state.collectAsStateWithLifecycle()
     val activeRecipients = selectableRecipients(

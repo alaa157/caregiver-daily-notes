@@ -9,6 +9,7 @@ import com.caregiver.mobile.data.FakePlanApi
 import com.caregiver.mobile.data.SettingsStore
 import com.caregiver.mobile.data.api.PlanDto
 import com.caregiver.mobile.data.api.PlanVersionDto
+import com.caregiver.mobile.data.local.ArchivedRecipientException
 import java.io.File
 import java.io.IOException
 import kotlinx.coroutines.ExperimentalCoroutinesApi
@@ -143,6 +144,20 @@ class PlanDetailViewModelTest {
         vm.actionError.first { it != null }
 
         assertEquals(PlanActionError.IllegalTransition, vm.actionError.value)
+        assertFalse(vm.busy.value)
+    }
+
+    @Test
+    fun transitionForArchivedRecipientSurfacesLocalizedError() = runTest {
+        plans.listHandler = { suggested() }
+        plans.acceptHandler = { throw ArchivedRecipientException("r1") }
+        val vm = PlanDetailViewModel("p1", apis(), repository, this)
+        content(vm)
+
+        vm.transition(PlanAction.Accept)
+        vm.actionError.first { it != null }
+
+        assertEquals(PlanActionError.ArchivedRecipient, vm.actionError.value)
         assertFalse(vm.busy.value)
     }
 

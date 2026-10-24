@@ -459,7 +459,7 @@ internal fun DeleteRecipientDialog(
 fun AddRecipientScreen(graph: AppGraph, navController: NavController) {
     val activity = LocalContext.current as androidx.activity.ComponentActivity
     val vm: RecipientsViewModel = assistedViewModel("people-shared", activity) {
-        RecipientsViewModel(graph.apis, graph.auth)
+        RecipientsViewModel(graph.apis, graph.auth, admin = graph.recipientAdmin)
     }
     val addState by vm.addState.collectAsStateWithLifecycle()
     addState.addedId?.let {
