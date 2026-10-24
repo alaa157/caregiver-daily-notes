@@ -590,7 +590,9 @@ fun AddendumScreen(noteId: String, graph: AppGraph, navController: NavController
                 ),
                 modifier = Modifier.fillMaxWidth().height(150.dp),
             )
-            if (form.sendFailed) {
+            if (form.archivedRecipient) {
+                FieldError(stringResource(R.string.people_archived_recipient_unavailable))
+            } else if (form.sendFailed) {
                 FieldError(stringResource(R.string.addendum_error_send))
             }
         }

@@ -215,6 +215,8 @@ fun PlanProposalScreen(planId: String, graph: AppGraph, navController: NavContro
                             stringResource(
                                 when (it) {
                                     PlanActionError.IllegalTransition -> R.string.plan_action_illegal
+                                    PlanActionError.ArchivedRecipient ->
+                                        R.string.people_archived_recipient_unavailable
                                     PlanActionError.Failed -> R.string.plan_action_failed
                                 },
                             ),
@@ -291,6 +293,7 @@ fun PlanEditScreen(planId: String, graph: AppGraph, navController: NavController
     val busy by vm.busy.collectAsStateWithLifecycle()
     val saved by vm.saved.collectAsStateWithLifecycle()
     val saveFailed by vm.saveFailed.collectAsStateWithLifecycle()
+    val archivedRecipient by vm.archivedRecipient.collectAsStateWithLifecycle()
     if (saved) {
         LaunchedEffect(Unit) { navController.popBackStack() }
     }
@@ -346,7 +349,9 @@ fun PlanEditScreen(planId: String, graph: AppGraph, navController: NavController
                         label = stringResource(R.string.plan_edit_add_item),
                         onClick = vm::addLine,
                     )
-                    if (saveFailed) {
+                    if (archivedRecipient) {
+                        FieldError(stringResource(R.string.people_archived_recipient_unavailable))
+                    } else if (saveFailed) {
                         FieldError(stringResource(R.string.plan_action_failed))
                     }
                 }
@@ -354,7 +359,7 @@ fun PlanEditScreen(planId: String, graph: AppGraph, navController: NavController
                     PrimaryButton(
                         label = stringResource(R.string.plan_edit_save),
                         onClick = vm::save,
-                        enabled = !busy,
+                        enabled = !busy && !archivedRecipient,
                         height = 56.dp,
                         large = true,
                     )

@@ -257,6 +257,7 @@ private fun HomeTimeline(
                     // when the graph has no local database.
                     if (medications != null) {
                         val medState by medications.state.collectAsStateWithLifecycle()
+                        val medError by medications.error.collectAsStateWithLifecycle()
                         MedicationsCard(
                             state = medState,
                             people = content.cards.map { MedicationsPerson(it.recipientId, it.name) },
@@ -265,6 +266,7 @@ private fun HomeTimeline(
                             onUpdate = medications::update,
                             onDelete = medications::delete,
                             modifier = Modifier.padding(horizontal = AppDimens.ScreenHPadding),
+                            error = medError,
                         )
                     }
                 }

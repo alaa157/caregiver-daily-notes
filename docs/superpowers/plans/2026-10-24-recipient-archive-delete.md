@@ -10,6 +10,14 @@
 
 **Spec:** Settled design from the recipient archive/delete grilling session (no separate spec file). Decisions and acceptance criteria are restated below.
 
+## Execution status (2026-10-24)
+
+- **Tasks 0–4 (Agent A):** landed on `feat/standalone-byok-ai` in `382a6db` and `e9c163b`.
+- **Tasks 5–9 (Agent B):** completed in `ceef8e4` plus the follow-up on the same branch. The follow-up adds the missing presentation wiring and strings, archived-recipient error handling for plan edit/transition, addenda, and medication writes, and JVM/Robolectric tests for the list and detail flows.
+- **Task 10 verification:** `:app:testDebugUnitTest`, `:app:assembleDebugAndroidTest`, and `:app:lintDebug` pass on the feature branch.
+- **Device-dependent checks:** `connectedDebugAndroidTest` (including `RecipientMigrationTest` and the instrumented `RecipientsFlowUiTest`) was **not executed** because no emulator/device is available. It must be run before release sign-off.
+- **Test placement:** archive/delete UI contracts run under Robolectric in `:app:testDebugUnitTest` (`RecipientsArchiveUiTest`, `RecipientDetailArchiveUiTest`) so they execute without a device. They exercise the real composables with a state holder; `RecipientFiltersTest` covers the shared picker/CSV invariant used by every creation flow.
+
 ---
 
 # Two-Agent Execution Model
@@ -637,7 +645,7 @@ git commit -m "test: cover recipient deletion cascade and migration"
   - `RecipientDetailViewModel.archive()`, `unarchive()`, `delete()`, `consumeDeleted()`
   - `FakeRecipientAdmin`
 
-- [ ] **Step 1: Write failing ViewModel tests with a fake admin**
+- [x] **Step 1: Write failing ViewModel tests with a fake admin**
 
 Add a configurable `FakeRecipientAdmin` to `Fakes.kt`. Add tests for:
 
@@ -654,13 +662,13 @@ Add a configurable `FakeRecipientAdmin` to `Fakes.kt`. Add tests for:
 - `detailDeleteNavigatesBack`
 - `actionsHiddenWhenAdminMissing`
 
-- [ ] **Step 2: Run tests to verify they fail**
+- [x] **Step 2: Run tests to verify they fail**
 
 ```bash
 cd android && ./gradlew :app:testDebugUnitTest --tests "com.caregiver.mobile.presentation.recipients.*ViewModelTest" -v
 ```
 
-- [ ] **Step 3: Implement the ViewModels**
+- [x] **Step 3: Implement the ViewModels**
 
 `RecipientsViewModel`:
 
@@ -682,13 +690,13 @@ cd android && ./gradlew :app:testDebugUnitTest --tests "com.caregiver.mobile.pre
 
 Do not edit Room, DAOs, `LocalBackendApis`, `DemoBackend`, `AppGraph`, backup, or CSV data logic.
 
-- [ ] **Step 4: Run tests to verify they pass**
+- [x] **Step 4: Run tests to verify they pass**
 
 ```bash
 cd android && ./gradlew :app:testDebugUnitTest --tests "com.caregiver.mobile.presentation.recipients.*ViewModelTest" -v
 ```
 
-- [ ] **Step 5: Commit**
+- [x] **Step 5: Commit**
 
 ```bash
 git add android/app/src/main/java/com/caregiver/mobile/presentation/recipients/RecipientsViewModel.kt \
@@ -721,7 +729,7 @@ git commit -m "feat: add recipient archive and delete ViewModels"
 - Consumes: `RecipientDto.archivedAt`, `RecipientRef.archived`, `ArchivedRecipientException`
 - Consumes: `AppGraph.recipientAdmin != null` to decide whether actions exist
 
-- [ ] **Step 1: Write failing UI tests**
+- [x] **Step 1: Write failing UI tests**
 
 Use a fake admin injected into the screen/ViewModel; do not depend on Agent A's data branch. If the screen needs a fake list source, add optional test-only injection (for example `apis`/`admin` parameters with production defaults) or extract stateless content composables. Do not edit data-layer files. Add tests for:
 
@@ -737,11 +745,11 @@ Use a fake admin injected into the screen/ViewModel; do not depend on Agent A's 
 - `archivedRecipientIsNotSelectableForMedication`
 - `archivedRecipientIsNotSelectableForCsvImport`
 
-- [ ] **Step 2: Run tests to verify they fail**
+- [x] **Step 2: Run tests to verify they fail**
 
 Run the affected Robolectric tests, or connected instrumentation when necessary. Assembly alone is not a test run.
 
-- [ ] **Step 3: Implement the People screen**
+- [x] **Step 3: Implement the People screen**
 
 Add:
 
@@ -765,14 +773,14 @@ Apply the archived guard at every new-note, new-plan, medication, and CSV select
 
 Add an optional `admin: RecipientAdmin? = graph.recipientAdmin` parameter to the recipient screens if needed for test injection; production call sites keep the default.
 
-- [ ] **Step 4: Run tests and compile instrumentation**
+- [x] **Step 4: Run tests and compile instrumentation**
 
 ```bash
 cd android && ./gradlew :app:testDebugUnitTest --tests "com.caregiver.mobile.presentation.recipients.*" -v
 cd android && ./gradlew :app:assembleDebugAndroidTest -v
 ```
 
-- [ ] **Step 5: Commit**
+- [x] **Step 5: Commit**
 
 ```bash
 git add android/app/src/main/java/com/caregiver/mobile/presentation/recipients/RecipientScreens.kt \
@@ -799,7 +807,7 @@ git commit -m "feat: add recipient archive and delete UI"
 **Interfaces:**
 - Consumes: `RecipientDetailViewModel.archive`, `unarchive`, `delete`
 
-- [ ] **Step 1: Add failing detail UI tests**
+- [x] **Step 1: Add failing detail UI tests**
 
 Add tests for:
 
@@ -810,9 +818,9 @@ Add tests for:
 - `archivedDetailDeleteNavigatesBack`
 - `unarchivedDetailShowsArchive`
 
-- [ ] **Step 2: Run tests to verify they fail**
+- [x] **Step 2: Run tests to verify they fail**
 
-- [ ] **Step 3: Implement the detail screen**
+- [x] **Step 3: Implement the detail screen**
 
 - Determine archived state from `recipient.archivedAt != null`.
 - If archived: hide Add note and the plan action; keep History/Summary; show Unarchive and Delete.
@@ -823,13 +831,13 @@ Add tests for:
 - On success, refresh or navigate back after delete; on failure keep the detail and show a retryable error.
 - Hide archive/delete actions when no admin is available.
 
-- [ ] **Step 4: Run instrumentation compile**
+- [x] **Step 4: Run instrumentation compile**
 
 ```bash
 cd android && ./gradlew :app:assembleDebugAndroidTest -v
 ```
 
-- [ ] **Step 5: Commit**
+- [x] **Step 5: Commit**
 
 ```bash
 git add android/app/src/main/java/com/caregiver/mobile/presentation/recipients/RecipientScreens.kt \
@@ -845,7 +853,7 @@ git commit -m "feat: add archived recipient detail actions"
 - Modify: `android/app/src/main/res/values/strings.xml`
 - Modify: `android/app/src/main/res/values-ar/strings.xml`
 
-- [ ] **Step 1: Add English strings**
+- [x] **Step 1: Add English strings**
 
 Add keys for:
 
@@ -865,17 +873,17 @@ Add keys for:
 - `people_archived_recipient_unavailable`
 - busy/error/archived-selection messages used by Tasks 5–7
 
-- [ ] **Step 2: Add Arabic strings**
+- [x] **Step 2: Add Arabic strings**
 
 Add matching Arabic translations for every key, including the backup caveat, errors, busy state, and archived-recipient validation.
 
-- [ ] **Step 3: Run string parity**
+- [x] **Step 3: Run string parity**
 
 ```bash
 cd android && ./gradlew :app:testDebugUnitTest --tests "com.caregiver.mobile.core.i18n.StringsParityTest" -v
 ```
 
-- [ ] **Step 4: Commit**
+- [x] **Step 4: Commit**
 
 ```bash
 git add android/app/src/main/res/values/strings.xml android/app/src/main/res/values-ar/strings.xml
@@ -892,7 +900,7 @@ git commit -m "feat: add recipient archive and delete strings"
 - Test: picker/creation flow tests
 - Test: `StringsParityTest` (existing)
 
-- [ ] **Step 1: Run the presentation suite**
+- [x] **Step 1: Run the presentation suite**
 
 ```bash
 cd android && ./gradlew :app:testDebugUnitTest --tests "com.caregiver.mobile.presentation.recipients.*" -v
@@ -900,7 +908,7 @@ cd android && ./gradlew :app:testDebugUnitTest --tests "com.caregiver.mobile.cor
 cd android && ./gradlew :app:assembleDebugAndroidTest -v
 ```
 
-- [ ] **Step 2: Confirm no data-layer files changed**
+- [x] **Step 2: Confirm no data-layer files changed**
 
 ```bash
 git diff --name-only origin/feat/standalone-byok-ai...HEAD | grep -E "data/(local|api|backup|csv)|AppDatabase|RecipientEntity|LocalBackendApis|DemoBackend|build.gradle|libs.versions" && echo "OWNERSHIP VIOLATION" || true
@@ -908,7 +916,7 @@ git diff --name-only origin/feat/standalone-byok-ai...HEAD | grep -E "data/(loca
 
 Expected: no data-layer paths. If any appear, revert them and use the frozen contract.
 
-- [ ] **Step 3: Commit test-only changes**
+- [x] **Step 3: Commit test-only changes**
 
 ```bash
 git add android/app/src/test/java/com/caregiver/mobile/presentation \
@@ -924,11 +932,13 @@ git commit -m "test: cover recipient archive and delete presentation flows"
 
 **Owner:** Agent A leads the data checks; Agent B leads the UI checks.
 
-- [ ] **Step 1: Merge Agent A first**
+- [x] **Step 1: Merge Agent A first**
 
 Agent A's PR lands on `feat/standalone-byok-ai`. Confirm `LocalBackendApis` and `DemoBackendApis` implement `RecipientAdmin`, and `AppGraph.recipientAdmin` no longer returns null in local mode.
 
-- [ ] **Step 2: Rebase Agent B**
+_Status: Agent A's commits (`382a6db`, `e9c163b`) are on the feature branch, and `graph.recipientAdmin` is wired into the shared People ViewModel and the add-person screen._
+
+- [x] **Step 2: Rebase Agent B**
 
 ```bash
 git checkout agent/archive-delete-ui
@@ -938,11 +948,15 @@ git rebase origin/feat/standalone-byok-ai
 
 Resolve only import-order conflicts. Do not let Agent B edit data files or Agent A edit UI files.
 
+_Status: not applicable for this run. Per the maintainer's instruction, the remaining Agent B work was applied directly on `feat/standalone-byok-ai` instead of a separate `agent/archive-delete-ui` branch, so there was no rebase step._
+
 - [ ] **Step 3: Run end-to-end UI tests**
 
 Run the recipient UI flows against the real `LocalBackendApis` and Room database, including archive → undo, archive → delete, detail read-only state, picker exclusion, and restart persistence.
 
-- [ ] **Step 4: Run the full verification**
+_Status: not executed as a device/real-store UI run. The JVM Robolectric suites cover the same UI contracts with a state holder, the presentation ViewModel tests cover archive/undo/delete/counts with `FakeRecipientAdmin`, and the data-layer suites cover the real Room/local-admin behavior. A device run remains required before release sign-off._
+
+- [x] **Step 4: Run the full verification**
 
 ```bash
 cd android && ./gradlew :app:testDebugUnitTest -v
@@ -952,7 +966,9 @@ cd android && ./gradlew :app:assembleDebugAndroidTest -v
 
 Run `connectedDebugAndroidTest` (including `RecipientMigrationTest`) if a device/emulator is available; otherwise record it as not run.
 
-- [ ] **Step 5: Final diff review**
+_Status: unit tests, lint, and instrumented-test assembly pass. `connectedDebugAndroidTest` and `RecipientMigrationTest` were not run because no emulator/device is available._
+
+- [x] **Step 5: Final diff review**
 
 ```bash
 git status --short && git diff --stat
@@ -966,9 +982,13 @@ Confirm:
 - English and Arabic keys match.
 - No archived recipient can be selected in any creation flow.
 
-- [ ] **Step 6: Merge Agent B and sign off**
+_Status: reviewed; no data-layer or build files were modified by the Agent B follow-up, strings are in parity, and archived recipients are filtered from every creation flow._
+
+- [x] **Step 6: Merge Agent B and sign off**
 
 Merge Agent B's PR. Both agents confirm the acceptance criteria; any device-dependent test not run is listed explicitly.
+
+_Status: Agent B's follow-up is pushed directly to `feat/standalone-byok-ai` per the maintainer's instruction; no separate PR was opened. The unexecuted device checks are listed above._
 
 ---
 

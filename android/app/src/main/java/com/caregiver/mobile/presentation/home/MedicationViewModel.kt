@@ -42,6 +42,7 @@ import androidx.lifecycle.viewModelScope
 import com.caregiver.mobile.R
 import com.caregiver.mobile.core.theme.CaregiverColors
 import com.caregiver.mobile.core.theme.PlexArabic
+import com.caregiver.mobile.data.local.ArchivedRecipientException
 import com.caregiver.mobile.data.local.MedicationEntity
 import com.caregiver.mobile.data.local.MedicationStore
 import com.caregiver.mobile.data.local.doseIndex
@@ -49,11 +50,14 @@ import com.caregiver.mobile.presentation.common.AppCard
 import java.time.Clock
 import java.time.Duration
 import java.time.LocalDate
+import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.Flow
+import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
+import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.flow.flatMapLatest
 import kotlinx.coroutines.flow.first
@@ -76,6 +80,9 @@ data class MedicationsState(
 
 /** A person row: feeds the card recipient names and, when needed, the add picker. */
 data class MedicationsPerson(val id: String, val name: String)
+
+/** A localized-by-the-card failure from a medication write. */
+enum class MedicationActionError { ArchivedRecipient, Failed }
 
 /**
  * Backs the home medication card: every recipient's tracked medications
@@ -129,6 +136,13 @@ class MedicationViewModel(
             )
         }.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), MedicationsState())
 
+    private val _error = MutableStateFlow<MedicationActionError?>(null)
+    val error: StateFlow<MedicationActionError?> = _error.asStateFlow()
+
+    fun clearError() {
+        _error.value = null
+    }
+
     fun add(
         recipientId: String,
         name: String,
@@ -140,7 +154,7 @@ class MedicationViewModel(
         // (the medications table carries no foreign key by design). The UI
         // disables adding without people; this is the last-resort net.
         if (recipientId.isBlank()) return
-        viewModelScope.launch { store.add(recipientId, name, dose, schedule, dosesPerDay) }
+        launchAction { store.add(recipientId, name, dose, schedule, dosesPerDay) }
     }
 
     fun update(
@@ -149,8 +163,8 @@ class MedicationViewModel(
         dose: String?,
         schedule: String?,
         dosesPerDay: Int = 1,
-    ) =
-        viewModelScope.launch {
+    ) {
+        launchAction {
             store.update(
                 med.copy(
                     name = name.trim(),
@@ -160,14 +174,35 @@ class MedicationViewModel(
                 ),
             )
         }
+    }
 
-    fun delete(id: String) = viewModelScope.launch { store.delete(id) }
+    fun delete(id: String) = launchAction { store.delete(id) }
 
     fun setTaken(id: String, taken: Boolean) = setTaken(id, 0, taken)
 
     /** Marks one dose of a medication; each dose of the day is its own mark. */
-    fun setTaken(id: String, doseIndex: Int, taken: Boolean) =
-        viewModelScope.launch { store.setTaken(id, todayFlow.first(), doseIndex, taken) }
+    fun setTaken(id: String, doseIndex: Int, taken: Boolean) {
+        launchAction { store.setTaken(id, todayFlow.first(), doseIndex, taken) }
+    }
+
+    /**
+     * Every medication write surfaces its failure instead of crashing the
+     * scope when a stale dialog targets a recipient archived in the meantime.
+     */
+    private fun launchAction(block: suspend () -> Unit) {
+        viewModelScope.launch {
+            _error.value = null
+            try {
+                block()
+            } catch (e: CancellationException) {
+                throw e
+            } catch (e: ArchivedRecipientException) {
+                _error.value = MedicationActionError.ArchivedRecipient
+            } catch (e: Exception) {
+                _error.value = MedicationActionError.Failed
+            }
+        }
+    }
 }
 
 /**
@@ -188,6 +223,7 @@ fun MedicationsCard(
     onUpdate: (entity: MedicationEntity, name: String, dose: String?, schedule: String?, dosesPerDay: Int) -> Unit,
     onDelete: (id: String) -> Unit,
     modifier: Modifier = Modifier,
+    error: MedicationActionError? = null,
 ) {
     var showAdd by remember { mutableStateOf(false) }
     var editing by remember { mutableStateOf<MedicationEntity?>(null) }
@@ -216,6 +252,21 @@ fun MedicationsCard(
                     modifier = Modifier.testTag("home_medications_add"),
                 )
             }
+        }
+
+        error?.let {
+            Text(
+                text = stringResource(
+                    when (it) {
+                        MedicationActionError.ArchivedRecipient ->
+                            R.string.people_archived_recipient_unavailable
+                        MedicationActionError.Failed -> R.string.home_medications_save_failed
+                    },
+                ),
+                fontFamily = PlexArabic,
+                fontSize = 12.sp,
+                color = CaregiverColors.Danger,
+            )
         }
 
         if (state.meds.isEmpty()) {

@@ -6,6 +6,7 @@ import com.caregiver.mobile.data.FakeAuthApi
 import com.caregiver.mobile.data.FakeBackendApis
 import com.caregiver.mobile.data.FakeNoteApi
 import com.caregiver.mobile.data.SettingsStore
+import com.caregiver.mobile.data.local.ArchivedRecipientException
 import com.caregiver.mobile.data.testAddendum
 import com.caregiver.mobile.data.testNote
 import com.caregiver.mobile.data.testNoteDetail
@@ -171,6 +172,26 @@ class NoteDetailViewModelTest {
         assertEquals(false, vm.addendum.value.busy)
         assertEquals(true, vm.addendum.value.sendFailed)
         assertEquals(false, vm.addendum.value.appended)
+    }
+
+    @Test
+    fun appendToArchivedRecipientSurfacesSpecificError() = runTest {
+        notes.detailHandler = { testNoteDetail() }
+        notes.appendHandler = { _, _ -> throw ArchivedRecipientException("r1") }
+        val vm = vm(this)
+        content(vm)
+
+        vm.onAddendumText("keep me")
+        vm.submitAddendum()
+        vm.addendum.first { it.archivedRecipient }
+
+        assertEquals("keep me", vm.addendum.value.text)
+        assertEquals(false, vm.addendum.value.busy)
+        assertEquals(false, vm.addendum.value.sendFailed)
+        assertEquals(false, vm.addendum.value.appended)
+
+        vm.onAddendumText("try again")
+        assertEquals(false, vm.addendum.value.archivedRecipient)
     }
 
     @Test

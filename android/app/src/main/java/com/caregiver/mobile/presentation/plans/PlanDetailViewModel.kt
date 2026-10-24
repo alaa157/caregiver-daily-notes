@@ -6,6 +6,7 @@ import com.caregiver.mobile.data.AuthRepository
 import com.caregiver.mobile.data.LoggedOutException
 import com.caregiver.mobile.data.api.BackendApis
 import com.caregiver.mobile.data.api.PlanVersionDto
+import com.caregiver.mobile.data.local.ArchivedRecipientException
 import java.io.IOException
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.CoroutineScope
@@ -27,6 +28,7 @@ sealed interface PlanDetailState {
 
 sealed interface PlanActionError {
     data object IllegalTransition : PlanActionError
+    data object ArchivedRecipient : PlanActionError
     data object Failed : PlanActionError
 }
 
@@ -81,6 +83,9 @@ class PlanDetailViewModel(
                 load()
             } catch (e: LoggedOutException) {
                 _busy.value = false
+            } catch (e: ArchivedRecipientException) {
+                _busy.value = false
+                _actionError.value = PlanActionError.ArchivedRecipient
             } catch (e: HttpException) {
                 _busy.value = false
                 _actionError.value = if (e.code() == 422) {

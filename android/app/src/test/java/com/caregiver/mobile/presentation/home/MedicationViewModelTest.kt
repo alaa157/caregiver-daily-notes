@@ -4,6 +4,7 @@ import androidx.room.Room
 import androidx.test.core.app.ApplicationProvider
 import com.caregiver.mobile.data.local.AppDatabase
 import com.caregiver.mobile.data.local.MedicationStore
+import com.caregiver.mobile.data.local.RecipientEntity
 import java.time.Clock
 import java.time.Instant
 import java.time.ZoneId
@@ -156,5 +157,31 @@ class MedicationViewModelTest {
             listOf("Amlodipine"),
             awaitState(vm) { it.meds.any { m -> m.name == "Amlodipine" } }.meds.map { it.name },
         )
+    }
+
+    @Test
+    fun writingForArchivedRecipientSurfacesErrorAndWritesNothing() = runTest(dispatcher) {
+        db.recipientDao().insertAll(
+            listOf(
+                RecipientEntity(
+                    serverId = "r1",
+                    name = "Aisha",
+                    active = true,
+                    archivedAt = 1_000L,
+                ),
+            ),
+        )
+        val vm = MedicationViewModel(store, clock)
+        backgroundScope.launch(dispatcher) { vm.state.collect { } }
+        advanceTimeBy(1_000)
+
+        vm.add("r1", "Amlodipine", null, null)
+        vm.error.first { it != null }
+
+        assertEquals(MedicationActionError.ArchivedRecipient, vm.error.value)
+        assertEquals(emptyList<String>(), store.observeActive().first().map { it.id })
+
+        vm.clearError()
+        assertEquals(null, vm.error.value)
     }
 }
