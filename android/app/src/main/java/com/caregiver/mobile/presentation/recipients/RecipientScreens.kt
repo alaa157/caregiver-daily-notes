@@ -50,6 +50,7 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.testTag
+import androidx.compose.ui.res.pluralStringResource
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
@@ -231,7 +232,7 @@ internal fun RecipientsContent(
                     )
                     if (count != null) {
                         Text(
-                            text = if (count == 1) "$count person" else "$count people",
+                            text = pluralStringResource(R.plurals.people_count, count, count),
                             fontFamily = PlexArabic,
                             fontSize = 13.sp,
                             color = CaregiverColors.Muted,
@@ -245,12 +246,17 @@ internal fun RecipientsContent(
                         label = { Text(stringResource(R.string.people_filter_active)) },
                         modifier = Modifier.testTag("people_filter_active"),
                     )
-                    FilterChip(
-                        selected = filter == PeopleFilter.Archived,
-                        onClick = { onFilter(PeopleFilter.Archived) },
-                        label = { Text(stringResource(R.string.people_filter_archived)) },
-                        modifier = Modifier.testTag("people_filter_archived"),
-                    )
+                    // Archive state only exists when the graph has a local
+                    // admin; a server-backed graph would show a permanently
+                    // empty tab, so the filter is hidden with the actions.
+                    if (hasAdmin) {
+                        FilterChip(
+                            selected = filter == PeopleFilter.Archived,
+                            onClick = { onFilter(PeopleFilter.Archived) },
+                            label = { Text(stringResource(R.string.people_filter_archived)) },
+                            modifier = Modifier.testTag("people_filter_archived"),
+                        )
+                    }
                 }
                 when (val s = state) {
                     PeopleState.Loading -> LoadingRow()

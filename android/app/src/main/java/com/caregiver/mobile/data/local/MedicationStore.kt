@@ -64,6 +64,7 @@ class MedicationStore(private val db: AppDatabase) {
 
     /** Deleting a medication also forgets its history — nothing dangles. */
     suspend fun delete(id: String) {
+        requireWritableMedication(id)
         dao.clearIntakesFor(id)
         dao.delete(id)
     }

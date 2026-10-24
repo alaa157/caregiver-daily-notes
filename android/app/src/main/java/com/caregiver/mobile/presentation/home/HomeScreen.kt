@@ -267,6 +267,7 @@ private fun HomeTimeline(
                             onDelete = medications::delete,
                             modifier = Modifier.padding(horizontal = AppDimens.ScreenHPadding),
                             error = medError,
+                            onErrorShown = medications::clearError,
                         )
                     }
                 }

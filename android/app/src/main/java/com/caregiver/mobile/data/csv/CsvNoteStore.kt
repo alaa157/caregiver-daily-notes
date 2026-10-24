@@ -6,6 +6,7 @@ import com.caregiver.mobile.data.api.CreateNoteRequest
 import com.caregiver.mobile.data.api.NoteDto
 import com.caregiver.mobile.data.api.RecipientDto
 import com.caregiver.mobile.data.local.AppDatabase
+import com.caregiver.mobile.data.local.ArchivedRecipientException
 import com.caregiver.mobile.data.local.NoteEntity
 import com.caregiver.mobile.data.local.toDto
 import java.io.IOException
@@ -72,28 +73,40 @@ class RoomCsvNoteStore(
         if (rows.isEmpty()) return emptyList()
         return db.withTransaction {
             rows.map { row ->
-                val existing = db.noteDao().query(row.recipientId, row.date, row.date)
-                if (existing.isNotEmpty()) {
-                    CsvInsertResult.SkippedDuplicate
+                // The plan excluded archived recipients when it was built, but
+                // the person can be archived while the preview is open. Re-check
+                // inside the write transaction so an import can never write
+                // into a read-only history.
+                val recipient = db.recipientDao().byServerId(row.recipientId)
+                val existing = if (recipient == null || recipient.archivedAt != null) {
+                    emptyList()
                 } else {
-                    db.noteDao().insertImported(
-                        listOf(
-                            NoteEntity(
-                                serverId = idGenerator(),
-                                recipientId = row.recipientId,
-                                date = row.date,
-                                mood = row.mood,
-                                appetite = row.appetite,
-                                sleep = row.sleep,
-                                mobility = row.mobility,
-                                medicationTaken = row.medicationTaken,
-                                pain = row.pain,
-                                fall = row.fall,
-                                text = row.text,
+                    db.noteDao().query(row.recipientId, row.date, row.date)
+                }
+                when {
+                    recipient == null || recipient.archivedAt != null ->
+                        CsvInsertResult.Rejected(CsvFailure(CsvFailureReason.INSERT_FAILED))
+                    existing.isNotEmpty() -> CsvInsertResult.SkippedDuplicate
+                    else -> {
+                        db.noteDao().insertImported(
+                            listOf(
+                                NoteEntity(
+                                    serverId = idGenerator(),
+                                    recipientId = row.recipientId,
+                                    date = row.date,
+                                    mood = row.mood,
+                                    appetite = row.appetite,
+                                    sleep = row.sleep,
+                                    mobility = row.mobility,
+                                    medicationTaken = row.medicationTaken,
+                                    pain = row.pain,
+                                    fall = row.fall,
+                                    text = row.text,
+                                ),
                             ),
-                        ),
-                    )
-                    CsvInsertResult.Inserted
+                        )
+                        CsvInsertResult.Inserted
+                    }
                 }
             }
         }
@@ -146,6 +159,9 @@ class ApiCsvNoteStore(private val apis: BackendApis) : CsvNoteStore {
                 }
             } catch (e: CancellationException) {
                 throw e
+            } catch (e: ArchivedRecipientException) {
+                // The recipient was archived after the preview was built.
+                CsvInsertResult.Rejected(CsvFailure(CsvFailureReason.INSERT_FAILED))
             } catch (e: HttpException) {
                 CsvInsertResult.Rejected(CsvFailure(CsvFailureReason.INSERT_FAILED))
             } catch (e: IOException) {

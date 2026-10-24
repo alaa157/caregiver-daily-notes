@@ -54,6 +54,10 @@ interface RecipientDao {
     @Query("UPDATE recipients SET archivedAt = :archivedAt WHERE serverId = :serverId")
     suspend fun setArchivedAt(serverId: String, archivedAt: Long?): Int
 
+    /** In-place active toggle: keeps the row's list position (unlike a REPLACE insert). */
+    @Query("UPDATE recipients SET active = :active WHERE serverId = :serverId")
+    suspend fun setActive(serverId: String, active: Boolean): Int
+
     @Query("DELETE FROM recipients WHERE serverId = :serverId")
     suspend fun deleteByServerId(serverId: String): Int
 

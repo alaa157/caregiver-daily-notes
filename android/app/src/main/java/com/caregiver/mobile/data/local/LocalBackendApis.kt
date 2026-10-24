@@ -95,9 +95,11 @@ class LocalBackendApis(
 
         override suspend fun update(id: String, body: UpdateRecipientRequest): RecipientDto {
             val existing = recipientDao.byServerId(id) ?: throw NoSuchElementException("recipient $id")
-            val updated = existing.toDto().copy(active = body.active)
-            recipientDao.insertAll(listOf(updated.toEntity()))
-            return updated
+            // Archived people are read-only: changing their active flag is a
+            // write like any other, so it takes the same guard as notes/plans.
+            requireWritableRecipient(id)
+            recipientDao.setActive(id, body.active)
+            return existing.toDto().copy(active = body.active)
         }
     }
 

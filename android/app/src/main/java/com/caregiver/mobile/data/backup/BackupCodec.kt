@@ -1,6 +1,7 @@
 package com.caregiver.mobile.data.backup
 
 import java.security.MessageDigest
+import kotlinx.serialization.Serializable
 import kotlinx.serialization.SerializationException
 import kotlinx.serialization.encodeToString
 import kotlinx.serialization.json.Json
@@ -56,10 +57,24 @@ data class DecodedBackup(
 )
 
 /**
+ * The v1/v2 payload shape. Adding fields to [BackupData] changes its
+ * canonical JSON even when the new lists are empty (`encodeDefaults`), so
+ * old digests must be re-computed over exactly the fields the old writer
+ * emitted.
+ */
+@Serializable
+private data class LegacyBackupData(
+    val recipients: List<BackupRecipient>,
+    val notes: List<BackupNote>,
+    val addenda: List<BackupAddendum>,
+    val plans: List<BackupPlan>,
+)
+
+/**
  * Reads and writes the documented `.carebackup.json` shape.
  *
  * The envelope carries a stable `format` id and an integer `formatVersion`;
- * this codec writes [FORMAT_VERSION] (2), still reads v1, and rejects newer
+ * this codec writes [FORMAT_VERSION] (3), still reads v1/v2, and rejects newer
  * files with [BackupFailureReason.UNSUPPORTED_VERSION] (a future version must
  * be migrated deliberately — see the migration notes in the docs).
  *
@@ -67,14 +82,15 @@ data class DecodedBackup(
  * JSON of `data`**, re-encoded with this app's serializer on both sides. It
  * catches corruption and hand-edits; it does not claim authenticity (anyone
  * can recompute a digest), so import safety relies on semantic validation and
- * the restore policy, never on the digest alone.
+ * the restore policy, never on the digest alone. v1/v2 files predate the
+ * medication tables, so their digest covers only the legacy payload shape.
  *
  * The parser is strict (unknown keys are rejected) and never touches the
  * database; callers validate the payload before anything is written.
  */
 object CareBackupCodec {
     const val FORMAT_ID = "caregiver-daily-notes.backup"
-    const val FORMAT_VERSION = 2
+    const val FORMAT_VERSION = 3
     const val APP_NAME = "caregiver-daily-notes"
     const val INTEGRITY_ALGORITHM = "SHA-256"
 
@@ -141,7 +157,9 @@ object CareBackupCodec {
         if (!integrity.algorithm.equals(INTEGRITY_ALGORITHM, ignoreCase = true)) {
             return BackupDecodeResult.Failure(BackupFailure(BackupFailureReason.UNSUPPORTED_INTEGRITY))
         }
-        if (!digestOf(envelope.data).equals(integrity.digest, ignoreCase = true)) {
+        if (!expectedDigest(envelope.data, envelope.formatVersion)
+                .equals(integrity.digest, ignoreCase = true)
+        ) {
             return BackupDecodeResult.Failure(BackupFailure(BackupFailureReason.CHECKSUM_MISMATCH))
         }
 
@@ -156,19 +174,48 @@ object CareBackupCodec {
     }
 
     /**
-     * v1 has no archive state. A deliberate v1 path (rather than relying only
-     * on the nullable default) keeps v1 files unarchived even if a hand-edited
-     * file carries an unexpected `archivedAt`.
+     * v1 has no archive state and neither v1 nor v2 has medications. A
+     * deliberate path (rather than relying only on the defaults) keeps an
+     * older file's semantics even if a hand-edited document carries fields
+     * the version never defined.
      */
-    private fun normalize(data: BackupData, formatVersion: Int): BackupData =
-        if (formatVersion == 1) {
-            data.copy(recipients = data.recipients.map { it.copy(archivedAt = null) })
+    private fun normalize(data: BackupData, formatVersion: Int): BackupData = when {
+        formatVersion == 1 -> data.copy(
+            recipients = data.recipients.map { it.copy(archivedAt = null) },
+            medications = emptyList(),
+            medicationIntakes = emptyList(),
+        )
+        formatVersion < FORMAT_VERSION -> data.copy(
+            medications = emptyList(),
+            medicationIntakes = emptyList(),
+        )
+        else -> data
+    }
+
+    private fun expectedDigest(data: BackupData, formatVersion: Int): String =
+        if (formatVersion >= FORMAT_VERSION) {
+            digestOf(data)
         } else {
-            data
+            legacyDigestOf(data)
         }
 
-    private fun digestOf(data: BackupData): String {
-        val bytes = canonical.encodeToString(data).toByteArray(Charsets.UTF_8)
+    private fun digestOf(data: BackupData): String =
+        sha256(canonical.encodeToString(data))
+
+    private fun legacyDigestOf(data: BackupData): String =
+        sha256(
+            canonical.encodeToString(
+                LegacyBackupData(
+                    recipients = data.recipients,
+                    notes = data.notes,
+                    addenda = data.addenda,
+                    plans = data.plans,
+                ),
+            ),
+        )
+
+    private fun sha256(text: String): String {
+        val bytes = text.toByteArray(Charsets.UTF_8)
         return MessageDigest.getInstance("SHA-256")
             .digest(bytes)
             .joinToString("") { byte -> "%02x".format(byte) }

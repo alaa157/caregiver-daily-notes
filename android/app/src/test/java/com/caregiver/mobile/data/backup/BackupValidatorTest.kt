@@ -129,4 +129,72 @@ class BackupValidatorTest {
         val data = backupData(plans = listOf(backupPlan(versionsJson = "[" + "1,".repeat(200_000))))
         assertEquals(BackupEntity.PLAN, kinds(data, BackupIssueKind.INVALID_PLAN_JSON).single().entity)
     }
+
+    @Test
+    fun aWellFormedMedicationAndIntakeHasNoIssues() {
+        val data = backupData(
+            medications = listOf(backupMedication("m1", dosesPerDay = 2)),
+            medicationIntakes = listOf(backupIntake("m1", doseIndex = 0), backupIntake("m1", doseIndex = 1)),
+        )
+        assertTrue(issues(data).isEmpty())
+    }
+
+    @Test
+    fun duplicateMedicationIdsAreReported() {
+        val data = backupData(medications = listOf(backupMedication("m1"), backupMedication("m1")))
+        assertEquals(BackupEntity.MEDICATION, kinds(data, BackupIssueKind.DUPLICATE_ID).single().entity)
+    }
+
+    @Test
+    fun aMedicationReferencingAMissingRecipientIsReported() {
+        val data = backupData(medications = listOf(backupMedication(recipientId = "gone")))
+        assertEquals(BackupEntity.MEDICATION, kinds(data, BackupIssueKind.BROKEN_REFERENCE).single().entity)
+    }
+
+    @Test
+    fun blankMedicationNameAndOutOfRangeDosesAreReported() {
+        val data = backupData(medications = listOf(backupMedication(name = " ", dosesPerDay = 0)))
+        val issues = issues(data)
+        assertTrue(issues.any { it.entity == BackupEntity.MEDICATION && it.kind == BackupIssueKind.MISSING_VALUE })
+        assertTrue(issues.any { it.entity == BackupEntity.MEDICATION && it.kind == BackupIssueKind.INVALID_COUNT })
+
+        val tooMany = backupData(medications = listOf(backupMedication(dosesPerDay = 5)))
+        assertTrue(kinds(tooMany, BackupIssueKind.INVALID_COUNT).isNotEmpty())
+    }
+
+    @Test
+    fun anIntakeReferencingAMissingMedicationIsReported() {
+        val data = backupData(medicationIntakes = listOf(backupIntake("gone")))
+        assertEquals(
+            BackupEntity.MEDICATION_INTAKE,
+            kinds(data, BackupIssueKind.BROKEN_REFERENCE).single().entity,
+        )
+    }
+
+    @Test
+    fun duplicateIntakeIdsAndInvalidValuesAreReported() {
+        val data = backupData(
+            medications = listOf(backupMedication("m1")),
+            medicationIntakes = listOf(
+                backupIntake("m1", times = 0),
+                backupIntake("m1", times = 0),
+            ),
+        )
+        val issues = issues(data)
+        assertEquals(BackupEntity.MEDICATION_INTAKE, kinds(data, BackupIssueKind.DUPLICATE_ID).single().entity)
+        assertEquals(2, kinds(data, BackupIssueKind.INVALID_COUNT).size)
+        assertTrue(issues.all { it.entity != BackupEntity.NOTE })
+    }
+
+    @Test
+    fun anInvalidIntakeDateIsReported() {
+        val data = backupData(
+            medications = listOf(backupMedication("m1")),
+            medicationIntakes = listOf(backupIntake("m1", date = "01/10/2026")),
+        )
+        assertEquals(
+            BackupEntity.MEDICATION_INTAKE,
+            kinds(data, BackupIssueKind.INVALID_DATE).single().entity,
+        )
+    }
 }

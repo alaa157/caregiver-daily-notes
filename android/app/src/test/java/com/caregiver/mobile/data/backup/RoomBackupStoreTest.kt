@@ -4,6 +4,8 @@ import androidx.room.Room
 import androidx.test.core.app.ApplicationProvider
 import com.caregiver.mobile.data.local.AddendumEntity
 import com.caregiver.mobile.data.local.AppDatabase
+import com.caregiver.mobile.data.local.MedicationEntity
+import com.caregiver.mobile.data.local.MedicationIntakeEntity
 import com.caregiver.mobile.data.local.NoteEntity
 import com.caregiver.mobile.data.local.OutboxEntity
 import com.caregiver.mobile.data.local.OutboxStatus
@@ -88,6 +90,36 @@ class RoomBackupStoreTest {
         updatedAt = 1,
     )
 
+    private fun medicationRow(
+        id: String,
+        recipientId: String = "r1",
+        name: String = "Amlodipine",
+        active: Boolean = true,
+        createdAt: Long = 1,
+        dosesPerDay: Int = 1,
+    ) = MedicationEntity(
+        id = id,
+        recipientId = recipientId,
+        name = name,
+        dose = "5 mg",
+        schedule = "morning",
+        active = active,
+        createdAt = createdAt,
+        dosesPerDay = dosesPerDay,
+    )
+
+    private fun intakeRow(
+        medicationId: String = "m1",
+        date: String = "2026-10-01",
+        doseIndex: Int = 0,
+        times: Int = 1,
+    ) = MedicationIntakeEntity(
+        id = "$medicationId:$date:$doseIndex",
+        medicationId = medicationId,
+        date = date,
+        times = times,
+    )
+
     @Test
     fun snapshotReadsEveryRestorableTableInOrder() = runTest {
         db.recipientDao().insertAll(listOf(recipientRow("r1"), recipientRow("r2", name = "Zaid")))
@@ -100,6 +132,9 @@ class RoomBackupStoreTest {
         )
         db.addendumDao().insert(addendumRow("a1"))
         db.planDao().upsert(planRow("p1"))
+        db.medicationDao().upsert(medicationRow("m-late", createdAt = 2, active = false))
+        db.medicationDao().upsert(medicationRow("m-early", createdAt = 1))
+        db.medicationDao().upsertIntake(intakeRow("m-early"))
 
         val snapshot = RoomBackupStore(db).snapshot()
 
@@ -110,7 +145,13 @@ class RoomBackupStoreTest {
         )
         assertEquals(listOf("a1"), snapshot.addenda.map { it.id })
         assertEquals(listOf("p1"), snapshot.plans.map { it.id })
-        assertEquals(BackupCounts(recipients = 2, notes = 3, addenda = 1, plans = 1), snapshot.counts)
+        assertEquals(listOf("m-early", "m-late"), snapshot.medications.map { it.id })
+        assertEquals(false, snapshot.medications.last().active)
+        assertEquals(listOf("m-early:2026-10-01:0"), snapshot.medicationIntakes.map { it.id })
+        assertEquals(
+            BackupCounts(recipients = 2, notes = 3, addenda = 1, plans = 1, medications = 2, intakes = 1),
+            snapshot.counts,
+        )
     }
 
     @Test
@@ -136,21 +177,29 @@ class RoomBackupStoreTest {
     fun restoringAPreDeletionSnapshotRecreatesADeletedRecipient() = runTest {
         db.recipientDao().insertAll(listOf(recipientRow("r1", archivedAt = 111L)))
         db.noteDao().insertAll(listOf(noteRow("n1", recipientId = "r1")))
+        db.medicationDao().upsert(medicationRow("m1"))
+        db.medicationDao().upsertIntake(intakeRow("m1"))
         val store = RoomBackupStore(db)
         val snapshot = store.snapshot()
 
         db.deleteArchivedRecipient("r1")
         assertNull(db.recipientDao().byServerId("r1"))
+        assertTrue(db.medicationDao().all().isEmpty())
+        assertTrue(db.medicationDao().allIntakes().isEmpty())
 
         assertEquals(BackupReplaceResult.Replaced, store.replaceAll(snapshot, store.counts()))
         assertEquals(111L, db.recipientDao().byServerId("r1")?.archivedAt)
         assertNotNull(db.noteDao().byServerId("n1"))
+        assertEquals(listOf("m1"), db.medicationDao().all().map { it.id })
+        assertEquals(listOf("m1:2026-10-01:0"), db.medicationDao().allIntakes().map { it.id })
     }
 
     @Test
     fun replaceAllSwapsEverythingAndPreservesOrder() = runTest {
         db.recipientDao().insertAll(listOf(recipientRow("old")))
         db.noteDao().insertAll(listOf(noteRow("old-note", recipientId = "old", text = "old text")))
+        db.medicationDao().upsert(medicationRow("old-med", recipientId = "old"))
+        db.medicationDao().upsertIntake(intakeRow("old-med"))
         val store = RoomBackupStore(db)
 
         val backup = BackupData(
@@ -162,6 +211,8 @@ class RoomBackupStoreTest {
             ),
             addenda = listOf(backupAddendum("a9", noteId = "n-same-1")),
             plans = listOf(backupPlan("p9", recipientId = "r8")),
+            medications = listOf(backupMedication("m9", recipientId = "r8", dosesPerDay = 2)),
+            medicationIntakes = listOf(backupIntake("m9", date = "2026-10-03", doseIndex = 1)),
         )
 
         val result = store.replaceAll(backup, store.counts())
@@ -177,6 +228,11 @@ class RoomBackupStoreTest {
         assertEquals("same day first", db.noteDao().byServerId("n-same-1")?.text)
         assertEquals(listOf("a9"), db.addendumDao().all().map { it.id })
         assertEquals(listOf("p9"), db.planDao().all().map { it.id })
+        assertEquals(listOf("m9"), db.medicationDao().all().map { it.id })
+        assertEquals(2, db.medicationDao().byId("m9")?.dosesPerDay)
+        assertEquals(listOf("m9:2026-10-03:1"), db.medicationDao().allIntakes().map { it.id })
+        assertNull(db.medicationDao().byId("old-med"))
+        assertTrue(db.medicationDao().allIntakes().none { it.medicationId == "old-med" })
     }
 
     @Test

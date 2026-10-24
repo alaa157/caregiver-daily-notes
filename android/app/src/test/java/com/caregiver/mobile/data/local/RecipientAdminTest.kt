@@ -6,6 +6,7 @@ import com.caregiver.mobile.data.api.AppendVersionRequest
 import com.caregiver.mobile.data.api.CreateAddendumRequest
 import com.caregiver.mobile.data.api.CreateNoteRequest
 import com.caregiver.mobile.data.api.SuggestPlanRequest
+import com.caregiver.mobile.data.api.UpdateRecipientRequest
 import com.caregiver.mobile.data.demo.DemoBackendApis
 import java.time.LocalDate
 import kotlinx.coroutines.flow.first
@@ -238,11 +239,43 @@ class RecipientAdminTest {
         } catch (expected: ArchivedRecipientException) {
             assertEquals("r1", expected.recipientId)
         }
+        try {
+            medications.delete("m-r1")
+            fail("Expected ArchivedRecipientException")
+        } catch (expected: ArchivedRecipientException) {
+            assertEquals("r1", expected.recipientId)
+        }
 
         assertEquals("Med", db.medicationDao().byId("m-r1")?.name)
         assertTrue(
             db.medicationDao().observeIntakes("2026-10-24").first().isEmpty(),
         )
+    }
+
+    @Test
+    fun recipientUpdateIsRejectedForArchivedRecipient() = runTest {
+        seedRecipient("r1", archivedAt = FIXED_NOW, active = true)
+
+        try {
+            apis.recipients().update("r1", UpdateRecipientRequest(active = false))
+            fail("Expected ArchivedRecipientException")
+        } catch (expected: ArchivedRecipientException) {
+            assertEquals("r1", expected.recipientId)
+        }
+
+        assertEquals(true, db.recipientDao().byServerId("r1")?.active)
+    }
+
+    @Test
+    fun recipientUpdateKeepsTheListPosition() = runTest {
+        seedRecipient("r1")
+        seedRecipient("r2")
+
+        val updated = apis.recipients().update("r1", UpdateRecipientRequest(active = false))
+
+        assertEquals(false, updated.active)
+        assertEquals(listOf("r1", "r2"), apis.recipients().list().map { it.id })
+        assertEquals(false, db.recipientDao().byServerId("r1")?.active)
     }
 
     @Test
@@ -288,6 +321,12 @@ class RecipientAdminTest {
         }
         try {
             demo.plans().accept("p1")
+            fail("Expected ArchivedRecipientException")
+        } catch (expected: ArchivedRecipientException) {
+            assertEquals("r1", expected.recipientId)
+        }
+        try {
+            demo.recipients().update("r1", UpdateRecipientRequest(active = false))
             fail("Expected ArchivedRecipientException")
         } catch (expected: ArchivedRecipientException) {
             assertEquals("r1", expected.recipientId)
