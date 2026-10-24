@@ -109,9 +109,9 @@ class BackupCodecTest {
 
     @Test
     fun aFutureFormatVersionIsRejectedWithItsNumber() {
-        val failure = decodeFailure(futureVersionDocument(version = 3))
+        val failure = decodeFailure(futureVersionDocument(version = 4))
         assertEquals(BackupFailureReason.UNSUPPORTED_VERSION, failure.reason)
-        assertEquals("3", failure.detail)
+        assertEquals("4", failure.detail)
     }
 
     @Test
@@ -134,7 +134,7 @@ class BackupCodecTest {
     @Test
     fun aV1BackupWithoutArchivedAtStillDecodesAsUnarchived() {
         val data = backupData(recipients = listOf(backupRecipient("r1")))
-        val canonical = canonicalJson(data)
+        val canonical = legacyCanonicalJson(data)
         val document = versionedDocument(version = 1, dataJson = canonical, digest = sha256(canonical))
 
         val decoded = CareBackupCodec.decode(document) as BackupDecodeResult.Success
@@ -146,12 +146,65 @@ class BackupCodecTest {
     @Test
     fun aV1BackupIgnoresAnArchivedAtField() {
         val data = backupData(recipients = listOf(backupRecipient("r1", archivedAt = 123)))
-        val canonical = canonicalJson(data)
+        val canonical = legacyCanonicalJson(data)
         val document = versionedDocument(version = 1, dataJson = canonical, digest = sha256(canonical))
 
         val decoded = CareBackupCodec.decode(document) as BackupDecodeResult.Success
 
         assertNull(decoded.backup.data.recipients.single().archivedAt)
+    }
+
+    @Test
+    fun aV2BackupStillVerifiesWithItsLegacyDigest() {
+        val data = backupData(recipients = listOf(backupRecipient("r1", archivedAt = 123)))
+        val canonical = legacyCanonicalJson(data)
+        val document = versionedDocument(version = 2, dataJson = canonical, digest = sha256(canonical))
+
+        val decoded = CareBackupCodec.decode(document) as BackupDecodeResult.Success
+
+        assertEquals(2, decoded.backup.formatVersion)
+        assertEquals(123L, decoded.backup.data.recipients.single().archivedAt)
+        assertTrue(decoded.backup.data.medications.isEmpty())
+        assertTrue(decoded.backup.data.medicationIntakes.isEmpty())
+    }
+
+    @Test
+    fun aV2BackupIgnoresMedicationFieldsThatDidNotExistYet() {
+        val data = backupData(
+            medications = listOf(backupMedication()),
+            medicationIntakes = listOf(backupIntake()),
+        )
+        // A v2 file's digest covers only the four legacy lists; the medication
+        // fields are dropped during normalization even if someone added them.
+        val legacy = legacyCanonicalJson(data)
+        val withMedications = Json { encodeDefaults = true; explicitNulls = false }.encodeToString(data)
+        val document = versionedDocument(version = 2, dataJson = withMedications, digest = sha256(legacy))
+
+        val decoded = CareBackupCodec.decode(document) as BackupDecodeResult.Success
+
+        assertTrue(decoded.backup.data.medications.isEmpty())
+        assertTrue(decoded.backup.data.medicationIntakes.isEmpty())
+    }
+
+    @Test
+    fun roundTripPreservesMedicationsAndIntakes() {
+        val data = backupData(
+            medications = listOf(
+                backupMedication("m1", name = "دواء", dose = null, schedule = "مساءً", dosesPerDay = 2),
+                backupMedication("m2", active = false),
+            ),
+            medicationIntakes = listOf(
+                backupIntake("m1", date = "2026-10-01", doseIndex = 0),
+                backupIntake("m1", date = "2026-10-01", doseIndex = 1, times = 2),
+            ),
+        )
+
+        val decoded = (CareBackupCodec.decode(encodeBackup(data)) as BackupDecodeResult.Success).backup
+
+        assertEquals(data, decoded.data)
+        assertEquals(2, decoded.data.medications.size)
+        assertEquals(2, decoded.data.medicationIntakes.size)
+        assertEquals(8, decoded.data.counts.total)
     }
 
     @Test
@@ -248,9 +301,6 @@ class BackupCodecTest {
           "data": $dataJson
         }
     """.trimIndent()
-
-    private fun canonicalJson(data: BackupData): String =
-        Json { encodeDefaults = true; explicitNulls = false }.encodeToString(data)
 
     private fun sha256(text: String): String =
         MessageDigest.getInstance("SHA-256")

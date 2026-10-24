@@ -91,6 +91,7 @@ class RoomCsvNoteStoreTest {
 
     @Test
     fun aNoteForTheSameRecipientAndDayIsSkippedByTheStoreToo() = runTest {
+        db.recipientDao().insertAll(listOf(RecipientEntity(serverId = "r1", name = "Mona", active = true)))
         db.noteDao().insertAll(listOf(row("existing")))
         val store = RoomCsvNoteStore(db)
 
@@ -102,7 +103,50 @@ class RoomCsvNoteStoreTest {
     }
 
     @Test
+    fun aRecipientArchivedAfterThePreviewRejectsTheRow() = runTest {
+        // The planner saw the person as active; the archive happens while the
+        // preview is open. The write transaction must re-check and refuse.
+        db.recipientDao().insertAll(
+            listOf(
+                RecipientEntity(
+                    serverId = "r1",
+                    name = "Mona",
+                    active = true,
+                    archivedAt = 1_000L,
+                ),
+            ),
+        )
+        val store = RoomCsvNoteStore(db)
+
+        val results = store.insertAll(listOf(planned(recipientId = "r1")))
+
+        assertEquals(1, results.size)
+        assertTrue(results.single() is CsvInsertResult.Rejected)
+        assertEquals(
+            CsvFailureReason.INSERT_FAILED,
+            (results.single() as CsvInsertResult.Rejected).failure.reason,
+        )
+        assertTrue(db.noteDao().query(null, null, null).isEmpty())
+    }
+
+    @Test
+    fun aRecipientDeletedAfterThePreviewRejectsTheRow() = runTest {
+        val store = RoomCsvNoteStore(db)
+
+        val results = store.insertAll(listOf(planned(recipientId = "gone")))
+
+        assertTrue(results.single() is CsvInsertResult.Rejected)
+        assertTrue(db.noteDao().query(null, null, null).isEmpty())
+    }
+
+    @Test
     fun aFailedInsertRollsBackTheWholeImport() = runTest {
+        db.recipientDao().insertAll(
+            listOf(
+                RecipientEntity(serverId = "r1", name = "Mona", active = true),
+                RecipientEntity(serverId = "r2", name = "Zaid", active = true),
+            ),
+        )
         // A generator that collides on the second row forces a primary-key
         // abort mid-transaction; nothing may remain.
         val store = RoomCsvNoteStore(db) { "same-id" }
@@ -122,6 +166,12 @@ class RoomCsvNoteStoreTest {
 
     @Test
     fun importNeverOverwritesAnExistingRowWithTheSameId() = runTest {
+        db.recipientDao().insertAll(
+            listOf(
+                RecipientEntity(serverId = "r1", name = "Mona", active = true),
+                RecipientEntity(serverId = "r2", name = "Zaid", active = true),
+            ),
+        )
         db.noteDao().insertAll(listOf(row("fixed", recipientId = "r1", date = "2026-10-01", text = "original")))
         val store = RoomCsvNoteStore(db) { "fixed" }
 

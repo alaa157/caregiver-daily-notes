@@ -158,6 +158,8 @@ fun RestorePreviewDialog(
             BackupPreviewCount(stringResource(R.string.backup_preview_recipients, preview.backup.recipients))
             BackupPreviewCount(stringResource(R.string.backup_preview_addenda, preview.backup.addenda))
             BackupPreviewCount(stringResource(R.string.backup_preview_plans, preview.backup.plans))
+            BackupPreviewCount(stringResource(R.string.backup_preview_medications, preview.backup.medications))
+            BackupPreviewCount(stringResource(R.string.backup_preview_intakes, preview.backup.intakes))
 
             Spacer(Modifier.height(4.dp))
             Text(
@@ -167,6 +169,8 @@ fun RestorePreviewDialog(
                     preview.current.recipients,
                     preview.current.addenda,
                     preview.current.plans,
+                    preview.current.medications,
+                    preview.current.intakes,
                 ),
                 style = MaterialTheme.typography.bodyMedium,
             )

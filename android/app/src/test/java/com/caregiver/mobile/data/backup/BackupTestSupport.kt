@@ -1,5 +1,9 @@
 package com.caregiver.mobile.data.backup
 
+import kotlinx.serialization.Serializable
+import kotlinx.serialization.encodeToString
+import kotlinx.serialization.json.Json
+
 /** A recipient fixture with valid defaults (an id notes can reference). */
 fun backupRecipient(
     serverId: String = "r1",
@@ -61,13 +65,56 @@ fun backupPlan(
     updatedAt = updatedAt,
 )
 
+/** A medication fixture referencing [recipientId]. */
+fun backupMedication(
+    id: String = "m1",
+    recipientId: String = "r1",
+    name: String = "Amlodipine",
+    dose: String? = "5 mg",
+    schedule: String? = "morning",
+    active: Boolean = true,
+    createdAt: Long = 1_700_000_000_000,
+    dosesPerDay: Int = 1,
+): BackupMedication = BackupMedication(
+    id = id,
+    recipientId = recipientId,
+    name = name,
+    dose = dose,
+    schedule = schedule,
+    active = active,
+    createdAt = createdAt,
+    dosesPerDay = dosesPerDay,
+)
+
+/** A taken dose for [medicationId] with the local key format. */
+fun backupIntake(
+    medicationId: String = "m1",
+    date: String = "2026-10-01",
+    doseIndex: Int = 0,
+    times: Int = 1,
+): BackupMedicationIntake = BackupMedicationIntake(
+    id = "$medicationId:$date:$doseIndex",
+    medicationId = medicationId,
+    date = date,
+    times = times,
+)
+
 /** A complete payload with one of each record; all lists can be overridden. */
 fun backupData(
     recipients: List<BackupRecipient> = listOf(backupRecipient()),
     notes: List<BackupNote> = listOf(backupNote()),
     addenda: List<BackupAddendum> = listOf(backupAddendum()),
     plans: List<BackupPlan> = listOf(backupPlan()),
-): BackupData = BackupData(recipients = recipients, notes = notes, addenda = addenda, plans = plans)
+    medications: List<BackupMedication> = emptyList(),
+    medicationIntakes: List<BackupMedicationIntake> = emptyList(),
+): BackupData = BackupData(
+    recipients = recipients,
+    notes = notes,
+    addenda = addenda,
+    plans = plans,
+    medications = medications,
+    medicationIntakes = medicationIntakes,
+)
 
 /** Encodes [data] the way the app writes a real file. */
 fun encodeBackup(
@@ -75,6 +122,34 @@ fun encodeBackup(
     createdAt: String = "2026-10-19T09:00:00Z",
     appVersion: String = "test (1)",
 ): String = CareBackupCodec.encode(createdAt = createdAt, appVersion = appVersion, data = data)
+
+/**
+ * The canonical payload a v1/v2 writer produced: only recipients, notes,
+ * addenda and plans. Used to build hand-made older documents whose digest the
+ * current codec still verifies.
+ */
+@Serializable
+private data class LegacyPayload(
+    val recipients: List<BackupRecipient>,
+    val notes: List<BackupNote>,
+    val addenda: List<BackupAddendum>,
+    val plans: List<BackupPlan>,
+)
+
+fun legacyCanonicalJson(data: BackupData): String =
+    Json { encodeDefaults = true; explicitNulls = false }.encodeToString(
+        LegacyPayload(
+            recipients = data.recipients,
+            notes = data.notes,
+            addenda = data.addenda,
+            plans = data.plans,
+        ),
+    )
+
+fun sha256(text: String): String =
+    java.security.MessageDigest.getInstance("SHA-256")
+        .digest(text.toByteArray(Charsets.UTF_8))
+        .joinToString("") { "%02x".format(it) }
 
 /** Convenience: the decode failure a text produces, or a failed assertion. */
 fun decodeFailure(text: String): BackupFailure =

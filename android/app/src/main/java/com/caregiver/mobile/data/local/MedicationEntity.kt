@@ -79,6 +79,16 @@ interface MedicationDao {
     @Query("SELECT * FROM medications WHERE id = :id")
     suspend fun byId(id: String): MedicationEntity?
 
+    /** Every medication, including inactive ones; stable for a backup snapshot. */
+    @Query("SELECT * FROM medications ORDER BY createdAt ASC, id ASC")
+    suspend fun all(): List<MedicationEntity>
+
+    @Insert(onConflict = OnConflictStrategy.REPLACE)
+    suspend fun insertImported(entities: List<MedicationEntity>)
+
+    @Query("DELETE FROM medications")
+    suspend fun deleteAll()
+
     @Query("SELECT id FROM medications WHERE recipientId = :recipientId")
     suspend fun idsByRecipient(recipientId: String): List<String>
 
@@ -99,6 +109,16 @@ interface MedicationDao {
 
     @Query("SELECT * FROM medication_intakes WHERE date = :date")
     fun observeIntakes(date: String): Flow<List<MedicationIntakeEntity>>
+
+    /** Every intake mark, ordered by its stable local key. */
+    @Query("SELECT * FROM medication_intakes ORDER BY id ASC")
+    suspend fun allIntakes(): List<MedicationIntakeEntity>
+
+    @Insert(onConflict = OnConflictStrategy.REPLACE)
+    suspend fun insertImportedIntakes(entities: List<MedicationIntakeEntity>)
+
+    @Query("DELETE FROM medication_intakes")
+    suspend fun deleteAllIntakes()
 
     @Insert(onConflict = OnConflictStrategy.REPLACE)
     suspend fun upsertIntake(entity: MedicationIntakeEntity)

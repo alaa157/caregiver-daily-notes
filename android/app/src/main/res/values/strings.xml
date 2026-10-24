@@ -127,6 +127,10 @@
     <string name="people_empty_archived">No archived people.</string>
     <string name="people_filter_active">Active</string>
     <string name="people_filter_archived">Archived</string>
+    <plurals name="people_count">
+        <item quantity="one">%d person</item>
+        <item quantity="other">%d people</item>
+    </plurals>
     <string name="people_archived">Archived</string>
     <string name="people_actions">Person actions</string>
     <string name="people_archive">Archive</string>
@@ -550,7 +554,7 @@
 
     <!-- Full backup &amp; restore (Data &amp; Backup): versioned local JSON files. -->
     <string name="backup_create_title">Create backup</string>
-    <string name="backup_create_description">Save notes, recipients, care plans and addenda to a file you choose. Settings and AI keys are not included.</string>
+    <string name="backup_create_description">Save notes, recipients, care plans, addenda and medication data to a file you choose. Settings and AI keys are not included.</string>
     <string name="backup_create_working">Creating backup…</string>
     <string name="backup_create_success">Backup created: %1$d records.</string>
     <string name="backup_create_empty">Backup created. There is no data yet, so the file is empty.</string>
@@ -570,8 +574,10 @@
     <string name="backup_preview_recipients">Recipients in backup: %1$d</string>
     <string name="backup_preview_addenda">Addenda in backup: %1$d</string>
     <string name="backup_preview_plans">Care plans in backup: %1$d</string>
-    <string name="backup_preview_current">Current data that will be replaced: %1$d notes, %2$d recipients, %3$d addenda, %4$d care plans.</string>
-    <string name="backup_preview_warning">Restoring replaces all notes, recipients, care plans and addenda in this app. This cannot be undone.</string>
+    <string name="backup_preview_medications">Medications in backup: %1$d</string>
+    <string name="backup_preview_intakes">Medication intakes in backup: %1$d</string>
+    <string name="backup_preview_current">Current data that will be replaced: %1$d notes, %2$d recipients, %3$d addenda, %4$d care plans, %5$d medications, %6$d medication intakes.</string>
+    <string name="backup_preview_warning">Restoring replaces all notes, recipients, care plans, addenda and medication data in this app. This cannot be undone.</string>
     <string name="backup_preview_exclusions">App settings, AI keys and pending sync data are not part of backups and are not changed.</string>
     <string name="backup_dismiss">Dismiss</string>
     <string name="backup_error_empty">The file is empty.</string>

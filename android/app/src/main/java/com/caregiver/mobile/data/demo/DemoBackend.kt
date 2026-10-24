@@ -145,6 +145,7 @@ class DemoBackendApis : BackendApis, RecipientAdmin {
             synchronized(lock) {
                 val index = recipients.indexOfFirst { it.id == id }
                 if (index < 0) throw notFound("recipient")
+                requireNotArchived(id)
                 recipients[index].copy(active = body.active).also { recipients[index] = it }
             }
     }

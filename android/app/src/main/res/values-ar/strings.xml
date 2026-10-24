@@ -127,6 +127,14 @@
     <string name="people_empty_archived">لا يوجد أشخاص مؤرشفون.</string>
     <string name="people_filter_active">النشطون</string>
     <string name="people_filter_archived">المؤرشفون</string>
+    <plurals name="people_count">
+        <item quantity="zero">لا أشخاص</item>
+        <item quantity="one">شخص واحد</item>
+        <item quantity="two">شخصان</item>
+        <item quantity="few">%d أشخاص</item>
+        <item quantity="many">%d شخصًا</item>
+        <item quantity="other">%d شخص</item>
+    </plurals>
     <string name="people_archived">مؤرشف</string>
     <string name="people_actions">إجراءات الشخص</string>
     <string name="people_archive">أرشفة</string>
@@ -550,7 +558,7 @@
 
     <!-- Full backup &amp; restore (Data &amp; Backup): versioned local JSON files. -->
     <string name="backup_create_title">إنشاء نسخة احتياطية</string>
-    <string name="backup_create_description">احفظ الملاحظات والمستلمين وخطط الرعاية والملاحق في ملف تختاره. لا تُضمَّن الإعدادات ومفاتيح الذكاء الاصطناعي.</string>
+    <string name="backup_create_description">احفظ الملاحظات والمستلمين وخطط الرعاية والملاحق وبيانات الأدوية في ملف تختاره. لا تُضمَّن الإعدادات ومفاتيح الذكاء الاصطناعي.</string>
     <string name="backup_create_working">جارٍ إنشاء النسخة الاحتياطية…</string>
     <string name="backup_create_success">تم إنشاء النسخة الاحتياطية: %1$d سجلًا.</string>
     <string name="backup_create_empty">تم إنشاء النسخة الاحتياطية. لا توجد بيانات بعد، لذا الملف فارغ.</string>
@@ -570,8 +578,10 @@
     <string name="backup_preview_recipients">المستلمون في النسخة: %1$d</string>
     <string name="backup_preview_addenda">الملاحق في النسخة: %1$d</string>
     <string name="backup_preview_plans">خطط الرعاية في النسخة: %1$d</string>
-    <string name="backup_preview_current">البيانات الحالية التي ستُستبدل: %1$d ملاحظة، %2$d مستلمًا، %3$d ملحقًا، %4$d خطة رعاية.</string>
-    <string name="backup_preview_warning">تستبدل الاستعادة جميع الملاحظات والمستلمين وخطط الرعاية والملاحق في التطبيق. لا يمكن التراجع عن ذلك.</string>
+    <string name="backup_preview_medications">الأدوية في النسخة: %1$d</string>
+    <string name="backup_preview_intakes">جرعات الأدوية المسجّلة في النسخة: %1$d</string>
+    <string name="backup_preview_current">البيانات الحالية التي ستُستبدل: %1$d ملاحظة، %2$d مستلمًا، %3$d ملحقًا، %4$d خطة رعاية، %5$d دواء، %6$d جرعة دواء مسجّلة.</string>
+    <string name="backup_preview_warning">تستبدل الاستعادة جميع الملاحظات والمستلمين وخطط الرعاية والملاحق وبيانات الأدوية في التطبيق. لا يمكن التراجع عن ذلك.</string>
     <string name="backup_preview_exclusions">لا تُضمَّن إعدادات التطبيق ومفاتيح الذكاء الاصطناعي وبيانات المزامنة المعلّقة في النسخ الاحتياطية ولا تتغير.</string>
     <string name="backup_dismiss">إغلاق</string>
     <string name="backup_error_empty">الملف فارغ.</string>

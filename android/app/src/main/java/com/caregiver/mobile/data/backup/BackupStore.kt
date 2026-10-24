@@ -3,6 +3,8 @@ package com.caregiver.mobile.data.backup
 import androidx.room.withTransaction
 import com.caregiver.mobile.data.local.AddendumEntity
 import com.caregiver.mobile.data.local.AppDatabase
+import com.caregiver.mobile.data.local.MedicationEntity
+import com.caregiver.mobile.data.local.MedicationIntakeEntity
 import com.caregiver.mobile.data.local.NoteEntity
 import com.caregiver.mobile.data.local.PlanEntity
 import com.caregiver.mobile.data.local.RecipientEntity
@@ -31,7 +33,7 @@ interface BackupStore {
     suspend fun counts(): BackupCounts
 
     /**
-     * Replaces all four restorable tables inside one Room transaction.
+     * Replaces every restorable table inside one Room transaction.
      *
      * Refuses with [BackupReplaceResult.Conflict] when the current counts no
      * longer match [expected] (data changed after the preview was built), so a
@@ -47,11 +49,11 @@ interface BackupStore {
  * restored backup appears on every screen immediately.
  *
  * Replace semantics (documented and previewed before the user confirms):
- * recipients, notes, addenda and plans are cleared and re-inserted from the
- * file in one transaction — all-or-nothing. Ids are preserved (they are the
- * relationship keys); row ids are not (the file does not carry Room
- * implementation details) but order is, so list and same-day ordering are
- * identical after a restore.
+ * recipients, notes, addenda, plans, medications and medication intakes are
+ * cleared and re-inserted from the file in one transaction — all-or-nothing.
+ * Ids are preserved (they are the relationship keys); row ids are not (the
+ * file does not carry Room implementation details) but order is, so list and
+ * same-day ordering are identical after a restore.
  */
 class RoomBackupStore(private val db: AppDatabase) : BackupStore {
 
@@ -61,6 +63,8 @@ class RoomBackupStore(private val db: AppDatabase) : BackupStore {
             notes = db.noteDao().query(null, null, null).map { it.toBackup() },
             addenda = db.addendumDao().all().map { it.toBackup() },
             plans = db.planDao().all().sortedBy { it.id }.map { it.toBackup() },
+            medications = db.medicationDao().all().map { it.toBackup() },
+            medicationIntakes = db.medicationDao().allIntakes().map { it.toBackup() },
         )
     }
 
@@ -71,6 +75,8 @@ class RoomBackupStore(private val db: AppDatabase) : BackupStore {
             if (readCounts() != expected) {
                 return@withTransaction BackupReplaceResult.Conflict
             }
+            db.medicationDao().deleteAllIntakes()
+            db.medicationDao().deleteAll()
             db.addendumDao().deleteAll()
             db.planDao().deleteAll()
             db.noteDao().deleteAll()
@@ -79,6 +85,8 @@ class RoomBackupStore(private val db: AppDatabase) : BackupStore {
             db.noteDao().insertImported(data.notes.map { it.toEntity() })
             db.addendumDao().insertImported(data.addenda.map { it.toEntity() })
             db.planDao().insertImported(data.plans.map { it.toEntity() })
+            db.medicationDao().insertImported(data.medications.map { it.toEntity() })
+            db.medicationDao().insertImportedIntakes(data.medicationIntakes.map { it.toEntity() })
             BackupReplaceResult.Replaced
         }
 
@@ -88,6 +96,8 @@ class RoomBackupStore(private val db: AppDatabase) : BackupStore {
             notes = db.noteDao().query(null, null, null).size,
             addenda = db.addendumDao().all().size,
             plans = db.planDao().all().size,
+            medications = db.medicationDao().all().size,
+            intakes = db.medicationDao().allIntakes().size,
         )
     }
 }
@@ -152,3 +162,33 @@ fun PlanEntity.toBackup(): BackupPlan =
 
 fun BackupPlan.toEntity(): PlanEntity =
     PlanEntity(id = id, recipientId = recipientId, versionsJson = versionsJson, updatedAt = updatedAt)
+
+fun MedicationEntity.toBackup(): BackupMedication =
+    BackupMedication(
+        id = id,
+        recipientId = recipientId,
+        name = name,
+        dose = dose,
+        schedule = schedule,
+        active = active,
+        createdAt = createdAt,
+        dosesPerDay = dosesPerDay,
+    )
+
+fun BackupMedication.toEntity(): MedicationEntity =
+    MedicationEntity(
+        id = id,
+        recipientId = recipientId,
+        name = name,
+        dose = dose,
+        schedule = schedule,
+        active = active,
+        createdAt = createdAt,
+        dosesPerDay = dosesPerDay,
+    )
+
+fun MedicationIntakeEntity.toBackup(): BackupMedicationIntake =
+    BackupMedicationIntake(id = id, medicationId = medicationId, date = date, times = times)
+
+fun BackupMedicationIntake.toEntity(): MedicationIntakeEntity =
+    MedicationIntakeEntity(id = id, medicationId = medicationId, date = date, times = times)

@@ -26,6 +26,7 @@ import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
@@ -224,11 +225,27 @@ fun MedicationsCard(
     onDelete: (id: String) -> Unit,
     modifier: Modifier = Modifier,
     error: MedicationActionError? = null,
+    onErrorShown: () -> Unit = {},
 ) {
     var showAdd by remember { mutableStateOf(false) }
     var editing by remember { mutableStateOf<MedicationEntity?>(null) }
     var menuFor by remember { mutableStateOf<String?>(null) }
     var deleting by remember { mutableStateOf<MedicationEntity?>(null) }
+
+    // A write can fail because the person was archived from another screen.
+    // Show the reason long enough to read, then clear it instead of pinning
+    // a permanent error to the card.
+    LaunchedEffect(error) {
+        if (error != null) {
+            delay(4_000)
+            onErrorShown()
+        }
+    }
+
+    // Only medications belonging to the people this screen can act for:
+    // archived (and otherwise unselectable) recipients stay read-only and
+    // out of the card instead of leaving unlabelled, tappable rows behind.
+    val visibleMeds = state.meds.filter { med -> people.any { it.id == med.recipientId } }
 
     AppCard(modifier = modifier) {
         Row(
@@ -269,7 +286,7 @@ fun MedicationsCard(
             )
         }
 
-        if (state.meds.isEmpty()) {
+        if (visibleMeds.isEmpty()) {
             Text(
                 text = stringResource(R.string.home_medications_empty),
                 fontSize = 12.sp,
@@ -277,7 +294,7 @@ fun MedicationsCard(
             )
         } else {
             val showPerson = people.size > 1
-            state.meds.forEach { med ->
+            visibleMeds.forEach { med ->
                 Row(verticalAlignment = Alignment.CenterVertically) {
                     Column(modifier = Modifier.weight(1f)) {
                         Text(

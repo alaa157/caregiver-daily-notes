@@ -248,6 +248,24 @@ class RecipientsArchiveUiTest {
     }
 
     @Test
+    fun archivedFilterHiddenWithoutLocalAdmin() {
+        val holder = Holder(listOf(aisha))
+        render(holder, hasAdmin = false)
+
+        compose.onNodeWithTag("people_filter_active").assertIsDisplayed()
+        compose.onNodeWithTag("people_filter_archived").assertDoesNotExist()
+    }
+
+    @Test
+    fun peopleCountUsesTheLocalizedPluralResource() {
+        val holder = Holder(listOf(aisha, RecipientDto("r2", "Zaid", true)))
+        render(holder)
+
+        val expected = context.resources.getQuantityString(R.plurals.people_count, 2, 2)
+        compose.onNodeWithText(expected).assertIsDisplayed()
+    }
+
+    @Test
     fun archivedRecipientIsNotSelectableForNewNote() {
         // The picker guard is a shared pure filter; this assertion documents
         // that the People screen is not the enforcement point.

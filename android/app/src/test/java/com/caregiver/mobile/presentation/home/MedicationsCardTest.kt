@@ -47,6 +47,7 @@ class MedicationsCardTest {
 
     private fun render(
         people: List<MedicationsPerson> = listOf(MedicationsPerson("r1", "Mom")),
+        state: MedicationsState = medState(),
         onDelete: (String) -> Unit = {},
         onAdd: (String, String, String?, String?, Int) -> Unit = { _, _, _, _, _ -> },
     ) {
@@ -54,7 +55,7 @@ class MedicationsCardTest {
             WithTestOwner {
                 CaregiverTheme {
                     MedicationsCard(
-                        state = medState(),
+                        state = state,
                         people = people,
                         onSetTaken = { _, _, _ -> },
                         onAdd = onAdd,
@@ -121,5 +122,21 @@ class MedicationsCardTest {
             context.getString(R.string.home_medications_add),
         ).assertIsNotEnabled()
         assertFalse(added.get())
+    }
+
+    @Test
+    fun medicationsForPeopleOutsideTheSelectorAreHidden() {
+        val archivedPersonsMed = med.copy(
+            id = "m2",
+            recipientId = "r-archived",
+            name = "Metformin",
+        )
+        render(
+            people = listOf(MedicationsPerson("r1", "Mom")),
+            state = MedicationsState(meds = listOf(med, archivedPersonsMed)),
+        )
+
+        compose.onNodeWithText("Amlodipine").assertExists()
+        compose.onNodeWithText("Metformin").assertDoesNotExist()
     }
 }

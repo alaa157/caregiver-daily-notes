@@ -1,5 +1,6 @@
 package com.caregiver.mobile.data.backup
 
+import com.caregiver.mobile.data.local.MedicationStore
 import java.time.LocalDate
 import java.time.LocalDateTime
 import java.time.format.DateTimeParseException
@@ -14,12 +15,13 @@ enum class BackupIssueKind {
     INVALID_OPTION,
     INVALID_DATE,
     INVALID_PAIN,
+    INVALID_COUNT,
     BROKEN_REFERENCE,
     INVALID_PLAN_JSON,
 }
 
 /** Which entity a validation issue belongs to. */
-enum class BackupEntity { RECIPIENT, NOTE, ADDENDUM, PLAN }
+enum class BackupEntity { RECIPIENT, NOTE, ADDENDUM, PLAN, MEDICATION, MEDICATION_INTAKE }
 
 /** One rejected record. Never carries note text or recipient names. */
 data class BackupIssue(val entity: BackupEntity, val kind: BackupIssueKind)
@@ -123,6 +125,42 @@ object BackupValidator {
             }
             if (!isJsonArray(plan.versionsJson)) {
                 report(BackupEntity.PLAN, BackupIssueKind.INVALID_PLAN_JSON)
+            }
+        }
+
+        val medicationIds = HashSet<String>()
+        data.medications.forEach { medication ->
+            if (medication.id.isBlank()) {
+                report(BackupEntity.MEDICATION, BackupIssueKind.MISSING_ID)
+            } else if (!medicationIds.add(medication.id)) {
+                report(BackupEntity.MEDICATION, BackupIssueKind.DUPLICATE_ID)
+            }
+            if (medication.recipientId.isBlank() || medication.recipientId !in recipientIds) {
+                report(BackupEntity.MEDICATION, BackupIssueKind.BROKEN_REFERENCE)
+            }
+            if (medication.name.isBlank()) {
+                report(BackupEntity.MEDICATION, BackupIssueKind.MISSING_VALUE)
+            }
+            if (medication.dosesPerDay !in 1..MedicationStore.MAX_DOSES_PER_DAY) {
+                report(BackupEntity.MEDICATION, BackupIssueKind.INVALID_COUNT)
+            }
+        }
+
+        val intakeIds = HashSet<String>()
+        data.medicationIntakes.forEach { intake ->
+            if (intake.id.isBlank()) {
+                report(BackupEntity.MEDICATION_INTAKE, BackupIssueKind.MISSING_ID)
+            } else if (!intakeIds.add(intake.id)) {
+                report(BackupEntity.MEDICATION_INTAKE, BackupIssueKind.DUPLICATE_ID)
+            }
+            if (intake.medicationId.isBlank() || intake.medicationId !in medicationIds) {
+                report(BackupEntity.MEDICATION_INTAKE, BackupIssueKind.BROKEN_REFERENCE)
+            }
+            if (parseIsoDate(intake.date) == null) {
+                report(BackupEntity.MEDICATION_INTAKE, BackupIssueKind.INVALID_DATE)
+            }
+            if (intake.times < 1) {
+                report(BackupEntity.MEDICATION_INTAKE, BackupIssueKind.INVALID_COUNT)
             }
         }
 

@@ -3,9 +3,10 @@ package com.caregiver.mobile.data.backup
 import kotlinx.serialization.Serializable
 
 /**
- * The versioned backup payload (`.carebackup.json`, schema v2 — documented in
- * `docs/android/backup-restore.md`). Version 2 adds recipient archive state;
- * v1 files still decode and restore as fully unarchived.
+ * The versioned backup payload (`.carebackup.json`, schema v3). Version 2
+ * added recipient archive state and version 3 adds the standalone medication
+ * tracker (medications + intake marks). Older files still decode: v1 restores
+ * as fully unarchived, and v1/v2 restore without medication data.
  *
  * Room surrogate keys (`rowId`) are deliberately absent: list order is the
  * contract that preserves them. Recipients keep their list order, and notes
@@ -19,6 +20,8 @@ data class BackupData(
     val notes: List<BackupNote>,
     val addenda: List<BackupAddendum>,
     val plans: List<BackupPlan>,
+    val medications: List<BackupMedication> = emptyList(),
+    val medicationIntakes: List<BackupMedicationIntake> = emptyList(),
 ) {
     val counts: BackupCounts
         get() = BackupCounts(
@@ -26,6 +29,8 @@ data class BackupData(
             notes = notes.size,
             addenda = addenda.size,
             plans = plans.size,
+            medications = medications.size,
+            intakes = medicationIntakes.size,
         )
 }
 
@@ -76,6 +81,31 @@ data class BackupPlan(
 )
 
 /**
+ * A tracked medication. The local tracker only stores [active] rows on the
+ * card, but the backup keeps every row so a restore is a complete snapshot.
+ */
+@Serializable
+data class BackupMedication(
+    val id: String,
+    val recipientId: String,
+    val name: String,
+    val dose: String? = null,
+    val schedule: String? = null,
+    val active: Boolean,
+    val createdAt: Long,
+    val dosesPerDay: Int,
+)
+
+/** One taken dose; [id] is the local "<medicationId>:<date>:<doseIndex>" key. */
+@Serializable
+data class BackupMedicationIntake(
+    val id: String,
+    val medicationId: String,
+    val date: String,
+    val times: Int,
+)
+
+/**
  * The document envelope: stable identifiers, provenance and the payload.
  * [integrity] is nullable only so a missing block fails with its own clear
  * error instead of a generic parse error; files this app writes always carry it.
@@ -107,6 +137,8 @@ data class BackupCounts(
     val notes: Int,
     val addenda: Int,
     val plans: Int,
+    val medications: Int = 0,
+    val intakes: Int = 0,
 ) {
-    val total: Int get() = recipients + notes + addenda + plans
+    val total: Int get() = recipients + notes + addenda + plans + medications + intakes
 }
