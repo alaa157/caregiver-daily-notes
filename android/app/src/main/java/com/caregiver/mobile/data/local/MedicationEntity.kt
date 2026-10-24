@@ -76,6 +76,9 @@ interface MedicationDao {
     @Query("DELETE FROM medications WHERE id = :id")
     suspend fun delete(id: String)
 
+    @Query("SELECT * FROM medications WHERE id = :id")
+    suspend fun byId(id: String): MedicationEntity?
+
     @Query("SELECT id FROM medications WHERE recipientId = :recipientId")
     suspend fun idsByRecipient(recipientId: String): List<String>
 

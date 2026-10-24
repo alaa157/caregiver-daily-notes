@@ -14,6 +14,17 @@ import kotlinx.coroutines.flow.Flow
 class MedicationStore(private val db: AppDatabase) {
     private val dao = db.medicationDao()
 
+    private suspend fun requireWritableRecipient(recipientId: String) {
+        if (db.recipientDao().byServerId(recipientId)?.archivedAt != null) {
+            throw ArchivedRecipientException(recipientId)
+        }
+    }
+
+    private suspend fun requireWritableMedication(medicationId: String) {
+        val medication = dao.byId(medicationId) ?: return
+        requireWritableRecipient(medication.recipientId)
+    }
+
     fun observeActive(): Flow<List<MedicationEntity>> = dao.observeActive()
 
     fun observeIntakes(date: String): Flow<List<MedicationIntakeEntity>> =
@@ -27,6 +38,7 @@ class MedicationStore(private val db: AppDatabase) {
         schedule: String? = null,
         dosesPerDay: Int = 1,
     ): String {
+        requireWritableRecipient(recipientId)
         val entity = MedicationEntity(
             id = UUID.randomUUID().toString(),
             recipientId = recipientId,
@@ -42,9 +54,13 @@ class MedicationStore(private val db: AppDatabase) {
     }
 
     /** Edit in place (name/dose/schedule/doses/active) without touching the id. */
-    suspend fun update(entity: MedicationEntity) = dao.update(
-        entity.copy(dosesPerDay = entity.dosesPerDay.coerceIn(1, MAX_DOSES_PER_DAY)),
-    )
+    suspend fun update(entity: MedicationEntity) {
+        requireWritableMedication(entity.id)
+        requireWritableRecipient(entity.recipientId)
+        dao.update(
+            entity.copy(dosesPerDay = entity.dosesPerDay.coerceIn(1, MAX_DOSES_PER_DAY)),
+        )
+    }
 
     /** Deleting a medication also forgets its history — nothing dangles. */
     suspend fun delete(id: String) {
@@ -62,6 +78,7 @@ class MedicationStore(private val db: AppDatabase) {
      * evening dose still due.
      */
     suspend fun setTaken(medicationId: String, date: LocalDate, doseIndex: Int, taken: Boolean) {
+        requireWritableMedication(medicationId)
         val id = intakeId(medicationId, date, doseIndex)
         if (taken) {
             dao.upsertIntake(

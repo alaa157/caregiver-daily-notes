@@ -38,13 +38,42 @@ import java.util.UUID
 
 class LocalBackendApis(
     private val db: AppDatabase,
-) : BackendApis {
+    private val clock: () -> Long = System::currentTimeMillis,
+) : BackendApis, RecipientAdmin {
     private val json = Json { ignoreUnknownKeys = true }
 
     private val recipientDao get() = db.recipientDao()
     private val noteDao get() = db.noteDao()
     private val planDao get() = db.planDao()
     private val addendumDao get() = db.addendumDao()
+
+    private suspend fun requireWritableRecipient(recipientId: String) {
+        if (recipientDao.byServerId(recipientId)?.archivedAt != null) {
+            throw ArchivedRecipientException(recipientId)
+        }
+    }
+
+    override suspend fun archive(id: String): RecipientDto {
+        val existing = recipientDao.byServerId(id) ?: throw NoSuchElementException("recipient $id")
+        if (existing.archivedAt == null) {
+            recipientDao.setArchivedAt(id, clock())
+        }
+        return recipientDao.byServerId(id)?.toDto()
+            ?: throw NoSuchElementException("recipient $id")
+    }
+
+    override suspend fun unarchive(id: String): RecipientDto {
+        val existing = recipientDao.byServerId(id) ?: throw NoSuchElementException("recipient $id")
+        recipientDao.setArchivedAt(id, null)
+        return existing.copy(archivedAt = null).toDto()
+    }
+
+    override suspend fun deleteArchived(id: String) {
+        db.deleteArchivedRecipient(id)
+    }
+
+    override suspend fun counts(id: String): RecipientDeletionCounts =
+        db.recipientDataCounts(id)
 
     override suspend fun auth(): AuthApi = object : AuthApi {
         override suspend fun login(body: LoginRequest): AuthResponse = AuthResponse("local-token")
@@ -74,6 +103,7 @@ class LocalBackendApis(
 
     override suspend fun notes(): NoteApi = object : NoteApi {
         override suspend fun create(body: CreateNoteRequest): NoteDto {
+            requireWritableRecipient(body.recipientId)
             val id = UUID.randomUUID().toString()
             val date = LocalDate.now().toString()
             val dto = NoteDto(
@@ -113,7 +143,8 @@ class LocalBackendApis(
         }
 
         override suspend fun append(id: String, body: CreateAddendumRequest): AddendumDto {
-            if (noteDao.byServerId(id) == null) throw NoSuchElementException("note $id")
+            val note = noteDao.byServerId(id) ?: throw NoSuchElementException("note $id")
+            requireWritableRecipient(note.recipientId)
             val addendum = AddendumDto(
                 id = UUID.randomUUID().toString(),
                 noteId = id,
@@ -194,6 +225,7 @@ class LocalBackendApis(
             }
 
         override suspend fun suggest(body: SuggestPlanRequest): PlanDto {
+            requireWritableRecipient(body.recipientId)
             val plan = PlanDto(
                 id = UUID.randomUUID().toString(),
                 recipientId = body.recipientId,
@@ -217,6 +249,7 @@ class LocalBackendApis(
 
         override suspend fun appendVersion(id: String, body: AppendVersionRequest): PlanDto {
             val entity = planDao.byId(id) ?: throw NoSuchElementException("plan $id")
+            requireWritableRecipient(entity.recipientId)
             val versions = json.decodeFromString<MutableList<PlanVersionDto>>(entity.versionsJson)
             val latest = versions.maxByOrNull { it.version } ?: throw NoSuchElementException("plan $id")
             val items = body.items ?: latest.items
@@ -238,6 +271,7 @@ class LocalBackendApis(
 
         private suspend fun transition(id: String, status: String): PlanDto {
             val entity = planDao.byId(id) ?: throw NoSuchElementException("plan $id")
+            requireWritableRecipient(entity.recipientId)
             val versions = json.decodeFromString<MutableList<PlanVersionDto>>(entity.versionsJson)
             if (versions.isEmpty()) throw NoSuchElementException("plan $id")
             val updatedVersions = try {
