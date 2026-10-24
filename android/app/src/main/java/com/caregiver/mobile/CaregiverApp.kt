@@ -25,6 +25,7 @@ import com.caregiver.mobile.data.demo.DemoBackendApis
 import com.caregiver.mobile.data.local.AppDatabase
 import com.caregiver.mobile.data.local.LocalBackendApis
 import com.caregiver.mobile.data.local.MedicationStore
+import com.caregiver.mobile.data.local.RecipientAdmin
 import com.caregiver.mobile.data.update.GitHubReleaseChecker
 import com.caregiver.mobile.data.update.UpdateChecker
 import com.caregiver.mobile.ai.LlmClientFactory
@@ -124,6 +125,13 @@ class AppGraph(val context: Context, val forceProduction: Boolean = false) {
             )
         }
     }
+
+    /**
+     * Local-only recipient archive/delete admin. Null when this graph has no
+     * local database (server-cache or demo), so the UI can hide the actions
+     * instead of faking success.
+     */
+    val recipientAdmin: RecipientAdmin? by lazy { live as? RecipientAdmin }
 
     /** Task 8a cache; production-only so demo data never reaches disk. */
     private val db: AppDatabase? by lazy {

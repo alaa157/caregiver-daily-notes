@@ -108,6 +108,8 @@ android {
     sourceSets {
         getByName("test").java.srcDir("src/sharedTest/java")
         getByName("androidTest").java.srcDir("src/sharedTest/java")
+        // MigrationTestHelper reads the committed exported schemas from assets.
+        getByName("androidTest").assets.srcDir("$projectDir/schemas")
     }
 }
 
@@ -172,6 +174,7 @@ dependencies {
     androidTestImplementation(libs.test.ext.junit)
     androidTestImplementation(libs.mockwebserver)
     androidTestImplementation(libs.coroutines.core)
+    androidTestImplementation(libs.room.testing)
     debugImplementation(libs.compose.ui.test.manifest)
 }
 

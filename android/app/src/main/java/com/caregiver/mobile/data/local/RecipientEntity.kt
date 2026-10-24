@@ -25,13 +25,14 @@ data class RecipientEntity(
     val localId: String? = null,
     val name: String,
     val active: Boolean,
+    val archivedAt: Long? = null,
 )
 
 fun RecipientEntity.toDto(): RecipientDto =
-    RecipientDto(id = serverId, name = name, active = active)
+    RecipientDto(id = serverId, name = name, active = active, archivedAt = archivedAt)
 
 fun RecipientDto.toEntity(): RecipientEntity =
-    RecipientEntity(serverId = id, name = name, active = active)
+    RecipientEntity(serverId = id, name = name, active = active, archivedAt = archivedAt)
 
 /**
  * Room access for the recipient cache. [replaceAll] is the refresh write:

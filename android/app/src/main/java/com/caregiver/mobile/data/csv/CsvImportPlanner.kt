@@ -5,7 +5,12 @@ import java.time.format.DateTimeParseException
 import java.util.Locale
 
 /** An existing recipient the import can attach notes to (stable id + display name). */
-data class RecipientRef(val id: String, val name: String, val active: Boolean)
+data class RecipientRef(
+    val id: String,
+    val name: String,
+    val active: Boolean,
+    val archived: Boolean = false,
+)
 
 /**
  * The (recipientId, date) pair the domain treats as unique: the backend
