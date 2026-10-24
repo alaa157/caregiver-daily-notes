@@ -180,5 +180,14 @@ class NoteEditorFlowUiTest {
             "تصحيح: لم يحدث كسر، مجرد كدمة — correction: bruise only, no fracture.",
         ).assertIsDisplayed()
         compose.onNodeWithText("Second demo correction").assertIsDisplayed()
+
+        compose.onNodeWithText("Add correction").performClick()
+        assertEquals("addendum/n2", nav.currentDestination?.route)
+        compose.onNodeWithText("Write the new information or correction…")
+            .performTextInput("Third demo correction")
+        compose.onNodeWithText("Save correction").performClick()
+
+        assertEquals("note/n2", nav.currentDestination?.route)
+        compose.onNodeWithText("Third demo correction").assertIsDisplayed()
     }
 }
