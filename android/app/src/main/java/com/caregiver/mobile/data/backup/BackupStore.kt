@@ -98,10 +98,20 @@ class RoomBackupStore(private val db: AppDatabase) : BackupStore {
  * unsynced-by-construction (the standalone store has no outbox).
  */
 fun RecipientEntity.toBackup(): BackupRecipient =
-    BackupRecipient(serverId = serverId, name = name, active = active)
+    BackupRecipient(
+        serverId = serverId,
+        name = name,
+        active = active,
+        archivedAt = archivedAt,
+    )
 
 fun BackupRecipient.toEntity(): RecipientEntity =
-    RecipientEntity(serverId = serverId, name = name, active = active)
+    RecipientEntity(
+        serverId = serverId,
+        name = name,
+        active = active,
+        archivedAt = archivedAt,
+    )
 
 fun NoteEntity.toBackup(): BackupNote = BackupNote(
     serverId = serverId,

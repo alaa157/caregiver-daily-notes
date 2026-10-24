@@ -5,6 +5,7 @@ import kotlinx.serialization.encodeToString
 import kotlinx.serialization.json.Json
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
+import org.junit.Assert.assertNull
 import org.junit.Assert.assertTrue
 import org.junit.Test
 
@@ -108,9 +109,49 @@ class BackupCodecTest {
 
     @Test
     fun aFutureFormatVersionIsRejectedWithItsNumber() {
-        val failure = decodeFailure(futureVersionDocument(version = 2))
+        val failure = decodeFailure(futureVersionDocument(version = 3))
         assertEquals(BackupFailureReason.UNSUPPORTED_VERSION, failure.reason)
-        assertEquals("2", failure.detail)
+        assertEquals("3", failure.detail)
+    }
+
+    @Test
+    fun roundTripPreservesArchivedAt() {
+        val data = backupData(
+            recipients = listOf(
+                backupRecipient("r1", archivedAt = 1_700_000_000_000),
+                backupRecipient("r2", active = false),
+            ),
+        )
+
+        val decoded = (CareBackupCodec.decode(encodeBackup(data)) as BackupDecodeResult.Success).backup
+
+        assertEquals(data, decoded.data)
+        assertEquals(CareBackupCodec.FORMAT_VERSION, decoded.formatVersion)
+        assertEquals(1_700_000_000_000, decoded.data.recipients.first().archivedAt)
+        assertNull(decoded.data.recipients.last().archivedAt)
+    }
+
+    @Test
+    fun aV1BackupWithoutArchivedAtStillDecodesAsUnarchived() {
+        val data = backupData(recipients = listOf(backupRecipient("r1")))
+        val canonical = canonicalJson(data)
+        val document = versionedDocument(version = 1, dataJson = canonical, digest = sha256(canonical))
+
+        val decoded = CareBackupCodec.decode(document) as BackupDecodeResult.Success
+
+        assertEquals(1, decoded.backup.formatVersion)
+        assertNull(decoded.backup.data.recipients.single().archivedAt)
+    }
+
+    @Test
+    fun aV1BackupIgnoresAnArchivedAtField() {
+        val data = backupData(recipients = listOf(backupRecipient("r1", archivedAt = 123)))
+        val canonical = canonicalJson(data)
+        val document = versionedDocument(version = 1, dataJson = canonical, digest = sha256(canonical))
+
+        val decoded = CareBackupCodec.decode(document) as BackupDecodeResult.Success
+
+        assertNull(decoded.backup.data.recipients.single().archivedAt)
     }
 
     @Test
@@ -195,6 +236,26 @@ class BackupCodecTest {
           "data": { "recipients": [], "notes": [], "addenda": [], "plans": [] }
         }
     """.trimIndent()
+
+    private fun versionedDocument(version: Int, dataJson: String, digest: String): String = """
+        {
+          "format": "${CareBackupCodec.FORMAT_ID}",
+          "formatVersion": $version,
+          "appName": "${CareBackupCodec.APP_NAME}",
+          "appVersion": "9 (9)",
+          "createdAt": "2026-10-19T09:00:00Z",
+          "integrity": { "algorithm": "SHA-256", "digest": "$digest" },
+          "data": $dataJson
+        }
+    """.trimIndent()
+
+    private fun canonicalJson(data: BackupData): String =
+        Json { encodeDefaults = true; explicitNulls = false }.encodeToString(data)
+
+    private fun sha256(text: String): String =
+        MessageDigest.getInstance("SHA-256")
+            .digest(text.toByteArray(Charsets.UTF_8))
+            .joinToString("") { "%02x".format(it) }
 
     private fun documentWithoutIntegrity(): String = """
         {

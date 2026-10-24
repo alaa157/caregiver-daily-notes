@@ -123,6 +123,25 @@ class CsvTransferServiceTest {
     }
 
     @Test
+    fun archivedRecipientsAreExcludedFromImportPlanning() = runTest {
+        val archived = RecipientDto(
+            id = "r3",
+            name = "Zaid",
+            active = true,
+            archivedAt = 111L,
+        )
+        val service = CsvTransferService(store(recipients = sampleRecipients + archived), clock)
+
+        val plan = (
+            service.prepare(csvText(csvRow(recipientId = "r3"))) as ImportPreparation.Ready
+            ).plan
+
+        assertEquals(0, plan.valid.size)
+        assertEquals(1, plan.skipped.size)
+        assertTrue(plan.recipients.first { it.id == "r3" }.archived)
+    }
+
+    @Test
     fun prepareBuildsAPlanThatCountsExistingDuplicates() = runTest {
         val service = CsvTransferService(
             store(notes = listOf(testNote(id = "n1", recipientId = "r1", date = "2026-10-01"))),

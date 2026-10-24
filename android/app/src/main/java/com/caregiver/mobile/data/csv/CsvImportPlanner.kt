@@ -114,6 +114,8 @@ data class ImportPlan(
  * - a non-empty `recipient_id` is matched against the stable ids first;
  * - a non-empty `recipient_name` is matched case-insensitively only when the
  *   id column is empty, and only when exactly one recipient has that name;
+ * - archived recipients never satisfy a match or a resolution target, so an
+ *   import can never write a note into an archived person's history;
  * - anything else becomes an [UnmatchedRecipient] that the user must map to
  *   an existing recipient or leave skipped. No recipient is ever invented and
  *   a note is never attached to a different person silently.
@@ -131,8 +133,9 @@ object CsvImportPlanner {
         extraHeaders: List<String> = emptyList(),
         overrides: Map<String, String> = emptyMap(),
     ): ImportPlan {
-        val byId = recipients.associateBy { it.id }
-        val byName = recipients.groupBy { nameKey(it.name) }
+        val matchable = recipients.filterNot { it.archived }
+        val byId = matchable.associateBy { it.id }
+        val byName = matchable.groupBy { nameKey(it.name) }
         val seen = existing.toMutableSet()
 
         val valid = mutableListOf<PlannedNote>()

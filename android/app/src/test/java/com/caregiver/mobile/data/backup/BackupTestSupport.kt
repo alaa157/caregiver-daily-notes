@@ -5,7 +5,13 @@ fun backupRecipient(
     serverId: String = "r1",
     name: String = "Mona",
     active: Boolean = true,
-): BackupRecipient = BackupRecipient(serverId = serverId, name = name, active = active)
+    archivedAt: Long? = null,
+): BackupRecipient = BackupRecipient(
+    serverId = serverId,
+    name = name,
+    active = active,
+    archivedAt = archivedAt,
+)
 
 /** A note fixture with valid defaults. */
 fun backupNote(
