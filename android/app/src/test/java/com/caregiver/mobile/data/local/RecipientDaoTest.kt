@@ -64,4 +64,19 @@ class RecipientDaoTest {
         assertEquals(1, dao.all().size)
         assertEquals("Aisha Hassan", dao.byServerId("r1")?.name)
     }
+
+    @Test
+    fun archiveTimestampAndDeleteTouchOnlyTheTargetRow() = runTest {
+        dao.insertAll(listOf(row("r1", "Aisha"), row("r2", "Karim")))
+
+        assertEquals(1, dao.setArchivedAt("r1", 99L))
+        assertEquals(99L, dao.byServerId("r1")?.archivedAt)
+        assertNull(dao.byServerId("r2")?.archivedAt)
+        assertEquals(0, dao.setArchivedAt("missing", 1L))
+
+        assertEquals(1, dao.deleteByServerId("r1"))
+        assertNull(dao.byServerId("r1"))
+        assertEquals("Karim", dao.byServerId("r2")?.name)
+        assertEquals(0, dao.deleteByServerId("r1"))
+    }
 }

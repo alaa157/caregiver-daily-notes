@@ -95,4 +95,25 @@ class NoteDaoTest {
 
         assertEquals(listOf("n2"), dao.query(null, null, null).map { it.serverId })
     }
+
+    @Test
+    fun recipientScopedCountAndDeleteLeaveOtherHistory() = runTest {
+        dao.insertAll(
+            listOf(
+                row("n1", "r1", "2026-10-05"),
+                row("n2", "r1", "2026-10-06"),
+                row("n3", "r2", "2026-10-07"),
+            ),
+        )
+
+        assertEquals(2, dao.countByRecipient("r1"))
+        assertEquals(setOf("n1", "n2"), dao.serverIdsByRecipient("r1").toSet())
+
+        dao.deleteByRecipient("r1")
+        assertEquals(0, dao.countByRecipient("r1"))
+        assertEquals(listOf("n3"), dao.query(null, null, null).map { it.serverId })
+
+        dao.deleteByRecipient("r1")
+        assertEquals(listOf("n3"), dao.query(null, null, null).map { it.serverId })
+    }
 }

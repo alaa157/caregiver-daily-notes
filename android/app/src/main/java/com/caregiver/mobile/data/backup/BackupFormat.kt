@@ -3,8 +3,9 @@ package com.caregiver.mobile.data.backup
 import kotlinx.serialization.Serializable
 
 /**
- * The versioned backup payload (`.carebackup.json`, schema v1 — documented in
- * `docs/android/backup-restore.md`).
+ * The versioned backup payload (`.carebackup.json`, schema v2 — documented in
+ * `docs/android/backup-restore.md`). Version 2 adds recipient archive state;
+ * v1 files still decode and restore as fully unarchived.
  *
  * Room surrogate keys (`rowId`) are deliberately absent: list order is the
  * contract that preserves them. Recipients keep their list order, and notes
@@ -28,12 +29,16 @@ data class BackupData(
         )
 }
 
-/** A recipient as stored locally; [serverId] is the stable id notes reference. */
+/**
+ * A recipient as stored locally; [serverId] is the stable id notes reference.
+ * [archivedAt] is absent from v1 files and defaults to unarchived.
+ */
 @Serializable
 data class BackupRecipient(
     val serverId: String,
     val name: String,
     val active: Boolean,
+    val archivedAt: Long? = null,
 )
 
 /** A daily note; values mirror the local entity, minus the outbox sync mapping. */

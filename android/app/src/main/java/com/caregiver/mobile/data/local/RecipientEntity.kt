@@ -51,6 +51,12 @@ interface RecipientDao {
     @Query("SELECT * FROM recipients WHERE serverId = :serverId")
     suspend fun byServerId(serverId: String): RecipientEntity?
 
+    @Query("UPDATE recipients SET archivedAt = :archivedAt WHERE serverId = :serverId")
+    suspend fun setArchivedAt(serverId: String, archivedAt: Long?): Int
+
+    @Query("DELETE FROM recipients WHERE serverId = :serverId")
+    suspend fun deleteByServerId(serverId: String): Int
+
     @Insert(onConflict = OnConflictStrategy.REPLACE)
     suspend fun insertAll(items: List<RecipientEntity>)
 

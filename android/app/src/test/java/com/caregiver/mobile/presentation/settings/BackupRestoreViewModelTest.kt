@@ -177,7 +177,10 @@ class BackupRestoreViewModelTest {
 
     @Test
     fun restoreOfANewerFormatReportsTheVersion() = runTest {
-        val newer = encodeBackup().replaceFirst("\"formatVersion\": 1", "\"formatVersion\": 7")
+        val newer = encodeBackup().replaceFirst(
+            "\"formatVersion\": ${CareBackupCodec.FORMAT_VERSION}",
+            "\"formatVersion\": 7",
+        )
         val io = FakeDocumentIo(text = newer)
         val vm = BackupRestoreViewModel(service(), io, this)
 

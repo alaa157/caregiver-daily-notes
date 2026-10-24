@@ -13,6 +13,12 @@ interface PlanDao {
     @Query("SELECT * FROM plans WHERE id = :id")
     suspend fun byId(id: String): PlanEntity?
 
+    @Query("SELECT COUNT(*) FROM plans WHERE recipientId = :recipientId")
+    suspend fun countByRecipient(recipientId: String): Int
+
+    @Query("DELETE FROM plans WHERE recipientId = :recipientId")
+    suspend fun deleteByRecipient(recipientId: String)
+
     @Insert(onConflict = OnConflictStrategy.REPLACE)
     suspend fun upsert(entity: PlanEntity)
 

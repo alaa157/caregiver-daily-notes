@@ -59,9 +59,9 @@ data class DecodedBackup(
  * Reads and writes the documented `.carebackup.json` shape.
  *
  * The envelope carries a stable `format` id and an integer `formatVersion`;
- * this codec accepts exactly version [FORMAT_VERSION] and rejects newer files
- * with [BackupFailureReason.UNSUPPORTED_VERSION] (a future version must be
- * migrated deliberately — see the migration notes in the docs).
+ * this codec writes [FORMAT_VERSION] (2), still reads v1, and rejects newer
+ * files with [BackupFailureReason.UNSUPPORTED_VERSION] (a future version must
+ * be migrated deliberately — see the migration notes in the docs).
  *
  * Integrity: `integrity.digest` is the SHA-256 of the **canonical compact
  * JSON of `data`**, re-encoded with this app's serializer on both sides. It
@@ -74,7 +74,7 @@ data class DecodedBackup(
  */
 object CareBackupCodec {
     const val FORMAT_ID = "caregiver-daily-notes.backup"
-    const val FORMAT_VERSION = 1
+    const val FORMAT_VERSION = 2
     const val APP_NAME = "caregiver-daily-notes"
     const val INTEGRITY_ALGORITHM = "SHA-256"
 
@@ -123,7 +123,7 @@ object CareBackupCodec {
         if (envelope.format != FORMAT_ID) {
             return BackupDecodeResult.Failure(BackupFailure(BackupFailureReason.NOT_A_BACKUP))
         }
-        if (envelope.formatVersion != FORMAT_VERSION) {
+        if (envelope.formatVersion !in 1..FORMAT_VERSION) {
             return if (envelope.formatVersion > FORMAT_VERSION) {
                 BackupDecodeResult.Failure(
                     BackupFailure(
@@ -150,10 +150,22 @@ object CareBackupCodec {
                 createdAt = envelope.createdAt,
                 formatVersion = envelope.formatVersion,
                 appVersion = envelope.appVersion,
-                data = envelope.data,
+                data = normalize(envelope.data, envelope.formatVersion),
             ),
         )
     }
+
+    /**
+     * v1 has no archive state. A deliberate v1 path (rather than relying only
+     * on the nullable default) keeps v1 files unarchived even if a hand-edited
+     * file carries an unexpected `archivedAt`.
+     */
+    private fun normalize(data: BackupData, formatVersion: Int): BackupData =
+        if (formatVersion == 1) {
+            data.copy(recipients = data.recipients.map { it.copy(archivedAt = null) })
+        } else {
+            data
+        }
 
     private fun digestOf(data: BackupData): String {
         val bytes = canonical.encodeToString(data).toByteArray(Charsets.UTF_8)

@@ -1,6 +1,7 @@
 package com.caregiver.mobile.data.csv
 
 import org.junit.Assert.assertEquals
+import org.junit.Assert.assertFalse
 import org.junit.Assert.assertTrue
 import org.junit.Test
 
@@ -261,6 +262,74 @@ class CsvImportPlannerTest {
         assertEquals(1, plan.invalid.size)
         assertEquals(1, plan.duplicates.size)
         assertEquals(1, plan.skipped.size)
+    }
+
+    @Test
+    fun archivedRecipientNeverMatchesByIdAndKeepsItsState() {
+        val withArchived = recipients + RecipientRef(
+            id = "r3",
+            name = "Zaid",
+            active = true,
+            archived = true,
+        )
+        val csvRows = rows(csvRow(recipientId = "r3"))
+        val base = CsvImportPlanner.plan(
+            rows = csvRows,
+            recipients = withArchived,
+            existing = emptySet(),
+            policy = ImportPolicy(preservesDates = true, today = today),
+        )
+
+        assertEquals(0, base.valid.size)
+        assertEquals(CsvImportPlanner.idKey("r3"), base.unmatched.single().key)
+        assertEquals(1, base.skipped.size)
+        assertTrue(base.recipients.first { it.id == "r3" }.archived)
+
+        val resolved = base.withResolutions(mapOf(CsvImportPlanner.idKey("r3") to "r3"))
+        assertEquals(0, resolved.valid.size)
+        assertEquals(1, resolved.skipped.size)
+    }
+
+    @Test
+    fun archivedRecipientNeverMatchesByName() {
+        val custom = listOf(
+            RecipientRef(id = "r1", name = "Omar", active = true),
+            RecipientRef(id = "r2", name = "Mona", active = true, archived = true),
+        )
+        val csvRows = rows(csvRow(recipientId = "", recipientName = "Mona"))
+        val base = CsvImportPlanner.plan(
+            rows = csvRows,
+            recipients = custom,
+            existing = emptySet(),
+            policy = ImportPolicy(preservesDates = true, today = today),
+        )
+
+        assertEquals(0, base.valid.size)
+        assertEquals("Mona", base.unmatched.single().identifier)
+        assertFalse(base.unmatched.single().byId)
+        assertEquals(1, base.skipped.size)
+
+        val resolved = base.withResolutions(mapOf(CsvImportPlanner.nameKey("Mona") to "r2"))
+        assertEquals(0, resolved.valid.size)
+        assertEquals(1, resolved.skipped.size)
+    }
+
+    @Test
+    fun anActiveRecipientStillMatchesWhenAnArchivedOneSharesTheName() {
+        val custom = listOf(
+            RecipientRef(id = "r1", name = "Mona", active = true),
+            RecipientRef(id = "r2", name = "Mona", active = true, archived = true),
+        )
+        val csvRows = rows(csvRow(recipientId = "", recipientName = "Mona"))
+        val base = CsvImportPlanner.plan(
+            rows = csvRows,
+            recipients = custom,
+            existing = emptySet(),
+            policy = ImportPolicy(preservesDates = true, today = today),
+        )
+
+        assertEquals("r1", base.valid.single().recipientId)
+        assertEquals(0, base.unmatched.size)
     }
 
     @Test

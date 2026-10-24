@@ -62,7 +62,9 @@ class CsvTransferService(
         val snapshot = store.snapshot()
         val plan = CsvImportPlanner.plan(
             rows = decoded.rows,
-            recipients = snapshot.recipients.map { RecipientRef(it.id, it.name, it.active) },
+            recipients = snapshot.recipients.map {
+                RecipientRef(it.id, it.name, it.active, archived = it.archivedAt != null)
+            },
             existing = snapshot.notes.mapTo(HashSet()) { ExistingNoteKey(it.recipientId, it.date) },
             policy = ImportPolicy(
                 preservesDates = store.preservesDates,

@@ -109,6 +109,15 @@ interface NoteDao {
     @Query("SELECT * FROM notes WHERE localId = :localId")
     suspend fun byLocalId(localId: String): NoteEntity?
 
+    @Query("SELECT serverId FROM notes WHERE recipientId = :recipientId")
+    suspend fun serverIdsByRecipient(recipientId: String): List<String>
+
+    @Query("SELECT COUNT(*) FROM notes WHERE recipientId = :recipientId")
+    suspend fun countByRecipient(recipientId: String): Int
+
+    @Query("DELETE FROM notes WHERE recipientId = :recipientId")
+    suspend fun deleteByRecipient(recipientId: String)
+
     @Insert(onConflict = OnConflictStrategy.REPLACE)
     suspend fun insertAll(items: List<NoteEntity>)
 
