@@ -19,6 +19,11 @@ import org.springframework.test.web.servlet.MockMvc;
 import org.springframework.test.web.servlet.MvcResult;
 
 import java.util.UUID;
+import java.util.concurrent.CountDownLatch;
+import java.util.concurrent.ExecutorService;
+import java.util.concurrent.Executors;
+import java.util.concurrent.Future;
+import java.util.concurrent.TimeUnit;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
@@ -140,6 +145,16 @@ class PlanControllerTest {
     mvc.perform(post(path(recipientId, id, "dismiss")).header("Authorization", bearer(owner.token())))
         .andExpect(status().isConflict());
 
+    mvc.perform(post("/api/auth/login")
+            .contentType(MediaType.APPLICATION_JSON)
+            .content("{\"email\":\"plan-state@example.com\",\"password\":\"password123\"}"))
+        .andExpect(status().isOk());
+
+    assertThat(auditEventsFor(owner.id()))
+        .extracting(AuditEvent::getEventType)
+        .contains("CAREGIVER_REGISTERED", "CAREGIVER_LOGIN_SUCCEEDED", "PLAN_ACCEPTED")
+        .doesNotContain("PLAN_DISMISSED");
+
     assertThat(auditEventsFor(owner.id())).anySatisfy(event -> {
       assertThat(event.getActorCaregiverId()).isEqualTo(owner.id());
       assertThat(event.getEventType()).isEqualTo("PLAN_ACCEPTED");
@@ -184,6 +199,42 @@ class PlanControllerTest {
     mvc.perform(post(path(recipientId, unknownPlanId, "accept"))
             .header("Authorization", bearer(owner.token())))
         .andExpect(status().isNotFound());
+  }
+
+  @Test
+  void concurrentAcceptanceLeavesExactlyOneActiveAcceptedPlan() throws Exception {
+    TestCaregiver owner = register("plan-concurrent@example.com");
+    String recipientId = createRecipient(owner.token());
+    JsonNode first = suggest(owner.token(), recipientId, "Concurrent plan A", null);
+    JsonNode second = suggest(owner.token(), recipientId, "Concurrent plan B", null);
+
+    CountDownLatch start = new CountDownLatch(1);
+    ExecutorService executor = Executors.newFixedThreadPool(2);
+    try {
+      Future<Integer> acceptFirst = executor.submit(() -> {
+        start.await();
+        return acceptStatus(owner.token(), recipientId, first.get("id").asText());
+      });
+      Future<Integer> acceptSecond = executor.submit(() -> {
+        start.await();
+        return acceptStatus(owner.token(), recipientId, second.get("id").asText());
+      });
+      start.countDown();
+
+      assertThat(acceptFirst.get(15, TimeUnit.SECONDS)).isEqualTo(200);
+      assertThat(acceptSecond.get(15, TimeUnit.SECONDS)).isEqualTo(200);
+      assertThat(plans.findAllByRecipient_IdOrderByVersionNumberDesc(UUID.fromString(recipientId)))
+          .filteredOn(plan -> plan.getStatus().isActiveAccepted())
+          .hasSize(1);
+    } finally {
+      executor.shutdownNow();
+    }
+  }
+
+  private int acceptStatus(String token, String recipientId, String planId) throws Exception {
+    return mvc.perform(post(path(recipientId, planId, "accept"))
+            .header("Authorization", bearer(token)))
+        .andReturn().getResponse().getStatus();
   }
 
   private java.util.List<AuditEvent> auditEventsFor(UUID actorId) {

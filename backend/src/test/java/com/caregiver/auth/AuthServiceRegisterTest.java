@@ -1,5 +1,6 @@
 package com.caregiver.auth;
 
+import com.caregiver.audit.AuditService;
 import com.caregiver.config.AuthProperties;
 import org.junit.jupiter.api.Test;
 import org.springframework.dao.DataIntegrityViolationException;
@@ -23,7 +24,8 @@ class AuthServiceRegisterTest {
         mock(PasswordEncoder.class),
         new JwtService(
             new AuthProperties("test-secret-that-is-definitely-32-bytes-long", Duration.ofHours(24)),
-            Clock.systemUTC()));
+            Clock.systemUTC()),
+        mock(AuditService.class));
   }
 
   @Test
