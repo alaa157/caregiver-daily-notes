@@ -1,5 +1,6 @@
 package com.caregiver.auth;
 
+import com.caregiver.audit.AuditService;
 import com.caregiver.config.AuthProperties;
 import com.caregiver.config.SecurityBeans;
 import org.junit.jupiter.api.Test;
@@ -32,7 +33,7 @@ class AuthServiceLoginTest {
     when(encoder.matches(any(), eq(SecurityBeans.DUMMY_HASH))).thenReturn(false);
     var repository = mock(CaregiverRepository.class);
     when(repository.findByEmail("ghost@example.com")).thenReturn(Optional.empty());
-    var service = new AuthService(repository, encoder, jwtService());
+    var service = new AuthService(repository, encoder, jwtService(), mock(AuditService.class));
 
     assertThatThrownBy(() -> service.login("ghost@example.com", "whatever"))
         .isInstanceOf(BadCredentialsException.class);
@@ -47,7 +48,7 @@ class AuthServiceLoginTest {
     PasswordEncoder encoder = new BCryptPasswordEncoder();
     var repository = mock(CaregiverRepository.class);
     when(repository.findByEmail("ghost@example.com")).thenReturn(Optional.empty());
-    var service = new AuthService(repository, encoder, jwtService());
+    var service = new AuthService(repository, encoder, jwtService(), mock(AuditService.class));
 
     assertThatThrownBy(
             () -> service.login("ghost@example.com", "dummy-password-for-timing-parity"))
@@ -64,7 +65,7 @@ class AuthServiceLoginTest {
     var repository = mock(CaregiverRepository.class);
     when(repository.findByEmail("sam@example.com")).thenReturn(Optional.of(caregiver));
     when(encoder.matches("wrong", "stored-hash")).thenReturn(false);
-    var service = new AuthService(repository, encoder, jwtService());
+    var service = new AuthService(repository, encoder, jwtService(), mock(AuditService.class));
 
     assertThatThrownBy(() -> service.login("sam@example.com", "wrong"))
         .isInstanceOf(BadCredentialsException.class)

@@ -1,5 +1,6 @@
 package com.caregiver.auth;
 
+import com.caregiver.audit.AuditService;
 import com.caregiver.config.SecurityBeans;
 import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.security.crypto.password.PasswordEncoder;
@@ -19,12 +20,15 @@ public class AuthService {
   private final CaregiverRepository repository;
   private final PasswordEncoder encoder;
   private final JwtService jwtService;
+  private final AuditService audit;
 
   public AuthService(
-      CaregiverRepository repository, PasswordEncoder encoder, JwtService jwtService) {
+      CaregiverRepository repository, PasswordEncoder encoder, JwtService jwtService,
+      AuditService audit) {
     this.repository = repository;
     this.encoder = encoder;
     this.jwtService = jwtService;
+    this.audit = audit;
   }
 
   @Transactional
@@ -58,6 +62,8 @@ public class AuthService {
       }
       throw e;
     }
+    audit.recordForActor(caregiver.getId(), "CAREGIVER_REGISTERED", "CAREGIVER",
+        caregiver.getId().toString(), null);
     return new AuthResponse(jwtService.issue(caregiver.getId()));
   }
 
@@ -78,6 +84,8 @@ public class AuthService {
     if (caregiver.isEmpty() || !matched) {
       throw new BadCredentialsException();
     }
+    audit.recordForActor(caregiver.get().getId(), "CAREGIVER_LOGIN_SUCCEEDED", "CAREGIVER",
+        caregiver.get().getId().toString(), null);
     return new AuthResponse(jwtService.issue(caregiver.get().getId()));
   }
 
