@@ -1,1 +1,9 @@
 .site-nav--authenticated .nav-links { flex-wrap: wrap; }
+/* The workspace navigation wraps as features are added. Keep a tall header
+   from covering safety banners and keyboard targets on smaller viewports. */
+@media (max-width: 1100px) {
+  .site-header.site-header--workspace { position: static; }
+  .site-header--workspace .header-inner { flex-wrap: wrap; padding-block: 1rem; gap: 1rem; }
+  .site-nav--authenticated { flex: 1 1 100%; justify-content: space-between; }
+  .site-nav--authenticated .nav-links { flex: 1 1 auto; }
+}
