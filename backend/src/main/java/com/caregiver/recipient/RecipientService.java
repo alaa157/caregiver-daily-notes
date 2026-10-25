@@ -31,7 +31,7 @@ public class RecipientService {
     Caregiver caregiver = caregivers.findById(caregiverId)
         .orElseThrow(() -> new InvalidTokenException("Authentication required."));
     CareRecipient recipient = new CareRecipient(caregiver, request.name(), request.relationship());
-    recipient = recipients.save(recipient);
+    recipient = recipients.saveAndFlush(recipient);
     audit.record("RECIPIENT_CREATED", "CARE_RECIPIENT", recipient.getId().toString(), null);
     return RecipientResponse.from(recipient);
   }
@@ -56,7 +56,7 @@ public class RecipientService {
       throw new InactiveRecipientException();
     }
     recipient.update(request.name(), request.relationship());
-    recipient = recipients.save(recipient);
+    recipient = recipients.saveAndFlush(recipient);
     audit.record("RECIPIENT_UPDATED", "CARE_RECIPIENT", recipient.getId().toString(), null);
     return RecipientResponse.from(recipient);
   }
@@ -65,7 +65,7 @@ public class RecipientService {
   public RecipientResponse deactivate(UUID id) {
     CareRecipient recipient = findOwned(id);
     recipient.deactivate();
-    recipient = recipients.save(recipient);
+    recipient = recipients.saveAndFlush(recipient);
     audit.record("RECIPIENT_DEACTIVATED", "CARE_RECIPIENT", recipient.getId().toString(), null);
     return RecipientResponse.from(recipient);
   }
