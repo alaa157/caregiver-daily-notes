@@ -15,6 +15,7 @@ import org.springframework.http.MediaType;
 import org.springframework.test.web.servlet.MockMvc;
 import org.springframework.test.web.servlet.MvcResult;
 
+import java.time.Instant;
 import java.util.UUID;
 
 import static org.assertj.core.api.Assertions.assertThat;
@@ -163,6 +164,49 @@ class RecipientControllerTest {
             .contentType(MediaType.APPLICATION_JSON)
             .content("{\"name\":\"Should not update\"}"))
         .andExpect(status().isConflict());
+  }
+
+  @Test
+  void createUpdateAndDeactivateResponsesContainPersistedTimestamps() throws Exception {
+    TestCaregiver owner = register("timestamps@example.com");
+
+    MvcResult created = mvc.perform(post(RECIPIENTS)
+            .header("Authorization", bearer(owner.token()))
+            .contentType(MediaType.APPLICATION_JSON)
+            .content("{\"name\":\"Timestamped\",\"relationship\":\"Father\"}"))
+        .andExpect(status().isCreated())
+        .andExpect(jsonPath("$.createdAt").isNotEmpty())
+        .andExpect(jsonPath("$.updatedAt").isNotEmpty())
+        .andReturn();
+
+    JsonNode createdJson =
+        objectMapper.readTree(created.getResponse().getContentAsString());
+    String id = createdJson.get("id").asText();
+    assertThat(Instant.parse(createdJson.get("createdAt").asText())).isNotNull();
+    assertThat(Instant.parse(createdJson.get("updatedAt").asText())).isNotNull();
+
+    MvcResult fetched = mvc.perform(get(RECIPIENTS + "/" + id)
+            .header("Authorization", bearer(owner.token())))
+        .andExpect(status().isOk())
+        .andExpect(jsonPath("$.createdAt").isNotEmpty())
+        .andExpect(jsonPath("$.updatedAt").isNotEmpty())
+        .andReturn();
+    String persistedCreatedAt =
+        objectMapper.readTree(fetched.getResponse().getContentAsString()).get("createdAt").asText();
+
+    mvc.perform(put(RECIPIENTS + "/" + id)
+            .header("Authorization", bearer(owner.token()))
+            .contentType(MediaType.APPLICATION_JSON)
+            .content("{\"name\":\"Timestamped after update\"}"))
+        .andExpect(status().isOk())
+        .andExpect(jsonPath("$.createdAt").value(persistedCreatedAt))
+        .andExpect(jsonPath("$.updatedAt").isNotEmpty());
+
+    mvc.perform(patch(RECIPIENTS + "/" + id + "/deactivate")
+            .header("Authorization", bearer(owner.token())))
+        .andExpect(status().isOk())
+        .andExpect(jsonPath("$.createdAt").value(persistedCreatedAt))
+        .andExpect(jsonPath("$.updatedAt").isNotEmpty());
   }
 
   @Test
