@@ -2,6 +2,10 @@ import { randomUUID } from 'node:crypto';
 import { expect, test } from '@playwright/test';
 
 const backend = new URL(process.env.CAREGIVER_TEST_API_URL || 'http://127.0.0.1:8080').origin;
+test.afterEach(async ({ page }) => {
+  await page.unrouteAll({ behavior: 'wait' });
+});
+
 for (const language of ['en', 'ar'] as const) {
   test(`real AI-plan generation, protected edit, preserved history and backend transitions (${language})`, async ({ page, request }) => {
     const ar = language === 'ar'; const password = `Synthetic-${randomUUID()}`; const email = `plans-${randomUUID()}@example.com`;

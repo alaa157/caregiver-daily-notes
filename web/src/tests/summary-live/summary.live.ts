@@ -2,6 +2,10 @@ import { randomUUID } from 'node:crypto';
 import { expect, test } from '@playwright/test';
 
 const backend = new URL(process.env.CAREGIVER_TEST_API_URL || 'http://127.0.0.1:8080').origin;
+test.afterEach(async ({ page }) => {
+  await page.unrouteAll({ behavior: 'wait' });
+});
+
 for (const language of ['en', 'ar'] as const) {
   test(`real authenticated summary, evidence, inclusive periods and safe provider fallback (${language})`, async ({ page, request }) => {
     const ar = language === 'ar'; const password = `Synthetic-${randomUUID()}`; const email = `summary-${randomUUID()}@example.com`;
@@ -23,17 +27,25 @@ for (const language of ['en', 'ar'] as const) {
     await page.getByRole('button', { name: ar ? 'تسجيل الدخول' : 'Sign in', exact: true }).click();
     await page.getByLabel(ar ? 'المستفيد من الرعاية' : 'Care recipient', { exact: true }).selectOption(recipientId);
     await page.getByLabel(ar ? 'تاريخ النهاية (شامل)' : 'End date (inclusive)', { exact: true }).fill('2026-10-26');
+    async function generate(name: string) {
+      const completed = page.waitForResponse((response) => new URL(response.url()).pathname === '/api/summaries' && response.request().method() === 'POST');
+      await page.getByRole('button', { name, exact: true }).click();
+      const response = await completed;
+      expect(response.status()).toBe(200);
+      await response.finished();
+      await expect(page.getByRole('button', { name: ar ? 'إعادة إنشاء الملخص' : 'Regenerate summary', exact: true })).toBeEnabled();
+    }
     for (const days of [7, 14, 30]) {
       const count = new Intl.NumberFormat(ar ? 'ar-EG' : 'en').format(days);
       await page.getByRole('radio', { name: `${count} ${ar ? 'أيام' : 'days'}`, exact: true }).check();
-      await page.getByRole('button', { name: days === 7 ? (ar ? 'إنشاء ملخص' : 'Generate summary') : (ar ? 'إعادة إنشاء الملخص' : 'Regenerate summary'), exact: true }).click();
+      await generate(days === 7 ? (ar ? 'إنشاء ملخص' : 'Generate summary') : (ar ? 'إعادة إنشاء الملخص' : 'Regenerate summary'));
       await expect(page.locator('blockquote')).toHaveText('Live source note عربي.');
       await expect(page.locator('.summary-evidence a')).toHaveAttribute('href', `/app/notes/${noteId}`);
       await expect(page.locator('.summary-safety')).toContainText('HIGH');
       await expect(page.getByRole('heading', { name: ar ? 'مراجعة مختص مطلوبة' : 'Clinical review requested' })).toBeVisible();
     }
     const correction = await request.post(`${backend}/api/notes/${noteId}/addenda`, { headers, data: { freeText: 'PROVIDER_UNAVAILABLE_FIXTURE' } }); expect(correction.status()).toBe(201);
-    await page.getByRole('button', { name: ar ? 'إعادة إنشاء الملخص' : 'Regenerate summary', exact: true }).click();
+    await generate(ar ? 'إعادة إنشاء الملخص' : 'Regenerate summary');
     await expect(page.locator('.summary-result')).toContainText(ar ? 'الذكاء الاصطناعي غير متاح.' : 'AI is unavailable.');
     await expect(page.locator('.summary-safety')).toContainText('HIGH'); await expect(page.locator('blockquote')).toHaveCount(0);
     await expect(page.locator('.summary-disclaimer')).toBeVisible(); expect(await page.evaluate(() => document.documentElement.scrollWidth > innerWidth)).toBe(false);
