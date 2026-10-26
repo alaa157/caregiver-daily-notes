@@ -1,12 +1,14 @@
 import { recipientMessages } from './recipientTranslations';
 import { noteMessages } from './noteTranslations';
 import { historyMessages } from './historyTranslations';
+import { planMessages } from './planTranslations';
 
 export const messages = {
   en: {
     ...recipientMessages.en,
     ...noteMessages.en,
     ...historyMessages.en,
+    ...planMessages.en,
     brand: 'Caregiver Daily Notes',
     brandTagline: 'Clarity for everyday care',
     home: 'Home',
@@ -80,6 +82,7 @@ export const messages = {
     ...recipientMessages.ar,
     ...noteMessages.ar,
     ...historyMessages.ar,
+    ...planMessages.ar,
     brand: 'ملاحظات الرعاية اليومية',
     brandTagline: 'وضوح في تفاصيل الرعاية',
     home: 'الرئيسية',

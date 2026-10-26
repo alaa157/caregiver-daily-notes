@@ -1,1 +1,3 @@
 .site-nav--authenticated .nav-links { flex-wrap: wrap; }
+/* Wrapped workspace navigation must not cover plan content on short screens. */
+.site-header:has(.site-nav--authenticated) { position: static; }
