@@ -97,7 +97,7 @@ class PlanControllerTest {
   }
 
   @Test
-  void editedAcceptanceCreatesNewVersionAndPreservesOriginalSuggestion() throws Exception {
+  void opaqueLegacyContentCannotBypassProtectedEditing() throws Exception {
     TestCaregiver owner = register("plan-edit@example.com");
     String recipientId = createRecipient(owner.token());
     JsonNode original = suggest(owner.token(), recipientId, "AI suggestion", "summary-edit");
@@ -106,16 +106,14 @@ class PlanControllerTest {
             .header("Authorization", bearer(owner.token()))
             .contentType(MediaType.APPLICATION_JSON)
             .content("{\"content\":\"Caregiver-edited plan\",\"evidenceNoteIds\":[\"note-1\"]}"))
-        .andExpect(status().isOk())
-        .andExpect(jsonPath("$.version").value(2))
-        .andExpect(jsonPath("$.status").value("EDITED_AND_ACCEPTED"))
-        .andExpect(jsonPath("$.sourcePlanId").value(original.get("id").asText()));
+        .andExpect(status().isUnprocessableEntity());
 
     mvc.perform(get(PLANS + recipientId + "/plans/history")
             .header("Authorization", bearer(owner.token())))
         .andExpect(status().isOk())
-        .andExpect(jsonPath("$[1].content").value("AI suggestion"))
-        .andExpect(jsonPath("$[1].status").value("ARCHIVED"));
+        .andExpect(jsonPath("$.length()").value(1))
+        .andExpect(jsonPath("$[0].content").value("AI suggestion"))
+        .andExpect(jsonPath("$[0].status").value("SUGGESTED"));
   }
 
   @Test
