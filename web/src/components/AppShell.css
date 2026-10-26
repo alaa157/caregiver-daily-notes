@@ -7,3 +7,8 @@
   .site-nav--authenticated { flex: 1 1 100%; justify-content: space-between; }
   .site-nav--authenticated .nav-links { flex: 1 1 auto; }
 }
+/* Wrapped workspace navigation must not cover plan content on short screens. */
+.site-header:has(.site-nav--authenticated) { position: static; }
+.site-header--workspace .header-inner { flex-wrap: wrap; }
+.site-nav--authenticated { min-width: 0; flex-wrap: wrap; }
+.site-nav--authenticated .nav-links { min-width: 0; }

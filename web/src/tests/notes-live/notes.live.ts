@@ -82,10 +82,15 @@ for (const language of ['en', 'ar'] as const) {
     expect(corrections[1]).toEqual(corrections[0]);
     expect(corrections[0].body).toEqual({ medicationStatus: 'MISSED', freeText: correction });
     const after = await request.get(`${backend}/api/notes/${id}`, { headers: ownerHeaders });
-    expect(await after.json()).toEqual({ ...original, addendumCount: 1 });
+    const afterBody = await after.json();
+    const { addenda: originalLinks, ...originalFields } = original;
+    const { addenda: updatedLinks, ...afterFields } = afterBody;
+    expect(originalLinks).toEqual([]);
+    expect(afterFields).toEqual({ ...originalFields, addendumCount: 1 });
     const savedAddenda = await request.get(`${backend}/api/notes/${id}/addenda`, { headers: ownerHeaders });
     expect(savedAddenda.status()).toBe(200);
     const additions = await savedAddenda.json();
+    expect(updatedLinks).toEqual(additions);
     expect(additions).toHaveLength(1);
     expect(additions[0]).toMatchObject({ noteId: id, freeText: correction, medicationStatus: 'MISSED', medicationVerified: null });
     await expect(page.getByRole('article', { name: ar ? 'الملاحظة الأصلية — للقراءة فقط' : 'Original note — read only', exact: true }).locator('.note-verbatim').last()).toHaveJSProperty('textContent', text);

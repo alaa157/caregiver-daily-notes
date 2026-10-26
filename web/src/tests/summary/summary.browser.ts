@@ -136,7 +136,7 @@ for (const language of ['en', 'ar'] as const) {
       expect(calls.filter((call) => call.method === 'POST')).toHaveLength(0); await accessibility(page);
       await choose(page); await page.getByRole('button', { name: text.generate, exact: true }).dblclick();
       await expect(page.getByRole('button', { name: text.cancel, exact: true })).toBeVisible();
-      expect(calls.filter((call) => call.method === 'POST')).toHaveLength(1);
+      await expect.poll(() => calls.filter((call) => call.method === 'POST').length).toBe(1);
       await page.getByRole('button', { name: text.cancel, exact: true }).click();
       await expect(page.getByText(text.cancelled, { exact: false })).toBeVisible();
       await expect(page.locator('.summary-progress')).toBeFocused();

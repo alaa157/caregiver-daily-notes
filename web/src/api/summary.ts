@@ -83,8 +83,8 @@ export class SummaryEndpointUnavailable extends Error {
 }
 
 /**
- * Main currently has SummaryService but no HTTP controller. Use only a compatible
- * POST advertised by the owner's OpenAPI document; never guess an AI endpoint.
+ * Use only the compatible SummaryRequest/SummaryResult POST advertised by the
+ * backend's OpenAPI document; never redirect authenticated generation externally.
  * Ignore servers/external refs/templated paths so discovery cannot redirect tokens.
  */
 export function findSummaryEndpoint(value: unknown): `/api/${string}` {
