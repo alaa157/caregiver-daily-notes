@@ -7,6 +7,7 @@ import { addendumFixture } from '../noteFixtures';
 import { recipientFixture } from '../recipientFixtures';
 
 const require = createRequire(import.meta.url);
+const fixtureNow = new Date('2026-10-27T12:00:00Z');
 const root = '/app/notes?from=2026-10-01&to=2026-10-22';
 const otherRecipient = { ...recipientFixture, id: 'b2222222-2222-4222-8222-222222222222', name: 'ليلى Smith', active: false };
 const secondNote = { ...historyNote, id: 'c3333333-3333-4333-8333-333333333333', date: '2026-10-19', recipientId: otherRecipient.id, addendumCount: 0 };
@@ -59,10 +60,13 @@ for (const language of ['en', 'ar'] as const) {
   };
   test.describe(`history ${language}`, () => {
     test.beforeEach(async ({ page }) => {
+      // Reset uses the rolling 30-day default. Keep fixture dates in range
+      // while leaving timers live for requests and keyboard interactions.
+      await page.clock.setFixedTime(fixtureNow);
       await page.addInitScript(({ locale, token }) => {
         localStorage.setItem('caregiver-language', locale);
         sessionStorage.setItem('caregiver-auth-session-v1', JSON.stringify({ token, baseUrl: '' }));
-      }, { locale: language, token: testToken() });
+      }, { locale: language, token: testToken(3600, 'test-signature', fixtureNow.getTime()) });
     });
     test('filters by recipient and date, restores the URL after visiting a note, and resets', async ({ page }) => {
       const calls = await serve(page);
