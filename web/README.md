@@ -17,10 +17,13 @@ npm run build
 The lockfile pins the dependency tree. DM Sans and Noto Sans Arabic are served
 with the app through Fontsource; fonts require no third-party CDN requests.
 
-Browser checks run against the production build in Chromium at 1280, 768, 390,
-and 320 pixels, in Arabic and English. They cover navigation, the anonymous
-route guard, language persistence, keyboard focus, horizontal overflow,
-reduced motion, and axe WCAG A/AA accessibility checks including contrast.
+The default Playwright run includes the foundation and authentication smoke
+specs plus the recipient, note, history, summary, and care-plan browser
+contracts. It runs against the production build in Chromium at 1280, 768, 390,
+and 320 pixels, in Arabic and English. Coverage includes caregiver workflows,
+keyboard focus and form errors, Arabic RTL and mixed-direction content,
+horizontal overflow, reduced motion, and axe WCAG 2/2.1 A/AA accessibility
+checks on major screens and states.
 
 ```sh
 npx playwright install chromium
@@ -34,12 +37,10 @@ downloading another browser:
 PLAYWRIGHT_CHROMIUM_EXECUTABLE_PATH=/usr/bin/chromium npm run test:e2e
 ```
 
-The foundation checks need no backend. Authentication and recipient browser
-checks use intercepted contract-shaped responses. Run the recipient suite too:
-
-```sh
-npx playwright test --config src/tests/recipients/playwright.config.ts
-```
+The browser checks use synthetic, intercepted API responses and do not require
+a backend. Individual feature suites can still be run with their scoped
+Playwright configs, for example `npx playwright test --config
+src/tests/recipients/playwright.config.ts`.
 
 The opt-in [real-backend integration suite](src/tests/integration/README.md)
 checks login and recipient workflows against a running disposable local backend,
