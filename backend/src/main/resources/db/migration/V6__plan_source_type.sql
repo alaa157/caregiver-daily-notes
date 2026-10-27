@@ -1,0 +1,3 @@
+ALTER TABLE care_plan_versions ADD COLUMN source_type VARCHAR(32) NOT NULL DEFAULT 'UNSPECIFIED';
+ALTER TABLE care_plan_versions ADD CONSTRAINT ck_plan_source_type
+  CHECK (source_type IN ('UNSPECIFIED', 'CAREGIVER_SUBMITTED', 'AI_GENERATED', 'CAREGIVER_EDITED'));
