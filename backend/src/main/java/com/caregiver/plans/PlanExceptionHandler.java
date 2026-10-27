@@ -6,9 +6,21 @@ import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.ExceptionHandler;
 import org.springframework.web.bind.annotation.RestControllerAdvice;
+import com.caregiver.ai.InvalidModelOutputException;
+import org.springframework.http.converter.HttpMessageNotReadableException;
+import org.springframework.web.bind.MethodArgumentNotValidException;
 
-@RestControllerAdvice
+@RestControllerAdvice(assignableTypes = PlanController.class)
 public class PlanExceptionHandler {
+  @ExceptionHandler({ProtectedPlanException.class, InvalidModelOutputException.class})
+  public ResponseEntity<ErrorResponse> protectedFields(RuntimeException ex) {
+    return ResponseEntity.unprocessableEntity().body(new ErrorResponse("PROTECTED_PLAN_FIELDS", "Protected plan fields cannot be changed by this operation."));
+  }
+
+  @ExceptionHandler({HttpMessageNotReadableException.class, MethodArgumentNotValidException.class, IllegalArgumentException.class})
+  public ResponseEntity<ErrorResponse> invalidRequest(Exception ex) {
+    return ResponseEntity.unprocessableEntity().body(new ErrorResponse("VALIDATION_ERROR", "Invalid request."));
+  }
   @ExceptionHandler({PlanNotFoundException.class, RecipientNotFoundException.class})
   public ResponseEntity<ErrorResponse> notFound(RuntimeException ex) {
     if (ex instanceof RecipientNotFoundException) {

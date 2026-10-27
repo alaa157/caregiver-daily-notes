@@ -49,6 +49,10 @@ public class CarePlan {
   @Column(nullable = false, length = 32)
   private PlanStatus status;
 
+  @Enumerated(EnumType.STRING)
+  @Column(name = "source_type", nullable = false, length = 32, updatable = false)
+  private PlanSource sourceType = PlanSource.UNSPECIFIED;
+
   @Column(name = "content", nullable = false, updatable = false, columnDefinition = "text")
   private String content;
 
@@ -82,6 +86,13 @@ public class CarePlan {
     this.evidenceNoteIds = evidenceNoteIds;
   }
 
+  public CarePlan(CareRecipient recipient, int versionNumber, PlanStatus status, String content,
+      String sourceSummaryId, UUID sourcePlanId, String evidenceNoteIds, PlanSource sourceType) {
+    this(recipient, versionNumber, status, content, sourceSummaryId, sourcePlanId, evidenceNoteIds);
+    this.sourceType = sourceType;
+  }
+
+  public PlanSource getSourceType() { return sourceType; }
   public UUID getId() { return id; }
   public CareRecipient getRecipient() { return recipient; }
   public int getVersionNumber() { return versionNumber; }
