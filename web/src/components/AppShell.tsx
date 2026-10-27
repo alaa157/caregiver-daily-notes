@@ -17,6 +17,8 @@ export function AppShell({ children }: { children: ReactNode }) {
       : pathname === '/app' ? t('dashboardTitle')
       : pathname === '/app/recipients/new' ? t('recipientCreate')
       : pathname === '/app/notes/new' ? t('notesCreate')
+      : pathname === '/app/notes/summary' ? t('summaryTitle')
+      : pathname === '/app/notes/plans' ? t('plansTitle')
       : pathname === '/app/notes' || pathname === '/app/notes/history' ? t('historyTitle')
       : pathname.startsWith('/app/notes/') ? t(pathname.endsWith('/addenda/new') ? 'notesAppend' : 'notesDetails')
       : pathname.startsWith('/app/recipients/') ? t(pathname.endsWith('/edit') ? 'recipientEdit' : 'recipientDetails')
@@ -38,7 +40,7 @@ export function AppShell({ children }: { children: ReactNode }) {
   return (
     <div className="site-shell">
       <a className="skip-link" href="#main-content" onClick={() => mainRef.current?.focus()}>{t('skipToContent')}</a>
-      <header className="site-header">
+      <header className={`site-header${auth.status === 'authenticated' ? ' site-header--workspace' : ''}`}>
         <div className="header-inner container">
           <Link className="brand" to="/">
             <span className="brand-mark"><Icon name="leaf" size={25} /></span>
@@ -50,7 +52,9 @@ export function AppShell({ children }: { children: ReactNode }) {
               {auth.status === 'authenticated' ? <>
                 <NavLink end to="/app" className={navClass}>{t('dashboard')}</NavLink>
                 <NavLink to="/app/recipients" className={navClass}>{t('recipientsTitle')}</NavLink>
-                <NavLink to="/app/notes" className={navClass}>{t('notesTitle')}</NavLink>
+                <NavLink to="/app/notes/summary" className={navClass}>{t('summaryTitle')}</NavLink>
+                <NavLink end to="/app/notes" className={navClass}>{t('notesTitle')}</NavLink>
+                <NavLink to="/app/notes/plans" className={navClass}>{t('plansTitle')}</NavLink>
                 <button type="button" className="nav-link auth-logout" onClick={auth.logout}>{t('authSignOut')}</button>
               </> : <NavLink to="/login" className={navClass}>{t('signIn')}</NavLink>}
             </div>

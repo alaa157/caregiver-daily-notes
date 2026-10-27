@@ -76,6 +76,9 @@ for (const language of ['en', 'ar'] as const) {
     });
     expect(note.status()).toBe(201);
     const noteBefore = await note.json();
+    const detailBeforeResponse = await request.get(`${backend}/api/notes/${noteBefore.id}`, { headers: ownerHeaders });
+    expect(detailBeforeResponse.status()).toBe(200);
+    const detailBefore = await detailBeforeResponse.json();
     await page.getByRole('button', { name: ar ? 'إلغاء تنشيط المستفيد' : 'Deactivate recipient', exact: true }).click();
     await page.getByRole('button', { name: ar ? 'إلغاء' : 'Cancel', exact: true }).click();
     await expect(page.getByRole('link', { name: ar ? 'تعديل بيانات المستفيد' : 'Edit recipient', exact: true })).toBeVisible();
@@ -88,7 +91,7 @@ for (const language of ['en', 'ar'] as const) {
     expect(await persisted.json()).toMatchObject({ id, name: updatedName, active: false });
     const history = await request.get(`${backend}/api/notes/${noteBefore.id}`, { headers: ownerHeaders });
     expect(history.status()).toBe(200);
-    expect(await history.json()).toEqual(noteBefore);
+    expect(await history.json()).toEqual(detailBefore);
     const inactiveUpdate = await request.put(`${backend}/api/recipients/${id}`, { headers: ownerHeaders, data: { name: 'Blocked update' } });
     expect(inactiveUpdate.status()).toBe(409);
 
