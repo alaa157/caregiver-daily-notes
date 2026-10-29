@@ -27,6 +27,7 @@ import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.res.pluralStringResource
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
@@ -109,8 +110,9 @@ fun PlansScreen(graph: AppGraph, navController: NavController) {
                                 Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                                     StatusChip(row.latestStatus)
                                     Text(
-                                        text = stringResource(
-                                            R.string.plans_versions_count,
+                                        text = pluralStringResource(
+                                            R.plurals.plans_versions_count,
+                                            row.versionCount,
                                             row.versionCount,
                                         ),
                                         fontFamily = PlexArabic,
