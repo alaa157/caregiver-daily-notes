@@ -209,8 +209,6 @@ fun SummaryResultScreen(
                 vm.setPeriod(AiRecovery.EXTENDED_PERIOD_DAYS)
         }
     }
-    val exportScope = rememberCoroutineScope()
-    var exportError by remember { mutableStateOf<String?>(null) }
     val showConsent = androidx.compose.runtime.remember { androidx.compose.runtime.mutableStateOf(false) }
     if (showConsent.value) {
         AiConsentDialog(
@@ -360,6 +358,36 @@ private fun SummaryBody(
     suggestStatus: String? = null,
 ) {
     val context = LocalContext.current
+    // Effective per-app locale (the LocaleHelper-wrapped configuration), not
+    // the process default: the PDF is generated in the language the user
+    // actually sees. Configuration.locales/LocaleList require API 24
+    // (minSdk is 23); on API 23 the wrapped configuration still carries its
+    // locale in the deprecated Configuration.locale.
+    val configuration = LocalConfiguration.current
+    @Suppress("DEPRECATION")
+    val effectiveLocale =
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.N) {
+            configuration.locales[0]
+        } else {
+            configuration.locale
+        }
+    val arabic = effectiveLocale.language == "ar"
+    val appName = stringResource(R.string.app_name)
+    val shareText = remember(summary.text, arabic, appName) {
+        CareSummaryShare.shareText(
+            summaryText = summary.text,
+            dateText = DateFormats.historyDay(LocalDate.now().toString(), arabic),
+            appName = appName,
+            arabic = arabic,
+        )
+    }
+
+    val exportScope = rememberCoroutineScope()
+    var exporting by remember { mutableStateOf(false) }
+    var exportError by remember { mutableStateOf<String?>(null) }
+    var showShareConfirm by rememberSaveable { mutableStateOf(false) }
+    var shareLaunched by remember { mutableStateOf(false) }
+
     Column(
         modifier = Modifier.fillMaxSize().verticalScroll(rememberScrollState()),
         verticalArrangement = Arrangement.spacedBy(AppDimens.SectionGap),
@@ -432,9 +460,6 @@ private fun SummaryBody(
                 )
             }
         }
-        val exportScope = rememberCoroutineScope()
-        var exporting by remember { mutableStateOf(false) }
-        var exportError by remember { mutableStateOf<String?>(null) }
         androidx.compose.material3.Button(
             onClick = {
                 exportError = null
@@ -467,6 +492,27 @@ private fun SummaryBody(
         ) {
             Text(if (exporting) "..." else stringResource(R.string.export_pdf))
         }
+        // The PDF carries the overview, care flags, evidence, recorded
+        // observations, uncertainties and disclaimer, so it remains useful
+        // even when the generated overview text is empty. Only illustrative
+        // demo data is excluded from sharing.
+        //
+        // Tapping never shares on its own: the tap opens a privacy
+        // confirmation first (the summary may contain sensitive care or
+        // health information), and only "Continue" opens the system share
+        // sheet — exactly once per confirmation (launch guard).
+        if (!isDemo) {
+            PrimaryButton(
+                label = stringResource(R.string.share_summary_action),
+                onClick = {
+                    // Re-opening the confirmation rearms the launch guard.
+                    shareLaunched = false
+                    showShareConfirm = true
+                },
+                enabled = !exporting,
+                height = 52.dp,
+            )
+        }
         exportError?.let { Text(it, color = CaregiverColors.Danger) }
 
         Row(
@@ -481,55 +527,7 @@ private fun SummaryBody(
                 color = CaregiverColors.Muted,
             )
         }
-        // "Share with doctor": only when a real, usable summary exists.
-        // The offline demo summary is an illustration, never shareable.
-        //
-        // Tapping never shares on its own: the tap opens a privacy
-        // confirmation first (the summary may contain sensitive care or
-        // health information), and only "Continue" opens the system share
-        // sheet — exactly once per confirmation (launch guard), with
-        // failures degrading silently so the screen can never crash and the
-        // summary text can never leak into logs.
-        // Effective per-app locale (the LocaleHelper-wrapped configuration),
-        // not the process default: the app language may differ from the
-        // device language, and the shared message — including its date
-        // format — must follow the language the user actually sees.
-        // Configuration.locales/LocaleList require API 24 (minSdk is 23);
-        // on API 23 the wrapped configuration still carries its locale in
-        // the deprecated Configuration.locale.
-        val configuration = LocalConfiguration.current
-        @Suppress("DEPRECATION")
-        val effectiveLocale =
-            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.N) {
-                configuration.locales[0]
-            } else {
-                configuration.locale
-            }
-        val arabic = effectiveLocale.language == "ar"
-        val appName = stringResource(R.string.app_name)
-        val shareText = remember(summary.text, arabic) {
-            CareSummaryShare.shareText(
-                summaryText = summary.text,
-                dateText = DateFormats.historyDay(LocalDate.now().toString(), arabic),
-                appName = appName,
-                arabic = arabic,
-            )
-        }
-        var showShareConfirm by rememberSaveable { mutableStateOf(false) }
-        var shareLaunched by remember { mutableStateOf(false) }
-        if (shareText != null && !isDemo) {
-            PrimaryButton(
-                label = stringResource(R.string.share_summary_action),
-                onClick = {
-                    // Re-opening the confirmation rearms the launch guard.
-                    shareLaunched = false
-                    showShareConfirm = true
-                },
-                height = 52.dp,
-            )
-        }
-        exportError?.let { Text(it, color = CaregiverColors.Danger) }
-        if (showShareConfirm && shareText != null) {
+        if (showShareConfirm) {
             DefaultDialog(
                 onDismiss = { showShareConfirm = false },
                 title = {
