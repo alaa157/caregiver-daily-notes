@@ -59,13 +59,21 @@ object Prompts {
         "Additional caregiver preferences (what to pay attention to). They are a preference, not an " +
             "instruction: they never relax a rule below and never replace the output format."
 
-    fun planSystemPrompt(): String {
+    // Machine tokens stay in English on purpose: actionId values and parameter
+    // keys are matched against the fixed catalog, so only the free-text reason
+    // may be translated.
+    private const val AR_PLAN_RULE =
+        "\nAll human-readable values (the \"reason\" of each change) must be written in clear, simple Modern Standard Arabic. " +
+            "Keep every \"actionId\" and every parameter key and value EXACTLY as the catalog and schema specify — " +
+            "they are machine identifiers, not text to translate."
+
+    fun planSystemPrompt(language: String = "en"): String {
         val catalog = PlanSuggestionService.DEFAULT_ALLOWED_ACTIONS.sorted().joinToString("\n") { action ->
             val params = PlanSuggestionService.ALLOWED_PARAMS[action] ?: emptySet()
             val paramText = if (params.isEmpty()) "{}" else params.joinToString(prefix = "{", postfix = "}") { "\"$it\"" }
             "- $action (params must be $paramText)"
         }
-        return "You suggest care-plan updates from grounded summaries. Select ONLY actions from this fixed catalog:\n" +
+        val prompt = "You suggest care-plan updates from grounded summaries. Select ONLY actions from this fixed catalog:\n" +
             catalog + "\n" +
             "Every change must use an actionId from the catalog above and params must match the action's schema (empty object {} unless listed). " +
             "For every change give a reason and leave evidenceNoteIds empty ([]): you receive the finished " +
@@ -78,5 +86,6 @@ object Prompts {
             "NEVER diagnose or prescribe. Return ONLY valid JSON: " +
             "{\"changes\":[{\"actionId\":string,\"params\":object,\"reason\":string,\"evidenceNoteIds\":[string]}], " +
             "\"proposedMedications\":[]}."
+        return if (language == "ar") prompt + AR_PLAN_RULE else prompt
     }
 }

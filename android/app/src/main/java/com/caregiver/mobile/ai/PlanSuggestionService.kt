@@ -43,6 +43,8 @@ class PlanSuggestionService(
     private val client: LlmClient,
     private val keyStore: AiKeyStore? = null,
     private val allowedActions: Set<String> = DEFAULT_ALLOWED_ACTIONS,
+    /** UI language of the generated reason text ("ar"/"en"). */
+    private val language: String = "en",
 ) {
     /**
      * Unknown keys are tolerated, like in the summary payload: the gate on
@@ -60,7 +62,7 @@ class PlanSuggestionService(
         // The caregiver's preferences go before the fixed prompt, never after:
         // the last instruction in a system message carries the most weight, so
         // a preference that follows the rules could talk the model out of them.
-        val prompt = Prompts.withPreferences(Prompts.planSystemPrompt(), userPref)
+        val prompt = Prompts.withPreferences(Prompts.planSystemPrompt(language), userPref)
         // The model sees the finished summary only. Note IDs are not sent:
         // it cannot see the raw notes, so whatever attribution it returned
         // would be decorative, and the payload contract drops it below.
@@ -177,6 +179,21 @@ class PlanSuggestionService(
                 append(key.lowercase()).append('=').append(value.trim().lowercase()).append(';')
             }
             append('|').append(change.reason.trim().lowercase())
+        }
+
+        /**
+         * The plan line shown to the caregiver: the model's reason only, never
+         * the action id or `params=` syntax. A follow-up keeps its date in a
+         * readable parenthetical.
+         */
+        internal fun planItemText(change: PlanChange): String {
+            val reason = change.reason.trim()
+            val date = change.params[DATE_PARAM]
+            return if (change.actionId == SCHEDULE_FOLLOWUP && date != null) {
+                "$reason ($date)"
+            } else {
+                reason
+            }
         }
 
         // Free text can carry what the structured fields cannot: after the
