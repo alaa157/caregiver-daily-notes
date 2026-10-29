@@ -60,9 +60,11 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.input.nestedscroll.nestedScroll
 import androidx.compose.ui.layout.onSizeChanged
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.platform.LocalLayoutDirection
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.IntOffset
+import androidx.compose.ui.unit.LayoutDirection
 import androidx.compose.ui.unit.dp
 import androidx.navigation.NavGraph.Companion.findStartDestination
 import androidx.navigation.NavType
@@ -366,8 +368,11 @@ fun MainScaffold(graph: AppGraph) {
             // — deeper than any tab, or a later tab — brings the incoming
             // screen in from the right by an eighth of the width while the
             // outgoing one leaves to the left; back mirrors both, and pops
-            // use the mirrored pop transitions. The 200ms fade keeps this
-            // far shorter than the Navigation-Compose 700ms default.
+            // use the mirrored pop transitions. In RTL the whole motion is
+            // mirrored, so forward still means "deeper" visually. The 200ms
+            // fade keeps this far shorter than the Navigation-Compose 700ms
+            // default.
+            val direction = if (LocalLayoutDirection.current == LayoutDirection.Rtl) -1 else 1
             NavHost(
                 navController = navController,
                 startDestination = MainTab.Home.route,
@@ -377,9 +382,9 @@ fun MainScaffold(graph: AppGraph) {
                     val previousRouteIndex = routeIndexMap[initialState.destination.route] ?: -1
 
                     if (currentRouteIndex == -1 || currentRouteIndex > previousRouteIndex) {
-                        slideInHorizontally { it / 8 } + fadeIn(tween(200))
+                        slideInHorizontally { direction * it / 8 } + fadeIn(tween(200))
                     } else {
-                        slideInHorizontally { -it / 8 } + fadeIn(tween(200))
+                        slideInHorizontally { -direction * it / 8 } + fadeIn(tween(200))
                     }
                 },
                 exitTransition = {
@@ -387,9 +392,9 @@ fun MainScaffold(graph: AppGraph) {
                     val targetRouteIndex = routeIndexMap[targetState.destination.route] ?: -1
 
                     if (targetRouteIndex == -1 || targetRouteIndex > currentRouteIndex) {
-                        slideOutHorizontally { -it / 8 } + fadeOut(tween(200))
+                        slideOutHorizontally { -direction * it / 8 } + fadeOut(tween(200))
                     } else {
-                        slideOutHorizontally { it / 8 } + fadeOut(tween(200))
+                        slideOutHorizontally { direction * it / 8 } + fadeOut(tween(200))
                     }
                 },
                 popEnterTransition = {
@@ -397,9 +402,9 @@ fun MainScaffold(graph: AppGraph) {
                     val previousRouteIndex = routeIndexMap[initialState.destination.route] ?: -1
 
                     if (previousRouteIndex != -1 && previousRouteIndex < currentRouteIndex) {
-                        slideInHorizontally { it / 8 } + fadeIn(tween(200))
+                        slideInHorizontally { direction * it / 8 } + fadeIn(tween(200))
                     } else {
-                        slideInHorizontally { -it / 8 } + fadeIn(tween(200))
+                        slideInHorizontally { -direction * it / 8 } + fadeIn(tween(200))
                     }
                 },
                 popExitTransition = {
@@ -407,9 +412,9 @@ fun MainScaffold(graph: AppGraph) {
                     val targetRouteIndex = routeIndexMap[targetState.destination.route] ?: -1
 
                     if (currentRouteIndex != -1 && currentRouteIndex < targetRouteIndex) {
-                        slideOutHorizontally { -it / 8 } + fadeOut(tween(200))
+                        slideOutHorizontally { -direction * it / 8 } + fadeOut(tween(200))
                     } else {
-                        slideOutHorizontally { it / 8 } + fadeOut(tween(200))
+                        slideOutHorizontally { direction * it / 8 } + fadeOut(tween(200))
                     }
                 },
             ) {
