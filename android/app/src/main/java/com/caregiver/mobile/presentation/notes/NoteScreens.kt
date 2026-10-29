@@ -53,6 +53,7 @@ import com.caregiver.mobile.core.theme.CaregiverColors
 import com.caregiver.mobile.presentation.common.AppDimens
 import com.caregiver.mobile.core.theme.PlexArabic
 import com.caregiver.mobile.core.time.DateFormats
+import com.caregiver.mobile.core.util.isAppArabic
 import com.caregiver.mobile.presentation.common.AppBackButton
 import com.caregiver.mobile.presentation.common.AppCard
 import com.caregiver.mobile.presentation.common.AppTopBar
@@ -66,7 +67,6 @@ import com.caregiver.mobile.presentation.common.SectionTitle
 import com.caregiver.mobile.presentation.common.assistedViewModel
 import com.caregiver.mobile.presentation.home.LoadFailed
 import com.caregiver.mobile.presentation.home.LoadingRow
-import java.util.Locale
 
 /**
  * Note editor (board 5, 1560px): الحالة العامة / الأدوية والسقوط / الألم /
@@ -86,7 +86,7 @@ fun NoteEditorScreen(recipientId: String, graph: AppGraph, navController: NavCon
             }
         }
     }
-    val arabic = Locale.getDefault().language == "ar"
+    val arabic = isAppArabic()
     Column(Modifier.fillMaxSize()) {
         Column(
             modifier = Modifier.weight(1f).verticalScroll(rememberScrollState())
@@ -384,7 +384,7 @@ fun NoteDetailScreen(noteId: String, graph: AppGraph, navController: NavControll
             NoteDetailState.Loading -> LoadingRow()
             NoteDetailState.Error -> LoadFailed(onRetry = vm::refresh)
             is NoteDetailState.Content -> {
-                val arabic = Locale.getDefault().language == "ar"
+                val arabic = isAppArabic()
                 Column(
                     modifier = Modifier.weight(1f).verticalScroll(rememberScrollState())
                         .padding(horizontal = 16.dp),

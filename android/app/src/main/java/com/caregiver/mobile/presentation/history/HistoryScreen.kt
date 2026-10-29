@@ -69,6 +69,7 @@ import com.caregiver.mobile.core.navigation.ScrollToTop
 import com.caregiver.mobile.core.theme.CaregiverColors
 import com.caregiver.mobile.core.theme.PlexArabic
 import com.caregiver.mobile.core.time.DateFormats
+import com.caregiver.mobile.core.util.isAppArabic
 import com.caregiver.mobile.data.api.RecipientDto
 import com.caregiver.mobile.presentation.common.AppDimens
 import com.caregiver.mobile.presentation.common.AppEmptyState
@@ -78,7 +79,6 @@ import com.caregiver.mobile.presentation.common.NoteRowSkeleton
 import com.caregiver.mobile.presentation.common.RedPill
 import com.caregiver.mobile.presentation.common.assistedViewModel
 import java.time.LocalDate
-import java.util.Locale
 
 /**
  * History (board 9) and the Notes tab (Task 6): one [NoteRow] per note with
@@ -227,7 +227,7 @@ private fun HistoryFeed(
         }
         return
     }
-    val arabic = Locale.getDefault().language == "ar"
+    val arabic = isAppArabic()
     // Notes carry the recipient id only; resolve display names from the
     // recipients of the same load (a note of a deleted recipient renders
     // without a name).
@@ -454,7 +454,7 @@ private fun DateFilterChip(
     tag: String,
 ) {
     var open by remember { mutableStateOf(false) }
-    val arabic = Locale.getDefault().language == "ar"
+    val arabic = isAppArabic()
     FilterChip(
         selected = date != null,
         onClick = { open = true },

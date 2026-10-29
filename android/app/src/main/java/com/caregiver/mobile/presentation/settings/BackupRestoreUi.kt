@@ -27,6 +27,7 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import com.caregiver.mobile.R
 import com.caregiver.mobile.core.theme.CaregiverColors
+import com.caregiver.mobile.core.util.appLocale
 import com.caregiver.mobile.data.backup.AndroidBackupDocumentIo
 import com.caregiver.mobile.data.backup.BackupFailure
 import com.caregiver.mobile.data.backup.BackupFailureReason
@@ -138,7 +139,7 @@ fun RestorePreviewDialog(
             Text(
                 text = stringResource(
                     R.string.backup_preview_created,
-                    formatBackupCreatedAt(preview.createdAt),
+                    formatBackupCreatedAt(preview.createdAt, appLocale()),
                 ),
                 style = MaterialTheme.typography.bodyMedium,
             )
@@ -233,9 +234,9 @@ internal fun backupFailureText(failure: BackupFailure): String = when (failure.r
  * zone; an unparseable value is shown verbatim (the file is already rejected
  * elsewhere by then, this only keeps the dialog total).
  */
-private fun formatBackupCreatedAt(createdAt: String): String = try {
+private fun formatBackupCreatedAt(createdAt: String, locale: Locale): String = try {
     DateTimeFormatter.ofLocalizedDateTime(FormatStyle.MEDIUM, FormatStyle.SHORT)
-        .withLocale(Locale.getDefault())
+        .withLocale(locale)
         .withZone(ZoneId.systemDefault())
         .format(Instant.parse(createdAt))
 } catch (e: DateTimeParseException) {
