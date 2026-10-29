@@ -353,12 +353,13 @@ private fun SummaryBody(
     val effectiveLocale = appLocale()
     val arabic = effectiveLocale.language == "ar"
     val appName = stringResource(R.string.app_name)
-    val shareText = remember(summary.text, arabic, appName) {
+    val shareTemplate = stringResource(R.string.share_summary_message)
+    val shareText = remember(summary.text, arabic, appName, shareTemplate) {
         CareSummaryShare.shareText(
             summaryText = summary.text,
             dateText = DateFormats.historyDay(LocalDate.now().toString(), arabic),
             appName = appName,
-            arabic = arabic,
+            template = shareTemplate,
         )
     }
 

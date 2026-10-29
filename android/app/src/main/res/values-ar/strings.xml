@@ -119,6 +119,7 @@
     <string name="share_summary_confirm_title">مشاركة ملخص الرعاية؟</string>
     <string name="share_summary_confirm_body">قد يحتوي هذا الملخص على معلومات حساسة عن الرعاية أو الصحة. تابع فقط إذا كنت تنوي مشاركته مع شخص تثق به.</string>
     <string name="share_summary_confirm_continue">متابعة</string>
+    <string name="share_summary_message">ملخص الرعاية\nتاريخ المشاركة: %1$s\n\n%2$s\n\nتمت المشاركة من تطبيق %3$s</string>
     <string name="flag_fall">سقوط مبلغ عنه</string>
     <string name="flag_pain">ألم عال</string>
     <string name="flag_meds">الدواء غير مؤكد</string>
@@ -408,6 +409,7 @@
     <string name="settings_ai_validate_format">التحقق من تنسيق الملخص</string>
     <string name="settings_ai_validating">جارٍ التحقق...</string>
     <string name="settings_ai_format_ok">تنسيق الملخص سليم</string>
+    <string name="settings_ai_format_probe">فحص التحقق من التنسيق: لا توجد مخاوف مبلغ عنها اليوم.</string>
     <string name="settings_ai_format_invalid">فشل التحقق من التنسيق: %1$s</string>
     <string name="settings_ai_invalid_base_url">يجب أن يبدأ عنوان URL الأساسي بـ http:// أو https:// ويتضمن اسم مضيف.</string>
     <string name="settings_mode">الوضع</string>

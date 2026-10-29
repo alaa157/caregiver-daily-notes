@@ -12,6 +12,10 @@ import org.junit.Test
  */
 class CareSummaryShareTextTest {
 
+    private val englishTemplate = "Care Summary\nShared on: %1$s\n\n%2$s\n\nShared from %3$s"
+    private val arabicTemplate =
+        "ملخص الرعاية\nتاريخ المشاركة: %1$s\n\n%2$s\n\nتمت المشاركة من تطبيق %3$s"
+
     @Test
     fun englishMessageUsesActualSummaryAndDate() {
         val actualSummary = "Patient slept well. Mild evening knee pain, appetite stable."
@@ -19,7 +23,7 @@ class CareSummaryShareTextTest {
             summaryText = actualSummary,
             dateText = "Oct 19, 2026",
             appName = "Caregiver Notes",
-            arabic = false,
+            template = englishTemplate,
         )
         assertEquals(
             "Care Summary\nShared on: Oct 19, 2026\n\n$actualSummary\n\nShared from Caregiver Notes",
@@ -34,7 +38,7 @@ class CareSummaryShareTextTest {
             summaryText = actualSummary,
             dateText = "19 أكتوبر 2026",
             appName = "ملاحظات مقدم الرعاية",
-            arabic = true,
+            template = arabicTemplate,
         )
         assertEquals(
             "ملخص الرعاية\nتاريخ المشاركة: 19 أكتوبر 2026\n\n$actualSummary\n\nتمت المشاركة من تطبيق ملاحظات مقدم الرعاية",
@@ -44,8 +48,16 @@ class CareSummaryShareTextTest {
 
     @Test
     fun blankSummaryHidesShareAction() {
-        assertNull(CareSummaryShare.shareText("", "Oct 19, 2026", "Caregiver Notes", arabic = false))
-        assertNull(CareSummaryShare.shareText("   \n  ", "19 أكتوبر 2026", "ملاحظات مقدم الرعاية", arabic = true))
+        assertNull(
+            CareSummaryShare.shareText(
+                "", "Oct 19, 2026", "Caregiver Notes", englishTemplate,
+            ),
+        )
+        assertNull(
+            CareSummaryShare.shareText(
+                "   \n  ", "19 أكتوبر 2026", "ملاحظات مقدم الرعاية", arabicTemplate,
+            ),
+        )
     }
 
     @Test
@@ -58,7 +70,7 @@ class CareSummaryShareTextTest {
             summaryText = summary,
             dateText = "Oct 19, 2026",
             appName = "Caregiver Notes",
-            arabic = false,
+            template = englishTemplate,
         )!!
         assertTrue(text.contains(summary))
     }

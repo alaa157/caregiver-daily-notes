@@ -470,7 +470,7 @@ fun AiSettingsScreen(graph: AppGraph, navController: NavController, navEntry: Na
                             PromptNote(
                                 id = "probe",
                                 date = LocalDate.now().toString(),
-                                text = "Format validation probe: no concerns reported today.",
+                                text = graph.context.getString(R.string.settings_ai_format_probe),
                             ),
                         ),
                     )
