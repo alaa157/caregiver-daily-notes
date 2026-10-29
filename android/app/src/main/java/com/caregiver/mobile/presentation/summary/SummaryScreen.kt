@@ -471,7 +471,7 @@ private fun SummaryBody(
                             graph = graph,
                             summary = summary,
                             periodDays = periodDays,
-                            languageTag = java.util.Locale.getDefault().toLanguageTag(),
+                            languageTag = effectiveLocale.toLanguageTag(),
                             shareText = null,
                         )
                         if (!shared) {
@@ -557,7 +557,7 @@ private fun SummaryBody(
                                             graph = graph,
                                             summary = summary,
                                             periodDays = periodDays,
-                                            languageTag = java.util.Locale.getDefault().toLanguageTag(),
+                                            languageTag = effectiveLocale.toLanguageTag(),
                                             shareText = shareText,
                                         )
                                         if (!shared) {
