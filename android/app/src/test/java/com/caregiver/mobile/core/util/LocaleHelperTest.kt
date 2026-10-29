@@ -76,6 +76,12 @@ class LocaleHelperTest {
     }
 
     @Test
+    fun arabicConfigurationPinsWesternDigits() {
+        val arabic = LocaleHelper.configurationFor(context, "ar")
+        assertEquals("ar-u-nu-latn", arabic.locale.toLanguageTag())
+    }
+
+    @Test
     fun arabicResourcesResolveToArabicTextAndRtl() {
         RuntimeEnvironment.setQualifiers("+ar")
         assertEquals("ar", context.resources.configuration.locale.language)
