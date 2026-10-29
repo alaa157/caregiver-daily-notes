@@ -13,6 +13,8 @@ import com.caregiver.mobile.R
 import com.caregiver.mobile.core.time.DateFormats
 import com.caregiver.mobile.data.api.NoteDto
 import com.caregiver.mobile.data.api.SummaryDto
+import com.caregiver.mobile.presentation.notes.OptionGroup
+import com.caregiver.mobile.presentation.notes.OptionLabels
 import java.io.File
 import java.io.FileOutputStream
 import java.time.LocalDate
@@ -97,27 +99,39 @@ object CareSummaryPdfExporter {
             }
         }
 
-        drawTextBlock(if (ar) "ملخص الرعاية" else "Care Summary", titlePaint, 4f)
+        drawTextBlock(context.getString(R.string.pdf_title), titlePaint, 4f)
         drawTextBlock(context.getString(R.string.app_name), paint, 8f)
-        recipientName?.takeIf { it.isNotBlank() }?.let { drawTextBlock((if (ar) "المستفيد: " else "Recipient: ") + it, paint, 4f) }
+        recipientName?.takeIf { it.isNotBlank() }?.let {
+            drawTextBlock(context.getString(R.string.pdf_recipient, it), paint, 4f)
+        }
         drawTextBlock(
-            if (ar) "الفترة: ${summary.periodDays} يومًا" else "Period: ${summary.periodDays} days",
+            context.resources.getQuantityString(
+                R.plurals.pdf_period,
+                summary.periodDays,
+                summary.periodDays,
+            ),
             paint,
             4f,
         )
         drawTextBlock(
-            (if (ar) "تاريخ التقرير: " else "Generated: ") +
+            context.getString(
+                R.string.pdf_generated,
                 DateFormats.historyDay(LocalDate.now().toString(), ar),
+            ),
             paint,
             12f,
         )
 
-        drawTextBlock(if (ar) "الملخص" else "Executive summary", sectionPaint, 4f)
-        drawTextBlock(if (summary.text.isBlank()) (if (ar) "لا توجد ملاحظات مدعومة." else "No supported observations found.") else summary.text, paint, 12f)
+        drawTextBlock(context.getString(R.string.pdf_executive_summary), sectionPaint, 4f)
+        drawTextBlock(
+            if (summary.text.isBlank()) context.getString(R.string.summary_no_supported_observations) else summary.text,
+            paint,
+            12f,
+        )
 
-        drawTextBlock(if (ar) "التنبيهات" else "Care flags", sectionPaint, 4f)
+        drawTextBlock(context.getString(R.string.pdf_care_flags), sectionPaint, 4f)
         if (summary.redFlags.isEmpty()) {
-            drawTextBlock(if (ar) "لا توجد تنبيهات رعاية مسجلة خلال هذه الفترة." else "No recorded care flags in this reporting period.", paint, 12f)
+            drawTextBlock(context.getString(R.string.pdf_no_flags), paint, 12f)
         } else {
             summary.redFlags.forEach { flag ->
                 drawTextBlock("• ${flagLabel(context, flag)}", paint, 4f)
@@ -126,40 +140,55 @@ object CareSummaryPdfExporter {
         }
 
         if (summary.evidence.isNotEmpty()) {
-            drawTextBlock(if (ar) "الأدلة" else "Supporting evidence", sectionPaint, 4f)
+            drawTextBlock(context.getString(R.string.pdf_evidence), sectionPaint, 4f)
             summary.evidence.forEach { ev ->
                 drawTextBlock("• ${ev.quote}", paint, 8f)
             }
         }
 
-        drawTextBlock(if (ar) "الملاحظات المسجلة" else "Recorded observations", sectionPaint, 4f)
+        drawTextBlock(context.getString(R.string.pdf_recorded_observations), sectionPaint, 4f)
+        val listSeparator = if (ar) "، " else ", "
         val trendLines = mutableListOf<String>()
         notes.sortedBy { it.date }.forEach { n ->
             val parts = mutableListOf<String>()
-            if (n.pain >= 0) parts += (if (ar) "الألم: " else "Pain: ") + n.pain
-            if (n.sleep.isNotBlank()) parts += (if (ar) "النوم: " else "Sleep: ") + n.sleep
-            if (n.mood.isNotBlank()) parts += (if (ar) "المزاج: " else "Mood: ") + n.mood
-            if (parts.isNotEmpty()) trendLines += "${n.date}: " + parts.joinToString(", ")
+            if (n.pain >= 0) parts += context.getString(R.string.pdf_pain, n.pain)
+            if (n.sleep.isNotBlank()) {
+                parts += context.getString(
+                    R.string.pdf_sleep,
+                    OptionLabels.label(OptionGroup.Sleep, n.sleep, ar),
+                )
+            }
+            if (n.mood.isNotBlank()) {
+                parts += context.getString(
+                    R.string.pdf_mood,
+                    OptionLabels.label(OptionGroup.Mood, n.mood, ar),
+                )
+            }
+            if (parts.isNotEmpty()) {
+                trendLines += context.getString(
+                    R.string.pdf_observation_line,
+                    n.date,
+                    parts.joinToString(listSeparator),
+                )
+            }
         }
         if (trendLines.isEmpty()) {
-            drawTextBlock(if (ar) "لا توجد بيانات اتجاه مسجلة خلال هذه الفترة." else "No recorded trend data for this period.", paint, 12f)
+            drawTextBlock(context.getString(R.string.pdf_no_trends), paint, 12f)
         } else {
             trendLines.forEach { drawTextBlock(it, paint, 4f) }
             y += 8f
         }
 
         if (summary.uncertainties.isNotEmpty()) {
-            drawTextBlock(if (ar) "معلومات غير واضحة" else "Unclear information", sectionPaint, 4f)
-            summary.uncertainties.forEach { u -> drawTextBlock("${u.topic}: ${u.detail}", paint, 4f) }
+            drawTextBlock(context.getString(R.string.pdf_unclear), sectionPaint, 4f)
+            summary.uncertainties.forEach { u ->
+                drawTextBlock("• ${uncertaintyText(context, u)}", paint, 4f)
+            }
             y += 8f
         }
 
-        drawTextBlock(if (ar) "إخلاء المسؤولية" else "Disclaimer", sectionPaint, 4f)
-        val disclaimer = if (ar)
-            "يلخص هذا التقرير الملاحظات المسجلة بواسطة مقدم الرعاية خلال الفترة المحددة، بهدف دعم التواصل مع المختصين في الرعاية الصحية. ولا يُعد تشخيصًا طبيًا أو بديلًا عن التقييم الطبي المتخصص."
-        else
-            "This report summarizes caregiver-recorded observations and available care notes for the stated period. It is intended to support communication with healthcare professionals and is not a medical diagnosis or a substitute for professional medical assessment."
-        drawTextBlock(disclaimer, paint, 12f)
+        drawTextBlock(context.getString(R.string.pdf_disclaimer_title), sectionPaint, 4f)
+        drawTextBlock(context.getString(R.string.pdf_disclaimer), paint, 12f)
 
         doc.finishPage(page)
         try {
@@ -168,6 +197,21 @@ object CareSummaryPdfExporter {
             doc.close()
         }
         return FileProvider.getUriForFile(context, context.packageName + ".fileprovider", file)
+    }
+
+    /**
+     * System-generated uncertainty topics get localized copy; a model-invented
+     * topic shows only its detail, mirroring the on-screen summary.
+     */
+    private fun uncertaintyText(
+        context: Context,
+        uncertainty: SummaryDto.UncertaintyDto,
+    ): String = when (uncertainty.topic) {
+        "ai_unavailable" -> context.getString(R.string.ai_unavailable)
+        "ai_not_configured" -> context.getString(R.string.summary_ai_not_configured)
+        "invalid_evidence" -> context.getString(R.string.summary_unclear_invalid_evidence)
+        "unverified_claim" -> context.getString(R.string.summary_unclear_unverified)
+        else -> uncertainty.detail.ifBlank { uncertainty.topic }
     }
 
     private fun flagLabel(context: Context, flag: String): String = when (flag) {

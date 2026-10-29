@@ -240,6 +240,26 @@
     <string name="summary_source">Source note</string>
     <string name="summary_unclear_invalid_evidence">Some AI findings were not supported by the source notes</string>
     <string name="summary_unclear_unverified">These AI findings are quote-based and still need clinical verification</string>
+    <string name="pdf_title">Care Summary</string>
+    <string name="pdf_recipient">Recipient: %1$s</string>
+    <plurals name="pdf_period">
+        <item quantity="one">Period: %d day</item>
+        <item quantity="other">Period: %d days</item>
+    </plurals>
+    <string name="pdf_generated">Generated: %1$s</string>
+    <string name="pdf_executive_summary">Executive summary</string>
+    <string name="pdf_care_flags">Care flags</string>
+    <string name="pdf_no_flags">No recorded care flags in this reporting period.</string>
+    <string name="pdf_evidence">Supporting evidence</string>
+    <string name="pdf_recorded_observations">Recorded observations</string>
+    <string name="pdf_pain">Pain: %1$d</string>
+    <string name="pdf_sleep">Sleep: %1$s</string>
+    <string name="pdf_mood">Mood: %1$s</string>
+    <string name="pdf_observation_line">%1$s: %2$s</string>
+    <string name="pdf_no_trends">No recorded trend data for this period.</string>
+    <string name="pdf_unclear">Unclear information</string>
+    <string name="pdf_disclaimer_title">Disclaimer</string>
+    <string name="pdf_disclaimer">This report summarizes caregiver-recorded observations and available care notes for the stated period. It is intended to support communication with healthcare professionals and is not a medical diagnosis or a substitute for professional medical assessment.</string>
     <string name="plan_suggested_review">Suggested for review</string>
     <string name="plan_not_prescription_title">A suggestion, not a prescription</string>
     <string name="plan_not_prescription_body">You are the reviewer. AI never changes medications.</string>
