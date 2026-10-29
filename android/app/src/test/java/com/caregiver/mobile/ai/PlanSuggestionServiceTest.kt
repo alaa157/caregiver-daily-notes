@@ -2,6 +2,7 @@ package com.caregiver.mobile.ai
 
 import kotlinx.coroutines.runBlocking
 import org.junit.Assert.assertEquals
+import org.junit.Assert.assertFalse
 import org.junit.Assert.assertNull
 import org.junit.Assert.assertTrue
 import org.junit.Test
@@ -149,6 +150,40 @@ class PlanSuggestionServiceTest {
         val service = PlanSuggestionService(client)
         service.suggest("grounded summary text")
         assertEquals("grounded summary text", client.requests[0].dataBlock)
+    }
+
+    @Test
+    fun arabicPlanPromptTranslatesReasonsButKeepsMachineTokens() = runBlocking {
+        val client = ScriptedClient(listOf(validPlanJson))
+        PlanSuggestionService(client, language = "ar").suggest("summary")
+        val prompt = client.requests[0].systemPrompt
+        assertTrue(prompt.contains("Modern Standard Arabic"))
+        assertTrue(prompt.contains("\"reason\""))
+        assertTrue(prompt.contains("machine identifiers"))
+        assertTrue(prompt.contains("actionId"))
+    }
+
+    @Test
+    fun englishPlanPromptHasNoArabicRule() = runBlocking {
+        val client = ScriptedClient(listOf(validPlanJson))
+        PlanSuggestionService(client).suggest("summary")
+        assertFalse(client.requests[0].systemPrompt.contains("Modern Standard Arabic"))
+    }
+
+    @Test
+    fun planItemTextNeverShowsMachineTokens() {
+        val monitor = PlanSuggestionService.planItemText(
+            PlanChange("monitor", emptyMap(), "watch her appetite"),
+        )
+        assertEquals("watch her appetite", monitor)
+        assertFalse(monitor.contains("["))
+        assertFalse(monitor.contains("params="))
+
+        val followUp = PlanSuggestionService.planItemText(
+            PlanChange("schedule_followup", mapOf("date" to "2026-10-25"), "review next week"),
+        )
+        assertEquals("review next week (2026-10-25)", followUp)
+        assertFalse(followUp.contains("params="))
     }
 
     @Test

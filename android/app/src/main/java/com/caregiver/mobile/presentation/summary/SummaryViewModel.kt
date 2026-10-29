@@ -350,18 +350,12 @@ class SummaryViewModel(
                     _suggestStatus.value = "empty_after_filter"
                     return@launch
                 }
-                val service = PlanSuggestionService(client, store)
+                val service = PlanSuggestionService(client, store, language = language)
                 val result = service.suggest(summaryText)
                 when (result) {
                     is PlanSuggestionResult.Success -> {
                         val items = result.suggestion.changes.mapNotNull { change ->
-                            val reason = change.reason.trim()
-                            if (reason.isBlank()) return@mapNotNull null
-                            buildString {
-                                append("[").append(change.actionId).append("] ")
-                                append(reason)
-                                if (change.params.isNotEmpty()) append(" params=").append(change.params.entries.joinToString(",") { "${it.key}=${it.value}" })
-                            }
+                            PlanSuggestionService.planItemText(change).takeIf { it.isNotBlank() }
                         }
                         if (items.isEmpty()) {
                             _suggestStatus.value = "empty_after_filter"
