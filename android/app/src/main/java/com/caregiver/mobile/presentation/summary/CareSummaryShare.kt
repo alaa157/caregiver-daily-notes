@@ -7,6 +7,7 @@ import android.content.Context
 import android.content.ContextWrapper
 import android.content.Intent
 import android.net.Uri
+import java.util.Locale
 
 /**
  * Native share plumbing for the generated care summary
@@ -31,13 +32,14 @@ internal object CareSummaryShare {
      * preparation date (today), pre-formatted with the app's bilingual
      * `DateFormats` — and never claims to be the summary's own date.
      */
-    fun shareText(summaryText: String, dateText: String, appName: String, arabic: Boolean): String? {
+    fun shareText(
+        summaryText: String,
+        dateText: String,
+        appName: String,
+        template: String,
+    ): String? {
         if (summaryText.isBlank()) return null
-        return if (arabic) {
-            "ملخص الرعاية\nتاريخ المشاركة: $dateText\n\n$summaryText\n\nتمت المشاركة من تطبيق $appName"
-        } else {
-            "Care Summary\nShared on: $dateText\n\n$summaryText\n\nShared from $appName"
-        }
+        return String.format(Locale.ROOT, template, dateText, summaryText, appName)
     }
 
     /**
