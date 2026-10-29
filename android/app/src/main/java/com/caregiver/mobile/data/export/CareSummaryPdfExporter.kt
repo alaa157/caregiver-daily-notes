@@ -9,6 +9,8 @@ import android.text.Layout
 import android.text.StaticLayout
 import android.text.TextPaint
 import androidx.core.content.FileProvider
+import com.caregiver.mobile.R
+import com.caregiver.mobile.core.time.DateFormats
 import com.caregiver.mobile.data.api.NoteDto
 import com.caregiver.mobile.data.api.SummaryDto
 import java.io.File
@@ -54,10 +56,6 @@ object CareSummaryPdfExporter {
             y = margin
         }
 
-        fun ensureSpace(h: Float) {
-            if (y + h > pageHeight - margin) newPage()
-        }
-
         fun drawTextBlock(text: String, p: TextPaint = paint, spacing: Float = 6f) {
             if (text.isBlank()) return
             val width = (pageWidth - 2 * margin).toInt()
@@ -100,10 +98,19 @@ object CareSummaryPdfExporter {
         }
 
         drawTextBlock(if (ar) "ملخص الرعاية" else "Care Summary", titlePaint, 4f)
-        drawTextBlock("Caregiver Daily Notes", paint, 8f)
+        drawTextBlock(context.getString(R.string.app_name), paint, 8f)
         recipientName?.takeIf { it.isNotBlank() }?.let { drawTextBlock((if (ar) "المستفيد: " else "Recipient: ") + it, paint, 4f) }
-        drawTextBlock((if (ar) "الفترة: " else "Period: ") + summary.periodDays + " days", paint, 4f)
-        drawTextBlock((if (ar) "تاريخ التقرير: " else "Generated: ") + LocalDate.now().toString(), paint, 12f)
+        drawTextBlock(
+            if (ar) "الفترة: ${summary.periodDays} يومًا" else "Period: ${summary.periodDays} days",
+            paint,
+            4f,
+        )
+        drawTextBlock(
+            (if (ar) "تاريخ التقرير: " else "Generated: ") +
+                DateFormats.historyDay(LocalDate.now().toString(), ar),
+            paint,
+            12f,
+        )
 
         drawTextBlock(if (ar) "الملخص" else "Executive summary", sectionPaint, 4f)
         drawTextBlock(if (summary.text.isBlank()) (if (ar) "لا توجد ملاحظات مدعومة." else "No supported observations found.") else summary.text, paint, 12f)
@@ -112,14 +119,16 @@ object CareSummaryPdfExporter {
         if (summary.redFlags.isEmpty()) {
             drawTextBlock(if (ar) "لا توجد تنبيهات رعاية مسجلة خلال هذه الفترة." else "No recorded care flags in this reporting period.", paint, 12f)
         } else {
-            summary.redFlags.forEach { drawTextBlock("• $it", paint, 4f) }
+            summary.redFlags.forEach { flag ->
+                drawTextBlock("• ${flagLabel(context, flag)}", paint, 4f)
+            }
             y += 8f
         }
 
         if (summary.evidence.isNotEmpty()) {
             drawTextBlock(if (ar) "الأدلة" else "Supporting evidence", sectionPaint, 4f)
             summary.evidence.forEach { ev ->
-                drawTextBlock("${ev.noteId}: ${ev.quote}", paint, 8f)
+                drawTextBlock("• ${ev.quote}", paint, 8f)
             }
         }
 
@@ -153,8 +162,21 @@ object CareSummaryPdfExporter {
         drawTextBlock(disclaimer, paint, 12f)
 
         doc.finishPage(page)
-        FileOutputStream(file).use { doc.writeTo(it) }
-        doc.close()
+        try {
+            FileOutputStream(file).use { doc.writeTo(it) }
+        } finally {
+            doc.close()
+        }
         return FileProvider.getUriForFile(context, context.packageName + ".fileprovider", file)
+    }
+
+    private fun flagLabel(context: Context, flag: String): String = when (flag) {
+        "FALL_REPORTED" -> context.getString(R.string.flag_fall)
+        "HIGH_PAIN" -> context.getString(R.string.flag_pain)
+        "REPEATED_MISSED_MED" -> context.getString(R.string.flag_missed_med)
+        "MEDICATION_UNVERIFIED" -> context.getString(R.string.flag_med_unverified)
+        "POOR_APPETITE_DAYS" -> context.getString(R.string.flag_poor_appetite)
+        "MODEL_URGENT" -> context.getString(R.string.flag_model_urgent)
+        else -> context.getString(R.string.flag_unknown)
     }
 }
