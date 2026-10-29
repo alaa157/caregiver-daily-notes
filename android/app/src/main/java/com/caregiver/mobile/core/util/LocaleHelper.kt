@@ -31,7 +31,17 @@ object LocaleHelper {
      * building a context.
      */
     fun configurationFor(context: Context, language: String): Configuration =
-        Configuration(context.resources.configuration).apply { setLocale(Locale(language)) }
+        Configuration(context.resources.configuration).apply {
+            setLocale(localeFor(language))
+        }
+
+    /**
+     * Arabic keeps its RTL layout and Arabic text but pins Western digits
+     * through the `ar-u-nu-latn` Unicode extension; plain `ar` would render
+     * Arabic-Indic digits in framework-formatted numbers.
+     */
+    private fun localeFor(language: String): Locale =
+        if (language == "ar") Locale.forLanguageTag("ar-u-nu-latn") else Locale(language)
 
     /** Wraps [context] so it resolves resources in [language] (ar/en). */
     fun wrap(context: Context, language: String): Context =
