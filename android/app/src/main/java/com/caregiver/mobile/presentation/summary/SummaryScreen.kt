@@ -1,10 +1,12 @@
 package com.caregiver.mobile.presentation.summary
 
-import android.content.Intent
-import kotlinx.coroutines.launch
-
+import android.content.Context
 import android.os.Build
 import android.util.Log
+import kotlinx.coroutines.CancellationException
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.launch
+import kotlinx.coroutines.withContext
 
 import androidx.compose.foundation.layout.Arrangement
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
@@ -357,6 +359,7 @@ private fun SummaryBody(
     suggestedForCurrent: Boolean = false,
     suggestStatus: String? = null,
 ) {
+    val context = LocalContext.current
     Column(
         modifier = Modifier.fillMaxSize().verticalScroll(rememberScrollState()),
         verticalArrangement = Arrangement.spacedBy(AppDimens.SectionGap),
@@ -434,36 +437,27 @@ private fun SummaryBody(
         var exportError by remember { mutableStateOf<String?>(null) }
         androidx.compose.material3.Button(
             onClick = {
+                exportError = null
                 exporting = true
                 exportScope.launch {
                     try {
-                        val today = java.time.LocalDate.now()
-                        val from = SummaryWindow.start(today, periodDays).toString()
-                        val to = today.toString()
-                        val notes = try { graph.apis.notes().history(summary.recipientId, from, to) } catch (e: kotlinx.coroutines.CancellationException) {
-                            throw e
-                        } catch (e: Exception) { emptyList() }
-                        val recipientName = try { graph.apis.recipients().get(summary.recipientId).name } catch (e: kotlinx.coroutines.CancellationException) {
-                            throw e
-                        } catch (e: Exception) { null }
-                        val uri = CareSummaryPdfExporter.export(
-                            graph.context,
-                            summary,
-                            recipientName,
-                            java.util.Locale.getDefault().toLanguageTag(),
-                            notes,
+                        val shared = shareSummaryPdf(
+                            context = context,
+                            graph = graph,
+                            summary = summary,
+                            periodDays = periodDays,
+                            languageTag = java.util.Locale.getDefault().toLanguageTag(),
+                            shareText = null,
                         )
-                        val share = Intent(Intent.ACTION_SEND).apply {
-                            type = "application/pdf"
-                            putExtra(Intent.EXTRA_STREAM, uri)
-                            addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION)
+                        if (!shared) {
+                            exportError = context.getString(R.string.export_failed)
                         }
-                        graph.context.startActivity(Intent.createChooser(share, null))
-                    } catch (e: kotlinx.coroutines.CancellationException) {
+                    } catch (e: CancellationException) {
                         // The screen went away mid-export: let the scope cancel.
                         throw e
                     } catch (e: Exception) {
-                        exportError = graph.context.getString(R.string.export_failed)
+                        Log.e("SummaryScreen", "PDF export failed: ${e.javaClass.name}")
+                        exportError = context.getString(R.string.export_failed)
                     } finally {
                         exporting = false
                     }
@@ -496,7 +490,6 @@ private fun SummaryBody(
         // sheet — exactly once per confirmation (launch guard), with
         // failures degrading silently so the screen can never crash and the
         // summary text can never leak into logs.
-        val context = LocalContext.current
         // Effective per-app locale (the LocaleHelper-wrapped configuration),
         // not the process default: the app language may differ from the
         // device language, and the shared message — including its date
@@ -557,32 +550,28 @@ private fun SummaryBody(
                             if (!shareLaunched) {
                                 shareLaunched = true
                                 showShareConfirm = false
+                                exportError = null
+                                exporting = true
                                 exportScope.launch {
                                     try {
-                                        val today = java.time.LocalDate.now()
-                                        val from = SummaryWindow.start(today, periodDays).toString()
-                                        val to = today.toString()
-                                        val notes = try { graph.apis.notes().history(summary.recipientId, from, to) } catch (e: kotlinx.coroutines.CancellationException) {
-                                            throw e
-                                        } catch (e: Exception) { emptyList() }
-                                        val recipientName = try { graph.apis.recipients().get(summary.recipientId).name } catch (e: kotlinx.coroutines.CancellationException) {
-                                            throw e
-                                        } catch (e: Exception) { null }
-                                        val uri = CareSummaryPdfExporter.export(
-                                            context,
-                                            summary,
-                                            recipientName,
-                                            java.util.Locale.getDefault().toLanguageTag(),
-                                            notes,
+                                        val shared = shareSummaryPdf(
+                                            context = context,
+                                            graph = graph,
+                                            summary = summary,
+                                            periodDays = periodDays,
+                                            languageTag = java.util.Locale.getDefault().toLanguageTag(),
+                                            shareText = shareText,
                                         )
-                                        val share = Intent(Intent.ACTION_SEND).apply {
-                                            type = "application/pdf"
-                                            putExtra(Intent.EXTRA_STREAM, uri)
-                                            addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION)
+                                        if (!shared) {
+                                            exportError = context.getString(R.string.export_failed)
                                         }
-                                        context.startActivity(Intent.createChooser(share, null))
+                                    } catch (e: CancellationException) {
+                                        throw e
                                     } catch (e: Exception) {
+                                        Log.e("SummaryScreen", "PDF share failed: ${e.javaClass.name}")
                                         exportError = context.getString(R.string.export_failed)
+                                    } finally {
+                                        exporting = false
                                     }
                                 }
                             }
@@ -625,6 +614,45 @@ private fun SummaryBody(
         }
         Spacer(Modifier.height(8.dp))
     }
+}
+
+/**
+ * Builds the summary PDF off the main thread, then opens the system chooser
+ * with an Activity context when one is available. Returns false when the
+ * chooser could not be opened; the caller surfaces the localized error.
+ */
+private suspend fun shareSummaryPdf(
+    context: Context,
+    graph: AppGraph,
+    summary: SummaryDto,
+    periodDays: Int,
+    languageTag: String,
+    shareText: String?,
+): Boolean {
+    val today = LocalDate.now()
+    val from = SummaryWindow.start(today, periodDays).toString()
+    val to = today.toString()
+    val notes = try {
+        graph.apis.notes().history(summary.recipientId, from, to)
+    } catch (e: CancellationException) {
+        throw e
+    } catch (e: Exception) {
+        emptyList()
+    }
+    val recipientName = try {
+        graph.apis.recipients().get(summary.recipientId).name
+    } catch (e: CancellationException) {
+        throw e
+    } catch (e: Exception) {
+        null
+    }
+    val uri = withContext(Dispatchers.IO) {
+        CareSummaryPdfExporter.export(context, summary, recipientName, languageTag, notes)
+    }
+    return CareSummaryShare.launchChooser(
+        context,
+        CareSummaryShare.pdfShareIntent(uri, shareText),
+    )
 }
 
 @Composable
