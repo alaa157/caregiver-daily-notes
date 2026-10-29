@@ -12,20 +12,19 @@ import android.net.Uri
  * Native share plumbing for the generated care summary
  * (spec: "Share Generated Care Summary with Doctor").
  *
- * Kept tiny and framework-light on purpose: the text builder and the chooser
- * intent are pure, so they are unit-testable without Robolectric and without
- * ever starting a real messaging app. The launcher takes the system share
- * sheet path only — no target app is hardcoded, nothing is sent
- * automatically, no permissions are requested, and the summary text is never
- * logged.
+ * Kept tiny and framework-light on purpose: the text builder and the share
+ * intents are pure, so they are unit-testable without ever starting a real
+ * messaging app. The launcher takes the system share sheet path only — no
+ * target app is hardcoded, nothing is sent automatically, no permissions are
+ * requested, and the summary text is never logged.
  */
 internal object CareSummaryShare {
 
     /**
-     * Builds the plain-text message from the ACTUAL generated summary shown
-     * on the results screen — never placeholder content. Returns null when
-     * there is nothing usable to share (blank summary text), so callers hide
-     * the action entirely instead of sharing an empty shell.
+     * Builds the optional plain-text message from the ACTUAL generated
+     * summary shown on the results screen — never placeholder content.
+     * Returns null when there is no generated text, so the PDF is shared on
+     * its own instead of attaching an empty message.
      *
      * Note: `SummaryDto` carries no trusted generation timestamp, so the
      * date in the message is labelled for what it really is — the sharing /
@@ -40,19 +39,6 @@ internal object CareSummaryShare {
             "Care Summary\nShared on: $dateText\n\n$summaryText\n\nShared from $appName"
         }
     }
-
-    /**
-     * The chooser intent: `ACTION_SEND` + `text/plain` + `EXTRA_TEXT`,
-     * wrapped in `Intent.createChooser` so the system share sheet lists every
-     * compatible installed app (WhatsApp, Telegram, Gmail, Messages, …).
-     */
-    fun chooserIntent(text: String): Intent = Intent.createChooser(
-        Intent(Intent.ACTION_SEND).apply {
-            type = "text/plain"
-            putExtra(Intent.EXTRA_TEXT, text)
-        },
-        null,
-    )
 
     /**
      * The PDF share intent: `ACTION_SEND` + `application/pdf` +
@@ -95,18 +81,6 @@ internal object CareSummaryShare {
     } catch (e: RuntimeException) {
         false
     }
-
-    /**
-     * Opens the share sheet for a plain-text summary once per tap. Kept for
-     * callers that have no PDF attachment.
-     */
-    fun launch(context: Context, text: String): Boolean = launchChooser(
-        context,
-        Intent(Intent.ACTION_SEND).apply {
-            type = "text/plain"
-            putExtra(Intent.EXTRA_TEXT, text)
-        },
-    )
 
     private tailrec fun Context.findActivity(): Activity? = when (this) {
         is Activity -> this
