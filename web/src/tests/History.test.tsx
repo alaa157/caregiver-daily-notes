@@ -1,7 +1,7 @@
 import { act, fireEvent, render, screen, waitFor, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { MemoryRouter, useLocation } from 'react-router-dom';
-import { describe, expect, it, vi } from 'vitest';
+import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { App } from '../app/App';
 import { AuthProvider } from '../features/auth/AuthProvider';
 import { defaultHistoryFilters } from '../features/history/historyFilters';
@@ -34,6 +34,11 @@ async function loaded() { return screen.findByRole('article', { name: recipientF
 function date(label: string, value: string) { fireEvent.change(screen.getByLabelText(label), { target: { value } }); }
 
 describe('history screen, filters and immutable records', () => {
+  beforeEach(() => {
+    // Freeze calendar time only; async UI and request timers still run normally.
+    vi.useFakeTimers({ toFake: ['Date'] });
+    vi.setSystemTime(new Date('2026-10-27T12:00:00Z'));
+  });
   it('protects history and its alias before making API requests', () => {
     const fetcher = vi.fn();
     renderHistory(fetcher, `${root}/history`, 'en', false);

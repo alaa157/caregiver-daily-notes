@@ -15,7 +15,7 @@ async function checkAccessibility(page: Page) {
   await settlePage(page);
   await page.addScriptTag({ path: require.resolve('axe-core/axe.min.js') });
   const violations = await page.evaluate(async () => {
-    const axe = (window as Window & { axe: import('axe-core').AxeStatic }).axe;
+    const axe = (window as unknown as Window & { axe: typeof import('axe-core') }).axe;
     const results = await axe.run(document, {
       runOnly: { type: 'tag', values: ['wcag2a', 'wcag2aa', 'wcag21a', 'wcag21aa'] },
     });
