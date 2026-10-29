@@ -1,6 +1,8 @@
-# Caregiver Daily Notes — web application (Tasks 1–3)
+# Caregiver Daily Notes — web application
 
-React 18 + TypeScript + Vite. Task #13 provides the foundation, Task #14 adds caregiver authentication, and Task #15 adds recipient management. Notes, history, summaries and plans remain in their separate issues. Backend and clinical logic remain server-owned.
+React 18 + TypeScript + Vite, with caregiver authentication, recipient management,
+daily notes/addenda, history, summaries/safety, and care plans. Task #20 adds the
+complete web quality gate. Backend and clinical logic remain server-owned.
 
 ## Run and test
 
@@ -17,10 +19,18 @@ npm run build
 The lockfile pins the dependency tree. DM Sans and Noto Sans Arabic are served
 with the app through Fontsource; fonts require no third-party CDN requests.
 
-Browser checks run against the production build in Chromium at 1280, 768, 390,
-and 320 pixels, in Arabic and English. They cover navigation, the anonymous
-route guard, language persistence, keyboard focus, horizontal overflow,
-reduced motion, and axe WCAG A/AA accessibility checks including contrast.
+The default Playwright run includes the foundation and authentication smoke
+specs plus the recipient, note, history, summary, and care-plan browser
+contracts. It runs against the production build in Chromium at 1280, 768, 390,
+and 320 pixels, in Arabic and English. Coverage includes caregiver workflows,
+keyboard focus and form errors, Arabic RTL and mixed-direction content,
+horizontal overflow, reduced motion, and axe WCAG 2/2.1 A/AA accessibility
+checks on major screens and states.
+
+The [quality suite overview](e2e/README.md) maps the 224 browser cases to the
+workflows they cover. Language-switch tests also verify that unsaved mixed
+Arabic/English drafts survive direction changes and save exactly once.
+The production build type-checks the browser specs and Playwright configuration.
 
 ```sh
 npx playwright install chromium
@@ -34,8 +44,9 @@ downloading another browser:
 PLAYWRIGHT_CHROMIUM_EXECUTABLE_PATH=/usr/bin/chromium npm run test:e2e
 ```
 
-The foundation checks need no backend. Authentication and recipient browser
-checks use intercepted contract-shaped responses. Run the recipient suite too:
+The browser checks use synthetic, intercepted API responses and do not require
+a backend. After building, individual feature suites can still be run with their
+scoped Playwright configs, for example:
 
 ```sh
 npx playwright test --config src/tests/recipients/playwright.config.ts
@@ -72,10 +83,10 @@ This modifies `dist/config.json`, not the built JS bundle; repeating that step r
 - Features belong under `src/features/<feature>/` and use the centralized API client. Reusable UI is in `src/components`, shared helpers in `src/lib`.
 - The language provider exposes `t`, `language`, `direction`, and `setLanguage`, and synchronizes `<html lang>` and `<html dir>` for Arabic and English. Translations live in `src/i18n/translations.ts`; layout CSS uses logical alignment where direction matters.
 - Reusable `LoadingState`, `EmptyState`, `ErrorState`, and `FieldError` set up accessible feedback conventions. The app includes a skip link, focus-visible outlines, and responsive mobile/desktop layout.
-- `Button`/`ButtonLink`, `Icon`, `FeatureCard`, and `PagePanel` provide shared presentation primitives. Decorative illustrations contain no patient data. Sign-in and recipient management are available; upcoming features are labeled clearly.
+- `Button`/`ButtonLink`, `Icon`, `FeatureCard`, and `PagePanel` provide shared presentation primitives. Decorative illustrations contain no patient data.
 - Route changes focus the main landmark and update the translated document title. Arabic typography uses its own font, spacing, and line height; layout uses logical CSS properties. Animations respect reduced-motion preferences.
 - Authentication and authorization remain backend-owned. Never place provider keys, LLM calls, diagnosis logic, or safety decisions in the browser.
 
 ## Definition of scope
 
-Only `web/` changes are part of #13. Do not change backend/mobile, infra, workflows or repository settings; submit for owner review rather than merging your own PR.
+Task #20 changes are limited to `web/`. Submit for owner review and merge.

@@ -1,7 +1,11 @@
 import { defineConfig } from '@playwright/test';
 
 export default defineConfig({
-  testDir: './e2e',
+  // Keep the established smoke specs and the feature-level browser contracts
+  // in the same default run so accessibility and viewport checks cannot be
+  // skipped by `npm run test:e2e`.
+  testDir: '.',
+  testMatch: ['e2e/**/*.spec.ts', 'src/tests/**/*.browser.ts'],
   fullyParallel: true,
   workers: 2,
   reporter: 'list',
