@@ -12,9 +12,10 @@ import org.junit.Test
  */
 class CareSummaryShareTextTest {
 
-    private val englishTemplate = "Care Summary\nShared on: %1$s\n\n%2$s\n\nShared from %3$s"
+    private val englishTemplate =
+        "Care Summary\nShared on: %1\$s\n\n%2\$s\n\nShared from %3\$s"
     private val arabicTemplate =
-        "ملخص الرعاية\nتاريخ المشاركة: %1$s\n\n%2$s\n\nتمت المشاركة من تطبيق %3$s"
+        "ملخص الرعاية\nتاريخ المشاركة: %1\$s\n\n%2\$s\n\nتمت المشاركة من تطبيق %3\$s"
 
     @Test
     fun englishMessageUsesActualSummaryAndDate() {
