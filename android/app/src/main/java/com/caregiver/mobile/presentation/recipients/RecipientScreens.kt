@@ -653,15 +653,20 @@ internal fun DetailContent(
         // Latest note section — only when history actually returned one.
         // The status card above already covers the no-notes empty state.
         detail.lastNote?.let { note ->
-            SectionTitle(stringResource(R.string.person_last_note))
-            Text(
-                text = OptionLabels.label(OptionGroup.Mood, note.mood, arabic) + " · " +
-                    OptionLabels.label(OptionGroup.Appetite, note.appetite, arabic) + " · " +
-                    OptionLabels.label(OptionGroup.Mobility, note.mobility, arabic),
-                fontFamily = PlexArabic,
-                fontSize = 15.sp,
-                color = CaregiverColors.Ink,
-            )
+            val labels = listOf(
+                OptionLabels.label(OptionGroup.Mood, note.mood, arabic),
+                OptionLabels.label(OptionGroup.Appetite, note.appetite, arabic),
+                OptionLabels.label(OptionGroup.Mobility, note.mobility, arabic),
+            ).filter { it.isNotBlank() }
+            if (labels.isNotEmpty()) {
+                SectionTitle(stringResource(R.string.person_last_note))
+                Text(
+                    text = labels.joinToString(" · "),
+                    fontFamily = PlexArabic,
+                    fontSize = 15.sp,
+                    color = CaregiverColors.Ink,
+                )
+            }
         }
         // No plan/summary status cards: this screen loads only the recipient
         // and their note history, so plan acceptance and summary existence

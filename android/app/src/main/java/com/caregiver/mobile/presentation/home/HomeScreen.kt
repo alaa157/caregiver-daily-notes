@@ -14,7 +14,7 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
-import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.lazy.itemsIndexed
 import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Add
@@ -288,10 +288,14 @@ private fun HomeTimeline(
                             TabEmptyState(selectedTab) { selectedTab = HomeTab.All }
                         }
                     }
-                    else -> items(cards, key = { it.recipientId }) { card ->
-                        RecipientRow(card) {
-                            navController.navigate(AppRoutes.recipientDetail(card.recipientId))
-                        }
+                    else -> itemsIndexed(cards, key = { _, card -> card.recipientId }) { index, card ->
+                        RecipientRow(
+                            card = card,
+                            showDivider = index != cards.lastIndex,
+                            onOpen = {
+                                navController.navigate(AppRoutes.recipientDetail(card.recipientId))
+                            },
+                        )
                     }
                 }
             }
@@ -386,7 +390,7 @@ private fun HomeStatsRow(done: Int, total: Int, attention: Int) {
  * summary come from the dashboard's single bounded load.
  */
 @Composable
-private fun RecipientRow(card: HomeCard, onOpen: () -> Unit) {
+private fun RecipientRow(card: HomeCard, showDivider: Boolean, onOpen: () -> Unit) {
     val arabic = isAppArabic()
     NoteRow(
         avatarLetter = card.name.take(1),
@@ -396,11 +400,18 @@ private fun RecipientRow(card: HomeCard, onOpen: () -> Unit) {
         // not invent one. A note timestamp field would close this gap.
         time = "",
         body = card.lastNote?.let { note ->
-            stringResource(R.string.person_last_note) + ": " +
-                OptionLabels.label(OptionGroup.Appetite, note.appetite, arabic) + " · " +
-                OptionLabels.label(OptionGroup.Sleep, note.sleep, arabic)
+            val labels = listOf(
+                OptionLabels.label(OptionGroup.Appetite, note.appetite, arabic),
+                OptionLabels.label(OptionGroup.Sleep, note.sleep, arabic),
+            ).filter { it.isNotBlank() }
+            if (labels.isEmpty()) {
+                ""
+            } else {
+                stringResource(R.string.person_last_note) + ": " + labels.joinToString(" · ")
+            }
         } ?: "",
         onClick = onOpen,
+        showDivider = showDivider,
         pills = { card.chips.forEach { ChipView(it) } },
         actions = {
             if (card.chips.contains(RecipientChip.MissedToday) ||

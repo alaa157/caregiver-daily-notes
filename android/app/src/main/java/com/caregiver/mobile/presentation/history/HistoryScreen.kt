@@ -17,7 +17,7 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.LazyListState
-import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.lazy.itemsIndexed
 import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.material.icons.Icons
@@ -272,11 +272,12 @@ private fun HistoryFeed(
             // The shell's FAB floats over the last row otherwise.
             contentPadding = PaddingValues(bottom = 88.dp),
         ) {
-            items(visibleEntries, key = { it.note.id }) { entry ->
+            itemsIndexed(visibleEntries, key = { _, entry -> entry.note.id }) { index, entry ->
                 HistoryNoteRow(
                     entry = entry,
                     name = byId[entry.note.recipientId]?.name.orEmpty(),
                     arabic = arabic,
+                    showDivider = index != visibleEntries.lastIndex,
                     onOpen = { navController.navigate(AppRoutes.noteDetail(entry.note.id)) },
                 )
             }
@@ -290,6 +291,7 @@ private fun HistoryNoteRow(
     entry: HistoryEntry,
     name: String,
     arabic: Boolean,
+    showDivider: Boolean,
     onOpen: () -> Unit,
 ) {
     NoteRow(
@@ -299,6 +301,7 @@ private fun HistoryNoteRow(
         body = entry.note.text,
         pending = entry.note.pending,
         onClick = onOpen,
+        showDivider = showDivider,
         pills = {
             if (entry.note.fall) {
                 RedPill(stringResource(R.string.chip_fall))
