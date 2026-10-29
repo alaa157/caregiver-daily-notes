@@ -296,14 +296,14 @@ private fun AppHeaderCard() {
                     )
                     if (BuildConfig.LOCAL_MODE) {
                         InfoChip(
-                            text = "LOCAL",
+                            text = stringResource(R.string.about_badge_local),
                             containerColor = MaterialTheme.colorScheme.secondaryContainer.copy(alpha = 0.5f),
                             contentColor = MaterialTheme.colorScheme.onSecondaryContainer,
                         )
                     }
                     if (BuildConfig.DEBUG) {
                         InfoChip(
-                            text = "DEBUG",
+                            text = stringResource(R.string.about_badge_debug),
                             containerColor = MaterialTheme.colorScheme.tertiaryContainer.copy(alpha = 0.5f),
                             contentColor = MaterialTheme.colorScheme.onTertiaryContainer,
                         )

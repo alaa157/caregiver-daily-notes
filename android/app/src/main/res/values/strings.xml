@@ -156,7 +156,10 @@
     <string name="plans_title">Plans</string>
     <string name="plans_empty">No active care plan yet</string>
     <string name="plans_view_proposals">View proposals</string>
-    <string name="plans_versions_count">%1$d versions</string>
+    <plurals name="plans_versions_count">
+        <item quantity="one">%d version</item>
+        <item quantity="other">%d versions</item>
+    </plurals>
     <string name="plan_proposal_title">Plan proposal</string>
     <string name="plan_status_suggested">Suggested</string>
     <string name="plan_status_accepted">Accepted</string>
@@ -358,6 +361,11 @@
     <string name="about_update_download">Download update</string>
     <string name="about_update_view_release">View release</string>
     <string name="about_footer">Made with care for caregivers.</string>
+    <string name="about_badge_local">LOCAL</string>
+    <string name="about_badge_debug">DEBUG</string>
+    <string name="trends_title">Care Trends</string>
+    <string name="trends_pain_title">Recorded pain over time</string>
+    <string name="trends_empty">No observations recorded for this date range.</string>
     <string name="settings_ai_revoke_consent">Revoke consent</string>
     <string name="settings_ai_revoke_consent_confirm">Revoke</string>
     <string name="settings_ai_revoke_consent_title">Revoke AI consent?</string>

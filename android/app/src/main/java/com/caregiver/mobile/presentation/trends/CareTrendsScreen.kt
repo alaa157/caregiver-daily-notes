@@ -13,15 +13,17 @@ import androidx.compose.runtime.Composable
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.dp
 import com.caregiver.mobile.AppGraph
+import com.caregiver.mobile.R
 import androidx.navigation.NavController
 
 @Composable
 fun CareTrendsScreen(graph: AppGraph, recipientId: String, navController: NavController) {
     Column(Modifier.fillMaxSize().padding(16.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
-        Text("Care Trends", style = MaterialTheme.typography.titleLarge)
-        Text("Recorded pain over time", style = MaterialTheme.typography.titleMedium)
-        Text("No observations recorded for this date range.")
+        Text(stringResource(R.string.trends_title), style = MaterialTheme.typography.titleLarge)
+        Text(stringResource(R.string.trends_pain_title), style = MaterialTheme.typography.titleMedium)
+        Text(stringResource(R.string.trends_empty))
     }
 }
