@@ -53,6 +53,7 @@ import com.caregiver.mobile.core.navigation.MainTab
 import com.caregiver.mobile.core.navigation.ScrollToTop
 import com.caregiver.mobile.core.theme.CaregiverColors
 import com.caregiver.mobile.core.theme.PlexArabic
+import com.caregiver.mobile.core.util.isAppArabic
 import com.caregiver.mobile.presentation.common.AppCard
 import com.caregiver.mobile.presentation.common.AppDimens
 import com.caregiver.mobile.presentation.common.AppEmptyState
@@ -67,7 +68,6 @@ import com.caregiver.mobile.presentation.common.SafetyAlertCard
 import com.caregiver.mobile.presentation.common.assistedViewModel
 import com.caregiver.mobile.presentation.notes.OptionGroup
 import com.caregiver.mobile.presentation.notes.OptionLabels
-import java.util.Locale
 
 /**
  * Home timeline (Task 5): greeting, compact stats, then one [NoteRow] per
@@ -387,7 +387,7 @@ private fun HomeStatsRow(done: Int, total: Int, attention: Int) {
  */
 @Composable
 private fun RecipientRow(card: HomeCard, onOpen: () -> Unit) {
-    val arabic = Locale.getDefault().language == "ar"
+    val arabic = isAppArabic()
     NoteRow(
         avatarLetter = card.name.take(1),
         name = card.name,

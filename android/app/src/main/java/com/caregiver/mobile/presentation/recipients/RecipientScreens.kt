@@ -65,6 +65,7 @@ import com.caregiver.mobile.core.navigation.MainTab
 import com.caregiver.mobile.core.navigation.ScrollToTop
 import com.caregiver.mobile.core.theme.CaregiverColors
 import com.caregiver.mobile.core.theme.PlexArabic
+import com.caregiver.mobile.core.util.isAppArabic
 import com.caregiver.mobile.data.api.RecipientDto
 import com.caregiver.mobile.data.local.RecipientAdmin
 import com.caregiver.mobile.data.local.RecipientDeletionCounts
@@ -86,7 +87,6 @@ import com.caregiver.mobile.presentation.home.LoadFailed
 import com.caregiver.mobile.presentation.home.LoadingRow
 import com.caregiver.mobile.presentation.notes.OptionGroup
 import com.caregiver.mobile.presentation.notes.OptionLabels
-import java.util.Locale
 
 /**
  * Recipients list (board 3) with the add-person entry point. The list shares
@@ -609,7 +609,7 @@ internal fun DetailContent(
     onCancelDelete: () -> Unit,
 ) {
     var confirmingDelete by remember { mutableStateOf(false) }
-    val arabic = Locale.getDefault().language == "ar"
+    val arabic = isAppArabic()
     Column(
         modifier = Modifier.fillMaxSize().verticalScroll(rememberScrollState()),
         verticalArrangement = Arrangement.spacedBy(AppDimens.SectionGap),

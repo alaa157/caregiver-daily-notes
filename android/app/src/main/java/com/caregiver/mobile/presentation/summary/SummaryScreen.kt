@@ -1,7 +1,6 @@
 package com.caregiver.mobile.presentation.summary
 
 import android.content.Context
-import android.os.Build
 import android.util.Log
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.Dispatchers
@@ -36,7 +35,6 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
-import androidx.compose.ui.platform.LocalConfiguration
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.res.stringResource
@@ -61,6 +59,7 @@ import com.caregiver.mobile.presentation.common.AiRecoveryCopy
 import com.caregiver.mobile.presentation.common.AppDimens
 import com.caregiver.mobile.core.theme.PlexArabic
 import com.caregiver.mobile.core.time.DateFormats
+import com.caregiver.mobile.core.util.appLocale
 import com.caregiver.mobile.data.api.SummaryDto
 import com.caregiver.mobile.data.export.CareSummaryPdfExporter
 import com.caregiver.mobile.presentation.common.AppCard
@@ -180,18 +179,8 @@ fun SummaryResultScreen(
         return
     }
     // Same effective locale the UI uses for its own copy: the AI summary
-    // should speak the language the user chose in the app, not the
-    // device's. Configuration.locales/LocaleList require API 24
-    // (minSdk is 23); on API 23 the wrapped configuration still carries
-    // its locale in the deprecated Configuration.locale.
-    val configuration = LocalConfiguration.current
-    @Suppress("DEPRECATION")
-    val effectiveLocale =
-        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.N) {
-            configuration.locales[0]
-        } else {
-            configuration.locale
-        }
+    // should speak the language the user chose in the app, not the device's.
+    val effectiveLocale = appLocale()
     val language = effectiveLocale.language
     val vm: SummaryViewModel = assistedViewModel("summary-$recipientId") {
         SummaryViewModel(recipientId, graph.apis, graph.auth, null, periodDays, AiKeyStore(graph.context), graph.llmClientFactory, language = language)
@@ -359,18 +348,9 @@ private fun SummaryBody(
 ) {
     val context = LocalContext.current
     // Effective per-app locale (the LocaleHelper-wrapped configuration), not
-    // the process default: the PDF is generated in the language the user
-    // actually sees. Configuration.locales/LocaleList require API 24
-    // (minSdk is 23); on API 23 the wrapped configuration still carries its
-    // locale in the deprecated Configuration.locale.
-    val configuration = LocalConfiguration.current
-    @Suppress("DEPRECATION")
-    val effectiveLocale =
-        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.N) {
-            configuration.locales[0]
-        } else {
-            configuration.locale
-        }
+    // the process default: the PDF and share text use the language the user
+    // actually sees.
+    val effectiveLocale = appLocale()
     val arabic = effectiveLocale.language == "ar"
     val appName = stringResource(R.string.app_name)
     val shareText = remember(summary.text, arabic, appName) {
