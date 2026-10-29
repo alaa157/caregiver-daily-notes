@@ -68,6 +68,7 @@ fun NoteRow(
     onClick: () -> Unit,
     modifier: Modifier = Modifier,
     pending: Boolean = false,
+    showDivider: Boolean = true,
     pills: @Composable () -> Unit = {},
     actions: @Composable () -> Unit = {},
 ) {
@@ -151,7 +152,9 @@ fun NoteRow(
                 Row(horizontalArrangement = Arrangement.spacedBy(NoteRowPillGap)) { actions() }
             }
         }
-        HorizontalDivider(thickness = AppDimens.Hairline, color = CaregiverColors.BorderSoft)
+        if (showDivider) {
+            HorizontalDivider(thickness = AppDimens.Hairline, color = CaregiverColors.BorderSoft)
+        }
     }
 }
 
