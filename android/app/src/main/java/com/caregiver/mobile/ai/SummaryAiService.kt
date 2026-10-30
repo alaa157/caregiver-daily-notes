@@ -90,7 +90,7 @@ class SummaryAiService(
         // string value it can never terminate the data payload. Addenda are
         // folded into the same text so the model and the quote check see them.
         val dataBlock = PromptNotes.dataBlock(
-            windowedNotes.map { note -> PromptNote(id = note.id, date = note.date, text = note.combinedText()) },
+            windowedNotes.map { note -> PromptNote(id = note.id, date = note.date, text = note.aiSourceText()) },
         )
         if (dataBlock.length > MAX_INPUT_CHARS) {
             return SummaryAiResult.Failure(redFlags, "oversized")
@@ -125,7 +125,7 @@ class SummaryAiService(
             is LlmJson.Reply.Malformed ->
                 return SummaryAiResult.Failure(redFlags, reply.error ?: "malformed_output")
         }
-        val noteTextsById = windowedNotes.associate { it.id to it.combinedText() }
+        val noteTextsById = windowedNotes.associate { it.id to it.aiSourceText() }
         val normalizedNotes = noteTextsById.mapValues { ArabicNormalizer.normalize(it.value) }
         // Validate and reject unsupported observations; keep only grounded ones.
         // A claim must be non-empty, cite an existing note, cite a non-empty
@@ -215,4 +215,16 @@ class SummaryAiService(
          */
         const val MAX_OBSERVATIONS = 6
     }
+}
+
+/** Render structured note fields as explicit, citable source data for the model. */
+private fun NoteDto.aiSourceText(): String = buildString {
+    append(combinedText())
+    append("\nStructured observations: mood=").append(mood)
+    append("; appetite=").append(appetite)
+    append("; sleep=").append(sleep)
+    append("; mobility=").append(mobility)
+    append("; medicationTaken=").append(medicationTaken)
+    append("; pain=").append(pain).append("/10")
+    append("; fall=").append(fall)
 }
