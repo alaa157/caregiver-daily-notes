@@ -42,8 +42,10 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.stringResource
+import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
+import androidx.compose.ui.text.style.TextDirection
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.navigation.NavController
@@ -385,6 +387,11 @@ fun NoteDetailScreen(noteId: String, graph: AppGraph, navController: NavControll
             NoteDetailState.Error -> LoadFailed(onRetry = vm::refresh)
             is NoteDetailState.Content -> {
                 val arabic = isAppArabic()
+                // Stored note and correction text are free-form and may mix
+                // Arabic with Latin names, URLs, or numbers. Pin the paragraph
+                // direction to the app language so RTL copy keeps its reading
+                // order instead of being resolved from the first strong run.
+                val textDirection = if (arabic) TextDirection.Rtl else TextDirection.Ltr
                 Column(
                     modifier = Modifier.weight(1f).verticalScroll(rememberScrollState())
                         .padding(horizontal = 16.dp),
@@ -460,6 +467,7 @@ fun NoteDetailScreen(noteId: String, graph: AppGraph, navController: NavControll
                     }
                     Text(
                         s.content.note.text,
+                        style = TextStyle(textDirection = textDirection),
                         fontFamily = PlexArabic,
                         fontSize = 16.sp,
                         lineHeight = 29.sp,
@@ -489,6 +497,7 @@ fun NoteDetailScreen(noteId: String, graph: AppGraph, navController: NavControll
                                     }
                                     Text(
                                         addendum.text,
+                                        style = TextStyle(textDirection = textDirection),
                                         fontFamily = PlexArabic,
                                         fontSize = 14.sp,
                                         color = CaregiverColors.Ink,
