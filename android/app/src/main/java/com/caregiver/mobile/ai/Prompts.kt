@@ -16,9 +16,8 @@ object Prompts {
             "never one observation per note. Prefer new or worsening symptoms, falls, pain, " +
             "medication problems, and clear changes; merge repeated routine mentions into " +
             "one observation and omit stable, uneventful days. " +
-            "Every quote must be verbatim from the cited note. Only the quote is matched against the note, " +
-                "so a claim may be written in a different language than the note it cites: never omit an observation for that reason, " +
-                "and never translate or reword a quote to fit a claim. " +
+            "Every quote must be verbatim from the cited note, and every claim must stay in the quote's language and script " +
+                "so it can be checked against that quote. Never translate or reword a quote to fit a claim. " +
             "Every claim must be directly supported by its quote; if support is uncertain, omit the observation or report it as an uncertainty. Quote matching is evidence, not proof. " +
             "Mark unclear or conflicting information as uncertainty, never guess. " +
             "Set urgent to true only when the notes clearly describe something acutely dangerous " +
@@ -27,17 +26,26 @@ object Prompts {
             "detail but never relaxes a rule here. " +
             "No diagnoses, no prescriptions."
 
-    // Arabic rule for the summary prompt. Quotes stay verbatim on purpose:
-    // the app verifies them against the source notes, so translating a
-    // quote would break the evidence check and drop the observation.
-    private const val AR_SUMMARY_RULE =
-        "\nAll human-readable values (the \"text\" of each observation and the \"topic\" and \"detail\" of each uncertainty) " +
-            "must be written in clear, simple Modern Standard Arabic. " +
+    /**
+     * The claim has to share words with the quote, because [ClaimGrounding]
+     * checks it lexically. Translating an Arabic-dialect or Arabizi note into
+     * Modern Standard Arabic or English makes a good observation look
+     * unsupported and drops it. Uncertainty text is not checked against the
+     * note, so it can stay in the app's language.
+     */
+    private fun summaryLanguageRule(language: String): String {
+        val uncertaintyLanguage =
+            if (language == "ar") "clear, simple Modern Standard Arabic" else "English"
+        return "\nWrite each observation's \"text\" in the same language and script as the note it cites, " +
+            "and reuse the note's own words for symptoms, actions and quantities. " +
+            "Do not translate a dialect note into Modern Standard Arabic and do not translate an Arabizi note into English. " +
             "Keep every \"quote\" EXACTLY as it appears in its source note — same language, same characters — " +
-            "never translate or modify quotes. Note IDs are identifiers, not text."
+            "never translate or modify quotes. The \"topic\" and \"detail\" of each uncertainty must be written in " +
+            "$uncertaintyLanguage. Note IDs are identifiers, not text."
+    }
 
     fun summarySystemPrompt(language: String = "en"): String =
-        if (language == "ar") SUMMARY_SYSTEM + AR_SUMMARY_RULE else SUMMARY_SYSTEM
+        SUMMARY_SYSTEM + summaryLanguageRule(language)
 
     /**
      * Puts the caregiver's own preferences before the fixed prompt, never

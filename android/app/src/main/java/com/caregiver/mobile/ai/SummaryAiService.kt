@@ -133,13 +133,14 @@ class SummaryAiService(
                 hadInvalid = true
                 continue
             }
-            // The claim is checked against the quote it cites, but only when
-            // the two can be compared at all. A claim in the app's language
-            // and a quote in the note's language share no word, so the check
-            // cannot judge it: dropping the observation then would lose a
-            // good summary for a reason that says nothing about the model.
-            // The quote itself was verified against the note above, and the
-            // observation stays labelled unverified.
+            // The prompt requires the claim to stay in the quote's language
+            // and script, but a model can disobey. When the two scripts are
+            // not comparable the lexical check cannot judge the claim, and
+            // dropping the observation would lose a good summary for a reason
+            // that says nothing about the model. ClaimGrounding still checks
+            // numbers and polarity first. The quote itself was verified
+            // against the note above, and the observation stays labelled
+            // unverified.
             if (ClaimGrounding.verdict(claim, rawQuote) == ClaimGrounding.Verdict.UNSUPPORTED) {
                 hadInvalid = true
                 continue
