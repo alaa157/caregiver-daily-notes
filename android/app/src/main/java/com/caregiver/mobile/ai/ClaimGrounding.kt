@@ -65,7 +65,10 @@ object ClaimGrounding {
         "a", "an", "the", "and", "or", "but", "if", "to", "of", "in", "on",
         "at", "for", "with", "by", "as", "is", "are", "was", "were", "be",
         "been", "has", "have", "had", "it", "its", "this", "that", "these",
-        "those", "patient", "today",
+        // Temporal qualifiers carry claim meaning: ignoring "today" allowed
+        // a historical quote about pain to support a claim that it is present
+        // today. Keep it in the content-word comparison like other dates.
+        "those", "patient",
         "في", "من", "على", "الى", "إلى", "عن", "مع", "و", "ف", "ب", "ل",
         "هذا", "هذه", "هو", "هي", "كان", "قد", "أن", "إن",
         // Demonstratives, relatives and question words: they point at
