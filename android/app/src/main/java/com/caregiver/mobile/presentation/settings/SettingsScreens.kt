@@ -244,13 +244,7 @@ fun SettingsScreen(graph: AppGraph, navController: NavController) {
                     CaregiverSettingsRow(
                         title = stringResource(R.string.settings_load_sample_data),
                         icon = Icons.Outlined.Storage,
-                        onClick = {
-                            scope.launch {
-                                com.caregiver.mobile.data.SampleDataLoader.load(
-                                    com.caregiver.mobile.data.local.AppDatabase.create(graph.context),
-                                )
-                            }
-                        },
+                        onClick = { scope.launch { graph.loadSampleData() } },
                     ),
                 ),
             )

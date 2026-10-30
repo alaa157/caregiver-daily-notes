@@ -13,6 +13,7 @@ import com.caregiver.mobile.data.OutboxDrain
 import com.caregiver.mobile.data.OutboxSyncWorker
 import com.caregiver.mobile.data.RecipientRepository
 import com.caregiver.mobile.data.RoomBackedBackendApis
+import com.caregiver.mobile.data.SampleDataLoader
 import com.caregiver.mobile.data.SettingsStore
 import com.caregiver.mobile.data.backup.BackupRestoreService
 import com.caregiver.mobile.data.backup.RoomBackupStore
@@ -213,6 +214,16 @@ class AppGraph(val context: Context, val forceProduction: Boolean = false) {
      */
     val medications: MedicationStore? by lazy {
         localDatabase?.let { MedicationStore(it) }
+    }
+
+    /**
+     * Settings' "load sample data" action. It writes through
+     * [localDatabase], the same Room instance the local API, CSV transfer
+     * and backup services use, so observers are invalidated by this write
+     * instead of by a second connection opened from a composable.
+     */
+    suspend fun loadSampleData() {
+        localDatabase?.let { SampleDataLoader.load(it) }
     }
 
     /**
