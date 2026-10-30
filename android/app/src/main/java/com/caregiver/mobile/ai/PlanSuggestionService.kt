@@ -165,7 +165,7 @@ class PlanSuggestionService(
         internal fun paramsAreWellFormed(change: PlanChange): Boolean {
             if (change.actionId != SCHEDULE_FOLLOWUP) return true
             val date = change.params[DATE_PARAM] ?: return false
-            return runCatching { java.time.LocalDate.parse(date) }.isSuccess
+        return runCatching { java.time.LocalDate.parse(date).isAfter(java.time.LocalDate.now()) }.getOrDefault(false)
         }
 
         /**
