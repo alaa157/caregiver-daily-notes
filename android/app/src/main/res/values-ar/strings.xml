@@ -121,7 +121,7 @@
     <string name="share_summary_confirm_continue">متابعة</string>
     <string name="share_summary_message">ملخص الرعاية\nتاريخ المشاركة: %1$s\n\n%2$s\n\nتمت المشاركة من تطبيق %3$s</string>
     <string name="flag_fall">سقوط مبلغ عنه</string>
-    <string name="flag_pain">ألم عال</string>
+    <string name="flag_pain">ألم شديد</string>
     <string name="flag_breathing_trouble">صعوبة في التنفس مبلغ عنها</string>
     <string name="flag_loss_of_consciousness">فقدان وعي مبلغ عنه</string>
     <string name="flag_meds">الدواء غير مؤكد</string>
