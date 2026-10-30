@@ -367,7 +367,7 @@ class SummaryViewModel(
                     return@launch
                 }
                 val service = PlanSuggestionService(client, store, language = language)
-                val result = service.suggest(summaryText)
+                val result = withTimeout(SUMMARY_DEADLINE_MS) { service.suggest(summaryText) }
                 when (result) {
                     is PlanSuggestionResult.Success -> {
                         val items = result.suggestion.changes.mapNotNull { change ->
