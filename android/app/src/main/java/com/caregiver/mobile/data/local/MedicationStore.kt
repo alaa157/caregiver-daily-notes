@@ -75,11 +75,18 @@ class MedicationStore(private val db: AppDatabase) {
         }
     }
 
-    /** Deleting a medication also forgets its history — nothing dangles. */
+    /**
+     * Deleting a medication also forgets its history — nothing dangles. Both
+     * statements commit in one transaction: a cancellation or storage error
+     * between them can no longer strip the intake history off a medication
+     * that stays behind.
+     */
     suspend fun delete(id: String) {
-        requireWritableMedication(id)
-        dao.clearIntakesFor(id)
-        dao.delete(id)
+        db.withTransaction {
+            requireWritableMedication(id)
+            dao.clearIntakesFor(id)
+            dao.delete(id)
+        }
     }
 
     /** Marks the first dose of the day. */
