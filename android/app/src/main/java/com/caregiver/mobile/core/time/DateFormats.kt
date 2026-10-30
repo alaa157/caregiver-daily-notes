@@ -1,7 +1,10 @@
 package com.caregiver.mobile.core.time
 
 import java.time.LocalDate
+import java.time.OffsetDateTime
+import java.time.ZoneId
 import java.time.format.DateTimeFormatter
+import java.time.format.DateTimeParseException
 import java.util.Locale
 
 /**
@@ -64,13 +67,42 @@ object DateFormats {
      * Addendum creation date for the attachments timeline. Addenda arrive as
      * ISO date-times (`2026-10-07T18:30:00`, fractional seconds, or trailing
      * `Z`/offset) or plain ISO dates. Returns the [historyDay] rendering of
-     * the date part, or null when the value is blank or unparsable so callers
-     * omit the date line instead of showing a misleading date.
+     * the date, or null when the value is blank or unparsable so callers omit
+     * the date line instead of showing a misleading date.
+     *
+     * A timestamp with an explicit offset is an instant, so its local day is
+     * resolved in the device's zone: `2026-10-07T22:30:00Z` is already
+     * October 8 for a caregiver in UTC+3. Date-only values and offset-less
+     * local date-times are already on the user's calendar day and keep their
+     * encoded date.
      */
-    fun addendumDate(createdAt: String, arabic: Boolean): String? {
-        val parsed = parseIsoDate(createdAt) ?: return null
+    fun addendumDate(createdAt: String, arabic: Boolean): String? =
+        addendumDate(createdAt, arabic, ZoneId.systemDefault())
+
+    internal fun addendumDate(createdAt: String, arabic: Boolean, zone: ZoneId): String? {
+        val parsed = addendumLocalDate(createdAt, zone) ?: return null
         // Re-render through the shared formatter so both languages stay
         // consistent with history rows.
         return historyDay(parsed.toString(), arabic)
+    }
+
+    /**
+     * Resolves an addendum timestamp to a calendar date. Only a value that
+     * carries an explicit offset identifies an instant to convert; anything
+     * else is a local date or local date-time and is taken at face value.
+     */
+    private fun addendumLocalDate(createdAt: String, zone: ZoneId): LocalDate? {
+        val value = createdAt.trim()
+        if (value.isEmpty()) return null
+        val instant = try {
+            // ISO allows either `T` or a space between date and time.
+            OffsetDateTime.parse(value.replace(' ', 'T'))
+        } catch (e: DateTimeParseException) {
+            null
+        }
+        if (instant != null) {
+            return instant.atZoneSameInstant(zone).toLocalDate()
+        }
+        return parseIsoDate(value)
     }
 }
