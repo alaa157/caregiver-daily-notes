@@ -166,20 +166,20 @@ class FakeBackupStore(
     var data: BackupData = backupData(),
     var conflict: Boolean = false,
     var throwOnReplace: Boolean = false,
-    var throwOnCounts: Boolean = false,
+    var throwOnState: Boolean = false,
 ) : BackupStore {
     val replaced = mutableListOf<BackupData>()
-    var countsCalls: Int = 0
+    var stateCalls: Int = 0
 
     override suspend fun snapshot(): BackupData = data
 
-    override suspend fun counts(): BackupCounts {
-        countsCalls += 1
-        if (throwOnCounts) throw IllegalStateException("store unavailable")
-        return data.counts
+    override suspend fun state(): BackupState {
+        stateCalls += 1
+        if (throwOnState) throw IllegalStateException("store unavailable")
+        return BackupState(data.counts, CareBackupCodec.stateDigest(data))
     }
 
-    override suspend fun replaceAll(data: BackupData, expected: BackupCounts): BackupReplaceResult {
+    override suspend fun replaceAll(data: BackupData, expected: BackupState): BackupReplaceResult {
         if (throwOnReplace) throw IllegalStateException("store unavailable")
         if (conflict) return BackupReplaceResult.Conflict
         replaced += data

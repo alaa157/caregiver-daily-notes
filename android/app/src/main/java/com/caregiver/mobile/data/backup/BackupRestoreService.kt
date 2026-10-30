@@ -21,16 +21,17 @@ sealed interface RestorePreparation {
  * commit will write. [data] is carried in memory only and is never rendered;
  * the preview shows counts, provenance and the replacement warning.
  *
- * [current] is the local state the preview was built against; the commit
- * refuses to run when it no longer matches, so data created between preview
- * and confirmation is never silently discarded.
+ * [current] is the local state the preview was built against, including a
+ * content digest; the commit refuses to run when the state no longer matches,
+ * so data created or edited between preview and confirmation is never
+ * silently discarded.
  */
 data class RestorePreview(
     val createdAt: String,
     val formatVersion: Int,
     val appVersion: String,
     val backup: BackupCounts,
-    val current: BackupCounts,
+    val current: BackupState,
     val data: BackupData,
 )
 
@@ -89,7 +90,7 @@ class BackupRestoreService(
             )
         }
         val current = try {
-            store.counts()
+            store.state()
         } catch (e: CancellationException) {
             throw e
         } catch (e: Exception) {

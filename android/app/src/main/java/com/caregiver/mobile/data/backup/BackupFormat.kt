@@ -131,6 +131,15 @@ data class BackupIntegrity(
     val digest: String,
 )
 
+/**
+ * A consistent view of the restorable data at one instant: [counts] for the
+ * preview and [token], a content digest that changes whenever any restorable
+ * value changes. Counts alone cannot detect an edit in place (a note whose
+ * text or pain score changed keeps the same number of rows), so the restore
+ * commit compares the token instead.
+ */
+data class BackupState(val counts: BackupCounts, val token: String)
+
 /** Record counts per entity type; what the preview and result notices report. */
 data class BackupCounts(
     val recipients: Int,

@@ -122,10 +122,10 @@ class BackupRestoreViewModelTest {
         val broken = BackupRestoreService(
             store = object : com.caregiver.mobile.data.backup.BackupStore {
                 override suspend fun snapshot() = throw IllegalStateException("db gone")
-                override suspend fun counts() = BackupCounts(0, 0, 0, 0)
+                override suspend fun state() = throw IllegalStateException("db gone")
                 override suspend fun replaceAll(
                     data: com.caregiver.mobile.data.backup.BackupData,
-                    expected: BackupCounts,
+                    expected: com.caregiver.mobile.data.backup.BackupState,
                 ) = com.caregiver.mobile.data.backup.BackupReplaceResult.Conflict
             },
             appVersion = "test (1)",

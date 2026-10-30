@@ -168,7 +168,7 @@ class RoomBackupStoreTest {
         val snapshot = store.snapshot()
         assertEquals(listOf(111L, null), snapshot.recipients.map { it.archivedAt })
 
-        assertEquals(BackupReplaceResult.Replaced, store.replaceAll(snapshot, store.counts()))
+        assertEquals(BackupReplaceResult.Replaced, store.replaceAll(snapshot, store.state()))
         assertEquals(111L, db.recipientDao().byServerId("r1")?.archivedAt)
         assertNull(db.recipientDao().byServerId("r2")?.archivedAt)
     }
@@ -187,7 +187,7 @@ class RoomBackupStoreTest {
         assertTrue(db.medicationDao().all().isEmpty())
         assertTrue(db.medicationDao().allIntakes().isEmpty())
 
-        assertEquals(BackupReplaceResult.Replaced, store.replaceAll(snapshot, store.counts()))
+        assertEquals(BackupReplaceResult.Replaced, store.replaceAll(snapshot, store.state()))
         assertEquals(111L, db.recipientDao().byServerId("r1")?.archivedAt)
         assertNotNull(db.noteDao().byServerId("n1"))
         assertEquals(listOf("m1"), db.medicationDao().all().map { it.id })
@@ -215,7 +215,7 @@ class RoomBackupStoreTest {
             medicationIntakes = listOf(backupIntake("m9", date = "2026-10-03", doseIndex = 1)),
         )
 
-        val result = store.replaceAll(backup, store.counts())
+        val result = store.replaceAll(backup, store.state())
 
         assertEquals(BackupReplaceResult.Replaced, result)
         // Recipient list order (rowId) is what the UI shows.
@@ -258,7 +258,7 @@ class RoomBackupStoreTest {
 
         val result = store.replaceAll(
             backupData(recipients = emptyList(), notes = emptyList(), addenda = emptyList(), plans = emptyList()),
-            store.counts(),
+            store.state(),
         )
 
         assertEquals(BackupReplaceResult.Replaced, result)
@@ -267,10 +267,10 @@ class RoomBackupStoreTest {
     }
 
     @Test
-    fun countsChangedAfterThePreviewReturnsConflictAndWritesNothing() = runTest {
+    fun stateChangedAfterThePreviewReturnsConflictAndWritesNothing() = runTest {
         db.recipientDao().insertAll(listOf(recipientRow("r1")))
         val store = RoomBackupStore(db)
-        val expected = store.counts()
+        val expected = store.state()
 
         // Data change (any writer) between preview and confirmation.
         db.noteDao().insertAll(listOf(noteRow("created-later")))
@@ -283,6 +283,26 @@ class RoomBackupStoreTest {
         assertEquals(BackupReplaceResult.Conflict, result)
         assertEquals(listOf("r1"), db.recipientDao().all().map { it.serverId })
         assertNotNull(db.noteDao().byServerId("created-later"))
+    }
+
+    @Test
+    fun sameCountEditAfterThePreviewReturnsConflictAndWritesNothing() = runTest {
+        db.recipientDao().insertAll(listOf(recipientRow("r1")))
+        db.noteDao().insertAll(listOf(noteRow("n1", text = "before")))
+        val store = RoomBackupStore(db)
+        val expected = store.state()
+
+        // In-place edit: every count stays the same, only the content changes.
+        db.noteDao().insertAll(listOf(noteRow("n1", text = "edited after the preview")))
+
+        val result = store.replaceAll(
+            backupData(recipients = listOf(backupRecipient("r9")), notes = emptyList(), addenda = emptyList(), plans = emptyList()),
+            expected,
+        )
+
+        assertEquals(BackupReplaceResult.Conflict, result)
+        assertEquals("edited after the preview", db.noteDao().byServerId("n1")?.text)
+        assertEquals(listOf("r1"), db.recipientDao().all().map { it.serverId })
     }
 
     @Test
@@ -300,7 +320,7 @@ class RoomBackupStoreTest {
             plans = emptyList(),
         )
 
-        val failure = runCatching { store.replaceAll(duplicated, store.counts()) }.exceptionOrNull()
+        val failure = runCatching { store.replaceAll(duplicated, store.state()) }.exceptionOrNull()
 
         assertNotNull("the unique-key abort must fail the restore", failure)
         assertEquals(listOf("r1"), db.recipientDao().all().map { it.serverId })

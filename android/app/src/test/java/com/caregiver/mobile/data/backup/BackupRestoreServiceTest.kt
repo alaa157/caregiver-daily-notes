@@ -133,7 +133,7 @@ class BackupRestoreServiceTest {
         val preview = prepareReady(backupText)
 
         assertEquals(BackupCounts(1, 1, 0, 0), preview.backup)
-        assertEquals(BackupCounts(1, 1, 0, 0), preview.current)
+        assertEquals(BackupCounts(1, 1, 0, 0), preview.current.counts)
         assertEquals("2026-10-19T09:00:00Z", preview.createdAt)
         assertEquals("test (1)", preview.appVersion)
         assertEquals(CareBackupCodec.FORMAT_VERSION, preview.formatVersion)
@@ -212,6 +212,41 @@ class BackupRestoreServiceTest {
     }
 
     @Test
+    fun commitRefusesWhenAnExistingNoteChangesWithoutChangingTheCounts() = runTest {
+        seed()
+        val backupText = service.create().content
+        val preview = prepareReady(backupText)
+
+        // Edit a note in place: the number of rows is unchanged, so counts
+        // alone would say the database is still the one the preview saw.
+        db.noteDao().insertAll(
+            listOf(
+                NoteEntity(
+                    serverId = "n1",
+                    recipientId = "r1",
+                    date = "2026-10-01",
+                    mood = "good",
+                    appetite = "good",
+                    sleep = "ok",
+                    mobility = "walks",
+                    medicationTaken = "taken",
+                    pain = 2,
+                    fall = false,
+                    text = "edited after the preview",
+                ),
+            ),
+        )
+
+        val outcome = service.commit(preview)
+
+        assertEquals(
+            BackupFailureReason.RESTORE_CONFLICT,
+            (outcome as RestoreOutcome.Failed).failure.reason,
+        )
+        assertEquals("edited after the preview", db.noteDao().byServerId("n1")?.text)
+    }
+
+    @Test
     fun aRestoreFailureIsReportedAndRollsBack() = runTest {
         seed()
         val backupText = service.create().content
@@ -219,7 +254,7 @@ class BackupRestoreServiceTest {
         // Force the store write to fail: the outcome must be a clean failure.
         val broken = BackupRestoreService(
             store = object : BackupStore by RoomBackupStore(db) {
-                override suspend fun replaceAll(data: BackupData, expected: BackupCounts): BackupReplaceResult =
+                override suspend fun replaceAll(data: BackupData, expected: BackupState): BackupReplaceResult =
                     throw IllegalStateException("disk full")
             },
             appVersion = "test (1)",
@@ -261,7 +296,7 @@ class BackupRestoreServiceTest {
     @Test
     fun aStoreReadFailureDuringPrepareIsReportedAsSourceFailure() = runTest {
         val broken = BackupRestoreService(
-            store = FakeBackupStore(throwOnCounts = true),
+            store = FakeBackupStore(throwOnState = true),
             appVersion = "test (1)",
             clock = clock,
         )
