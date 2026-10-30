@@ -24,10 +24,40 @@ object SafetySignalEvaluator {
 
     // Text rules compiled once at class load (the earlier per-call recompile
     // was wasted work). The Arabic side is written post-normalization.
-    private val FALL_TEXT: Pattern = Pattern.compile("fell(?! asleep)|سقط|سقوط")
-    private val CHEST_PAIN_TEXT: Pattern = Pattern.compile("chest pain|chest hurts")
-    private val ARABIC_PAIN: Pattern = Pattern.compile("الم")
-    private val ARABIC_CHEST: Pattern = Pattern.compile("صدر")
+    // "fall" is matched as a whole word so a fall report is caught, while
+    // "fell/fall asleep" remains the one common non-fall use of the word.
+    private val FALL_TEXT: Pattern = Pattern.compile(
+        "\\b(?:fell|fall|fallen|slipped|tripped)\\b(?! asleep)|سقط|سقوط|" +
+            "(?<!\\p{L})وقع(?:ت|ه|ها|وا)?(?!\\p{L})",
+    )
+    private val CHEST_PAIN_TEXT: Pattern = Pattern.compile(
+        "\\bchest pain\\b|\\bchest hurts\\b|\\bpain in (?:the )?chest\\b|" +
+            "\\bchest tightness\\b|\\bchest pressure\\b|\\bchest discomfort\\b",
+    )
+    // Word-bounded Arabic terms: "الم" is a pain word, but the same letters
+    // sit inside "المريض" and "المنزل", so a substring match used to fire on
+    // unrelated notes. "آلام" normalizes to "الام" and needs its own form.
+    private val ARABIC_PAIN: Pattern = Pattern.compile(
+        "(?<!\\p{L})(?:الم|الام|وجع(?:ت|ه|ها|هم|هما|ك|ي)?)(?!\\p{L})",
+    )
+    private val ARABIC_CHEST: Pattern = Pattern.compile(
+        "(?<!\\p{L})صدر(?:ه|ها|هم|هما|ك|ي)?(?!\\p{L})",
+    )
+    private val BREATHING_TEXT: Pattern = Pattern.compile(
+        "\\b(?:trouble|difficulty|problems?) (?:in )?breathing\\b|" +
+            "\\bbreathing (?:trouble|difficulty|problems?)\\b|" +
+            "\\bshort(?:ness)? of breath\\b|\\bcan(?:no|')?t breathe\\b|" +
+            "\\bcannot breathe\\b|\\bgasping\\b|\\bwheez(?:ing|es)\\b|" +
+            "\\bbreathless\\b|صعوبه (?:في )?التنفس|صعوبة (?:في )?التنفس|" +
+            "ضيق (?:في )?التنفس|مش قادر(?:ه|ة)? يتنفس|" +
+            "مش قادره تتنفس|تعبان(?:ه|ة)? في التنفس|اللهث|لهث|النهجان|نهجان",
+    )
+    private val CONSCIOUSNESS_TEXT: Pattern = Pattern.compile(
+        "\\b(?:lost|loss of) consciousness\\b|\\bpassed out\\b|" +
+            "\\bpassing out\\b|\\bfaint(?:ed|ing)?\\b|\\bunconscious\\b|" +
+            "\\bblacked out\\b|\\bblackout\\b|فقد(?:ان)? الوعي|" +
+            "فقدت? الوعي|اغماء|اغمي|مغمي عليه|مغمى عليه|غاب عن الوعي",
+    )
 
     fun evaluate(signals: List<SignalDto>): List<String> {
         val flags = mutableListOf<String>()
@@ -42,6 +72,16 @@ object SafetySignalEvaluator {
                 (ARABIC_PAIN.matcher(text).find() && ARABIC_CHEST.matcher(text).find())
         }
         if (painScoreFlag || chestPainTextFlag) flags.add("HIGH_PAIN")
+        // These are the other two "acutely dangerous" findings the model
+        // prompt names. They must be caught deterministically too: the
+        // summary still has to warn when no key is configured or the model
+        // call fails.
+        if (foldedTexts.any { BREATHING_TEXT.matcher(it).find() }) {
+            flags.add("BREATHING_TROUBLE")
+        }
+        if (foldedTexts.any { CONSCIOUSNESS_TEXT.matcher(it).find() }) {
+            flags.add("LOSS_OF_CONSCIOUSNESS")
+        }
         val missedDates = signals.filter { it.medication == "missed" }
             .map { it.date }.distinct().size
         if (missedDates >= MISSED_MED_COUNT_THRESHOLD) flags.add("REPEATED_MISSED_MED")

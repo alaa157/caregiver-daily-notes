@@ -638,6 +638,8 @@ private suspend fun shareSummaryPdf(
 private fun flagText(flag: String): String = when (flag) {
     "FALL_REPORTED" -> stringResource(R.string.flag_fall)
     "HIGH_PAIN" -> stringResource(R.string.flag_pain)
+    "BREATHING_TROUBLE" -> stringResource(R.string.flag_breathing_trouble)
+    "LOSS_OF_CONSCIOUSNESS" -> stringResource(R.string.flag_loss_of_consciousness)
     "REPEATED_MISSED_MED" -> stringResource(R.string.flag_missed_med)
     "MEDICATION_UNVERIFIED" -> stringResource(R.string.flag_med_unverified)
     "POOR_APPETITE_DAYS" -> stringResource(R.string.flag_poor_appetite)

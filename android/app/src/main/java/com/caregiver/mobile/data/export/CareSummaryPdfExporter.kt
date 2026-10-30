@@ -217,6 +217,8 @@ object CareSummaryPdfExporter {
     private fun flagLabel(context: Context, flag: String): String = when (flag) {
         "FALL_REPORTED" -> context.getString(R.string.flag_fall)
         "HIGH_PAIN" -> context.getString(R.string.flag_pain)
+        "BREATHING_TROUBLE" -> context.getString(R.string.flag_breathing_trouble)
+        "LOSS_OF_CONSCIOUSNESS" -> context.getString(R.string.flag_loss_of_consciousness)
         "REPEATED_MISSED_MED" -> context.getString(R.string.flag_missed_med)
         "MEDICATION_UNVERIFIED" -> context.getString(R.string.flag_med_unverified)
         "POOR_APPETITE_DAYS" -> context.getString(R.string.flag_poor_appetite)
