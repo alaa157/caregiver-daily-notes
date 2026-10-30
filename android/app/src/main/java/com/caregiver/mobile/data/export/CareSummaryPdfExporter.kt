@@ -172,9 +172,16 @@ object CareSummaryPdfExporter {
                 )
             }
             if (parts.isNotEmpty()) {
+                // The stored date is ISO, but this is a caregiver-facing
+                // document, so render it in the reading language like the
+                // history rows do. Fall back to the raw value when a note
+                // carries a date the shared parser cannot read.
+                val dateLabel = DateFormats.parseIsoDate(n.date)
+                    ?.let { DateFormats.historyDay(it.toString(), ar) }
+                    ?: n.date
                 trendLines += context.getString(
                     R.string.pdf_observation_line,
-                    Bidi.isolate(n.date),
+                    Bidi.isolate(dateLabel),
                     Bidi.isolate(parts.joinToString(listSeparator)),
                 )
             }
