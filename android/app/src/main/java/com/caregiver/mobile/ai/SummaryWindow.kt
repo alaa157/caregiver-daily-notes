@@ -1,5 +1,6 @@
 package com.caregiver.mobile.ai
 
+import com.caregiver.mobile.core.time.DateFormats
 import java.time.LocalDate
 
 /**
@@ -19,9 +20,16 @@ object SummaryWindow {
     fun start(endInclusive: LocalDate, periodDays: Int): LocalDate =
         endInclusive.minusDays((periodDays - 1).toLong())
 
-    /** True when the ISO-8601 [date] falls inside the inclusive window. */
+    /**
+     * True when [date] falls inside the inclusive window.
+     *
+     * [date] is normally an ISO-8601 `LocalDate`, but a backend sending an
+     * ISO date-time is accepted by parsing its date part. Since this filter
+     * is what keeps data from outside the selected period away from the
+     * model, a value with no parseable date is excluded rather than trusted.
+     */
     fun contains(date: String?, endInclusive: LocalDate, periodDays: Int): Boolean {
-        val parsed = date?.let { runCatching { LocalDate.parse(it) }.getOrNull() } ?: return false
+        val parsed = DateFormats.parseIsoDate(date) ?: return false
         return !parsed.isBefore(start(endInclusive, periodDays)) && !parsed.isAfter(endInclusive)
     }
 }
