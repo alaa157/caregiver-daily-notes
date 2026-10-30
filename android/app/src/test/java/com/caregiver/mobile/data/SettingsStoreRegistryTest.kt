@@ -5,6 +5,7 @@ import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.test.runTest
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertNotSame
+import org.junit.Assert.assertNull
 import org.junit.Assert.assertSame
 import org.junit.Test
 
@@ -55,6 +56,18 @@ class SettingsStoreRegistryTest {
         first.setLanguage("en")
 
         assertEquals("en", second.language.first())
+    }
+
+    @Test
+    fun corruptFileIsReplacedWithSafeDefaults() = runTest {
+        val dir = createTempDir()
+        val file = File(dir, "corrupt.preferences_pb").apply {
+            writeBytes("not a preferences protobuf".toByteArray())
+        }
+        val store = SettingsStoreRegistry.getOrCreate(name()) { file }
+
+        assertEquals(SettingsStore.DEFAULT_LANGUAGE, store.language.first())
+        assertNull(store.token.first())
     }
 
     private fun createTempDir(): File =

@@ -1,14 +1,20 @@
 package com.caregiver.mobile.data
 
+import androidx.datastore.core.DataStore
 import androidx.datastore.preferences.core.PreferenceDataStoreFactory
+import androidx.datastore.preferences.core.Preferences
 import java.io.File
+import java.io.IOException
 import kotlinx.coroutines.ExperimentalCoroutinesApi
+import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.first
+import kotlinx.coroutines.flow.flow
 import kotlinx.coroutines.test.TestScope
 import kotlinx.coroutines.test.UnconfinedTestDispatcher
 import kotlinx.coroutines.test.runTest
 import org.junit.After
 import org.junit.Assert.assertEquals
+import org.junit.Assert.assertFalse
 import org.junit.Assert.assertNull
 import org.junit.Before
 import org.junit.Test
@@ -92,4 +98,25 @@ class SettingsStoreTest {
         store.clearEmail()
         assertNull(store.email.first())
     }
+
+    @Test
+    fun unreadableSettingsServeSafeDefaultsInsteadOfFailing() = runTest {
+        val failing = SettingsStore(FailingDataStore())
+
+        assertEquals(SettingsStore.DEFAULT_BASE_URL, failing.baseUrl.first())
+        assertNull(failing.token.first())
+        assertNull(failing.email.first())
+        assertEquals(SettingsStore.DEFAULT_LANGUAGE, failing.language.first())
+        assertEquals(SettingsStore.DEFAULT_THEME_MODE, failing.themeMode.first())
+        assertFalse(failing.pureBlack.first())
+        assertEquals(SettingsStore.DEFAULT_COLOR_PALETTE, failing.colorPalette.first())
+        assertFalse(failing.onboardingCompleted.first())
+    }
+}
+
+private class FailingDataStore : DataStore<Preferences> {
+    override val data: Flow<Preferences> = flow { throw IOException("settings disk unavailable") }
+
+    override suspend fun updateData(transform: suspend (t: Preferences) -> Preferences): Preferences =
+        throw IOException("settings disk unavailable")
 }

@@ -3,13 +3,16 @@ package com.caregiver.mobile.data
 import android.content.Context
 import androidx.datastore.core.DataStore
 import androidx.datastore.preferences.core.Preferences
-import androidx.datastore.preferences.core.edit
 import androidx.datastore.preferences.core.booleanPreferencesKey
+import androidx.datastore.preferences.core.edit
+import androidx.datastore.preferences.core.emptyPreferences
 import androidx.datastore.preferences.core.stringPreferencesKey
 import androidx.datastore.preferences.preferencesDataStoreFile
 import com.caregiver.mobile.core.util.LanguagePrefs
 import com.caregiver.mobile.core.util.LocaleHelper
+import java.io.IOException
 import kotlinx.coroutines.flow.Flow
+import kotlinx.coroutines.flow.catch
 import kotlinx.coroutines.flow.map
 
 /**
@@ -19,14 +22,27 @@ import kotlinx.coroutines.flow.map
  */
 class SettingsStore(private val dataStore: DataStore<Preferences>) {
 
-    val baseUrl: Flow<String> = dataStore.data.map { it[BASE_URL] ?: DEFAULT_BASE_URL }
-    val token: Flow<String?> = dataStore.data.map { it[TOKEN] }
-    val email: Flow<String?> = dataStore.data.map { it[EMAIL] }
-    val language: Flow<String> = dataStore.data.map { it[LANGUAGE] ?: DEFAULT_LANGUAGE }
-    val themeMode: Flow<String> = dataStore.data.map { it[THEME_MODE] ?: DEFAULT_THEME_MODE }
-    val pureBlack: Flow<Boolean> = dataStore.data.map { it[PURE_BLACK] ?: false }
-    val colorPalette: Flow<String> = dataStore.data.map { it[COLOR_PALETTE] ?: DEFAULT_COLOR_PALETTE }
-    val onboardingCompleted: Flow<Boolean> = dataStore.data.map { it[ONBOARDING_COMPLETED] ?: false }
+    /**
+     * Read side of the corruption policy: a corrupt or unreadable settings
+     * file degrades to defaults for this collection instead of cancelling
+     * every settings-dependent screen. The registry's
+     * [androidx.datastore.core.handlers.ReplaceFileCorruptionHandler]
+     * repairs the file itself on the next read; a transient disk error keeps
+     * serving defaults until storage recovers. Writes still fail loudly —
+     * silently accepting a setting that did not persist would be worse.
+     */
+    private val safeData: Flow<Preferences> = dataStore.data.catch { error ->
+        if (error is IOException) emit(emptyPreferences()) else throw error
+    }
+
+    val baseUrl: Flow<String> = safeData.map { it[BASE_URL] ?: DEFAULT_BASE_URL }
+    val token: Flow<String?> = safeData.map { it[TOKEN] }
+    val email: Flow<String?> = safeData.map { it[EMAIL] }
+    val language: Flow<String> = safeData.map { it[LANGUAGE] ?: DEFAULT_LANGUAGE }
+    val themeMode: Flow<String> = safeData.map { it[THEME_MODE] ?: DEFAULT_THEME_MODE }
+    val pureBlack: Flow<Boolean> = safeData.map { it[PURE_BLACK] ?: false }
+    val colorPalette: Flow<String> = safeData.map { it[COLOR_PALETTE] ?: DEFAULT_COLOR_PALETTE }
+    val onboardingCompleted: Flow<Boolean> = safeData.map { it[ONBOARDING_COMPLETED] ?: false }
 
     suspend fun setBaseUrl(url: String) {
         dataStore.edit { it[BASE_URL] = url }
