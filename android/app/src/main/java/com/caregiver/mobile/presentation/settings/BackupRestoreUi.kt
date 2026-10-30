@@ -166,12 +166,12 @@ fun RestorePreviewDialog(
             Text(
                 text = stringResource(
                     R.string.backup_preview_current,
-                    preview.current.notes,
-                    preview.current.recipients,
-                    preview.current.addenda,
-                    preview.current.plans,
-                    preview.current.medications,
-                    preview.current.intakes,
+                    preview.current.counts.notes,
+                    preview.current.counts.recipients,
+                    preview.current.counts.addenda,
+                    preview.current.counts.plans,
+                    preview.current.counts.medications,
+                    preview.current.counts.intakes,
                 ),
                 style = MaterialTheme.typography.bodyMedium,
             )

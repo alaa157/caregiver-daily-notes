@@ -121,6 +121,14 @@ object CareBackupCodec {
         return pretty.encodeToString(envelope)
     }
 
+    /**
+     * Content digest of [data] using the same canonical encoding as the file
+     * integrity check. Backup restore uses it to detect any change between
+     * preview and confirmation, including an in-place edit that leaves every
+     * row count unchanged.
+     */
+    fun stateDigest(data: BackupData): String = digestOf(data)
+
     fun decode(text: String): BackupDecodeResult {
         // Editors sometimes prepend a UTF-8 BOM; it is not part of JSON.
         val body = text.removePrefix("\uFEFF")

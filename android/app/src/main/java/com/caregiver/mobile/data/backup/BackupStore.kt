@@ -29,19 +29,23 @@ interface BackupStore {
     /** Reads every restorable record as one consistent snapshot. */
     suspend fun snapshot(): BackupData
 
-    /** Current record counts; used to detect changes while the preview is open. */
-    suspend fun counts(): BackupCounts
+    /**
+     * Counts and content digest of the restorable data in one consistent
+     * snapshot. The token changes whenever any restorable value changes,
+     * including an edit that leaves every count identical.
+     */
+    suspend fun state(): BackupState
 
     /**
      * Replaces every restorable table inside one Room transaction.
      *
-     * Refuses with [BackupReplaceResult.Conflict] when the current counts no
-     * longer match [expected] (data changed after the preview was built), so a
-     * concurrent change is never silently discarded. The outbox table is never
-     * read or written here: pending sync operations are excluded from backups
-     * and no restore can replay, delete, or duplicate them.
+     * Refuses with [BackupReplaceResult.Conflict] when the current state no
+     * longer matches [expected] (data changed after the preview was built), so
+     * a concurrent change is never silently discarded. The outbox table is
+     * never read or written here: pending sync operations are excluded from
+     * backups and no restore can replay, delete, or duplicate them.
      */
-    suspend fun replaceAll(data: BackupData, expected: BackupCounts): BackupReplaceResult
+    suspend fun replaceAll(data: BackupData, expected: BackupState): BackupReplaceResult
 }
 
 /**
@@ -57,22 +61,13 @@ interface BackupStore {
  */
 class RoomBackupStore(private val db: AppDatabase) : BackupStore {
 
-    override suspend fun snapshot(): BackupData = db.withTransaction {
-        BackupData(
-            recipients = db.recipientDao().all().map { it.toBackup() },
-            notes = db.noteDao().query(null, null, null).map { it.toBackup() },
-            addenda = db.addendumDao().all().map { it.toBackup() },
-            plans = db.planDao().all().sortedBy { it.id }.map { it.toBackup() },
-            medications = db.medicationDao().all().map { it.toBackup() },
-            medicationIntakes = db.medicationDao().allIntakes().map { it.toBackup() },
-        )
-    }
+    override suspend fun snapshot(): BackupData = db.withTransaction { readAll() }
 
-    override suspend fun counts(): BackupCounts = readCounts()
+    override suspend fun state(): BackupState = db.withTransaction { readState() }
 
-    override suspend fun replaceAll(data: BackupData, expected: BackupCounts): BackupReplaceResult =
+    override suspend fun replaceAll(data: BackupData, expected: BackupState): BackupReplaceResult =
         db.withTransaction {
-            if (readCounts() != expected) {
+            if (readState() != expected) {
                 return@withTransaction BackupReplaceResult.Conflict
             }
             db.medicationDao().deleteAllIntakes()
@@ -90,16 +85,27 @@ class RoomBackupStore(private val db: AppDatabase) : BackupStore {
             BackupReplaceResult.Replaced
         }
 
-    private suspend fun readCounts(): BackupCounts = db.withTransaction {
-        BackupCounts(
-            recipients = db.recipientDao().all().size,
-            notes = db.noteDao().query(null, null, null).size,
-            addenda = db.addendumDao().all().size,
-            plans = db.planDao().all().size,
-            medications = db.medicationDao().all().size,
-            intakes = db.medicationDao().allIntakes().size,
+    /**
+     * The state is derived from the same snapshot the restore will replace,
+     * so the token covers every field of every restorable row and the counts
+     * cannot describe a different instant than the digest.
+     */
+    private suspend fun readState(): BackupState {
+        val data = readAll()
+        return BackupState(
+            counts = data.counts,
+            token = CareBackupCodec.stateDigest(data),
         )
     }
+
+    private suspend fun readAll(): BackupData = BackupData(
+        recipients = db.recipientDao().all().map { it.toBackup() },
+        notes = db.noteDao().query(null, null, null).map { it.toBackup() },
+        addenda = db.addendumDao().all().map { it.toBackup() },
+        plans = db.planDao().all().sortedBy { it.id }.map { it.toBackup() },
+        medications = db.medicationDao().all().map { it.toBackup() },
+        medicationIntakes = db.medicationDao().allIntakes().map { it.toBackup() },
+    )
 }
 
 /**
