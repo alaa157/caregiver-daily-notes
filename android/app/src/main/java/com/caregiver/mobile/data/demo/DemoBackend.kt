@@ -1,5 +1,6 @@
 package com.caregiver.mobile.data.demo
 
+import com.caregiver.mobile.ai.SafetySignalEvaluator
 import com.caregiver.mobile.data.api.AddendumDto
 import com.caregiver.mobile.data.api.AppendVersionRequest
 import com.caregiver.mobile.data.api.AuthApi
@@ -24,6 +25,7 @@ import com.caregiver.mobile.data.api.SummaryApi
 import com.caregiver.mobile.data.api.SummaryDto
 import com.caregiver.mobile.data.api.SummaryRequest
 import com.caregiver.mobile.data.api.UpdateRecipientRequest
+import com.caregiver.mobile.data.api.combinedText
 import com.caregiver.mobile.data.local.ActiveRecipientDeleteException
 import com.caregiver.mobile.data.local.ArchivedRecipientException
 import com.caregiver.mobile.data.local.RecipientAdmin
@@ -190,7 +192,9 @@ class DemoBackendApis : BackendApis, RecipientAdmin {
                 (recipientId == null || note.recipientId == recipientId) &&
                     (from == null || note.date >= from) &&
                     (to == null || note.date <= to)
-            }.sortedByDescending { it.date }
+            }.sortedByDescending { it.date }.map { note ->
+                note.copy(addenda = addenda.filter { it.noteId == note.id })
+            }
         }
     }
 
@@ -210,7 +214,9 @@ class DemoBackendApis : BackendApis, RecipientAdmin {
                     fallReported = note.fall, pain = note.pain,
                     medication = note.medicationTaken,
                     medicationUnverified = note.medicationTaken == "unsure",
-                    poorAppetite = note.appetite == "poor", text = note.text,
+                    poorAppetite = note.appetite == "poor",
+                    // Addenda are part of the note for safety purposes.
+                    text = note.copy(addenda = addenda.filter { it.noteId == note.id }).combinedText(),
                 )
             }
         }
@@ -224,10 +230,20 @@ class DemoBackendApis : BackendApis, RecipientAdmin {
             val inScope = notes.filter {
                 it.recipientId == body.recipientId && it.date >= cutoff
             }.sortedByDescending { it.date }
-            val flags = buildList {
-                if (inScope.any { it.fall }) add("FALL_REPORTED")
-                if (inScope.any { it.pain >= 7 }) add("HIGH_PAIN")
-            }
+            // Use the same evaluator as the app: note fields alone miss a
+            // fall or symptom that was only written as an addendum.
+            val flags = SafetySignalEvaluator.evaluate(
+                inScope.map { note ->
+                    SignalDto(
+                        noteId = note.id, recipientId = note.recipientId, date = note.date,
+                        fallReported = note.fall, pain = note.pain,
+                        medication = note.medicationTaken,
+                        medicationUnverified = note.medicationTaken == "unsure",
+                        poorAppetite = note.appetite == "poor",
+                        text = note.copy(addenda = addenda.filter { it.noteId == note.id }).combinedText(),
+                    )
+                },
+            )
             SummaryDto(
                 id = "sum-demo", recipientId = body.recipientId, periodDays = body.periodDays,
                 text = if (inScope.isEmpty()) {

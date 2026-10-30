@@ -85,6 +85,18 @@ class DemoBackendApisTest {
     }
 
     @Test
+    fun historyAndSignalsCarryAddenda() = runTest {
+        val backend = apis()
+        backend.notes().append("n1", CreateAddendumRequest("demo correction"))
+
+        val note = backend.notes().history("r1", null, null).first { it.id == "n1" }
+        assertEquals(listOf("demo correction"), note.addenda.map { it.text })
+
+        val signal = backend.summaries().signals("r1", null, null).first { it.noteId == "n1" }
+        assertTrue(signal.text.contains("demo correction"))
+    }
+
+    @Test
     fun createdRecipientAppearsInList() = runTest {
         val backend = apis()
         val created = backend.recipients().create(CreateRecipientRequest("Demo Person"))

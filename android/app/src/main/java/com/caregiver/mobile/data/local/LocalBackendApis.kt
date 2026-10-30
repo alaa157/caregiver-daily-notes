@@ -26,6 +26,7 @@ import com.caregiver.mobile.data.api.SummaryDto
 import com.caregiver.mobile.data.api.SummaryRequest
 import com.caregiver.mobile.data.api.SuggestPlanRequest
 import com.caregiver.mobile.data.api.UpdateRecipientRequest
+import com.caregiver.mobile.data.api.combinedText
 import com.caregiver.mobile.data.local.toDto
 import com.caregiver.mobile.data.local.toEntity
 import com.caregiver.mobile.data.plan.IllegalPlanTransitionException
@@ -158,22 +159,34 @@ class LocalBackendApis(
         }
 
         override suspend fun history(recipientId: String?, from: String?, to: String?): List<NoteDto> {
-            val all = noteDao.query(null, null, null).map { it.toDto() }
-            return all.filter { note ->
-                (recipientId == null || note.recipientId == recipientId) &&
-                    (from == null || note.date >= from) &&
-                    (to == null || note.date <= to)
-            }.sortedByDescending { it.date }
+            val addendaByNote = addendumDao.all().groupBy { it.noteId }
+            return noteDao.query(null, null, null)
+                .map { it.toDto() }
+                .filter { note ->
+                    (recipientId == null || note.recipientId == recipientId) &&
+                        (from == null || note.date >= from) &&
+                        (to == null || note.date <= to)
+                }
+                .sortedByDescending { it.date }
+                .map { note ->
+                    note.copy(
+                        addenda = addendaByNote[note.id].orEmpty().map { it.toDto() },
+                    )
+                }
         }
     }
 
     override suspend fun summaries(): SummaryApi = object : SummaryApi {
         override suspend fun signals(id: String, from: String?, to: String?): List<SignalDto> {
-            val notes = noteDao.query(null, null, null).map { it.toDto() }.filter { n ->
-                n.recipientId == id &&
-                    (from == null || n.date >= from) &&
-                    (to == null || n.date <= to)
-            }.sortedBy { it.date }
+            val addendaByNote = addendumDao.all().groupBy { it.noteId }
+            val notes = noteDao.query(null, null, null)
+                .map { it.toDto().copy(addenda = addendaByNote[it.serverId].orEmpty().map { a -> a.toDto() }) }
+                .filter { n ->
+                    n.recipientId == id &&
+                        (from == null || n.date >= from) &&
+                        (to == null || n.date <= to)
+                }
+                .sortedBy { it.date }
             return notes.map { note ->
                 SignalDto(
                     noteId = note.id,
@@ -184,7 +197,9 @@ class LocalBackendApis(
                     medication = note.medicationTaken,
                     medicationUnverified = note.medicationTaken == "unsure",
                     poorAppetite = note.appetite == "poor",
-                    text = note.text,
+                    // Safety rules read the addenda too; a fall first
+                    // mentioned after the original note must still flag.
+                    text = note.combinedText(),
                 )
             }
         }

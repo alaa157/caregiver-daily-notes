@@ -2,11 +2,13 @@ package com.caregiver.mobile.data.local
 
 import androidx.room.Room
 import androidx.test.core.app.ApplicationProvider
+import com.caregiver.mobile.ai.SafetySignalEvaluator
 import com.caregiver.mobile.data.api.CreateAddendumRequest
 import com.caregiver.mobile.data.api.CreateNoteRequest
 import kotlinx.coroutines.test.runTest
 import org.junit.After
 import org.junit.Assert.assertEquals
+import org.junit.Assert.assertTrue
 import org.junit.Before
 import org.junit.Test
 import org.junit.runner.RunWith
@@ -65,5 +67,19 @@ class AddendumPersistenceTest {
 
         val detail = apis.notes().detail(note.id)
         assertEquals(listOf("first", "second"), detail.addenda.map { it.text })
+    }
+
+    @Test
+    fun historyCarriesAddendaIntoTheSummaryAndSafetyText() = runTest {
+        val apis = LocalBackendApis(db)
+        val note = apis.notes().create(noteRequest())
+        apis.notes().append(note.id, CreateAddendumRequest("لاحقاً وقعت في الحمام"))
+
+        val history = apis.notes().history("r1", null, null)
+        assertEquals(listOf("لاحقاً وقعت في الحمام"), history.single().addenda.map { it.text })
+
+        val signals = apis.summaries().signals("r1", null, null)
+        assertTrue(signals.single().text.contains("وقعت في الحمام"))
+        assertTrue("FALL_REPORTED" in SafetySignalEvaluator.evaluate(signals))
     }
 }

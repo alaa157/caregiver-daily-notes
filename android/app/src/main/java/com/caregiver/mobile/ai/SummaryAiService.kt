@@ -3,6 +3,7 @@ package com.caregiver.mobile.ai
 import com.caregiver.mobile.data.api.NoteDto
 import com.caregiver.mobile.data.api.SignalDto
 import com.caregiver.mobile.data.api.SummaryDto
+import com.caregiver.mobile.data.api.combinedText
 import java.time.LocalDate
 import kotlinx.serialization.Serializable
 import kotlinx.serialization.json.Json
@@ -64,15 +65,32 @@ class SummaryAiService(
         val scopedSignals = signals.filter { it.recipientId == recipientId }
         val windowedNotes = scopedNotes.filter { SummaryWindow.contains(it.date, endInclusive, periodDays) }
         val windowedSignals = scopedSignals.filter { SummaryWindow.contains(it.date, endInclusive, periodDays) }
-        val redFlags = SafetySignalEvaluator.evaluate(windowedSignals)
+        // Addenda carry corrections and late details. The backend's signal
+        // text may not include them yet, so append any addendum the signal
+        // text is missing before the deterministic rules run.
+        val addendaByNoteId = windowedNotes.associate { it.id to it.addenda }
+        val signalsWithAddenda = windowedSignals.map { signal ->
+            val missingAddenda = addendaByNoteId[signal.noteId].orEmpty()
+                .map { it.text.trim() }
+                .filter { it.isNotEmpty() && !signal.text.contains(it) }
+            if (missingAddenda.isEmpty()) {
+                signal
+            } else {
+                signal.copy(
+                    text = (signal.text.trimEnd() + "\n" + missingAddenda.joinToString("\n")).trim(),
+                )
+            }
+        }
+        val redFlags = SafetySignalEvaluator.evaluate(signalsWithAddenda)
         if (windowedNotes.isEmpty()) {
             return SummaryAiResult.Failure(redFlags, "no_source_data")
         }
         // JSON escaping, not text delimiters: note text is untrusted and may
         // contain "[/NOTE]" or a forged "[NOTE ...]" block. Serialized as a
-        // string value it can never terminate the data payload.
+        // string value it can never terminate the data payload. Addenda are
+        // folded into the same text so the model and the quote check see them.
         val dataBlock = PromptNotes.dataBlock(
-            windowedNotes.map { note -> PromptNote(id = note.id, date = note.date, text = note.text) },
+            windowedNotes.map { note -> PromptNote(id = note.id, date = note.date, text = note.combinedText()) },
         )
         val userPref = keyStore?.summarySystemPrompt()?.takeIf { it.isNotBlank() }
             ?: keyStore?.systemPrompt()?.takeIf { it.isNotBlank() }
@@ -104,7 +122,7 @@ class SummaryAiService(
             is LlmJson.Reply.Malformed ->
                 return SummaryAiResult.Failure(redFlags, reply.error ?: "malformed_output")
         }
-        val noteTextsById = windowedNotes.associate { it.id to it.text }
+        val noteTextsById = windowedNotes.associate { it.id to it.combinedText() }
         val normalizedNotes = noteTextsById.mapValues { ArabicNormalizer.normalize(it.value) }
         // Validate and reject unsupported observations; keep only grounded ones.
         // A claim must be non-empty, cite an existing note, cite a non-empty

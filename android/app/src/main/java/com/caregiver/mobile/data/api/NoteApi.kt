@@ -43,12 +43,38 @@ data class NoteDto(
     val fall: Boolean,
     val text: String,
     /**
+     * Addenda appended to the note after it was written, oldest first.
+     *
+     * History used to return note fields only, so a fall, a correction, or a
+     * medication change recorded in an addendum never reached the summary or
+     * the deterministic safety flags. Backends that cannot provide them send
+     * no field and the list stays empty.
+     */
+    val addenda: List<AddendumDto> = emptyList(),
+    /**
      * Client-local flag (Task 8b): true only for notes that exist in the
      * device outbox and have not reached the server yet. The backend never
      * sends this field, so decoded and cached rows always default to false.
      */
     val pending: Boolean = false,
 )
+
+/**
+ * The full note text the summary and safety rules must read: the original
+ * note followed by every addendum. Addenda are corrections and late details,
+ * not metadata, so treating them as separate records would hide exactly the
+ * information they were written to add. Quotes are still checked against
+ * this same combined text, so an addendum can be cited verbatim.
+ */
+fun NoteDto.combinedText(): String = buildString {
+    append(text.trim())
+    for (addendum in addenda) {
+        val extra = addendum.text.trim()
+        if (extra.isEmpty()) continue
+        if (isNotEmpty()) append('\n')
+        append(extra)
+    }
+}
 
 @Serializable
 data class NoteDetailDto(
