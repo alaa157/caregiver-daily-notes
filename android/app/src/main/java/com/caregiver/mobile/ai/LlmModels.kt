@@ -12,6 +12,9 @@ import kotlinx.serialization.Serializable
  */
 const val MAX_REPLY_CHARS = 50_000
 
+/** Bound serialized source material before sending it to a provider. */
+const val MAX_INPUT_CHARS = 100_000
+
 /**
  * What a provider offers to someone who does not want to pay yet.
  */
