@@ -52,11 +52,15 @@ class GeminiLlmClient(
         if (apiKey.isBlank() || apiKey.any { it.isWhitespace() || it.isISOControl() || it.code !in 0x21..0x7e }) {
             return@withContext LlmResult(LlmStatus.FALLBACK, "", "invalid_key", null)
         }
+        val modelId = model.trim().removePrefix("models/")
+        if (modelId.isBlank() || '/' in modelId) {
+            return@withContext LlmResult(LlmStatus.FALLBACK, "", "invalid_model", null)
+        }
         val url = try {
             httpUrl.newBuilder()
                 .addPathSegment("v1beta")
                 .addPathSegment("models")
-                .addPathSegment("$model:generateContent")
+                .addPathSegment("$modelId:generateContent")
                 .build().toString()
         } catch (e: kotlinx.coroutines.CancellationException) {
             throw e
