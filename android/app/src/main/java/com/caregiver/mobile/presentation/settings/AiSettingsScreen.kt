@@ -466,9 +466,12 @@ fun AiSettingsScreen(graph: AppGraph, navController: NavController, navEntry: Na
                         model.ifBlank { provider.defaultModel },
                         trimmedKey,
                     )
-                    val prompt = summaryPrompt.takeIf { it.isNotBlank() }
+                    val preferences = summaryPrompt.takeIf { it.isNotBlank() }
                         ?: systemPrompt.takeIf { it.isNotBlank() }
-                        ?: Prompts.SUMMARY_SYSTEM
+                    val prompt = Prompts.withPreferences(
+                        Prompts.summarySystemPrompt(),
+                        preferences,
+                    )
                     val probe = PromptNotes.dataBlock(
                         listOf(
                             PromptNote(
