@@ -1,6 +1,8 @@
 package com.caregiver.mobile.presentation.settings
 
 import com.caregiver.mobile.ai.AiProvider
+import com.caregiver.mobile.data.api.ApiClient
+import okhttp3.HttpUrl.Companion.toHttpUrlOrNull
 
 /**
  * The credentials a working AI setup consists of.
@@ -33,13 +35,11 @@ object AiSettingsValidation {
         val url = raw.trim()
         if (url.isEmpty()) return true
         if (url.any { it.isWhitespace() }) return false
-        val lower = url.lowercase()
-        val schemeLength = when {
-            lower.startsWith("https://") -> "https://".length
-            lower.startsWith("http://") -> "http://".length
-            else -> return false
-        }
-        return url.substring(schemeLength).substringBefore('/').isNotBlank()
+        val parsed = url.toHttpUrlOrNull() ?: return false
+        if (parsed.scheme !in listOf("http", "https") || parsed.host.isEmpty()) return false
+        if (parsed.query != null || parsed.fragment != null ||
+            parsed.username.isNotEmpty() || parsed.password.isNotEmpty()) return false
+        return parsed.scheme != "http" || ApiClient.isDevHost(parsed.host)
     }
 
     /**

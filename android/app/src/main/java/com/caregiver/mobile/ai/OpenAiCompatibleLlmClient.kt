@@ -36,11 +36,15 @@ class OpenAiCompatibleLlmClient(
         if (httpUrl == null || httpUrl.host.isEmpty()) {
             return@withContext LlmResult(LlmStatus.FALLBACK, "", "invalid_url", null)
         }
-        val isLoopback = httpUrl.host == "localhost" || httpUrl.host == "127.0.0.1"
-        if (httpUrl.scheme == "http" && !isLoopback) {
+        if (baseUrl.any { it.isWhitespace() } ||
+            httpUrl.query != null || httpUrl.fragment != null ||
+            httpUrl.username.isNotEmpty() || httpUrl.password.isNotEmpty()) {
             return@withContext LlmResult(LlmStatus.FALLBACK, "", "invalid_url", null)
         }
         if (httpUrl.scheme !in listOf("http", "https")) {
+            return@withContext LlmResult(LlmStatus.FALLBACK, "", "invalid_url", null)
+        }
+        if (httpUrl.scheme == "http" && !ApiClient.isDevHost(httpUrl.host)) {
             return@withContext LlmResult(LlmStatus.FALLBACK, "", "invalid_url", null)
         }
         if (apiKey.isBlank() || apiKey.any { it.isWhitespace() || it.isISOControl() || it.code !in 0x21..0x7e }) {
