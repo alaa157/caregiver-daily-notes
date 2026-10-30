@@ -25,6 +25,26 @@ interface PlanDao {
     @Insert(onConflict = OnConflictStrategy.REPLACE)
     suspend fun upsert(entity: PlanEntity)
 
+    /** Creates a plan; an id collision aborts instead of replacing history. */
+    @Insert(onConflict = OnConflictStrategy.ABORT)
+    suspend fun insert(entity: PlanEntity)
+
+    /**
+     * Compare-and-set write for an existing plan: the row changes only when
+     * its version chain still equals [expectedVersionsJson]. A stale writer
+     * gets 0 back instead of overwriting the version another write added.
+     */
+    @Query(
+        "UPDATE plans SET versionsJson = :versionsJson, updatedAt = :updatedAt " +
+            "WHERE id = :id AND versionsJson = :expectedVersionsJson",
+    )
+    suspend fun updateIfUnchanged(
+        id: String,
+        expectedVersionsJson: String,
+        versionsJson: String,
+        updatedAt: Long,
+    ): Int
+
     /** Backup restore write: aborts on a duplicate id instead of replacing. */
     @Insert(onConflict = OnConflictStrategy.ABORT)
     suspend fun insertImported(items: List<PlanEntity>)

@@ -32,6 +32,7 @@ import com.caregiver.mobile.data.local.toDto
 import com.caregiver.mobile.data.local.toEntity
 import com.caregiver.mobile.data.plan.IllegalPlanTransitionException
 import com.caregiver.mobile.data.plan.PlanStateMachine
+import com.caregiver.mobile.data.plan.planConflictError
 import com.caregiver.mobile.data.plan.planTransitionError
 import kotlinx.serialization.encodeToString
 import kotlinx.serialization.json.Json
@@ -263,7 +264,7 @@ class LocalBackendApis(
                         LocalDate.now().toString(),
                     ),
                 )
-                savePlan(updated)
+                savePlan(updated, entity.versionsJson)
                 return@withTransaction updated
             }
             val plan = PlanDto(
@@ -279,7 +280,7 @@ class LocalBackendApis(
                     ),
                 ),
             )
-            savePlan(plan)
+            savePlan(plan, expectedVersionsJson = null)
             plan
         }
 
@@ -305,7 +306,7 @@ class LocalBackendApis(
                     recipientId = entity.recipientId,
                     versions = updatedVersions,
                 )
-                savePlan(updated)
+                savePlan(updated, entity.versionsJson)
                 updated
             }
 
@@ -329,19 +330,36 @@ class LocalBackendApis(
                 recipientId = entity.recipientId,
                 versions = updatedVersions,
             )
-            savePlan(updated)
+            savePlan(updated, entity.versionsJson)
             updated
         }
 
-        private suspend fun savePlan(plan: PlanDto) {
-            planDao.upsert(
-                PlanEntity(
-                    id = plan.id,
-                    recipientId = plan.recipientId,
-                    versionsJson = json.encodeToString(plan.versions),
-                    updatedAt = System.currentTimeMillis(),
-                ),
+        /**
+         * A new plan is an insert; an existing plan is a compare-and-set on
+         * the exact version chain that was read. The whole call runs in a
+         * transaction, so a competing writer either commits first (making
+         * this expected chain stale and failing the update with a 409) or
+         * sees this write and builds on it. History is never overwritten
+         * silently.
+         */
+        private suspend fun savePlan(plan: PlanDto, expectedVersionsJson: String?) {
+            val entity = PlanEntity(
+                id = plan.id,
+                recipientId = plan.recipientId,
+                versionsJson = json.encodeToString(plan.versions),
+                updatedAt = System.currentTimeMillis(),
             )
+            if (expectedVersionsJson == null) {
+                planDao.insert(entity)
+            } else {
+                val changed = planDao.updateIfUnchanged(
+                    id = entity.id,
+                    expectedVersionsJson = expectedVersionsJson,
+                    versionsJson = entity.versionsJson,
+                    updatedAt = entity.updatedAt,
+                )
+                if (changed == 0) throw planConflictError(plan.id)
+            }
         }
     }
 }
