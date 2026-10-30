@@ -2,6 +2,7 @@ package com.caregiver.mobile.ai
 
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.DisposableHandle
+import kotlinx.coroutines.InternalCoroutinesApi
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.currentCoroutineContext
 import okhttp3.Call
@@ -20,6 +21,7 @@ internal class CallCancellation : AutoCloseable {
     private var handle: DisposableHandle? = null
 
     /** Registers the cancellation handler on the calling coroutine's job. */
+    @OptIn(InternalCoroutinesApi::class)
     suspend fun install() {
         val job = currentCoroutineContext()[Job] ?: return
         // onCancelling = true is the important part: the handler runs when
@@ -27,6 +29,10 @@ internal class CallCancellation : AutoCloseable {
         // coroutine blocked in Call.execute() would otherwise never reach a
         // completion handler, and the request would keep running (and being
         // billed) after the user left the screen or the deadline fired.
+        //
+        // The onCancelling overload is marked internal, but it is the only
+        // hook that runs before a blocking call returns. Disposing the handle
+        // in close() keeps it from outliving the request.
         handle = job.invokeOnCompletion(onCancelling = true) { cause ->
             if (cause is CancellationException) call?.cancel()
         }
