@@ -99,7 +99,7 @@ private fun RecipientOption(recipient: RecipientDto, onPick: () -> Unit) {
             .padding(vertical = AppDimens.GapForm)
             .testTag("picker_recipient_${recipient.id}"),
     ) {
-        Avatar(Bidi.isolate(recipient.name).take(1))
+        Avatar(recipient.name.take(1))
         Text(
             text = Bidi.isolate(recipient.name),
             fontFamily = PlexArabic,
