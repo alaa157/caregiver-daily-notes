@@ -239,7 +239,7 @@ class PlanSuggestionService(
         private val DOSE_WITH_UNIT = Regex(
             "[0-9٠-٩]+(?:[.,٫][0-9٠-٩]+)?\\s*" +
                 "(?:mg|mcg|milligram|ml|milliliter|iu|units?|doses?|tablets?|pills?|capsules?" +
-                "|drops?|puffs?|ملغ|ميكروجرام|مليلتر|وحد|جرع|قرص|أقرص|حبوب|حبة|حبت|قطرة|بخاخ)",
+                "|drops?|puffs?|mg|مجم|ملغ|ميكروجرام|مليلتر|وحد|جرع|قرص|اقراص|حبوب|حبه|حبت|قطره|بخاخ)",
             RegexOption.IGNORE_CASE,
         )
 
@@ -248,21 +248,23 @@ class PlanSuggestionService(
         // boundaries misbehave across scripts, so these are substring stems
         // and the co-occurrence test keeps false positives rare.
         private val MEDICATION_NOUN = Regex(
-            "insulin|doses?|dosage|medications?|medicines?|pills?|tablets?|capsules?" +
-                "|prescriptions?|drugs?|supplements?|نسولين|جرع|أقرص|قرص|حبت|حبوب|حبة|أدوي|دواء|علاج",
+            "(?<![\\p{L}])(?:insulin|paracetamol|acetaminophen|doses?|dosage|medications?|medicines?|pills?|tablets?|capsules?" +
+                "|prescriptions?|drugs?|supplements?|نسولين|جرع|اقراص|قرص|حبت|حبوب|حبه|ادويه|دوا|دواء|علاج)(?![\\p{L}])",
             RegexOption.IGNORE_CASE,
         )
         private val CHANGE_VERB = Regex(
-            "doubl|halv|trip|increas|decreas|reduc|lower|rais|boost|cut|drop|stop|start|resume|skip|add|titrat" +
-                "|ضاعف|زد|زيادة|زود|خفض|خفّض|خفف|تخفيف|قلل|أوقف|وقف|توقف|ابدأ|بدأ|استئناف|استأنف|أضف|ارفع|رفع",
+            "(?<![\\p{L}])(?:double|doubles|doubling|halve|halves|halving|triples?|tripling|increase|increases|increasing|decrease|decreases|decreasing|reduce|reduces|reduced|lower|lowers|raise|raises|boost|cut|cuts|drop|drops|stop|stops|start|starts|resume|skip|add|adjust|change|swap|discontinue|give)(?![\\p{L}])" +
+                "|ضاعف|زد|زيادة|زود|خفض|خفف|تخفيف|قلل|اوقف|وقف|توقف|ابدأ|بدأ|استئناف|استأنف|اضف|ارفع|رفع",
             RegexOption.IGNORE_CASE,
         )
 
-        internal fun mentionsMedicationChange(reason: String): Boolean =
-            DOSE_WITH_UNIT.containsMatchIn(reason) ||
+        internal fun mentionsMedicationChange(reason: String): Boolean {
+            val normalized = ArabicNormalizer.normalize(reason)
+            return DOSE_WITH_UNIT.containsMatchIn(normalized) ||
                 (
-                    MEDICATION_NOUN.containsMatchIn(reason) &&
-                        CHANGE_VERB.containsMatchIn(reason)
+                    MEDICATION_NOUN.containsMatchIn(normalized) &&
+                        CHANGE_VERB.containsMatchIn(normalized)
                 )
+        }
     }
 }
