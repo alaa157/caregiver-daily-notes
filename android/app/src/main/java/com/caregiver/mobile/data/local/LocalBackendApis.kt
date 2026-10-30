@@ -243,6 +243,25 @@ class LocalBackendApis(
 
         override suspend fun suggest(body: SuggestPlanRequest): PlanDto {
             requireWritableRecipient(body.recipientId)
+            val existing = planDao.byRecipient(body.recipientId)
+                .map { entity -> entity to json.decodeFromString<List<PlanVersionDto>>(entity.versionsJson) }
+                .filter { (_, versions) -> versions.maxByOrNull { it.version }?.status == PlanStateMachine.SUGGESTED }
+                .maxByOrNull { (entity, _) -> entity.updatedAt }
+            if (existing != null) {
+                val (entity, versions) = existing
+                val updated = PlanDto(
+                    id = entity.id,
+                    recipientId = entity.recipientId,
+                    versions = PlanStateMachine.append(
+                        versions,
+                        PlanStateMachine.SUGGESTED,
+                        body.items,
+                        LocalDate.now().toString(),
+                    ),
+                )
+                savePlan(updated)
+                return updated
+            }
             val plan = PlanDto(
                 id = UUID.randomUUID().toString(),
                 recipientId = body.recipientId,

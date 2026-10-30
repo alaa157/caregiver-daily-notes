@@ -13,6 +13,9 @@ interface PlanDao {
     @Query("SELECT * FROM plans WHERE id = :id")
     suspend fun byId(id: String): PlanEntity?
 
+    @Query("SELECT * FROM plans WHERE recipientId = :recipientId")
+    suspend fun byRecipient(recipientId: String): List<PlanEntity>
+
     @Query("SELECT COUNT(*) FROM plans WHERE recipientId = :recipientId")
     suspend fun countByRecipient(recipientId: String): Int
 

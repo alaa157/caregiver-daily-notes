@@ -152,9 +152,12 @@ class PlanStateMachineTest {
     }
 
     @Test
-    fun appendedVersionCannotBeSuggested() {
+    fun aSuggestedPlanCanReceiveAnotherSuggestedVersion() {
         val versions = listOf(version(1, suggested))
-        assertTrue(runCatching { PlanStateMachine.append(versions, suggested, emptyList(), "2026-10-02") }.isFailure)
+        val appended = PlanStateMachine.append(versions, suggested, listOf("updated"), "2026-10-02")
+        assertEquals(2, appended.size)
+        assertEquals(suggested, appended.first { it.version == 1 }.status)
+        assertEquals(listOf("updated"), appended.last().items)
     }
 
     @Test
