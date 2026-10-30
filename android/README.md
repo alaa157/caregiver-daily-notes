@@ -21,7 +21,7 @@ same Spring Boot REST API as the web app. No cross-platform framework.
 ## Standalone install (no backend, no login)
 
 The app is standalone: install the APK from GitHub Releases and use it without
-any backend. AI features (summaries, plan suggestions, note translation) need
+any backend. AI features (summaries and plan suggestions) need
 your own API key.
 
 1. Download the latest `app-release.apk` from the GitHub Releases page.
