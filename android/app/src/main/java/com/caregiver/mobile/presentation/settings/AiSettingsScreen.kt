@@ -108,7 +108,9 @@ fun AiSettingsScreen(graph: AppGraph, navController: NavController, navEntry: Na
     // that is not going to answer.
     var testJob by remember { mutableStateOf<Job?>(null) }
     var formatJob by remember { mutableStateOf<Job?>(null) }
-    var consentGiven by remember { mutableStateOf(store.consentGiven()) }
+    // Consent is per provider: switching provider must show that provider's
+    // own state, not the previous one's.
+    var consentGiven by remember(provider) { mutableStateOf(store.consentGiven(provider)) }
     var consentStatus by remember { mutableStateOf<String?>(null) }
 
     // Dialog visibility
@@ -158,6 +160,8 @@ fun AiSettingsScreen(graph: AppGraph, navController: NavController, navEntry: Na
         keyError = null
         status = null
         formatStatus = null
+        consentStatus = null
+        showRevokeConsentDialog = false
         guideLinkError = false
     }
 
@@ -554,7 +558,7 @@ fun AiSettingsScreen(graph: AppGraph, navController: NavController, navEntry: Na
 
         if (consentGiven) {
             TextButton(onClick = { showRevokeConsentDialog = true }) {
-                Text(stringResource(R.string.settings_ai_revoke_consent))
+                Text(stringResource(R.string.settings_ai_revoke_consent, provider.displayName))
             }
         }
         consentStatus?.let {
@@ -597,12 +601,15 @@ fun AiSettingsScreen(graph: AppGraph, navController: NavController, navEntry: Na
         AlertDialog(
             onDismissRequest = { showRevokeConsentDialog = false },
             title = { Text(stringResource(R.string.settings_ai_revoke_consent_title)) },
-            text = { Text(stringResource(R.string.settings_ai_revoke_consent_message)) },
+            text = { Text(stringResource(R.string.settings_ai_revoke_consent_message, provider.displayName)) },
             confirmButton = {
                 TextButton(onClick = {
-                    store.revokeConsent()
+                    store.revokeConsent(provider)
                     consentGiven = false
-                    consentStatus = graph.context.getString(R.string.settings_ai_consent_revoked)
+                    consentStatus = graph.context.getString(
+                        R.string.settings_ai_consent_revoked,
+                        provider.displayName,
+                    )
                     showRevokeConsentDialog = false
                 }) {
                     Text(stringResource(R.string.settings_ai_revoke_consent_confirm))

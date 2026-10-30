@@ -52,8 +52,8 @@ class SummaryViewModelModelResolutionTest {
         val apis = FakeBackendApis(FakeAuthApi()).also { it.summaryApi = summaries }
         repository = AuthRepository(apis, settings, TokenHolder())
         store = AiKeyStore(ApplicationProvider.getApplicationContext(), TestApiKeyCipher())
-        store.setConsentGiven()
         store.setProvider(AiProvider.OPENAI)
+        store.setConsentGiven(AiProvider.OPENAI)
         factory = RecordingFactory()
     }
 

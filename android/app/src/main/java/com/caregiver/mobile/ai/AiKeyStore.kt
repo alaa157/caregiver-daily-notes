@@ -55,6 +55,7 @@ class AiKeyStore internal constructor(
 
     init {
         migrateLegacySettings()
+        migrateLegacyConsent()
     }
 
     fun provider(): AiProvider? =
@@ -120,14 +121,24 @@ class AiKeyStore internal constructor(
     fun baseUrlOrDefault(provider: AiProvider): String =
         baseUrl(provider)?.takeIf { it.isNotBlank() } ?: provider.defaultBaseUrl
 
-    fun consentGiven(): Boolean = prefs.getBoolean(KEY_CONSENT, false)
+    /**
+     * Consent is per provider, not global. Agreeing to send notes to one
+     * provider says nothing about another provider's data policy, and a
+     * caregiver who switches provider has to see that provider's name before
+     * their notes start flowing to it.
+     */
+    fun consentGiven(provider: AiProvider = selectedProvider()): Boolean =
+        prefs.getBoolean(consentSlot(provider), false)
 
-    fun setConsentGiven() {
-        prefs.edit().putBoolean(KEY_CONSENT, true).apply()
+    fun setConsentGiven(provider: AiProvider = selectedProvider()) {
+        prefs.edit().putBoolean(consentSlot(provider), true).apply()
     }
 
-    fun revokeConsent() {
-        prefs.edit().putBoolean(KEY_CONSENT, false).apply()
+    fun revokeConsent(provider: AiProvider = selectedProvider()) {
+        // Removing the slot (rather than storing false) keeps a provider that
+        // was never accepted indistinguishable from one whose consent was
+        // revoked: both have to ask again.
+        prefs.edit().remove(consentSlot(provider)).apply()
     }
 
     fun systemPrompt(): String = prefs.getString(KEY_SYSTEM_PROMPT, "").orEmpty()
@@ -176,7 +187,25 @@ class AiKeyStore internal constructor(
         if (changed) editor.apply()
     }
 
+    /**
+     * Older builds stored one consent flag for every provider. Move it to
+     * the provider that was selected when the upgrade ran and remove the
+     * legacy flag: the other providers must ask again, because the caregiver
+     * never saw their names or data policies.
+     */
+    private fun migrateLegacyConsent() {
+        if (!prefs.contains(KEY_CONSENT)) return
+        val editor = prefs.edit()
+        if (prefs.getBoolean(KEY_CONSENT, false)) {
+            editor.putBoolean(consentSlot(selectedProvider()), true)
+        }
+        editor.remove(KEY_CONSENT)
+        editor.apply()
+    }
+
     private fun keySlot(provider: AiProvider): String = KEY_API_PREFIX + provider.name
+
+    private fun consentSlot(provider: AiProvider): String = KEY_CONSENT_PREFIX + provider.name
 
     private fun modelSlot(provider: AiProvider): String = KEY_MODEL_PREFIX + provider.name
 
@@ -191,7 +220,9 @@ class AiKeyStore internal constructor(
         private const val KEY_API_PREFIX = "api_key_"
         private const val KEY_MODEL_PREFIX = "model_"
         private const val KEY_BASE_URL_PREFIX = "base_url_"
+        /** Legacy global consent flag, migrated to [KEY_CONSENT_PREFIX]. */
         private const val KEY_CONSENT = "consent"
+        private const val KEY_CONSENT_PREFIX = "consent_"
         private const val KEY_SYSTEM_PROMPT = "system_prompt"
         private const val KEY_SUMMARY_PROMPT = "summary_prompt"
         private const val KEY_PLAN_PROMPT = "plan_prompt"

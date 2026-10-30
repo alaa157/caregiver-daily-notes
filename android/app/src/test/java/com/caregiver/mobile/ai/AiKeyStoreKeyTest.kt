@@ -40,8 +40,7 @@ class AiKeyStoreKeyTest {
     }
 
     @Test
-    fun eachProviderHasItsOwnKey() {
-        val store = store()
+    fun eachProviderHasItsOwnKey() {        val store = store()
         assertTrue(store.setApiKey("openai-key", AiProvider.OPENAI))
         assertTrue(store.setApiKey("gemini-key", AiProvider.GEMINI))
 
@@ -136,5 +135,47 @@ class AiKeyStoreKeyTest {
         store.setApiKey("sk-test-123")
         store.clearApiKey()
         assertEquals(ApiKeyState.Absent, store.apiKeyState())
+    }
+
+    @Test
+    fun consentIsRememberedPerProvider() {
+        val store = store()
+        store.setConsentGiven(AiProvider.OPENAI)
+
+        assertTrue(store.consentGiven(AiProvider.OPENAI))
+        assertFalse(
+            "one provider's consent must not cover another provider's data policy",
+            store.consentGiven(AiProvider.GEMINI),
+        )
+    }
+
+    @Test
+    fun revokingOneProvidersConsentLeavesTheOther() {
+        val store = store()
+        store.setConsentGiven(AiProvider.OPENAI)
+        store.setConsentGiven(AiProvider.GEMINI)
+
+        store.revokeConsent(AiProvider.OPENAI)
+
+        assertFalse(store.consentGiven(AiProvider.OPENAI))
+        assertTrue(store.consentGiven(AiProvider.GEMINI))
+    }
+
+    @Test
+    fun legacyGlobalConsentMovesOnlyToTheSelectedProvider() {
+        val prefs = context.getSharedPreferences("ai_settings", Context.MODE_PRIVATE)
+        prefs.edit()
+            .putString("provider", AiProvider.GEMINI.name)
+            .putBoolean("consent", true)
+            .commit()
+
+        val store = AiKeyStore(context, TestApiKeyCipher())
+
+        assertTrue(store.consentGiven(AiProvider.GEMINI))
+        assertFalse(
+            "the caregiver never agreed to the other providers by name",
+            store.consentGiven(AiProvider.OPENAI),
+        )
+        assertFalse(prefs.contains("consent"))
     }
 }

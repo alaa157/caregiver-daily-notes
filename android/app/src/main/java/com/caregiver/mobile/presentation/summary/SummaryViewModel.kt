@@ -31,7 +31,13 @@ import retrofit2.HttpException
 
 sealed interface SummaryState {
     data object Loading : SummaryState
-    data object NeedsConsent : SummaryState
+
+    /**
+     * The selected provider has no consent yet. Carrying the provider keeps
+     * the consent dialog's name in step with the provider that was checked,
+     * even if settings change underneath the screen.
+     */
+    data class NeedsConsent(val provider: AiProvider) : SummaryState
     data class Content(val summary: SummaryDto, val refreshing: Boolean = false, val aiGenerated: Boolean = false) : SummaryState
     data class AiUnavailable(
         val last: SummaryDto? = null,
@@ -109,7 +115,13 @@ class SummaryViewModel(
     }
 
     fun grantConsent() {
-        aiKeyStore?.setConsentGiven()
+        // Consent belongs to one provider. The state carries the one the
+        // dialog named; falling back to the current selection only covers a
+        // screen that was restored without a NeedsConsent state.
+        val store = aiKeyStore ?: return
+        val provider = (_state.value as? SummaryState.NeedsConsent)?.provider
+            ?: store.selectedProvider()
+        store.setConsentGiven(provider)
         cancelledByUser = false
         _state.value = SummaryState.Loading
         loadJob = exec.launch { load(preserve = false) }
@@ -143,8 +155,8 @@ class SummaryViewModel(
         val provider = store?.selectedProvider()
         var aiRedFlags: List<String> = emptyList()
         if (store != null && provider != null && store.hasKey(provider)) {
-            if (!store.consentGiven()) {
-                _state.value = SummaryState.NeedsConsent
+            if (!store.consentGiven(provider)) {
+                _state.value = SummaryState.NeedsConsent(provider)
                 return
             }
             try {
@@ -310,7 +322,7 @@ class SummaryViewModel(
         val store = aiKeyStore ?: return
         val provider = store.selectedProvider()
         if (!store.hasKey(provider)) return
-        if (!store.consentGiven()) return
+        if (!store.consentGiven(provider)) return
         if (_suggesting.value || _suggestedForCurrent.value) return
         val summaryText = (_state.value as? SummaryState.Content)?.summary?.text.orEmpty()
         if (summaryText.isBlank()) {

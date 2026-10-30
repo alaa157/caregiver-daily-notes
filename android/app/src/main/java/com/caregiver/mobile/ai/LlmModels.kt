@@ -32,8 +32,9 @@ enum class AiProvider(
      * defaults — gpt-4o-mini, gemini-2.0-flash, grok-3 — are retired or
      * deprecated).
      *
-     * A provider that serves free models defaults to the free one, so the
-     * app does not spend the caregiver's money before they ask it to.
+     * Free tiers can use submitted notes to improve the provider's products
+     * or train its models, so free models are opt-in: the defaults are paid
+     * models, and the caregiver has to choose a free one deliberately.
      */
     val defaultModel: String,
     /** What this provider offers for free, if anything. */
@@ -41,9 +42,9 @@ enum class AiProvider(
 ) {
     OPENAI("OpenAI", "https://api.openai.com/v1", "gpt-6-luna", AiFreeTier.TRIAL_CREDITS),
     ANTHROPIC("Anthropic", "https://api.anthropic.com", "claude-sonnet-5-5"),
-    GEMINI("Gemini", "https://generativelanguage.googleapis.com", "gemini-3.1-flash-lite", AiFreeTier.FREE_MODELS),
+    GEMINI("Gemini", "https://generativelanguage.googleapis.com", "gemini-3.8-flash", AiFreeTier.FREE_MODELS),
     XAI("xAI", "https://api.x.ai/v1", "grok-4.7"),
-    OPEN_ROUTER("OpenRouter", "https://openrouter.ai/api/v1", "openrouter/free", AiFreeTier.FREE_MODELS),
+    OPEN_ROUTER("OpenRouter", "https://openrouter.ai/api/v1", "openai/gpt-4o-mini", AiFreeTier.FREE_MODELS),
 }
 
 data class LlmRequest(

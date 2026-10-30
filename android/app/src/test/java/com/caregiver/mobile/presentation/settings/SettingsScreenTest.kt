@@ -275,12 +275,16 @@ class SettingsScreenTest {
     fun revokeConsentAsksForConfirmationAndShowsFeedback() {
         context.getSharedPreferences("ai_settings", Context.MODE_PRIVATE)
             .edit()
-            .putBoolean("consent", true)
+            .putBoolean("consent_" + AiProvider.OPENAI.name, true)
             .commit()
         renderAiSettings()
 
-        compose.onNodeWithText(context.getString(R.string.settings_ai_revoke_consent))
-            .performScrollTo().performClick()
+        compose.onNodeWithText(
+            context.getString(
+                R.string.settings_ai_revoke_consent,
+                AiProvider.OPENAI.displayName,
+            ),
+        ).performScrollTo().performClick()
         compose.onNodeWithText(context.getString(R.string.settings_ai_revoke_consent_title))
             .assertExists()
         compose.onNodeWithText(context.getString(R.string.settings_ai_revoke_consent_confirm))
@@ -288,12 +292,19 @@ class SettingsScreenTest {
 
         // The revoked status is set from the confirmation click; give the
         // recomposition a moment before asserting on it.
+        val revoked = context.getString(
+            R.string.settings_ai_consent_revoked,
+            AiProvider.OPENAI.displayName,
+        )
         compose.waitUntil(5_000) {
-            compose.onAllNodesWithText(context.getString(R.string.settings_ai_consent_revoked))
-                .fetchSemanticsNodes().isNotEmpty()
+            compose.onAllNodesWithText(revoked).fetchSemanticsNodes().isNotEmpty()
         }
-        compose.onNodeWithText(context.getString(R.string.settings_ai_revoke_consent))
-            .assertDoesNotExist()
+        compose.onNodeWithText(
+            context.getString(
+                R.string.settings_ai_revoke_consent,
+                AiProvider.OPENAI.displayName,
+            ),
+        ).assertDoesNotExist()
     }
 
     @Test
