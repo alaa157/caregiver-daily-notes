@@ -7,6 +7,7 @@ import android.graphics.Paint
 import android.graphics.pdf.PdfDocument
 import android.text.Layout
 import android.text.StaticLayout
+import android.text.TextDirectionHeuristics
 import android.text.TextPaint
 import androidx.core.content.FileProvider
 import com.caregiver.mobile.R
@@ -61,9 +62,14 @@ object CareSummaryPdfExporter {
         fun drawTextBlock(text: String, p: TextPaint = paint, spacing: Float = 6f) {
             if (text.isBlank()) return
             val width = (pageWidth - 2 * margin).toInt()
-            val alignment = if (ar) Layout.Alignment.ALIGN_OPPOSITE else Layout.Alignment.ALIGN_NORMAL
+            // ALIGN_NORMAL follows the paragraph direction: Arabic lines align
+            // right and English lines align left. ALIGN_OPPOSITE here would
+            // left-align every Arabic paragraph.
+            val alignment = Layout.Alignment.ALIGN_NORMAL
+            val textDirection = if (ar) TextDirectionHeuristics.RTL else TextDirectionHeuristics.LTR
             val layout = StaticLayout.Builder.obtain(text, 0, text.length, p, width)
                 .setAlignment(alignment)
+                .setTextDirection(textDirection)
                 .setLineSpacing(0f, 1.1f)
                 .setIncludePad(true)
                 .build()
