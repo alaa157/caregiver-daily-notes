@@ -159,7 +159,11 @@ class SummaryAiService(
             // numbers and polarity first. The quote itself was verified
             // against the note above, and the observation stays labelled
             // unverified.
-            if (ClaimGrounding.verdict(claim, rawQuote) == ClaimGrounding.Verdict.UNSUPPORTED) {
+            // A quote in the source note is not enough to ground a translated
+            // claim: when the scripts differ ClaimGrounding cannot compare
+            // their meaning. Only lexically supported claims may be shown as
+            // observations; an uncheckable claim is not evidence.
+            if (ClaimGrounding.verdict(claim, rawQuote) != ClaimGrounding.Verdict.SUPPORTED) {
                 hadInvalid = true
                 continue
             }
