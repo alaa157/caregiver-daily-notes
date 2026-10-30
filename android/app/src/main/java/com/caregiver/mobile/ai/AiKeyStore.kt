@@ -172,6 +172,20 @@ class AiKeyStore internal constructor(
         val editor = prefs.edit()
         var changed = false
 
+        val legacyApiKey = prefs.getString(KEY_API_LEGACY, null)
+        if (legacyApiKey != null) {
+            if (!prefs.contains(keySlot(selected))) {
+                val encrypted = cipher.encrypt(legacyApiKey)
+                if (encrypted != null) editor.putString(keySlot(selected), encrypted)
+            }
+            // Retain the old value if encryption failed so the next startup
+            // can retry migration instead of silently losing the credential.
+            if (prefs.contains(keySlot(selected))) {
+                editor.remove(KEY_API_LEGACY)
+                changed = true
+            }
+        }
+
         fun migrate(legacyKey: String, targetKey: String) {
             val value = prefs.getString(legacyKey, null) ?: return
             if (!prefs.contains(targetKey)) {
@@ -181,7 +195,6 @@ class AiKeyStore internal constructor(
             changed = true
         }
 
-        migrate(KEY_API_LEGACY, keySlot(selected))
         migrate(KEY_MODEL_LEGACY, modelSlot(selected))
         migrate(KEY_BASE_URL_LEGACY, baseUrlSlot(selected))
         if (changed) editor.apply()

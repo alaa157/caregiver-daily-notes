@@ -43,7 +43,7 @@ class OpenAiCompatibleLlmClient(
         if (httpUrl.scheme !in listOf("http", "https")) {
             return@withContext LlmResult(LlmStatus.FALLBACK, "", "invalid_url", null)
         }
-        if (apiKey.isBlank() || apiKey.any { it.isISOControl() }) {
+        if (apiKey.isBlank() || apiKey.any { it.isWhitespace() || it.isISOControl() || it.code !in 0x21..0x7e }) {
             return@withContext LlmResult(LlmStatus.FALLBACK, "", "invalid_key", null)
         }
         val basePath = httpUrl.encodedPath
