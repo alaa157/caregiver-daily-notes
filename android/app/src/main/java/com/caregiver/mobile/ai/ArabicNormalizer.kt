@@ -1,5 +1,6 @@
 package com.caregiver.mobile.ai
 
+import java.text.Normalizer
 import java.util.regex.Pattern
 
 /**
@@ -24,7 +25,7 @@ object ArabicNormalizer {
 
     fun normalize(s: String?): String {
         if (s == null) return ""
-        var out = INVISIBLE_AND_CONTROLS.matcher(s).replaceAll("")
+        var out = INVISIBLE_AND_CONTROLS.matcher(Normalizer.normalize(s, Normalizer.Form.NFKC)).replaceAll("")
         out = out.replace("ـ", "")
         out = DIACRITICS.matcher(out).replaceAll("")
         out = toLatinDigits(out)
@@ -64,6 +65,9 @@ object ArabicNormalizer {
                 '؛' -> b.append(';')
                 '؟' -> b.append('?')
                 '«', '»' -> b.append('"')
+                '‘', '’', '‚', '‛' -> b.append('\'')
+                '“', '”', '„', '‟' -> b.append('"')
+                '…' -> b.append("...")
                 '٫' -> b.append('.')
                 '٬' -> b.append(',')
                 else -> b.append(c)
