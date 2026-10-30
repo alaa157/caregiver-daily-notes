@@ -37,7 +37,8 @@ class AnthropicLlmClient(
         if (httpUrl == null || httpUrl.host.isEmpty()) {
             return@withContext LlmResult(LlmStatus.FALLBACK, "", "invalid_url", null)
         }
-        if (httpUrl.query != null || httpUrl.fragment != null ||
+        if (baseUrl.any { it.isWhitespace() } ||
+            httpUrl.query != null || httpUrl.fragment != null ||
             httpUrl.username.isNotEmpty() || httpUrl.password.isNotEmpty()) {
             return@withContext LlmResult(LlmStatus.FALLBACK, "", "invalid_url", null)
         }
