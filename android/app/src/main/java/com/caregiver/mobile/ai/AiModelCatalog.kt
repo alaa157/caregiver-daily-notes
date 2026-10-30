@@ -24,12 +24,11 @@ data class AiModelOption(
  * gemini-2.0-flash are gone, grok-3 was retired in May 2026), which is why
  * the provider defaults point at the same ids.
  *
- * A provider that serves free models leads with the free one, and the
- * provider default is that same model. Note what a free tier means for the
- * care notes that go with it: on Gemini's free tier the notes may be used to
- * improve Google's products, and an OpenRouter free model keeps whatever
- * data policy its host has — some of them train on what they receive. The
- * paid models are the ones that do not.
+ * Paid models lead, and a provider's default is a paid model. On Gemini's
+ * free tier the notes may be used to improve Google's products, and an
+ * OpenRouter free model keeps whatever data policy its host has — some of
+ * them train on what they receive. A free model is therefore an explicit
+ * opt-in, never the first suggestion.
  */
 object AiModelCatalog {
     fun options(provider: AiProvider): List<AiModelOption> = when (provider) {
@@ -41,11 +40,12 @@ object AiModelCatalog {
         )
 
         AiProvider.GEMINI -> listOf(
-            // The one Gemini model the free tier still covers.
-            AiModelOption("gemini-3.1-flash-lite", free = true),
+            // Paid first: the free tier may train on care notes.
             AiModelOption("gemini-3.8-flash"),
             AiModelOption("gemini-3.5-flash"),
             AiModelOption("gemini-3.5-flash-lite"),
+            // The one Gemini model the free tier still covers. Opt-in.
+            AiModelOption("gemini-3.1-flash-lite", free = true),
         )
 
         AiProvider.ANTHROPIC -> listOf(
@@ -63,13 +63,12 @@ object AiModelCatalog {
         )
 
         AiProvider.OPEN_ROUTER -> listOf(
-            // The router picks a free model that fits the request, which
-            // survives the free catalogue churning.
+            AiModelOption("openai/gpt-4o-mini"),
+            // Free variants come and go, and may train on what they receive;
+            // treat them as a deliberate promotion, not a default.
             AiModelOption("openrouter/free", free = true),
-            // Free variants come and go; treat them as a promotion.
             AiModelOption("nvidia/nemotron-3.5-lightning:free", free = true),
             AiModelOption("google/gemma-4-31b-it:free", free = true),
-            AiModelOption("openai/gpt-4o-mini"),
         )
     }
 }

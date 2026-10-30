@@ -9,13 +9,15 @@ import com.caregiver.mobile.R
 
 @Composable
 fun AiConsentDialog(
+    /** Named in the body so consent always refers to a specific provider. */
+    providerName: String,
     onAccept: () -> Unit,
     onDismiss: () -> Unit,
 ) {
     AlertDialog(
         onDismissRequest = onDismiss,
         title = { Text(stringResource(R.string.ai_consent_title)) },
-        text = { Text(stringResource(R.string.ai_consent_body)) },
+        text = { Text(stringResource(R.string.ai_consent_body, providerName)) },
         confirmButton = { TextButton(onClick = onAccept) { Text(stringResource(R.string.ai_consent_accept)) } },
         dismissButton = { TextButton(onClick = onDismiss) { Text(stringResource(R.string.common_cancel)) } },
     )

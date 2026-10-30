@@ -46,6 +46,7 @@ import com.caregiver.mobile.AppGraph
 import com.caregiver.mobile.R
 import com.caregiver.mobile.ai.AiConsentDialog
 import com.caregiver.mobile.ai.AiKeyStore
+import com.caregiver.mobile.ai.AiProvider
 import com.caregiver.mobile.ai.SummaryWindow
 import com.caregiver.mobile.core.i18n.Bidi
 import com.caregiver.mobile.core.navigation.AppDestinations
@@ -175,15 +176,18 @@ fun SummaryResultScreen(
                 vm.setPeriod(AiRecovery.EXTENDED_PERIOD_DAYS)
         }
     }
-    val showConsent = androidx.compose.runtime.remember { androidx.compose.runtime.mutableStateOf(false) }
-    if (showConsent.value) {
+    val consentProvider = androidx.compose.runtime.remember {
+        androidx.compose.runtime.mutableStateOf<AiProvider?>(null)
+    }
+    consentProvider.value?.let { provider ->
         AiConsentDialog(
+            providerName = provider.displayName,
             onAccept = {
-                AiKeyStore(graph.context).setConsentGiven()
-                showConsent.value = false
+                AiKeyStore(graph.context).setConsentGiven(provider)
+                consentProvider.value = null
                 vm.suggestPlan()
             },
-            onDismiss = { showConsent.value = false },
+            onDismiss = { consentProvider.value = null },
         )
     }
     Column(Modifier.fillMaxSize().padding(horizontal = AppDimens.ScreenHPadding)) {
@@ -234,6 +238,7 @@ fun SummaryResultScreen(
             }
             is SummaryState.NeedsConsent -> {
                 AiConsentDialog(
+                    providerName = s.provider.displayName,
                     onAccept = { vm.grantConsent() },
                     onDismiss = { navController.popBackStack() },
                 )
@@ -242,8 +247,9 @@ fun SummaryResultScreen(
                 graph, s.summary, activePeriodDays, graph.isDemo, navController, s.aiGenerated,
                 onSuggestPlan = {
                     val store = AiKeyStore(graph.context)
-                    if (!store.consentGiven()) {
-                        showConsent.value = true
+                    val provider = store.selectedProvider()
+                    if (!store.consentGiven(provider)) {
+                        consentProvider.value = provider
                     } else {
                         vm.suggestPlan()
                     }

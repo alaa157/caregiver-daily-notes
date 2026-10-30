@@ -53,13 +53,18 @@ class AiModelCatalogTest {
     }
 
     @Test
-    fun aProviderWithFreeModelsDefaultsToTheFreeOne() {
+    fun aProviderWithFreeModelsDefaultsToAPaidOne() {
         for (provider in AiProvider.entries) {
-            val free = AiModelCatalog.options(provider).firstOrNull { it.free } ?: continue
+            val free = AiModelCatalog.options(provider).filter { it.free }
+            if (free.isEmpty()) continue
+            assertTrue(
+                "${provider.name} must not default to a free model that may train on notes",
+                free.none { it.id == provider.defaultModel },
+            )
             assertEquals(
-                "${provider.name} should default to its free model",
-                free.id,
+                "${provider.name} should lead with its paid default",
                 provider.defaultModel,
+                AiModelCatalog.options(provider).first().id,
             )
         }
     }
