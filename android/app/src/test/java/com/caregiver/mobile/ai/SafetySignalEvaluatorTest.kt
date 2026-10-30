@@ -106,6 +106,74 @@ class SafetySignalEvaluatorTest {
     }
 
     @Test
+    fun commonFallPhrasingsAreRecognised() {
+        val phrasings = listOf(
+            "she had a fall in the bathroom",
+            "he has fallen twice this week",
+            "she slipped near the bed",
+            "he tripped over the rug",
+            "وقع في الحمام",
+            "وقعت على الأرض",
+        )
+        for (text in phrasings) {
+            val flags = SafetySignalEvaluator.evaluate(
+                listOf(signal("n1", LocalDate.of(2026, 10, 2), text = text)),
+            )
+            assertTrue("fall not flagged for: $text", "FALL_REPORTED" in flags)
+        }
+    }
+
+    @Test
+    fun commonChestPainPhrasingsAreRecognised() {
+        val phrasings = listOf(
+            "pain in chest after lunch",
+            "chest tightness at night",
+            "ألم في صدرها",
+            "آلام في الصدر",
+            "وجع في صدره",
+        )
+        for (text in phrasings) {
+            val flags = SafetySignalEvaluator.evaluate(
+                listOf(signal("n1", LocalDate.of(2026, 10, 2), text = text)),
+            )
+            assertTrue("chest pain not flagged for: $text", "HIGH_PAIN" in flags)
+        }
+    }
+
+    @Test
+    fun arabicPainLettersInsideUnrelatedWordsDoNotFlag() {
+        // "الم" appears inside "المريض"; "صدر" can describe the front of a
+        // room. Neither is a pain report on its own.
+        val flags = SafetySignalEvaluator.evaluate(
+            listOf(
+                signal(
+                    "n1",
+                    LocalDate.of(2026, 10, 2),
+                    pain = 1,
+                    text = "المريض جلس في صدر الغرفة",
+                ),
+            ),
+        )
+        assertFalse("HIGH_PAIN" in flags)
+    }
+
+    @Test
+    fun breathingTroubleIsFlaggedWithoutTheModel() {
+        val flags = SafetySignalEvaluator.evaluate(
+            listOf(signal("n1", LocalDate.of(2026, 10, 2), text = "shortness of breath tonight")),
+        )
+        assertTrue("BREATHING_TROUBLE" in flags)
+    }
+
+    @Test
+    fun lossOfConsciousnessIsFlaggedWithoutTheModel() {
+        val flags = SafetySignalEvaluator.evaluate(
+            listOf(signal("n1", LocalDate.of(2026, 10, 2), text = "she passed out in the hallway")),
+        )
+        assertTrue("LOSS_OF_CONSCIOUSNESS" in flags)
+    }
+
+    @Test
     fun cleanFlagsStayClean() {
         val flags = SafetySignalEvaluator.evaluate(
             listOf(signal("n1", LocalDate.of(2026, 10, 2), text = "she ate well, walked in the garden")),
