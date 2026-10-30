@@ -81,7 +81,7 @@ class PlanSuggestionService(
                 payload = reply.value
                 replyStatus = reply.status
             }
-            is LlmJson.Reply.Unavailable -> return PlanSuggestionResult.Failure("llm_fallback")
+            is LlmJson.Reply.Unavailable -> return PlanSuggestionResult.Failure(reply.error ?: "unavailable")
             is LlmJson.Reply.Oversized -> return PlanSuggestionResult.Failure("oversized")
             is LlmJson.Reply.Malformed -> return PlanSuggestionResult.Failure("parse_error")
         }
