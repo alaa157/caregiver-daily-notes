@@ -662,6 +662,9 @@ fun AiSettingsScreen(graph: AppGraph, navController: NavController, navEntry: Na
                         value = apiKey,
                         onValueChange = { apiKey = it },
                         visualTransformation = PasswordVisualTransformation(),
+                        keyboardOptions = androidx.compose.ui.text.input.KeyboardOptions(
+                            keyboardType = androidx.compose.ui.text.input.KeyboardType.Password,
+                        ),
                         // A key is one line: a pasted newline must not turn
                         // the field into a multi-line box.
                         singleLine = true,
