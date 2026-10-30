@@ -51,6 +51,7 @@ import androidx.compose.ui.unit.sp
 import androidx.navigation.NavController
 import com.caregiver.mobile.AppGraph
 import com.caregiver.mobile.R
+import com.caregiver.mobile.core.i18n.Bidi
 import com.caregiver.mobile.core.theme.CaregiverColors
 import com.caregiver.mobile.presentation.common.AppDimens
 import com.caregiver.mobile.core.theme.PlexArabic
@@ -436,7 +437,9 @@ fun NoteDetailScreen(noteId: String, graph: AppGraph, navController: NavControll
                         )
                         StatMini(
                             stringResource(R.string.editor_pain),
-                            "${s.content.note.pain} / 10",
+                            // A bare "5 / 10" flips to "10 / 5" in an RTL
+                            // paragraph, which misreports the pain score.
+                            Bidi.isolate("${s.content.note.pain} / 10"),
                         )
                         StatMini(
                             stringResource(R.string.editor_fall),
