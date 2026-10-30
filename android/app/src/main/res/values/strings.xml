@@ -393,7 +393,7 @@
     <string name="settings_ai_revoke_consent">Revoke consent for %1$s</string>
     <string name="settings_ai_revoke_consent_confirm">Revoke</string>
     <string name="settings_ai_revoke_consent_title">Revoke AI consent?</string>
-    <string name="settings_ai_revoke_consent_message">AI summaries, plans, and translation will stop sending notes to %1$s until you agree again. Your notes stay on this device.</string>
+    <string name="settings_ai_revoke_consent_message">AI summaries and plans will stop sending notes to %1$s until you agree again. Your notes stay on this device.</string>
     <string name="settings_ai_consent_revoked">Consent for %1$s revoked. AI features will ask again before sending notes to this provider.</string>
     <string name="settings_ai_clear_key">Clear API key</string>
     <string name="settings_ai_clear_key_message">Remove the API key saved for %1$s? AI features stay off for this provider until a new key is added.</string>
