@@ -103,6 +103,7 @@ fun AiSettingsScreen(graph: AppGraph, navController: NavController, navEntry: Na
     var status by remember { mutableStateOf<String?>(null) }
     var formatStatus by remember { mutableStateOf<String?>(null) }
     var testing by remember { mutableStateOf(false) }
+    var testGeneration by remember { mutableStateOf(0) }
     var validating by remember { mutableStateOf(false) }
     // The in-flight test, so the caregiver can stop waiting for a provider
     // that is not going to answer.
@@ -327,6 +328,7 @@ fun AiSettingsScreen(graph: AppGraph, navController: NavController, navEntry: Na
                 return@Button
             }
             testing = true
+            val generation = ++testGeneration
             testJob = scope.launch {
                 try {
                     val client = llmClientFor(
@@ -379,7 +381,10 @@ fun AiSettingsScreen(graph: AppGraph, navController: NavController, navEntry: Na
                         AiRecovery.copyFor("unavailable").resolvedMessage(graph.context),
                     )
                 } finally {
-                    testing = false
+                    if (testGeneration == generation) {
+                        testing = false
+                        testJob = null
+                    }
                 }
             }
         }, enabled = !testing) {
@@ -390,6 +395,7 @@ fun AiSettingsScreen(graph: AppGraph, navController: NavController, navEntry: Na
             // up, and a provider that never answers looks like a frozen
             // screen.
             TextButton(onClick = {
+                testGeneration++
                 testJob?.cancel()
                 testJob = null
                 testing = false
