@@ -89,6 +89,18 @@ class ClaimGroundingTest {
     }
 
     @Test
+    fun lettersThatChangeTheWordDoNotCountAsSupport() {
+        // ليلى (a name) is not ليلي, and سنة (year) is not سنه (his tooth).
+        // A fold that treats them as equal would accept a quote about a
+        // different word.
+        assertFalse(ClaimGrounding.isSupported("ليلى", "ليلي"))
+        assertFalse(ClaimGrounding.isSupported("ليلي", "ليلى"))
+        assertFalse(ClaimGrounding.isSupported("سنة", "سنه"))
+        // A harmless re-typesetting (alef without hamza) still matches.
+        assertTrue(ClaimGrounding.isSupported("أحمد", "احمد"))
+    }
+
+    @Test
     fun unsupportedClaimIsRejected() {
         assertFalse(ClaimGrounding.isSupported("took medication", "walked"))
         assertFalse(ClaimGrounding.isSupported("severe pain", "walked"))
