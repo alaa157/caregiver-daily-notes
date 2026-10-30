@@ -21,11 +21,22 @@ import javax.crypto.spec.GCMParameterSpec
 internal class AndroidKeyStoreCipher : ApiKeyCipher {
 
     override fun encrypt(plain: String): String? = runCatching {
+        encryptWithKey(plain)
+    }.recoverCatching {
+        // An invalidated alias cannot encrypt new credentials. Existing data
+        // encrypted by that key is already unreadable; replace the alias so
+        // the user can save a newly entered key.
+        val keyStore = KeyStore.getInstance("AndroidKeyStore").apply { load(null) }
+        keyStore.deleteEntry(ALIAS)
+        encryptWithKey(plain)
+    }.getOrNull()
+
+    private fun encryptWithKey(plain: String): String {
         val cipher = Cipher.getInstance("AES/GCM/NoPadding")
         cipher.init(Cipher.ENCRYPT_MODE, getOrCreateKey())
         val combined = cipher.iv + cipher.doFinal(plain.toByteArray(Charsets.UTF_8))
-        Base64.encodeToString(combined, Base64.NO_WRAP)
-    }.getOrNull()
+        return Base64.encodeToString(combined, Base64.NO_WRAP)
+    }
 
     override fun decrypt(stored: String): ApiKeyState {
         val decoded = runCatching { Base64.decode(stored, Base64.NO_WRAP) }.getOrNull()
