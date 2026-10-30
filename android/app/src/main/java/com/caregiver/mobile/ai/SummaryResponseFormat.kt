@@ -10,8 +10,9 @@ import kotlinx.serialization.json.jsonObject
  * Shape check for summary JSON replies, used by the settings screen's
  * feature-level format validation. Deliberately strict (mirroring the
  * backend parser and the summary prompt): both top-level arrays must be
- * present and every observation must carry string `noteId`, `quote` and
- * `text`. Connection testing stays separate and only proves reachability.
+ * present and every observation must carry a claim/text, noteId and
+ * quote/evidence string. Optional fields follow the production decoder's
+ * defaults. Connection testing stays separate and only proves reachability.
  */
 object SummaryResponseFormat {
     private val json = Json { ignoreUnknownKeys = true }
@@ -24,12 +25,14 @@ object SummaryResponseFormat {
         val root = runCatching { json.parseToJsonElement(payload).jsonObject }.getOrNull()
             ?: return "not a JSON object"
         val observations = root["observations"] as? JsonArray ?: return "missing observations array"
-        root["uncertainties"] as? JsonArray ?: return "missing uncertainties array"
+        root["uncertainties"]?.let { if (it !is JsonArray) return "uncertainties is not an array" }
         observations.forEachIndexed { index, element ->
             val observation = element as? JsonObject ?: return "observation $index is not an object"
             if ((observation["noteId"] as? JsonPrimitive)?.isString != true) return "observation $index has no noteId"
-            if ((observation["quote"] as? JsonPrimitive)?.isString != true) return "observation $index has no quote"
-            if ((observation["text"] as? JsonPrimitive)?.isString != true) return "observation $index has no text"
+            if ((observation["quote"] as? JsonPrimitive)?.isString != true &&
+                (observation["evidence"] as? JsonPrimitive)?.isString != true) return "observation $index has no quote"
+            if ((observation["text"] as? JsonPrimitive)?.isString != true &&
+                (observation["claim"] as? JsonPrimitive)?.isString != true) return "observation $index has no text"
         }
         return null
     }
