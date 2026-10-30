@@ -4,6 +4,7 @@ import androidx.room.Room
 import androidx.test.core.app.ApplicationProvider
 import java.time.LocalDate
 import kotlinx.coroutines.flow.first
+import kotlinx.coroutines.runBlocking
 import kotlinx.coroutines.test.runTest
 import org.junit.After
 import org.junit.Assert.assertEquals
@@ -30,12 +31,31 @@ class MedicationStoreTest {
             ApplicationProvider.getApplicationContext(),
             AppDatabase::class.java,
         ).allowMainThreadQueries().build()
+        runBlocking {
+            db.recipientDao().insertAll(
+                listOf(
+                    RecipientEntity(serverId = "r1", name = "R1", active = true),
+                    RecipientEntity(serverId = "r2", name = "R2", active = true),
+                ),
+            )
+        }
         store = MedicationStore(db)
     }
 
     @After
     fun tearDown() {
         db.close()
+    }
+
+    @Test
+    fun addingForAMissingRecipientFailsWithoutWriting() = runTest {
+        try {
+            store.add("missing", "Ghost pill")
+            throw AssertionError("expected a missing recipient to be rejected")
+        } catch (e: NoSuchElementException) {
+            assertTrue(e.message.orEmpty().contains("missing"))
+        }
+        assertTrue(store.observeActive().first().isEmpty())
     }
 
     @Test
