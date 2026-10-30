@@ -46,7 +46,6 @@ import com.caregiver.mobile.AppGraph
 import com.caregiver.mobile.R
 import com.caregiver.mobile.ai.AiConsentDialog
 import com.caregiver.mobile.ai.AiKeyStore
-import com.caregiver.mobile.ai.ApiKeyState
 import com.caregiver.mobile.ai.SummaryWindow
 import com.caregiver.mobile.core.i18n.Bidi
 import com.caregiver.mobile.core.navigation.AppDestinations
@@ -150,34 +149,12 @@ fun SummaryResultScreen(
     graph: AppGraph,
     navController: NavController,
 ) {
-    val keyState = AiKeyStore(graph.context).apiKeyState()
-    if (keyState !is ApiKeyState.Readable) {
-        Column(
-            modifier = Modifier.fillMaxSize().padding(horizontal = AppDimens.ScreenHPadding),
-            verticalArrangement = Arrangement.spacedBy(AppDimens.SectionGap),
-        ) {
-            AppTopBar(
-                title = stringResource(R.string.summary_title),
-                onBack = { navController.popBackStack() },
-            )
-            // A key that was invalidated is not the same as no key at all:
-            // the caregiver has to enter the one they already have again.
-            Text(
-                if (keyState is ApiKeyState.Invalidated) {
-                    stringResource(R.string.summary_ai_key_invalidated)
-                } else {
-                    stringResource(R.string.summary_setup_ai)
-                },
-            )
-            // The copy says where to fix it; the button takes the caregiver
-            // there instead of leaving this screen as a dead end.
-            PrimaryButton(
-                label = stringResource(R.string.ai_action_open_settings),
-                onClick = { navController.navigate(AppDestinations.AiSettings.base) },
-            )
-        }
-        return
-    }
+    // No key is not an error state. [SummaryViewModel] falls back to the
+    // backend (or the local deterministic summary) and still returns the
+    // safety flags; short-circuiting here hid those flags behind a setup
+    // message. An unreadable/invalidated key follows the same fallback, and
+    // the failure/setup copy on the summary itself explains the next step.
+    //
     // Same effective locale the UI uses for its own copy: the AI summary
     // should speak the language the user chose in the app, not the device's.
     val effectiveLocale = appLocale()
