@@ -231,7 +231,12 @@ object ClaimGrounding {
         var stemmed = word
         if (stemmed.length > 4 && stemmed.endsWith("'s")) {
             stemmed = stemmed.dropLast(2)
-        } else if (stemmed.length > 4 && stemmed.endsWith("es")) {
+        } else if (stemmed.length > 4 && (
+                stemmed.endsWith("ches") || stemmed.endsWith("shes") ||
+                    stemmed.endsWith("xes") || stemmed.endsWith("zes") ||
+                    stemmed.endsWith("sses") || stemmed.endsWith("oes")
+            )
+        ) {
             stemmed = stemmed.dropLast(2)
         } else if (stemmed.length > 4 && stemmed.endsWith("ed")) {
             stemmed = stemmed.dropLast(2)
