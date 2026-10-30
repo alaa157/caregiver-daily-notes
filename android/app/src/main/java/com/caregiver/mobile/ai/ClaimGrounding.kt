@@ -13,8 +13,15 @@ package com.caregiver.mobile.ai
  * forms the notes are written in are judged the same way as the English ones.
  */
 object ClaimGrounding {
-    /** Share of the claim's own words the quote has to cover. */
-    const val MIN_SUPPORT_PERCENT = 80
+    /**
+     * Share of the claim's own words the quote has to cover.
+     *
+     * 100: every content word has to be accounted for. At 80 one wrong word
+     * in a five-word claim passes, which is exactly how "refused her morning
+     * insulin dose" slipped past a quote saying "took her morning insulin
+     * dose".
+     */
+    const val MIN_SUPPORT_PERCENT = 100
 
     /** Shortest word that carries information: "a" or "no" is not evidence. */
     const val MIN_CONTENT_WORD_CHARS = 3
@@ -75,6 +82,11 @@ object ClaimGrounding {
     private val negationWords = setOf(
         "not", "no", "never", "none", "nothing", "nobody", "nowhere",
         "without", "neither", "nor", "cannot", "cant",
+        // A refused/missed/declined action is the opposite of the action
+        // the quote reports; treating it as ordinary content let a claim
+        // like "refused her insulin" pass against "took her insulin".
+        "refused", "refuse", "missed", "miss", "declined", "decline",
+        "denied", "deny", "skipped", "skip", "stopped", "stop",
         "لم", "لا", "لن", "ما", "ليس", "غير", "بدون", "بلا",
         "مش", "مفيش", "مفي", "ماينفعش",
     )
@@ -102,13 +114,19 @@ object ClaimGrounding {
         // almost any note, so it is not evidence for anything.
         if (quoteWords.none { isQuoteContentWord(it) }) return Verdict.UNSUPPORTED
 
-        // The claim and the quote may be written in different languages: the
-        // summary is written in the app's language while the quote stays in
-        // the note's language. The checks below would then reject every
-        // observation for a reason that says nothing about the model, so
-        // the check stops here and leaves the observation alone. The caller
-        // still verifies the quote against the note itself.
-        if (isDifferentLanguage(nClaim, nQuote)) return Verdict.NOT_COMPARABLE
+        // Numbers and polarity survive translation. Check them even when the
+        // claim and quote are in different scripts, so a translated claim
+        // cannot silently change a dose, a date, or "no pain" into "pain".
+        val claimNumbers = numbersIn(nClaim)
+        if (claimNumbers.any { it !in numbersIn(nQuote) }) return Verdict.UNSUPPORTED
+        if (isDifferentLanguage(nClaim, nQuote)) {
+            if (claimWords.any(::isNegation) != quoteWords.any(::isNegation)) {
+                return Verdict.UNSUPPORTED
+            }
+            // No lexical comparison is possible without a translation: the
+            // quote was already verified against the note by the caller.
+            return Verdict.NOT_COMPARABLE
+        }
 
         // A negation the claim adds and the quote does not share flips the
         // meaning just as much as one the claim drops: "did not walk" for
@@ -308,9 +326,21 @@ object ClaimGrounding {
         }
         // "مش" glued to a word ("بمش").
         if (word.length > 3 && word.endsWith("مش")) return true
+        // Egyptian circumfix negation "م...ش" ("مكلش" = did not eat,
+        // "منامش" = did not sleep). The verb sits between the two markers,
+        // so it is a single token rather than the "ما...ش" form above.
+        if (word.length >= 4 && word.startsWith("م") && word.endsWith("ش")) return true
         return false
     }
 
+    /** Every number in [text], with Arabic-Indic digits already folded. */
+    private fun numbersIn(text: String): List<String> =
+        numberPattern.findAll(text).map { it.value }.toList()
+
     private fun words(text: String): List<String> =
-        text.split(wordSplit).filter { it.isNotBlank() }
+        text.split(wordSplit)
+            .map { it.trim { character -> !character.isLetterOrDigit() } }
+            .filter { it.isNotBlank() }
+
+    private val numberPattern = Regex("\\d+(?:[.,]\\d+)?")
 }
