@@ -11,6 +11,7 @@ import android.text.TextDirectionHeuristics
 import android.text.TextPaint
 import androidx.core.content.FileProvider
 import com.caregiver.mobile.R
+import com.caregiver.mobile.core.i18n.Bidi
 import com.caregiver.mobile.core.time.DateFormats
 import com.caregiver.mobile.data.api.NoteDto
 import com.caregiver.mobile.data.api.SummaryDto
@@ -108,7 +109,7 @@ object CareSummaryPdfExporter {
         drawTextBlock(context.getString(R.string.pdf_title), titlePaint, 4f)
         drawTextBlock(context.getString(R.string.app_name), paint, 8f)
         recipientName?.takeIf { it.isNotBlank() }?.let {
-            drawTextBlock(context.getString(R.string.pdf_recipient, it), paint, 4f)
+            drawTextBlock(context.getString(R.string.pdf_recipient, Bidi.isolate(it)), paint, 4f)
         }
         drawTextBlock(
             context.resources.getQuantityString(
@@ -148,7 +149,7 @@ object CareSummaryPdfExporter {
         if (summary.evidence.isNotEmpty()) {
             drawTextBlock(context.getString(R.string.pdf_evidence), sectionPaint, 4f)
             summary.evidence.forEach { ev ->
-                drawTextBlock("• ${ev.quote}", paint, 8f)
+                drawTextBlock("• ${Bidi.isolate(ev.quote)}", paint, 8f)
             }
         }
 
@@ -173,8 +174,8 @@ object CareSummaryPdfExporter {
             if (parts.isNotEmpty()) {
                 trendLines += context.getString(
                     R.string.pdf_observation_line,
-                    n.date,
-                    parts.joinToString(listSeparator),
+                    Bidi.isolate(n.date),
+                    Bidi.isolate(parts.joinToString(listSeparator)),
                 )
             }
         }
@@ -217,7 +218,7 @@ object CareSummaryPdfExporter {
         "ai_not_configured" -> context.getString(R.string.summary_ai_not_configured)
         "invalid_evidence" -> context.getString(R.string.summary_unclear_invalid_evidence)
         "unverified_claim" -> context.getString(R.string.summary_unclear_unverified)
-        else -> uncertainty.detail.ifBlank { uncertainty.topic }
+        else -> Bidi.isolate(uncertainty.detail.ifBlank { uncertainty.topic })
     }
 
     private fun flagLabel(context: Context, flag: String): String = when (flag) {
