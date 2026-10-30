@@ -204,10 +204,17 @@ abstract class AppDatabase : RoomDatabase() {
                         "`times` INTEGER NOT NULL, " +
                         "PRIMARY KEY(`id`))",
                 )
+                // The new key keeps the original date: "<medicationId>:<date>
+                // :<doseIndex>". Dropping the date would give every day of a
+                // medication the same primary key and REPLACE would silently
+                // keep only one of them. A plain INSERT also fails the
+                // migration loudly if old data holds an unexpected duplicate
+                // instead of losing a row without a trace.
                 db.execSQL(
-                    "INSERT OR REPLACE INTO `medication_intakes_new` " +
+                    "INSERT INTO `medication_intakes_new` " +
                         "(`id`, `medicationId`, `date`, `times`) " +
-                        "SELECT `medicationId` || ':0', `medicationId`, `date`, `times` " +
+                        "SELECT `medicationId` || ':' || `date` || ':0', " +
+                        "`medicationId`, `date`, `times` " +
                         "FROM `medication_intakes`",
                 )
                 db.execSQL("DROP TABLE `medication_intakes`")
