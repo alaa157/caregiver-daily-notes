@@ -2,6 +2,8 @@ package com.caregiver.mobile.ai
 
 import kotlinx.coroutines.CoroutineDispatcher
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.currentCoroutineContext
+import kotlinx.coroutines.ensureActive
 import kotlinx.coroutines.withContext
 import kotlinx.serialization.json.Json
 import kotlinx.serialization.json.JsonObject
@@ -76,6 +78,10 @@ class GeminiLlmClient(
         var budget = maxTokens
         var result: LlmResult
         while (true) {
+            // The retry/budget rounds must stop as soon as the caller is
+            // cancelled, even if a provider keeps answering with a retryable
+            // error.
+            currentCoroutineContext().ensureActive()
             result = send(request, safeUrl, buildBody(request, useJsonMode, budget))
             if (useJsonMode && result.error == JSON_MODE_UNSUPPORTED) {
                 useJsonMode = false
@@ -145,6 +151,7 @@ class GeminiLlmClient(
     ): LlmResult {
         var last: LlmResult = LlmResult(LlmStatus.FALLBACK, "", "network", null)
         repeat(3) { attempt ->
+            currentCoroutineContext().ensureActive()
             try {
                 val httpReq = Request.Builder()
                     .url(url)
@@ -229,6 +236,7 @@ class GeminiLlmClient(
                 if (attempt < 2) kotlinx.coroutines.delay(calculateBackoff(attempt))
             }
         }
+        currentCoroutineContext().ensureActive()
         return last
     }
 
