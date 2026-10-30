@@ -405,7 +405,7 @@
     <string name="settings_ai_revoke_consent">إلغاء الموافقة على %1$s</string>
     <string name="settings_ai_revoke_consent_confirm">سحب الموافقة</string>
     <string name="settings_ai_revoke_consent_title">إلغاء الموافقة على الذكاء الاصطناعي؟</string>
-    <string name="settings_ai_revoke_consent_message">سيتوقف إرسال ملاحظاتك إلى %1$s للملخصات والخطط والترجمة حتى توافق مجددًا. ملاحظاتك تبقى على هذا الجهاز.</string>
+    <string name="settings_ai_revoke_consent_message">سيتوقف إرسال ملاحظاتك إلى %1$s للملخصات والخطط حتى توافق مجددًا. ملاحظاتك تبقى على هذا الجهاز.</string>
     <string name="settings_ai_consent_revoked">تم إلغاء الموافقة على %1$s. ستطلب ميزات الذكاء الاصطناعي الموافقة مجددًا قبل إرسال الملاحظات إلى هذا المزود.</string>
     <string name="settings_ai_clear_key">مسح مفتاح API</string>
     <string name="settings_ai_clear_key_message">إزالة مفتاح API المحفوظ لـ %1$s؟ ستبقى ميزات الذكاء الاصطناعي متوقفة لهذا المزود حتى إضافة مفتاح جديد.</string>
