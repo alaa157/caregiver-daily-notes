@@ -154,7 +154,7 @@ object CsvImportPlanner {
                 return@forEach
             }
 
-            val date = row.values[CareNoteCsv.COL_DATE].orEmpty().trim()
+            val date = normalizeDigits(row.values[CareNoteCsv.COL_DATE].orEmpty().trim())
             if (date.isEmpty()) {
                 reject(ImportIssue.MISSING_DATE, CareNoteCsv.COL_DATE)
                 return@forEach
@@ -168,13 +168,17 @@ object CsvImportPlanner {
                 return@forEach
             }
 
-            val pain = row.values[CareNoteCsv.COL_PAIN].orEmpty().trim().toIntOrNull()
+            val pain = normalizeDigits(
+                row.values[CareNoteCsv.COL_PAIN].orEmpty().trim(),
+            ).toIntOrNull()
             if (pain == null || pain !in 0..10) {
                 reject(ImportIssue.INVALID_PAIN, CareNoteCsv.COL_PAIN)
                 return@forEach
             }
 
-            val fall = CareNoteCsv.booleanOf(row.values[CareNoteCsv.COL_FALL].orEmpty())
+            val fall = CareNoteCsv.booleanOf(
+                normalizeDigits(row.values[CareNoteCsv.COL_FALL].orEmpty()),
+            )
             if (fall == null) {
                 reject(ImportIssue.INVALID_FALL, CareNoteCsv.COL_FALL)
                 return@forEach
@@ -320,6 +324,24 @@ object CsvImportPlanner {
     fun nameKey(rawName: String): String = "name:${normalizeName(rawName)}"
 
     private fun normalizeName(name: String): String = name.trim().lowercase(Locale.ROOT)
+
+    /**
+     * Spreadsheet software in an Arabic locale can rewrite the exported
+     * Latin digits as Arabic-Indic (٠-٩) or Persian (۰-۹) digits. Accept
+     * both so a hand-edited file is not rejected as an invalid date or
+     * pain score.
+     */
+    private fun normalizeDigits(value: String): String = buildString(value.length) {
+        value.forEach { ch ->
+            append(
+                when (ch) {
+                    in '\u0660'..'\u0669' -> '0' + (ch - '\u0660')
+                    in '\u06F0'..'\u06F9' -> '0' + (ch - '\u06F0')
+                    else -> ch
+                },
+            )
+        }
+    }
 
     private fun parseIsoDate(value: String): LocalDate? =
         try {
