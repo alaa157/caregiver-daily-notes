@@ -216,8 +216,12 @@ class OpenAiCompatibleLlmClient(
                     }
                     val root = try { json.parseToJsonElement(raw).jsonObject } catch (e: Exception) { null }
                     val choice = root?.get("choices")?.jsonArray?.firstOrNull()?.jsonObject
-                    val content = choice?.get("message")?.jsonObject?.get("content")?.jsonPrimitive?.contentOrNull
+                    val message = choice?.get("message")?.jsonObject
+                    val content = message?.get("content")?.jsonPrimitive?.contentOrNull
                     val finishReason = choice?.get("finish_reason")?.jsonPrimitive?.contentOrNull
+                    if (finishReason == "content_filter" || message?.get("refusal") != null) {
+                        return LlmResult(LlmStatus.FALLBACK, "", "blocked_safety", resp.code)
+                    }
                     if (content.isNullOrBlank()) {
                         // An empty answer is usually a model that spent the
                         // whole budget on its own reasoning. It comes back

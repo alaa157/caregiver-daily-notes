@@ -113,6 +113,7 @@ enum class LlmStatus { OK, REPAIRED, FALLBACK }
  */
 internal fun classifyLlmHttpError(code: Int, body: String): String {
     if (code == 401 || code == 403) return "invalid_key"
+    if (code == 400 && body.contains("API_KEY_INVALID", ignoreCase = true)) return "invalid_key"
     if (code == 429) return "rate_limit"
     if (code == 404) {
         val haystack = body.lowercase()

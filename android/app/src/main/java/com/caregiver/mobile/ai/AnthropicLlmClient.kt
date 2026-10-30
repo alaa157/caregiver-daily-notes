@@ -168,9 +168,16 @@ class AnthropicLlmClient(
                         return last
                     }
                     val root = try { json.parseToJsonElement(raw).jsonObject } catch (e: Exception) { null }
-                    val content = root?.get("content")?.jsonArray?.firstOrNull()
-                        ?.jsonObject?.get("text")?.jsonPrimitive?.contentOrNull
+                    val blocks = root?.get("content")?.jsonArray
+                    val content = blocks?.mapNotNull { block ->
+                        val obj = block.jsonObject
+                        if (obj["type"]?.jsonPrimitive?.contentOrNull != "text") null
+                        else obj["text"]?.jsonPrimitive?.contentOrNull
+                    }?.joinToString("")?.takeIf { it.isNotBlank() }
                     val stopReason = root?.get("stop_reason")?.jsonPrimitive?.contentOrNull
+                    if (stopReason == "refusal") {
+                        return LlmResult(LlmStatus.FALLBACK, "", "blocked_safety", resp.code)
+                    }
                     if (content.isNullOrBlank()) {
                         // The budget may have gone on the model's own
                         // thinking. The caller asks again with a larger
