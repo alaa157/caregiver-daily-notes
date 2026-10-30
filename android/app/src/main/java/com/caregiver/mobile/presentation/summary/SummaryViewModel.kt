@@ -91,7 +91,7 @@ class SummaryViewModel(
     val suggestedForCurrent: StateFlow<Boolean> = _suggestedForCurrent.asStateFlow()
 
     init {
-        loadJob = exec.launch { load(preserve = false) }
+        loadJob = exec.launch { load(preserve = false, periodDays = _period.value) }
     }
 
     fun setPeriod(days: Int) {
@@ -111,7 +111,9 @@ class SummaryViewModel(
         } else {
             SummaryState.Loading
         }
-        loadJob = exec.launch { load(preserve = current != null) }
+        loadJob?.cancel()
+        val requestedPeriod = _period.value
+        loadJob = exec.launch { load(preserve = current != null, periodDays = requestedPeriod) }
     }
 
     fun grantConsent() {
@@ -124,7 +126,9 @@ class SummaryViewModel(
         store.setConsentGiven(provider)
         cancelledByUser = false
         _state.value = SummaryState.Loading
-        loadJob = exec.launch { load(preserve = false) }
+        loadJob?.cancel()
+        val requestedPeriod = _period.value
+        loadJob = exec.launch { load(preserve = false, periodDays = requestedPeriod) }
     }
 
     /** True while the screen is waiting for a generation to finish. */
@@ -149,7 +153,7 @@ class SummaryViewModel(
         )
     }
 
-    private suspend fun load(preserve: Boolean) {
+    private suspend fun load(preserve: Boolean, periodDays: Int) {
         if (cancelledByUser) return
         val store = aiKeyStore
         val provider = store?.selectedProvider()
@@ -187,7 +191,7 @@ class SummaryViewModel(
                 // signals outside the selected period never reach the AI
                 // provider, and the same window is passed to the service.
                 val today = LocalDate.now()
-                val from = SummaryWindow.start(today, _period.value).toString()
+                val from = SummaryWindow.start(today, periodDays).toString()
                 val to = today.toString()
                 val notes = repository.authorized { apis.notes().history(recipientId, from, to) }
                 val signals = repository.authorized { apis.summaries().signals(recipientId, from, to) }
@@ -197,11 +201,11 @@ class SummaryViewModel(
                 // the AiUnavailable state without the service's own filter.
                 val windowedSignals = signals.filter {
                     it.recipientId == recipientId &&
-                        SummaryWindow.contains(it.date, today, _period.value)
+                        SummaryWindow.contains(it.date, today, periodDays)
                 }
                     aiRedFlags = SafetySignalEvaluator.evaluate(windowedSignals)
                     lastRedFlags = aiRedFlags
-                    service.summarize(recipientId, _period.value, notes, signals, today)
+                    service.summarize(recipientId, periodDays, notes, signals, today)
                 }
                 when (result) {
                     is SummaryAiResult.Success -> {
@@ -217,7 +221,7 @@ class SummaryViewModel(
                             SummaryDto(
                                 id = "",
                                 recipientId = recipientId,
-                                periodDays = _period.value,
+                                periodDays = periodDays,
                                 text = "",
                                 redFlags = result.redFlags,
                                 evidence = emptyList(),
@@ -234,7 +238,7 @@ class SummaryViewModel(
                 // recovery copy — never a silent death at Loading.
                 if (waiting()) _state.value = SummaryState.AiUnavailable(
                     lastSummary(),
-                    redFlags = aiRedFlags,
+                    redFlags = lastRedFlags,
                     reasonCode = "timeout",
                 )
                 return
@@ -243,14 +247,14 @@ class SummaryViewModel(
             } catch (e: HttpException) {
                 if (waiting()) _state.value = SummaryState.AiUnavailable(
                     lastSummary(),
-                    redFlags = aiRedFlags,
+                    redFlags = lastRedFlags,
                     reasonCode = ApiErrors.parse(e)?.code ?: "http_${e.code()}",
                 )
                 return
             } catch (e: IOException) {
                 if (waiting()) _state.value = SummaryState.AiUnavailable(
                     lastSummary(),
-                    redFlags = aiRedFlags,
+                    redFlags = lastRedFlags,
                     reasonCode = "network",
                 )
                 return
@@ -259,7 +263,7 @@ class SummaryViewModel(
                 // bounded error state instead of escaping the coroutine.
                 if (waiting()) _state.value = SummaryState.AiUnavailable(
                     lastSummary(),
-                    redFlags = aiRedFlags,
+                    redFlags = lastRedFlags,
                     reasonCode = "unavailable",
                 )
                 return
@@ -272,7 +276,7 @@ class SummaryViewModel(
             // reported fall. LocalBackendApis computes them from Room.
             val summary = withTimeout(SUMMARY_DEADLINE_MS) {
                 repository.authorized {
-                    apis.summaries().summarize(SummaryRequest(recipientId, _period.value))
+                    apis.summaries().summarize(SummaryRequest(recipientId, periodDays))
                 }
             }
             _state.value = SummaryState.Content(summary)
