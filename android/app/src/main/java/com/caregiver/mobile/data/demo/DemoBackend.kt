@@ -279,6 +279,23 @@ class DemoBackendApis : BackendApis, RecipientAdmin {
 
         override suspend fun suggest(body: SuggestPlanRequest): PlanDto = synchronized(lock) {
             requireNotArchived(body.recipientId)
+            val existingIndex = plans.indexOfLast { plan ->
+                plan.recipientId == body.recipientId &&
+                    plan.versions.maxByOrNull { it.version }?.status == PlanStateMachine.SUGGESTED
+            }
+            if (existingIndex >= 0) {
+                val existing = plans[existingIndex]
+                val updated = existing.copy(
+                    versions = PlanStateMachine.append(
+                        existing.versions,
+                        PlanStateMachine.SUGGESTED,
+                        body.items,
+                        LocalDate.now().toString(),
+                    ),
+                )
+                plans[existingIndex] = updated
+                return@synchronized updated
+            }
             PlanDto(
                 id = "p-demo-${ids.incrementAndGet()}", recipientId = body.recipientId,
                 versions = listOf(

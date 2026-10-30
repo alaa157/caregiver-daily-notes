@@ -32,7 +32,7 @@ object PlanStateMachine {
 
     /** Which status may follow which on the newest version of a plan. */
     private val allowed: Map<String, Set<String>> = mapOf(
-        SUGGESTED to setOf(ACCEPTED, EDITED_ACCEPTED, DISMISSED, ARCHIVED),
+        SUGGESTED to setOf(SUGGESTED, ACCEPTED, EDITED_ACCEPTED, DISMISSED, ARCHIVED),
         ACCEPTED to setOf(EDITED_ACCEPTED, ARCHIVED),
         EDITED_ACCEPTED to setOf(ACCEPTED, EDITED_ACCEPTED, DISMISSED, ARCHIVED),
         DISMISSED to setOf(EDITED_ACCEPTED, ARCHIVED),
@@ -67,11 +67,11 @@ object PlanStateMachine {
 
     /**
      * Adds a new newest version with [status] and archives the versions it
-     * supersedes.
+     * supersedes. A replacement suggestion may follow a still-Suggested
+     * version; it stays on that plan instead of creating a duplicate record.
      *
      * The new version has to be a move the current state allows. A new
-     * accepted version is the exception: it supersedes whatever came before
-     * it, so it may also follow a plan that was accepted or dismissed
+     * accepted version may also follow a plan that was accepted or dismissed
      * before — those versions are archived.
      *
      * @throws IllegalPlanTransitionException when the move is not allowed.
@@ -84,9 +84,6 @@ object PlanStateMachine {
     ): List<PlanVersionDto> {
         val latest = newest(versions)
         requireKnown(status)
-        if (status == SUGGESTED) {
-            throw IllegalPlanTransitionException("A new plan version cannot be suggested.")
-        }
         val reachable = allowed[latest.status].orEmpty().toMutableSet()
         if (status in live && latest.status != ARCHIVED) {
             reachable += status

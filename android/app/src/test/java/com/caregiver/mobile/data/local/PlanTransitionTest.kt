@@ -56,6 +56,17 @@ class PlanTransitionTest {
     }
 
     @Test
+    fun suggestingAgainAddsAVersionToTheExistingSuggestedPlan() = runTest {
+        val apis = LocalBackendApis(db)
+        val original = apis.plans().suggest(SuggestPlanRequest("r1", listOf("first")))
+        val updated = apis.plans().suggest(SuggestPlanRequest("r1", listOf("second")))
+
+        assertEquals(original.id, updated.id)
+        assertEquals(1, apis.plans().list().size)
+        assertEquals(listOf("first", "second"), apis.plans().versions(original.id).map { it.items.single() })
+    }
+
+    @Test
     fun acceptingADismissedPlanIsRejected() = runTest {
         val apis = LocalBackendApis(db)
         val plan = apis.plans().suggest(SuggestPlanRequest("r1", listOf("item1")))
