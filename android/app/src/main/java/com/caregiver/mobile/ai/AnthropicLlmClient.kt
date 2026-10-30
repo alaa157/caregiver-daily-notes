@@ -133,7 +133,7 @@ class AnthropicLlmClient(
         cancellation: CallCancellation,
     ): LlmResult {
         var last: LlmResult = LlmResult(LlmStatus.FALLBACK, "", "network", null)
-        repeat(3) { attempt ->
+        repeat(if (request.timeoutSeconds > 0) 1 else 3) { attempt ->
             currentCoroutineContext().ensureActive()
             try {
                 val httpReq = Request.Builder()
