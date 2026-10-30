@@ -159,20 +159,14 @@ class LocalBackendApis(
         }
 
         override suspend fun history(recipientId: String?, from: String?, to: String?): List<NoteDto> {
-            val addendaByNote = addendumDao.all().groupBy { it.noteId }
-            return noteDao.query(null, null, null)
-                .map { it.toDto() }
-                .filter { note ->
-                    (recipientId == null || note.recipientId == recipientId) &&
-                        (from == null || note.date >= from) &&
-                        (to == null || note.date <= to)
-                }
-                .sortedByDescending { it.date }
-                .map { note ->
-                    note.copy(
-                        addenda = addendaByNote[note.id].orEmpty().map { it.toDto() },
-                    )
-                }
+            val notes = noteDao.query(recipientId, from, to)
+            val addendaByNote = addendumDao.forHistory(recipientId, from, to).groupBy { it.noteId }
+            return notes.map { entity ->
+                val note = entity.toDto()
+                note.copy(
+                    addenda = addendaByNote[entity.serverId].orEmpty().map { it.toDto() },
+                )
+            }
         }
     }
 

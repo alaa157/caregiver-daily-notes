@@ -10,6 +10,20 @@ interface AddendumDao {
     @Query("SELECT * FROM addenda WHERE noteId = :noteId ORDER BY createdAt ASC, id ASC")
     suspend fun byNoteId(noteId: String): List<AddendumEntity>
 
+    @Query(
+        """
+        SELECT * FROM addenda
+        WHERE noteId IN (
+            SELECT serverId FROM notes
+            WHERE (:recipientId IS NULL OR recipientId = :recipientId)
+              AND (:from IS NULL OR date >= :from)
+              AND (:to IS NULL OR date <= :to)
+        )
+        ORDER BY createdAt ASC, id ASC
+        """,
+    )
+    suspend fun forHistory(recipientId: String?, from: String?, to: String?): List<AddendumEntity>
+
     /** Whole-table read for a backup snapshot; same order as [byNoteId]. */
     @Query("SELECT * FROM addenda ORDER BY createdAt ASC, id ASC")
     suspend fun all(): List<AddendumEntity>
