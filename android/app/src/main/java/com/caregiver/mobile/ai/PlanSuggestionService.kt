@@ -3,6 +3,12 @@ package com.caregiver.mobile.ai
 import kotlin.text.RegexOption
 import kotlinx.serialization.Serializable
 import kotlinx.serialization.json.Json
+import kotlinx.serialization.json.JsonArray
+import kotlinx.serialization.json.JsonObject
+import kotlinx.serialization.json.JsonPrimitive
+import kotlinx.serialization.json.jsonArray
+import kotlinx.serialization.json.jsonObject
+import kotlinx.serialization.json.contentOrNull
 
 @Serializable
 data class PlanMedication(val name: String, val dose: String, val schedule: String)
@@ -75,7 +81,7 @@ class PlanSuggestionService(
         // one repair retry when the payload still does not parse.
         val request = LlmRequest(prompt, dataBlock, jsonMode = true)
         val reply = LlmJson.decode(client, request, MAX_REPLY_CHARS) { text ->
-            runCatching { json.decodeFromString(PlanSuggestionPayload.serializer(), text) }.getOrNull()
+            runCatching { decodePayload(text) }.getOrNull()
         }
         val payload: PlanSuggestionPayload
         val replyStatus: LlmStatus
@@ -169,6 +175,32 @@ class PlanSuggestionService(
             if (change.actionId != SCHEDULE_FOLLOWUP) return true
             val date = change.params[DATE_PARAM] ?: return false
         return runCatching { java.time.LocalDate.parse(date).isAfter(java.time.LocalDate.now()) }.getOrDefault(false)
+        }
+
+        private fun decodePayload(text: String): PlanSuggestionPayload {
+            val root = json.parseToJsonElement(text).jsonObject
+            val changes = root["changes"] as? JsonArray ?: JsonArray(emptyList())
+            val parsedChanges = changes.mapNotNull { element ->
+                runCatching {
+                    val item = element.jsonObject
+                    val action = (item["actionId"] as? JsonPrimitive)?.contentOrNull ?: return@runCatching null
+                    val reason = (item["reason"] as? JsonPrimitive)?.contentOrNull ?: return@runCatching null
+                    val paramsObject = item["params"] as? JsonObject ?: JsonObject(emptyMap())
+                    val params = paramsObject.mapValues { (_, value) ->
+                        (value as? JsonPrimitive)?.takeIf { it.isString }?.content
+                            ?: return@runCatching null
+                    }
+                    val evidence = (item["evidenceNoteIds"] as? JsonArray)?.mapNotNull {
+                        (it as? JsonPrimitive)?.takeIf(JsonPrimitive::isString)?.content
+                    } ?: emptyList()
+                    PlanChange(action, params, reason, evidence)
+                }.getOrNull()
+            }
+            val medications = (root["proposedMedications"] as? JsonArray).orEmpty()
+            // Any proposed item, even malformed, keeps the medication lock
+            // fail-closed rather than disappearing during permissive parsing.
+            val proposed = medications.map { PlanMedication("invalid", "invalid", "invalid") }
+            return PlanSuggestionPayload(parsedChanges, proposed)
         }
 
         /**
