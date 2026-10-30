@@ -336,7 +336,7 @@ private fun PersonRow(
             horizontalArrangement = Arrangement.spacedBy(12.dp),
             verticalAlignment = Alignment.CenterVertically,
         ) {
-            Avatar(Bidi.isolate(recipient.name).take(1))
+            Avatar(recipient.name.take(1))
             Text(
                 text = Bidi.isolate(recipient.name),
                 fontFamily = PlexArabic,
