@@ -104,29 +104,54 @@ class PlanSuggestionService(
         // Validate each change independently; drop invalid ones, keep valid.
         val accepted = mutableListOf<PlanChange>()
         val seen = mutableSetOf<String>()
+        var hadInvalidAction = false
+        var hadInvalidEvidence = false
         for (change in payload.changes) {
             if (accepted.size >= MAX_CHANGES) break
-            if (change.actionId.isBlank() || change.actionId !in allowedActions) continue
-            if (change.reason.isBlank() || change.reason.length > MAX_REASON_LENGTH) continue
+            if (change.actionId.isBlank() || change.actionId !in allowedActions) {
+                hadInvalidAction = true
+                continue
+            }
+            if (change.reason.isBlank() || change.reason.length > MAX_REASON_LENGTH) {
+                hadInvalidAction = true
+                continue
+            }
             // The proposedMedications lock covers the structured field, but
             // the reason is free text and params are already allowlisted to
             // empty sets — so the reason is screened for medication
             // directives ("Consider doubling her insulin") too.
-            if (mentionsMedicationChange(change.reason)) continue
+            if (mentionsMedicationChange(change.reason)) {
+                hadInvalidAction = true
+                continue
+            }
             // Evidence IDs are decorative: the model only receives the
             // finished summary, never the notes, so any IDs it emits cannot
             // be attributed. Nothing downstream may show them — drop.
-            if (change.evidenceNoteIds.isNotEmpty()) continue
-            val allowedParams = ALLOWED_PARAMS[change.actionId] ?: continue
-            if (change.params.keys != allowedParams) continue
-            if (change.params.any { it.value.isBlank() || it.value.length > MAX_PARAM_VALUE_LENGTH }) continue
-            if (!paramsAreWellFormed(change)) continue
+            if (change.evidenceNoteIds.isNotEmpty()) {
+                hadInvalidEvidence = true
+                continue
+            }
+            val allowedParams = ALLOWED_PARAMS[change.actionId]
+            if (allowedParams == null || change.params.keys != allowedParams ||
+                change.params.any { it.value.isBlank() || it.value.length > MAX_PARAM_VALUE_LENGTH } ||
+                !paramsAreWellFormed(change)
+            ) {
+                hadInvalidAction = true
+                continue
+            }
             // A model that repeats the same change must not turn it into
             // three plan items.
             if (!seen.add(changeKey(change))) continue
             accepted.add(change)
         }
-        if (accepted.isEmpty()) return PlanSuggestionResult.Failure("empty_after_filter")
+        if (accepted.isEmpty()) {
+            val reason = when {
+                hadInvalidEvidence -> "invalid_evidence"
+                hadInvalidAction -> "invalid_action"
+                else -> "empty_after_filter"
+            }
+            return PlanSuggestionResult.Failure(reason)
+        }
         return PlanSuggestionResult.Success(PlanSuggestion(accepted, emptyList()), replyStatus)
     }
 
