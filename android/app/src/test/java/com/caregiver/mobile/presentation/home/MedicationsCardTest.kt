@@ -3,6 +3,7 @@ package com.caregiver.mobile.presentation.home
 import android.content.Context
 import androidx.test.core.app.ApplicationProvider
 import com.caregiver.mobile.R
+import com.caregiver.mobile.core.i18n.Bidi
 import com.caregiver.mobile.core.theme.CaregiverTheme
 import com.caregiver.mobile.data.local.MedicationEntity
 import com.caregiver.mobile.test.WithTestOwner
@@ -136,7 +137,7 @@ class MedicationsCardTest {
             state = MedicationsState(meds = listOf(med, archivedPersonsMed)),
         )
 
-        compose.onNodeWithText("Amlodipine").assertExists()
-        compose.onNodeWithText("Metformin").assertDoesNotExist()
+        compose.onNodeWithText(Bidi.isolate("Amlodipine")).assertExists()
+        compose.onNodeWithText(Bidi.isolate("Metformin")).assertDoesNotExist()
     }
 }

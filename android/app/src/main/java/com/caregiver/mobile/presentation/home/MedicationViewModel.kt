@@ -41,6 +41,7 @@ import androidx.compose.ui.unit.sp
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.caregiver.mobile.R
+import com.caregiver.mobile.core.i18n.Bidi
 import com.caregiver.mobile.core.theme.CaregiverColors
 import com.caregiver.mobile.core.theme.PlexArabic
 import com.caregiver.mobile.data.local.ArchivedRecipientException
@@ -298,11 +299,13 @@ fun MedicationsCard(
                 Row(verticalAlignment = Alignment.CenterVertically) {
                     Column(modifier = Modifier.weight(1f)) {
                         Text(
-                            text = med.name,
+                            text = Bidi.isolate(med.name),
                             fontSize = 14.sp,
                             color = CaregiverColors.Ink,
                         )
-                        val detail = listOfNotNull(med.dose, med.schedule).joinToString(" · ")
+                        val detail = listOfNotNull(med.dose, med.schedule)
+                            .joinToString(" · ")
+                            .let(Bidi::isolate)
                         if (detail.isNotEmpty()) {
                             Text(
                                 text = detail,
@@ -314,7 +317,7 @@ fun MedicationsCard(
                             val personName = people.firstOrNull { it.id == med.recipientId }?.name
                             if (personName != null) {
                                 Text(
-                                    text = personName,
+                                    text = Bidi.isolate(personName),
                                     fontSize = 12.sp,
                                     color = CaregiverColors.Muted,
                                 )
@@ -428,7 +431,7 @@ fun MedicationsCard(
             onDismissRequest = { deleting = null },
             title = { Text(stringResource(R.string.home_medications_delete_title)) },
             text = {
-                Text(stringResource(R.string.home_medications_delete_body, med.name))
+                Text(stringResource(R.string.home_medications_delete_body, Bidi.isolate(med.name)))
             },
             confirmButton = {
                 TextButton(
@@ -533,7 +536,7 @@ private fun MedEditorDialog(
                             FilterChip(
                                 selected = person.id == personId,
                                 onClick = { personId = person.id },
-                                label = { Text(person.name) },
+                                label = { Text(Bidi.isolate(person.name)) },
                                 modifier = Modifier.testTag("home_medications_person_${person.id}"),
                             )
                         }
