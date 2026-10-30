@@ -47,6 +47,26 @@ class DateFormatsTest {
     }
 
     @Test
+    fun parseIsoDateAcceptsDatesAndDateTimes() {
+        val expected = LocalDate.of(2026, 10, 7)
+        assertEquals(expected, DateFormats.parseIsoDate("2026-10-07"))
+        assertEquals(expected, DateFormats.parseIsoDate("2026-10-07T18:30:00"))
+        assertEquals(expected, DateFormats.parseIsoDate("2026-10-07T10:00:00.123456Z"))
+        assertEquals(expected, DateFormats.parseIsoDate("2026-10-07T10:00:00+02:00"))
+        assertEquals(expected, DateFormats.parseIsoDate(" 2026-10-07 18:30:00 "))
+    }
+
+    @Test
+    fun parseIsoDateRejectsBlankAndGarbage() {
+        assertNull(DateFormats.parseIsoDate(null))
+        assertNull(DateFormats.parseIsoDate(""))
+        assertNull(DateFormats.parseIsoDate("   "))
+        assertNull(DateFormats.parseIsoDate("not-a-date"))
+        assertNull(DateFormats.parseIsoDate("2026-13-40"))
+        assertNull(DateFormats.parseIsoDate("2026-13-40T10:00:00"))
+    }
+
+    @Test
     fun addendumDateRendersDateTimeAsHistoryDay() {
         assertEquals("Oct 7, 2026", DateFormats.addendumDate("2026-10-07T18:30:00", false))
         assertEquals("7 أكتوبر 2026", DateFormats.addendumDate("2026-10-07T18:30:00", true))

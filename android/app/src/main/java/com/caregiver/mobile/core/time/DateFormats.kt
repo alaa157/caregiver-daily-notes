@@ -10,6 +10,26 @@ import java.util.Locale
  * Latin digits because the plain `ar` locale would render ٧ أكتوبر.
  */
 object DateFormats {
+    /**
+     * Parses a note or signal date, tolerating a date-time by taking its date
+     * part. The documented wire format is an ISO local date, but a backend
+     * that sends `2026-10-07T18:30:00`, a fractional second, or an offset
+     * must not make the note disappear from a summary window.
+     *
+     * Returns null for blank or genuinely malformed values so callers can
+     * decide whether to omit or exclude them.
+     */
+    fun parseIsoDate(raw: String?): LocalDate? {
+        val value = raw?.trim().orEmpty()
+        if (value.isEmpty()) return null
+        val datePart = value.substringBefore('T').substringBefore(' ')
+        return try {
+            LocalDate.parse(datePart)
+        } catch (e: java.time.format.DateTimeParseException) {
+            null
+        }
+    }
+
     fun dayMonth(date: LocalDate, locale: Locale): String {
         val effective = if (locale.language == "ar") {
             Locale.forLanguageTag("ar-u-nu-latn")
@@ -48,13 +68,7 @@ object DateFormats {
      * omit the date line instead of showing a misleading date.
      */
     fun addendumDate(createdAt: String, arabic: Boolean): String? {
-        if (createdAt.isBlank()) return null
-        val datePart = createdAt.trim().substringBefore("T")
-        val parsed = try {
-            LocalDate.parse(datePart)
-        } catch (e: java.time.format.DateTimeParseException) {
-            return null
-        }
+        val parsed = parseIsoDate(createdAt) ?: return null
         // Re-render through the shared formatter so both languages stay
         // consistent with history rows.
         return historyDay(parsed.toString(), arabic)

@@ -69,6 +69,36 @@ class SummaryWindowBoundaryTest {
     }
 
     @Test
+    fun dateTimesUseTheirDatePartForTheWindow() {
+        val start = end.minusDays(6)
+        assertTrue(SummaryWindow.contains("${end}T23:59:59Z", end, 7))
+        assertTrue(SummaryWindow.contains("${start}T00:00:00.000+02:00", end, 7))
+        assertTrue(SummaryWindow.contains("$end 23:59:59", end, 7))
+        assertFalse(SummaryWindow.contains("${end.plusDays(1)}T00:00:00", end, 7))
+        assertFalse(SummaryWindow.contains("${start.minusDays(1)}T23:59:59", end, 7))
+    }
+
+    @Test
+    fun notesWithDateTimeStampsStillReachTheModel() = runBlocking {
+        val client = RecordingLlmClient(emptyJson)
+
+        SummaryAiService(client).summarize(
+            recipientId = "r1",
+            periodDays = 7,
+            notes = listOf(
+                note("in-datetime", end).copy(date = "${end}T18:30:00Z"),
+            ),
+            signals = emptyList(),
+            endInclusive = end,
+        )
+
+        assertTrue(
+            "a note dated with a time must not disappear from its own window",
+            client.lastRequest!!.dataBlock.contains("in-datetime"),
+        )
+    }
+
+    @Test
     fun notesOutsideTheSelectedWindowNeverReachTheModel() = runBlocking {
         for (periodDays in listOf(7, 14, 30)) {
             val start = end.minusDays((periodDays - 1).toLong())
