@@ -183,7 +183,7 @@ class SummaryAiService(
         }
         val text = validObservations.joinToString(" ") { observation ->
             val claim = observation.text.trim()
-            if (claim.lastOrNull() in SENTENCE_ENDINGS) claim else "$claim."
+            if (claim.isNotEmpty() && claim.last() in SENTENCE_ENDINGS) claim else "$claim."
         }
         // A structurally valid response with no surviving observations is a
         // legitimate empty result, not an AI failure: the model found no
