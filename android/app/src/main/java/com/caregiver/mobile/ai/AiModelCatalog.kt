@@ -20,9 +20,10 @@ data class AiModelOption(
  * the suggestions exist so a typo in a model id shows up in the settings
  * instead of much later as an opaque failure.
  *
- * The list is dated knowledge: providers retire models (gpt-4o-mini and
- * gemini-2.0-flash are gone, grok-3 was retired in May 2026), which is why
- * the provider defaults point at the same ids.
+ * The list is dated knowledge: direct provider defaults follow current model
+ * ids (gpt-4o-mini and gemini-2.0-flash were retired or deprecated, as was
+ * grok-3 in May 2026). OpenRouter's separate route to openai/gpt-4o-mini
+ * remains available and is listed under that provider.
  *
  * Paid models lead, and a provider's default is a paid model. On Gemini's
  * free tier the notes may be used to improve Google's products, and an
