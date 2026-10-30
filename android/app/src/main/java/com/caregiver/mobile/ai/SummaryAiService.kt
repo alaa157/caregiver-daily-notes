@@ -92,6 +92,9 @@ class SummaryAiService(
         val dataBlock = PromptNotes.dataBlock(
             windowedNotes.map { note -> PromptNote(id = note.id, date = note.date, text = note.combinedText()) },
         )
+        if (dataBlock.length > MAX_INPUT_CHARS) {
+            return SummaryAiResult.Failure(redFlags, "oversized")
+        }
         val userPref = keyStore?.summarySystemPrompt()?.takeIf { it.isNotBlank() }
             ?: keyStore?.systemPrompt()?.takeIf { it.isNotBlank() }
         // The caregiver's preferences go before the fixed prompt, never after:

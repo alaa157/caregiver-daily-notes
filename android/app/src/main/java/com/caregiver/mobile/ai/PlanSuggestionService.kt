@@ -57,6 +57,9 @@ class PlanSuggestionService(
         if (summaryText.isBlank()) {
             return PlanSuggestionResult.Failure("empty_after_filter")
         }
+        if (summaryText.length > MAX_INPUT_CHARS) {
+            return PlanSuggestionResult.Failure("oversized")
+        }
         val userPref = keyStore?.planSystemPrompt()?.takeIf { it.isNotBlank() }
             ?: keyStore?.systemPrompt()?.takeIf { it.isNotBlank() }
         // The caregiver's preferences go before the fixed prompt, never after:
