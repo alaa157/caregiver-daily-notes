@@ -8,6 +8,7 @@ import com.caregiver.mobile.core.network.TokenHolder
 import com.caregiver.mobile.core.util.LanguagePrefs
 import com.caregiver.mobile.core.util.LocaleHelper
 import com.caregiver.mobile.data.AuthRepository
+import com.caregiver.mobile.data.CacheHealth
 import com.caregiver.mobile.data.NoteRepository
 import com.caregiver.mobile.data.OutboxDrain
 import com.caregiver.mobile.data.OutboxSyncWorker
@@ -30,6 +31,7 @@ import com.caregiver.mobile.data.local.RecipientAdmin
 import com.caregiver.mobile.data.update.GitHubReleaseChecker
 import com.caregiver.mobile.data.update.UpdateChecker
 import com.caregiver.mobile.ai.LlmClientFactory
+import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.runBlocking
 
@@ -172,6 +174,14 @@ class AppGraph(val context: Context, val forceProduction: Boolean = false) {
             )
         }
     }
+
+    /**
+     * Observable cache-write health for server-backed graphs. It is null in
+     * local/demo mode, where no fallback cache is written; a non-null value
+     * means the last Room cache write failed and offline reads may be stale
+     * until a later refresh succeeds.
+     */
+    val cacheHealth: StateFlow<CacheHealth.Failure?> = CacheHealth.failures
 
     /**
      * Data & Backup (CSV import/export) over the active data source. In
