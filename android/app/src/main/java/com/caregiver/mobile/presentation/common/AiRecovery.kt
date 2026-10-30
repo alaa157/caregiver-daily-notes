@@ -100,7 +100,7 @@ object AiRecovery {
                 primary = AiRecoveryAction.OpenAiSettings,
                 secondary = AiRecoveryAction.Retry,
             )
-        code == "blocked" ->
+        code == "blocked" || code == "blocked_safety" ->
             AiRecoveryCopy(
                 R.string.ai_recovery_blocked,
                 primary = AiRecoveryAction.Retry,
