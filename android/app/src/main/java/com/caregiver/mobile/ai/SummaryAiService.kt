@@ -176,10 +176,10 @@ class SummaryAiService(
         val evidence = validObservations.map { SummaryDto.EvidenceDto(noteId = it.noteId, quote = it.quote) }
         val uncertainties = parsed.uncertainties.map { SummaryDto.UncertaintyDto(topic = it.topic, detail = it.detail) }.toMutableList()
         if (hadInvalid) {
-            uncertainties += SummaryDto.UncertaintyDto("invalid_evidence", "Some AI observations were not supported by the source notes")
+            uncertainties += SummaryDto.UncertaintyDto("invalid_evidence", "")
         }
         if (validObservations.isNotEmpty()) {
-            uncertainties += SummaryDto.UncertaintyDto("unverified_claim", "AI-generated observations are based on quote matching and require clinical verification")
+            uncertainties += SummaryDto.UncertaintyDto("unverified_claim", "")
         }
         val text = validObservations.joinToString(" ") { observation ->
             val claim = observation.text.trim()

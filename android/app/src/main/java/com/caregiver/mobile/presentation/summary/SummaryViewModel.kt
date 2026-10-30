@@ -225,7 +225,7 @@ class SummaryViewModel(
                                 text = "",
                                 redFlags = result.redFlags,
                                 evidence = emptyList(),
-                                uncertainties = listOf(SummaryDto.UncertaintyDto("ai_unavailable", "AI unavailable")),
+                                uncertainties = listOf(SummaryDto.UncertaintyDto("ai_unavailable", "")),
                             ),
                             redFlags = result.redFlags,
                             reasonCode = result.reasonCode,
