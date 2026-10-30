@@ -30,7 +30,7 @@
     <string name="home_greeting_evening">Good evening, %1$s</string>
     <string name="home_greeting_evening_plain">Good evening</string>
     <string name="home_today_progress">%1$d / %2$d done</string>
-    <string name="home_safety_title">Fall alert</string>
+    <string name="home_safety_title">Care alert</string>
     <string name="home_safety_fall">Reported fall — %1$s</string>
     <string name="people_add">Add person</string>
     <string name="person_last_note">Last note</string>
