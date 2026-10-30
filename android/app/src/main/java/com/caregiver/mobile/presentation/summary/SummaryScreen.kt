@@ -38,7 +38,9 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.res.stringResource
+import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.style.TextDirection
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.navigation.NavController
@@ -335,6 +337,10 @@ private fun SummaryBody(
     // actually sees.
     val effectiveLocale = appLocale()
     val arabic = effectiveLocale.language == "ar"
+    // Generated summaries and model-provided detail are free text: pin their
+    // paragraph direction to the app language so mixed Arabic/Latin runs and
+    // trailing punctuation cannot flip the reading order in RTL.
+    val textDirection = if (arabic) TextDirection.Rtl else TextDirection.Ltr
     val appName = stringResource(R.string.app_name)
     val shareTemplate = stringResource(R.string.share_summary_message)
     val shareText = remember(summary.text, arabic, appName, shareTemplate) {
@@ -388,6 +394,7 @@ private fun SummaryBody(
         SectionTitle(stringResource(R.string.summary_overview))
         Text(
             text = if (summary.text.isBlank()) stringResource(R.string.summary_no_supported_observations) else summary.text,
+            style = TextStyle(textDirection = textDirection),
             fontFamily = PlexArabic,
             fontSize = 16.sp,
             lineHeight = 29.sp,
@@ -419,7 +426,7 @@ private fun SummaryBody(
                         "ai_not_configured" -> stringResource(R.string.summary_ai_not_configured)
                         "invalid_evidence" -> stringResource(R.string.summary_unclear_invalid_evidence)
                         "unverified_claim" -> stringResource(R.string.summary_unclear_unverified)
-                        else -> item.detail.ifBlank { item.topic }
+                        else -> Bidi.isolate(item.detail.ifBlank { item.topic })
                     },
                 )
             }
