@@ -32,7 +32,7 @@ object PlanStateMachine {
 
     /** Which status may follow which on the newest version of a plan. */
     private val allowed: Map<String, Set<String>> = mapOf(
-        SUGGESTED to setOf(SUGGESTED, ACCEPTED, EDITED_ACCEPTED, DISMISSED, ARCHIVED),
+        SUGGESTED to setOf(ACCEPTED, EDITED_ACCEPTED, DISMISSED, ARCHIVED),
         ACCEPTED to setOf(EDITED_ACCEPTED, ARCHIVED),
         EDITED_ACCEPTED to setOf(ACCEPTED, EDITED_ACCEPTED, DISMISSED, ARCHIVED),
         DISMISSED to setOf(EDITED_ACCEPTED, ARCHIVED),
@@ -85,6 +85,9 @@ object PlanStateMachine {
         val latest = newest(versions)
         requireKnown(status)
         val reachable = allowed[latest.status].orEmpty().toMutableSet()
+        if (status == SUGGESTED && latest.status == SUGGESTED) {
+            reachable += SUGGESTED
+        }
         if (status in live && latest.status != ARCHIVED) {
             reachable += status
         }
