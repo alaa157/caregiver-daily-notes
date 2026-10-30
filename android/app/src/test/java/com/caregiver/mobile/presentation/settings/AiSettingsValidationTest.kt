@@ -41,8 +41,17 @@ class AiSettingsValidationTest {
     @Test
     fun validCustomBaseUrlsAreAccepted() {
         assertTrue(AiSettingsValidation.isAcceptableBaseUrl("https://api.example.com/v1"))
-        assertTrue(AiSettingsValidation.isAcceptableBaseUrl("http://192.168.0.10:8080/v1"))
+        assertTrue(AiSettingsValidation.isAcceptableBaseUrl("http://10.0.2.2:8080/v1"))
         assertTrue(AiSettingsValidation.isAcceptableBaseUrl("  https://proxy.example.com  "))
+    }
+
+    @Test
+    fun cleartextOutsideTheNetworkSecurityAllowlistIsRejected() {
+        // Saving one of these would only fail later, at connect time, and be
+        // reported as a network problem rather than a bad URL.
+        assertFalse(AiSettingsValidation.isAcceptableBaseUrl("http://192.168.0.10:8080/v1"))
+        assertFalse(AiSettingsValidation.isAcceptableBaseUrl("http://172.16.0.1/v1"))
+        assertFalse(AiSettingsValidation.isAcceptableBaseUrl("http://[::1]:8080/v1"))
     }
 
     @Test
