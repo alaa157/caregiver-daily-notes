@@ -323,6 +323,7 @@
     <string name="settings_ai_api_key">API key</string>
     <string name="settings_ai_set_api_key">Set API key</string>
     <string name="settings_ai_key_invalidated">Key can no longer be read — enter it again</string>
+    <string name="settings_ai_key_unavailable">Saved key cannot be accessed — check device security and try again</string>
     <string name="settings_ai_key_store_failed">The device keystore refused to store the key. Try again.</string>
     <string name="settings_ai_key_saved_for">This key is only used for %1$s.</string>
     <string name="settings_ai_setup_guide">Setup guide</string>

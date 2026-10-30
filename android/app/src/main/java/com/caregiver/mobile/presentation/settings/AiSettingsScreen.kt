@@ -260,6 +260,7 @@ fun AiSettingsScreen(graph: AppGraph, navController: NavController, navEntry: Na
                         description = when {
                             apiKey.isNotBlank() -> "••••••••"
                             keyState is ApiKeyState.Invalidated -> stringResource(R.string.settings_ai_key_invalidated)
+                            keyState is ApiKeyState.Unavailable -> stringResource(R.string.settings_ai_key_unavailable)
                             else -> stringResource(R.string.settings_ai_set_api_key)
                         },
                         onClick = { showKeyDialog = true },
