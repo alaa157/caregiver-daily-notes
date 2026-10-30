@@ -1,5 +1,6 @@
 package com.caregiver.mobile.data.local
 
+import androidx.room.withTransaction
 import java.time.LocalDate
 import java.util.UUID
 import kotlinx.coroutines.flow.Flow
@@ -14,15 +15,25 @@ import kotlinx.coroutines.flow.Flow
 class MedicationStore(private val db: AppDatabase) {
     private val dao = db.medicationDao()
 
+    /**
+     * A deleted recipient is not writable, and a missing one is a stale
+     * write rather than a no-op: its children would outlive it with no
+     * screen able to reach them. Callers run this inside the same
+     * transaction as their write so a delete cannot interleave.
+     */
     private suspend fun requireWritableRecipient(recipientId: String) {
-        if (db.recipientDao().byServerId(recipientId)?.archivedAt != null) {
+        val recipient = db.recipientDao().byServerId(recipientId)
+            ?: throw NoSuchElementException("recipient $recipientId")
+        if (recipient.archivedAt != null) {
             throw ArchivedRecipientException(recipientId)
         }
     }
 
-    private suspend fun requireWritableMedication(medicationId: String) {
-        val medication = dao.byId(medicationId) ?: return
+    private suspend fun requireWritableMedication(medicationId: String): MedicationEntity {
+        val medication = dao.byId(medicationId)
+            ?: throw NoSuchElementException("medication $medicationId")
         requireWritableRecipient(medication.recipientId)
+        return medication
     }
 
     fun observeActive(): Flow<List<MedicationEntity>> = dao.observeActive()
@@ -37,7 +48,7 @@ class MedicationStore(private val db: AppDatabase) {
         dose: String? = null,
         schedule: String? = null,
         dosesPerDay: Int = 1,
-    ): String {
+    ): String = db.withTransaction {
         requireWritableRecipient(recipientId)
         val entity = MedicationEntity(
             id = UUID.randomUUID().toString(),
@@ -50,16 +61,18 @@ class MedicationStore(private val db: AppDatabase) {
             dosesPerDay = dosesPerDay.coerceIn(1, MAX_DOSES_PER_DAY),
         )
         dao.upsert(entity)
-        return entity.id
+        entity.id
     }
 
     /** Edit in place (name/dose/schedule/doses/active) without touching the id. */
     suspend fun update(entity: MedicationEntity) {
-        requireWritableMedication(entity.id)
-        requireWritableRecipient(entity.recipientId)
-        dao.update(
-            entity.copy(dosesPerDay = entity.dosesPerDay.coerceIn(1, MAX_DOSES_PER_DAY)),
-        )
+        db.withTransaction {
+            requireWritableMedication(entity.id)
+            requireWritableRecipient(entity.recipientId)
+            dao.update(
+                entity.copy(dosesPerDay = entity.dosesPerDay.coerceIn(1, MAX_DOSES_PER_DAY)),
+            )
+        }
     }
 
     /** Deleting a medication also forgets its history — nothing dangles. */
@@ -79,19 +92,21 @@ class MedicationStore(private val db: AppDatabase) {
      * evening dose still due.
      */
     suspend fun setTaken(medicationId: String, date: LocalDate, doseIndex: Int, taken: Boolean) {
-        requireWritableMedication(medicationId)
-        val id = intakeId(medicationId, date, doseIndex)
-        if (taken) {
-            dao.upsertIntake(
-                MedicationIntakeEntity(
-                    id = id,
-                    medicationId = medicationId,
-                    date = date.toString(),
-                    times = 1,
-                ),
-            )
-        } else {
-            dao.clearIntake(id)
+        db.withTransaction {
+            requireWritableMedication(medicationId)
+            val id = intakeId(medicationId, date, doseIndex)
+            if (taken) {
+                dao.upsertIntake(
+                    MedicationIntakeEntity(
+                        id = id,
+                        medicationId = medicationId,
+                        date = date.toString(),
+                        times = 1,
+                    ),
+                )
+            } else {
+                dao.clearIntake(id)
+            }
         }
     }
 

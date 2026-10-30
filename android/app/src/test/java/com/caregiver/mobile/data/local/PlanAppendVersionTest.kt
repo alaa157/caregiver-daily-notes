@@ -4,6 +4,7 @@ import androidx.room.Room
 import androidx.test.core.app.ApplicationProvider
 import com.caregiver.mobile.data.api.AppendVersionRequest
 import com.caregiver.mobile.data.api.SuggestPlanRequest
+import kotlinx.coroutines.runBlocking
 import kotlinx.coroutines.test.runTest
 import org.junit.After
 import org.junit.Assert.assertEquals
@@ -22,6 +23,11 @@ class PlanAppendVersionTest {
             ApplicationProvider.getApplicationContext(),
             AppDatabase::class.java,
         ).allowMainThreadQueries().build()
+        runBlocking {
+            db.recipientDao().insertAll(
+                listOf(RecipientEntity(serverId = "r1", name = "R1", active = true)),
+            )
+        }
     }
 
     @After

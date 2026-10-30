@@ -1,5 +1,6 @@
 package com.caregiver.mobile.data.local
 
+import androidx.room.withTransaction
 import com.caregiver.mobile.ai.SafetySignalEvaluator
 import com.caregiver.mobile.ai.SummaryWindow
 import com.caregiver.mobile.data.api.AddendumDto
@@ -48,8 +49,16 @@ class LocalBackendApis(
     private val planDao get() = db.planDao()
     private val addendumDao get() = db.addendumDao()
 
+    /**
+     * A missing parent is a stale write, not a no-op: creating a child for
+     * a deleted recipient would leave a row no screen can reach. The guard
+     * and the write that follows it run in one transaction so a delete
+     * cannot slip between the check and the insert.
+     */
     private suspend fun requireWritableRecipient(recipientId: String) {
-        if (recipientDao.byServerId(recipientId)?.archivedAt != null) {
+        val recipient = recipientDao.byServerId(recipientId)
+            ?: throw NoSuchElementException("recipient $recipientId")
+        if (recipient.archivedAt != null) {
             throw ArchivedRecipientException(recipientId)
         }
     }
@@ -105,7 +114,7 @@ class LocalBackendApis(
     }
 
     override suspend fun notes(): NoteApi = object : NoteApi {
-        override suspend fun create(body: CreateNoteRequest): NoteDto {
+        override suspend fun create(body: CreateNoteRequest): NoteDto = db.withTransaction {
             requireWritableRecipient(body.recipientId)
             val id = UUID.randomUUID().toString()
             val date = LocalDate.now().toString()
@@ -123,7 +132,7 @@ class LocalBackendApis(
                 text = body.text,
             )
             noteDao.insertAll(listOf(dto.toEntity()))
-            return dto
+            dto
         }
 
         override suspend fun detail(id: String): NoteDetailDto {
@@ -145,18 +154,19 @@ class LocalBackendApis(
             )
         }
 
-        override suspend fun append(id: String, body: CreateAddendumRequest): AddendumDto {
-            val note = noteDao.byServerId(id) ?: throw NoSuchElementException("note $id")
-            requireWritableRecipient(note.recipientId)
-            val addendum = AddendumDto(
-                id = UUID.randomUUID().toString(),
-                noteId = id,
-                createdAt = java.time.LocalDateTime.now().toString(),
-                text = body.text,
-            )
-            addendumDao.insert(addendum.toEntity())
-            return addendum
-        }
+        override suspend fun append(id: String, body: CreateAddendumRequest): AddendumDto =
+            db.withTransaction {
+                val note = noteDao.byServerId(id) ?: throw NoSuchElementException("note $id")
+                requireWritableRecipient(note.recipientId)
+                val addendum = AddendumDto(
+                    id = UUID.randomUUID().toString(),
+                    noteId = id,
+                    createdAt = java.time.LocalDateTime.now().toString(),
+                    text = body.text,
+                )
+                addendumDao.insert(addendum.toEntity())
+                addendum
+            }
 
         override suspend fun history(recipientId: String?, from: String?, to: String?): List<NoteDto> {
             val notes = noteDao.query(recipientId, from, to)
@@ -235,7 +245,7 @@ class LocalBackendApis(
                 )
             }
 
-        override suspend fun suggest(body: SuggestPlanRequest): PlanDto {
+        override suspend fun suggest(body: SuggestPlanRequest): PlanDto = db.withTransaction {
             requireWritableRecipient(body.recipientId)
             val existing = planDao.byRecipient(body.recipientId)
                 .map { entity -> entity to json.decodeFromString<List<PlanVersionDto>>(entity.versionsJson) }
@@ -254,7 +264,7 @@ class LocalBackendApis(
                     ),
                 )
                 savePlan(updated)
-                return updated
+                return@withTransaction updated
             }
             val plan = PlanDto(
                 id = UUID.randomUUID().toString(),
@@ -270,36 +280,41 @@ class LocalBackendApis(
                 ),
             )
             savePlan(plan)
-            return plan
+            plan
         }
 
         override suspend fun versions(id: String): List<PlanVersionDto> =
             planDao.byId(id)?.let { json.decodeFromString<List<PlanVersionDto>>(it.versionsJson) }
                 ?: throw NoSuchElementException("plan $id")
 
-        override suspend fun appendVersion(id: String, body: AppendVersionRequest): PlanDto {
-            val entity = planDao.byId(id) ?: throw NoSuchElementException("plan $id")
-            requireWritableRecipient(entity.recipientId)
-            val versions = json.decodeFromString<MutableList<PlanVersionDto>>(entity.versionsJson)
-            val latest = versions.maxByOrNull { it.version } ?: throw NoSuchElementException("plan $id")
-            val items = body.items ?: latest.items
-            val status = body.status ?: PlanStateMachine.EDITED_ACCEPTED
-            val updatedVersions = try {
-                PlanStateMachine.append(versions, status, items, LocalDate.now().toString())
-            } catch (e: IllegalPlanTransitionException) {
-                throw planTransitionError(e)
+        override suspend fun appendVersion(id: String, body: AppendVersionRequest): PlanDto =
+            db.withTransaction {
+                val entity = planDao.byId(id) ?: throw NoSuchElementException("plan $id")
+                requireWritableRecipient(entity.recipientId)
+                val versions = json.decodeFromString<MutableList<PlanVersionDto>>(entity.versionsJson)
+                val latest = versions.maxByOrNull { it.version } ?: throw NoSuchElementException("plan $id")
+                val items = body.items ?: latest.items
+                val status = body.status ?: PlanStateMachine.EDITED_ACCEPTED
+                val updatedVersions = try {
+                    PlanStateMachine.append(versions, status, items, LocalDate.now().toString())
+                } catch (e: IllegalPlanTransitionException) {
+                    throw planTransitionError(e)
+                }
+                val updated = PlanDto(
+                    id = entity.id,
+                    recipientId = entity.recipientId,
+                    versions = updatedVersions,
+                )
+                savePlan(updated)
+                updated
             }
-            val updated = PlanDto(id = entity.id, recipientId = entity.recipientId, versions = updatedVersions)
-            savePlan(updated)
-            return updated
-        }
 
         override suspend fun accept(id: String): PlanDto = transition(id, PlanStateMachine.ACCEPTED)
         override suspend fun editAccept(id: String): PlanDto = transition(id, PlanStateMachine.EDITED_ACCEPTED)
         override suspend fun dismiss(id: String): PlanDto = transition(id, PlanStateMachine.DISMISSED)
         override suspend fun archive(id: String): PlanDto = transition(id, PlanStateMachine.ARCHIVED)
 
-        private suspend fun transition(id: String, status: String): PlanDto {
+        private suspend fun transition(id: String, status: String): PlanDto = db.withTransaction {
             val entity = planDao.byId(id) ?: throw NoSuchElementException("plan $id")
             requireWritableRecipient(entity.recipientId)
             val versions = json.decodeFromString<MutableList<PlanVersionDto>>(entity.versionsJson)
@@ -309,9 +324,13 @@ class LocalBackendApis(
             } catch (e: IllegalPlanTransitionException) {
                 throw planTransitionError(e)
             }
-            val updated = PlanDto(id = entity.id, recipientId = entity.recipientId, versions = updatedVersions)
+            val updated = PlanDto(
+                id = entity.id,
+                recipientId = entity.recipientId,
+                versions = updatedVersions,
+            )
             savePlan(updated)
-            return updated
+            updated
         }
 
         private suspend fun savePlan(plan: PlanDto) {

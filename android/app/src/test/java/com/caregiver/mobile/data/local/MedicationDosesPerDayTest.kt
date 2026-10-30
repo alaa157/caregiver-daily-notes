@@ -4,6 +4,7 @@ import androidx.room.Room
 import androidx.test.core.app.ApplicationProvider
 import java.time.LocalDate
 import kotlinx.coroutines.flow.first
+import kotlinx.coroutines.runBlocking
 import kotlinx.coroutines.test.runTest
 import org.junit.After
 import org.junit.Assert.assertEquals
@@ -27,6 +28,11 @@ class MedicationDosesPerDayTest {
             ApplicationProvider.getApplicationContext(),
             AppDatabase::class.java,
         ).allowMainThreadQueries().build()
+        runBlocking {
+            db.recipientDao().insertAll(
+                listOf(RecipientEntity(serverId = "r1", name = "R1", active = true)),
+            )
+        }
         store = MedicationStore(db)
     }
 

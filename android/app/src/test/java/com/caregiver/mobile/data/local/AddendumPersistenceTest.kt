@@ -5,6 +5,7 @@ import androidx.test.core.app.ApplicationProvider
 import com.caregiver.mobile.ai.SafetySignalEvaluator
 import com.caregiver.mobile.data.api.CreateAddendumRequest
 import com.caregiver.mobile.data.api.CreateNoteRequest
+import kotlinx.coroutines.runBlocking
 import kotlinx.coroutines.test.runTest
 import org.junit.After
 import org.junit.Assert.assertEquals
@@ -24,6 +25,11 @@ class AddendumPersistenceTest {
             ApplicationProvider.getApplicationContext(),
             AppDatabase::class.java,
         ).allowMainThreadQueries().build()
+        runBlocking {
+            db.recipientDao().insertAll(
+                listOf(RecipientEntity(serverId = "r1", name = "R1", active = true)),
+            )
+        }
     }
 
     @After
@@ -42,6 +48,18 @@ class AddendumPersistenceTest {
         fall = false,
         text = "original",
     )
+
+    @Test
+    fun noteForAMissingRecipientIsRejectedWithoutWriting() = runTest {
+        val apis = LocalBackendApis(db)
+        try {
+            apis.notes().create(noteRequest().copy(recipientId = "missing"))
+            throw AssertionError("expected a missing recipient to be rejected")
+        } catch (e: NoSuchElementException) {
+            assertTrue(e.message.orEmpty().contains("missing"))
+        }
+        assertTrue(apis.notes().history("missing", null, null).isEmpty())
+    }
 
     @Test
     fun appendPersistsAcrossRepositoryRecreation() = runTest {
