@@ -16,3 +16,16 @@ fun planTransitionError(error: IllegalPlanTransitionException): HttpException = 
             .toResponseBody("application/json".toMediaType()),
     ),
 )
+
+/**
+ * The 409 for a plan whose version chain changed between this write's read
+ * and its compare-and-set write. The caller must reload the plan and retry;
+ * nothing was overwritten.
+ */
+fun planConflictError(planId: String): HttpException = HttpException(
+    Response.error<String>(
+        409,
+        """{"code":"PLAN_CONFLICT","message":"Plan $planId changed while saving; reload and retry."}"""
+            .toResponseBody("application/json".toMediaType()),
+    ),
+)

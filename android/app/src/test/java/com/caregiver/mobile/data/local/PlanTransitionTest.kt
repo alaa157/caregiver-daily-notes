@@ -54,6 +54,23 @@ class PlanTransitionTest {
     }
 
     @Test
+    fun aStaleVersionChainCannotOverwriteANewerOne() = runTest {
+        val original = PlanEntity(id = "p1", recipientId = "r1", versionsJson = "[1]", updatedAt = 1)
+        db.planDao().upsert(original)
+        db.planDao().upsert(original.copy(versionsJson = "[2]", updatedAt = 2))
+
+        val changed = db.planDao().updateIfUnchanged(
+            id = "p1",
+            expectedVersionsJson = original.versionsJson,
+            versionsJson = "[stale]",
+            updatedAt = 3,
+        )
+
+        assertEquals(0, changed)
+        assertEquals("[2]", db.planDao().byId("p1")?.versionsJson)
+    }
+
+    @Test
     fun suggestingForAMissingRecipientFailsWithoutWriting() = runTest {
         val apis = LocalBackendApis(db)
         try {
