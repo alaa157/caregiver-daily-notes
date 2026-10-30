@@ -22,10 +22,14 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.platform.LocalLayoutDirection
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.res.stringResource
+import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.style.TextDirection
 import androidx.compose.ui.text.style.TextOverflow
+import androidx.compose.ui.unit.LayoutDirection
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.caregiver.mobile.R
@@ -74,6 +78,14 @@ fun NoteRow(
 ) {
     var expanded by remember { mutableStateOf(false) }
     var bodyOverflows by remember { mutableStateOf(false) }
+    // Note bodies are free text: keep the paragraph direction aligned with
+    // the surrounding RTL/LTR layout so mixed runs and trailing punctuation
+    // cannot flip the reading order.
+    val textDirection = if (LocalLayoutDirection.current == LayoutDirection.Rtl) {
+        TextDirection.Rtl
+    } else {
+        TextDirection.Ltr
+    }
 
     Column(
         modifier = modifier
@@ -125,6 +137,7 @@ fun NoteRow(
                 }
                 Text(
                     text = body,
+                    style = TextStyle(textDirection = textDirection),
                     fontFamily = PlexArabic,
                     fontSize = 15.sp,
                     color = CaregiverColors.Ink,
