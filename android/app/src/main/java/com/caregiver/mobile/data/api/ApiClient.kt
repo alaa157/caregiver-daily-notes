@@ -77,23 +77,21 @@ object ApiClient {
     }
 
     /**
-     * Development HTTP policy, documented: cleartext is only ever offered to
-     * loopback and RFC 1918 private hosts — a local backend, the emulator
-     * host loopback (10.0.2.2), or LAN IPs. Anything else must be HTTPS, and
-     * release builds additionally deny cleartext outside the narrow
-     * network-security-config exception.
+     * Cleartext hosts, mirroring `res/xml/network_security_config.xml`.
+     *
+     * Keep this list and that file in sync. A host accepted here but absent
+     * there passes validation and is then blocked by the platform, which
+     * surfaces as a generic "network" failure instead of a base-URL error.
+     * LAN ranges are deliberately absent: the security config cannot express
+     * a CIDR range, and permitting arbitrary LAN cleartext would be a
+     * downgrade for every build.
      */
+    private val CLEARTEXT_HOSTS = setOf("localhost", "127.0.0.1", "10.0.2.2")
+
+    /** True only for hosts Android permits cleartext traffic to. */
     fun isDevHost(host: String): Boolean {
         val h = host.lowercase().removePrefix("[").removeSuffix("]")
-        if (h == "localhost" || h == "::1") {
-            return true
-        }
-        val parts = h.split(".").map { it.toIntOrNull() ?: return false }
-        if (parts.size != 4 || parts.any { it !in 0..255 }) {
-            return false
-        }
-        val (a, b) = parts
-        return a == 127 || a == 10 || (a == 172 && b in 16..31) || (a == 192 && b == 168)
+        return h in CLEARTEXT_HOSTS
     }
 
     fun retrofit(baseUrl: String, tokens: TokenHolder): Retrofit {

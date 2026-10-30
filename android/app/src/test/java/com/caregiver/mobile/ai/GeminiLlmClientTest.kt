@@ -56,6 +56,13 @@ class GeminiLlmClientTest {
         assertEquals("network", res.error)
     }
 
+    @Test fun lanCleartextIsRejectedAsABadUrlBeforeConnecting() {
+        val client = GeminiLlmClient("http://192.168.1.5:8080", "m", "key")
+        val res = kotlinx.coroutines.runBlocking { client.complete(LlmRequest("sys", "data")) }
+        assertEquals(LlmStatus.FALLBACK, res.status)
+        assertEquals("invalid_url", res.error)
+    }
+
     @Test fun jsonModeAsksForJsonMimeType() {
         server.start()
         server.enqueue(MockResponse().setBody("""{"candidates":[{"content":{"parts":[{"text":"{}"}]}}]}"""))

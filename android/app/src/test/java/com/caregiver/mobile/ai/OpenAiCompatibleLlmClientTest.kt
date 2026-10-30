@@ -80,6 +80,14 @@ class OpenAiCompatibleLlmClientTest {
     }
 
     @Test
+    fun lanCleartextIsRejectedAsABadUrlBeforeConnecting() {
+        val client = OpenAiCompatibleLlmClient("http://192.168.1.5:8080", "m", "key")
+        val res = kotlinx.coroutines.runBlocking { client.complete(LlmRequest("sys", "data")) }
+        assertEquals(LlmStatus.FALLBACK, res.status)
+        assertEquals("invalid_url", res.error)
+    }
+
+    @Test
     fun jsonModeAsksForJsonObjectFormat() {
         server.start()
         server.enqueue(MockResponse().setBody("""{"choices":[{"message":{"content":"{}"}}]}"""))

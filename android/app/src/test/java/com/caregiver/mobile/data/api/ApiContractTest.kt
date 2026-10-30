@@ -157,16 +157,33 @@ class ApiContractTest {
             ApiClient.checkBaseUrl("http://localhost:8080/api"),
         )
         assertEquals(
+            BaseUrlCheck.Valid("http://127.0.0.1:8080/"),
+            ApiClient.checkBaseUrl("http://127.0.0.1:8080/"),
+        )
+        assertEquals(
             BaseUrlCheck.Valid("http://10.0.2.2:8080/"),
             ApiClient.checkBaseUrl("http://10.0.2.2:8080/"),
         )
-        assertEquals(
-            BaseUrlCheck.Valid("http://192.168.1.5/"),
-            ApiClient.checkBaseUrl("http://192.168.1.5/"),
-        )
-        assertEquals(
-            BaseUrlCheck.Invalid(UrlProblem.HttpNotAllowed),
-            ApiClient.checkBaseUrl("http://h.com/"),
-        )
+    }
+
+    @Test
+    fun httpRejectedOutsideTheNetworkSecurityAllowlist() {
+        // These passed the old in-code check and were then blocked by Android
+        // at connect time, so the user saw a network failure instead of a
+        // base-URL problem.
+        for (url in listOf(
+            "http://192.168.1.5/",
+            "http://10.1.2.3/",
+            "http://172.16.0.1/",
+            "http://127.0.0.2/",
+            "http://[::1]/",
+            "http://h.com/",
+        )) {
+            assertEquals(
+                "cleartext must be rejected for $url",
+                BaseUrlCheck.Invalid(UrlProblem.HttpNotAllowed),
+                ApiClient.checkBaseUrl(url),
+            )
+        }
     }
 }
