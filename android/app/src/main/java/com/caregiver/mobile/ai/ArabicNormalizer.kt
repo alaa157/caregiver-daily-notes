@@ -13,6 +13,10 @@ import java.util.regex.Pattern
  * direction controls (ZWJ/ZWNJ/ZWSP/bidi marks/BOM), Arabic punctuation
  * (، ؛ ؟ « ») onto their Latin twins, and the Persian letter variants
  * (ک ی) onto their Arabic twins. Patterns compile once.
+ *
+ * [normalizeForEvidence] leaves out the two folds that can turn one word
+ * into a different one (ى→ي and ة→ه). Quote and claim matching uses it so
+ * "على" is not accepted as evidence for "علي", or "سنة" for "سنه".
  */
 object ArabicNormalizer {
     private val DIACRITICS: Pattern = Pattern.compile("[\\u064B-\\u065F\\u0670]")
@@ -23,7 +27,23 @@ object ArabicNormalizer {
     private val ALEF_FORMS: Pattern = Pattern.compile("[أإآٱ]")
     private val WHITESPACE: Pattern = Pattern.compile("\\s+")
 
-    fun normalize(s: String?): String {
+    /**
+     * Broad normalization for keyword and signal rules. It also folds ى→ي
+     * and ة→ه, which is useful when a rule lists either spelling but unsafe
+     * for deciding whether a quote is evidence for a claim.
+     */
+    fun normalize(s: String?): String = normalize(s, foldAmbiguousLetters = true)
+
+    /**
+     * Normalization for quote and claim matching. It keeps alef maqsura and
+     * taa marbuta distinct because the folds are not merely orthographic:
+     * "على" (on) and "علي" (Ali) are different words, as are "سنة" (year)
+     * and "سنه" (his tooth). A model that re-typesets one of those as the
+     * other must not have its quote accepted as the note's evidence.
+     */
+    fun normalizeForEvidence(s: String?): String = normalize(s, foldAmbiguousLetters = false)
+
+    private fun normalize(s: String?, foldAmbiguousLetters: Boolean): String {
         if (s == null) return ""
         var out = INVISIBLE_AND_CONTROLS.matcher(Normalizer.normalize(s, Normalizer.Form.NFKC)).replaceAll("")
         out = out.replace("ـ", "")
@@ -36,8 +56,10 @@ object ArabicNormalizer {
         out = ALEF_FORMS.matcher(out).replaceAll("ا")
         out = out.replace("ؤ", "و")
         out = out.replace("ئ", "ي")
-        out = out.replace("ى", "ي")
-        out = out.replace("ة", "ه")
+        if (foldAmbiguousLetters) {
+            out = out.replace("ى", "ي")
+            out = out.replace("ة", "ه")
+        }
         out = out.lowercase()
         out = WHITESPACE.matcher(out).replaceAll(" ")
         return out.trim()

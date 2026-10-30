@@ -1,6 +1,7 @@
 package com.caregiver.mobile.ai
 
 import org.junit.Assert.assertEquals
+import org.junit.Assert.assertNotEquals
 import org.junit.Test
 
 /**
@@ -89,6 +90,46 @@ class ArabicNormalizerTest {
         assertEquals(
             ArabicNormalizer.normalize("\u0631\u0623\u064A\u064A"),
             ArabicNormalizer.normalize("\u0631\u0623\u06CC\u064A"),
+        )
+    }
+
+    @Test
+    fun evidenceNormalizationKeepsAmbiguousLettersDistinct() {
+        // ى and ة are not only styling: folding them turns one word into a
+        // different one, so evidence matching must leave them alone.
+        assertNotEquals(
+            ArabicNormalizer.normalizeForEvidence("ليلى"),
+            ArabicNormalizer.normalizeForEvidence("ليلي"),
+        )
+        assertNotEquals(
+            ArabicNormalizer.normalizeForEvidence("سنة"),
+            ArabicNormalizer.normalizeForEvidence("سنه"),
+        )
+        assertNotEquals(
+            ArabicNormalizer.normalizeForEvidence("مستشفى"),
+            ArabicNormalizer.normalizeForEvidence("مستشفي"),
+        )
+    }
+
+    @Test
+    fun evidenceNormalizationStillFoldsHarmlessVariants() {
+        // Diacritics, tatweel, alef forms, digits, punctuation and Persian
+        // letter variants are re-typesetting, not a different word.
+        assertEquals(
+            ArabicNormalizer.normalizeForEvidence("يَأْكُلُ"),
+            ArabicNormalizer.normalizeForEvidence("ياكل"),
+        )
+        assertEquals(
+            ArabicNormalizer.normalizeForEvidence("أحمد"),
+            ArabicNormalizer.normalizeForEvidence("احمد"),
+        )
+        assertEquals(
+            ArabicNormalizer.normalizeForEvidence("ألم ٧، سقطت؟"),
+            ArabicNormalizer.normalizeForEvidence("ألم 7, سقطت?"),
+        )
+        assertEquals(
+            ArabicNormalizer.normalizeForEvidence("كتاب"),
+            ArabicNormalizer.normalizeForEvidence("کتاب"),
         )
     }
 }

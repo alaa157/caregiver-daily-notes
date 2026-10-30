@@ -165,6 +165,20 @@ class SummaryAiServiceTest {
     }
 
     @Test
+    fun quoteThatOnlyMatchesAfterAnAmbiguousFoldIsRejected() = runBlocking {
+        // The note says علي (Ali); the model quotes على (on). Folding ى→ي
+        // would make the quote look contained and accept evidence about a
+        // different word.
+        val arabicNote = note.copy(text = "علي كان متعبا اليوم")
+        val json =
+            """{"observations":[{"text":"علي كان متعبا","noteId":"n1","quote":"على كان متعبا"}],"uncertainties":[]}"""
+        val svc = service(json)
+        val result = svc.summarize("r1", 7, listOf(arabicNote), emptyList(), LocalDate.parse("2026-10-01"))
+        assertTrue(result is SummaryAiResult.Failure)
+        assertEquals("invalid_evidence", (result as SummaryAiResult.Failure).reasonCode)
+    }
+
+    @Test
     fun malformedJsonReturnsFailure() = runBlocking {
         val svc = service("not json")
         val result = svc.summarize("r1", 7, listOf(note), emptyList(), LocalDate.parse("2026-10-01"))

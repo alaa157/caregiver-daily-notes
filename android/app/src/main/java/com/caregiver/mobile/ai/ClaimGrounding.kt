@@ -9,8 +9,9 @@ package com.caregiver.mobile.ai
  * flip the meaning ("had pain" cited for "had no pain"). Claims that survive
  * are still labelled unverified by the caller.
  *
- * Everything here compares [ArabicNormalizer]-normalized text, so the Arabic
- * forms the notes are written in are judged the same way as the English ones.
+ * Everything here compares [ArabicNormalizer.normalizeForEvidence] text, so
+ * harmless re-typesetting matches while a materially different word (على vs
+ * علي) does not count as the same evidence.
  */
 object ClaimGrounding {
     /**
@@ -106,8 +107,8 @@ object ClaimGrounding {
      * so the claim cannot be judged here and must not be rejected for it.
      */
     fun verdict(claim: String, quote: String): Verdict {
-        val nClaim = ArabicNormalizer.normalize(claim)
-        val nQuote = ArabicNormalizer.normalize(quote)
+        val nClaim = ArabicNormalizer.normalizeForEvidence(claim)
+        val nQuote = ArabicNormalizer.normalizeForEvidence(quote)
         if (nClaim.isEmpty() || nQuote.isEmpty()) return Verdict.UNSUPPORTED
 
         val claimWords = words(nClaim)

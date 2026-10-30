@@ -126,7 +126,7 @@ class SummaryAiService(
                 return SummaryAiResult.Failure(redFlags, reply.error ?: "malformed_output")
         }
         val noteTextsById = windowedNotes.associate { it.id to it.aiSourceText() }
-        val normalizedNotes = noteTextsById.mapValues { ArabicNormalizer.normalize(it.value) }
+        val normalizedNotes = noteTextsById.mapValues { ArabicNormalizer.normalizeForEvidence(it.value) }
         // Validate and reject unsupported observations; keep only grounded ones.
         // A claim must be non-empty, cite an existing note, cite a non-empty
         // quote that occurs in that note, and be lexically supported by that
@@ -149,7 +149,7 @@ class SummaryAiService(
                 hadInvalid = true
                 continue
             }
-            val quote = ArabicNormalizer.normalize(rawQuote)
+            val quote = ArabicNormalizer.normalizeForEvidence(rawQuote)
             if (quote.isEmpty() || !noteText.contains(quote)) {
                 hadInvalid = true
                 continue
