@@ -36,7 +36,7 @@
     <string name="person_last_note">آخر ملاحظة</string>
     <string name="chip_done">تم اليوم</string>
     <string name="chip_missed">لا ملاحظة اليوم</string>
-    <string name="chip_high_pain">ألم عال</string>
+    <string name="chip_high_pain">ألم شديد</string>
     <string name="chip_fall">سقوط</string>
     <string name="chip_no_note">لا ملاحظات بعد</string>
     <string name="detail_add_note">إضافة ملاحظة</string>
@@ -62,7 +62,7 @@
     <string name="editor_text">ملاحظات حرة</string>
     <string name="editor_save">حفظ الملاحظة</string>
     <string name="editor_save_note">الحفظ لا يعتمد على الذكاء الاصطناعي</string>
-    <string name="editor_error_mood">اختار الحالة المزاجية</string>
+    <string name="editor_error_mood">اختر الحالة المزاجية</string>
     <string name="editor_error_text">اكتب نص الملاحظة</string>
     <string name="editor_error_duplicate_day">توجد ملاحظة لهذا الشخص اليوم بالفعل.</string>
     <string name="editor_error_generic">تعذر حفظ الملاحظة. حاول مرة أخرى.</string>
@@ -72,7 +72,7 @@
     <string name="detail_corrections">تصحيحات</string>
     <string name="detail_date">التاريخ</string>
     <string name="detail_fall_yes">سقوط مبلغ عنه</string>
-    <string name="detail_fall_no">لا سقوط</string>
+    <string name="detail_fall_no">لا يوجد سقوط</string>
     <string name="detail_add_correction">إضافة تصحيح</string>
     <string name="addendum_title">إضافة تصحيح</string>
     <string name="addendum_text">نص التصحيح</string>
@@ -252,7 +252,7 @@
     <string name="summary_unclear_invalid_evidence">بعض نتائج الذكاء الاصطناعي غير مدعومة بملاحظات المصدر</string>
     <string name="summary_unclear_unverified">نتائج الذكاء الاصطناعي مبنية على الاقتباس ولا تزال بحاجة إلى تحقق طبي</string>
     <string name="pdf_title">ملخص الرعاية</string>
-    <string name="pdf_recipient">المستفيد: %1$s</string>
+    <string name="pdf_recipient">الشخص تحت الرعاية: %1$s</string>
     <plurals name="pdf_period">
         <item quantity="zero">الفترة: 0 يوم</item>
         <item quantity="one">الفترة: يوم واحد</item>
@@ -311,7 +311,7 @@
     <string name="home_empty_attention_title">لا شيء يحتاج إلى الانتباه</string>
     <string name="home_empty_attention_body">سيظهر هنا أي ألم شديد أو سقوط.</string>
     <string name="home_empty_view_all">عرض الكل</string>
-    <!-- المهمة 3: ورقة اختيار المستلم لزر الإضافة. -->
+    <!-- المهمة 3: ورقة اختيار الشخص تحت الرعاية لزر الإضافة. -->
     <string name="pick_recipient_title">لمن هذه الملاحظة؟</string>
     <string name="pick_recipient_empty_title">لا يوجد أشخاص بعد</string>
     <string name="pick_recipient_empty_body">أضف أول شخص للبدء بتسجيل الملاحظات.</string>
@@ -573,7 +573,7 @@
     <string name="csv_import_duplicates">مسجّلة مسبقًا (سيتم تخطيها): %1$d</string>
     <string name="csv_import_invalid">صفوف غير صالحة (سيتم تخطيها): %1$d</string>
     <string name="csv_import_nothing_ready">لا يوجد ما يمكن استيراده: تم تخطي كل الصفوف أو تكرارها أو كانت غير صالحة.</string>
-    <string name="csv_import_unmatched_heading">مستلمون غير موجودين</string>
+    <string name="csv_import_unmatched_heading">أشخاص تحت الرعاية غير موجودين</string>
     <string name="csv_import_unmatched_entry">%1$s — %2$d صف</string>
     <string name="csv_import_unmatched_hint">اختر الشخص الذي تنتمي إليه هذه الملاحظات، أو اتركها متخطاة. لا تُنسب الملاحظات تلقائيًا إلى شخص آخر.</string>
     <string name="csv_import_skip">تخطي هذه الصفوف</string>
@@ -591,7 +591,7 @@
 
     <!-- Full backup &amp; restore (Data &amp; Backup): versioned local JSON files. -->
     <string name="backup_create_title">إنشاء نسخة احتياطية</string>
-    <string name="backup_create_description">احفظ الملاحظات والمستلمين وخطط الرعاية والملاحق وبيانات الأدوية في ملف تختاره. لا تُضمَّن الإعدادات ومفاتيح الذكاء الاصطناعي.</string>
+    <string name="backup_create_description">احفظ الملاحظات والأشخاص تحت الرعاية وخطط الرعاية والملاحق وبيانات الأدوية في ملف تختاره. لا تُضمَّن الإعدادات ومفاتيح الذكاء الاصطناعي.</string>
     <string name="backup_create_working">جارٍ إنشاء النسخة الاحتياطية…</string>
     <string name="backup_create_success">تم إنشاء النسخة الاحتياطية. عدد السجلات: %1$d.</string>
     <string name="backup_create_empty">تم إنشاء النسخة الاحتياطية. لا توجد بيانات بعد، لذا الملف فارغ.</string>
@@ -608,13 +608,13 @@
     <string name="backup_preview_app_version">إصدار التطبيق: %1$s</string>
     <string name="backup_preview_version">إصدار تنسيق النسخة الاحتياطية: %1$d</string>
     <string name="backup_preview_notes">الملاحظات في النسخة: %1$d</string>
-    <string name="backup_preview_recipients">المستلمون في النسخة: %1$d</string>
+    <string name="backup_preview_recipients">الأشخاص تحت الرعاية في النسخة: %1$d</string>
     <string name="backup_preview_addenda">الملاحق في النسخة: %1$d</string>
     <string name="backup_preview_plans">خطط الرعاية في النسخة: %1$d</string>
     <string name="backup_preview_medications">الأدوية في النسخة: %1$d</string>
     <string name="backup_preview_intakes">جرعات الأدوية المسجّلة في النسخة: %1$d</string>
-    <string name="backup_preview_current">البيانات الحالية التي ستُستبدل: %1$d ملاحظة، %2$d مستلمًا، %3$d ملحقًا، %4$d خطة رعاية، %5$d دواء، %6$d جرعة دواء مسجّلة.</string>
-    <string name="backup_preview_warning">تستبدل الاستعادة جميع الملاحظات والمستلمين وخطط الرعاية والملاحق وبيانات الأدوية في التطبيق. لا يمكن التراجع عن ذلك.</string>
+    <string name="backup_preview_current">البيانات الحالية التي ستُستبدل: %1$d ملاحظة، %2$d شخصًا تحت الرعاية، %3$d ملحقًا، %4$d خطة رعاية، %5$d دواء، %6$d جرعة دواء مسجّلة.</string>
+    <string name="backup_preview_warning">تستبدل الاستعادة جميع الملاحظات والأشخاص تحت الرعاية وخطط الرعاية والملاحق وبيانات الأدوية في التطبيق. لا يمكن التراجع عن ذلك.</string>
     <string name="backup_preview_exclusions">لا تُضمَّن إعدادات التطبيق ومفاتيح الذكاء الاصطناعي وبيانات المزامنة المعلّقة في النسخ الاحتياطية ولا تتغير.</string>
     <string name="backup_dismiss">إغلاق</string>
     <string name="backup_error_empty">الملف فارغ.</string>
@@ -656,8 +656,8 @@
     <string name="csv_issue_mood">الحالة المزاجية مطلوبة</string>
     <string name="csv_issue_too_long">%1$s طويلة جدًا</string>
     <string name="csv_issue_text">نص الملاحظة مطلوب</string>
-    <string name="csv_issue_recipient">المستلم مطلوب</string>
-    <string name="csv_issue_unmatched">لم يتم العثور على المستلم في هذا التطبيق</string>
+    <string name="csv_issue_recipient">الشخص تحت الرعاية مطلوب</string>
+    <string name="csv_issue_unmatched">لم يتم العثور على الشخص تحت الرعاية في هذا التطبيق</string>
     <string name="csv_issue_duplicate">توجد ملاحظة مسجّلة مسبقًا لهذا الشخص واليوم</string>
     <string name="csv_issue_unknown">تعذّرت القراءة</string>
 </resources>
