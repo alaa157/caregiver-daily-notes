@@ -1,6 +1,7 @@
 package com.caregiver.mobile.core.time
 
 import java.time.LocalDate
+import java.time.ZoneId
 import java.util.Locale
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertNull
@@ -77,6 +78,27 @@ class DateFormatsTest {
         assertEquals("Oct 7, 2026", DateFormats.addendumDate("2026-10-07", false))
         assertEquals("Oct 7, 2026", DateFormats.addendumDate("2026-10-07T10:00:00.123", false))
         assertEquals("7 أكتوبر 2026", DateFormats.addendumDate("2026-10-07T10:00:00.123456", true))
+    }
+
+    @Test
+    fun addendumDateConvertsOffsetTimestampsToTheDeviceDay() {
+        val riyadh = ZoneId.of("Asia/Riyadh")
+        // 22:30Z is already 01:30 on October 8 in UTC+3.
+        assertEquals("Oct 8, 2026", DateFormats.addendumDate("2026-10-07T22:30:00Z", false, riyadh))
+        assertEquals("8 أكتوبر 2026", DateFormats.addendumDate("2026-10-07T22:30:00Z", true, riyadh))
+        // The encoded date is October 7, but the instant falls on October 8
+        // in Riyadh.
+        assertEquals("Oct 8, 2026", DateFormats.addendumDate("2026-10-07T23:30:00-05:00", false, riyadh))
+    }
+
+    @Test
+    fun addendumDateKeepsOffsetLessValuesOnTheirEncodedDay() {
+        val riyadh = ZoneId.of("Asia/Riyadh")
+        // A local date-time has no instant to convert: 23:30 stays October 7
+        // even though the same wall clock in UTC would be October 8 locally.
+        assertEquals("Oct 7, 2026", DateFormats.addendumDate("2026-10-07T23:30:00", false, riyadh))
+        assertEquals("7 أكتوبر 2026", DateFormats.addendumDate("2026-10-07T23:30:00", true, riyadh))
+        assertEquals("Oct 7, 2026", DateFormats.addendumDate("2026-10-07", false, riyadh))
     }
 
     @Test
