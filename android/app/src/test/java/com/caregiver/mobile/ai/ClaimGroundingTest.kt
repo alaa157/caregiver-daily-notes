@@ -146,6 +146,79 @@ class ClaimGroundingTest {
     }
 
     @Test
+    fun refusedAndMissedActionsFlipTheQuote() {
+        assertFalse(
+            ClaimGrounding.isSupported(
+                "refused her morning insulin dose",
+                "took her morning insulin dose",
+            ),
+        )
+        assertFalse(
+            ClaimGrounding.isSupported(
+                "missed her morning insulin dose",
+                "took her morning insulin dose",
+            ),
+        )
+        assertFalse(
+            ClaimGrounding.isSupported(
+                "declined her morning insulin dose",
+                "took her morning insulin dose",
+            ),
+        )
+    }
+
+    @Test
+    fun egyptianCircumfixNegationIsRecognised() {
+        // "مكلش" = did not eat; "منامش" = did not sleep. These are one
+        // token, not the ما-prefixed forms the old rule looked for.
+        assertFalse(ClaimGrounding.isSupported("اكل", "مكلش"))
+        assertFalse(ClaimGrounding.isSupported("نام", "منامش"))
+    }
+
+    @Test
+    fun numbersInTheClaimMustAppearInTheQuote() {
+        assertFalse(
+            ClaimGrounding.isSupported(
+                "blood pressure 120 over 80",
+                "blood pressure 130 over 90",
+            ),
+        )
+        assertFalse(
+            ClaimGrounding.isSupported(
+                "insulin dose 10 units",
+                "insulin dose 20 units",
+            ),
+        )
+        assertTrue(
+            ClaimGrounding.isSupported(
+                "insulin dose 10 units",
+                "insulin dose 10 units",
+            ),
+        )
+    }
+
+    @Test
+    fun punctuationAtTokenEdgesDoesNotBlockAMatch() {
+        assertTrue(ClaimGrounding.isSupported("walked.", "walked"))
+        assertTrue(ClaimGrounding.isSupported("walked", "walked."))
+        assertTrue(ClaimGrounding.isSupported("pain, swelling", "pain and swelling"))
+    }
+
+    @Test
+    fun crossScriptNumbersAndPolarityAreStillChecked() {
+        assertFalse(
+            ClaimGrounding.isSupported("blood pressure 120", "ضغط الدم 130"),
+        )
+        assertFalse(
+            ClaimGrounding.isSupported("no pain today", "ألم اليوم"),
+        )
+        assertEquals(
+            ClaimGrounding.Verdict.NOT_COMPARABLE,
+            ClaimGrounding.verdict("she walked today", "مشت اليوم"),
+        )
+    }
+
+    @Test
     fun arabicNegationsAreStillRecognised() {
         // The Egyptian negations keep their meaning after the change.
         assertFalse(ClaimGrounding.isSupported("ألم", "مفيش ألم"))
