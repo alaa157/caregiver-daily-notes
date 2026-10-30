@@ -181,7 +181,10 @@ class SummaryAiService(
         if (validObservations.isNotEmpty()) {
             uncertainties += SummaryDto.UncertaintyDto("unverified_claim", "AI-generated observations are based on quote matching and require clinical verification")
         }
-        val text = validObservations.joinToString(" ") { it.text }
+        val text = validObservations.joinToString(" ") { observation ->
+            val claim = observation.text.trim()
+            if (claim.lastOrNull() in SENTENCE_ENDINGS) claim else "$claim."
+        }
         // A structurally valid response with no surviving observations is a
         // legitimate empty result, not an AI failure: the model found no
         // supported observations. Only reject when observations were present
@@ -208,6 +211,8 @@ class SummaryAiService(
     }
 
     companion object {
+        private val SENTENCE_ENDINGS = setOf('.', '!', '?', '؟', '。', '！', '…')
+
         /**
          * Upper bound on issued findings so a summary stays a summary. The
          * model is already told "at most 6" in [Prompts.SUMMARY_SYSTEM]; this
