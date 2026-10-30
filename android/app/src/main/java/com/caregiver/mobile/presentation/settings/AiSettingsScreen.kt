@@ -34,6 +34,7 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalUriHandler
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.res.stringResource
@@ -73,6 +74,10 @@ fun AiSettingsScreen(graph: AppGraph, navController: NavController, navEntry: Na
     val scope = rememberCoroutineScope()
     val store = remember { AiKeyStore(graph.context) }
     val uriHandler = LocalUriHandler.current
+    // The activity context carries the language the caregiver just picked;
+    // `graph.context` is the application context, which keeps the locale the
+    // process started with.
+    val context = LocalContext.current
     val initialProvider = store.selectedProvider()
     val initialStoredKey = store.apiKey(initialProvider).orEmpty()
     var provider by remember { mutableStateOf(initialProvider) }
@@ -321,9 +326,9 @@ fun AiSettingsScreen(graph: AppGraph, navController: NavController, navEntry: Na
 
         Button(onClick = {
             if (apiKey.isBlank()) {
-                status = graph.context.getString(
+                status = context.getString(
                     R.string.settings_ai_failed,
-                    AiRecovery.copyFor("missing_key").resolvedMessage(graph.context),
+                    AiRecovery.copyFor("missing_key").resolvedMessage(context),
                 )
                 return@Button
             }
@@ -354,20 +359,20 @@ fun AiSettingsScreen(graph: AppGraph, navController: NavController, navEntry: Na
                             savedBaseUrl = baseUrl
                             keyState = store.apiKeyState(provider)
                             keyError = null
-                            graph.context.getString(R.string.settings_ai_connection_ok_saved)
+                            context.getString(R.string.settings_ai_connection_ok_saved)
                         } else {
                             // The keystore refused the key: the caregiver has
                             // to know that it was not stored.
-                            val failure = graph.context.getString(R.string.settings_ai_key_store_failed)
+                            val failure = context.getString(R.string.settings_ai_key_store_failed)
                             keyError = failure
                             keyState = store.apiKeyState(provider)
-                            graph.context.getString(R.string.settings_ai_failed, failure)
+                            context.getString(R.string.settings_ai_failed, failure)
                         }
                     } else {
-                        graph.context.getString(
+                        context.getString(
                             R.string.settings_ai_failed,
                             AiRecovery.copyFor(res.error ?: "unavailable")
-                                .resolvedMessage(graph.context),
+                                .resolvedMessage(context),
                         )
                     }
                 } catch (e: kotlinx.coroutines.CancellationException) {
@@ -376,9 +381,9 @@ fun AiSettingsScreen(graph: AppGraph, navController: NavController, navEntry: Na
                 } catch (e: Exception) {
                     // Exception text is not a recovery step and may contain
                     // transport internals; show the connect-and-retry copy.
-                    status = graph.context.getString(
+                    status = context.getString(
                         R.string.settings_ai_failed,
-                        AiRecovery.copyFor("unavailable").resolvedMessage(graph.context),
+                        AiRecovery.copyFor("unavailable").resolvedMessage(context),
                     )
                 } finally {
                     if (testGeneration == generation) {
@@ -399,7 +404,7 @@ fun AiSettingsScreen(graph: AppGraph, navController: NavController, navEntry: Na
                 testJob?.cancel()
                 testJob = null
                 testing = false
-                status = graph.context.getString(R.string.settings_ai_test_cancelled)
+                status = context.getString(R.string.settings_ai_test_cancelled)
             }) { Text(stringResource(R.string.common_cancel)) }
         }
         status?.let { Text(it) }
@@ -457,9 +462,9 @@ fun AiSettingsScreen(graph: AppGraph, navController: NavController, navEntry: Na
         // summary-format reply and validates its shape.
         Button(onClick = {
             if (apiKey.isBlank()) {
-                formatStatus = graph.context.getString(
+                formatStatus = context.getString(
                     R.string.settings_ai_format_invalid,
-                    AiRecovery.copyFor("missing_key").resolvedMessage(graph.context),
+                    AiRecovery.copyFor("missing_key").resolvedMessage(context),
                 )
                 return@Button
             }
@@ -484,7 +489,7 @@ fun AiSettingsScreen(graph: AppGraph, navController: NavController, navEntry: Na
                             PromptNote(
                                 id = "probe",
                                 date = LocalDate.now().toString(),
-                                text = graph.context.getString(R.string.settings_ai_format_probe),
+                                text = context.getString(R.string.settings_ai_format_probe),
                             ),
                         ),
                     )
@@ -504,20 +509,20 @@ fun AiSettingsScreen(graph: AppGraph, navController: NavController, navEntry: Na
                         null
                     }
                     formatStatus = if (reason == null) {
-                        graph.context.getString(R.string.settings_ai_format_ok)
+                        context.getString(R.string.settings_ai_format_ok)
                     } else {
-                        graph.context.getString(
+                        context.getString(
                             R.string.settings_ai_format_invalid,
-                            AiRecovery.copyFor(reason).resolvedMessage(graph.context),
+                            AiRecovery.copyFor(reason).resolvedMessage(context),
                         )
                     }
                 } catch (e: kotlinx.coroutines.CancellationException) {
                     // The screen went away mid-request: let the scope cancel.
                     throw e
                 } catch (e: Exception) {
-                    formatStatus = graph.context.getString(
+                    formatStatus = context.getString(
                         R.string.settings_ai_format_invalid,
-                        AiRecovery.copyFor("unavailable").resolvedMessage(graph.context),
+                        AiRecovery.copyFor("unavailable").resolvedMessage(context),
                     )
                 } finally {
                     validating = false
@@ -531,7 +536,7 @@ fun AiSettingsScreen(graph: AppGraph, navController: NavController, navEntry: Na
                 formatJob?.cancel()
                 formatJob = null
                 validating = false
-                formatStatus = graph.context.getString(R.string.settings_ai_test_cancelled)
+                formatStatus = context.getString(R.string.settings_ai_test_cancelled)
             }) { Text(stringResource(R.string.common_cancel)) }
         }
         formatStatus?.let { Text(it) }
@@ -548,7 +553,7 @@ fun AiSettingsScreen(graph: AppGraph, navController: NavController, navEntry: Na
             // the same way whether the caregiver pressed Save or checked the
             // connection first: a key that works is a key that is kept.
             if (!persistCredentials()) {
-                keyError = graph.context.getString(R.string.settings_ai_key_store_failed)
+                keyError = context.getString(R.string.settings_ai_key_store_failed)
                 keyState = store.apiKeyState(provider)
                 return@Button
             }
@@ -616,7 +621,7 @@ fun AiSettingsScreen(graph: AppGraph, navController: NavController, navEntry: Na
                 TextButton(onClick = {
                     store.revokeConsent(provider)
                     consentGiven = false
-                    consentStatus = graph.context.getString(
+                    consentStatus = context.getString(
                         R.string.settings_ai_consent_revoked,
                         provider.displayName,
                     )
