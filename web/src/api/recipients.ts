@@ -79,9 +79,8 @@ export function createRecipientsApi(client: ApiClient) {
       return response.map(readRecipient);
     },
     get: async (id: string, signal?: AbortSignal) => single(pathFor(id), 'GET', signal),
-    // The current backend constructs the POST response before Hibernate assigns
-    // timestamps. Creation needs only the validated identity; the details route
-    // fetches the committed record and strictly validates its timestamps there.
+    // Creation navigates using the validated identity. The details route reads
+    // the committed record and strictly validates its complete timestamps.
     create: async (input: RecipientInput, signal?: AbortSignal) => readRecipientCore(await client.request<unknown>({
       path: '/api/recipients', method: 'POST', signal, body: fields(input),
     })),

@@ -1,8 +1,9 @@
 # Caregiver Daily Notes — web application
 
 React 18 + TypeScript + Vite, with caregiver authentication, recipient management,
-daily notes/addenda, history, summaries/safety, and care plans. Task #20 adds the
-complete web quality gate. Backend and clinical logic remain server-owned.
+daily notes/addenda, history, summaries/safety, and care plans. The complete web
+quality gate and [integration handoff](HANDOFF.md) cover Tasks 1–9. Backend and
+clinical logic remain server-owned.
 
 ## Run and test
 
@@ -56,7 +57,15 @@ The opt-in [real-backend integration suite](src/tests/integration/README.md)
 checks login and recipient workflows against a running disposable local backend,
 including server-enforced ownership and preservation of an existing note.
 
-The `dist/` directory is an independent static site. Deploy it with SPA routing fallback to `index.html` for client-side routes. The existing root CI job does not yet include frontend checks; changes to `.github/workflows` are outside this issue.
+To run all 24 real-backend cases, including the complete login-to-plan journey,
+use `npm run test:e2e:live` after starting the disposable backend and synthetic
+provider as described in [HANDOFF.md](HANDOFF.md). Live tests are separate from
+the default backend-free browser suite.
+
+The `dist/` directory is an independent static site. Deploy it with SPA routing
+fallback to `index.html` for client-side routes. The handoff documents API/docs
+proxy routing, runtime config, CORS and shared-environment verification. Changes
+to `.github/workflows` and deployment are outside this issue.
 
 ## Public runtime configuration (important for rotating tunnel URLs)
 
@@ -89,4 +98,4 @@ This modifies `dist/config.json`, not the built JS bundle; repeating that step r
 
 ## Definition of scope
 
-Task #20 changes are limited to `web/`. Submit for owner review and merge.
+Task #21 changes are limited to `web/`. Submit for owner review and merge.
