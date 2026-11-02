@@ -7,8 +7,9 @@
 > **Authorship:** Architecture synthesis and documentation by ChatGPT (GPT-6), based on the complete Phase 1 baseline and read-only inspection of the current reference branches.
 
 **Repository:** `alaa157/caregiver-daily-notes`  
-**Android reference:** `feat/standalone-byok-ai` at `21876285ad808a6518593ea3974c51b6b1f6bb31`  
-**Web/backend reference:** `main` at `14dfff2b7a7049d4ac6285fe340b29c59ba5b595`  
+**Android source snapshot inspected:** `feat/standalone-byok-ai` at `21876285ad808a6518593ea3974c51b6b1f6bb31`  
+**Web/backend application-source snapshot inspected:** `main` at `14dfff2b7a7049d4ac6285fe340b29c59ba5b595`  
+**Current `main` HEAD before this documentation revision:** `25c031b2bda50a5daa9cda9cb62f2f4cd306a579` (Phase 2 documentation commit; no application-source changes)  
 **Phase 1 historical web/backend baseline:** `30b01f08bc51c8da2ed11bbc89dba1f3a73dfbe7`  
 **Mandatory baseline:** [`docs/product-alignment/phase-1/README.md`](../phase-1/README.md)
 
@@ -65,25 +66,25 @@ The complete `docs/product-alignment/phase-1/README.md` was read from beginning 
 
 ### 2.2 Current branch and commit verification
 
-Both required references exist and their current HEAD commits were recorded:
+The application-source snapshots and repository HEAD are recorded separately. The following table distinguishes inspected source from the later Phase 2 documentation commit.
 
-| Role | Branch | Current HEAD | Commit date / message |
+| Role | Branch | Exact reference | Commit date / message |
 |---|---|---|---|
-| Android functional reference | `feat/standalone-byok-ai` | `21876285ad808a6518593ea3974c51b6b1f6bb31` | 2026-10-30 — `fix(cache): report cache-write failures through observable health state` |
-| Web/backend reference | `main` | `14dfff2b7a7049d4ac6285fe340b29c59ba5b595` | 2026-11-02 — `docs: consolidate Phase 1 into canonical product alignment source` |
+| Android functional source snapshot | `feat/standalone-byok-ai` | `21876285ad808a6518593ea3974c51b6b1f6bb31` | 2026-10-30 — `fix(cache): report cache-write failures through observable health state` |
+| Web/backend source snapshot inspected | `main` | `14dfff2b7a7049d4ac6285fe340b29c59ba5b595` | 2026-11-02 — `docs: consolidate Phase 1 into canonical product alignment source` |
+| Current main HEAD before this revision | `main` | `25c031b2bda50a5daa9cda9cb62f2f4cd306a579` | 2026-11-02 — `docs: add Phase 2 cross-platform architecture design` |
 
 Phase 1 pinned Android to the same Android commit and web/backend to `30b01f08bc51c8da2ed11bbc89dba1f3a73dfbe7`.
 
 ### 2.3 Changes since Phase 1
 
-A commit comparison from Phase 1 main (`30b01f08bc51c8da2ed11bbc89dba1f3a73dfbe7`) to current main (`14dfff2b7a7049d4ac6285fe340b29c59ba5b595`) shows:
+A commit comparison from the Phase 1 main pin (`30b01f08bc51c8da2ed11bbc89dba1f3a73dfbe7`) to the inspected application-source snapshot (`14dfff2b7a7049d4ac6285fe340b29c59ba5b595`) shows:
 
-- `main` is two commits ahead and has no commits behind the Phase 1 baseline.
-- The only changed/added path is `docs/product-alignment/phase-1/README.md`, the consolidated 1,707-line source-of-truth document.
-- No Android source commit exists after the Android Phase 1 pinned commit; branch comparison is identical.
-- No web or backend implementation file changed between the Phase 1 main commit and current main HEAD.
-
-Therefore Phase 1 implementation findings remain applicable to these source snapshots. Newer main commits are documentation changes, not implementation changes.
+- At that source snapshot, `main` was two commits ahead and had no commits behind the Phase 1 baseline.
+- The only changed/added path was `docs/product-alignment/phase-1/README.md`, the consolidated 1,707-line source-of-truth document.
+- No Android source commit existed after the Android Phase 1 pinned commit; branch comparison was identical.
+- No web/backend implementation file changed between the Phase 1 main pin and inspected application-source snapshot.
+- The Phase 2 document was subsequently committed at `25c031b2bda50a5daa9cda9cb62f2f4cd306a579`; that documentation commit is the current-main baseline for this revision, not the source snapshot used for code findings.
 
 ### 2.4 Verification limits
 
@@ -172,22 +173,45 @@ Do not use bare `null` to represent multiple meanings. Use an observation wrappe
 {"state":"RECORDED","value":"good","rawValue":null}
 ```
 
-| State | Meaning |
+| Observation state | Meaning |
 |---|---|
-| `RECORDED` | A caregiver recorded a value; `false` can be an explicit negative only if source capture proves it |
-| `UNKNOWN` | Explicitly unknown/not known |
-| `NOT_RECORDED` | No value was recorded |
-| `NOT_APPLICABLE` | Field does not apply, when explicitly indicated |
-| `UNVERIFIED` | A value was reported but its truth/verification is not established |
-| `LEGACY_AMBIGUOUS` | Old storage cannot distinguish an explicit value from a default or establish its meaning |
+| `RECORDED` | A value was explicitly captured; `value` is present and typed |
+| `UNKNOWN` | The caregiver explicitly indicated that the value is unknown/not known; no clinical value is inferred |
+| `NOT_RECORDED` | No value was captured; absence is not a negative answer |
+| `NOT_APPLICABLE` | The field does not apply and that fact is explicitly established |
+| `LEGACY_AMBIGUOUS` | Historical storage cannot distinguish an explicit choice from a default, placeholder, or missing value; preserve raw source data without asserting clinical meaning |
+
+**Verification is a separate property, never an observation state.** Where meaningful (for example, medication intake), use a sibling `verification` property: `VERIFIED`, `UNVERIFIED`, or `NOT_ASSERTED`. `UNVERIFIED` describes verification, not whether a value was recorded.
 
 For categorical values, preserve known canonical `value`; if a source value is unrecognized, retain exact `rawValue` and use a namespaced `OTHER` only if required. Do not coerce unfamiliar values to `UNKNOWN`.
 
 For booleans, `false` is an explicit negative only if the source UI/flow proves the caregiver actively selected “No”. Otherwise preserve it as `LEGACY_AMBIGUOUS`. Pain `0` is recorded zero only if the capture UI confirms it was intentionally selectable; otherwise preserve legacy ambiguity.
 
-Medication status (`TAKEN`, `MISSED`, `UNKNOWN`) and verification (`VERIFIED`, `UNVERIFIED`, `NOT_ASSERTED`) are independent. Android `UNSURE` is not `MISSED`; unverified `TAKEN` is not adherence evidence.
+Medication status (`TAKEN`, `MISSED`, `UNKNOWN`) and verification (`VERIFIED`, `UNVERIFIED`, `NOT_ASSERTED`) are independent dimensions. Android `UNSURE` maps to status `UNKNOWN`; verification remains `NOT_ASSERTED` unless separately evidenced. An unverified `TAKEN` mark is not verified-adherence evidence.
 
 ### 4.3 Canonical entity relationships
+
+### 4.3.1 Canonical identity, mapping and provenance
+
+These identifiers have distinct namespaces and must not be used interchangeably:
+
+| Identifier | Meaning | Authority / uniqueness |
+|---|---|---|
+| `sourcePlatform` | Origin application | Fixed vocabulary, e.g. `ANDROID` |
+| `sourceInstallationId` | Random app-generated namespace for one Android installation | Device-created; stable for that installation; not a hardware ID |
+| `sourceEntityId` | Original source-row ID | Source-owned; unique only with installation namespace and entity type |
+| `sourceVersion` | Source revision/fingerprint version | Same version must resolve to the same canonical payload digest |
+| `sourceIdentity` | `(sourcePlatform, sourceInstallationId, entityType, sourceEntityId)` | Durable origin key scoped to authenticated destination caregiver |
+| `canonicalEntityId` | Server-generated ID for imported server copy | Server-owned; never supplied as source identity |
+| `sourceRecipientId` | Original source parent ID | Interpreted only within source installation |
+| `targetRecipientId` | Mapped server recipient ID | Server-owned; must belong to authenticated caregiver |
+| `transferId` | Server transfer-session ID | Server-owned |
+| `transferItemId` | Stable ID for one transfer item | Stable across retries; session-scoped |
+| `chunkId` | Stable ID for one deterministic commit unit | Membership/order immutable across retries |
+
+Persist the complete source identity tuple, source version, payload digest, mapped destination recipient, canonical entity type and ID, first-importing transfer, and server acceptance timestamp. Enforce source-identity uniqueness within caregiver ownership. A source UUID, display name, date or destination UUID alone is insufficient for duplicate detection. Avoid generic `id` or `targetEntityId` where the namespace is unclear.
+
+
 
 ```mermaid
 erDiagram
@@ -232,7 +256,7 @@ Evidence: [backend Caregiver](https://github.com/alaa157/caregiver-daily-notes/b
 
 | Field | Type | Required? | Meaning / rule |
 |---|---|---:|---|
-| `id` | UUID string | Yes | Canonical server ID; source ID stored in provenance |
+| `canonicalEntityId` | UUID string | Yes | Server-generated ID; source ID stored in provenance |
 | `name` | string (backend max 120) | Yes | Nonblank display name |
 | `relationship` | string (backend max 80) | Optional | Exists backend-side; absent from Android Room; PO decision before adding to Android |
 | `lifecycle.state` | enum | Yes | Proposed `ACTIVE`, `ARCHIVED`, `DEACTIVATED`, `DELETION_REQUESTED`, `DELETED_TOMBSTONE`; approval pending |
@@ -249,7 +273,7 @@ Android `RecipientEntity` has `rowId`, `serverId`, nullable `localId`, `name`, `
 
 | Field | Type | Required? | Null/semantic rules |
 |---|---|---:|---|
-| `id` | UUID string | Yes | Canonical ID; source ID in provenance |
+| `canonicalEntityId` | UUID string | Yes | Server-generated ID for imported copy; source ID remains in provenance |
 | `recipientId` | UUID string | Yes | Parent recipient must belong to authenticated destination account |
 | `noteDate` | LocalDate | Yes | `YYYY-MM-DD`; preserve source calendar date |
 | `timeZoneId` | IANA zone | Recommended | Zone used for caregiver's local day; absent on legacy Android rows |
@@ -260,7 +284,7 @@ Android `RecipientEntity` has `rowId`, `serverId`, nullable `localId`, `name`, `
 | `observations.painScore` | Observation<integer> | Yes | 0–10 if explicitly recorded; preserve legacy ambiguity |
 | `observations.fallReported` | Observation<boolean> | Yes | `true` positive; legacy `false` semantics depend on capture path |
 | `observations.medication.status` | Observation<enum> | Yes | `TAKEN`, `MISSED`, `UNKNOWN` |
-| `observations.medication.verification` | enum | Yes | `VERIFIED`, `UNVERIFIED`, `NOT_ASSERTED`; Android lacks separate field |
+| `medicationIntake.verification` | enum | Conditional | `VERIFIED`, `UNVERIFIED`, `NOT_ASSERTED`; only meaningful for intake events; Android lacks a separate verification field |
 | `freeText` | string/explicit text state | Optional | Exact Unicode preserved |
 | `createdAt` | Instant | Optional for legacy Android | Backend has it; Android note row does not |
 | `updatedAt` | Instant | Optional | Prefer correction events instead of rewriting original |
@@ -279,7 +303,7 @@ Original note is immutable after creation. If direct editing is later allowed, r
 | `sourceField` | string | Optional | Original source field name |
 | `recordedAt` | Instant | Optional | Capture time if known |
 
-An explicit negative is `RECORDED,false`; it is not `NOT_RECORDED`. Explicit medication `unsure` becomes `UNKNOWN`/`UNVERIFIED`. Missing nullable backend field maps to `NOT_RECORDED` unless evidence establishes another state.
+An explicit negative is `RECORDED,false`; it is not `NOT_RECORDED`. Explicit medication `unsure` becomes status `UNKNOWN`; verification is `NOT_ASSERTED` unless separately evidenced. Missing nullable backend field maps to `NOT_RECORDED` unless evidence establishes another state.
 
 #### 4.4.5 Addendum/correction event
 
@@ -790,43 +814,33 @@ Preflight can become stale. Commit revalidates every field. Actual care content 
 
 **Idempotency:** GET is safe and repeatable. The preview is computed from the same stored manifest and current server state; if relevant target state changes, the server returns a new preview version/digest and requires the user to review it again. Preview does not import records.
 
-### 8.5 Submit/commit
+### 8.5 Confirm the exact previewed scope
 
-`POST /api/v1/transfers/sessions/{transferId}/commit` sends the canonical records. It is the first request containing note text/care content.
+Before care content is submitted, call `POST /api/v1/transfers/sessions/{transferId}/confirm` with the exact `previewVersion`/`previewDigest`, disclosure version, and ordered selected `transferItemId` set/digest. The server revalidates ownership, session state, expiry and preview freshness. A stale preview returns `409 PREVIEW_STALE` and requires a new preview and user review.
+
+**The client must not send `confirmedAt` as proof.** The authenticated confirmation request is the user action; the server records its own authoritative timestamp, account, device grant, disclosure version, preview digest, selected-item digest and confirmation ID. The returned opaque `confirmationId` is bound to that exact scope and cannot authorize a changed selection, account, disclosure or preview.
+
+### 8.6 Submit/commit in deterministic chunks
+
+`POST /api/v1/transfers/sessions/{transferId}/chunks/{chunkId}/commit` submits one immutable chunk and is the first request containing care content. Membership and order must match the frozen manifest and server-issued confirmation.
 
 **Authentication:** scoped transfer token.  
-**Headers:** `Idempotency-Key: <stable UUID>`, `Content-Type: application/json`.
+**Headers:** `Idempotency-Key: <stable chunk key>`, `Content-Type: application/json`.
 
 ```json
 {
   "schemaVersion": 1,
-  "consent": {
-    "confirmed": true,
-    "disclosureVersion": "transfer-disclosure-v1",
-    "confirmedAt": "2026-11-02T17:20:00Z",
-    "scopeDigest": "sha256:…"
-  },
+  "confirmationId": "server-issued-confirmation-id",
+  "chunkId": "stable-client-chunk-id",
   "records": [{
+    "transferItemId": "stable-client-transfer-item-id",
     "entityType": "DAILY_NOTE",
     "sourceEntityId": "f2a3b1a8-3fbb-4ef8-8ff5-1c03a511a100",
     "sourceVersion": 1,
     "contentHash": "sha256:…",
     "sourceRecipientId": "c0aa2a3b-2c2a-4a4d-b63f-7fabc1221000",
-    "payload": {
-      "schemaVersion": 1,
-      "noteDate": "2026-10-30",
-      "timeZoneId": "Africa/Cairo",
-      "observations": {
-        "mood":{"state":"RECORDED","value":"good"},
-        "appetite":{"state":"RECORDED","value":"reduced"},
-        "sleep":{"state":"RECORDED","value":"broken"},
-        "mobility":{"state":"RECORDED","value":"assisted"},
-        "painScore":{"state":"LEGACY_AMBIGUOUS","rawValue":"0"},
-        "fallReported":{"state":"LEGACY_AMBIGUOUS","rawValue":"false"},
-        "medication":{"status":{"state":"UNKNOWN"},"verification":"NOT_ASSERTED"}
-      },
-      "freeText": "Original text exactly as saved."
-    }
+    "targetRecipientId": "server-recipient-id-from-preview",
+    "payload": {"schemaVersion":1,"noteDate":"2026-10-30","timeZoneId":"Africa/Cairo","freeText":"Original text exactly as saved."}
   }]
 }
 ```
@@ -836,13 +850,15 @@ Response:
 ```json
 {
   "transferId": "b6cc0a7f-50a8-4f06-85e2-bbf1ac1b0912",
-  "state": "COMPLETED",
+  "chunkId": "stable-client-chunk-id",
+  "state": "COMMITTED",
   "acceptedAt": "2026-11-02T17:21:04Z",
   "counts": {"IMPORTED":1,"DUPLICATE_IDENTICAL":0,"CONFLICT":0,"REJECTED":0,"RETRYABLE_FAILURE":0},
   "items": [{
+    "transferItemId":"stable-client-transfer-item-id",
     "entityType":"DAILY_NOTE",
     "sourceEntityId":"f2a3b1a8-3fbb-4ef8-8ff5-1c03a511a100",
-    "targetEntityId":"6e63e950-3c0c-43f1-8e33-355f8c22be01",
+    "canonicalEntityId":"6e63e950-3c0c-43f1-8e33-355f8c22be01",
     "status":"IMPORTED",
     "code":"CREATED",
     "safeMessage":"Record imported.",
@@ -852,25 +868,26 @@ Response:
 }
 ```
 
-Batch states: `COMPLETED` when all items have terminal success/duplicate outcomes; `PARTIAL_SUCCESS` when independent groups have mixed outcomes; `FAILED` when none succeeded; `PROCESSING` while commit unresolved. Do not report success until the corresponding transaction commits.
+Chunk states: `PENDING`, `PROCESSING`, `COMMITTED`, `FAILED_RETRYABLE`, `FAILED_PERMANENT`. Session states: `CREATED`, `PREVIEW_READY`, `CONFIRMED`, `PROCESSING`, `PARTIAL_SUCCESS`, `COMPLETED`, `FAILED`, `CANCELLED`, `EXPIRED`. A chunk is terminal only after its DB transaction commits. A session is `COMPLETED` only when every selected item has a terminal accounted-for outcome; use `PARTIAL_SUCCESS` for mixed independent groups. Do not report completion while any chunk outcome is unknown.
 
 Errors include 401/403/404 for authorization and ownership, 409 for idempotency or source/date conflicts, 410 for expired session, 413/415 for payload constraints, 422 for canonical validation, 429 for rate limits and 5xx for retryable service failures. A failed atomic recipient group must have no imported child rows, while already committed independent groups retain their receipts.
 
 **Idempotency:** required `Idempotency-Key` plus canonical request digest. Repeated same key/body returns the original committed/pending receipt; same key/different body returns 409. Per-item origin uniqueness remains enforced even if a client mistakenly uses a new batch key.
 
-### 8.6 Status, history and cancellation
+### 8.7 Status, history and cancellation
 
 | Method/route | Purpose | Authentication | Response / validation |
 |---|---|---|---|
-| `GET /api/v1/transfers/sessions/{transferId}` | Reconcile status after timeout/restart | Scoped device token or same-account web JWT | State, counts, per-item results, retry flags, receipt version; owner-scoped 404 |
+| `GET /api/v1/transfers/sessions/{transferId}` | Reconcile status after timeout/restart | Scoped device token or same-account web JWT | Session state, manifest digest, confirmation state, chunk states, per-item results, retry flags and receipt version; owner-scoped 404 |
+| `GET /api/v1/transfers/sessions/{transferId}/chunks/{chunkId}` | Reconcile one uncertain chunk | Same scoped device token | Exact committed/pending/failed outcome and item receipts; owner-scoped 404 |
 | `GET /api/v1/transfers?cursor=&limit=` | Transfer history | Web JWT or scoped token | Paginated safe metadata, not free-text care contents |
 | `DELETE /api/v1/transfers/sessions/{transferId}` | Cancel uncommitted session | Scoped transfer token | Idempotent cancellation; 409 if committing/committed; no deletion of source or imported records |
 
 GET operations are read-only/idempotent and owner-scoped. `DELETE` cancellation is idempotent for an owned non-committed session; repeated calls return the same cancelled state. A cancellation request received after commit starts/finishes returns 409 and does not roll back imported data.
 
-### 8.7 Retry and idempotency
+### 8.8 Retry and idempotency
 
-`POST /api/v1/transfers/sessions/{transferId}/retry` retries only retryable items, and requires the original item payload (or a content-addressed staged payload if staging is later approved).
+`POST /api/v1/transfers/sessions/{transferId}/chunks/{chunkId}/retry` retries only retryable items in that immutable chunk, using original item payloads and original item identities.
 
 ```json
 {
@@ -899,7 +916,7 @@ This is abbreviated; production retry must include complete canonical content an
 
 The retry endpoint requires the scoped device token and `Idempotency-Key` (or `retryAttemptId` as the stable equivalent). Same retry ID + same item keys/digests returns the same retry result; changed content under that retry ID returns 409. The retry request must include the full canonical payload, not the abbreviated illustration above.
 
-### 8.8 Error response contract
+### 8.9 Error response contract
 
 ```json
 {
@@ -930,7 +947,7 @@ Never include conflicting note text or sensitive caregiver data in an error.
 | 429 | Rate limit/poll too fast | Respect `Retry-After` |
 | 500/502/503/504 | Server/upstream unavailable | Keep local data; query status and retry with same key/backoff |
 
-### 8.9 Authorization invariants
+### 8.10 Authorization invariants
 
 - `caregiverId` comes from verified JWT or scoped grant, never request JSON.
 - Every target recipient, source mapping, session, history query and child record is checked against authenticated caregiver.
@@ -945,6 +962,21 @@ Never include conflicting note text or sensitive caregiver data in an error.
 
 ## 9. Transfer architecture
 
+### 9.0 Session, manifest, chunk and receipt state machine
+
+1. Create and freeze the manifest, stable item IDs, source snapshot fingerprint and recipient mappings before network submission.
+2. Preview descriptors, ownership, duplicates, recipient/date collisions and dependencies. Preview uploads no note text and is versioned/digested.
+3. Confirm the exact preview, disclosure version, account and selected-item digest; server timestamps the confirmation.
+4. Partition deterministically into bounded chunks. Keep each recipient's parent/child dependency closure in one atomic unit for v1.
+5. Commit each chunk idempotently; validate confirmation scope, immutable membership, hashes, provenance and ownership before writing.
+6. After every timeout, reset or process death, query session/chunk status before retry. Timeout means `OUTCOME_UNKNOWN`, not failure.
+7. Retry only exact failed items/chunks with unchanged IDs, payload hashes, membership and idempotency keys. Changed source content requires a new snapshot, preview and confirmation.
+8. Finalize a per-item durable receipt. Local receipt stores IDs, references, outcomes and timestamps, never clinical text.
+
+A recipient dependency group is the minimum all-or-nothing unit. If it exceeds server limits, design explicit staging plus final atomic group commit; never silently split dependent writes. Persist idempotency outcomes in the same transaction boundary as imported records or an equivalent recoverable ledger. Cancellation after a chunk commits stops only unsubmitted chunks; it never rolls back committed data or deletes local records.
+
+
+
 ### 9.1 Options evaluated
 
 | Option | Description | Advantages | Risks / limitations | Decision |
@@ -956,7 +988,7 @@ Never include conflicting note text or sensitive caregiver data in an error.
 
 ### 9.2 Recommended workflow: explicit one-way copy
 
-The server receives a copy of a user-selected snapshot. It does not become authoritative for the Android Room database. The initial transfer is a one-time import operation, not a continuously running sync engine.
+The server receives a copy of a user-selected snapshot. It does not become authoritative for Android Room. The initial transfer is a one-time operation: session → immutable manifest → preview → server-recorded confirmation → deterministic atomic chunks → status reconciliation → durable receipt.
 
 1. **Connect account.** From Android, the caregiver chooses “Connect to web account.” Android opens the configured web origin in the system browser and starts a device-link flow using the OAuth device authorization flow. The user signs in or registers on the web site, reviews the Android app identity and approves a bounded transfer grant.
 2. **Bind local origin.** Android creates a random installation identifier (not a hardware identifier) and a local transfer-origin namespace. The account link stores only the server link ID, scoped grant/refresh material and expiry/revocation metadata in a dedicated encrypted credential store. This is distinct from AI BYOK storage.
@@ -1011,6 +1043,14 @@ No last-write-wins policy is recommended. The initial protocol should not update
 
 ### 9.7 Why direct API is preferred over uploading the Android backup
 
+### 9.7.1 Imported-record editing and revision policy
+
+Recommend that imported Android records are **read-only source copies in v1**, visibly retaining origin and import time. This is the safest default for a one-way copy while Android remains independently editable/offline.
+
+If web editing is later approved, each edit must create a server-owned revision/event with its own actor, timestamp and version history; it must not rewrite the original Android source revision. A later Android re-transfer of an unchanged source version is an identical duplicate. A changed Android source version becomes an explicit conflict and never silently overwrites a web-authored revision. This is a recommendation, not an approved requirement; see PO-23.
+
+
+
 The existing backup writer is designed for restore into a local Android Room database, not import into an account-owned server. It includes app-specific shape and semantics, excludes sync outbox/settings/tokens, and has a destructive replace-on-restore interpretation. Treating it as an import protocol would create an accidental “restore server from phone” contract and would couple server evolution to Android backup versioning. A separate canonical transfer envelope can reuse the concepts of schema version, stable IDs, payload digest and dependency validation without reusing the destructive restore semantics.
 
 ### 9.8 Local safety invariants
@@ -1048,6 +1088,12 @@ A practical browser-mediated flow:
 The transfer API is authorized with a transfer-scoped token. It does not need broad web application access such as recipient editing or plan mutation. The device grant is not an AI key and is not sent to an LLM provider.
 
 ### 10.3 Mapping and linking states
+
+### 10.3.1 Device authorization security requirements
+
+Use the OAuth 2.0 Device Authorization Grant where applicable; identify project-specific extensions rather than implying custom endpoints are standard OAuth. Before implementation define and test high-entropy device codes, short expiry, one-time approval, user-code brute-force/enumeration protection, rate-limited polling with server interval and `slow_down` behavior, denial/expiry, transfer-only audience/scope, short-lived access tokens, refresh rotation and replay detection if used, device/account revocation, account switching, and server-side revocation checks on every transfer operation. Never log device/refresh/access tokens, note text or API keys. A client-side revoked flag is not sufficient authorization enforcement.
+
+
 
 | State | Meaning | Android behavior | Web/account behavior |
 |---|---|---|---|
@@ -1400,24 +1446,33 @@ erDiagram
     instant createdAt
   }
   TRANSFER_ITEM {
-    uuid id PK
+    uuid transferItemId PK
     uuid sessionId FK
+    uuid chunkId
     string entityType
-    string sourceId
+    string sourceEntityId
+    string sourceRecipientId
+    string targetRecipientId
+    string canonicalEntityId
+    integer sourceVersion
     string result
     string payloadDigest
   }
   SOURCE_PROVENANCE {
     uuid id PK
-    string installationId
-    string sourceEntityType
+    string sourcePlatform
+    string sourceInstallationId
+    string entityType
     string sourceEntityId
-    string targetEntityId
+    integer sourceVersion
+    string canonicalEntityId
+    string targetRecipientId
     string payloadDigest
+    uuid firstTransferId
   }
 ```
 
-The ERD is a logical target, not a migration specification. `SUMMARY` is deliberately absent as a canonical persisted domain entity by default: existing summaries are generated results tied to a source window/evidence and may remain ephemeral unless a product requirement approves saving/sharing them as records. Transfer metadata/provenance are server and Android technical records, not replacements for clinical domain records.
+The ERD is a logical target, not a migration specification. `MEDICATION_SCHEDULE` is a proposed future normalized concept only, not a claim that Android stores a normalized schedule or exact dose times. Android currently stores free-text schedule information and a doses-per-day count with per-dose date marks. Preserve original text/count; do not infer clock times or verified ingestion. Medication transfer remains outside recommended v1 scope. `SUMMARY` is deliberately absent as a canonical persisted domain entity by default: existing summaries are generated results tied to a source window/evidence and may remain ephemeral unless a product requirement approves saving/sharing them as records. Transfer metadata/provenance are server and Android technical records, not replacements for clinical domain records.
 
 ### 13.4 Android-to-web transfer sequence
 
@@ -1545,7 +1600,7 @@ No recommendation below is an approved requirement. The implementation roadmap m
 | PO-09 | Android medication tracker has medication records and per-dose date marks; backend has no equivalent | Transfer tracker in v1; transfer later; never transfer | **Recommend defer medication tracker from v1** until schedule and mark semantics are approved. A mark must not become verified ingestion. Later transfer should include the medication record and dependent intake history together | Awaiting product-owner approval |
 | PO-10 | Android full backup includes meds/plans but no selected-record transfer exists | v1 recipients+notes+addenda; all record types; notes only | **Recommend recipients + notes + addenda in first transfer**, after addenda representation is approved. Keep plans, meds, summaries and files out until their mappings are lossless and previewed | Awaiting product-owner approval |
 | PO-11 | User may have multiple local care recipients | One recipient per session; multiple recipients per session | **Recommend API model support multiple recipients while v1 UI may restrict to one**. A multi-recipient transfer reduces effort but raises accidental disclosure blast radius; all recipients and child counts must appear before confirmation | Awaiting product-owner approval |
-| PO-12 | Android standalone mode has no server caregiver identity; backend requires authenticated caregiver | Browser device authorization; password sign-in inside Android; email link; one-time code | **Recommend browser-mediated OAuth device authorization**; no password form inside Android transfer code. User approves scope while authenticated on web. This requires new backend device-link capability | Awaiting product-owner approval |
+| PO-12 | Android standalone mode has no server caregiver identity; backend requires authenticated caregiver | Browser device authorization; password sign-in inside Android; email link; one-time code | **Recommend browser-mediated OAuth 2.0 Device Authorization Grant**, with project-specific extensions clearly documented; no password form inside Android transfer code. User approves scope while authenticated on web. This requires new backend device-link capability | Awaiting product-owner approval |
 | PO-13 | PostgreSQL env config exists; actual durability is unknown | Ephemeral demo server; managed durable DB; persistent volume with backups | **Recommend no production transfer launch until durable storage, backup, restore drill, retention and deletion guarantees are documented.** Demo transfers must be clearly labelled temporary | Awaiting deployment-owner confirmation |
 | PO-14 | Android CSV is note-only; web CSV not identified | Keep Android only; add web CSV; canonical CSV on both | **Recommend keep CSV as user-controlled spreadsheet export, distinct from inter-platform transfer.** Add web later only if product-owner wants that capability and field/unknown semantics are defined | Awaiting product-owner approval |
 | PO-15 | Android backup/restore is full local archive with destructive replacement confirmation; web has no user-level equivalent | Server-managed backup only; user export/restore; both | **Recommend preserve Android backup and add web export only as a separately designed server archive**, not as mobile sync or a Room restore file. Requires restore ownership and migration policy | Awaiting product-owner approval |
@@ -1556,13 +1611,14 @@ No recommendation below is an approved requirement. The implementation roadmap m
 | PO-20 | Legacy source IDs can be preserved but local IDs are not all explicitly globally namespaced | Stable source installation + source entity IDs; rewrite all IDs; natural keys | **Recommend retain source IDs with installation namespace and server-generated canonical IDs**, plus permanent provenance mapping. Never rewrite IDs in Room as a side effect of transfer | Awaiting product-owner approval |
 | PO-21 | Existing safety indicators have no evident caregiver acknowledgement/dismissal model in the canonical contract | No acknowledgement; user acknowledgement; dismiss with reason and expiry | **Recommend separate acknowledgement metadata from deterministic signal identity**, never allow acknowledgement to remove the underlying computed signal. Requires UX and audit semantics | Awaiting product-owner approval |
 | PO-22 | AI summaries are generated outputs with source evidence; not established as persisted source records in Android or web | Transfer summary artifacts; regenerate on web; do not transfer | **Recommend do not transfer model-generated summary text in v1**; transfer source notes and regenerate web summaries under web AI policy. If a summary later becomes a user-authored/exported record, define it as a snapshot with prompt/model/version provenance | Awaiting product-owner approval |
+| PO-23 | Imported Android records are one-way server copies; web editability is undefined | Read-only in v1; server-owned revisions; bidirectional editing | **Recommend read-only imported copies in v1**. If web editing is later approved, preserve distinct server revision history and treat later Android uploads as explicit source-revision conflicts; never silently overwrite either side | Awaiting product-owner approval |
 
 ### 14.1 Product decision gates
 
 The following approvals block later design freeze:
 - **Before canonical schema freeze:** PO-01, PO-02, PO-04, PO-05, PO-06, PO-07, PO-08, PO-20.
 - **Before transfer MVP scope freeze:** PO-09, PO-10, PO-11, PO-12, PO-13.
-- **Before wider parity roadmap:** PO-14 through PO-19, PO-21, PO-22.
+- **Before wider parity roadmap:** PO-14 through PO-19, PO-21 through PO-23.
 
 A decision recorded later must update the relevant schema, API examples, test vectors and roadmap tasks together. A recommendation in this document is not enough to authorize implementation.
 
@@ -1824,15 +1880,39 @@ Every future implementation report must list exact command, environment, test ta
 
 ### 18.2 Phase 2 completion and limitations
 
-This document defines a recommended target architecture and implementation roadmap; it does not implement or authorize any code change. Source findings are pinned to Android commit `21876285ad808a6518593ea3974c51b6b1f6bb31` and web/backend commit `14dfff2b7a7049d4ac6285fe340b29c59ba5b595`. The complete Phase 1 source of truth at `docs/product-alignment/phase-1/README.md` was read through its final line, including the consolidated product specification and findings.
+This document defines a recommended target architecture and implementation roadmap; it does not implement or authorize any application code change. Source findings are pinned to Android commit `21876285ad808a6518593ea3974c51b6b1f6bb31` and web/backend application-source commit `14dfff2b7a7049d4ac6285fe340b29c59ba5b595`. The Phase 2 document itself was on `main` at `25c031b2bda50a5daa9cda9cb62f2f4cd306a579` before this correction.
 
 Static source inspection was used. No Android build, backend build, test suite, browser test, device test, migration run, deployment restore or live network transfer was executed in this phase. Runtime and deployment claims remain labelled unknown/unverified. The diagrams and API are proposals; they are not current endpoints or schema migrations.
 
-**Repository handling:** this deliverable is prepared as a local Markdown file at the requested repository-relative path. No application source, configuration, Room/JPA schema, migration, API implementation, Phase 1 document, branch, commit or GitHub repository content was changed by this work. It has not been committed or pushed.
+**Repository handling:** this revision changes this Phase 2 Markdown document only. It does not change application source, configuration, Room/JPA schema, migrations, API implementation, Phase 1 or the Android branch. These corrections are proposals, not implementation authorization.
 
 ---
 
 ## Evidence index
+
+## Decision status vocabulary
+
+- **Verified** — directly supported by the pinned source snapshot or repository metadata.
+- **Proposed** — recommended target behavior/API/schema; not implemented.
+- **Awaiting product-owner approval** — a product choice remains open; implementation must not assume approval.
+- **Awaiting security review** — protocol/security design requires review before implementation.
+- **Awaiting clinical review** — clinically interpreted rules, thresholds or adherence semantics require qualified review.
+- **Unverified** — runtime, deployment or operational behavior was not tested or cannot be established from source.
+
+| Area | Status | Required gate |
+|---|---|---|
+| Android Room is primary local store; core app works offline | Verified in inspected source snapshot | Recheck on source changes |
+| BYOK credentials/prompts excluded from transfer | Proposed | Security tests |
+| One-way user-confirmed Android-to-web copy | Proposed | Product-owner approval |
+| Canonical/source/transfer identity namespaces | Proposed explicit contract | Schema/API review |
+| Observation state vs verification status | Proposed explicit contract | Product/clinical review |
+| Manifest/preview/confirmation/chunk/reconciliation | Proposed protocol | Backend/API/security review |
+| Imported-copy editability | Read-only v1 recommendation | PO-23 |
+| Medication normalized schedule | Future concept, not current Android schema | PO-09 and clinical/product review |
+| Server persistence, backups and restore | Unverified | Deployment evidence and restore drill |
+| Builds, tests, APK behavior and live transfer | Not executed in this phase | CI/device/staging verification |
+
+
 
 The following links are pinned to the inspected branch commits. Line numbers are provided where identified during source inspection; paths without line numbers are still exact source files.
 
@@ -1842,8 +1922,10 @@ The following links are pinned to the inspected branch commits. Line numbers are
 |---|---|
 | Complete Phase 1 baseline | [`docs/product-alignment/phase-1/README.md`](https://github.com/alaa157/caregiver-daily-notes/blob/14dfff2b7a7049d4ac6285fe340b29c59ba5b595/docs/product-alignment/phase-1/README.md) |
 | Android branch HEAD | [`feat/standalone-byok-ai`](https://github.com/alaa157/caregiver-daily-notes/tree/21876285ad808a6518593ea3974c51b6b1f6bb31) |
-| Web/backend branch HEAD | [`main`](https://github.com/alaa157/caregiver-daily-notes/tree/14dfff2b7a7049d4ac6285fe340b29c59ba5b595) |
-| Main history since Phase 1 pin | [Compare historical main to current main](https://github.com/alaa157/caregiver-daily-notes/compare/30b01f08bc51c8da2ed11bbc89dba1f3a73dfbe7...14dfff2b7a7049d4ac6285fe340b29c59ba5b595) |
+| Web/backend application-source snapshot inspected | [`main`](https://github.com/alaa157/caregiver-daily-notes/tree/14dfff2b7a7049d4ac6285fe340b29c59ba5b595) |
+| Current main HEAD before this revision | [`main`](https://github.com/alaa157/caregiver-daily-notes/tree/25c031b2bda50a5daa9cda9cb62f2f4cd306a579) |
+| Main history from Phase 1 pin to inspected source snapshot | [Compare source snapshots](https://github.com/alaa157/caregiver-daily-notes/compare/30b01f08bc51c8da2ed11bbc89dba1f3a73dfbe7...14dfff2b7a7049d4ac6285fe340b29c59ba5b595) |
+| Phase 2 document commit before this revision | [`25c031b`](https://github.com/alaa157/caregiver-daily-notes/commit/25c031b2bda50a5daa9cda9cb62f2f4cd306a579) |
 
 ### Android data, offline architecture and BYOK
 
