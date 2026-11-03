@@ -331,6 +331,10 @@ Resolve the product decisions that affect Web domain semantics and produce an ap
 
 **Priority:** P0 — Critical foundation
 
+**WP-01 decision record:** [`wp-01/README.md`](wp-01/README.md)
+
+**Status (2026-11-03):** Owner decisions and semantic contract are recorded. PO-24 BYOK-only is approved; direct browser-to-provider remains conditional pending formal engineering/security and privacy review. PO-07 requires clinical review, and PO-13 requires deployment evidence. WP-02 schema changes remain blocked on duplicate and ambiguous-legacy-data preflight.
+
 **Why this phase comes now**
 
 The Web already stores real caregiver records. Changing nullability, lifecycle, uniqueness, corrections, or safety behavior without an approved meaning risks corrupting historical information. This phase prevents feature work from hard-coding assumptions that later require destructive migrations.
@@ -352,7 +356,8 @@ The Web already stores real caregiver records. Changing nullability, lifecycle, 
    - PO-17 Web theme/palette.
    - PO-18 Web medication parity.
    - PO-19 capability parity versus full feature parity.
-   - PO-21 safety acknowledgement/dismissal.
+   - PO-21 safety acknowledgement (acknowledgement does not dismiss or hide the signal).
+   - PO-13 server persistence, backup, restore, retention, and deletion guarantees.
    - PO-24 Web BYOK-only AI policy (already approved by the product owner; WP-01 must record the decision and resolve the remaining technical security/execution details without reopening the approved BYOK-only product policy).
 2. Record which decisions are approved, deferred, or rejected, with owner, rationale, date, and downstream impact. Record PO-24 as **APPROVED — Web BYOK only**; do not offer or implement an application-managed AI option.
 3. Define a Web domain glossary and field semantics for recipient, note, observation, verification, addendum/correction, plan/version, medication/intake, summary/evidence, safety signal, and date/time.
@@ -402,7 +407,9 @@ No exact source file is prescribed before the implementation team verifies curre
 - Clinical rule changes have a named review requirement.
 - Web BYOK-only policy is recorded as approved; no app-managed provider or fallback exists in the target contract.
 - Web key custody, execution boundary, storage/transmission, account isolation, consent/disclosure, redaction, and key-removal behavior are documented and security-reviewed.
+- PO-24's technical execution direction remains conditional until the engineering/security and privacy gates in [`wp-01/README.md`](wp-01/README.md) pass.
 - Android and Web BYOK credentials/configuration remain separate and are never synchronized.
+- PO-13 is recorded as a production gate; deployment-owner evidence is required before durability claims.
 - CSV, full backup/restore, and transfer are explicitly treated as separate capabilities.
 
 **Automated testing**
@@ -428,7 +435,7 @@ No exact source file is prescribed before the implementation team verifies curre
 
 **Exit criteria**
 
-The domain contract and decision log are approved or each unresolved item has an explicit safe deferral. WP-02 can begin only for fields and rules whose semantics are settled.
+The domain contract and decision log are recorded in [`wp-01/README.md`](wp-01/README.md). WP-02 may begin with read-only inventories and fixture preparation; schema changes require duplicate preflight and safe legacy-data handling. Clinical rule activation, Web BYOK integration, and production durability claims remain blocked until the reviews and evidence listed in the decision record are complete.
 
 ---
 
