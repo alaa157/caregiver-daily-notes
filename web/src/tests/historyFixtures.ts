@@ -9,6 +9,7 @@ export function correctionHistoryFixture() {
     return [field, {
       state: observation.state,
       value: observation.state === 'RECORDED' ? observation.value : null,
+      rawValue: observation.rawValue ?? null,
       lastOperation: null,
       eventId: null,
       actorId: null,
