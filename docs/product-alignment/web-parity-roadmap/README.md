@@ -16,7 +16,7 @@ The objective is **capability and semantic parity**, not identical screens, data
 
 - Android remains a standalone, offline-first application using Room as its primary local store.
 - Android BYOK provider credentials, prompts, consent, and configuration remain on-device and are never sent to the Web backend.
-- Web remains an authenticated React/TypeScript application backed by Spring Boot and PostgreSQL, with backend-managed AI.
+- Web remains an authenticated React/TypeScript application backed by Spring Boot and PostgreSQL, and uses **BYOK exclusively** for AI. Each Web caregiver supplies and controls their own provider credentials.
 - Both platforms should represent the same care concepts consistently: recipients, daily notes, observations, unknown and missing values, addenda, plans, medication events, dates, safety evidence, and history.
 - Existing working Web capabilities must be preserved and improved, not replaced merely to resemble Android.
 - Historical records, corrections, uncertainty, and provenance must remain traceable.
@@ -47,7 +47,7 @@ The recommended sequence is:
 1. Resolve decisions that affect data meaning and define a Web parity contract.
 2. Align recipient, note, observation, addendum, date, and lifecycle semantics with safe database migrations.
 3. Complete the everyday caregiver workflow using the existing Web application.
-4. Align deterministic safety evaluation, summary evidence, and AI failure behavior while keeping provider architectures separate.
+4. Align deterministic safety evaluation, summary evidence, and AI failure behavior while implementing BYOK on both platforms with separate platform-specific credential boundaries.
 5. Align care-plan structures and version history.
 6. Add medication management only after schedule and intake semantics are approved.
 7. Add Web CSV import/export as a separate portability capability.
@@ -87,7 +87,9 @@ This roadmap does **not** authorize or include:
 - Automatic synchronization or bidirectional synchronization.
 - Android Room replacement or migration to a shared remote database.
 - Making Android dependent on a Web account or internet access.
-- Sending Android BYOK credentials, custom prompts, provider URLs, or AI preferences to the backend.
+- Sending Android BYOK credentials, custom prompts, provider URLs, or AI preferences to the Web platform or backend.
+- Sharing Android and Web provider credentials or silently using an application-managed/shared AI provider on Web.
+- Using an application-owned API key, pooled provider account, or backend-managed AI fallback for Web AI.
 - A shared runtime database or a shared implementation language across platforms.
 - Rewriting functioning Web features without a demonstrated parity or correctness reason.
 - Clinical policy changes without appropriate clinical review and product-owner approval.
@@ -99,7 +101,7 @@ CSV, a full Web backup, and Android-to-Web transfer are three distinct capabilit
 1. Android Room remains the primary Android data store.
 2. Android remains usable offline for core local workflows.
 3. Android BYOK stays local and provider-specific.
-4. Web continues to use authenticated backend-managed AI.
+4. Web uses authenticated BYOK-only AI: the caregiver supplies their own provider credentials; no application-managed/shared provider or fallback is permitted. The exact secure key-execution and custody design must be approved in WP-01.
 5. PostgreSQL remains the Web persistence layer.
 6. Platform-specific UI and storage are acceptable when data meaning and user-visible outcomes are compatible.
 7. Historical data and provenance are preserved.
@@ -205,7 +207,7 @@ The Web application already includes:
 - Care-plan generation and version-oriented backend structures.
 - Typed React API modules and a Spring Boot service/API architecture.
 - PostgreSQL persistence and Flyway-managed migrations.
-- Backend-managed AI provider configuration and execution.
+- Existing Web backend-managed AI provider configuration and execution (historical baseline to be replaced by the approved BYOK-only target).
 
 These are not to be recreated. The implementation work should focus on missing workflow states, semantic alignment, completeness, and reliability.
 
@@ -219,7 +221,7 @@ These are not to be recreated. The implementation work should focus on missing w
 - Android and backend safety evaluators use different signals and rules. Neither is automatically a clinically approved standard.
 - Android care-plan items include free-text content; backend plans use structured action types and parameters.
 - Android has a medication catalogue and per-dose intake marks; Web/backend has no equivalent medication domain.
-- Android BYOK and Web backend-managed AI are intentionally different and must remain separate.
+- Phase 1 documented Android BYOK versus Web backend-managed AI as a current implementation difference. The approved roadmap target is BYOK on both platforms, with separate credentials and platform-specific secure execution.
 - Web lacks Android's theme/palette, CSV, full backup/restore, PDF/share, and medication workflows.
 - Web localization has English/Arabic language choice, but RTL and mixed-direction behavior need improvement.
 - Deployment durability, operational backup, and restore guarantees are not established merely by PostgreSQL configuration.
@@ -267,16 +269,22 @@ These are not to be recreated. The implementation work should focus on missing w
 
 ### 5.4 AI summaries and care-plan generation
 
-**Preserve:** Web backend-managed AI provider chain, server-side secrets, summary endpoint, plan-generation endpoint, and Web-specific prompt ownership.
+**Preserve:** Existing Web summary and plan-generation capabilities, evidence handling, and Web-specific prompt ownership while replacing the existing backend-managed provider configuration with a BYOK-only provider flow.
+
+**Target AI policy — approved:** Web AI is BYOK only. Each caregiver supplies their own API key for a supported provider. There is no application-managed AI mode, no shared application API key, no pooled provider account, and no silent fallback to an app-provided service. Android and Web credentials/configuration remain separate; neither platform imports or synchronizes the other's secrets.
 
 **Improve:**
 - Align the meaning of summary fields, evidence references, uncertainty, and source transcript selection.
 - Make provider unavailable, timeout, malformed response, and validation failure explicit states.
 - Never label an unavailable/error message as an AI-generated summary.
 - Do not send a failed summary placeholder into plan generation as if it were evidence.
-- Preserve backend ownership of Web AI configuration.
+- Provide Web-specific BYOK settings for provider selection, API key, model, and provider-specific base URL/options where supported.
+- Define explicit connection testing, key replacement/removal, invalid-key handling, provider timeout, rate-limit, malformed-response, and unavailable states.
+- Decide and document the secure execution/key-custody boundary before implementation: direct browser-to-provider execution versus a narrowly scoped backend-mediated request path. Evaluate provider CORS/API support, exposure risks, account isolation, operational logging, and user privacy. Do not assume browser storage or a backend proxy is safe by default.
+- If any backend-mediated path is selected, it must use only the requesting caregiver's supplied key, must not use an application-owned provider key, and must not persist or log the key. Define how the key is transmitted, held, redacted, and discarded.
+- Never silently fall back from BYOK to an application-managed provider when a user key fails or a provider is unavailable.
 
-**Remain platform-specific:** Android BYOK provider settings, keys, private provider URL, consent, and custom prompts remain on Android. Web does not need to reproduce Android's BYOK controls.
+**Remain platform-specific:** Android and Web each have their own BYOK settings and credentials. Web must not import Android keys/configuration, and Android must not depend on Web settings. UI and secure storage/execution mechanisms may differ by platform.
 
 ### 5.5 Care plans
 
@@ -345,12 +353,15 @@ The Web already stores real caregiver records. Changing nullability, lifecycle, 
    - PO-18 Web medication parity.
    - PO-19 capability parity versus full feature parity.
    - PO-21 safety acknowledgement/dismissal.
-2. Record which decisions are approved, deferred, or rejected, with owner, rationale, date, and downstream impact.
+   - PO-24 Web BYOK-only AI policy (already approved by the product owner; WP-01 must record the decision and resolve the remaining technical security/execution details without reopening the approved BYOK-only product policy).
+2. Record which decisions are approved, deferred, or rejected, with owner, rationale, date, and downstream impact. Record PO-24 as **APPROVED — Web BYOK only**; do not offer or implement an application-managed AI option.
 3. Define a Web domain glossary and field semantics for recipient, note, observation, verification, addendum/correction, plan/version, medication/intake, summary/evidence, safety signal, and date/time.
-4. Define legacy handling for values that cannot be safely interpreted.
-5. Establish an API compatibility policy and migration principles for the Web stack.
-6. Define the minimum caregiver workflows that must work end-to-end before parity is declared.
-7. Explicitly classify Android-specific features that do not require a Web equivalent.
+4. Produce a Web BYOK security and execution decision record covering provider support, key custody, browser-versus-backend execution, transmission, storage lifetime, redaction, account isolation, consent/disclosure, key removal, and failure behavior. Keep the approved BYOK-only policy fixed; only the technical implementation details remain open.
+5. Define the Web AI settings and user experience contract, including provider/model/base URL options where supported, connection test, key replacement/removal, and clear provider-failure states.
+6. Define legacy handling for values that cannot be safely interpreted.
+7. Establish an API compatibility policy and migration principles for the Web stack.
+8. Define the minimum caregiver workflows that must work end-to-end before parity is declared.
+9. Explicitly classify Android-specific features that do not require a Web equivalent.
 
 **Affected domains**
 
@@ -366,7 +377,7 @@ No exact source file is prescribed before the implementation team verifies curre
 
 - None. This is the entry phase.
 - Clinical review is required for PO-07 and any clinical interpretation of observation/safety semantics.
-- Product-owner approval is required for all listed PO decisions before their dependent behavior is frozen.
+- Product-owner approval is required for all unresolved listed PO decisions before their dependent behavior is frozen. PO-24's BYOK-only policy is already approved; its technical execution/security details still require an explicit documented decision and review.
 
 **Parallelizable work**
 
@@ -389,7 +400,9 @@ No exact source file is prescribed before the implementation team verifies curre
 - Date-only values and instants are explicitly distinguished.
 - Recipient lifecycle and note cardinality are unambiguous or explicitly deferred with a safe implementation boundary.
 - Clinical rule changes have a named review requirement.
-- Web AI and Android BYOK boundaries are documented.
+- Web BYOK-only policy is recorded as approved; no app-managed provider or fallback exists in the target contract.
+- Web key custody, execution boundary, storage/transmission, account isolation, consent/disclosure, redaction, and key-removal behavior are documented and security-reviewed.
+- Android and Web BYOK credentials/configuration remain separate and are never synchronized.
 - CSV, full backup/restore, and transfer are explicitly treated as separate capabilities.
 
 **Automated testing**
@@ -655,7 +668,7 @@ The core caregiver journey works end-to-end on Web with stable data semantics, r
 
 **Objective**
 
-Make Web safety outputs and AI summaries consistent in meaning, evidence, uncertainty, and failure behavior while retaining Web's backend-managed AI architecture.
+Make Web safety outputs and AI summaries consistent in meaning, evidence, uncertainty, and failure behavior using Web's approved BYOK-only AI architecture.
 
 **Priority:** P0 — Critical correctness and trust
 
@@ -686,12 +699,14 @@ Safety indicators and generated summaries can influence caregiver decisions. The
    - Validate that each evidence reference resolves to an actual source record.
    - Keep unsupported or absent facts explicitly absent/uncertain.
 5. **AI provider and failure behavior**
-   - Keep Web provider configuration server-side.
-   - Preserve Android BYOK separation; do not add Android key import or prompt sync.
+   - Implement the approved Web BYOK-only provider flow; do not add an application-managed/shared provider key or fallback.
+   - Keep Web and Android BYOK credentials/configuration separate; do not add Android key import, Web key import, or prompt/credential synchronization.
+   - Use the WP-01-approved execution and key-custody boundary. Enforce per-caregiver isolation and ensure secrets are not written to application logs, analytics, exports, or backups.
+   - Provide explicit key entry, replacement, removal, and connection-test behavior. Do not store plaintext keys in ordinary browser storage. Any persistent storage or backend-mediated handling requires the security controls approved in WP-01.
    - Distinguish provider unavailable, timeout, invalid response, validation failure, and successful generation.
    - Never mark an error string such as “AI unavailable” as a generated summary.
    - Do not feed fallback/error text into care-plan generation as source evidence.
-   - Ensure consent/privacy disclosure for Web server-side processing is clear and approved.
+   - Ensure provider disclosure and consent are clear: identify the selected provider and explain that the caregiver's care data will be sent to that provider when they request AI processing. Disclose the actual execution path selected in WP-01.
 6. **Observability**
    - Log safe operational metadata without clinical note text or secrets.
    - Track provider failures and validation failures without leaking prompt content or credentials.
@@ -707,7 +722,7 @@ Safety indicators and generated summaries can influence caregiver decisions. The
 - WP-01 PO-07 and PO-21 decision status.
 - WP-02 note/addendum/date semantics.
 - Clinical review for thresholds, text-pattern signals, and clinically interpreted rules.
-- Security/privacy review of Web AI data processing.
+- Security/privacy review of Web BYOK key custody, execution path, provider disclosure, and caregiver-data processing.
 
 **Parallelizable work**
 
@@ -720,7 +735,7 @@ Safety indicators and generated summaries can influence caregiver decisions. The
 - Versioned approved safety rule specification.
 - Backend evaluator aligned to approved fixtures.
 - Summary source/evidence contract.
-- Explicit AI failure states and safe fallback behavior.
+- Explicit BYOK provider failure states and safe retry behavior; no app-managed AI fallback.
 - Web summary evidence navigation and privacy disclosures.
 
 **Acceptance criteria**
@@ -734,6 +749,9 @@ Safety indicators and generated summaries can influence caregiver decisions. The
 - AI provider failure is never displayed as a successful generated summary.
 - Failed/unavailable summary content is never passed to plan generation as evidence.
 - No Android BYOK secret, prompt, or consent setting is transmitted to Web.
+- Web BYOK credentials are isolated per caregiver and never exposed to another account, logs, analytics, exports, or backups.
+- No application-managed/shared provider key or silent AI fallback is used on Web.
+- The Web AI execution path matches the WP-01-approved security decision.
 - Clinical and privacy reviewers approve the applicable rule and disclosure changes.
 
 **Automated testing**
@@ -1397,7 +1415,7 @@ Individual phase completion is not proof of overall parity. A final verification
 3. Run cross-platform fixtures for recipients, notes, observation states, dates, addenda, safety, summaries, plans, and medication if implemented.
 4. Verify data preservation through Web migrations and export/restore workflows.
 5. Run API, security, accessibility, localization, performance, and end-to-end suites.
-6. Confirm no Android BYOK data is exposed through Web API, logs, or backup payloads.
+6. Confirm neither platform's BYOK credentials/configuration are imported into or exposed through the other platform's APIs, logs, analytics, exports, or backup payloads.
 7. Verify Web deployment durability and operational backup/restore separately from application-level backup.
 8. Produce a release report with known limitations and explicit deferred items.
 9. Confirm that no transfer-specific implementation was introduced under the parity scope.
@@ -1541,7 +1559,7 @@ Medication is gated by its own decisions and clinical review. It does not have t
 
 ## 8. Product-Owner Decisions
 
-All PO IDs below originate in Phase 2 and are carried forward in Phase 3A. Their recommendations remain proposals unless the product owner explicitly approves them.
+PO-01 through PO-23 originate in Phase 2 and are carried forward in Phase 3A. PO-24 is a roadmap-specific decision added after the product owner's explicit direction on 2026-11-03. Recommendations remain proposals unless explicitly approved; PO-24 is approved only for the BYOK-only product policy, not for a specific technical key-custody implementation.
 
 | Decision | Roadmap impact | Blocks | Can proceed without resolution |
 |---|---|---|---|
@@ -1568,6 +1586,7 @@ All PO IDs below originate in Phase 2 and are carried forward in Phase 3A. Their
 | PO-21 — Safety acknowledgement/dismissal | Determines whether caregivers can acknowledge signals and how this is audited | Optional acknowledgement part of WP-04 | Deterministic signal correctness |
 | PO-22 — Transfer of generated AI summaries | Transfer scope only | No Web parity phase; WP-04 still aligns summary semantics | All Web parity phases |
 | PO-23 — Imported Android record editability | Transfer/import policy only | Future transfer/import design | Native Web record editing and all Web parity phases |
+| PO-24 — Web AI provider policy: BYOK only | **APPROVED** — Web AI must use caregiver-supplied provider credentials exclusively; no application-managed/shared provider key, pooled account, or silent fallback | WP-01 records the approved policy and decides the technical execution/key-custody design; WP-04 implements it | AI summaries, plan generation, provider settings, security/privacy review, and all Web AI acceptance criteria |
 
 ### 8.1 Proposed recommendations that still require approval
 
@@ -1581,6 +1600,7 @@ The roadmap generally carries forward Phase 2's recommendations. It does not con
 - A structured plan action catalogue with safe preservation of unmappable text is recommended, but PO-08 remains awaiting approval.
 - Web CSV, Web backup/restore, Web PDF/reporting, theme/palette, and medication parity remain conditional on PO-14 through PO-18.
 - Capability parity rather than pixel/UI parity is recommended under PO-19.
+- Web BYOK-only AI is an approved product decision under PO-24. The browser-versus-backend execution path, key lifetime/storage, and provider-specific support remain technical decisions for WP-01.
 
 **No Phase 2 recommendation is an approved product requirement unless the product owner has separately recorded approval.**
 
@@ -1605,7 +1625,9 @@ These gates apply to every phase and are mandatory at WP-11.
 - Every recipient and child record is scoped to the authenticated caregiver on the server.
 - Authorization is enforced in backend services, not only hidden in React.
 - No secrets, passwords, JWTs, provider keys, or private prompts appear in logs or archives.
-- AI processing disclosures and consent behavior are explicit and reviewed.
+- BYOK provider selection and data-processing disclosure/consent are explicit and reviewed.
+- Web API keys are caregiver-supplied, isolated per caregiver, excluded from logs/analytics/exports/backups, and handled only through the WP-01-approved secure execution boundary.
+- No application-managed/shared AI provider or silent fallback is available.
 - Reports and backup files are private and protected against unintended public access.
 - Destructive operations require appropriate confirmation and server-side authorization.
 - Audit logs contain safe metadata, not care-note text or credentials.
@@ -1698,7 +1720,8 @@ Web parity is complete enough to resume planning the separate cross-platform tra
 11. Web localization, accessibility, responsive behavior, and core interaction states pass their release gates.
 12. Web database migrations and backup/restore are demonstrated against representative existing data.
 13. Security and ownership controls pass.
-14. No Android BYOK configuration or credentials enter Web.
+14. Web and Android use separate BYOK credentials/configuration; neither platform imports or exposes the other's secrets.
+15. Web AI is BYOK-only, with no app-managed/shared provider key or silent fallback.
 15. The updated 33-row matrix preserves Phase 1's historical baseline and documents each current row as equivalent, platform-specific, approved deferred, or remaining gap.
 
 ### 10.2 Capabilities that may remain platform-specific
@@ -1708,6 +1731,7 @@ These do not block Web parity if the product owner accepts the distinction:
 - Android Room storage and offline-first local operation.
 - Android native navigation, device lifecycle, and OS integrations.
 - Android BYOK provider/key/model/base URL configuration, consent, and custom prompts.
+- Web BYOK provider/key/model/base URL configuration and Web-specific consent/disclosure, using its separately approved secure execution/key-custody design.
 - Android-native local backup/restore implementation details.
 - Android app updater and app-store update behavior.
 - Android-specific backend URL/connection selection.
@@ -1754,7 +1778,7 @@ Do not begin by implementing medication, backup, CSV import, or UI redesign. The
 3. Confirm the treatment of PO-03 historical dates and PO-13 operational durability.
 4. Produce the field glossary and legacy-value handling table.
 5. Define representative test fixtures before any schema migration.
-6. Obtain clinical review for safety semantics and privacy review for Web AI processing.
+6. Obtain clinical review for safety semantics and security/privacy review for Web BYOK key custody, execution path, provider disclosure, and caregiver-data processing.
 7. Only then begin WP-02 for the approved domain areas.
 
 ### Must not be included in WP-01
@@ -1858,7 +1882,9 @@ Priority is based on data integrity, clinical correctness, security, caregiver v
 |---|---|---|
 | Primary persistence | Room | PostgreSQL through Spring Boot |
 | Offline behavior | Core care workflows remain offline-first | Authenticated backend-dependent application |
-| AI provider architecture | Standalone BYOK, credentials/configuration on device | Backend-managed provider configuration |
+| AI provider architecture | Standalone BYOK, credentials/configuration on device | BYOK only; caregiver-supplied provider credentials, with Web-specific secure execution/key custody |
+| AI mode policy | BYOK only | BYOK only; no app-managed/shared provider or fallback |
+| Secrets | Android Keystore-backed provider credential storage | Web-specific secure handling decision required; no plaintext browser storage, logs, analytics, exports, or backups |
 | Secrets | Android Keystore-backed provider credential storage | Server-side secrets/environment configuration |
 | UI | Kotlin/Jetpack Compose and native navigation | React/TypeScript and browser routes |
 | Backup implementation | Android-specific local archive and restore | Separate Web account archive/restore |
@@ -1880,7 +1906,8 @@ Before any phase is approved for implementation, verify:
 - [ ] Existing Web capabilities are preserved unless a specific replacement is approved.
 - [ ] Android remains Room-based and offline-first.
 - [ ] Android BYOK credentials/configuration remain private to Android.
-- [ ] Web remains React/Spring Boot/PostgreSQL with backend-managed AI.
+- [ ] Web remains React/Spring Boot/PostgreSQL with BYOK-only AI; no application-managed/shared provider or silent fallback.
+- [ ] Web and Android BYOK credentials/configuration remain separate and are handled through their respective approved security boundaries.
 - [ ] CSV, full backup/restore, and transfer remain separate.
 - [ ] No transfer sessions, device linking, manifests, chunks, receipts, or synchronization are included.
 - [ ] Every implementation phase has dependencies, deliverables, acceptance criteria, tests, manual verification, risks, and exit criteria.
