@@ -1,10 +1,20 @@
 import { ApiError, type ApiClient } from '../lib/api';
 import { isRecipientId } from './recipients';
 import type { MessageKey } from '../i18n/translations';
+import {
+  fromLegacyValue,
+  isObservation,
+  isVerificationValue,
+  structuredObservationFields,
+  type NoteObservations,
+  type ObservationSet,
+  type StructuredObservationField,
+  type VerificationValue,
+} from './observation';
 
-export const observationFields = ['mood', 'appetite', 'sleep', 'mobility', 'medicationStatus', 'medicationVerified', 'painScore', 'fallReported', 'freeText'] as const;
-export type ObservationField = typeof observationFields[number];
-export interface Observations {
+export const observationFields = structuredObservationFields;
+export type ObservationField = StructuredObservationField;
+export interface LegacyObservations {
   mood: string | null;
   appetite: string | null;
   sleep: string | null;
@@ -15,12 +25,25 @@ export interface Observations {
   fallReported: boolean | null;
   freeText: string | null;
 }
-export interface DailyNote extends Observations {
+export interface DailyNote extends LegacyObservations {
   id: string; recipientId: string; date: string; addendumCount: number; createdAt: string;
+  observations: NoteObservations;
 }
-export interface NoteAddendum extends Observations { id: string; noteId: string; createdAt: string }
-export interface CreateNoteInput extends Observations { recipientId: string; date: string }
-export type AddendumInput = Partial<Observations>;
+export interface NoteAddendum extends LegacyObservations {
+  id: string; noteId: string; createdAt: string; observations: NoteObservations;
+  providedFields: StructuredObservationField[];
+  medicationVerificationProvided: boolean;
+}
+export interface CreateNoteInput {
+  recipientId: string;
+  date: string;
+  observations: ObservationSet;
+  medicationVerification: VerificationValue;
+}
+export interface AddendumInput {
+  observations: Partial<ObservationSet>;
+  medicationVerification?: VerificationValue;
+}
 export interface NotesHistoryQuery {
   from: string; to: string; recipientId?: string; page?: number; size?: number;
 }
@@ -38,9 +61,9 @@ function object(value: unknown): Record<string, unknown> {
   if (!value || typeof value !== 'object' || Array.isArray(value)) throw new Error('Invalid note response.');
   return value as Record<string, unknown>;
 }
-function readObservations(item: Record<string, unknown>): Observations {
-  const result = {} as Observations;
-  for (const key of observationFields) {
+function readLegacyObservations(item: Record<string, unknown>): LegacyObservations {
+  const result = {} as LegacyObservations;
+  for (const key of [...observationFields, 'medicationVerified'] as const) {
     const value = item[key];
     const valid = value === null || (key === 'painScore'
       ? typeof value === 'number' && Number.isInteger(value) && value >= 0 && value <= 10
@@ -53,6 +76,47 @@ function readObservations(item: Record<string, unknown>): Observations {
   }
   return result;
 }
+function readStructuredObservations(item: Record<string, unknown>, legacy: LegacyObservations): NoteObservations {
+  const observations = item.observations;
+  if (observations === undefined) {
+    const medicationStatus = legacy.medicationStatus === 'UNKNOWN'
+      ? { state: 'UNKNOWN' as const }
+      : fromLegacyValue(legacy.medicationStatus);
+    return {
+      mood: fromLegacyValue(legacy.mood),
+      appetite: fromLegacyValue(legacy.appetite),
+      sleep: fromLegacyValue(legacy.sleep),
+      mobility: fromLegacyValue(legacy.mobility),
+      medicationStatus,
+      painScore: fromLegacyValue(legacy.painScore),
+      fallReported: fromLegacyValue(legacy.fallReported),
+      freeText: fromLegacyValue(legacy.freeText),
+      medicationVerification: legacy.medicationVerified === true ? 'VERIFIED'
+        : legacy.medicationVerified === false ? 'UNVERIFIED' : 'NOT_ASSERTED',
+    };
+  }
+  if (!observations || typeof observations !== 'object' || Array.isArray(observations)) {
+    throw new Error('Invalid note response.');
+  }
+  const fields = observations as Record<string, unknown>;
+  for (const field of observationFields) {
+    if (!isObservation(fields[field], field)) throw new Error('Invalid note response.');
+  }
+  if (!isVerificationValue(fields.medicationVerification)) throw new Error('Invalid note response.');
+  return fields as unknown as NoteObservations;
+}
+function readProvidedFields(value: unknown, legacy: LegacyObservations): StructuredObservationField[] {
+  if (value === undefined) {
+    return observationFields.filter((field) => legacy[field] !== null);
+  }
+  if (!Array.isArray(value) || value.some((field) =>
+    typeof field !== 'string' || !(observationFields as readonly string[]).includes(field))) {
+    throw new Error('Invalid note response.');
+  }
+  const fields = value as StructuredObservationField[];
+  if (new Set(fields).size !== fields.length) throw new Error('Invalid note response.');
+  return fields;
+}
 function readIdentity(item: Record<string, unknown>) {
   if (typeof item.id !== 'string' || !isRecipientId(item.id)
     || typeof item.createdAt !== 'string' || !Number.isFinite(Date.parse(item.createdAt))) throw new Error('Invalid note response.');
@@ -63,21 +127,47 @@ function readNote(value: unknown): DailyNote {
   if (typeof item.recipientId !== 'string' || !isRecipientId(item.recipientId)
     || typeof item.date !== 'string' || !isNoteDate(item.date)
     || typeof item.addendumCount !== 'number' || !Number.isSafeInteger(item.addendumCount) || item.addendumCount < 0) throw new Error('Invalid note response.');
-  return { ...readIdentity(item), ...readObservations(item), recipientId: item.recipientId, date: item.date, addendumCount: item.addendumCount };
+  const legacy = readLegacyObservations(item);
+  return {
+    ...readIdentity(item), ...legacy, recipientId: item.recipientId, date: item.date,
+    addendumCount: item.addendumCount, observations: readStructuredObservations(item, legacy),
+  };
 }
 function readAddendum(value: unknown, noteId: string): NoteAddendum {
   const item = object(value);
   if (item.noteId !== noteId) throw new Error('Invalid note response.');
-  return { ...readIdentity(item), ...readObservations(item), noteId };
+  const legacy = readLegacyObservations(item);
+  const medicationVerificationProvided = item.medicationVerificationProvided === undefined
+    ? legacy.medicationVerified !== null
+    : item.medicationVerificationProvided;
+  if (typeof medicationVerificationProvided !== 'boolean') throw new Error('Invalid note response.');
+  return {
+    ...readIdentity(item), ...legacy, noteId,
+    observations: readStructuredObservations(item, legacy),
+    providedFields: readProvidedFields(item.providedFields, legacy),
+    medicationVerificationProvided,
+  };
 }
 const notePath = (id: string): `/api/notes/${string}` => {
   if (!isRecipientId(id)) throw new ApiError(404, null);
   return `/api/notes/${encodeURIComponent(id)}`;
 };
 function editableFields(input: AddendumInput): AddendumInput {
-  const body: AddendumInput = {};
-  for (const key of observationFields) if (Object.hasOwn(input, key) && input[key] !== undefined) Object.assign(body, { [key]: input[key] });
-  return body;
+  const observations: Partial<ObservationSet> = {};
+  for (const key of observationFields) {
+    const observation = input.observations?.[key];
+    if (observation !== undefined) {
+      if (!isObservation(observation, key)) throw new Error('Invalid observation input.');
+      Object.assign(observations, { [key]: observation });
+    }
+  }
+  if (input.medicationVerification !== undefined && !isVerificationValue(input.medicationVerification)) {
+    throw new Error('Invalid verification input.');
+  }
+  return {
+    observations,
+    ...(input.medicationVerification === undefined ? {} : { medicationVerification: input.medicationVerification }),
+  };
 }
 function writeHeaders(key: string) {
   if (!key || key.length > 100 || !/^[\w-]+$/.test(key)) throw new Error('Invalid save key.');
@@ -117,8 +207,15 @@ export function createNotesApi(client: ApiClient) {
     },
     async create(input: CreateNoteInput, key: string, signal?: AbortSignal) {
       if (!isRecipientId(input.recipientId) || !isNoteDate(input.date)) throw new ApiError(400, null);
+      for (const field of observationFields) {
+        if (!isObservation(input.observations?.[field], field)) throw new Error('Invalid observation input.');
+      }
+      if (!isVerificationValue(input.medicationVerification)) throw new Error('Invalid verification input.');
       const result = readNote(await client.request({ path: '/api/notes', method: 'POST', signal,
-        headers: writeHeaders(key), body: { recipientId: input.recipientId, date: input.date, ...editableFields(input) } }));
+        headers: writeHeaders(key), body: {
+          recipientId: input.recipientId, date: input.date,
+          observations: input.observations, medicationVerification: input.medicationVerification,
+        } }));
       if (result.recipientId !== input.recipientId || result.date !== input.date) throw new Error('Invalid note response.');
       return result;
     },
