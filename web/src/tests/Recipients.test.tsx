@@ -41,7 +41,7 @@ describe('care recipients screens', () => {
     expect(fetcher).not.toHaveBeenCalled();
   });
 
-  it('renders loading, owned recipients and inactive status without ownership internals', async () => {
+  it('renders loading, owned recipients and active status without ownership internals', async () => {
     let resolve!: (response: Response) => void;
     const fetcher = vi.fn().mockImplementation(() => new Promise<Response>((done) => { resolve = done; }));
     renderRecipients(root, fetcher);
@@ -125,27 +125,27 @@ describe('care recipients screens', () => {
     expect(await screen.findByRole('heading', { name: updated.name })).toBeInTheDocument();
   });
 
-  it('reloads an inactive conflict without silently losing the entered values', async () => {
+  it('reloads an archived conflict without silently losing the entered values', async () => {
     const fetcher = vi.fn().mockResolvedValueOnce(jsonResponse(recipient)).mockResolvedValueOnce(jsonResponse({ code: 'INACTIVE_RECIPIENT' }, 409)).mockResolvedValueOnce(jsonResponse({ ...recipient, active: false, lifecycleStatus: 'ARCHIVED', archivedAt: '2026-10-15T10:00:00Z', archivedBy: 'b1111111-1111-4111-8111-111111111111' }));
     renderRecipients(`${detail}/edit`, fetcher);
     const name = await screen.findByLabelText('Name');
     await userEvent.clear(name);
     await userEvent.type(name, 'Unsaved name');
     await userEvent.click(screen.getByRole('button', { name: 'Save changes' }));
-    expect(await screen.findByRole('alert')).toHaveTextContent('The recipient can no longer be updated');
+    expect(await screen.findByRole('alert')).toHaveTextContent('This recipient’s lifecycle changed or requires review');
     expect(name).toHaveValue('Unsaved name');
     expect(screen.getByRole('button', { name: 'Save changes' })).toBeDisabled();
     await userEvent.click(screen.getByRole('button', { name: 'Reload recipient details' }));
     expect(await screen.findByText('Archived')).toBeInTheDocument();
     expect(screen.queryByRole('form')).not.toBeInTheDocument();
-    expect(screen.getByText(/Their historical notes and plans are preserved/)).toBeInTheDocument();
+    expect(screen.getByText(/This recipient is archived and read-only/)).toBeInTheDocument();
   });
 
-  it('keeps inactive detail/edit routes read-only with no delete or reactivate operation', async () => {
-    renderRecipients(`${detail}/edit`, vi.fn().mockResolvedValue(jsonResponse({ ...recipient, active: false })));
-    expect(await screen.findByText('Inactive')).toBeInTheDocument();
+  it('keeps legacy-review detail/edit routes read-only with no lifecycle transition', async () => {
+    renderRecipients(`${detail}/edit`, vi.fn().mockResolvedValue(jsonResponse({ ...recipient, active: false, lifecycleStatus: 'LEGACY_INACTIVE_REVIEW' })));
+    expect(await screen.findByText('Needs review')).toBeInTheDocument();
     expect(screen.queryByRole('textbox')).not.toBeInTheDocument();
-    expect(screen.queryByRole('button', { name: /Deactivate|Delete|Reactivate/ })).not.toBeInTheDocument();
+    expect(screen.queryByRole('button', { name: /Archive|Delete|Restore/ })).not.toBeInTheDocument();
   });
 
   it.each([403, 404])('uses a safe unavailable message for HTTP %i', async (status) => {
