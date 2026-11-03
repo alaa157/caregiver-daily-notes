@@ -1,6 +1,10 @@
 package com.caregiver.notes;
 
 import com.caregiver.common.NoteSignals;
+import com.caregiver.common.NoteObservations;
+import com.caregiver.common.Observation;
+import com.caregiver.common.ObservationState;
+import com.caregiver.common.VerificationState;
 
 import com.caregiver.auth.AuthContext;
 import com.caregiver.recipient.CareRecipientRepository;
@@ -59,76 +63,95 @@ public class NoteSignalService {
   /**
    * Merges one note with its chronological addenda into a single signal.
    *
-   * <p><b>Medication contradiction policy (issue #34, conservative by design):</b>
-   * historical observations are never rewritten — the note and every addendum
-   * stay persisted — but the <em>interpreted</em> signal must not present
-   * uncertain information as a confirmed fact. Per-field latest-non-null
-   * merging applies first (a correction supersedes earlier values for
-   * display), yet when the combined history for the day contains both a
-   * {@code TAKEN} and a {@code MISSED} report the interpreted state collapses
-   * to {@code missedMedication=null} with {@code medicationUnverified=true}.
-   * The policy is symmetric: it applies identically whether the original note
-   * said {@code MISSED} and the addendum says {@code TAKEN}, or the reverse.
-   * A bare {@code UNKNOWN} report contributes no contradiction evidence on its
-   * own; it simply leaves the state unverified. Downstream safety rules must
-   * treat {@code medicationUnverified=true} as "do not assert", never as a
-   * confirmed missed (or taken) dose.
+   * <p>Observation state, field presence, and medication verification are
+   * independent. Addendum presence determines whether a field supersedes the
+   * prior effective value; an explicit {@code NOT_RECORDED} is therefore
+   * different from omission. Conflicting recorded medication reports produce
+   * an effective {@code UNKNOWN} observation without rewriting history or
+   * changing verification. Only an explicit {@code UNVERIFIED} verification
+   * state sets the compatibility {@code medicationUnverified} projection.
    */
   private NoteSignalResponse merge(DailyNote note, List<NoteAddendum> addendaForNote) {
-    String mood = note.getMood();
-    String appetite = note.getAppetite();
-    String sleep = note.getSleep();
-    String mobility = note.getMobility();
-    Boolean fall = note.getFallReported();
-    Boolean poorAppetite = poor(appetite);
-    Integer pain = note.getPainScore();
-    String medication = note.getMedicationStatus();
-    Boolean medicationVerified = note.getMedicationVerified();
-    String freeText = note.getFreeText();
+    NoteObservations original = note.observations();
+    Observation<String> mood = original.mood();
+    Observation<String> appetite = original.appetite();
+    Observation<String> sleep = original.sleep();
+    Observation<String> mobility = original.mobility();
+    Observation<Boolean> fall = original.fallReported();
+    Observation<Integer> pain = original.painScore();
+    Observation<String> medication = original.medicationStatus();
+    Observation<String> freeText = original.freeText();
+    VerificationState medicationVerification = original.medicationVerification();
 
-    // Latest non-null addendum wins independently for each field.
+    // Presence is persisted separately so explicit NOT_RECORDED differs from omission.
     for (NoteAddendum addendum : addendaForNote) {
-      if (addendum.getMood() != null) mood = addendum.getMood();
-      if (addendum.getAppetite() != null) appetite = addendum.getAppetite();
-      if (addendum.getSleep() != null) sleep = addendum.getSleep();
-      if (addendum.getMobility() != null) mobility = addendum.getMobility();
-      if (addendum.getFallReported() != null) fall = addendum.getFallReported();
-      if (addendum.getPainScore() != null) pain = addendum.getPainScore();
-      if (addendum.getAppetite() != null) poorAppetite = poor(addendum.getAppetite());
-      if (addendum.getMedicationStatus() != null) {
-        medication = addendum.getMedicationStatus();
-        medicationVerified = addendum.getMedicationVerified();
+      NoteObservations correction = addendum.observations();
+      ObservationPresence provided = addendum.observationPresence();
+      if (provided.mood()) mood = correction.mood();
+      if (provided.appetite()) appetite = correction.appetite();
+      if (provided.sleep()) sleep = correction.sleep();
+      if (provided.mobility()) mobility = correction.mobility();
+      if (provided.fallReported()) fall = correction.fallReported();
+      if (provided.painScore()) pain = correction.painScore();
+      if (provided.medicationStatus()) {
+        medication = correction.medicationStatus();
+        if (!addendum.isMedicationVerificationProvided()) {
+          medicationVerification = VerificationState.NOT_ASSERTED;
+        }
       }
-      if (addendum.getFreeText() != null) freeText = addendum.getFreeText();
+      if (provided.freeText()) freeText = correction.freeText();
+      if (addendum.isMedicationVerificationProvided()) {
+        medicationVerification = correction.medicationVerification();
+      }
     }
 
-    // Conflicting same-day TAKEN/MISSED reports are ambiguous regardless of
-    // verification state; do not turn them into a positive missed-medication fact.
+    // Conflicting explicit reports are unknown; they do not alter verification.
     List<String> reportedStatuses = new ArrayList<>();
-    if (isKnownMedication(note.getMedicationStatus())) reportedStatuses.add(note.getMedicationStatus());
+    addRecordedMedication(reportedStatuses, original.medicationStatus());
     for (NoteAddendum addendum : addendaForNote) {
-      if (isKnownMedication(addendum.getMedicationStatus())) reportedStatuses.add(addendum.getMedicationStatus());
+      addRecordedMedication(reportedStatuses, addendum.observations().medicationStatus());
     }
     boolean contradictory = reportedStatuses.contains("TAKEN") && reportedStatuses.contains("MISSED");
     if (contradictory) {
-      medication = "UNKNOWN";
-      medicationVerified = false;
+      medication = Observation.state(ObservationState.UNKNOWN);
     }
 
-    boolean medicationUnverified = medication != null
-        && (!Boolean.TRUE.equals(medicationVerified) || "UNKNOWN".equals(medication));
+    boolean medicationUnverified = medicationVerification == VerificationState.UNVERIFIED;
     Boolean missedMedication = null;
-    if (!medicationUnverified) {
-      if ("MISSED".equals(medication)) missedMedication = true;
-      else if ("TAKEN".equals(medication)) missedMedication = false;
+    if (medicationVerification == VerificationState.VERIFIED
+        && medication.state() == ObservationState.RECORDED) {
+      if ("MISSED".equals(medication.value())) missedMedication = true;
+      else if ("TAKEN".equals(medication.value())) missedMedication = false;
     }
 
-    return new NoteSignalResponse(note.getRecipient().getId(), note.getDate(), mood, appetite, sleep, mobility,
-        medication, fall, pain, missedMedication, medicationUnverified, poorAppetite, freeText);
+    NoteObservations effective = new NoteObservations(
+        mood, appetite, sleep, mobility, medication, pain, fall, freeText, medicationVerification);
+    return new NoteSignalResponse(
+        note.getRecipient().getId(),
+        note.getDate(),
+        recorded(mood),
+        recorded(appetite),
+        recorded(sleep),
+        recorded(mobility),
+        medication.state() == ObservationState.UNKNOWN ? "UNKNOWN" : recorded(medication),
+        recorded(fall),
+        recorded(pain),
+        missedMedication,
+        medicationUnverified,
+        appetite.state() == ObservationState.RECORDED ? poor(appetite.value()) : null,
+        recorded(freeText),
+        effective);
   }
 
-  private boolean isKnownMedication(String value) {
-    return "TAKEN".equals(value) || "MISSED".equals(value);
+  private void addRecordedMedication(List<String> values, Observation<String> observation) {
+    if (observation.state() == ObservationState.RECORDED
+        && ("TAKEN".equals(observation.value()) || "MISSED".equals(observation.value()))) {
+      values.add(observation.value());
+    }
+  }
+
+  private <T> T recorded(Observation<T> observation) {
+    return observation.state() == ObservationState.RECORDED ? observation.value() : null;
   }
 
   private Boolean poor(String value) {
