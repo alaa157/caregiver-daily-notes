@@ -14,7 +14,7 @@ import { recipientFixture } from './recipientFixtures';
 
 const root = '/app/notes';
 const range = `${root}?from=2026-10-01&to=2026-10-22`;
-const otherRecipient = { ...recipientFixture, id: 'b2222222-2222-4222-8222-222222222222', name: 'ليلى Smith', active: false };
+const otherRecipient = { ...recipientFixture, id: 'b2222222-2222-4222-8222-222222222222', name: 'ليلى Smith', active: false, lifecycleStatus: 'ARCHIVED', archivedAt: '2026-10-15T10:00:00Z', archivedBy: 'b1111111-1111-4111-8111-111111111111' };
 function Location() { const location = useLocation(); return <output data-testid="location">{location.pathname}{location.search}</output>; }
 function renderHistory(fetcher: ReturnType<typeof vi.fn>, path = range, language = 'en', authenticated = true) {
   vi.stubGlobal('fetch', fetcher);
@@ -55,9 +55,9 @@ describe('history screen, filters and immutable records', () => {
     expect(document.title).toContain('Notes history');
     expect(within(card).getByText('Original note')).toBeInTheDocument();
     await userEvent.click(within(card).getByText('View original observations and text'));
-    expect(within(card).getByText('Unknown / unsure')).toBeInTheDocument();
+    expect(within(card).getByText('Unknown')).toBeInTheDocument();
     expect(within(card).getByText('0')).toBeInTheDocument();
-    expect(within(card).getAllByText('No')).toHaveLength(2);
+    expect(within(card).getByText('No')).toBeInTheDocument();
     expect(within(card).getByText(/غير متأكد من الدواء/).textContent).toBe(noteObservations.freeText);
     expect(document.querySelector('script')).not.toBeInTheDocument();
     expect(fetcher.mock.calls.some(([path]) => path.includes('/addenda'))).toBe(false);
