@@ -265,7 +265,7 @@ These are not to be recreated. The implementation work should focus on missing w
 - Make signal evidence, date windows, rule version, and source records traceable.
 - Avoid silently changing thresholds or interpreting free text as a confirmed clinical event.
 - Provide useful home classifications and trend views only when their input semantics are agreed.
-- Separate a computed signal from caregiver acknowledgement/dismissal metadata if PO-21 is approved.
+- Keep the computed safety signal separate from caregiver acknowledgement metadata; acknowledgement must not dismiss, hide, or resolve the signal (PO-21 approved in WP-01).
 
 ### 5.4 AI summaries and care-plan generation
 
@@ -695,7 +695,7 @@ Safety indicators and generated summaries can influence caregiver decisions. The
    - Keep deterministic evaluation separate from AI-generated interpretation.
    - Preserve source note/addendum references for each signal.
    - Do not turn a caregiver acknowledgement into removal of the underlying computed signal.
-   - Implement acknowledgement/dismissal only if PO-21 is approved, with reason/expiry/audit semantics.
+   - Implement acknowledgement as separate auditable metadata only (PO-21 approved); do not implement dismissal, hiding, or signal resolution through acknowledgement.
 3. **Summary source construction**
    - Document which notes and addenda are included in a requested period.
    - Define inclusive/exclusive date boundaries and timezone behavior.
@@ -1599,14 +1599,14 @@ PO-01 through PO-23 originate in Phase 2 and are carried forward in Phase 3A. PO
 
 The following items are implementation details, evidence requirements, or specialist-review gates. They do not reverse the owner decision statuses recorded in WP-01:
 
-- A canonical reversible recipient lifecycle is recommended, but PO-02 remains awaiting approval.
-- A canonical reversible recipient lifecycle is recommended, but PO-02 remains awaiting approval.
-- One original note per recipient/local calendar date is recommended, but PO-04 remains awaiting approval and existing duplicates must be assessed.
-- Both text and structured correction events are recommended, but PO-06 remains awaiting approval.
+- PO-02 lifecycle is approved in WP-01; legacy inactive/deactivated mapping remains evidence-gated.
+- PO-02 lifecycle is approved in WP-01; legacy inactive/deactivated mapping remains evidence-gated.
+- PO-04 one-original-note-per-caregiver-local-date rule is approved in WP-01; existing duplicates must be inventoried and safely dispositioned before uniqueness constraints.
+- PO-06 immutable text addenda and structured correction events are approved in WP-01; schema/projection design remains implementation work.
 - A versioned safety rule specification is recommended, but the actual rules require clinical review under PO-07.
-- A structured plan action catalogue with safe preservation of unmappable text is recommended, but PO-08 remains awaiting approval.
-- Web CSV, Web backup/restore, Web PDF/reporting, theme/palette, and medication parity remain conditional on PO-14 through PO-18.
-- Capability parity rather than pixel/UI parity is recommended under PO-19.
+- PO-08 closed structured plan action catalogue with safe preservation of unmappable text is approved in WP-01; legacy mapping remains gated.
+- PO-14 through PO-18 Web capability scopes are approved in WP-01; detailed contracts, implementation, and feature-specific security/privacy gates remain.
+- PO-19 capability and semantic parity, rather than pixel-identical UI, is approved in WP-01.
 - Web BYOK-only AI is an approved product decision under PO-24. The browser-versus-backend execution path, key lifetime/storage, and provider-specific support remain technical decisions for WP-01.
 
 **Current status source:** use the WP-01 decision register for current product-owner statuses. Phase 2 remains the historical recommendation record; it is not overwritten by this roadmap update.
