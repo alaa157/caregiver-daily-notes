@@ -17,11 +17,14 @@ import {
 } from '../features/notes/noteForm';
 
 function effective(state: EffectiveObservation['state'], value: EffectiveObservation['value'], operation: EffectiveObservation['lastOperation'] = null): EffectiveObservation {
-  return { state, value, lastOperation: operation, eventId: 'f6666666-6666-4666-8666-666666666666',
+  return { state, value, rawValue: null, lastOperation: operation, eventId: 'f6666666-6666-4666-8666-666666666666',
     actorId: 'a1111111-1111-4111-8111-111111111111', updatedAt: '2026-10-18T12:00:00Z' };
 }
 function correctionResponse() {
-  const effectiveObservations = Object.fromEntries(observationFields.map((field) => [field, effective('RECORDED', noteFixture[field])])) as Record<(typeof observationFields)[number], EffectiveObservation>;
+  const effectiveObservations = Object.fromEntries(observationFields.map((field) => {
+    const observation = noteFixture.observations[field];
+    return [field, { ...effective(observation.state, observation.value ?? null), rawValue: observation.rawValue ?? null }];
+  })) as Record<(typeof observationFields)[number], EffectiveObservation>;
   effectiveObservations.mood = effective('RECORDED', '');
   effectiveObservations.painScore = effective('RECORDED', 0);
   effectiveObservations.fallReported = effective('RECORDED', false);
@@ -103,6 +106,13 @@ describe('daily-note API and explicit observation values', () => {
     expect(JSON.parse(fetcher.mock.calls[0][1].body)).toEqual({ corrections: input });
     expect(new Headers(fetcher.mock.calls[0][1].headers).get('Idempotency-Key')).toBe('correction-key');
     expect(fetcher.mock.calls[0][1].method).toBe('POST');
+  });
+  it('uses UNKNOWN as a medication observation state rather than a SET value', async () => {
+    const { api, fetcher } = setup(correctionResponse());
+    await expect(api.correct(noteFixture.id,
+      [{ field: 'medicationStatus', operation: 'SET', value: 'UNKNOWN' }], 'invalid-correction-key'))
+      .rejects.toMatchObject({ status: 400 });
+    expect(fetcher).not.toHaveBeenCalled();
   });
   it.each([
     { ...noteFixture, painScore: 11 },

@@ -4,9 +4,11 @@ import type { MessageKey } from '../i18n/translations';
 import {
   fromLegacyValue,
   isObservation,
+  isObservationState,
   isVerificationValue,
   structuredObservationFields,
   type NoteObservations,
+  type ObservationState,
   type ObservationSet,
   type StructuredObservationField,
   type VerificationValue,
@@ -46,16 +48,16 @@ export interface AddendumInput {
 }
 export type CorrectionOperation = 'SET' | 'CLEAR' | 'UNKNOWN' | 'NOT_RECORDED';
 export interface FieldCorrection { field: ObservationField; operation: CorrectionOperation; value?: string | number | boolean }
+export interface EffectiveObservation {
+  state: ObservationState; value: string | number | boolean | null; rawValue: string | number | boolean | null;
+  lastOperation: CorrectionOperation | null; eventId: string | null; actorId: string | null; updatedAt: string | null;
+}
 export interface CorrectionEvent {
   id: string; noteId: string; sequenceNo: number; createdAt: string; actorId: string;
   field: ObservationField; operation: CorrectionOperation; value: string | number | boolean | null;
   previousEffective: EffectiveObservation; effectiveAfter: EffectiveObservation;
 }
-export interface EffectiveObservation {
-  state: 'RECORDED' | 'UNKNOWN' | 'NOT_RECORDED' | 'NOT_APPLICABLE' | 'LEGACY_AMBIGUOUS';
-  value: string | number | boolean | null; lastOperation: CorrectionOperation | null;
-  eventId: string | null; actorId: string | null; updatedAt: string | null;
-}
+
 export interface CorrectionHistory {
   originalNote: DailyNote; events: CorrectionEvent[]; effectiveObservations: Record<ObservationField, EffectiveObservation>;
 }
@@ -165,24 +167,47 @@ function readAddendum(value: unknown, noteId: string): NoteAddendum {
     medicationVerificationProvided,
   };
 }
+const notePath = (id: string): `/api/notes/${string}` => {
+  if (!isRecipientId(id)) throw new ApiError(404, null);
+  return `/api/notes/${encodeURIComponent(id)}`;
+};
+function editableFields(input: AddendumInput): AddendumInput {
+  const observations: Partial<ObservationSet> = {};
+  for (const key of observationFields) {
+    const observation = input.observations?.[key];
+    if (observation !== undefined) {
+      if (!isObservation(observation, key)) throw new Error('Invalid observation input.');
+      Object.assign(observations, { [key]: observation });
+    }
+  }
+  if (input.medicationVerification !== undefined && !isVerificationValue(input.medicationVerification)) {
+    throw new Error('Invalid verification input.');
+  }
+  return {
+    observations,
+    ...(input.medicationVerification === undefined ? {} : { medicationVerification: input.medicationVerification }),
+  };
+}
 const correctionOperations: CorrectionOperation[] = ['SET', 'CLEAR', 'UNKNOWN', 'NOT_RECORDED'];
 function validFieldValue(field: ObservationField, value: unknown): value is string | number | boolean {
   if (field === 'painScore') return typeof value === 'number' && Number.isInteger(value) && value >= 0 && value <= 10;
   if (field === 'fallReported') return typeof value === 'boolean';
-  if (field === 'medicationStatus') return typeof value === 'string' && ['TAKEN', 'MISSED', 'UNKNOWN'].includes(value);
+  if (field === 'medicationStatus') return value === 'TAKEN' || value === 'MISSED';
   return typeof value === 'string' && value.length <= (field === 'freeText' ? 20000 : 40);
 }
 function readEffective(value: unknown, field: ObservationField): EffectiveObservation {
   const entry = object(value);
-  const states = ['RECORDED', 'UNKNOWN', 'NOT_RECORDED', 'NOT_APPLICABLE', 'LEGACY_AMBIGUOUS'];
-  if (!states.includes(entry.state as string) || !(entry.value === null || validFieldValue(field, entry.value))
+  if (!isObservationState(entry.state)
+    || !(entry.value === null || validFieldValue(field, entry.value))
+    || !(entry.rawValue === null || validFieldValue(field, entry.rawValue))
     || !(entry.lastOperation === null || correctionOperations.includes(entry.lastOperation as CorrectionOperation))
     || !(entry.eventId === null || (typeof entry.eventId === 'string' && isRecipientId(entry.eventId)))
     || !(entry.actorId === null || (typeof entry.actorId === 'string' && isRecipientId(entry.actorId)))
     || !(entry.updatedAt === null || (typeof entry.updatedAt === 'string' && Number.isFinite(Date.parse(entry.updatedAt))))
     || (entry.state === 'RECORDED' && entry.value === null)
-    || (entry.state !== 'RECORDED' && entry.value !== null)) throw new Error('Invalid effective observation response.');
-  return { state: entry.state as EffectiveObservation['state'], value: entry.value as EffectiveObservation['value'],
+    || (entry.state !== 'RECORDED' && entry.value !== null)
+    || (entry.state !== 'LEGACY_AMBIGUOUS' && entry.rawValue !== null)) throw new Error('Invalid effective observation response.');
+  return { state: entry.state, value: entry.value as EffectiveObservation['value'], rawValue: entry.rawValue as EffectiveObservation['rawValue'],
     lastOperation: entry.lastOperation as EffectiveObservation['lastOperation'], eventId: entry.eventId as string | null,
     actorId: entry.actorId as string | null, updatedAt: entry.updatedAt as string | null };
 }
@@ -210,31 +235,8 @@ function readCorrectionHistory(value: unknown, noteId: string): CorrectionHistor
   });
   const source = item.effectiveObservations as Record<string, unknown>;
   const effective = {} as Record<ObservationField, EffectiveObservation>;
-  for (const field of observationFields) {
-    effective[field] = readEffective(source[field], field);
-  }
+  for (const field of observationFields) effective[field] = readEffective(source[field], field);
   return { originalNote, events, effectiveObservations: effective };
-}
-const notePath = (id: string): `/api/notes/${string}` => {
-  if (!isRecipientId(id)) throw new ApiError(404, null);
-  return `/api/notes/${encodeURIComponent(id)}`;
-};
-function editableFields(input: AddendumInput): AddendumInput {
-  const observations: Partial<ObservationSet> = {};
-  for (const key of observationFields) {
-    const observation = input.observations?.[key];
-    if (observation !== undefined) {
-      if (!isObservation(observation, key)) throw new Error('Invalid observation input.');
-      Object.assign(observations, { [key]: observation });
-    }
-  }
-  if (input.medicationVerification !== undefined && !isVerificationValue(input.medicationVerification)) {
-    throw new Error('Invalid verification input.');
-  }
-  return {
-    observations,
-    ...(input.medicationVerification === undefined ? {} : { medicationVerification: input.medicationVerification }),
-  };
 }
 function writeHeaders(key: string) {
   if (!key || key.length > 100 || !/^[\w-]+$/.test(key)) throw new Error('Invalid save key.');

@@ -1,7 +1,7 @@
 # Daily Notes API (Member 2)
 All endpoints require a valid caregiver bearer token. Owner identity is derived from the verified JWT; clients never submit caregiver ID. Another caregiver's resources return 404.
 ## Create
-POST /api/notes; optional Idempotency-Key header. JSON requires recipientId and date. Optional fields: mood, appetite, sleep, mobility, medicationStatus (TAKEN|MISSED|UNKNOWN), medicationVerified, painScore (0–10), fallReported, freeText (max 20,000 chars). Free text is preserved verbatim including Arabic/mixed-language. One note per recipient per date.
+POST /api/notes; optional Idempotency-Key header. JSON requires recipientId and date. The canonical `observations` object uses per-field states (`RECORDED`, `UNKNOWN`, `NOT_RECORDED`, `NOT_APPLICABLE`); `medicationVerification` is separate (`VERIFIED`, `UNVERIFIED`, `NOT_ASSERTED`). Legacy flat fields remain accepted for compatibility. Free text is preserved verbatim including Arabic/mixed-language. One note per recipient per date.
 ## Read
 GET /api/notes/{id}; GET /api/notes/by-recipient/{recipientId}?date=YYYY-MM-DD. Detail reads return the immutable original note plus an `addenda` array in chronological order and `addendumCount`. History pages include `addendumCount` and `correctionCount`, not event bodies.
 ## History
@@ -28,29 +28,29 @@ The request is a non-empty ordered list. A field absent from the list is unchang
 
 `SET` requires a non-null value of the field's existing type. Text fields accept an empty string; pain is an integer from 0 through 10; booleans remain booleans; medication status is `TAKEN`, `MISSED`, or `UNKNOWN`. `CLEAR`, `UNKNOWN`, and `NOT_RECORDED` must not include a value. JSON `null` is not used to mean omission or clearing. Omission creates no event and leaves the effective observation unchanged.
 
-Supported fields are `mood`, `appetite`, `sleep`, `mobility`, `medicationStatus`, `medicationVerified`, `painScore`, `fallReported`, and `freeText`. Values are validated against those canonical field types. Unsupported names, operations, and incorrectly typed values receive 400.
+Supported correction fields are the canonical structured observations: `mood`, `appetite`, `sleep`, `mobility`, `medicationStatus`, `painScore`, `fallReported`, and `freeText`. Medication verification is a separate verification state and is not a structured observation correction field. Values are validated against the Issue #67 observation contract. In particular, a recorded medication status is `TAKEN` or `MISSED`; unknown is represented by the `UNKNOWN` operation, not by `SET("UNKNOWN")`. Unsupported names, operations, and incorrectly typed values receive 400.
 
 Both correction endpoints return this response shape (abbreviated, with one event):
 
 ```json
 {
-  "originalNote": {"id":"<note UUID>","mood":"good","painScore":3,"addendumCount":1,"correctionCount":1},
+  "originalNote": {"id":"<note UUID>","mood":"good","painScore":3,"addendumCount":1,"correctionCount":1,"observations":{"mood":{"state":"RECORDED","value":"good"},"painScore":{"state":"RECORDED","value":3}}},
   "events": [{
     "id":"<event UUID>","noteId":"<note UUID>","sequenceNo":1,
     "createdAt":"2026-11-03T12:00:00Z","actorId":"<caregiver UUID>",
     "field":"painScore","operation":"SET","value":0,
     "previousEffective":{"state":"RECORDED","value":3,"lastOperation":null},
-    "effectiveAfter":{"state":"RECORDED","value":0,"lastOperation":"SET"}
+    "effectiveAfter":{"state":"RECORDED","value":0,"rawValue":null,"lastOperation":"SET"}
   }],
-  "effectiveObservations": {"painScore":{"state":"RECORDED","value":0,"lastOperation":"SET"}}
+  "effectiveObservations": {"painScore":{"state":"RECORDED","value":0,"rawValue":null,"lastOperation":"SET"}}
 }
 ```
 
-`effectiveObservations[field]` uses the Phase 2 observation states (`RECORDED`, `UNKNOWN`, `NOT_RECORDED`, `NOT_APPLICABLE`, `LEGACY_AMBIGUOUS`). `CLEAR` produces effective state `NOT_RECORDED` and retains `lastOperation: "CLEAR"`, so it remains distinguishable from an explicit `NOT_RECORDED` event. Original null fields are reported as `LEGACY_AMBIGUOUS`; historical meaning is not inferred. `SET` with false, zero, or an empty string is a `RECORDED` value.
+`effectiveObservations[field]` uses the canonical observation states (`RECORDED`, `UNKNOWN`, `NOT_RECORDED`, `NOT_APPLICABLE`, `LEGACY_AMBIGUOUS`) and preserves a legacy raw value where available. `CLEAR` produces effective state `NOT_RECORDED` and retains `lastOperation: "CLEAR"`, so it remains distinguishable from an explicit `NOT_RECORDED` event. `SET` with false, zero, or an empty string is a `RECORDED` value. Legacy ambiguous observations retain their state and raw value until an explicit correction.
 
 Each event includes its UUID, note ID, monotonically increasing per-note `sequenceNo`, timestamp, authenticated caregiver `actorId`, field, operation, and typed value when set. `previousEffective` and `effectiveAfter` show the field state before and after that event. Sequence is allocated while locking the note row; replay uses ascending sequence, independent of timestamp ties. Corrections are transactionally inserted with their batch and audit event. JPA entities and repositories expose no update/delete operation for event records; foreign keys use `ON DELETE RESTRICT`.
 
-An optional `Idempotency-Key` applies to the whole correction batch. The unique caregiver/key record stores a SHA-256 request digest. Same-key/same-request retries create no events; same-key/different-request reuse returns 409. The migration adds `note_correction_batches` and `note_correction_events` in V7; it does not rewrite notes or existing addenda. Production migration execution is an operational deployment step and was not run as part of this implementation.
+An optional `Idempotency-Key` applies to the whole correction batch. The unique caregiver/key record stores a SHA-256 request digest. Same-key/same-request retries create no events; same-key/different-request reuse returns 409. The correction migration adds `note_correction_batches` and `note_correction_events` in V8 after the explicit observation-state migration V7; it does not rewrite notes or existing addenda. Production migration execution is an operational deployment step and was not run as part of this implementation.
 ## Idempotency
 Repeating a request with the same key and identical payload returns the original record (status 201; compare bodies to detect a replay) without creating duplicates. Concurrent duplicates serialize on the database unique constraint and collapse to a single row. Reusing a key with a different payload, or against a different note for addenda, returns 409 IDEMPOTENCY_CONFLICT. Keys longer than 100 characters are rejected with 400; blank keys carry no idempotency.
 ## Signals

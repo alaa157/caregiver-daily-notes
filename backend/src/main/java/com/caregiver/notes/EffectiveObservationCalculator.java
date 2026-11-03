@@ -1,15 +1,17 @@
 package com.caregiver.notes;
+
+import com.caregiver.common.NoteObservations;
 import com.caregiver.common.Observation;
 import com.caregiver.common.ObservationState;
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import java.time.Instant;
+import java.util.ArrayList;
+import java.util.Collections;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.UUID;
-import java.util.ArrayList;
-import java.util.Collections;
 import org.springframework.stereotype.Component;
 
 /** Single deterministic replay implementation. Inputs are never mutated. */
@@ -25,14 +27,16 @@ public class EffectiveObservationCalculator {
   }
 
   public ReplayResult replayWithHistory(DailyNote original, List<NoteCorrectionEvent> events) {
+    NoteObservations observations = original.observations();
     Map<String, EffectiveObservation> result = new LinkedHashMap<>();
-    for (ObservationField field : ObservationField.values()) {
-      Observation<?> initial = originalObservation(original, field);
-      Object sourceValue = initial.state() == ObservationState.RECORDED ? initial.value() : null;
-      JsonNode value = sourceValue == null ? null : mapper.valueToTree(sourceValue);
-      result.put(field.wireName(), new EffectiveObservation(
-          initial.state().name(), value, null, null, null, original.getCreatedAt()));
-    }
+    result.put("mood", fromOriginal(observations.mood(), original.getCreatedAt()));
+    result.put("appetite", fromOriginal(observations.appetite(), original.getCreatedAt()));
+    result.put("sleep", fromOriginal(observations.sleep(), original.getCreatedAt()));
+    result.put("mobility", fromOriginal(observations.mobility(), original.getCreatedAt()));
+    result.put("medicationStatus", fromOriginal(observations.medicationStatus(), original.getCreatedAt()));
+    result.put("painScore", fromOriginal(observations.painScore(), original.getCreatedAt()));
+    result.put("fallReported", fromOriginal(observations.fallReported(), original.getCreatedAt()));
+    result.put("freeText", fromOriginal(observations.freeText(), original.getCreatedAt()));
     long previousSequence = 0;
     List<EventChange> changes = new ArrayList<>();
     for (NoteCorrectionEvent event : events) {
@@ -44,33 +48,32 @@ public class EffectiveObservationCalculator {
       EffectiveObservation previous = result.get(field.wireName());
       CorrectionOperation operation = CorrectionOperation.valueOf(event.getOperation());
       JsonNode value = null;
-      String state;
+      ObservationState state;
       switch (operation) {
-        case SET -> { try { value = mapper.readTree(event.getValueJson()); } catch (Exception e) { throw new IllegalStateException("Stored correction value is invalid.", e); } state = "RECORDED"; }
-        case CLEAR -> state = "NOT_RECORDED";
-        case UNKNOWN -> state = "UNKNOWN";
-        case NOT_RECORDED -> state = "NOT_RECORDED";
+        case SET -> {
+          try { value = mapper.readTree(event.getValueJson()); }
+          catch (Exception e) { throw new IllegalStateException("Stored correction value is invalid.", e); }
+          field.validate(value);
+          state = ObservationState.RECORDED;
+        }
+        case CLEAR, NOT_RECORDED -> state = ObservationState.NOT_RECORDED;
+        case UNKNOWN -> state = ObservationState.UNKNOWN;
         default -> throw new IllegalStateException("Unsupported correction operation.");
       }
-      EffectiveObservation current = new EffectiveObservation(state, value, operation.name(), event.getId(),
-          event.getCaregiver().getId(), event.getCreatedAt());
+      EffectiveObservation current = new EffectiveObservation(state, value, null, operation,
+          event.getId(), event.getCaregiver().getId(), event.getCreatedAt());
       result.put(field.wireName(), current);
       changes.add(new EventChange(event.getId(), previous, current));
     }
     return new ReplayResult(Collections.unmodifiableMap(new LinkedHashMap<>(result)), List.copyOf(changes));
   }
 
-  private Observation<?> originalObservation(DailyNote note, ObservationField field) {
-    var observations = note.observations();
-    return switch (field) {
-      case MOOD -> observations.mood();
-      case APPETITE -> observations.appetite();
-      case SLEEP -> observations.sleep();
-      case MOBILITY -> observations.mobility();
-      case MEDICATION_STATUS -> observations.medicationStatus();
-      case PAIN_SCORE -> observations.painScore();
-      case FALL_REPORTED -> observations.fallReported();
-      case FREE_TEXT -> observations.freeText();
-    };
+  private EffectiveObservation fromOriginal(Observation<?> observation, Instant createdAt) {
+    return new EffectiveObservation(observation.state(), asJson(observation.value()), asJson(observation.rawValue()),
+        null, null, null, createdAt);
+  }
+
+  private JsonNode asJson(Object value) {
+    return value == null ? null : mapper.valueToTree(value);
   }
 }

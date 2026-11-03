@@ -28,7 +28,8 @@ public enum ObservationField {
       case TEXT -> value.isTextual() && value.textValue().length() <= maxLength;
       case BOOLEAN -> value.isBoolean();
       case PAIN -> value.isIntegralNumber() && value.canConvertToInt() && value.intValue() >= 0 && value.intValue() <= 10;
-      case MEDICATION -> value.isTextual() && Set.of("TAKEN", "MISSED", "UNKNOWN").contains(value.textValue());
+      // In the canonical observation model UNKNOWN is a state, not a recorded medication value.
+      case MEDICATION -> value.isTextual() && Set.of("TAKEN", "MISSED").contains(value.textValue());
     };
     if (!valid) throw new IllegalArgumentException("Invalid SET value for " + wireName + ".");
   }

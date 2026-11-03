@@ -24,6 +24,9 @@ public record NoteResponse(
     NoteObservations observations,
     long correctionCount) {
 
+  static NoteResponse from(DailyNote note, long addendumCount) {
+    return from(note, addendumCount, 0);
+  }
   static NoteResponse from(DailyNote note, long addendumCount, long correctionCount) {
     NoteObservations observations = note.observations();
     return new NoteResponse(
