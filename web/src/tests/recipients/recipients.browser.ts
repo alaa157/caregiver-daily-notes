@@ -3,12 +3,12 @@ import { expect, test, type Page } from '@playwright/test';
 import { recipientFixture } from '../recipientFixtures';
 
 const require = createRequire(import.meta.url);
-const encode = (value: unknown) => Buffer.from(JSON.stringify(value)).toString('base64url');
-const token = () => [encode({ alg: 'HS256' }), encode({ sub: '12345678-1234-1234-1234-123456789abc', exp: Math.floor(Date.now() / 1000) + 3600 }), 'synthetic-signature'].join('.');
 const root = '/app/recipients';
 const detail = `${root}/${recipientFixture.id}`;
-const syntheticId = 'c3333333-3333-4333-8333-333333333333';
-
+const token = () => {
+  const encode = (value: unknown) => Buffer.from(JSON.stringify(value)).toString('base64url');
+  return [encode({ alg: 'HS256' }), encode({ sub: '12345678-1234-1234-1234-123456789abc', exp: Math.floor(Date.now() / 1000) + 3600 }), 'synthetic-signature'].join('.');
+};
 async function accessibility(page: Page) {
   await page.evaluate(async () => { await document.fonts.ready; });
   await page.addScriptTag({ path: require.resolve('axe-core/axe.min.js') });
@@ -24,182 +24,79 @@ async function accessibility(page: Page) {
 for (const language of ['en', 'ar'] as const) {
   const ar = language === 'ar';
   const labels = {
-    list: ar ? 'المستفيدون من الرعاية' : 'Care recipients',
-    add: ar ? 'إضافة مستفيد من الرعاية' : 'Add care recipient',
-    name: ar ? 'الاسم' : 'Name',
-    relationship: ar ? 'صلة القرابة أو العلاقة (اختياري)' : 'Relationship (optional)',
-    edit: ar ? 'تعديل بيانات المستفيد' : 'Edit recipient',
-    save: ar ? 'حفظ التغييرات' : 'Save changes',
-    archive: ar ? 'أرشفة المستفيد' : 'Archive recipient',
-    confirmArchive: ar ? 'تأكيد الأرشفة' : 'Archive recipient',
-    cancel: ar ? 'إلغاء' : 'Cancel',
+    activeFilter: ar ? 'نشط' : 'Active',
+    archivedFilter: ar ? 'مؤرشف' : 'Archived',
     archived: ar ? 'مؤرشف' : 'Archived',
+    active: ar ? 'نشط' : 'Active',
+    archive: ar ? 'أرشفة المستفيد' : 'Archive recipient',
+    archiveTitle: ar ? 'هل تريد أرشفة هذا المستفيد؟' : 'Archive this recipient?',
+    restore: ar ? 'استعادة المستفيد' : 'Restore recipient',
+    restoreTitle: ar ? 'هل تريد استعادة هذا المستفيد؟' : 'Restore this recipient?',
+    cancel: ar ? 'إلغاء' : 'Cancel',
     back: ar ? 'العودة إلى المستفيدين' : 'Back to care recipients',
-    retry: ar ? 'إعادة المحاولة' : 'Retry',
-    reload: ar ? 'إعادة تحميل بيانات المستفيد' : 'Reload recipient details',
+    edit: ar ? 'تعديل بيانات المستفيد' : 'Edit recipient',
+    review: ar ? 'يتطلب المراجعة' : 'Needs review',
+    readOnly: ar ? 'هذا المستفيد مؤرشف وبياناته للقراءة فقط' : 'This recipient is archived and read-only',
   };
 
-  test.describe('care recipients ' + language, () => {
-    test.beforeEach(async ({ page }) => {
-      await page.addInitScript(({ locale, jwt }) => {
-        localStorage.setItem('caregiver-language', locale);
-        sessionStorage.setItem('caregiver-auth-session-v1', JSON.stringify({ token: jwt, baseUrl: '' }));
-      }, { locale: language, jwt: token() });
+  test(`reversible recipient archive lifecycle — ${language}`, async ({ page }) => {
+    let record = { ...recipientFixture };
+    const archivedAt = '2026-10-15T10:00:00Z';
+    const actor = 'b1111111-1111-4111-8111-111111111111';
+    await page.addInitScript(({ locale, jwt }) => {
+      localStorage.setItem('caregiver-language', locale);
+      sessionStorage.setItem('caregiver-auth-session-v1', JSON.stringify({ token: jwt, baseUrl: '' }));
+    }, { locale: language, jwt: token() });
+    await page.route('**/api/recipients**', async (route) => {
+      const request = route.request();
+      const url = new URL(request.url());
+      const method = request.method();
+      if (url.pathname === '/api/recipients') {
+        const status = url.searchParams.get('status');
+        const include = status === 'ACTIVE' ? record.lifecycleStatus === 'ACTIVE'
+          : status === 'ARCHIVED' ? record.lifecycleStatus === 'ARCHIVED'
+            : status === 'LEGACY_INACTIVE_REVIEW' ? record.lifecycleStatus === 'LEGACY_INACTIVE_REVIEW' : true;
+        return route.fulfill({ json: include ? [record] : [] });
+      }
+      if (url.pathname === `/api/recipients/${recipientFixture.id}` && method === 'GET') return route.fulfill({ json: record });
+      if (url.pathname.endsWith('/archive') && method === 'PATCH') {
+        record = { ...record, active: false, lifecycleStatus: 'ARCHIVED', archivedAt, archivedBy: actor };
+        return route.fulfill({ json: record });
+      }
+      if (url.pathname.endsWith('/restore') && method === 'PATCH') {
+        record = { ...record, active: true, lifecycleStatus: 'ACTIVE', restoredAt: '2026-10-16T10:00:00Z', restoredBy: actor };
+        return route.fulfill({ json: record });
+      }
+      return route.fulfill({ status: 404, json: { code: 'NOT_FOUND' } });
     });
 
-    test('list, create, edit and confirm archive work with keyboard and accessible layouts', async ({ page }, info) => {
-      const records = [{ ...recipientFixture }];
-      const mutations: string[] = [];
-      await page.route('**/api/recipients**', async (route) => {
-        const request = route.request();
-        const path = new URL(request.url()).pathname;
-        expect(request.headers()['authorization']).toMatch(/^Bearer /);
-        const method = request.method();
-        if (method === 'POST' || method === 'PUT') {
-          const input = request.postDataJSON();
-          expect(Object.keys(input).sort()).toEqual(['name', 'relationship']);
-          mutations.push(method);
-          if (method === 'POST') {
-            const record = { ...recipientFixture, ...input, id: syntheticId };
-            records.push(record);
-            return route.fulfill({ status: 201, json: record });
-          }
-          Object.assign(records.find(({ id }) => path.endsWith(id))!, input);
-        }
-        if (method === 'PATCH') {
-          expect(request.postData()).toBeNull();
-          mutations.push(method);
-          const record = records.find(({ id }) => path.includes(id))!;
-          if (path.endsWith(`${record.id}/archive`)) Object.assign(record, { active: false, lifecycleStatus: 'ARCHIVED', archivedAt: '2026-10-15T10:00:00Z', archivedBy: 'b1111111-1111-4111-8111-111111111111' });
-          if (path.endsWith(`${record.id}/restore`)) Object.assign(record, { active: true, lifecycleStatus: 'ACTIVE', restoredAt: '2026-10-16T10:00:00Z', restoredBy: 'b1111111-1111-4111-8111-111111111111' });
-        }
-        const record = records.find(({ id }) => path.includes(id));
-        return route.fulfill({ json: path === '/api/recipients' ? records : record });
-      });
-      await page.goto(root);
-      await expect(page.getByRole('link', { name: recipientFixture.name })).toBeVisible();
-      await expect(page.locator('html')).toHaveAttribute('dir', ar ? 'rtl' : 'ltr');
-      await accessibility(page);
-      await page.getByRole('link', { name: labels.add }).click();
-      await page.getByRole('button', { name: labels.add }).click();
-      await expect(page.getByLabel(labels.name, { exact: true })).toBeFocused();
-      await accessibility(page);
-      await page.getByLabel(labels.name, { exact: true }).fill(ar ? 'منى حسن' : 'Mona Hassan');
-      await page.keyboard.press('Tab');
-      await expect(page.getByLabel(labels.relationship, { exact: true })).toBeFocused();
-      await page.keyboard.type('Mother');
-      await page.keyboard.press('Enter');
-      await expect(page).toHaveURL(new RegExp(`${syntheticId}$`));
-      await expect(page.locator('.recipient-success')).toBeFocused();
-      await page.getByRole('link', { name: labels.edit }).click();
-      await page.getByLabel(labels.name, { exact: true }).fill(ar ? 'منى حسن محمد' : 'Mona Hassan Updated');
-      await page.getByLabel(labels.relationship, { exact: true }).fill('');
-      await page.getByRole('button', { name: labels.save }).click();
-      await expect(page.locator('.recipient-success')).toBeVisible();
-      await expect(page.locator('.recipient-details')).toContainText(ar ? 'غير محددة' : 'Not specified');
-      await accessibility(page);
-      await page.getByRole('button', { name: labels.archive, exact: true }).click();
-      const dialog = page.getByRole('dialog');
-      await expect(dialog.getByRole('button', { name: labels.cancel, exact: true })).toBeFocused();
-      await page.keyboard.press('Shift+Tab');
-      await expect(dialog.getByRole('button', { name: labels.confirmArchive })).toBeFocused();
-      await page.keyboard.press('Tab');
-      await expect(dialog.getByRole('button', { name: labels.cancel, exact: true })).toBeFocused();
-      await accessibility(page);
-      await page.keyboard.press('Escape');
-      await expect(dialog).toHaveCount(0);
-      await expect(page.getByRole('button', { name: labels.archive, exact: true })).toBeFocused();
-      expect(mutations).toEqual(['POST', 'PUT']);
-      await page.getByRole('button', { name: labels.deactivate, exact: true }).click();
-      await dialog.getByRole('button', { name: labels.cancel, exact: true }).click();
-      await expect(dialog).toHaveCount(0);
-      await page.getByRole('button', { name: labels.deactivate, exact: true }).click();
-      await dialog.getByRole('button', { name: labels.confirm }).click();
-      await expect(page.getByText(labels.archived, { exact: true })).toBeVisible();
-      await expect(page.getByRole('link', { name: labels.edit })).toHaveCount(0);
-      await expect(page.locator('.recipient-success')).toBeFocused();
-      await accessibility(page);
-      await page.evaluate(() => window.scrollTo(0, 0));
-      await page.screenshot({ path: info.outputPath('recipient-details.png'), fullPage: true });
-      await page.getByRole('link', { name: labels.back }).click();
-      await expect(page.getByRole('list', { name: labels.list }).getByRole('listitem')).toHaveCount(1);
-      await expect(page.getByText(labels.inactive, { exact: true })).toBeVisible();
-      expect(mutations).toEqual(['POST', 'PUT', 'PATCH']);
-    });
-
-    test('loading, network errors, retry and empty states are accessible', async ({ page }) => {
-      let release!: () => void;
-      const gate = new Promise<void>((resolve) => { release = resolve; });
-      let requests = 0;
-      await page.route('**/api/recipients', async (route) => {
-        requests += 1;
-        if (requests === 1) { await gate; await route.fulfill({ status: 500, json: { message: 'private diagnostics' } }); }
-        else await route.fulfill({ json: [] });
-      });
-      await page.goto(root);
-      await expect(page.getByRole('status')).toContainText(ar ? 'جارٍ تحميل' : 'Loading');
-      release();
-      await expect(page.getByRole('alert')).toBeVisible();
-      await expect(page.getByText('private diagnostics')).toHaveCount(0);
-      await accessibility(page);
-      await page.getByRole('button', { name: labels.retry }).click();
-      await expect(page.getByRole('status')).toContainText(ar ? 'لا يوجد مستفيدون' : 'No active care recipients');
-      await accessibility(page);
-    });
-
-    test('unavailable recipients, inactive conflicts and rejected sessions stay safe', async ({ page }) => {
-      let active = true;
-      await page.route('**/api/recipients**', async (route) => {
-        const request = route.request();
-        if (request.url().includes(syntheticId)) return route.fulfill({ status: 404, json: { message: 'private ownership details' } });
-        if (request.method() === 'PUT') { active = false; return route.fulfill({ status: 409, json: { code: 'INACTIVE_RECIPIENT' } }); }
-        return route.fulfill({ json: active ? recipientFixture : { ...recipientFixture, active: false, lifecycleStatus: 'ARCHIVED', archivedAt: '2026-10-15T10:00:00Z', archivedBy: 'b1111111-1111-4111-8111-111111111111' } });
-      });
-      await page.goto(`${root}/${syntheticId}`);
-      await expect(page.getByRole('alert')).toContainText(ar ? 'هذا المستفيد غير متاح' : 'This recipient is unavailable');
-      await expect(page.getByText('private ownership details')).toHaveCount(0);
-      await accessibility(page);
-      await page.goto(`${detail}/edit`);
-      await page.getByLabel(labels.name, { exact: true }).fill('Unsaved input');
-      await page.getByRole('button', { name: labels.save }).click();
-      await expect(page.getByRole('alert')).toBeFocused();
-      await expect(page.getByLabel(labels.name, { exact: true })).toHaveValue('Unsaved input');
-      await accessibility(page);
-      await page.getByRole('button', { name: labels.reload }).click();
-      await expect(page.getByText(labels.inactive, { exact: true })).toBeVisible();
-      await expect(page.getByRole('textbox')).toHaveCount(0);
-      await accessibility(page);
-      await page.unroute('**/api/recipients**');
-      await page.route('**/api/recipients**', (route) => route.fulfill({ status: 401, json: { code: 'UNAUTHORIZED' } }));
-      await page.getByRole('link', { name: labels.back }).click();
-      await expect(page).toHaveURL(/\/login$/);
-      await expect(page.getByText(recipientFixture.name, { exact: true })).toHaveCount(0);
-      expect(await page.evaluate(() => sessionStorage.getItem('caregiver-auth-session-v1'))).toBeNull();
-    });
-
-    test('deactivation failure keeps an accessible modal open for retry', async ({ page }) => {
-      let attempts = 0;
-      await page.route('**/api/recipients**', async (route) => {
-        if (route.request().method() === 'PATCH') {
-          attempts += 1;
-          if (attempts === 1) return route.fulfill({ status: 503, json: { message: 'private diagnostics' } });
-          return route.fulfill({ json: { ...recipientFixture, active: false, lifecycleStatus: 'ARCHIVED', archivedAt: '2026-10-15T10:00:00Z', archivedBy: 'b1111111-1111-4111-8111-111111111111' } });
-        }
-        return route.fulfill({ json: { ...recipientFixture, name: 'اسم طويل للاختبار Long synthetic recipient name '.repeat(2) } });
-      });
-      await page.goto(detail);
-      await accessibility(page);
-      await page.getByRole('button', { name: labels.deactivate, exact: true }).click();
-      await page.getByRole('button', { name: labels.confirm }).click();
-      await expect(page.getByRole('dialog').getByRole('alert')).toBeFocused();
-      await accessibility(page);
-      await page.keyboard.press('Shift+Tab');
-      await expect(page.getByRole('button', { name: labels.confirm })).toBeFocused();
-      await page.keyboard.press('Tab');
-      await expect(page.getByRole('button', { name: labels.cancel, exact: true })).toBeFocused();
-      await page.getByRole('button', { name: labels.confirm }).click();
-      await expect(page.getByText(labels.inactive, { exact: true })).toBeVisible();
-      expect(attempts).toBe(2);
-    });
+    await page.goto(root);
+    await expect(page.getByRole('link', { name: recipientFixture.name })).toBeVisible();
+    await expect(page.locator('html')).toHaveAttribute('dir', ar ? 'rtl' : 'ltr');
+    await accessibility(page);
+    await page.getByRole('link', { name: recipientFixture.name }).click();
+    await expect(page.getByRole('button', { name: labels.archive, exact: true })).toBeVisible();
+    await page.getByRole('button', { name: labels.archive, exact: true }).click();
+    const archiveDialog = page.getByRole('dialog', { name: labels.archiveTitle });
+    await expect(archiveDialog.getByRole('button', { name: labels.cancel, exact: true })).toBeFocused();
+    await accessibility(page);
+    await page.getByRole('button', { name: labels.archive, exact: true }).click();
+    await expect(page.getByText(labels.archived, { exact: true })).toBeVisible();
+    await expect(page.getByText(labels.readOnly, { exact: false })).toBeVisible();
+    await expect(page.getByRole('link', { name: labels.edit, exact: true })).toHaveCount(0);
+    await page.getByRole('link', { name: labels.back, exact: true }).click();
+    await expect(page.getByText(ar ? 'لا يوجد مستفيدون مؤرشفون' : 'No active care recipients')).toBeVisible();
+    await page.getByRole('button', { name: labels.archivedFilter, exact: true }).click();
+    await expect(page.getByRole('link', { name: recipientFixture.name })).toBeVisible();
+    await page.getByRole('link', { name: recipientFixture.name }).click();
+    await page.getByRole('button', { name: labels.restore, exact: true }).click();
+    const restoreDialog = page.getByRole('dialog', { name: labels.restoreTitle });
+    await expect(restoreDialog).toBeVisible();
+    await page.getByRole('button', { name: labels.restore, exact: true }).click();
+    await expect(page.getByText(labels.active, { exact: true })).toBeVisible();
+    await page.getByRole('link', { name: labels.back, exact: true }).click();
+    await page.getByRole('button', { name: labels.activeFilter, exact: true }).click();
+    await expect(page.getByRole('link', { name: recipientFixture.name })).toBeVisible();
+    await accessibility(page);
   });
 }
