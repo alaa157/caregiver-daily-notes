@@ -180,7 +180,7 @@ describe('care recipients screens', () => {
     const fetcher = vi.fn().mockResolvedValueOnce(jsonResponse(recipient)).mockResolvedValueOnce(jsonResponse(archived));
     renderRecipients(detail, fetcher);
     await userEvent.click(await screen.findByRole('button', { name: 'Archive recipient' }));
-    await userEvent.click(screen.getByRole('button', { name: 'Archive recipient' }));
+    await userEvent.click(within(screen.getByRole('dialog')).getByRole('button', { name: 'Archive recipient' }));
     expect(await screen.findByText('Archived')).toBeInTheDocument();
     expect(screen.queryByRole('dialog')).not.toBeInTheDocument();
     expect(screen.queryByRole('link', { name: 'Edit recipient' })).not.toBeInTheDocument();
@@ -196,7 +196,7 @@ describe('care recipients screens', () => {
     const fetcher = vi.fn().mockResolvedValueOnce(jsonResponse(archived)).mockResolvedValueOnce(jsonResponse(restored));
     renderRecipients(detail, fetcher);
     await userEvent.click(await screen.findByRole('button', { name: 'Restore recipient' }));
-    await userEvent.click(screen.getByRole('button', { name: 'Restore recipient' }));
+    await userEvent.click(within(screen.getByRole('dialog')).getByRole('button', { name: 'Restore recipient' }));
     expect(await screen.findByText('Active')).toBeInTheDocument();
     expect(screen.getByText('Recipient restored to active status.')).toHaveFocus();
     expect(fetcher.mock.calls[1][0]).toBe(`${detail.replace('/app/', '/api/')}/restore`);
@@ -210,7 +210,7 @@ describe('care recipients screens', () => {
     await userEvent.click(screen.getByRole('button', { name: 'Archive recipient' }));
     expect(await screen.findByRole('alert')).toHaveFocus();
     expect(screen.getByRole('dialog')).toHaveTextContent('We couldn’t connect.');
-    await userEvent.click(screen.getByRole('button', { name: 'Archive recipient' }));
+    await userEvent.click(within(screen.getByRole('dialog')).getByRole('button', { name: 'Archive recipient' }));
     expect(await screen.findByText('Archived')).toBeInTheDocument();
   });
 
