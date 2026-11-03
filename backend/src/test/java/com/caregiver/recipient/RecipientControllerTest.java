@@ -73,7 +73,7 @@ class RecipientControllerTest {
         .andExpect(jsonPath("$.relationship").value("Father"))
         .andExpect(jsonPath("$.active").value(true))
         .andExpect(jsonPath("$.lifecycleStatus").value("ACTIVE"))
-        .andExpect(jsonPath("$.archivedAt").doesNotExist())
+        .andExpect(jsonPath("$.archivedAt").value(org.hamcrest.Matchers.nullValue()))
         .andReturn();
     String id = objectMapper.readTree(created.getResponse().getContentAsString()).get("id").asText();
 
@@ -310,7 +310,7 @@ class RecipientControllerTest {
         .andExpect(jsonPath("$.active").value(false))
         .andExpect(jsonPath("$.lifecycleStatus").value("LEGACY_INACTIVE_REVIEW"))
         .andExpect(jsonPath("$.archivedAt").doesNotExist())
-        .andExpect(jsonPath("$.archivedBy").doesNotExist());
+        .andExpect(jsonPath("$.archivedBy").value(org.hamcrest.Matchers.nullValue()));
 
     mvc.perform(get(RECIPIENTS).param("status", "LEGACY_INACTIVE_REVIEW")
             .header("Authorization", bearer(owner.token())))
