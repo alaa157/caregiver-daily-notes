@@ -14,8 +14,12 @@ async function serve(page: Page, options: { protected?: boolean; failure?: boole
   await page.route('**/api/**', async (route) => {
     const request = route.request(); const url = new URL(request.url());
     expect(request.headers().authorization).toMatch(/^Bearer /);
-    if (url.pathname === '/api/recipients') return route.fulfill({ json: [{ ...recipientFixture, active: !options.inactive }] });
-    if (url.pathname.endsWith(`/recipients/${recipientFixture.id}`)) return route.fulfill({ json: { ...recipientFixture, active: !options.inactive } });
+    if (url.pathname === '/api/recipients') return route.fulfill({ json: [options.inactive
+      ? { ...recipientFixture, active: false, lifecycleStatus: 'ARCHIVED', archivedAt: '2026-10-15T10:00:00Z', archivedBy: 'b1111111-1111-4111-8111-111111111111' }
+      : recipientFixture] });
+    if (url.pathname.endsWith(`/recipients/${recipientFixture.id}`)) return route.fulfill({ json: options.inactive
+      ? { ...recipientFixture, active: false, lifecycleStatus: 'ARCHIVED', archivedAt: '2026-10-15T10:00:00Z', archivedBy: 'b1111111-1111-4111-8111-111111111111' }
+      : recipientFixture });
     if (request.method() === 'POST') {
       writes.push({ path: url.pathname, body: request.postData() });
       if (options.conflict) return route.fulfill({ status: 409, json: { code: 'INVALID_PLAN_TRANSITION', message: 'private diagnostics' } });

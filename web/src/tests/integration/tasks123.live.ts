@@ -55,7 +55,7 @@ for (const language of ['en', 'ar'] as const) {
 
     // These requests exercise real server authorization, not frontend guards.
     for (const method of ['GET', 'PUT', 'PATCH']) {
-      const response = await request.fetch(`${backend}/api/recipients/${id}${method === 'PATCH' ? '/deactivate' : ''}`, {
+      const response = await request.fetch(`${backend}/api/recipients/${id}${method === 'PATCH' ? '/archive' : ''}`, {
         method, headers: otherHeaders, ...(method === 'PUT' ? { data: { name: 'Unauthorized change' } } : {}),
       });
       expect(response.status()).toBe(404);
@@ -79,21 +79,32 @@ for (const language of ['en', 'ar'] as const) {
     const detailBeforeResponse = await request.get(`${backend}/api/notes/${noteBefore.id}`, { headers: ownerHeaders });
     expect(detailBeforeResponse.status()).toBe(200);
     const detailBefore = await detailBeforeResponse.json();
-    await page.getByRole('button', { name: ar ? 'إلغاء تنشيط المستفيد' : 'Deactivate recipient', exact: true }).click();
+    await page.getByRole('button', { name: ar ? 'أرشفة المستفيد' : 'Archive recipient', exact: true }).click();
     await page.getByRole('button', { name: ar ? 'إلغاء' : 'Cancel', exact: true }).click();
     await expect(page.getByRole('link', { name: ar ? 'تعديل بيانات المستفيد' : 'Edit recipient', exact: true })).toBeVisible();
     await page.getByRole('button', { name: ar ? 'إلغاء تنشيط المستفيد' : 'Deactivate recipient', exact: true }).click();
-    await page.getByRole('button', { name: ar ? 'تأكيد إلغاء التنشيط' : 'Confirm deactivation', exact: true }).click();
-    await expect(page.getByText(ar ? 'غير نشط' : 'Inactive', { exact: true })).toBeVisible();
+    await page.getByRole('button', { name: ar ? 'تأكيد الأرشفة' : 'Archive recipient', exact: true }).click();
+    await expect(page.getByText(ar ? 'مؤرشف' : 'Archived', { exact: true })).toBeVisible();
     await expect(page.getByRole('link', { name: ar ? 'تعديل بيانات المستفيد' : 'Edit recipient', exact: true })).toHaveCount(0);
     const persisted = await request.get(`${backend}/api/recipients/${id}`, { headers: ownerHeaders });
     expect(persisted.status()).toBe(200);
-    expect(await persisted.json()).toMatchObject({ id, name: updatedName, active: false });
+    expect(await persisted.json()).toMatchObject({ id, name: updatedName, active: false, lifecycleStatus: 'ARCHIVED' });
+    expect((await persisted.json()).archivedAt).toBeTruthy();
+    expect((await persisted.json()).archivedBy).toBeTruthy();
     const history = await request.get(`${backend}/api/notes/${noteBefore.id}`, { headers: ownerHeaders });
     expect(history.status()).toBe(200);
     expect(await history.json()).toEqual(detailBefore);
     const inactiveUpdate = await request.put(`${backend}/api/recipients/${id}`, { headers: ownerHeaders, data: { name: 'Blocked update' } });
     expect(inactiveUpdate.status()).toBe(409);
+
+    await page.getByRole('button', { name: ar ? 'استعادة المستفيد' : 'Restore recipient', exact: true }).click();
+    await page.getByRole('button', { name: ar ? 'تأكيد الاستعادة' : 'Restore recipient', exact: true }).click();
+    await expect(page.getByText(ar ? 'نشط' : 'Active', { exact: true })).toBeVisible();
+    const restored = await request.get(`${backend}/api/recipients/${id}`, { headers: ownerHeaders });
+    expect(restored.status()).toBe(200);
+    expect(await restored.json()).toMatchObject({ id, name: updatedName, active: true, lifecycleStatus: 'ACTIVE' });
+    expect((await restored.json()).restoredAt).toBeTruthy();
+    expect((await restored.json()).restoredBy).toBeTruthy();
 
     await page.getByRole('button', { name: ar ? 'تسجيل الخروج' : 'Sign out', exact: true }).click();
     await expect(page).toHaveURL(/\/login$/);
