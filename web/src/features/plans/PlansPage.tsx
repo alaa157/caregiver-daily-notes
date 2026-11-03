@@ -215,7 +215,7 @@ export function PlansPage() {
     const controller = new AbortController();
     const timer = setTimeout(() => { controller.abort(); setRecipients({ status: 'error', error: new Error('Read timed out.') }); }, readTimeoutMs);
     setRecipients({ status: 'loading' });
-    void recipientsApi.list(controller.signal).then(
+    void recipientsApi.list(controller.signal, 'ALL').then(
       (data) => { if (!controller.signal.aborted) setRecipients({ status: 'ready', data }); },
       (error: unknown) => { if (!controller.signal.aborted) setRecipients({ status: 'error', error }); },
     ).finally(() => clearTimeout(timer));
@@ -232,7 +232,7 @@ export function PlansPage() {
       <div className="note-field plan-recipient"><label htmlFor="plans-recipient">{t('plansRecipient')}</label>
         <select id="plans-recipient" value={validRecipient ? recipientId : ''} disabled={saving} aria-invalid={!!recipientId && !validRecipient} aria-describedby={recipientId && !validRecipient ? 'plans-recipient-error' : undefined}
           onChange={(event) => setSearch(event.target.value ? { recipientId: event.target.value } : {})}>
-          <option value="">{t('plansChoose')}</option>{recipients.data.map((recipient) => <option key={recipient.id} value={recipient.id}>{recipient.name}{recipient.active ? '' : ` (${t('historyInactive')})`}</option>)}
+          <option value="">{t('plansChoose')}</option>{recipients.data.map((recipient) => <option key={recipient.id} value={recipient.id}>{recipient.name}{recipient.lifecycleStatus === 'ARCHIVED' ? ` — ${t('recipientArchived')}` : recipient.lifecycleStatus === 'LEGACY_INACTIVE_REVIEW' ? ` — ${t('recipientNeedsReview')}` : ''}</option>)}
         </select>
       </div>
       {recipientId && !validRecipient && <p id="plans-recipient-error" className="note-error" role="alert">{t('plansInvalidRecipient')}</p>}

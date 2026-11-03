@@ -52,7 +52,7 @@ export function HistoryPage() {
   const [search, setSearch] = useSearchParams();
   const { filters, page, size } = readHistorySearch(search, defaults);
   const [focusResults, setFocusResults] = useState(false);
-  const loadRecipients = useCallback((signal: AbortSignal) => api.recipients.list(signal), [api]);
+  const loadRecipients = useCallback((signal: AbortSignal) => api.recipients.list(signal, 'ALL'), [api]);
   const recipients = useNoteResource(loadRecipients);
   const update = (next: HistoryFilters, nextPage = 0, nextSize = size) => {
     setFocusResults(true);

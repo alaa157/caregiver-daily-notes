@@ -20,7 +20,7 @@ export function SummaryPage() {
   const client = useApiClient();
   const api = useMemo(() => createSummaryApi(client), [client]);
   const recipientsApi = useMemo(() => createRecipientsApi(client), [client]);
-  const loadRecipients = useCallback((signal: AbortSignal) => recipientsApi.list(signal), [recipientsApi]);
+  const loadRecipients = useCallback((signal: AbortSignal) => recipientsApi.list(signal, 'ALL'), [recipientsApi]);
   const recipients = useNoteResource(loadRecipients);
   const [recipientId, setRecipientId] = useState('');
   const [periodDays, setPeriodDays] = useState<SummaryRequest['periodDays']>(7);
@@ -103,7 +103,7 @@ export function SummaryPage() {
           <select ref={recipientField} id="summary-recipient" value={recipientId} disabled={pending || !available} aria-invalid={!!errors.recipient} aria-describedby={errors.recipient ? 'summary-recipient-error' : undefined}
             onChange={(event) => { setRecipientId(event.target.value); setErrors({}); }}>
             <option value="">{t('summaryChooseRecipient')}</option>
-            {recipients.state.status === 'ready' && recipients.state.data.map((recipient) => <option key={recipient.id} value={recipient.id} dir="auto">{recipient.name}{recipient.active ? '' : ` — ${t('recipientInactive')}`}</option>)}
+            {recipients.state.status === 'ready' && recipients.state.data.map((recipient) => <option key={recipient.id} value={recipient.id} dir="auto">{recipient.name}{recipient.lifecycleStatus === 'ARCHIVED' ? ` — ${t('recipientArchived')}` : recipient.lifecycleStatus === 'LEGACY_INACTIVE_REVIEW' ? ` — ${t('recipientNeedsReview')}` : ''}</option>)}
           </select>
           {errors.recipient && <FieldError id="summary-recipient-error" message={t(errors.recipient)} />}
         </div>
