@@ -2,6 +2,7 @@ package com.caregiver.notes;
 
 import com.caregiver.auth.InvalidTokenException;
 import com.caregiver.recipient.RecipientNotFoundException;
+import com.caregiver.recipient.InactiveRecipientException;
 import jakarta.validation.ConstraintViolationException;
 import java.time.Instant;
 import java.util.LinkedHashMap;
@@ -50,6 +51,12 @@ public class NoteApiExceptionHandler {
         "code", "VALIDATION_ERROR",
         "message", "Request validation failed.",
         "fields", fields));
+  }
+
+  @ExceptionHandler(InactiveRecipientException.class)
+  public ResponseEntity<Map<String, Object>> inactiveRecipient(InactiveRecipientException exception) {
+    return error(HttpStatus.CONFLICT, "INACTIVE_RECIPIENT",
+        "Archived or legacy-review recipients cannot be changed in ordinary workflows.");
   }
 
   @ExceptionHandler({IllegalArgumentException.class, ConstraintViolationException.class,

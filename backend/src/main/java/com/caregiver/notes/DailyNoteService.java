@@ -5,6 +5,7 @@ import com.caregiver.auth.AuthContext;
 import com.caregiver.auth.CaregiverRepository;
 import com.caregiver.recipient.CareRecipientRepository;
 import com.caregiver.recipient.RecipientNotFoundException;
+import com.caregiver.recipient.InactiveRecipientException;
 import java.time.LocalDate;
 import java.util.HashMap;
 import java.util.List;
@@ -106,10 +107,10 @@ public class DailyNoteService {
             return response(existing.get());
           }
         }
-        var recipient = recipients.findByIdAndCaregiver_Id(request.recipientId(), owner)
+        var recipient = recipients.findOwnedForUpdate(request.recipientId(), owner)
             .orElseThrow(RecipientNotFoundException::new);
         if (!recipient.isActive()) {
-          throw new IllegalArgumentException("Recipient is inactive.");
+          throw new InactiveRecipientException();
         }
         if (!caregivers.existsById(owner)) {
           throw new RecipientNotFoundException();
@@ -183,6 +184,11 @@ public class DailyNoteService {
         }
         var note = notes.findByIdAndCaregiver_Id(noteId, owner)
             .orElseThrow(NoteNotFoundException::new);
+        var recipient = recipients.findOwnedForUpdate(note.getRecipient().getId(), owner)
+            .orElseThrow(NoteNotFoundException::new);
+        if (!recipient.isActive()) {
+          throw new InactiveRecipientException();
+        }
         if (!caregivers.existsById(owner)) {
           throw new NoteNotFoundException();
         }
