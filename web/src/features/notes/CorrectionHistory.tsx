@@ -2,18 +2,22 @@ import { observationFields, type CorrectionEvent, type CorrectionHistory as Corr
 import { useI18n } from '../../i18n/I18nProvider';
 import { fieldLabels } from './noteForm';
 
+function scalarText(field: ObservationField, value: string | number | boolean, t: ReturnType<typeof useI18n>['t'], language: string) {
+  if (value === '') return t('notesEmptyValue');
+  if (typeof value === 'boolean') return t(value ? 'notesYes' : 'notesNo');
+  if (field === 'medicationStatus') return t(value === 'TAKEN' ? 'notesTaken' : 'notesMissed');
+  if (typeof value === 'number') return new Intl.NumberFormat(language === 'ar' ? 'ar-EG' : 'en').format(value);
+  return value;
+}
 function valueText(field: ObservationField, observation: EffectiveObservation, t: ReturnType<typeof useI18n>['t'], language: string) {
   if (observation.lastOperation === 'CLEAR') return t('notesCorrectionCleared');
   if (observation.state === 'UNKNOWN') return t('notesUnknown');
   if (observation.state === 'NOT_RECORDED') return observation.lastOperation === 'NOT_RECORDED' ? t('notesCorrectionMarkedNotRecorded') : t('notesNotRecorded');
-  if (observation.state === 'NOT_APPLICABLE') return t('notesNotApplicable');
-  if (observation.state === 'LEGACY_AMBIGUOUS') return t('notesLegacyAmbiguous');
+  if (observation.state === 'NOT_APPLICABLE') return t('obsStateNotApplicable');
+  if (observation.state === 'LEGACY_AMBIGUOUS') return observation.rawValue === null
+    ? t('obsStateLegacyAmbiguous') : `${t('obsStateLegacyAmbiguous')}: ${scalarText(field, observation.rawValue, t, language)}`;
   const value = observation.value;
-  if (value === '') return t('notesEmptyValue');
-  if (typeof value === 'boolean') return t(value ? 'notesYes' : 'notesNo');
-  if (field === 'medicationStatus') return t(value === 'TAKEN' ? 'notesTaken' : value === 'MISSED' ? 'notesMissed' : 'notesUnknown');
-  if (typeof value === 'number') return new Intl.NumberFormat(language === 'ar' ? 'ar-EG' : 'en').format(value);
-  return typeof value === 'string' ? value : t('notesNotRecorded');
+  return value === null ? t('notesNotRecorded') : scalarText(field, value, t, language);
 }
 
 function operationText(event: CorrectionEvent, t: ReturnType<typeof useI18n>['t'], language: string) {

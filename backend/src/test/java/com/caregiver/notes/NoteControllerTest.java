@@ -652,6 +652,30 @@ class NoteControllerTest {
   }
 
   @Test
+  void medicationUnknownUsesTheCanonicalStateRatherThanARecordedValue() throws Exception {
+    TestCaregiver owner = register("note-correction-medication@example.com");
+    String recipientId = createRecipient(owner.token());
+    String noteId = createNote(owner.token(), recipientId, "2026-10-26");
+
+    mvc.perform(post(NOTES + "/" + noteId + "/corrections")
+            .header("Authorization", bearer(owner.token())).contentType(MediaType.APPLICATION_JSON)
+            .content("{\"corrections\":[{\"field\":\"medicationStatus\",\"operation\":\"UNKNOWN\"}]}"))
+        .andExpect(status().isCreated())
+        .andExpect(jsonPath("$.effectiveObservations.medicationStatus.state").value("UNKNOWN"))
+        .andExpect(jsonPath("$.effectiveObservations.medicationStatus.value").value(org.hamcrest.Matchers.nullValue()));
+
+    mvc.perform(post(NOTES + "/" + noteId + "/corrections")
+            .header("Authorization", bearer(owner.token())).contentType(MediaType.APPLICATION_JSON)
+            .content("{\"corrections\":[{\"field\":\"medicationStatus\",\"operation\":\"SET\",\"value\":\"UNKNOWN\"}]}"))
+        .andExpect(status().isBadRequest());
+
+    mvc.perform(get(NOTES + "/" + noteId + "/corrections").header("Authorization", bearer(owner.token())))
+        .andExpect(status().isOk()).andExpect(jsonPath("$.originalNote.observations.medicationStatus.state").value("RECORDED"))
+        .andExpect(jsonPath("$.effectiveObservations.medicationStatus.state").value("UNKNOWN"));
+    assertThat(jdbcTemplate.queryForObject("select count(*) from note_correction_events", Integer.class)).isEqualTo(1);
+  }
+
+  @Test
   void correctionValidationIsAtomicAndOwnershipScoped() throws Exception {
     TestCaregiver owner = register("note-correction-owner@example.com");
     TestCaregiver other = register("note-correction-other@example.com");

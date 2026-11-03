@@ -9,7 +9,7 @@ import { ApiProvider } from '../lib/api';
 import { jsonResponse, testToken } from './authFixtures';
 import { recipientFixture } from './recipientFixtures';
 import { addendumFixture, noteFixture, noteObservations } from './noteFixtures';
-import { observationFields } from '../api/notes';
+import { observationFields, type FieldCorrection } from '../api/notes';
 
 const root = '/app/notes';
 const detail = `${root}/${noteFixture.id}`;
@@ -29,28 +29,29 @@ function dataFetcher(overrides?: (path: string, init: RequestInit) => Response |
   });
 }
 function correctionHistoryFixture(events: unknown[] = []) {
-  const effectiveObservations = Object.fromEntries(observationFields.map((field) => [field, {
-    state: noteFixture.observations[field].state,
-    value: noteFixture.observations[field].state === 'RECORDED' ? noteFixture.observations[field].value : null,
-    lastOperation: null,
-    eventId: null, actorId: null, updatedAt: noteFixture.createdAt,
-  }]));
+  const effectiveObservations = Object.fromEntries(observationFields.map((field) => {
+    const observation = noteFixture.observations[field];
+    return [field, { state: observation.state, value: observation.value ?? null, rawValue: observation.rawValue ?? null,
+      lastOperation: null, eventId: null, actorId: null, updatedAt: noteFixture.createdAt }];
+  }));
   return { originalNote: noteFixture, events, effectiveObservations };
 }
-function correctionResponse() {
-  const history = correctionHistoryFixture();
-  const effective = history.effectiveObservations as Record<string, { state: string; value: string | number | boolean | null; lastOperation: string | null; eventId: string | null; actorId: string | null; updatedAt: string | null }>;
-  const prior = effective.mood;
-  const current = { ...prior, state: 'RECORDED', value: '' };
-  effective.mood = current;
-  return {
-    ...history,
-    events: [{
-      id: 'f6666666-6666-4666-8666-666666666666', noteId: noteFixture.id, sequenceNo: 1,
-      createdAt: '2026-10-18T12:00:00Z', actorId: 'a1111111-1111-4111-8111-111111111111',
-      field: 'mood', operation: 'SET', value: '', previousEffective: prior, effectiveAfter: current,
-    }],
-  };
+function correctionResponse(corrections: FieldCorrection[]) {
+  let effectiveObservations = correctionHistoryFixture().effectiveObservations as Record<string, Record<string, unknown>>;
+  const actorId = 'f5555555-5555-4555-8555-555555555555';
+  const events = corrections.map((correction, index) => {
+    const previousEffective = effectiveObservations[correction.field];
+    const eventId = `e5555555-5555-4555-8555-${String(index + 1).padStart(12, '0')}`;
+    const state = correction.operation === 'SET' ? 'RECORDED'
+      : correction.operation === 'UNKNOWN' ? 'UNKNOWN' : 'NOT_RECORDED';
+    const effectiveAfter = { state, value: correction.operation === 'SET' ? correction.value : null, rawValue: null,
+      lastOperation: correction.operation, eventId, actorId, updatedAt: '2026-10-18T12:00:00Z' };
+    effectiveObservations = { ...effectiveObservations, [correction.field]: effectiveAfter };
+    return { id: eventId, noteId: noteFixture.id, sequenceNo: index + 1, createdAt: '2026-10-18T12:00:00Z', actorId,
+      field: correction.field, operation: correction.operation,
+      value: correction.operation === 'SET' ? correction.value : null, previousEffective, effectiveAfter };
+  });
+  return { originalNote: noteFixture, events, effectiveObservations };
 }
 async function metadata() {
   await userEvent.selectOptions(await screen.findByLabelText('Care recipient'), recipientFixture.id);
@@ -356,5 +357,81 @@ describe('daily-note creation and immutable corrections', () => {
     expect(signal.aborted).toBe(true);
     resolve(jsonResponse(noteFixture, 201));
     await waitFor(() => expect(fetcher.mock.calls.filter(([, init]) => init.method === 'POST')).toHaveLength(1));
+  });
+  it('creates explicit correction events without changing the canonical original observation states', async () => {
+    let posted: FieldCorrection[] = [];
+    let storedHistory: unknown = correctionHistoryFixture();
+    const fetcher = dataFetcher((path, init) => {
+      if (path.endsWith('/corrections') && init.method === 'POST') {
+        posted = JSON.parse(init.body as string).corrections as FieldCorrection[];
+        storedHistory = correctionResponse(posted);
+        return jsonResponse(storedHistory, 201);
+      }
+      if (path.endsWith('/corrections')) return jsonResponse(storedHistory);
+    });
+    renderNotes(detail, fetcher);
+    const original = await screen.findByRole('article', { name: 'Original note — read only' });
+    await userEvent.click(screen.getByRole('button', { name: 'Add structured correction' }));
+    const mood = within(screen.getByRole('group', { name: 'Mood' }));
+    await userEvent.selectOptions(mood.getByLabelText('Correction operation'), 'SET');
+    fireEvent.change(mood.getByLabelText('New value'), { target: { value: '' } });
+    const pain = within(screen.getByRole('group', { name: 'Pain score (0–10)' }));
+    await userEvent.selectOptions(pain.getByLabelText('Correction operation'), 'SET');
+    fireEvent.change(pain.getByLabelText('New value'), { target: { value: '0' } });
+    const fall = within(screen.getByRole('group', { name: 'Fall reported' }));
+    await userEvent.selectOptions(fall.getByLabelText('Correction operation'), 'SET');
+    await userEvent.selectOptions(fall.getByLabelText('New value'), 'false');
+    const appetite = within(screen.getByRole('group', { name: 'Appetite' }));
+    await userEvent.selectOptions(appetite.getByLabelText('Correction operation'), 'UNKNOWN');
+    expect(appetite.queryByLabelText('New value')).not.toBeInTheDocument();
+    await userEvent.selectOptions(within(screen.getByRole('group', { name: 'Sleep' })).getByLabelText('Correction operation'), 'CLEAR');
+    await userEvent.selectOptions(within(screen.getByRole('group', { name: 'Mobility' })).getByLabelText('Correction operation'), 'NOT_RECORDED');
+    await userEvent.click(screen.getByRole('button', { name: 'Save corrections' }));
+    expect(await screen.findByText('Structured corrections saved. The original note is unchanged.')).toHaveFocus();
+    expect(posted).toEqual([
+      { field: 'mood', operation: 'SET', value: '' }, { field: 'appetite', operation: 'UNKNOWN' },
+      { field: 'sleep', operation: 'CLEAR' }, { field: 'mobility', operation: 'NOT_RECORDED' },
+      { field: 'painScore', operation: 'SET', value: 0 }, { field: 'fallReported', operation: 'SET', value: false },
+    ]);
+    expect(within(original).getByText('6 hours')).toBeInTheDocument();
+    expect(await screen.findByRole('heading', { name: 'Correction event 1 · Mood' })).toBeInTheDocument();
+    expect(screen.getByText('Set to Recorded as empty')).toBeInTheDocument();
+  });
+  it('localizes the structured correction editor in Arabic RTL', async () => {
+    renderNotes(detail, dataFetcher(), 'ar');
+    await screen.findByRole('heading', { name: 'الملاحظة الأصلية — للقراءة فقط' });
+    await userEvent.click(screen.getByRole('button', { name: 'إضافة تصحيح منظّم' }));
+    expect(document.documentElement.dir).toBe('rtl');
+    expect(screen.getByRole('form', { name: 'محرّر التصحيح المنظّم' })).toBeInTheDocument();
+    expect(screen.getAllByLabelText('عملية التصحيح')).toHaveLength(8);
+  });
+  it('blocks duplicate correction submissions and safely retries with the same key', async () => {
+    const posts: RequestInit[] = [];
+    let reject!: (error: unknown) => void;
+    const fetcher = dataFetcher((path, init) => {
+      if (path.endsWith('/corrections') && init.method === 'POST') {
+        posts.push(init);
+        return posts.length === 1 ? new Promise<Response>((_, fail) => { reject = fail; })
+          : jsonResponse(correctionResponse(JSON.parse(init.body as string).corrections), 201);
+      }
+    });
+    renderNotes(detail, fetcher);
+    await screen.findByRole('heading', { name: 'Original note — read only' });
+    await userEvent.click(screen.getByRole('button', { name: 'Add structured correction' }));
+    const mood = within(screen.getByRole('group', { name: 'Mood' }));
+    await userEvent.selectOptions(mood.getByLabelText('Correction operation'), 'SET');
+    fireEvent.change(mood.getByLabelText('New value'), { target: { value: '' } });
+    const form = screen.getByRole('form', { name: 'Structured correction editor' });
+    fireEvent.submit(form);
+    fireEvent.submit(form);
+    expect(posts).toHaveLength(1);
+    expect(screen.getByRole('button', { name: 'Saving corrections…' })).toBeDisabled();
+    reject(new TypeError('response lost'));
+    expect(await screen.findByRole('alert')).toHaveTextContent('Corrections could not be saved');
+    await userEvent.click(screen.getByRole('button', { name: 'Save corrections' }));
+    await screen.findByText('Structured corrections saved. The original note is unchanged.');
+    expect(posts).toHaveLength(2);
+    expect(posts[1].body).toBe(posts[0].body);
+    expect(new Headers(posts[1].headers).get('Idempotency-Key')).toBe(new Headers(posts[0].headers).get('Idempotency-Key'));
   });
 });

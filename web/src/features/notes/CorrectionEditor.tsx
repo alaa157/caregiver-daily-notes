@@ -40,7 +40,7 @@ export function CorrectionEditor({ onSave, onCancel }: Props) {
       } else if ((field === 'mood' || field === 'appetite' || field === 'sleep' || field === 'mobility') && value.length > 40) {
         next[field] = 'notesTextLimit';
       } else if (field === 'freeText' && value.length > 20000) next[field] = 'notesFreeTextLimit';
-      else if (field === 'medicationStatus' && !['TAKEN', 'MISSED', 'UNKNOWN'].includes(value)) next[field] = 'notesCorrectionValueRequired';
+      else if (field === 'medicationStatus' && !['TAKEN', 'MISSED'].includes(value)) next[field] = 'notesCorrectionValueRequired';
       else if (field === 'fallReported' && !['true', 'false'].includes(value)) next[field] = 'notesCorrectionValueRequired';
     }
     return next;
@@ -84,7 +84,7 @@ export function CorrectionEditor({ onSave, onCancel }: Props) {
         setErrors((current) => ({ ...current, [field]: undefined })); setFailure(false); retryKey.current = null;
       } };
     if (field === 'medicationStatus') return <select {...common}><option value="">{t('notesCorrectionChooseValue')}</option>
-      <option value="TAKEN">{t('notesTaken')}</option><option value="MISSED">{t('notesMissed')}</option><option value="UNKNOWN">{t('notesUnknown')}</option></select>;
+      <option value="TAKEN">{t('notesTaken')}</option><option value="MISSED">{t('notesMissed')}</option></select>;
     if (field === 'fallReported') return <select {...common}><option value="">{t('notesCorrectionChooseValue')}</option>
       <option value="true">{t('notesYes')}</option><option value="false">{t('notesNo')}</option></select>;
     if (field === 'painScore') return <input {...common} type="number" min={0} max={10} step={1} inputMode="numeric" />;
