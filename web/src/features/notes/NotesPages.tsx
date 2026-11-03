@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useRef, useState, type ReactNode } from 'react';
-import { useLocation, useNavigate, useParams } from 'react-router-dom';
-import { noteErrorMessage, type AddendumInput, type CreateNoteInput, type FieldCorrection } from '../../api/notes';
+import { Link, useLocation, useNavigate, useParams } from 'react-router-dom';
+import { noteErrorMessage, isNoteDate, type AddendumInput, type CreateNoteInput, type FieldCorrection } from '../../api/notes';
+import { isRecipientId } from '../../api/recipients';
 import { Button, ButtonLink } from '../../components/Button';
 import { EmptyState, ErrorState, LoadingState } from '../../components/Feedback';
 import { useI18n } from '../../i18n/I18nProvider';
@@ -26,14 +27,22 @@ export function CreateNotePage() {
   const { t } = useI18n();
   const api = useNotesApis();
   const navigate = useNavigate();
+  const location = useLocation();
+  const params = new URLSearchParams(location.search);
+  const requestedRecipient = params.get('recipientId');
+  const initialRecipientId = requestedRecipient && isRecipientId(requestedRecipient) ? requestedRecipient : undefined;
+  const requestedDate = params.get('date');
+  const initialDate = requestedDate && isNoteDate(requestedDate) ? requestedDate : undefined;
   const load = useCallback((signal: AbortSignal) => api.recipients.list(signal), [api]);
   const { state, reload } = useNoteResource(load);
+  const cancelTo = initialRecipientId && state.status === 'ready' && state.data.some((recipient) => recipient.id === initialRecipientId && recipient.active)
+    ? `/app/recipients/${encodeURIComponent(initialRecipientId)}` : '/app';
   return <NotesLayout title={t('notesCreate')} description={t('notesCreateDescription')}>
     {state.status === 'loading' && <LoadingState label={t('notesLoading')} />}
     {state.status === 'error' && <ErrorState description={t(noteErrorMessage(state.error))} onRetry={reload} />}
     {state.status === 'ready' && (state.data.length === 0 ? <div className="note-surface"><EmptyState title={t('notesNoRecipients')} description={t('notesNoRecipientsDescription')} />
       <ButtonLink to="/app/recipients">{t('recipientsTitle')}</ButtonLink></div>
-      : <div className="note-surface"><NoteForm mode="create" recipients={state.data} cancelTo="/app" onSave={async (input, key, signal) => {
+      : <div className="note-surface"><NoteForm key={location.search} mode="create" recipients={state.data} initialRecipientId={initialRecipientId} initialDate={initialDate} cancelTo={cancelTo} onSave={async (input, key, signal) => {
         const note = await api.notes.create(input as CreateNoteInput, key, signal);
         if (!signal.aborted) navigate(`${notesPath}/${note.id}`, { replace: true, state: { noteNotice: 'created' } });
       }} onOpen={async (recipientId, date, signal) => {
@@ -68,7 +77,7 @@ function NoteRecord({ id, append }: { id: string; append: boolean }) {
     {state.status === 'ready' && <>
       {!append && noticeKey && <p ref={noticeRef} tabIndex={-1} role="status" className="note-success">{t(noticeKey)}</p>}
       <article className="note-surface" aria-labelledby="original-note-title">
-        <p className="note-recipient"><bdi>{state.data.recipient.name}</bdi> · <time dateTime={state.data.note.date}>{date(state.data.note.date)}</time></p>
+        <p className="note-recipient"><Link to={`/app/recipients/${encodeURIComponent(state.data.recipient.id)}`}><bdi>{state.data.recipient.name}</bdi></Link> · <time dateTime={state.data.note.date}>{date(state.data.note.date)}</time></p>
         <h2 id="original-note-title">{t('notesImmutable')}</h2>
         <p className="note-hint">{t('notesRecordedAt')}: <time dateTime={state.data.note.createdAt}>{date(state.data.note.createdAt, true)}</time></p>
         <ObservationValues values={state.data.note.observations} />

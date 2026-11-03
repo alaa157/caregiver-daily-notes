@@ -1,57 +1,69 @@
-# Member 4 — Task 4: daily notes and append-only corrections (#16)
+# Caregiver daily-note workflow
 
-Signed-in caregivers can open **Daily notes** in the navigation or **Record a
-daily note** on the dashboard.
+Signed-in caregivers can open **Daily notes** in the navigation or create a
+note from the workspace overview and recipient detail.
 
 | Route | Behavior |
 | --- | --- |
-| `/app/notes/new` | Choose an owned recipient/date, record observations, or open the existing note for that date. |
-| `/app/notes/:id` | Read the immutable original and its chronological addenda. |
-| `/app/notes/:id/addenda/new` | Select specific fields and append replacement observations. |
+| `/app/notes/new?recipientId=<UUID>&date=YYYY-MM-DD` | Choose an active owned recipient/date, record observations, or open the existing note for that date. Valid query values prefill the form. |
+| `/app/notes/:id` | Read the immutable original, typed correction timeline, effective values, and compatible legacy addenda. |
+| `/app/notes/:id/addenda/new` | Append a supported correction through the existing note workflow. |
 
-## Existing backend contract
+## API and domain contract
 
-Source of truth is the checked-in `NoteController`, `NoteRequest`,
-`AddendumRequest`, `DailyNoteService`, response DTOs and
-`docs/api/daily-notes.md` at main commit `a177ea4`.
+The source of truth is the current backend contract in
+[`docs/api/daily-notes.md`](../../../../docs/api/daily-notes.md):
 
-- `POST /api/notes`: recipientId/date required; mood, appetite, sleep, mobility,
-  medicationStatus, medicationVerified, painScore, fallReported, freeText optional.
+- `POST /api/notes` accepts a recipient UUID, calendar date, and canonical
+  observation states. `medicationVerification` is independent of observations.
 - `GET /api/notes/{id}` and
-  `GET /api/notes/by-recipient/{recipientId}?date=YYYY-MM-DD` read originals.
-- `POST /api/notes/{id}/addenda` appends selected replacement fields;
-  `GET /api/notes/{id}/addenda` reads chronological addenda.
-- Note and addendum writes send `Idempotency-Key`. Identical replays return the
-  original record; different payload/key conflicts and duplicate recipient/date
-  notes return 409. No PUT/PATCH/DELETE endpoint is used for notes.
-- `GET /api/recipients` provides owned choices, including inactive recipients.
-  Inactive recipients can have existing notes opened; new notes require active
-  recipients. The backend permits addenda to existing inactive-recipient notes.
-- Only documented writable fields are serialized. Caregiver identity comes from
-  the existing bearer session and backend authorization; forms accept no owner ID.
-  Response fields are validated/projected, and raw error diagnostics are hidden.
+  `GET /api/notes/by-recipient/{recipientId}?date=YYYY-MM-DD` read saved notes.
+- `GET /api/notes?from=YYYY-MM-DD&to=YYYY-MM-DD&recipientId=<optional>&page=0&size=20`
+  supplies stable, date-filtered history pages (maximum size 100).
+- `POST` and `GET /api/notes/{id}/corrections` append/read immutable typed
+  events, with explicit `SET`, `CLEAR`, `UNKNOWN`, and `NOT_RECORDED`
+  operations and deterministic effective-value replay.
+- Existing text addenda remain readable and are not reclassified as structured
+  correction events. Original note columns are never overwritten by corrections.
+- Note and correction writes retain backend idempotency behavior. Ownership is
+  derived from the authenticated caregiver; inaccessible resources are not
+  exposed through frontend URL checks alone.
+- Inactive recipients can be read historically but cannot receive ordinary new
+  notes; the backend enforces this restriction. Issue #69's reversible archive
+  contract is still open and is not modeled by this feature.
 
-## Observations and corrections
+The Web adapter validates response shapes and sends only supported fields.
+Caregiver identity and observation-derived clinical conclusions are never
+submitted by the browser.
 
-The four descriptive observation fields accept reported text up to 40 UTF-16
-code units, matching Java validation; they are not invented medical enums.
-Medication uses the backend's exact `TAKEN`, `MISSED`, `UNKNOWN` values, plus
-null for not recorded. Medication verification and fall reports are independently
-nullable booleans. Pain is an optional integer 0–10; zero and false are preserved.
-No field is inferred from another. No trends, combined clinical interpretation,
-AI calls or medical recommendations are calculated by this UI.
+## Observation and correction display
 
-Free text is limited to 20,000 UTF-16 code units. Arabic, English, diacritics,
-mixed text, surrounding spaces and newlines pass through without trimming or
-normalization. React renders text rather than HTML; bidirectional isolation and
-pre-wrapped display preserve readable content. Browser spelling/autocorrection
-is disabled on observation text inputs.
+The editor preserves `RECORDED`, `UNKNOWN`, `NOT_RECORDED`, and
+`NOT_APPLICABLE` distinctly. Legacy `LEGACY_AMBIGUOUS` observations remain
+historical and visibly uncertain. Typed values are displayed only for
+`RECORDED`; false, zero, and empty recorded text are not treated as missing.
+Medication verification remains an independent verification value and is never
+inferred from the medication observation.
 
-An addendum starts with no fields selected. Only selected fields are sent;
-unselected fields are omitted. A selected field requires an explicit replacement
-value. The UI does not offer clearing fields to null, because null means "no
-correction" in the backend. The original and each addendum remain separate,
-read-only records in the details screen. Uncertainty is never resolved by the UI.
+The note detail shows the original record separately from subsequent events,
+with event actor/time/sequence where supplied by the API. Corrections are
+rendered in backend order; effective values use the backend projection and
+retain their source operation. Legacy addenda remain visible as separate
+historical records. No correction calculation, clinical threshold, or trend is
+invented in React.
+
+## Field handling
+
+Observation fields retain their established text, numeric, boolean, and
+medication types. Pain remains an integer from 0 through 10; false and zero
+are valid recorded values. Free text is rendered as text with preserved
+whitespace and bidirectional isolation, not as HTML. Arabic, English, mixed
+content, diacritics, and line breaks are preserved.
+
+No field is inferred from another. The UI does not calculate combined clinical
+interpretations, AI output, or medical recommendations. Supported state/value
+rules and correction operation semantics are defined by the backend API
+contract, not duplicated in React.
 
 ## Save state and response loss
 

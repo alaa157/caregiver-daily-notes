@@ -4,11 +4,25 @@ Authenticated routes:
 
 | Route | Behavior |
 | --- | --- |
-| `/app/recipients` | List the authenticated caregiver's active and inactive recipients. |
+| `/app/recipients` | List, search by name/relationship, and separately group active and inactive owned recipients. |
 | `/app/recipients/new` | Create a recipient. |
-| `/app/recipients/:id` | Read recipient details and confirm deactivation. |
+| `/app/recipients/:id` | Read details; navigate to recipient-filtered history or create a note for an active recipient. |
 | `/app/recipients/:id/edit` | Edit an active recipient; inactive records are read-only. |
 
+
+## Issue #71 workflow integration
+
+Search filters the already-loaded caregiver-owned list by recipient name and
+nullable relationship; it does not issue extra requests or mix inactive
+records into the active group. Detail pages link to history using
+`?recipientId=<UUID>` and to note creation using a prefilled recipient query.
+When an active recipient and valid date are supplied in the create-note URL,
+the form preselects them without changing the date-only API contract.
+
+Issue #69 remains open. The current backend exposes legacy `active`/deactivate
+semantics, not a reversible archive lifecycle. The Web UI labels these records
+active or inactive, keeps inactive details and history readable, and does not
+offer a restore action or present them as definitively archived.
 ## Backend contract
 
 The UI follows the existing `RecipientController`, `RecipientRequest`,

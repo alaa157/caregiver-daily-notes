@@ -28,7 +28,7 @@ keyboard focus and form errors, Arabic RTL and mixed-direction content,
 horizontal overflow, reduced motion, and axe WCAG 2/2.1 A/AA accessibility
 checks on major screens and states.
 
-The [quality suite overview](e2e/README.md) maps the 224 browser cases to the
+The [quality suite overview](e2e/README.md) maps the 232 browser cases to the
 workflows they cover. Language-switch tests also verify that unsaved mixed
 Arabic/English drafts survive direction changes and save exactly once.
 The production build type-checks the browser specs and Playwright configuration.
@@ -89,9 +89,8 @@ This modifies `dist/config.json`, not the built JS bundle; repeating that step r
 - The backend is a separate Spring Boot REST API using JWT authentication. No endpoint routes, payload fields, token lifecycle, or ownership semantics are invented by this foundation; feature contributors must consult the actual backend controllers/OpenAPI contract before wiring requests.
 - `src/lib/api.tsx` provides `useApiClient().request<TResponse, TBody>({ path, method, body, signal, accessToken })`, with JSON transport, an optional `/api` prefix in `apiBaseUrl`, typed HTTP errors, and request cancellation. Calls are same-origin when `apiBaseUrl` is an empty string.
 - Task #14 implements login, a tab-scoped JWT session, logout, expiry handling and protected routes. See [authentication](src/features/auth/README.md) for contract, security limits, integration and validation details.
-- Features belong under `src/features/<feature>/` and use the centralized API client. Reusable UI is in `src/components`, shared helpers in `src/lib`.
-- The language provider exposes `t`, `language`, `direction`, and `setLanguage`, and synchronizes `<html lang>` and `<html dir>` for Arabic and English. Translations live in `src/i18n/translations.ts`; layout CSS uses logical alignment where direction matters.
-- Reusable `LoadingState`, `EmptyState`, `ErrorState`, and `FieldError` set up accessible feedback conventions. The app includes a skip link, focus-visible outlines, and responsive mobile/desktop layout.
+- Features belong under `src/features/<feature>/` and use the centralized API client. The workspace overview, recipient and note integration details live in their feature READMEs; reusable UI is in `src/components`, shared helpers in `src/lib`.
+- `/app` presents the authenticated date-scoped workspace overview using real recipient and notes-history APIs; see [`src/features/overview/README.md`](src/features/overview/README.md) for route, query-state, and missing-data semantics.
 - `Button`/`ButtonLink`, `Icon`, `FeatureCard`, and `PagePanel` provide shared presentation primitives. Decorative illustrations contain no patient data.
 - Route changes focus the main landmark and update the translated document title. Arabic typography uses its own font, spacing, and line height; layout uses logical CSS properties. Animations respect reduced-motion preferences.
 - Authentication and authorization remain backend-owned. Never place provider keys, LLM calls, diagnosis logic, or safety decisions in the browser.

@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState, type FormEvent } from 'react';
 import { Link } from 'react-router-dom';
-import { observationFields, noteErrorMessage, uncertainNoteSave, type AddendumInput, type CreateNoteInput, type ObservationField } from '../../api/notes';
+import { isNoteDate, observationFields, noteErrorMessage, uncertainNoteSave, type AddendumInput, type CreateNoteInput, type ObservationField } from '../../api/notes';
 import { ApiError } from '../../lib/api';
 import type { Observation, ObservationSet } from '../../api/observation';
 import type { Recipient } from '../../api/recipients';
@@ -15,12 +15,19 @@ interface SharedProps {
   cancelTo: string;
   onSave: (input: CreateNoteInput | AddendumInput, key: string, signal: AbortSignal) => Promise<void>;
 }
-type Props = SharedProps & ({ mode: 'create'; recipients: Recipient[]; onOpen: (recipientId: string, date: string, signal: AbortSignal) => Promise<void> }
+type Props = SharedProps & ({ mode: 'create'; recipients: Recipient[]; onOpen: (recipientId: string, date: string, signal: AbortSignal) => Promise<void>; initialRecipientId?: string; initialDate?: string }
   | { mode: 'append' });
 
 export function NoteForm(props: Props) {
   const { t } = useI18n();
-  const [values, setValues] = useState<NoteValues>(emptyNoteValues);
+  const [values, setValues] = useState<NoteValues>(() => {
+    const initial = emptyNoteValues();
+    if (props.mode === 'create') {
+      if (props.initialRecipientId) initial.recipientId = props.initialRecipientId;
+      if (props.initialDate && isNoteDate(props.initialDate)) initial.date = props.initialDate;
+    }
+    return initial;
+  });
   const [corrections, setCorrections] = useState<Corrections>({});
   const [errors, setErrors] = useState<NoteErrors>({});
   const [failure, setFailure] = useState<MessageKey | null>(null);

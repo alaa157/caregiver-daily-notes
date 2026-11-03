@@ -25,6 +25,7 @@ for (const language of ['en', 'ar'] as const) {
   const ar = language === 'ar';
   const labels = {
     list: ar ? 'المستفيدون من الرعاية' : 'Care recipients',
+    activeGroup: ar ? 'المستفيدون النشطون' : 'Active recipients',
     add: ar ? 'إضافة مستفيد من الرعاية' : 'Add care recipient',
     name: ar ? 'الاسم' : 'Name',
     relationship: ar ? 'صلة القرابة أو العلاقة (اختياري)' : 'Relationship (optional)',
@@ -69,10 +70,11 @@ for (const language of ['en', 'ar'] as const) {
         if (method === 'PATCH') {
           expect(request.postData()).toBeNull();
           mutations.push(method);
-          records.find(({ id }) => path.endsWith(`${id}/deactivate`))!.active = false;
+          const record = records.find(({ id }) => path.endsWith(`${id}/deactivate`))!;
+          record.active = false;
+          return route.fulfill({ json: record });
         }
-        const record = records.find(({ id }) => path.includes(id));
-        return route.fulfill({ json: path === '/api/recipients' ? records : record });
+        return route.fulfill({ json: path === '/api/recipients' ? records : records.find(({ id }) => path.includes(id)) });
       });
       await page.goto(root);
       await expect(page.getByRole('link', { name: recipientFixture.name })).toBeVisible();
@@ -120,8 +122,10 @@ for (const language of ['en', 'ar'] as const) {
       await page.evaluate(() => window.scrollTo(0, 0));
       await page.screenshot({ path: info.outputPath('recipient-details.png'), fullPage: true });
       await page.getByRole('link', { name: labels.back }).click();
-      await expect(page.getByRole('list', { name: labels.list }).getByRole('listitem')).toHaveCount(2);
-      await expect(page.getByText(labels.inactive, { exact: true })).toBeVisible();
+      await expect(page.getByRole('list', { name: labels.activeGroup, exact: true }).getByRole('listitem')).toHaveCount(1);
+      const inactiveList = page.getByRole('list', { name: ar ? 'المستفيدون غير النشطين' : 'Inactive recipients', exact: true });
+      await expect(inactiveList.getByRole('listitem')).toHaveCount(1);
+      await expect(inactiveList.getByText(labels.inactive, { exact: true })).toBeVisible();
       expect(mutations).toEqual(['POST', 'PUT', 'PATCH']);
     });
 
