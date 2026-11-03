@@ -122,14 +122,12 @@ export function ObservationStateField<T>({
       onChange({
         state: 'RECORDED',
         value: observation.value,
-        rawValue: observation.rawValue,
         verification: observation.verification,
       });
     } else {
       onChange({
         state: nextState,
-        value: undefined,
-        rawValue: observation.rawValue,
+        value: null,
         verification: observation.verification,
       });
     }
@@ -140,7 +138,6 @@ export function ObservationStateField<T>({
     onChange({
       state: 'RECORDED',
       value,
-      rawValue: observation.rawValue,
       verification: observation.verification,
     });
   }
@@ -154,9 +151,9 @@ export function ObservationStateField<T>({
       data-obs-state={observation.state}
     >
       <div className="obs-field-header">
-        <span className="obs-field-label" id={`${id}-label`}>
+        <label className="obs-field-label" id={`${id}-label`} htmlFor={isRecorded ? valueId : stateId}>
           {label}
-        </span>
+        </label>
         {isLegacy && (
           <span className="obs-legacy-badge" role="status">
             {t('obsStateLegacyAmbiguous')}
@@ -171,9 +168,10 @@ export function ObservationStateField<T>({
         <select
           id={stateId}
           className="obs-state-select"
+          aria-label={`${label} — ${t('obsStateLabel')}`}
           value={observation.state}
           disabled={locked || (isLegacy && !allowLegacy)}
-          aria-describedby={describedBy}
+          aria-describedby={[describedBy, `${id}-state-hint`].filter(Boolean).join(' ')}
           aria-invalid={error ? true : undefined}
           onChange={(e) => {
             const v = e.target.value;

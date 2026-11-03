@@ -68,7 +68,7 @@ function NoteRecord({ id, append }: { id: string; append: boolean }) {
         <p className="note-recipient"><bdi>{state.data.recipient.name}</bdi> · <time dateTime={state.data.note.date}>{date(state.data.note.date)}</time></p>
         <h2 id="original-note-title">{t('notesImmutable')}</h2>
         <p className="note-hint">{t('notesRecordedAt')}: <time dateTime={state.data.note.createdAt}>{date(state.data.note.createdAt, true)}</time></p>
-        <ObservationValues values={state.data.note} />
+        <ObservationValues values={state.data.note.observations} />
       </article>
       {append ? <div className="note-surface"><NoteForm mode="append" cancelTo={`${notesPath}/${id}`} onSave={async (input, key, signal) => {
         await api.notes.append(id, input as AddendumInput, key, signal);
@@ -77,7 +77,9 @@ function NoteRecord({ id, append }: { id: string; append: boolean }) {
         <div className="note-actions"><h2 id="note-addenda-title">{t('notesAddenda')}</h2><ButtonLink to={`${notesPath}/${id}/addenda/new`}>{t('notesAppend')}</ButtonLink></div>
         {state.data.addenda.length === 0 ? <p className="note-surface">{t('notesNoAddenda')}</p> : <ol className="note-addenda-list">{state.data.addenda.map((item, index) => <li key={item.id}>
           <article className="note-surface" aria-labelledby={`addendum-${item.id}`}><h3 id={`addendum-${item.id}`}>{t('notesAppend')} {new Intl.NumberFormat(language === 'ar' ? 'ar-EG' : 'en').format(index + 1)}</h3>
-            <p className="note-hint"><time dateTime={item.createdAt}>{date(item.createdAt, true)}</time></p><ObservationValues values={item} correction /></article>
+            <p className="note-hint"><time dateTime={item.createdAt}>{date(item.createdAt, true)}</time></p>
+            <ObservationValues values={item.observations} providedFields={item.providedFields}
+              verificationProvided={item.medicationVerificationProvided} correction /></article>
         </li>)}</ol>}
       </section>}
     </>}

@@ -1,7 +1,5 @@
 /**
- * Observation-state and verification types for the approved PO-05 / WP-02 contract.
- * Backend Issue #66 must implement the matching DTO shape before end-to-end
- * create/update against the live API will succeed.
+ * Observation-state and verification types for the approved PO-05 / WP-02 API.
  *
  * Canonical states (required on every observation):
  *   RECORDED | UNKNOWN | NOT_RECORDED | NOT_APPLICABLE | LEGACY_AMBIGUOUS
@@ -43,7 +41,7 @@ export type MedicationStatusValue = 'TAKEN' | 'MISSED' | 'UNKNOWN';
 /** Wrapper for a single typed observation. */
 export interface Observation<T> {
   state: ObservationState;
-  /** Present only when state === 'RECORDED'. false and 0 are valid. */
+  /** Present only when state === 'RECORDED'. false, 0, and empty text are valid. */
   value?: T | null;
   /** Optional raw legacy source when state === 'LEGACY_AMBIGUOUS'. */
   rawValue?: unknown;
@@ -68,6 +66,58 @@ export const structuredObservationFields = [
 ] as const;
 
 export type StructuredObservationField = (typeof structuredObservationFields)[number];
+export type ObservationValues = {
+  mood: string;
+  appetite: string;
+  sleep: string;
+  mobility: string;
+  medicationStatus: MedicationStatusValue;
+  painScore: number;
+  fallReported: boolean;
+  freeText: string;
+};
+export type NoteObservations = {
+  [K in keyof ObservationValues]: Observation<ObservationValues[K]>;
+} & { medicationVerification: VerificationValue };
+export type ObservationSet = {
+  [K in keyof ObservationValues]: Observation<ObservationValues[K]>;
+};
+
+const valueMatches = (field: StructuredObservationField, value: unknown): boolean => {
+  switch (field) {
+    case 'mood':
+    case 'appetite':
+    case 'sleep':
+    case 'mobility':
+      return typeof value === 'string' && value.length <= 40;
+    case 'freeText':
+      return typeof value === 'string' && value.length <= 20000;
+    case 'medicationStatus':
+      return value === 'TAKEN' || value === 'MISSED';
+    case 'painScore':
+      return typeof value === 'number' && Number.isInteger(value) && value >= 0 && value <= 10;
+    case 'fallReported':
+      return typeof value === 'boolean';
+  }
+};
+
+export function isObservation<T>(
+  value: unknown,
+  field: StructuredObservationField,
+): value is Observation<T> {
+  if (!value || typeof value !== 'object' || Array.isArray(value)) return false;
+  const item = value as Record<string, unknown>;
+  if (!isObservationState(item.state)) return false;
+  if (item.state === 'RECORDED') {
+    return valueMatches(field, item.value)
+      && (item.rawValue === undefined || item.rawValue === null);
+  }
+  if (item.value !== undefined && item.value !== null) return false;
+  if (item.state !== 'LEGACY_AMBIGUOUS') {
+    return item.rawValue === undefined || item.rawValue === null;
+  }
+  return item.rawValue === undefined || item.rawValue === null || valueMatches(field, item.rawValue);
+}
 
 export function isObservationState(value: unknown): value is ObservationState {
   return typeof value === 'string' && (OBSERVATION_STATES as readonly string[]).includes(value);
@@ -91,28 +141,10 @@ export function hasRecordedValue(obs: Observation<unknown>): boolean {
   return obs.state === 'RECORDED' && obs.value !== undefined && obs.value !== null;
 }
 
-/**
- * Map a legacy flat nullable value into a structured observation.
- * Historical null becomes LEGACY_AMBIGUOUS so we never invent meaning.
- */
+/** Conservative display-only fallback for responses from an older server. */
 export function fromLegacyValue<T>(value: T | null | undefined): Observation<T> {
   if (value === null || value === undefined) {
     return { state: 'LEGACY_AMBIGUOUS', rawValue: null };
   }
   return { state: 'RECORDED', value };
-}
-
-/**
- * Map structured observation to a flat nullable value for the current
- * backend (Issue #66 not yet landed). Used only as a temporary bridge.
- * When backend is ready, send the structured shape instead.
- */
-export function toLegacyValue<T>(obs: Observation<T>): T | null {
-  if (obs.state === 'RECORDED' && obs.value !== undefined && obs.value !== null) {
-    return obs.value;
-  }
-  if (obs.state === 'UNKNOWN' && typeof obs.value === 'string') {
-    return obs.value as T;
-  }
-  return null;
 }
