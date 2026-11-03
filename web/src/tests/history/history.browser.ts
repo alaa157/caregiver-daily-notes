@@ -13,10 +13,15 @@ const root = '/app/notes?from=2026-10-01&to=2026-10-22';
 const otherRecipient = { ...recipientFixture, id: 'b2222222-2222-4222-8222-222222222222', name: 'ليلى Smith', active: false };
 const secondNote = { ...historyNote, id: 'c3333333-3333-4333-8333-333333333333', date: '2026-10-19', recipientId: otherRecipient.id, addendumCount: 0 };
 function correctionHistory(note: DailyNote) {
-  return { originalNote: note, events: [], effectiveObservations: Object.fromEntries(observationFields.map((field) => [field, {
-    state: note[field] === null ? 'LEGACY_AMBIGUOUS' : 'RECORDED', value: note[field], lastOperation: null,
-    eventId: null, actorId: null, updatedAt: note.createdAt,
-  }])) };
+  return { originalNote: note, events: [], effectiveObservations: Object.fromEntries(observationFields.map((field) => {
+    const observation = note.observations[field];
+    return [field, {
+      state: observation.state,
+      value: observation.state === 'RECORDED' ? observation.value : null,
+      rawValue: observation.state === 'LEGACY_AMBIGUOUS' ? observation.rawValue : null,
+      lastOperation: null, eventId: null, actorId: null, updatedAt: note.createdAt,
+    }];
+  })) };
 }
 
 async function serve(page: Page, options: { notes?: DailyNote[]; fail?: boolean; failCorrections?: boolean } = {}) {

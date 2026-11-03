@@ -10,6 +10,7 @@ import { LoginPage } from '../features/auth/LoginPage';
 import { ProtectedRoute } from './ProtectedRoute';
 import { RecipientsRoutes } from '../routes/RecipientsRoutes';
 import { NotesRoutes } from '../routes/NotesRoutes';
+import { WorkspaceOverview } from '../features/overview/WorkspaceOverview';
 
 function HomePage() {
   const { t } = useI18n();
@@ -49,13 +50,6 @@ function HomePage() {
   );
 }
 
-function DashboardPage() {
-  const { t } = useI18n();
-  return <PagePanel icon="journal" eyebrow={t('dashboard')} title={t('dashboardTitle')} description={t('dashboardDescription')}>
-    <ButtonLink to="/app/recipients">{t('recipientsTitle')}<Icon name="arrow-right" className="directional-icon" /></ButtonLink>
-    <ButtonLink variant="secondary" to="/app/notes/new">{t('notesCreate')}<Icon name="arrow-right" className="directional-icon" /></ButtonLink>
-  </PagePanel>;
-}
 
 function NotFoundPage() {
   const { t } = useI18n();
@@ -73,7 +67,7 @@ export function App() {
         <Route path="/" element={<HomePage />} />
         <Route path="/login" element={<LoginPage />} />
         <Route element={<ProtectedRoute />}>
-          <Route path="/app" element={<DashboardPage />} />
+          <Route path="/app" element={<WorkspaceOverview />} />
           <Route path="/app/recipients/*" element={<RecipientsRoutes />} />
           <Route path="/app/notes/*" element={<NotesRoutes />} />
         </Route>

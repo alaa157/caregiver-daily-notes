@@ -26,13 +26,14 @@ include these language and viewport combinations.
 | Workflow | Browser cases | Main assertions |
 | --- | ---: | --- |
 | Foundation and authentication | 48 | Protected routes, login/logout/expiry, keyboard navigation, validation, language persistence, reduced motion, axe |
+| Workspace overview | 8 | Date URL state, refresh/back/forward, factual note availability, prefilled note creation, RTL and axe |
 | Recipient management | 32 | Create/edit/deactivate, modal focus trap and restoration, loading/error/empty states, axe |
 | Notes and addenda | 32 | Immutable originals, separate corrections, exact mixed text, idempotent retry, validation, axe |
 | History | 32 | Recipient/date filters, URL and Back restoration, pagination, corrections, invalid/empty/error states, axe |
 | Summary and safety | 32 | 7/14/30-day requests, evidence and uncertainty, persistent safety on failures, cancellation, keyboard, axe |
 | Care plans | 40 | Parameter-only edits, explicit accept/dismiss, version history, protected medication fields, conflicts, axe |
 | Language changes during a draft | 8 | Note and correction drafts survive both direction changes; long mixed text and controls fit the viewport; keyboard saves occur once; originals remain intact after reload; axe |
-| **Total** | **224** | |
+| **Total** | **232** | |
 
 The suites check Arabic `lang`/`dir`, bidi isolation or `dir="auto"` for content,
 and horizontal overflow. The draft workflow additionally checks that visible

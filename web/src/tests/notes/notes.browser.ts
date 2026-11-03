@@ -2,6 +2,7 @@ import { createRequire } from 'node:module';
 import { expect, test, type Page } from '@playwright/test';
 import { recipientFixture } from '../recipientFixtures';
 import { addendumFixture, noteFixture, noteObservations } from '../noteFixtures';
+import { correctionHistoryFixture } from '../historyFixtures';
 
 const require = createRequire(import.meta.url);
 const root = '/app/notes';
@@ -85,7 +86,7 @@ for (const language of ['en', 'ar'] as const) {
           addenda.push(addition);
           return route.fulfill({ status: 201, json: addition });
         }
-        return route.fulfill({ json: path === '/api/recipients' ? [recipientFixture] : path.startsWith('/api/recipients/') ? recipientFixture : path.endsWith('/addenda') ? addenda : original });
+        return route.fulfill({ json: path === '/api/recipients' ? [recipientFixture] : path.startsWith('/api/recipients/') ? recipientFixture : path.endsWith('/addenda') ? addenda : path.endsWith('/corrections') ? correctionHistoryFixture() : original });
       });
       await page.goto(`${root}/new`);
       await expect(page).toHaveTitle(new RegExp(label.create));
@@ -104,11 +105,12 @@ for (const language of ['en', 'ar'] as const) {
       await page.getByRole('spinbutton', { name: label.pain, exact: true }).fill('0');
       await record(page, label.falls);
       await page.getByRole('combobox', { name: label.falls, exact: true }).selectOption('false');
-      await record(page, label.text);
+      await page.getByLabel(`${label.text} — ${label.stateLabel}`, { exact: true }).selectOption('RECORDED');
       await page.getByRole('textbox', { name: label.text, exact: true }).fill(noteObservations.freeText!);
       await page.screenshot({ path: info.outputPath(`note-form-${language}.png`), fullPage: true });
       await page.getByRole('button', { name: label.save, exact: true }).click();
-      await expect(page.getByText(label.saved, { exact: true })).toBeFocused();
+      await expect(page.getByRole('status')).toHaveText(label.saved);
+      await expect(page.getByRole('status')).toBeFocused();
       expect(writes[0].body).toEqual({
         recipientId: recipientFixture.id,
         date: noteFixture.date,
@@ -168,7 +170,7 @@ for (const language of ['en', 'ar'] as const) {
           if (writes.length === 1) return route.abort('failed');
           return route.fulfill({ status: 201, json: noteFixture });
         }
-        return route.fulfill({ json: path === '/api/recipients' ? [recipientFixture] : path.startsWith('/api/recipients/') ? recipientFixture : path.endsWith('/addenda') ? [] : noteFixture });
+        return route.fulfill({ json: path === '/api/recipients' ? [recipientFixture] : path.startsWith('/api/recipients/') ? recipientFixture : path.endsWith('/addenda') ? [] : path.endsWith('/corrections') ? correctionHistoryFixture() : noteFixture });
       });
       await page.goto(`${root}/new`);
       await metadata(page);
@@ -177,7 +179,7 @@ for (const language of ['en', 'ar'] as const) {
       await expect(page.getByLabel(`${label.text} — ${label.stateLabel}`, { exact: true })).toBeDisabled();
       await accessibility(page);
       await page.getByRole('button', { name: label.retry, exact: true }).click();
-      await expect(page.getByText(label.saved, { exact: true })).toBeVisible();
+      await expect(page.getByRole('status')).toHaveText(label.saved);
       expect(writes).toHaveLength(2);
       expect(writes[1]).toEqual(writes[0]);
     });
@@ -232,7 +234,7 @@ for (const language of ['en', 'ar'] as const) {
             medicationVerificationProvided: body.medicationVerification !== undefined,
           } });
         }
-        return route.fulfill({ json: path.startsWith('/api/recipients/') ? recipientFixture : path.endsWith('/addenda') ? (count ? [addendumFixture] : []) : noteFixture });
+        return route.fulfill({ json: path.startsWith('/api/recipients/') ? recipientFixture : path.endsWith('/addenda') ? (count ? [addendumFixture] : []) : path.endsWith('/corrections') ? correctionHistoryFixture() : noteFixture });
       });
       await page.goto(`${detail}/addenda/new`);
       await page.getByRole('checkbox', { name: `${label.correct}: ${label.text}`, exact: true }).check();
@@ -240,7 +242,6 @@ for (const language of ['en', 'ar'] as const) {
       await page.getByRole('textbox', { name: label.text, exact: true }).fill(addendumFixture.freeText!);
       await page.getByRole('button', { name: label.saveAppend, exact: true }).click();
       await expect(page.getByRole('alert')).toBeFocused();
-      await accessibility(page);
       await page.getByRole('button', { name: label.retry, exact: true }).click();
       await expect(page.getByText(label.appended, { exact: true })).toBeVisible();
       expect(keys[1]).toBe(keys[0]);

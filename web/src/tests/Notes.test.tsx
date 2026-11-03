@@ -83,6 +83,13 @@ describe('daily-note creation and immutable corrections', () => {
     await userEvent.click(screen.getByRole('button', { name: 'Retry' }));
     expect(await screen.findByLabelText('Care recipient')).toBeInTheDocument();
   });
+  it('prefills recipient and calendar date from a workflow return URL', async () => {
+    const fetcher = dataFetcher();
+    renderNotes(`${root}/new?recipientId=${recipientFixture.id}&date=${noteFixture.date}`, fetcher);
+    expect(await screen.findByLabelText('Care recipient')).toHaveValue(recipientFixture.id);
+    expect(screen.getByLabelText('Observation date')).toHaveValue(noteFixture.date);
+    expect(fetcher.mock.calls.filter(([, init]) => init.method === 'POST')).toHaveLength(0);
+  });
   it('validates required metadata, focuses its first field, and makes no write', async () => {
     const fetcher = dataFetcher();
     renderNotes(`${root}/new`, fetcher);
