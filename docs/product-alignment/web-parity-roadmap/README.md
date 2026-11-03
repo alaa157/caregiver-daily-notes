@@ -1885,7 +1885,6 @@ Priority is based on data integrity, clinical correctness, security, caregiver v
 | AI provider architecture | Standalone BYOK, credentials/configuration on device | BYOK only; caregiver-supplied provider credentials, with Web-specific secure execution/key custody |
 | AI mode policy | BYOK only | BYOK only; no app-managed/shared provider or fallback |
 | Secrets | Android Keystore-backed provider credential storage | Web-specific secure handling decision required; no plaintext browser storage, logs, analytics, exports, or backups |
-
 | UI | Kotlin/Jetpack Compose and native navigation | React/TypeScript and browser routes |
 | Backup implementation | Android-specific local archive and restore | Separate Web account archive/restore |
 | Sharing | Native device share capabilities | Browser share/download/print capabilities |
