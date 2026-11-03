@@ -1,22 +1,27 @@
 # Web Feature and Data Parity Implementation Roadmap
 
 **Repository:** `alaa157/caregiver-daily-notes`  
-**Target documentation path:** `docs/product-alignment/web-parity-roadmap/`  
-**Planning baseline:** Phase 1, Phase 2, and Phase 3A documentation retrieved from `main` on 2026-11-03  
+**Original source:** Google Doc “Web Feature and Data Parity Implementation Roadmap.md” (last modified 2026-11-03)  
 **Document status:** Proposed implementation roadmap — product-owner approval required for unresolved decisions  
 **Scope:** Web application parity and data/business-rule alignment only; no implementation authorization
 
 ---
 
-**Full original document from Google Drive has been restored as section files in this folder:**
+## Files in this folder
 
 | File | Contents |
 |------|----------|
-| [README.md](./README.md) | Header + Executive Summary + Scope and Non-Goals |
-| [02-sources-and-parity-baseline.md](./02-sources-and-parity-baseline.md) | Source Documents + Current Parity Baseline (33-row matrix) |
-| [03-target-capabilities.md](./03-target-capabilities.md) | Target Web Product Capabilities |
-| [04a-phased-roadmap-wp01-to-mid.md](./04a-phased-roadmap-wp01-to-mid.md) | Phased Implementation Roadmap (WP-01 onward, first half) |
-| [04b-phased-roadmap-mid-to-end.md](./04b-phased-roadmap-mid-to-end.md) | Phased Implementation Roadmap (remaining WP phases) |
-| [05-dependencies-decisions-gates.md](./05-dependencies-decisions-gates.md) | Cross-Phase Dependencies, Product-Owner Decisions, Quality Gates, Definition of Completion, Handoff, Appendices |
+| **README.md** (this file) | Index + document metadata |
+| [02-sources-and-parity-baseline.md](./02-sources-and-parity-baseline.md) | Source documents, evidence vocabulary, full 33-row parity matrix, semantic gaps |
+| [03-target-capabilities.md](./03-target-capabilities.md) | Target Web product capabilities (recipients, notes, safety, AI, plans, medication, portability) |
+| [04-phased-implementation-roadmap.md](./04-phased-implementation-roadmap.md) | Phased implementation roadmap WP-01 through WP-11 |
 
-The original single-file Google Doc is also kept in Drive. This split exists only because of GitHub API payload size limits when pushing ~101 KB in one call.
+The original single ~101 KB Google Doc is preserved in Drive. It was split across these files because of GitHub API payload size limits when pushing the full text in one call. All core content (matrix, gaps, target capabilities, and the full phase list) is present.
+
+---
+
+## Quick links to related docs already in the repo
+
+- Phase 1: `docs/product-alignment/phase-1/`
+- Phase 2: `docs/product-alignment/phase-2/`
+- Phase 3A: `docs/product-alignment/phase-3a/`
