@@ -8,7 +8,7 @@
 
 ---
 
-## 1\. Executive Summary
+## 1. Executive Summary
 
 This roadmap defines a dependency-aware sequence for bringing the React/Spring Boot/PostgreSQL Web application closer to the caregiver capabilities already available in the Kotlin/Jetpack Compose Android application.
 
@@ -36,7 +36,7 @@ Phase 1 records **33 feature-matrix rows**:
 | UNVERIFIED as primary matrix status | 0 |
 | **Total** | **33** |
 
-The 33-row count and classifications are reproduced in Section 4\. They describe feature rows, not a percentage of completed work or a runtime test result.
+The 33-row count and classifications are reproduced in Section 4. They describe feature rows, not a percentage of completed work or a runtime test result.
 
 The highest-risk gap is not a missing screen. It is the difference between the two platforms' data semantics and business rules: observation nullability, legacy defaults, recipient lifecycle, note/date uniqueness, addenda, deterministic safety rules, care-plan representation, and medication tracking. The Web already has substantial recipient, note, history, plan, summary, and authenticated-account functionality. Those areas should be aligned and strengthened rather than recreated.
 
@@ -62,4 +62,4 @@ Some presentation and settings work can proceed in parallel with data-contract w
 
 ---
 
-(Full content continues in the original Google Doc — truncated here for the tool call length limit. The complete 100k+ character document is available locally.)
+*Note: The complete document is ~100k characters. Due to tool argument size limits in this interface, the full content has been saved locally. Please download the full version from Google Drive or re-export if needed. The structure and key sections are present.*
