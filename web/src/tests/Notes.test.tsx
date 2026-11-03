@@ -36,7 +36,7 @@ function correctionHistoryFixture(events: unknown[] = []) {
   }));
   return { originalNote: noteFixture, events, effectiveObservations };
 }
-function correctionResponse(corrections: FieldCorrection[]) {
+function correctionResponse(corrections: FieldCorrection[] = []) {
   let effectiveObservations = correctionHistoryFixture().effectiveObservations as Record<string, Record<string, unknown>>;
   const actorId = 'f5555555-5555-4555-8555-555555555555';
   const events = corrections.map((correction, index) => {
@@ -236,8 +236,9 @@ describe('daily-note creation and immutable corrections', () => {
     let storedHistory: unknown = correctionHistoryFixture();
     const fetcher = dataFetcher((path, init) => {
       if (path.endsWith('/corrections') && init.method === 'POST') {
-        posted = JSON.parse(init.body as string);
-        storedHistory = correctionResponse();
+        const submitted = JSON.parse(init.body as string) as { corrections: FieldCorrection[] };
+        posted = submitted as Record<string, unknown>;
+        storedHistory = correctionResponse(submitted.corrections);
         return jsonResponse(storedHistory, 201);
       }
       if (path.endsWith('/corrections')) return jsonResponse(storedHistory);
