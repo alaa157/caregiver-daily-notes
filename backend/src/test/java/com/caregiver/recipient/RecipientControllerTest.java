@@ -53,6 +53,9 @@ class RecipientControllerTest {
 
   @BeforeEach
   void cleanDatabase() {
+    jdbcTemplate.update("delete from note_addenda");
+    jdbcTemplate.update("delete from daily_notes");
+    jdbcTemplate.update("delete from care_plan_versions");
     jdbcTemplate.update("delete from audit_events");
     recipientRepository.deleteAll();
     caregiverRepository.deleteAll();
@@ -69,6 +72,8 @@ class RecipientControllerTest {
         .andExpect(jsonPath("$.name").value("Samir Hassan"))
         .andExpect(jsonPath("$.relationship").value("Father"))
         .andExpect(jsonPath("$.active").value(true))
+        .andExpect(jsonPath("$.lifecycleStatus").value("ACTIVE"))
+        .andExpect(jsonPath("$.archivedAt").doesNotExist())
         .andReturn();
     String id = objectMapper.readTree(created.getResponse().getContentAsString()).get("id").asText();
 
@@ -245,6 +250,140 @@ class RecipientControllerTest {
     mvc.perform(get(RECIPIENTS + "/" + UUID.randomUUID())
             .header("Authorization", bearer(owner.token())))
         .andExpect(status().isNotFound());
+  }
+
+  @Test
+  void archiveAndRestoreAreIdempotentAndExposeActorAndTimestamps() throws Exception {
+    TestCaregiver owner = register("archive-restore@example.com");
+    String id = createRecipient(owner.token(), "{\"name\":\"Lifecycle recipient\"}");
+
+    MvcResult archived = mvc.perform(patch(RECIPIENTS + "/" + id + "/archive")
+            .header("Authorization", bearer(owner.token())))
+        .andExpect(status().isOk())
+        .andExpect(jsonPath("$.active").value(false))
+        .andExpect(jsonPath("$.lifecycleStatus").value("ARCHIVED"))
+        .andExpect(jsonPath("$.archivedAt").isNotEmpty())
+        .andExpect(jsonPath("$.archivedBy").value(owner.id().toString()))
+        .andReturn();
+    String archivedAt = objectMapper.readTree(archived.getResponse().getContentAsString()).get("archivedAt").asText();
+
+    mvc.perform(patch(RECIPIENTS + "/" + id + "/archive")
+            .header("Authorization", bearer(owner.token())))
+        .andExpect(status().isOk())
+        .andExpect(jsonPath("$.archivedAt").value(archivedAt));
+
+    MvcResult restored = mvc.perform(patch(RECIPIENTS + "/" + id + "/restore")
+            .header("Authorization", bearer(owner.token())))
+        .andExpect(status().isOk())
+        .andExpect(jsonPath("$.active").value(true))
+        .andExpect(jsonPath("$.lifecycleStatus").value("ACTIVE"))
+        .andExpect(jsonPath("$.archivedAt").value(archivedAt))
+        .andExpect(jsonPath("$.restoredAt").isNotEmpty())
+        .andExpect(jsonPath("$.restoredBy").value(owner.id().toString()))
+        .andReturn();
+    String restoredAt = objectMapper.readTree(restored.getResponse().getContentAsString()).get("restoredAt").asText();
+
+    mvc.perform(patch(RECIPIENTS + "/" + id + "/restore")
+            .header("Authorization", bearer(owner.token())))
+        .andExpect(status().isOk())
+        .andExpect(jsonPath("$.restoredAt").value(restoredAt));
+
+    mvc.perform(get(RECIPIENTS).param("status", "ACTIVE")
+            .header("Authorization", bearer(owner.token())))
+        .andExpect(status().isOk())
+        .andExpect(jsonPath("$[0].id").value(id));
+    mvc.perform(get(RECIPIENTS).param("status", "ARCHIVED")
+            .header("Authorization", bearer(owner.token())))
+        .andExpect(status().isOk())
+        .andExpect(jsonPath("$").isEmpty());
+  }
+
+  @Test
+  void legacyInactiveRecordsRemainReviewRequiredAndAreNotAutoRestored() throws Exception {
+    TestCaregiver owner = register("legacy-review@example.com");
+    String id = createRecipient(owner.token(), "{\"name\":\"Legacy inactive\"}");
+    jdbcTemplate.update("UPDATE care_recipients SET active = FALSE, lifecycle_status = 'LEGACY_INACTIVE_REVIEW' WHERE id = ?",
+        UUID.fromString(id));
+
+    mvc.perform(get(RECIPIENTS + "/" + id).header("Authorization", bearer(owner.token())))
+        .andExpect(status().isOk())
+        .andExpect(jsonPath("$.active").value(false))
+        .andExpect(jsonPath("$.lifecycleStatus").value("LEGACY_INACTIVE_REVIEW"))
+        .andExpect(jsonPath("$.archivedAt").doesNotExist())
+        .andExpect(jsonPath("$.archivedBy").doesNotExist());
+
+    mvc.perform(get(RECIPIENTS).param("status", "LEGACY_INACTIVE_REVIEW")
+            .header("Authorization", bearer(owner.token())))
+        .andExpect(status().isOk())
+        .andExpect(jsonPath("$[0].id").value(id));
+
+    mvc.perform(patch(RECIPIENTS + "/" + id + "/restore")
+            .header("Authorization", bearer(owner.token())))
+        .andExpect(status().isConflict());
+    mvc.perform(patch(RECIPIENTS + "/" + id + "/archive")
+            .header("Authorization", bearer(owner.token())))
+        .andExpect(status().isConflict());
+  }
+
+  @Test
+  void archivePreservesNotesAddendaAndPlansAndBlocksNewWritesUntilRestore() throws Exception {
+    TestCaregiver owner = register("archive-history@example.com");
+    String id = createRecipient(owner.token(), "{\"name\":\"History recipient\"}");
+    MvcResult createdNote = mvc.perform(post("/api/notes")
+            .header("Authorization", bearer(owner.token()))
+            .contentType(MediaType.APPLICATION_JSON)
+            .content("{\"recipientId\":\"" + id + "\",\"date\":\"2026-10-17\",\"freeText\":\"Original note preserved\"}"))
+        .andExpect(status().isCreated())
+        .andReturn();
+    String noteId = objectMapper.readTree(createdNote.getResponse().getContentAsString()).get("id").asText();
+
+    mvc.perform(post("/api/notes/" + noteId + "/addenda")
+            .header("Authorization", bearer(owner.token()))
+            .contentType(MediaType.APPLICATION_JSON)
+            .content("{\"painScore\":8,\"freeText\":\"Correction preserved\"}"))
+        .andExpect(status().isCreated());
+
+    UUID planId = UUID.randomUUID();
+    jdbcTemplate.update("INSERT INTO care_plan_versions (id, recipient_id, version_number, status, content) VALUES (?, ?, 1, 'SUGGESTED', ?)",
+        planId, UUID.fromString(id), "Historical plan content");
+
+    mvc.perform(patch(RECIPIENTS + "/" + id + "/archive")
+            .header("Authorization", bearer(owner.token())))
+        .andExpect(status().isOk())
+        .andExpect(jsonPath("$.lifecycleStatus").value("ARCHIVED"));
+
+    mvc.perform(get("/api/notes/" + noteId).header("Authorization", bearer(owner.token())))
+        .andExpect(status().isOk())
+        .andExpect(jsonPath("$.freeText").value("Original note preserved"))
+        .andExpect(jsonPath("$.addendumCount").value(1))
+        .andExpect(jsonPath("$.addenda[0].freeText").value("Correction preserved"));
+    assertThat(jdbcTemplate.queryForObject(
+        "SELECT COUNT(*) FROM care_plan_versions WHERE id = ?", Integer.class, planId)).isEqualTo(1);
+    assertThat(jdbcTemplate.queryForObject(
+        "SELECT content FROM care_plan_versions WHERE id = ?", String.class, planId)).isEqualTo("Historical plan content");
+
+    mvc.perform(post("/api/notes")
+            .header("Authorization", bearer(owner.token()))
+            .contentType(MediaType.APPLICATION_JSON)
+            .content("{\"recipientId\":\"" + id + "\",\"date\":\"2026-10-18\",\"freeText\":\"Should be blocked\"}"))
+        .andExpect(status().isConflict())
+        .andExpect(jsonPath("$.code").value("INACTIVE_RECIPIENT"));
+    mvc.perform(post("/api/notes/" + noteId + "/addenda")
+            .header("Authorization", bearer(owner.token()))
+            .contentType(MediaType.APPLICATION_JSON)
+            .content("{\"freeText\":\"Should also be blocked\"}"))
+        .andExpect(status().isConflict())
+        .andExpect(jsonPath("$.code").value("INACTIVE_RECIPIENT"));
+
+    mvc.perform(patch(RECIPIENTS + "/" + id + "/restore")
+            .header("Authorization", bearer(owner.token())))
+        .andExpect(status().isOk())
+        .andExpect(jsonPath("$.lifecycleStatus").value("ACTIVE"));
+    mvc.perform(post("/api/notes")
+            .header("Authorization", bearer(owner.token()))
+            .contentType(MediaType.APPLICATION_JSON)
+            .content("{\"recipientId\":\"" + id + "\",\"date\":\"2026-10-18\",\"freeText\":\"After restore\"}"))
+        .andExpect(status().isCreated());
   }
 
   private TestCaregiver register(String email) throws Exception {
