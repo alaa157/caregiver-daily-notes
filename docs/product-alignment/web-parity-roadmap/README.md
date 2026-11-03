@@ -1566,40 +1566,40 @@ Medication is gated by its own decisions and clinical review. It does not have t
 
 ## 8. Product-Owner Decisions
 
-PO-01 through PO-23 originate in Phase 2 and are carried forward in Phase 3A. PO-24 is a roadmap-specific decision added after the product owner's explicit direction on 2026-11-03. Recommendations remain proposals unless explicitly approved; PO-24 is approved only for the BYOK-only product policy, not for a specific technical key-custody implementation.
+PO-01 through PO-23 originate in Phase 2 and are carried forward in Phase 3A. PO-24 is a roadmap-specific decision added after the product owner's explicit direction on 2026-11-03. WP-01 records the current owner decision summaries and their remaining gates in [the decision record](wp-01/README.md). Historical Phase 2 recommendations remain historical recommendations; the current WP-01 statuses govern future Web parity planning. Verbatim owner Q/A evidence was not retained for every decision, as disclosed in WP-01 §3.0. PO-24 approves BYOK-only policy, not a specific technical key-custody implementation.
 
 | Decision | Roadmap impact | Blocks | Can proceed without resolution |
 |---|---|---|---|
-| PO-01 — Shared recipient relationship | Determines whether relationship becomes a shared field or remains a Web-only extension | WP-01 contract freeze; related WP-02 schema changes | Other recipient workflow work that does not rely on relationship |
-| PO-02 — Recipient lifecycle | Determines archive/deactivate/delete semantics and historical access | WP-01 and WP-02 lifecycle migration | Non-destructive UI/accessibility work |
-| PO-03 — Historical note dates | Determines Android future behavior; Web already accepts dates | Shared date contract if cross-platform creation behavior is to be equivalent | Web date preservation and timezone correctness |
-| PO-04 — One original note per recipient/local date | Determines uniqueness and duplicate handling | WP-02 constraint and create semantics | Migration diagnostics and duplicate inventory |
-| PO-05 — Observation and verification states | Determines null/unknown/negative/ambiguous meaning | WP-02 and dependent safety/summary work | UI shell and unrelated settings |
-| PO-06 — Text and structured addenda | Determines correction event schema and effective-value projection | WP-02; WP-04 evidence/safety projection | Addendum UI accessibility work that preserves current behavior |
-| PO-07 — Shared safety rules | Requires product and clinical review of signals/thresholds | WP-04 and medication-derived signals in WP-06 | AI error-state handling and evidence navigation |
-| PO-08 — Plan action catalogue and legacy text mapping | Determines structured action model and free-text preservation | WP-05 | Plan history UI shell and accessibility |
+| PO-01 — Shared recipient relationship | **APPROVED in WP-01** — nullable free-text relationship on both platforms | Related WP-02 schema/editor work; no automatic identity matching | Other recipient workflow work that does not rely on relationship |
+| PO-02 — Recipient lifecycle | **APPROVED in WP-01** — ACTIVE / ARCHIVED / DELETED; archive is not deletion | WP-02 lifecycle inventory/backfill remains gated on legacy mapping and PO-13 deletion/retention policy | Non-destructive UI/accessibility work |
+| PO-03 — Historical note dates | **APPROVED in WP-01** — future Android historical-date creation; preserve existing dates | Future Android UX implementation and date/time-zone tests | Web date preservation and timezone correctness |
+| PO-04 — One original note per recipient/local date | **APPROVED in WP-01** — caregiver-local calendar date at creation | WP-02 duplicate preflight and safe disposition before any uniqueness constraint | Migration diagnostics and duplicate inventory |
+| PO-05 — Observation and verification states | **APPROVED in WP-01** — explicit observation states and separate verification | WP-02 legacy mapping/backfill; WP-04 safety/summary projection | UI shell and unrelated settings |
+| PO-06 — Text and structured addenda | **APPROVED in WP-01** — immutable text addenda and typed structured corrections | WP-02 event schema/projection and WP-04 evidence/safety projection | Addendum UI accessibility work that preserves current behavior |
+| PO-07 — Shared safety rules | **OWNER DIRECTION APPROVED; CLINICAL REVIEW PENDING** — Android deterministic rules are candidate baseline | WP-04 rule activation/claims and medication-derived signals in WP-06 | AI error-state handling and evidence navigation |
+| PO-08 — Plan action catalogue and legacy text mapping | **APPROVED in WP-01** — closed structured catalogue; preserve unmappable legacy text | WP-05 catalogue mapping and migration design | Plan history UI shell and accessibility |
 | PO-09 — Medication tracker in transfer v1 | Transfer scope only; this Web roadmap does not implement transfer | No Web medication CRUD work by itself; Web medication still needs PO-18 and a domain decision | WP-06 can define a Web-only scope if PO-18 is approved independently; do not infer transfer scope |
 | PO-10 — First transfer record types | Transfer scope only | No Web parity phase | All Web parity phases |
 | PO-11 — One or multiple recipients per transfer | Transfer scope only | No Web parity phase | All Web parity phases |
 | PO-12 — Android account-linking flow | Transfer authentication only | No Web parity phase | All Web parity phases |
-| PO-13 — Server persistence/backup/retention guarantees | Operational requirement for durable server-side care data; transfer launch is also gated | WP-08 operational acceptance and any production release depending on durability | Local design and test implementation; production durability claims cannot proceed |
-| PO-14 — Web CSV import/export | Determines whether WP-07 is implemented and its supported scope | WP-07 | Other phases |
-| PO-15 — Web user-level backup/restore | Determines whether WP-08 user archive workflow is implemented | WP-08 | Operational database backup investigation |
-| PO-16 — Web PDF/report/share | Determines WP-09 scope | WP-09 | Core data and workflow phases |
-| PO-17 — Web theme/palette | Determines theme modes and semantic palette scope in WP-10 | Theme preference implementation | Accessibility, RTL, responsive, and non-theme settings work |
-| PO-18 — Web medication parity | Determines whether WP-06 is implemented as full CRUD/tracker, read-only, or deferred | WP-06 | Other phases |
-| PO-19 — Capability parity vs full feature parity | Determines the target classification for Android-specific features | WP-01 and final WP-11 parity acceptance | Data correctness and essential shared workflows |
+| PO-13 — Server persistence/backup/retention guarantees | **POLICY APPROVED; DEPLOYMENT EVIDENCE PENDING** — durable persistence and verified recovery required for production care-data use | WP-08 operational acceptance and any production release; deployment-owner evidence required | Local design and test implementation; production durability claims cannot proceed |
+| PO-14 — Web CSV import/export | **APPROVED in WP-01** — separate user-controlled CSV capability | WP-07 detailed schema, preview, duplicate, and formula-safety contract | Other phases |
+| PO-15 — Web user-level backup/restore | **APPROVED in WP-01** — separate user-level archive/restore | WP-08 archive contents, restore modes, and recovery contract | Operational database backup investigation |
+| PO-16 — Web PDF/report/share | **APPROVED in WP-01** — reports, PDF, print, and sharing | WP-09 report scope, privacy, and sharing contract | Core data and workflow phases |
+| PO-17 — Web theme/palette | **APPROVED in WP-01** — System/Light/Dark and semantic palette tokens | WP-10 preference implementation and accessibility validation | RTL, responsive, and non-theme settings work |
+| PO-18 — Web medication parity | **APPROVED in WP-01** — Web medication tracker after domain semantics are defined | WP-06 schedule/intake/verification contract and safety integration review | Other phases |
+| PO-19 — Capability parity vs full feature parity | **APPROVED in WP-01** — capability and semantic parity, not pixel-identical UX | WP-11 parity acceptance against equivalent meaning/outcomes | Data correctness and essential shared workflows |
 | PO-20 — Source identity and canonical IDs | Primarily transfer/provenance architecture; relevant to future import identity, not a reason to add transfer now | Any future transfer schema; no WP phase should implement transfer identity | All Web parity phases; preserve stable Web IDs and audit history |
-| PO-21 — Safety acknowledgement/dismissal | Determines whether caregivers can acknowledge signals and how this is audited | Optional acknowledgement part of WP-04 | Deterministic signal correctness |
+| PO-21 — Safety acknowledgement (not dismissal) | **APPROVED in WP-01** — acknowledgement is metadata; it never hides, dismisses, or resolves a signal | WP-04 acknowledgement audit behavior; clinical signal correctness remains separate | Deterministic signal correctness |
 | PO-22 — Transfer of generated AI summaries | Transfer scope only | No Web parity phase; WP-04 still aligns summary semantics | All Web parity phases |
 | PO-23 — Imported Android record editability | Transfer/import policy only | Future transfer/import design | Native Web record editing and all Web parity phases |
-| PO-24 — Web AI provider policy: BYOK only | **APPROVED** — Web AI must use caregiver-supplied provider credentials exclusively; no application-managed/shared provider key, pooled account, or silent fallback | WP-01 records the approved policy and decides the technical execution/key-custody design; WP-04 implements it | AI summaries, plan generation, provider settings, security/privacy review, and all Web AI acceptance criteria |
+| PO-24 — Web AI provider policy: BYOK only | **APPROVED** — Web AI exclusively uses caregiver-supplied provider credentials; no application-managed/shared key, pooled account, or silent fallback | WP-04 implements after a separate execution-architecture decision and engineering/security/privacy approval | AI summaries, plan generation, provider settings, and all Web AI acceptance criteria |
 
-### 8.1 Proposed recommendations that still require approval
+### 8.1 Remaining implementation and review gates (not unresolved product-policy approvals)
 
-The roadmap generally carries forward Phase 2's recommendations. It does not convert them into decisions. In particular:
+The following items are implementation details, evidence requirements, or specialist-review gates. They do not reverse the owner decision statuses recorded in WP-01:
 
-- Explicit observation states plus independent verification are recommended, but PO-05 remains awaiting approval.
+- A canonical reversible recipient lifecycle is recommended, but PO-02 remains awaiting approval.
 - A canonical reversible recipient lifecycle is recommended, but PO-02 remains awaiting approval.
 - One original note per recipient/local calendar date is recommended, but PO-04 remains awaiting approval and existing duplicates must be assessed.
 - Both text and structured correction events are recommended, but PO-06 remains awaiting approval.
@@ -1609,7 +1609,7 @@ The roadmap generally carries forward Phase 2's recommendations. It does not con
 - Capability parity rather than pixel/UI parity is recommended under PO-19.
 - Web BYOK-only AI is an approved product decision under PO-24. The browser-versus-backend execution path, key lifetime/storage, and provider-specific support remain technical decisions for WP-01.
 
-**No Phase 2 recommendation is an approved product requirement unless the product owner has separately recorded approval.**
+**Current status source:** use the WP-01 decision register for current product-owner statuses. Phase 2 remains the historical recommendation record; it is not overwritten by this roadmap update.
 
 ---
 
