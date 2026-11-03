@@ -120,6 +120,23 @@ class NoteIdempotencyTest {
   }
 
   @Test
+  void explicitVerificationOnlyAddendumReplaysIdempotently() throws Exception {
+    TestCaregiver owner = register("idem-verification@example.com");
+    String noteId = createNote(owner.token(), "2026-10-19");
+    String body = "{\"medicationVerification\":\"VERIFIED\"}";
+
+    MvcResult first = mvc.perform(idempotentAppend(owner.token(), noteId, "verify-key", body))
+        .andExpect(status().isCreated())
+        .andReturn();
+    MvcResult second = mvc.perform(idempotentAppend(owner.token(), noteId, "verify-key", body))
+        .andExpect(status().isCreated())
+        .andReturn();
+
+    assertThat(bodyOf(second)).isEqualTo(bodyOf(first));
+    assertThat(addenda.count()).isEqualTo(1);
+  }
+
+  @Test
   void addendumKeyReuseWithDifferentPayloadOrNoteConflicts() throws Exception {
     TestCaregiver owner = register("idem-addendum2@example.com");
     String firstNote = createNote(owner.token(), "2026-10-04");

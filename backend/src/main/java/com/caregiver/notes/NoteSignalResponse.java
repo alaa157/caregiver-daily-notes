@@ -1,6 +1,7 @@
 package com.caregiver.notes;
 
 import com.caregiver.common.NoteSignals;
+import com.caregiver.common.NoteObservations;
 
 import java.time.LocalDate;
 import java.util.UUID;
@@ -19,7 +20,27 @@ public record NoteSignalResponse(
     Boolean missedMedication,
     boolean medicationUnverified,
     Boolean poorAppetite,
-    String freeText) {
+    String freeText,
+    NoteObservations observations) {
+
+  public NoteSignalResponse(
+      UUID recipientId,
+      LocalDate date,
+      String mood,
+      String appetite,
+      String sleep,
+      String mobility,
+      String medicationStatus,
+      Boolean fallReported,
+      Integer painScore,
+      Boolean missedMedication,
+      boolean medicationUnverified,
+      Boolean poorAppetite,
+      String freeText) {
+    this(recipientId, date, mood, appetite, sleep, mobility, medicationStatus, fallReported,
+        painScore, missedMedication, medicationUnverified, poorAppetite, freeText,
+        NoteObservations.notRecorded());
+  }
 
   public NoteSignals toNoteSignals() {
     return new NoteSignals(
@@ -35,6 +56,7 @@ public record NoteSignalResponse(
         missedMedication,
         medicationUnverified,
         poorAppetite,
-        freeText);
+        freeText,
+        observations);
   }
 }

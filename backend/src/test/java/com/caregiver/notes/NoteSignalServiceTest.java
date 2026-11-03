@@ -20,7 +20,6 @@ import org.springframework.test.web.servlet.MvcResult;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
-import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
 /**
@@ -103,6 +102,85 @@ class NoteSignalServiceTest {
   }
 
   @Test
+  void explicitObservationStatesAndTypedValuesRoundTripThroughApi() throws Exception {
+    TestCaregiver owner = register("signal-explicit@example.com");
+    String recipientId = createRecipient(owner.token());
+    String noteId = createNote(owner.token(), recipientId, "2026-10-13",
+        "{\"observations\":{"
+            + "\"mood\":{\"state\":\"RECORDED\",\"value\":\"\"},"
+            + "\"appetite\":{\"state\":\"UNKNOWN\"},"
+            + "\"sleep\":{\"state\":\"NOT_RECORDED\"},"
+            + "\"mobility\":{\"state\":\"LEGACY_AMBIGUOUS\",\"rawValue\":\"old mobility\"},"
+            + "\"medicationStatus\":{\"state\":\"UNKNOWN\"},"
+            + "\"painScore\":{\"state\":\"RECORDED\",\"value\":0},"
+            + "\"fallReported\":{\"state\":\"RECORDED\",\"value\":false},"
+            + "\"freeText\":{\"state\":\"RECORDED\",\"value\":\"\"}},"
+            + "\"medicationVerification\":\"VERIFIED\"}");
+
+    JsonNode note = getNote(owner.token(), noteId);
+    JsonNode observations = note.get("observations");
+    assertThat(observations.get("mood").get("state").asText()).isEqualTo("RECORDED");
+    assertThat(observations.get("mood").get("value").asText()).isEmpty();
+    assertThat(observations.get("appetite").get("state").asText()).isEqualTo("UNKNOWN");
+    assertThat(observations.get("sleep").get("state").asText()).isEqualTo("NOT_RECORDED");
+    assertThat(observations.get("mobility").get("state").asText()).isEqualTo("LEGACY_AMBIGUOUS");
+    assertThat(observations.get("mobility").get("rawValue").asText()).isEqualTo("old mobility");
+    assertThat(observations.get("medicationStatus").get("state").asText()).isEqualTo("UNKNOWN");
+    assertThat(observations.get("painScore").get("value").asInt()).isZero();
+    assertThat(observations.get("fallReported").get("value").asBoolean()).isFalse();
+    assertThat(observations.get("freeText").get("value").asText()).isEmpty();
+    assertThat(observations.get("medicationVerification").asText()).isEqualTo("VERIFIED");
+  }
+
+  @Test
+  void explicitAddendumCanSetStateWithoutChangingOmittedFields() throws Exception {
+    TestCaregiver owner = register("signal-explicit-addendum@example.com");
+    String recipientId = createRecipient(owner.token());
+    String noteId = createNote(owner.token(), recipientId, "2026-10-14",
+        "{\"mood\":\"good\",\"painScore\":4,\"medicationStatus\":\"TAKEN\","
+            + "\"medicationVerified\":true}");
+    append(owner.token(), noteId,
+        "{\"observations\":{\"mood\":{\"state\":\"NOT_RECORDED\"},"
+            + "\"painScore\":{\"state\":\"NOT_APPLICABLE\"}}}");
+
+    JsonNode day = signals(owner.token(), recipientId, "2026-10-14", "2026-10-14").get(0);
+    JsonNode observations = day.get("observations");
+    assertThat(observations.get("mood").get("state").asText()).isEqualTo("NOT_RECORDED");
+    assertThat(observations.get("painScore").get("state").asText()).isEqualTo("NOT_APPLICABLE");
+    assertThat(observations.get("medicationStatus").get("state").asText()).isEqualTo("RECORDED");
+    assertThat(observations.get("medicationStatus").get("value").asText()).isEqualTo("TAKEN");
+    assertThat(observations.get("medicationVerification").asText()).isEqualTo("VERIFIED");
+
+    MvcResult result = mvc.perform(get(NOTES + "/" + noteId + "/addenda")
+            .header("Authorization", bearer(owner.token())))
+        .andExpect(status().isOk())
+        .andReturn();
+    JsonNode providedFields = mapper.readTree(result.getResponse().getContentAsByteArray())
+        .get(0).get("providedFields");
+    assertThat(providedFields).hasSize(2);
+    assertThat(providedFields.toString()).contains("\"mood\"", "\"painScore\"");
+  }
+
+  @Test
+  void invalidExplicitStateValueCombinationIsRejected() throws Exception {
+    TestCaregiver owner = register("signal-invalid-state@example.com");
+    String recipientId = createRecipient(owner.token());
+    mvc.perform(post(NOTES)
+            .header("Authorization", bearer(owner.token()))
+            .contentType(MediaType.APPLICATION_JSON)
+            .content("{\"recipientId\":\"" + recipientId + "\",\"date\":\"2026-10-15\","
+                + "\"observations\":{\"mood\":{\"state\":\"UNKNOWN\",\"value\":\"good\"},"
+                + "\"appetite\":{\"state\":\"NOT_RECORDED\"},"
+                + "\"sleep\":{\"state\":\"NOT_RECORDED\"},"
+                + "\"mobility\":{\"state\":\"NOT_RECORDED\"},"
+                + "\"medicationStatus\":{\"state\":\"NOT_RECORDED\"},"
+                + "\"painScore\":{\"state\":\"NOT_RECORDED\"},"
+                + "\"fallReported\":{\"state\":\"NOT_RECORDED\"},"
+                + "\"freeText\":{\"state\":\"NOT_RECORDED\"}}}"))
+        .andExpect(status().isBadRequest());
+  }
+
+  @Test
   void unverifiedMedicationIsNeverAPositiveFact() throws Exception {
     TestCaregiver owner = register("signal-unverified@example.com");
     String recipientId = createRecipient(owner.token());
@@ -111,7 +189,7 @@ class NoteSignalServiceTest {
         "{\"medicationStatus\":\"TAKEN\",\"medicationVerified\":false}");
     // MISSED with no verification flag at all.
     createNote(owner.token(), recipientId, "2026-10-02", "{\"medicationStatus\":\"MISSED\"}");
-    // UNKNOWN even when marked verified.
+    // Verification remains independent even when the observation is UNKNOWN.
     createNote(owner.token(), recipientId, "2026-10-03",
         "{\"medicationStatus\":\"UNKNOWN\",\"medicationVerified\":true}");
 
@@ -119,8 +197,18 @@ class NoteSignalServiceTest {
     assertThat(days).hasSize(3);
     for (JsonNode day : days) {
       assertThat(day.get("missedMedication").isNull()).isTrue();
-      assertThat(day.get("medicationUnverified").asBoolean()).isTrue();
     }
+    assertThat(days.get(0).get("observations").get("medicationVerification").asText())
+        .isEqualTo("UNVERIFIED");
+    assertThat(days.get(0).get("medicationUnverified").asBoolean()).isTrue();
+    assertThat(days.get(1).get("observations").get("medicationVerification").asText())
+        .isEqualTo("NOT_ASSERTED");
+    assertThat(days.get(1).get("medicationUnverified").asBoolean()).isFalse();
+    assertThat(days.get(2).get("observations").get("medicationVerification").asText())
+        .isEqualTo("VERIFIED");
+    assertThat(days.get(2).get("observations").get("medicationStatus").get("state").asText())
+        .isEqualTo("UNKNOWN");
+    assertThat(days.get(2).get("medicationUnverified").asBoolean()).isFalse();
 
     // Verified MISSED is a positive fact; verified TAKEN is a negative one.
     createNote(owner.token(), recipientId, "2026-10-04",
@@ -147,10 +235,12 @@ class NoteSignalServiceTest {
     JsonNode note = getNote(owner.token(), noteId);
     assertThat(note.get("medicationStatus").asText()).isEqualTo("MISSED");
 
-    // But the interpreted signal refuses to pick a side.
+    // The conflicting observation remains unknown without changing verification.
     JsonNode day = signals(owner.token(), recipientId, "2026-10-06", "2026-10-06").get(0);
     assertThat(day.get("missedMedication").isNull()).isTrue();
-    assertThat(day.get("medicationUnverified").asBoolean()).isTrue();
+    assertThat(day.get("medicationUnverified").asBoolean()).isFalse();
+    assertThat(day.get("observations").get("medicationStatus").get("state").asText()).isEqualTo("UNKNOWN");
+    assertThat(day.get("observations").get("medicationVerification").asText()).isEqualTo("VERIFIED");
   }
 
   @Test
@@ -164,11 +254,13 @@ class NoteSignalServiceTest {
 
     JsonNode day = signals(owner.token(), recipientId, "2026-10-07", "2026-10-07").get(0);
     assertThat(day.get("missedMedication").isNull()).isTrue();
-    assertThat(day.get("medicationUnverified").asBoolean()).isTrue();
+    assertThat(day.get("medicationUnverified").asBoolean()).isFalse();
+    assertThat(day.get("observations").get("medicationStatus").get("state").asText()).isEqualTo("UNKNOWN");
+    assertThat(day.get("observations").get("medicationVerification").asText()).isEqualTo("VERIFIED");
   }
 
   @Test
-  void unknownCorrectionLeavesStateUnverifiedWithoutContradiction() throws Exception {
+  void unknownCorrectionDoesNotInheritOldVerification() throws Exception {
     TestCaregiver owner = register("signal-unknown@example.com");
     String recipientId = createRecipient(owner.token());
     String noteId = createNote(owner.token(), recipientId, "2026-10-08",
@@ -177,11 +269,13 @@ class NoteSignalServiceTest {
 
     JsonNode day = signals(owner.token(), recipientId, "2026-10-08", "2026-10-08").get(0);
     assertThat(day.get("missedMedication").isNull()).isTrue();
-    assertThat(day.get("medicationUnverified").asBoolean()).isTrue();
+    assertThat(day.get("medicationUnverified").asBoolean()).isFalse();
+    assertThat(day.get("observations").get("medicationStatus").get("state").asText()).isEqualTo("UNKNOWN");
+    assertThat(day.get("observations").get("medicationVerification").asText()).isEqualTo("NOT_ASSERTED");
   }
 
   @Test
-  void verificationOnlyAddendumCannotConfirmMedication() throws Exception {
+  void verificationOnlyAddendumUpdatesVerificationIndependently() throws Exception {
     TestCaregiver owner = register("signal-verify@example.com");
     String recipientId = createRecipient(owner.token());
     String noteId = createNote(owner.token(), recipientId, "2026-10-09",
@@ -189,8 +283,9 @@ class NoteSignalServiceTest {
     append(owner.token(), noteId, "{\"medicationVerified\":true}");
 
     JsonNode day = signals(owner.token(), recipientId, "2026-10-09", "2026-10-09").get(0);
-    assertThat(day.get("missedMedication").isNull()).isTrue();
-    assertThat(day.get("medicationUnverified").asBoolean()).isTrue();
+    assertThat(day.get("missedMedication").asBoolean()).isTrue();
+    assertThat(day.get("medicationUnverified").asBoolean()).isFalse();
+    assertThat(day.get("observations").get("medicationVerification").asText()).isEqualTo("VERIFIED");
   }
 
   @Test

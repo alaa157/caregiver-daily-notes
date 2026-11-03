@@ -13,6 +13,8 @@ public final class SummaryPrompts {
           + "{\"observations\":[{\"text\":string,\"noteId\":string,\"quote\":string}],"
           + "\"uncertainties\":[{\"topic\":string,\"detail\":string}]}. "
           + "Every quote must be verbatim from the cited note. "
+          + "Only fields marked RECORDED are established observation values. "
+          + "LEGACY_AMBIGUOUS values have been withheld; do not infer their meaning. "
           + "Mark unclear or conflicting information as uncertainty, never guess. "
           + "No diagnoses, no prescriptions.";
 
