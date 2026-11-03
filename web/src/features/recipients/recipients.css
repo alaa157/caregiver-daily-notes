@@ -69,3 +69,13 @@
 @media (forced-colors: active) {
   .recipient-status, .recipient-error, .recipient-success, .recipient-field input, .recipient-dialog, .recipient-inactive-notice { border-color: ButtonText; }
 }
+
+.recipient-filters { display: flex; flex-wrap: wrap; gap: 8px; margin: 0 0 22px; }
+.recipient-filter { min-height: 42px; padding: 8px 15px; border: 1px solid var(--color-border); border-radius: 999px; background: transparent; color: var(--color-ink); font: inherit; cursor: pointer; }
+.recipient-filter[aria-pressed='true'] { background: var(--color-surface, #edf4e8); border-color: var(--color-green); font-weight: 650; }
+.recipient-filter:focus-visible { outline: 3px solid var(--color-green); outline-offset: 3px; }
+.recipient-status--archived { color: #596358; background: #f0f0e9; border-color: #d5d8cd; }
+.recipient-status--archived .status-dot { background: #687064; }
+.recipient-status--legacy-inactive-review { color: #704d20; background: #fbf1df; border-color: #d9bd8e; }
+.recipient-status--legacy-inactive-review .status-dot { background: #9a6b26; }
+.recipient-review-notice { max-width: 760px; margin-block: 24px 0; padding: 16px 20px; color: #704d20; background: #fbf1df; border: 1px solid #d9bd8e; border-radius: 9px; line-height: 1.9; }
