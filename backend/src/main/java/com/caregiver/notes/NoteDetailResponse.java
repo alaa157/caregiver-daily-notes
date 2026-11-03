@@ -4,6 +4,8 @@ import java.time.Instant;
 import java.time.LocalDate;
 import java.util.List;
 import java.util.UUID;
+import com.caregiver.common.NoteObservations;
+import com.caregiver.common.ObservationState;
 
 /**
  * Full note representation for detail reads. History pages deliberately use
@@ -24,24 +26,28 @@ public record NoteDetailResponse(
     String freeText,
     long addendumCount,
     Instant createdAt,
-    List<NoteAddendumResponse> addenda) {
+    List<NoteAddendumResponse> addenda,
+    NoteObservations observations) {
 
   static NoteDetailResponse from(DailyNote note, List<NoteAddendumResponse> addenda) {
+    NoteObservations observations = note.observations();
     return new NoteDetailResponse(
         note.getId(),
         note.getRecipient().getId(),
         note.getDate(),
-        note.getMood(),
-        note.getAppetite(),
-        note.getSleep(),
-        note.getMobility(),
-        note.getMedicationStatus(),
+        observations.mood().compatibilityValue(),
+        observations.appetite().compatibilityValue(),
+        observations.sleep().compatibilityValue(),
+        observations.mobility().compatibilityValue(),
+        observations.medicationStatus().state() == ObservationState.UNKNOWN
+            ? "UNKNOWN" : observations.medicationStatus().compatibilityValue(),
         note.getMedicationVerified(),
-        note.getPainScore(),
-        note.getFallReported(),
-        note.getFreeText(),
+        observations.painScore().compatibilityValue(),
+        observations.fallReported().compatibilityValue(),
+        observations.freeText().compatibilityValue(),
         addenda.size(),
         note.getCreatedAt(),
-        List.copyOf(addenda));
+        List.copyOf(addenda),
+        observations);
   }
 }

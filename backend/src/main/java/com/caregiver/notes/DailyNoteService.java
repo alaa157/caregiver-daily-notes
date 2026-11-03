@@ -117,9 +117,7 @@ public class DailyNoteService {
         var saved = notes.saveAndFlush(new DailyNote(
             caregivers.getReferenceById(owner),
             recipients.getReferenceById(request.recipientId()),
-            request.date(), request.mood(), request.appetite(), request.sleep(), request.mobility(),
-            request.medicationStatus(), request.medicationVerified(), request.painScore(),
-            request.fallReported(), request.freeText(), idempotencyKey));
+            request.date(), request.toObservations(), request.verificationWasSupplied(), idempotencyKey));
         audit.record("NOTE_CREATED", "DAILY_NOTE", saved.getId().toString(),
             "recipientId=" + request.recipientId() + ";date=" + request.date());
         return response(saved);
@@ -190,9 +188,8 @@ public class DailyNoteService {
         }
         var saved = addenda.saveAndFlush(new NoteAddendum(
             note, caregivers.getReferenceById(owner),
-            request.mood(), request.appetite(), request.sleep(), request.mobility(),
-            request.medicationStatus(), request.medicationVerified(), request.painScore(),
-            request.fallReported(), request.freeText(), idempotencyKey));
+            request.toObservations(), request.observationPresence(),
+            request.verificationWasSupplied(), idempotencyKey));
         audit.record("NOTE_ADDENDUM_CREATED", "NOTE_ADDENDUM", saved.getId().toString(),
             "noteId=" + noteId);
         return NoteAddendumResponse.from(saved);
@@ -295,9 +292,15 @@ public class DailyNoteService {
   }
 
   private boolean sameRequest(DailyNote note, NoteRequest request) {
-    return Objects.equals(note.getRecipient().getId(), request.recipientId())
-        && Objects.equals(note.getDate(), request.date())
-        && Objects.equals(note.getMood(), request.mood())
+    if (!Objects.equals(note.getRecipient().getId(), request.recipientId())
+        || !Objects.equals(note.getDate(), request.date())) {
+      return false;
+    }
+    if (request.observations() != null || request.medicationVerification() != null) {
+      return Objects.equals(note.observations(), request.toObservations())
+          && note.isMedicationVerificationProvided() == request.verificationWasSupplied();
+    }
+    return Objects.equals(note.getMood(), request.mood())
         && Objects.equals(note.getAppetite(), request.appetite())
         && Objects.equals(note.getSleep(), request.sleep())
         && Objects.equals(note.getMobility(), request.mobility())
@@ -309,6 +312,11 @@ public class DailyNoteService {
   }
 
   private boolean sameRequest(NoteAddendum addendum, AddendumRequest request) {
+    if (request.observations() != null || request.medicationVerification() != null) {
+      return Objects.equals(addendum.observations(), request.toObservations())
+          && Objects.equals(addendum.observationPresence(), request.observationPresence())
+          && addendum.isMedicationVerificationProvided() == request.verificationWasSupplied();
+    }
     return Objects.equals(addendum.getMood(), request.mood())
         && Objects.equals(addendum.getAppetite(), request.appetite())
         && Objects.equals(addendum.getSleep(), request.sleep())
@@ -339,10 +347,7 @@ public class DailyNoteService {
   }
 
   private void requireAddendumContent(AddendumRequest request) {
-    if (request.mood() == null && request.appetite() == null && request.sleep() == null
-        && request.mobility() == null && request.medicationStatus() == null
-        && request.medicationVerified() == null && request.painScore() == null
-        && request.fallReported() == null && request.freeText() == null) {
+    if (!request.hasObservationOrVerification()) {
       throw new IllegalArgumentException("Addendum must correct at least one field.");
     }
   }

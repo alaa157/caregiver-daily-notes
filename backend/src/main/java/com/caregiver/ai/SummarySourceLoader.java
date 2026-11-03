@@ -2,6 +2,9 @@ package com.caregiver.ai;
 
 import com.caregiver.auth.AuthContext;
 import com.caregiver.common.NoteSignals;
+import com.caregiver.common.NoteObservations;
+import com.caregiver.common.Observation;
+import com.caregiver.common.ObservationState;
 import com.caregiver.notes.DailyNote;
 import com.caregiver.notes.DailyNoteRepository;
 import com.caregiver.notes.NoteAddendum;
@@ -48,23 +51,33 @@ public class SummarySourceLoader {
   }
   private String transcript(DailyNote note, List<NoteAddendum> corrections) {
     StringBuilder text = new StringBuilder("ORIGINAL OBSERVATIONS\n");
-    append(text, note.getMood(), note.getAppetite(), note.getSleep(), note.getMobility(),
-        note.getMedicationStatus(), note.getMedicationVerified(), note.getPainScore(), note.getFallReported(), note.getFreeText());
+    append(text, note.observations());
     for (NoteAddendum correction : corrections) {
       text.append("\nAPPENDED CORRECTION ").append(correction.getId()).append("\n");
-      append(text, correction.getMood(), correction.getAppetite(), correction.getSleep(), correction.getMobility(),
-          correction.getMedicationStatus(), correction.getMedicationVerified(), correction.getPainScore(), correction.getFallReported(), correction.getFreeText());
+      append(text, correction.observations());
     }
     return text.toString();
   }
-  private void append(StringBuilder text, String mood, String appetite, String sleep, String mobility,
-      String medication, Boolean verified, Integer pain, Boolean fall, String freeText) {
-    field(text, "mood", mood); field(text, "appetite", appetite); field(text, "sleep", sleep);
-    field(text, "mobility", mobility); field(text, "medicationStatus", medication);
-    field(text, "medicationVerified", verified); field(text, "painScore", pain); field(text, "fallReported", fall);
-    if (freeText != null) text.append("Free text (verbatim):\n").append(freeText).append('\n');
+
+  private void append(StringBuilder text, NoteObservations observations) {
+    field(text, "mood", observations.mood());
+    field(text, "appetite", observations.appetite());
+    field(text, "sleep", observations.sleep());
+    field(text, "mobility", observations.mobility());
+    field(text, "medicationStatus", observations.medicationStatus());
+    field(text, "painScore", observations.painScore());
+    field(text, "fallReported", observations.fallReported());
+    field(text, "freeText", observations.freeText());
+    text.append("medicationVerification: ").append(observations.medicationVerification()).append('\n');
   }
-  private void field(StringBuilder text, String key, Object value) {
-    if (value != null) text.append(key).append(": ").append(value).append('\n');
+
+  private void field(StringBuilder text, String key, Observation<?> observation) {
+    text.append(key).append(" [").append(observation.state()).append(']');
+    if (observation.state() == ObservationState.RECORDED) {
+      text.append(": ").append(observation.value());
+    } else if (observation.state() == ObservationState.LEGACY_AMBIGUOUS) {
+      text.append(": historical value withheld; meaning unresolved");
+    }
+    text.append('\n');
   }
 }
