@@ -69,7 +69,7 @@ for (const language of ['en', 'ar'] as const) {
     await page.getByRole('button', { name: ar ? 'حفظ التغييرات' : 'Save changes', exact: true }).click();
     await expect(page.getByRole('heading', { name: updatedName, exact: true })).toBeVisible();
 
-    // Seed history through its existing API to verify deactivation preserves it.
+    // Seed history through its existing API to verify archive preserves it.
     const note = await request.post(`${backend}/api/notes`, {
       headers: ownerHeaders,
       data: { recipientId: id, date: new Date().toISOString().slice(0, 10), freeText: 'Synthetic history preservation check.' },
@@ -82,8 +82,8 @@ for (const language of ['en', 'ar'] as const) {
     await page.getByRole('button', { name: ar ? 'أرشفة المستفيد' : 'Archive recipient', exact: true }).click();
     await page.getByRole('button', { name: ar ? 'إلغاء' : 'Cancel', exact: true }).click();
     await expect(page.getByRole('link', { name: ar ? 'تعديل بيانات المستفيد' : 'Edit recipient', exact: true })).toBeVisible();
-    await page.getByRole('button', { name: ar ? 'إلغاء تنشيط المستفيد' : 'Deactivate recipient', exact: true }).click();
-    await page.getByRole('button', { name: ar ? 'تأكيد الأرشفة' : 'Archive recipient', exact: true }).click();
+    await page.getByRole('button', { name: ar ? 'أرشفة المستفيد' : 'Archive recipient', exact: true }).click();
+    await page.getByRole('dialog').getByRole('button', { name: ar ? 'تأكيد الأرشفة' : 'Archive recipient', exact: true }).click();
     await expect(page.getByText(ar ? 'مؤرشف' : 'Archived', { exact: true })).toBeVisible();
     await expect(page.getByRole('link', { name: ar ? 'تعديل بيانات المستفيد' : 'Edit recipient', exact: true })).toHaveCount(0);
     const persisted = await request.get(`${backend}/api/recipients/${id}`, { headers: ownerHeaders });
@@ -98,7 +98,7 @@ for (const language of ['en', 'ar'] as const) {
     expect(inactiveUpdate.status()).toBe(409);
 
     await page.getByRole('button', { name: ar ? 'استعادة المستفيد' : 'Restore recipient', exact: true }).click();
-    await page.getByRole('button', { name: ar ? 'تأكيد الاستعادة' : 'Restore recipient', exact: true }).click();
+    await page.getByRole('dialog').getByRole('button', { name: ar ? 'تأكيد الاستعادة' : 'Restore recipient', exact: true }).click();
     await expect(page.getByText(ar ? 'نشط' : 'Active', { exact: true })).toBeVisible();
     const restored = await request.get(`${backend}/api/recipients/${id}`, { headers: ownerHeaders });
     expect(restored.status()).toBe(200);
