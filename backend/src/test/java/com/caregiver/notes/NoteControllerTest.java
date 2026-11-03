@@ -64,6 +64,8 @@ class NoteControllerTest {
   @BeforeEach
   void cleanDatabase() {
     jdbcTemplate.update("delete from audit_events");
+    jdbcTemplate.update("delete from note_correction_events");
+    jdbcTemplate.update("delete from note_correction_batches");
     jdbcTemplate.update("delete from note_addenda");
     jdbcTemplate.update("delete from daily_notes");
     recipients.deleteAll();
@@ -572,6 +574,103 @@ class NoteControllerTest {
     });
     assertThat(events).allSatisfy(e ->
         assertThat(e.getActorCaregiverId()).isEqualTo(owner.id()));
+  }
+
+  @Test
+  void structuredCorrectionsAreTypedAppendOnlyAndIdempotent() throws Exception {
+    TestCaregiver owner = register("note-typed-correction@example.com");
+    String recipientId = createRecipient(owner.token());
+    String noteId = createNote(owner.token(), recipientId, "2026-10-24");
+    String body = "{\"corrections\":["
+        + "{\"field\":\"mood\",\"operation\":\"SET\",\"value\":\"\"},"
+        + "{\"field\":\"painScore\",\"operation\":\"SET\",\"value\":0},"
+        + "{\"field\":\"fallReported\",\"operation\":\"SET\",\"value\":false},"
+        + "{\"field\":\"appetite\",\"operation\":\"UNKNOWN\"},"
+        + "{\"field\":\"sleep\",\"operation\":\"CLEAR\"},"
+        + "{\"field\":\"mobility\",\"operation\":\"NOT_RECORDED\"}]}";
+
+    MvcResult result = mvc.perform(post(NOTES + "/" + noteId + "/corrections")
+            .header("Authorization", bearer(owner.token())).header("Idempotency-Key", "typed-correction-1")
+            .contentType(MediaType.APPLICATION_JSON).content(body))
+        .andExpect(status().isCreated()).andExpect(jsonPath("$.originalNote.id").value(noteId))
+        .andExpect(jsonPath("$.events.length()").value(6))
+        .andExpect(jsonPath("$.events[0].sequenceNo").value(1))
+        .andExpect(jsonPath("$.events[0].operation").value("SET"))
+        .andExpect(jsonPath("$.events[0].value").value(""))
+        .andExpect(jsonPath("$.events[1].value").value(0))
+        .andExpect(jsonPath("$.events[2].value").value(false))
+        .andExpect(jsonPath("$.events[3].effectiveAfter.state").value("UNKNOWN"))
+        .andExpect(jsonPath("$.events[4].effectiveAfter.state").value("NOT_RECORDED"))
+        .andExpect(jsonPath("$.events[4].effectiveAfter.lastOperation").value("CLEAR"))
+        .andExpect(jsonPath("$.events[5].effectiveAfter.lastOperation").value("NOT_RECORDED"))
+        .andExpect(jsonPath("$.effectiveObservations.mood.value").value(""))
+        .andExpect(jsonPath("$.effectiveObservations.painScore.value").value(0))
+        .andExpect(jsonPath("$.effectiveObservations.fallReported.value").value(false))
+        .andExpect(jsonPath("$.effectiveObservations.appetite.state").value("UNKNOWN"))
+        .andExpect(jsonPath("$.effectiveObservations.sleep.lastOperation").value("CLEAR"))
+        .andExpect(jsonPath("$.effectiveObservations.mobility.lastOperation").value("NOT_RECORDED"))
+        .andReturn();
+    JsonNode first = mapper.readTree(result.getResponse().getContentAsByteArray());
+    String firstEventId = first.get("events").get(0).get("id").asText();
+    assertThat(first.get("originalNote").get("mood").asText()).isEqualTo("good");
+    assertThat(first.get("events").get(0).get("previousEffective").get("value").asText()).isEqualTo("good");
+
+    // Retry after a successful response returns the same immutable event IDs.
+    mvc.perform(post(NOTES + "/" + noteId + "/corrections")
+            .header("Authorization", bearer(owner.token())).header("Idempotency-Key", "typed-correction-1")
+            .contentType(MediaType.APPLICATION_JSON).content(body))
+        .andExpect(status().isCreated()).andExpect(jsonPath("$.events.length()").value(6))
+        .andExpect(jsonPath("$.events[0].id").value(firstEventId));
+    assertThat(jdbcTemplate.queryForObject("select count(*) from note_correction_events", Integer.class)).isEqualTo(6);
+    assertThat(jdbcTemplate.queryForObject("select count(*) from note_correction_batches", Integer.class)).isEqualTo(1);
+
+    mvc.perform(get(NOTES + "/" + noteId + "/corrections").header("Authorization", bearer(owner.token())))
+        .andExpect(status().isOk()).andExpect(jsonPath("$.events.length()").value(6))
+        .andExpect(jsonPath("$.events[5].sequenceNo").value(6));
+    mvc.perform(get(NOTES + "/" + noteId).header("Authorization", bearer(owner.token())))
+        .andExpect(status().isOk()).andExpect(jsonPath("$.mood").value("good"))
+        .andExpect(jsonPath("$.painScore").value(3)).andExpect(jsonPath("$.fallReported").value(false));
+
+    // Repeated changes to one field are retained as separate ordered events.
+    mvc.perform(post(NOTES + "/" + noteId + "/corrections")
+            .header("Authorization", bearer(owner.token())).contentType(MediaType.APPLICATION_JSON)
+            .content("{\"corrections\":[{\"field\":\"mood\",\"operation\":\"SET\",\"value\":\"\"},"
+                + "{\"field\":\"mood\",\"operation\":\"SET\",\"value\":\"final\"}]}"))
+        .andExpect(status().isCreated()).andExpect(jsonPath("$.events.length()").value(8))
+        .andExpect(jsonPath("$.events[6].sequenceNo").value(7))
+        .andExpect(jsonPath("$.events[7].sequenceNo").value(8))
+        .andExpect(jsonPath("$.events[7].previousEffective.value").value(""))
+        .andExpect(jsonPath("$.effectiveObservations.mood.value").value("final"))
+        .andExpect(jsonPath("$.effectiveObservations.medicationStatus.value").value("TAKEN"));
+    assertThat(jdbcTemplate.queryForObject("select count(*) from note_correction_events", Integer.class)).isEqualTo(8);
+
+    mvc.perform(post(NOTES + "/" + noteId + "/corrections")
+            .header("Authorization", bearer(owner.token())).header("Idempotency-Key", "typed-correction-1")
+            .contentType(MediaType.APPLICATION_JSON)
+            .content("{\"corrections\":[{\"field\":\"mood\",\"operation\":\"SET\",\"value\":\"other\"}]}"))
+        .andExpect(status().isConflict()).andExpect(jsonPath("$.code").value("IDEMPOTENCY_CONFLICT"));
+  }
+
+  @Test
+  void correctionValidationIsAtomicAndOwnershipScoped() throws Exception {
+    TestCaregiver owner = register("note-correction-owner@example.com");
+    TestCaregiver other = register("note-correction-other@example.com");
+    String recipientId = createRecipient(owner.token());
+    String noteId = createNote(owner.token(), recipientId, "2026-10-25");
+    String invalid = "{\"corrections\":[{\"field\":\"painScore\",\"operation\":\"SET\",\"value\":0},"
+        + "{\"field\":\"fallReported\",\"operation\":\"SET\",\"value\":\"false\"}]}";
+    mvc.perform(post(NOTES + "/" + noteId + "/corrections")
+            .header("Authorization", bearer(owner.token())).contentType(MediaType.APPLICATION_JSON).content(invalid))
+        .andExpect(status().isBadRequest());
+    assertThat(jdbcTemplate.queryForObject("select count(*) from note_correction_events", Integer.class)).isZero();
+
+    mvc.perform(post(NOTES + "/" + noteId + "/corrections")
+            .header("Authorization", bearer(other.token())).contentType(MediaType.APPLICATION_JSON)
+            .content("{\"corrections\":[{\"field\":\"mood\",\"operation\":\"SET\",\"value\":\"safe\"}]}"))
+        .andExpect(status().isNotFound());
+    mvc.perform(get(NOTES + "/" + noteId + "/corrections").header("Authorization", bearer(other.token())))
+        .andExpect(status().isNotFound());
+    assertThat(jdbcTemplate.queryForObject("select count(*) from note_correction_events", Integer.class)).isZero();
   }
 
   private TestCaregiver register(String email) throws Exception {

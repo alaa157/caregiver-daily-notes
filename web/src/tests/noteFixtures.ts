@@ -21,7 +21,7 @@ export const structuredObservations: NoteObservations = {
 export const noteFixture: DailyNote = {
   ...noteObservations, observations: structuredObservations,
   id: 'd4444444-4444-4444-8444-444444444444', recipientId: recipientFixture.id,
-  date: '2026-10-18', addendumCount: 0, createdAt: '2026-10-18T10:00:00Z',
+  date: '2026-10-18', addendumCount: 0, correctionCount: 0, createdAt: '2026-10-18T10:00:00Z',
 };
 export const addendumObservations: NoteObservations = {
   mood: { state: 'NOT_RECORDED' },
