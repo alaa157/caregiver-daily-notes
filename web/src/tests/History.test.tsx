@@ -8,7 +8,7 @@ import { defaultHistoryFilters } from '../features/history/historyFilters';
 import { I18nProvider } from '../i18n/I18nProvider';
 import { ApiProvider } from '../lib/api';
 import { jsonResponse, testToken } from './authFixtures';
-import { historyNote, historyPage } from './historyFixtures';
+import { correctionHistoryFixture, historyNote, historyPage } from './historyFixtures';
 import { addendumFixture, noteFixture, noteObservations } from './noteFixtures';
 import { recipientFixture } from './recipientFixtures';
 
@@ -26,7 +26,8 @@ function dataFetcher(override?: (url: URL, init: RequestInit) => Response | Prom
   return vi.fn().mockImplementation((path: string, init: RequestInit) => {
     const url = new URL(path, 'http://localhost');
     return Promise.resolve(override?.(url, init) ?? jsonResponse(url.pathname === '/api/recipients' ? [recipientFixture, otherRecipient]
-      : url.pathname.endsWith('/addenda') ? [addendumFixture] : historyPage()));
+      : url.pathname.endsWith('/addenda') ? [addendumFixture]
+        : url.pathname.endsWith('/corrections') ? correctionHistoryFixture() : historyPage()));
   });
 }
 const queries = (fetcher: ReturnType<typeof vi.fn>) => fetcher.mock.calls.map(([path]) => new URL(path, 'http://localhost')).filter((url) => url.pathname === '/api/notes');

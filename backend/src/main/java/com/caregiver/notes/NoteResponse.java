@@ -21,9 +21,10 @@ public record NoteResponse(
     String freeText,
     long addendumCount,
     Instant createdAt,
-    NoteObservations observations) {
+    NoteObservations observations,
+    long correctionCount) {
 
-  static NoteResponse from(DailyNote note, long count) {
+  static NoteResponse from(DailyNote note, long addendumCount, long correctionCount) {
     NoteObservations observations = note.observations();
     return new NoteResponse(
         note.getId(),
@@ -39,8 +40,9 @@ public record NoteResponse(
         observations.painScore().compatibilityValue(),
         observations.fallReported().compatibilityValue(),
         observations.freeText().compatibilityValue(),
-        count,
+        addendumCount,
         note.getCreatedAt(),
-        observations);
+        observations,
+        correctionCount);
   }
 }

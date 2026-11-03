@@ -1,11 +1,13 @@
-import { useCallback, useEffect, useRef, type ReactNode } from 'react';
+import { useCallback, useEffect, useRef, useState, type ReactNode } from 'react';
 import { useLocation, useNavigate, useParams } from 'react-router-dom';
-import { noteErrorMessage, type AddendumInput, type CreateNoteInput } from '../../api/notes';
-import { ButtonLink } from '../../components/Button';
+import { noteErrorMessage, type AddendumInput, type CreateNoteInput, type FieldCorrection } from '../../api/notes';
+import { Button, ButtonLink } from '../../components/Button';
 import { EmptyState, ErrorState, LoadingState } from '../../components/Feedback';
 import { useI18n } from '../../i18n/I18nProvider';
 import { NoteForm } from './NoteForm';
 import { ObservationValues } from './ObservationValues';
+import { CorrectionEditor } from './CorrectionEditor';
+import { CorrectionHistory } from './CorrectionHistory';
 import { useNoteResource, useNotesApis } from './useNotes';
 import './notes.css';
 
@@ -46,14 +48,15 @@ function NoteRecord({ id, append }: { id: string; append: boolean }) {
   const api = useNotesApis();
   const navigate = useNavigate();
   const location = useLocation();
+  const [editingCorrection, setEditingCorrection] = useState(false);
   const load = useCallback(async (signal: AbortSignal) => {
     const note = await api.notes.get(id, signal);
-    const [addenda, recipient] = await Promise.all([api.notes.addenda(id, signal), api.recipients.get(note.recipientId, signal)]);
-    return { note, addenda, recipient };
+    const [addenda, recipient, corrections] = await Promise.all([api.notes.addenda(id, signal), api.recipients.get(note.recipientId, signal), api.notes.correctionHistory(id, signal)]);
+    return { note, addenda, recipient, corrections };
   }, [api, id]);
   const { state, reload } = useNoteResource(load);
   const notice = (location.state as { noteNotice?: unknown } | null)?.noteNotice;
-  const noticeKey = notice === 'created' ? 'notesSaved' : notice === 'appended' ? 'notesAppendSaved' : null;
+  const noticeKey = notice === 'created' ? 'notesSaved' : notice === 'appended' ? 'notesAppendSaved' : notice === 'correctionSaved' ? 'notesCorrectionSaved' : null;
   const noticeRef = useRef<HTMLParagraphElement>(null);
   useEffect(() => { if (state.status === 'ready' && noticeKey) noticeRef.current?.focus(); }, [state.status, noticeKey]);
   const date = (value: string, instant = false) => new Intl.DateTimeFormat(language === 'ar' ? 'ar-EG' : 'en',
@@ -73,7 +76,17 @@ function NoteRecord({ id, append }: { id: string; append: boolean }) {
       {append ? <div className="note-surface"><NoteForm mode="append" cancelTo={`${notesPath}/${id}`} onSave={async (input, key, signal) => {
         await api.notes.append(id, input as AddendumInput, key, signal);
         if (!signal.aborted) navigate(`${notesPath}/${id}`, { replace: true, state: { noteNotice: 'appended' } });
-      }} /></div> : <section className="note-addenda" aria-labelledby="note-addenda-title">
+      }} /></div> : <>
+      <section className="note-surface note-structured-corrections" aria-labelledby="structured-correction-title">
+        <div className="note-actions"><h2 id="structured-correction-title">{t('notesStructuredCorrections')}</h2>
+          {!editingCorrection && <Button onClick={() => setEditingCorrection(true)}>{t('notesAddStructuredCorrection')}</Button>}
+        </div>
+        {editingCorrection ? <CorrectionEditor onCancel={() => setEditingCorrection(false)} onSave={async (entries: FieldCorrection[], key, signal) => {
+          await api.notes.correct(id, entries, key, signal);
+          if (!signal.aborted) { setEditingCorrection(false); reload(); navigate(`${notesPath}/${id}`, { replace: true, state: { noteNotice: 'correctionSaved' } }); }
+        }} /> : <CorrectionHistory history={state.data.corrections} />}
+      </section>
+      <section className="note-addenda" aria-labelledby="note-addenda-title">
         <div className="note-actions"><h2 id="note-addenda-title">{t('notesAddenda')}</h2><ButtonLink to={`${notesPath}/${id}/addenda/new`}>{t('notesAppend')}</ButtonLink></div>
         {state.data.addenda.length === 0 ? <p className="note-surface">{t('notesNoAddenda')}</p> : <ol className="note-addenda-list">{state.data.addenda.map((item, index) => <li key={item.id}>
           <article className="note-surface" aria-labelledby={`addendum-${item.id}`}><h3 id={`addendum-${item.id}`}>{t('notesAppend')} {new Intl.NumberFormat(language === 'ar' ? 'ar-EG' : 'en').format(index + 1)}</h3>
@@ -81,7 +94,7 @@ function NoteRecord({ id, append }: { id: string; append: boolean }) {
             <ObservationValues values={item.observations} providedFields={item.providedFields}
               verificationProvided={item.medicationVerificationProvided} correction /></article>
         </li>)}</ol>}
-      </section>}
+      </section></>}
     </>}
   </NotesLayout>;
 }

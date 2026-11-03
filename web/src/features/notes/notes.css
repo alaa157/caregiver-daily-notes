@@ -38,6 +38,22 @@
 .note-addenda h3 { margin-block: 0 .5rem; }
 .note-progress:empty { display: none; }
 .note-progress { margin-block-start: 1rem; color: #455b46; }
+.note-structured-corrections { margin-block-start: 1.5rem; }
+.correction-editor-fields { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 1rem; }
+.correction-editor-field { min-width: 0; margin: 0; padding: .8rem 0; border: 0; border-block-start: 1px solid #d8ded6; }
+.correction-editor-field legend { padding: 0; font-weight: 650; }
+.correction-editor-field label { display: block; margin-block: .75rem .35rem; }
+.correction-editor-field input, .correction-editor-field select, .correction-editor-field textarea { width: 100%; min-width: 0; }
+.structured-correction-list { list-style: none; padding: 0; margin-block: 1rem; }
+.structured-correction-list > li + li { margin-block-start: 1rem; }
+.structured-correction-event { padding-block: .8rem; border-block-start: 1px solid #d8ded6; }
+.structured-correction-event h4 { margin-block: 0 .35rem; }
+.correction-event-values { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: .75rem 1.5rem; }
+.correction-event-values dt { color: #59675d; font-size: .88rem; }
+.correction-event-values dd { margin: .25rem 0 0; overflow-wrap: anywhere; }
+.effective-observations { margin-block: .75rem 1.5rem; padding-block-end: 1rem; border-block-end: 1px solid #d8ded6; }
+.effective-observations h3 { margin-block: 0; }
+@media (max-width: 600px) { .correction-editor-fields, .correction-event-values { grid-template-columns: minmax(0, 1fr); } }
 @media (max-width: 600px) { .note-grid, .note-values { grid-template-columns: minmax(0, 1fr); } .note-surface { border-radius: 12px; } .note-actions .button { flex: 1 1 12rem; } }
 
 /* Observation state editor & display (Issue #67) */

@@ -1,6 +1,7 @@
 import { createRequire } from 'node:module';
 import { expect, test, type Page } from '@playwright/test';
 import type { DailyNote } from '../../api/notes';
+import { observationFields } from '../../api/notes';
 import { testToken } from '../authFixtures';
 import { historyNote, historyPage } from '../historyFixtures';
 import { addendumFixture } from '../noteFixtures';
@@ -11,6 +12,12 @@ const fixtureNow = new Date('2026-10-27T12:00:00Z');
 const root = '/app/notes?from=2026-10-01&to=2026-10-22';
 const otherRecipient = { ...recipientFixture, id: 'b2222222-2222-4222-8222-222222222222', name: 'ليلى Smith', active: false };
 const secondNote = { ...historyNote, id: 'c3333333-3333-4333-8333-333333333333', date: '2026-10-19', recipientId: otherRecipient.id, addendumCount: 0 };
+function correctionHistory(note: DailyNote) {
+  return { originalNote: note, events: [], effectiveObservations: Object.fromEntries(observationFields.map((field) => [field, {
+    state: note[field] === null ? 'LEGACY_AMBIGUOUS' : 'RECORDED', value: note[field], lastOperation: null,
+    eventId: null, actorId: null, updatedAt: note.createdAt,
+  }])) };
+}
 
 async function serve(page: Page, options: { notes?: DailyNote[]; fail?: boolean; failCorrections?: boolean } = {}) {
   const calls: URL[] = [];
@@ -24,6 +31,7 @@ async function serve(page: Page, options: { notes?: DailyNote[]; fail?: boolean;
     if (url.pathname === '/api/recipients') return route.fulfill({ json: [recipientFixture, otherRecipient] });
     if (url.pathname.startsWith('/api/recipients/')) return route.fulfill({ json: recipientFixture });
     if (url.pathname.endsWith('/addenda')) return options.failCorrections ? route.fulfill({ status: 500, json: {} }) : route.fulfill({ json: [addendumFixture] });
+    if (url.pathname.endsWith('/corrections')) return route.fulfill({ json: correctionHistory(historyNote) });
     if (url.pathname !== '/api/notes') return route.fulfill({ json: historyNote });
     if (options.fail) return route.fulfill({ status: 500, json: { message: 'private diagnostics' } });
     const recipientId = url.searchParams.get('recipientId');

@@ -1,5 +1,6 @@
 import { describe, expect, it, vi } from 'vitest';
 import { createNotesApi, isNoteDate, noteErrorMessage } from '../api/notes';
+import { observationFields, type EffectiveObservation } from '../api/notes';
 import { ApiError, createApiClient } from '../lib/api';
 import { jsonResponse } from './authFixtures';
 import {
@@ -14,6 +15,22 @@ import {
   observationInput,
   validateNoteValues,
 } from '../features/notes/noteForm';
+
+function effective(state: EffectiveObservation['state'], value: EffectiveObservation['value'], operation: EffectiveObservation['lastOperation'] = null): EffectiveObservation {
+  return { state, value, lastOperation: operation, eventId: 'f6666666-6666-4666-8666-666666666666',
+    actorId: 'a1111111-1111-4111-8111-111111111111', updatedAt: '2026-10-18T12:00:00Z' };
+}
+function correctionResponse() {
+  const effectiveObservations = Object.fromEntries(observationFields.map((field) => [field, effective('RECORDED', noteFixture[field])])) as Record<(typeof observationFields)[number], EffectiveObservation>;
+  effectiveObservations.mood = effective('RECORDED', '');
+  effectiveObservations.painScore = effective('RECORDED', 0);
+  effectiveObservations.fallReported = effective('RECORDED', false);
+  const event = { id: 'f6666666-6666-4666-8666-666666666666', noteId: noteFixture.id, sequenceNo: 1,
+    createdAt: '2026-10-18T12:00:00Z', actorId: 'a1111111-1111-4111-8111-111111111111',
+    field: 'mood', operation: 'SET', value: '', previousEffective: effective('RECORDED', noteFixture.mood),
+    effectiveAfter: effective('RECORDED', '') };
+  return { originalNote: noteFixture, events: [event], effectiveObservations };
+}
 
 function setup(body: unknown, status = 200) {
   const fetcher = vi.fn().mockImplementation(() => Promise.resolve(jsonResponse(body, status)));
@@ -66,6 +83,26 @@ describe('daily-note API and explicit observation values', () => {
     expect(fetcher.mock.calls[1][0]).toBe(`/api/notes/by-recipient/${noteFixture.recipientId}?date=${noteFixture.date}`);
     fetcher.mockResolvedValue(jsonResponse([addendumFixture]));
     expect(await api.addenda(noteFixture.id)).toEqual([addendumFixture]);
+  });
+  it('posts typed corrections without encoding omission as null and validates event replay', async () => {
+    const response = correctionResponse();
+    const { api, fetcher } = setup(response, 201);
+    const input = [
+      { field: 'mood', operation: 'SET', value: '' },
+      { field: 'painScore', operation: 'SET', value: 0 },
+      { field: 'fallReported', operation: 'SET', value: false },
+      { field: 'appetite', operation: 'UNKNOWN' },
+      { field: 'sleep', operation: 'CLEAR' },
+      { field: 'mobility', operation: 'NOT_RECORDED' },
+    ] as const;
+    const result = await api.correct(noteFixture.id, [...input], 'correction-key');
+    expect(result.events[0].value).toBe('');
+    expect(result.effectiveObservations.painScore.value).toBe(0);
+    expect(result.effectiveObservations.fallReported.value).toBe(false);
+    expect(fetcher.mock.calls[0][0]).toBe(`/api/notes/${noteFixture.id}/corrections`);
+    expect(JSON.parse(fetcher.mock.calls[0][1].body)).toEqual({ corrections: input });
+    expect(new Headers(fetcher.mock.calls[0][1].headers).get('Idempotency-Key')).toBe('correction-key');
+    expect(fetcher.mock.calls[0][1].method).toBe('POST');
   });
   it.each([
     { ...noteFixture, painScore: 11 },
