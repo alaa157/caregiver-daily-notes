@@ -24,13 +24,14 @@ async function accessibility(page: Page) {
 for (const language of ['en', 'ar'] as const) {
   const ar = language === 'ar';
   const label = {
-    create: ar ? 'تسجيل ملاحظة يومية' : 'Record a daily note', recipient: ar ? 'المستفيد من الرعاية' : 'Care recipient', date: ar ? 'تاريخ الملاحظة' : 'Observation date',
-    mood: ar ? 'الحالة المزاجية' : 'Mood', appetite: ar ? 'الشهية' : 'Appetite', sleep: ar ? 'النوم' : 'Sleep', mobility: ar ? 'الحركة' : 'Mobility',
-    medication: ar ? 'تناول الدواء' : 'Medication taken', verified: ar ? 'تم التحقق من تقرير الدواء' : 'Medication report verified', pain: ar ? 'درجة الألم (٠–١٠)' : 'Pain score (0–10)', falls: ar ? 'الإبلاغ عن سقوط' : 'Fall reported', text: ar ? 'الملاحظات النصية' : 'Free-text observations',
+    create: ar ? 'تسجيل ملاحظة يومية' : 'Record a daily note', recipient: ar ? 'مستفيد الرعاية' : 'Care recipient', date: ar ? 'تاريخ الملاحظة' : 'Observation date',
+    mood: ar ? 'المزاج' : 'Mood', appetite: ar ? 'الشهية' : 'Appetite', sleep: ar ? 'النوم' : 'Sleep', mobility: ar ? 'الحركة' : 'Mobility',
+    medication: ar ? 'تناول الدواء' : 'Medication taken', verified: ar ? 'تم التحقق من تقرير الدواء' : 'Medication report verified', pain: ar ? 'درجة الألم (٠–١٠)' : 'Pain score (0–10)', falls: ar ? 'سقوط مُبلَّغ عنه' : 'Fall reported', text: ar ? 'ملاحظات نصية حرة' : 'Free-text observations',
     save: ar ? 'حفظ الملاحظة الأصلية' : 'Save original note', saved: ar ? 'تم حفظ الملاحظة الأصلية.' : 'Original note saved.',
     original: ar ? 'الملاحظة الأصلية — للقراءة فقط' : 'Original note — read only', correct: ar ? 'تصحيح هذا الحقل' : 'Correct this field',
-    append: ar ? 'إضافة تصحيح' : 'Add a correction', saveAppend: ar ? 'حفظ الإضافة' : 'Save addendum', appended: ar ? 'تم حفظ الإضافة. لم تتغير الملاحظة الأصلية.' : 'Addendum saved. The original note is unchanged.',
-    retry: ar ? 'إعادة محاولة الحفظ نفسه' : 'Retry the same save', open: ar ? 'فتح ملاحظة هذا التاريخ' : 'Open note for this date', new: ar ? 'تسجيل ملاحظة أخرى' : 'Record another note', reload: ar ? 'إعادة المحاولة' : 'Retry',
+    stateLabel: ar ? 'حالة الملاحظة' : 'Observation status',
+    append: ar ? 'إضافة تصحيح' : 'Add a correction', saveAppend: ar ? 'حفظ الإضافة' : 'Save addendum',     appended: ar ? 'تم حفظ الإضافة. الملاحظة الأصلية لم تتغير.' : 'Addendum saved. The original note is unchanged.',
+    retry: ar ? 'إعادة محاولة الحفظ نفسه' : 'Retry the same save', open: ar ? 'فتح ملاحظة لهذا التاريخ' : 'Open note for this date', new: ar ? 'تسجيل ملاحظة أخرى' : 'Record another note', reload: ar ? 'إعادة المحاولة' : 'Retry',
   };
   test.describe(`daily notes ${language}`, () => {
     test.beforeEach(async ({ page }) => {
@@ -42,6 +43,9 @@ for (const language of ['en', 'ar'] as const) {
     async function metadata(page: Page) {
       await page.getByLabel(label.recipient, { exact: true }).selectOption(recipientFixture.id);
       await page.getByLabel(label.date, { exact: true }).fill(noteFixture.date);
+    }
+    async function record(page: Page, field: string) {
+      await page.getByLabel(`${field} — ${label.stateLabel}`, { exact: true }).selectOption('RECORDED');
     }
     test('creates all observations, preserves mixed text, and appends a correction without changing the original', async ({ page }, info) => {
       let original = { ...noteFixture };
@@ -55,8 +59,29 @@ for (const language of ['en', 'ar'] as const) {
           const body = request.postDataJSON();
           writes.push({ method: request.method(), body, key: request.headers()['idempotency-key'] });
           expect(body).not.toHaveProperty('caregiverId');
-          if (path === '/api/notes') { original = { ...noteFixture, ...body }; return route.fulfill({ status: 201, json: original }); }
-          const addition = { ...addendumFixture, ...body };
+          if (path === '/api/notes') {
+            original = {
+              ...noteFixture,
+              ...body,
+              observations: {
+                ...noteFixture.observations,
+                ...body.observations,
+                medicationVerification: body.medicationVerification,
+              },
+            };
+            return route.fulfill({ status: 201, json: original });
+          }
+          const addition = {
+            ...addendumFixture,
+            ...body,
+            observations: {
+              ...addendumFixture.observations,
+              ...body.observations,
+              medicationVerification: body.medicationVerification ?? addendumFixture.observations.medicationVerification,
+            },
+            providedFields: Object.keys(body.observations),
+            medicationVerificationProvided: body.medicationVerification !== undefined,
+          };
           addenda.push(addition);
           return route.fulfill({ status: 201, json: addition });
         }
@@ -69,16 +94,36 @@ for (const language of ['en', 'ar'] as const) {
       await expect(page.getByLabel(label.recipient, { exact: true })).toBeFocused();
       await accessibility(page);
       await metadata(page);
-      for (const [name, value] of [[label.mood, noteObservations.mood!], [label.appetite, noteObservations.appetite!], [label.sleep, noteObservations.sleep!], [label.mobility, noteObservations.mobility!]] as const) await page.getByLabel(name, { exact: true }).fill(value);
-      await page.getByLabel(label.medication, { exact: true }).selectOption('UNKNOWN');
-      await page.getByLabel(label.verified, { exact: true }).selectOption('false');
-      await page.getByLabel(label.pain, { exact: true }).fill('0');
-      await page.getByLabel(label.falls, { exact: true }).selectOption('false');
-      await page.getByLabel(label.text, { exact: true }).fill(noteObservations.freeText!);
+      for (const [name, value] of [[label.mood, noteObservations.mood!], [label.appetite, noteObservations.appetite!], [label.sleep, noteObservations.sleep!], [label.mobility, noteObservations.mobility!]] as const) {
+        await record(page, name);
+        await page.getByRole('textbox', { name, exact: true }).fill(value);
+      }
+      await page.getByLabel(`${label.medication} — ${label.stateLabel}`, { exact: true }).selectOption('UNKNOWN');
+      await page.getByLabel(label.verified, { exact: true }).selectOption('UNVERIFIED');
+      await record(page, label.pain);
+      await page.getByRole('spinbutton', { name: label.pain, exact: true }).fill('0');
+      await record(page, label.falls);
+      await page.getByRole('combobox', { name: label.falls, exact: true }).selectOption('false');
+      await record(page, label.text);
+      await page.getByRole('textbox', { name: label.text, exact: true }).fill(noteObservations.freeText!);
       await page.screenshot({ path: info.outputPath(`note-form-${language}.png`), fullPage: true });
       await page.getByRole('button', { name: label.save, exact: true }).click();
       await expect(page.getByText(label.saved, { exact: true })).toBeFocused();
-      expect(writes[0].body).toEqual({ ...noteObservations, recipientId: recipientFixture.id, date: noteFixture.date });
+      expect(writes[0].body).toEqual({
+        recipientId: recipientFixture.id,
+        date: noteFixture.date,
+        observations: {
+          mood: { state: 'RECORDED', value: noteObservations.mood },
+          appetite: { state: 'RECORDED', value: noteObservations.appetite },
+          sleep: { state: 'RECORDED', value: noteObservations.sleep },
+          mobility: { state: 'RECORDED', value: noteObservations.mobility },
+          medicationStatus: { state: 'UNKNOWN', value: null },
+          painScore: { state: 'RECORDED', value: 0 },
+          fallReported: { state: 'RECORDED', value: false },
+          freeText: { state: 'RECORDED', value: noteObservations.freeText },
+        },
+        medicationVerification: 'UNVERIFIED',
+      });
       expect(writes[0].key).toMatch(/^[a-f0-9]{32}$/);
       const article = page.getByRole('article', { name: label.original, exact: true });
       await expect(article.locator('.note-verbatim').last()).toHaveJSProperty('textContent', noteObservations.freeText);
@@ -91,14 +136,22 @@ for (const language of ['en', 'ar'] as const) {
       await accessibility(page);
       await page.getByRole('checkbox', { name: `${label.correct}: ${label.medication}`, exact: true }).focus();
       await page.keyboard.press('Space');
-      await page.getByLabel(label.medication, { exact: true }).selectOption('MISSED');
+      await record(page, label.medication);
+      await page.getByRole('combobox', { name: label.medication, exact: true }).selectOption('MISSED');
       await page.getByRole('checkbox', { name: `${label.correct}: ${label.verified}`, exact: true }).check();
-      await page.getByLabel(label.verified, { exact: true }).selectOption('false');
+      await page.getByLabel(label.verified, { exact: true }).selectOption('UNVERIFIED');
       await page.getByRole('checkbox', { name: `${label.correct}: ${label.text}`, exact: true }).check();
-      await page.getByLabel(label.text, { exact: true }).fill(addendumFixture.freeText!);
+      await record(page, label.text);
+      await page.getByRole('textbox', { name: label.text, exact: true }).fill(addendumFixture.freeText!);
       await page.getByRole('button', { name: label.saveAppend, exact: true }).click();
       await expect(page.getByText(label.appended, { exact: true })).toBeFocused();
-      expect(writes[1].body).toEqual({ medicationStatus: 'MISSED', medicationVerified: false, freeText: addendumFixture.freeText });
+      expect(writes[1].body).toEqual({
+        observations: {
+          medicationStatus: { state: 'RECORDED', value: 'MISSED' },
+          freeText: { state: 'RECORDED', value: addendumFixture.freeText },
+        },
+        medicationVerification: 'UNVERIFIED',
+      });
       expect(writes[1].key).not.toBe(writes[0].key);
       await expect(page.getByRole('article', { name: label.original, exact: true }).locator('.note-verbatim').last()).toHaveJSProperty('textContent', noteObservations.freeText);
       await expect(page.getByRole('article')).toHaveCount(2);
@@ -121,7 +174,7 @@ for (const language of ['en', 'ar'] as const) {
       await metadata(page);
       await page.getByRole('button', { name: label.save, exact: true }).click();
       await expect(page.getByRole('alert')).toBeFocused();
-      await expect(page.getByLabel(label.text, { exact: true })).toBeDisabled();
+      await expect(page.getByLabel(`${label.text} — ${label.stateLabel}`, { exact: true })).toBeDisabled();
       await accessibility(page);
       await page.getByRole('button', { name: label.retry, exact: true }).click();
       await expect(page.getByText(label.saved, { exact: true })).toBeVisible();
@@ -141,7 +194,7 @@ for (const language of ['en', 'ar'] as const) {
       await accessibility(page);
       phase = 'empty';
       await page.getByRole('button', { name: label.reload, exact: true }).click();
-      await expect(page.getByText(ar ? 'لا يوجد مستفيدون متاحون من الرعاية.' : 'No care recipients are available.', { exact: true })).toBeVisible();
+      await expect(page.getByText(ar ? 'لا يوجد مستفيدون متاحون من الرعاية.' : 'No care recipients available.', { exact: true })).toBeVisible();
       await accessibility(page);
       phase = 'ready';
       await page.reload();
@@ -152,7 +205,7 @@ for (const language of ['en', 'ar'] as const) {
       await page.getByRole('button', { name: label.save, exact: true }).click();
       await expect(page.getByRole('alert')).toBeFocused();
       await expect(page.getByText('private diagnostics', { exact: true })).toHaveCount(0);
-      await expect(page.getByLabel(label.text, { exact: true })).toBeEnabled();
+      await expect(page.getByLabel(`${label.text} — ${label.stateLabel}`, { exact: true })).toBeEnabled();
       await accessibility(page);
     });
     test('retries uncertain addenda without changing the original and clears rejected sessions', async ({ page }) => {
@@ -165,13 +218,26 @@ for (const language of ['en', 'ar'] as const) {
         if (rejectSession) return route.fulfill({ status: 401, json: {} });
         if (request.method() === 'POST') {
           keys.push(request.headers()['idempotency-key']); count++;
-          return count === 1 ? route.fulfill({ status: 500, json: {} }) : route.fulfill({ status: 201, json: addendumFixture });
+          if (count === 1) return route.fulfill({ status: 500, json: {} });
+          const body = request.postDataJSON();
+          return route.fulfill({ status: 201, json: {
+            ...addendumFixture,
+            ...body,
+            observations: {
+              ...addendumFixture.observations,
+              ...body.observations,
+              medicationVerification: body.medicationVerification ?? addendumFixture.observations.medicationVerification,
+            },
+            providedFields: Object.keys(body.observations),
+            medicationVerificationProvided: body.medicationVerification !== undefined,
+          } });
         }
         return route.fulfill({ json: path.startsWith('/api/recipients/') ? recipientFixture : path.endsWith('/addenda') ? (count ? [addendumFixture] : []) : noteFixture });
       });
       await page.goto(`${detail}/addenda/new`);
       await page.getByRole('checkbox', { name: `${label.correct}: ${label.text}`, exact: true }).check();
-      await page.getByLabel(label.text, { exact: true }).fill(addendumFixture.freeText!);
+      await record(page, label.text);
+      await page.getByRole('textbox', { name: label.text, exact: true }).fill(addendumFixture.freeText!);
       await page.getByRole('button', { name: label.saveAppend, exact: true }).click();
       await expect(page.getByRole('alert')).toBeFocused();
       await accessibility(page);
