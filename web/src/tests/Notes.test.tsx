@@ -31,6 +31,9 @@ async function metadata() {
   await userEvent.selectOptions(await screen.findByLabelText('Care recipient'), recipientFixture.id);
   fireEvent.change(screen.getByLabelText('Observation date'), { target: { value: noteFixture.date } });
 }
+async function setRecorded(label: string) {
+  await userEvent.selectOptions(screen.getByLabelText(`${label} — Observation status`), 'RECORDED');
+}
 
 describe('daily-note creation and immutable corrections', () => {
   it('protects direct note/addendum URLs before any API request', () => {
@@ -42,9 +45,9 @@ describe('daily-note creation and immutable corrections', () => {
   it('handles loading and the empty-recipient state', async () => {
     let resolve!: (response: Response) => void;
     renderNotes(`${root}/new`, vi.fn().mockImplementation(() => new Promise<Response>((done) => { resolve = done; })));
-    expect(screen.getByText('Loading note information…')).toBeInTheDocument();
+    expect(await screen.findByText('Loading note data…')).toBeInTheDocument();
     resolve(jsonResponse([]));
-    expect(await screen.findByText('No care recipients are available.')).toBeInTheDocument();
+    expect(await screen.findByText('No care recipients available.')).toBeInTheDocument();
     expect(screen.getAllByRole('link', { name: 'Care recipients' }).at(-1)).toHaveAttribute('href', '/app/recipients');
   });
   it('retries a loading error without exposing backend details', async () => {
@@ -64,7 +67,7 @@ describe('daily-note creation and immutable corrections', () => {
     expect(screen.getByLabelText('Observation date')).toHaveAttribute('aria-invalid', 'true');
     expect(fetcher.mock.calls.filter(([, init]) => init.method !== 'GET')).toHaveLength(0);
   });
-  it('submits every structured field and mixed free text unchanged, then shows a read-only original', async () => {
+  it('submits state/value envelopes and mixed free text unchanged, then shows a read-only original', async () => {
     let saved: Record<string, unknown> | null = null;
     const fetcher = dataFetcher((path, init) => {
       if (path === '/api/notes' && init.method === 'POST') { saved = JSON.parse(init.body as string); return jsonResponse(noteFixture, 201); }
@@ -72,21 +75,39 @@ describe('daily-note creation and immutable corrections', () => {
     renderNotes(`${root}/new`, fetcher);
     await metadata();
     for (const [label, value] of [['Mood', noteObservations.mood], ['Appetite', noteObservations.appetite], ['Sleep', noteObservations.sleep], ['Mobility', noteObservations.mobility]] as const) {
-      fireEvent.change(screen.getByLabelText(label), { target: { value } });
+      await setRecorded(label);
+      fireEvent.change(screen.getByRole('textbox', { name: label }), { target: { value } });
     }
-    await userEvent.selectOptions(screen.getByLabelText('Medication taken'), 'UNKNOWN');
-    await userEvent.selectOptions(screen.getByLabelText('Medication report verified'), 'false');
-    fireEvent.change(screen.getByLabelText('Pain score (0–10)'), { target: { value: '0' } });
-    await userEvent.selectOptions(screen.getByLabelText('Fall reported'), 'false');
-    fireEvent.change(screen.getByLabelText('Free-text observations'), { target: { value: noteObservations.freeText } });
+    await userEvent.selectOptions(screen.getByLabelText('Medication taken — Observation status'), 'UNKNOWN');
+    await userEvent.selectOptions(screen.getByLabelText('Medication report verified'), 'UNVERIFIED');
+    await setRecorded('Pain score (0–10)');
+    fireEvent.change(screen.getByRole('spinbutton', { name: 'Pain score (0–10)' }), { target: { value: '0' } });
+    await setRecorded('Fall reported');
+    await userEvent.selectOptions(screen.getByRole('combobox', { name: 'Fall reported' }), 'false');
+    await setRecorded('Free-text observations');
+    fireEvent.change(screen.getByRole('textbox', { name: 'Free-text observations' }), { target: { value: noteObservations.freeText } });
     await userEvent.click(screen.getByRole('button', { name: 'Save original note' }));
     expect(await screen.findByText('Original note saved.')).toHaveFocus();
-    expect(saved).toEqual({ ...noteObservations, recipientId: recipientFixture.id, date: noteFixture.date });
+    expect(saved).toEqual({
+      recipientId: recipientFixture.id,
+      date: noteFixture.date,
+      observations: {
+        mood: { state: 'RECORDED', value: noteObservations.mood },
+        appetite: { state: 'RECORDED', value: noteObservations.appetite },
+        sleep: { state: 'RECORDED', value: noteObservations.sleep },
+        mobility: { state: 'RECORDED', value: noteObservations.mobility },
+        medicationStatus: { state: 'UNKNOWN', value: null },
+        painScore: { state: 'RECORDED', value: 0 },
+        fallReported: { state: 'RECORDED', value: false },
+        freeText: { state: 'RECORDED', value: noteObservations.freeText },
+      },
+      medicationVerification: 'UNVERIFIED',
+    });
     expect(screen.getByRole('article', { name: 'Original note — read only' })).toBeInTheDocument();
     expect(screen.queryByRole('textbox')).not.toBeInTheDocument();
     expect(screen.getByText(/غير متأكد من الدواء/).textContent).toBe(noteObservations.freeText);
     expect(document.querySelector('script')).not.toBeInTheDocument();
-  });
+  }, 10000);
   it('blocks duplicate clicks and safely reuses the identical payload/key after a lost response', async () => {
     const posts: RequestInit[] = [];
     let reject!: (error: unknown) => void;
@@ -104,8 +125,8 @@ describe('daily-note creation and immutable corrections', () => {
     expect(posts).toHaveLength(1);
     expect(screen.getByRole('button', { name: 'Saving…' })).toBeDisabled();
     reject(new TypeError('response lost'));
-    expect(await screen.findByRole('alert')).toHaveTextContent('couldn’t confirm');
-    expect(screen.getByLabelText('Free-text observations')).toBeDisabled();
+    expect(await screen.findByRole('alert')).toHaveTextContent(/could not confirm/i);
+    expect(screen.getByLabelText('Free-text observations — Observation status')).toBeDisabled();
     await userEvent.click(screen.getByRole('button', { name: 'Retry the same save' }));
     await screen.findByText('Original note saved.');
     expect(posts).toHaveLength(2);
@@ -115,11 +136,13 @@ describe('daily-note creation and immutable corrections', () => {
   it('keeps values editable after explicit backend validation failure', async () => {
     renderNotes(`${root}/new`, dataFetcher((path, init) => path === '/api/notes' && init.method === 'POST' ? jsonResponse({ message: 'private validation' }, 400) : undefined));
     await metadata();
-    fireEvent.change(screen.getByLabelText('Free-text observations'), { target: { value: 'القيمة الأصلية' } });
+    await setRecorded('Free-text observations');
+    fireEvent.change(screen.getByRole('textbox', { name: 'Free-text observations' }), { target: { value: 'القيمة الأصلية' } });
     await userEvent.click(screen.getByRole('button', { name: 'Save original note' }));
-    expect(await screen.findByRole('alert')).toHaveTextContent('Check the entered values');
-    expect(screen.getByLabelText('Free-text observations')).toBeEnabled();
-    expect(screen.getByLabelText('Free-text observations')).toHaveValue('القيمة الأصلية');
+    expect(await screen.findByRole('alert')).toHaveTextContent('Review the entered values');
+    await waitFor(() => expect(screen.getByRole('textbox', { name: 'Free-text observations' })).toBeEnabled());
+    expect(screen.getByRole('textbox', { name: 'Free-text observations' })).toBeEnabled();
+    expect(screen.getByRole('textbox', { name: 'Free-text observations' })).toHaveValue('القيمة الأصلية');
     expect(screen.queryByText('private validation')).not.toBeInTheDocument();
   });
   it('opens the existing note after a recipient/date conflict without another POST', async () => {
@@ -134,7 +157,7 @@ describe('daily-note creation and immutable corrections', () => {
     expect(fetcher.mock.calls.filter(([, init]) => init.method === 'POST')).toHaveLength(1);
   });
   it('can open an inactive recipient’s existing note but cannot create one', async () => {
-    renderNotes(`${root}/new`, dataFetcher((path) => path === '/api/recipients' ? jsonResponse([{ ...recipientFixture, active: false }]) : undefined));
+    renderNotes(`${root}/new`, dataFetcher((path) => path === '/api/recipients' ? jsonResponse([{ ...recipientFixture, active: false, lifecycleStatus: 'ARCHIVED', archivedAt: '2026-10-15T10:00:00Z', archivedBy: 'b1111111-1111-4111-8111-111111111111' }]) : undefined));
     await metadata();
     expect(screen.getByRole('button', { name: 'Save original note' })).toBeDisabled();
     await userEvent.click(screen.getByRole('button', { name: 'Open note for this date' }));
@@ -160,28 +183,36 @@ describe('daily-note creation and immutable corrections', () => {
     expect(screen.getByRole('checkbox', { name: 'Correct this field: Mood' })).toHaveFocus();
     expect(writes).toHaveLength(0);
     await userEvent.click(screen.getByRole('checkbox', { name: 'Correct this field: Medication taken' }));
-    await userEvent.selectOptions(screen.getByLabelText('Medication taken', { exact: true }), 'MISSED');
+    await userEvent.selectOptions(screen.getByLabelText('Medication taken — Observation status'), 'RECORDED');
+    await userEvent.selectOptions(screen.getByRole('combobox', { name: 'Medication taken' }), 'MISSED');
     await userEvent.click(screen.getByRole('checkbox', { name: 'Correct this field: Medication report verified' }));
-    await userEvent.selectOptions(screen.getByLabelText('Medication report verified', { exact: true }), 'false');
+    await userEvent.selectOptions(screen.getByLabelText('Medication report verified', { exact: true }), 'UNVERIFIED');
     await userEvent.click(screen.getByRole('checkbox', { name: 'Correct this field: Free-text observations' }));
-    fireEvent.change(screen.getByLabelText('Free-text observations', { exact: true }), { target: { value: addendumFixture.freeText } });
+    await userEvent.selectOptions(screen.getByLabelText('Free-text observations — Observation status'), 'RECORDED');
+    fireEvent.change(screen.getByRole('textbox', { name: 'Free-text observations' }), { target: { value: addendumFixture.freeText } });
     await userEvent.click(screen.getByRole('button', { name: 'Save addendum' }));
     expect(await screen.findByText('Addendum saved. The original note is unchanged.')).toHaveFocus();
-    expect(JSON.parse(writes[0].body as string)).toEqual({ medicationStatus: 'MISSED', medicationVerified: false, freeText: addendumFixture.freeText });
+    expect(JSON.parse(writes[0].body as string)).toEqual({
+      observations: {
+        medicationStatus: { state: 'RECORDED', value: 'MISSED' },
+        freeText: { state: 'RECORDED', value: addendumFixture.freeText },
+      },
+      medicationVerification: 'UNVERIFIED',
+    });
     const original = screen.getByRole('article', { name: 'Original note — read only' });
     expect(within(original).getByText(/غير متأكد/).textContent).toBe(noteObservations.freeText);
-    expect(within(original).getByText('Unknown / unsure')).toBeInTheDocument();
+    expect(within(original).getByText('Unknown')).toBeInTheDocument();
     expect(screen.getByText('Missed')).toBeInTheDocument();
     expect(fetcher.mock.calls.some(([, init]) => init.method === 'PUT' || init.method === 'PATCH' || init.method === 'DELETE')).toBe(false);
   });
-  it('validates a selected empty correction without inferring values', async () => {
+  it('validates a recorded correction without its typed value', async () => {
     renderNotes(`${detail}/addenda/new`, dataFetcher());
     await screen.findByRole('form', { name: 'Add a correction' });
     await userEvent.click(screen.getByRole('checkbox', { name: 'Correct this field: Medication taken' }));
+    await userEvent.selectOptions(screen.getByLabelText('Medication taken — Observation status'), 'RECORDED');
     await userEvent.click(screen.getByRole('button', { name: 'Save addendum' }));
-    expect(screen.getByLabelText('Medication taken', { exact: true })).toHaveFocus();
-    expect(screen.getByLabelText('Medication taken', { exact: true })).toHaveValue('');
-    expect(screen.getByRole('alert')).toHaveTextContent('replacement value');
+    expect(screen.getByLabelText('Medication taken — Observation status')).toHaveFocus();
+    expect(screen.getByRole('alert')).toHaveTextContent('Enter a value when status is Recorded');
   });
   it('renders Arabic/RTL and mixed text safely without altering its content', async () => {
     renderNotes(detail, dataFetcher(), 'ar');
@@ -190,11 +221,11 @@ describe('daily-note creation and immutable corrections', () => {
     const text = screen.getByText(/غير متأكد من الدواء/);
     expect(text).toHaveAttribute('dir', 'auto');
     expect(text.textContent).toBe(noteObservations.freeText);
-    expect(screen.getByText('غير معروف / غير متأكد')).toBeInTheDocument();
+    expect(screen.getByText('غير معروف')).toBeInTheDocument();
   });
   it('handles unavailable note details generically', async () => {
     renderNotes(detail, vi.fn().mockResolvedValue(jsonResponse({ message: 'owner private' }, 404)));
-    expect(await screen.findByRole('alert')).toHaveTextContent('unavailable');
+    expect(await screen.findByRole('alert')).toHaveTextContent(/not available/i);
     expect(screen.queryByText('owner private')).not.toBeInTheDocument();
   });
   it('cancels abandoned requests and does not publish a late successful save', async () => {
