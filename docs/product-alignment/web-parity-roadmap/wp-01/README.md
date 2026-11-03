@@ -56,7 +56,17 @@ Provider feasibility evidence:
 
 ## 3. Product-owner decision register
 
-All owner responses in Groups A–D were provided on **2026-11-03**. Unless specifically recorded otherwise, the owner did not provide additional personal rationale. Do not invent a person's name, clinical reviewer, security reviewer, or deployment owner.
+WP-01 records the product-owner decisions captured during the decision-gathering work on **2026-11-03**. This document is the decision register; a verbatim transcript of every question and response was not retained in the repository. Accordingly, decision wording below is a concise record, not a verbatim quotation, unless explicitly labelled as such. Do not invent a person's name, clinical reviewer, security reviewer, or deployment owner. For decisions that would trigger irreversible data changes or clinically meaningful behavior, retain the relevant review and evidence gates below; do not treat this summary alone as evidence of clinical, security, or deployment approval.
+
+### 3.0 Decision evidence and traceability
+
+| Decision group | Evidence retained in this repository | Traceability limitation / safe use |
+|---|---|---|
+| PO-01–PO-08 | Owner decision statuses, concise decision statements, date, alternatives considered, and downstream gates in this register. | Original verbatim question/answer pairs were not retained. Treat wording as a decision summary, not a quotation. Reconfirm any disputed or materially ambiguous decision before irreversible schema/data changes. |
+| PO-13–PO-19 and PO-21 | Owner decision statuses, concise scope statements, date, alternatives considered, and feature-specific gates in this register. | Original verbatim question/answer pairs were not retained. Detailed feature contracts and safety/operational approvals remain separate gates. |
+| PO-24 | Explicit owner direction in the conversation to make Web BYOK the only AI mode; recorded as approved product policy on 2026-11-03. | The direct-browser-versus-backend execution choice was not part of that BYOK-only instruction and is not an owner-approved decision. |
+
+No synthesized rationale or reconstructed wording should be presented as a verbatim owner statement.
 
 ### 3.1 Core data and business semantics — PO-01–PO-08
 
@@ -93,7 +103,7 @@ All owner responses in Groups A–D were provided on **2026-11-03**. Unless spec
 
 | ID | Status and owner decision | Alternatives/recommendation considered | Rationale, impact, and remaining gate |
 |---|---|---|---|
-| PO-24 | **PRODUCT POLICY APPROVED** — Web AI is BYOK only: each caregiver supplies their own provider key; no application/shared/pooled provider account, no application-provided AI fallback, and no cross-platform import/sync of credentials or private AI configuration. | This policy is settled and is not reopened here. Technical execution choices are recorded in Section 8. | **Approved by:** Product owner. **Date:** 2026-11-03. **Rationale:** “The Web application must use caregiver-supplied provider credentials rather than an application-managed AI service.” The technical execution direction is conditional and is not approved for implementation until its engineering/security gates pass. |
+| PO-24 | **PRODUCT POLICY APPROVED** — Web AI is BYOK only: each caregiver supplies their own provider key; no application/shared/pooled provider account, no application-provided AI fallback, and no cross-platform import/sync of credentials or private AI configuration. | This policy is settled and is not reopened here. Technical execution choices are recorded in Section 8. | **Approved by:** Product owner. **Date:** 2026-11-03. **Evidence:** The owner explicitly instructed that BYOK be the only Web AI mode. The sentence above is a concise policy summary, not a verbatim quotation. The technical execution direction is a separate engineering recommendation and is not approved for implementation until its engineering/security gates pass. |
 
 ### 3.5 Transfer-only decisions — explicitly outside WP-01
 
@@ -264,17 +274,17 @@ The workflows below define parity acceptance intent. An approved scope does not 
 
 **PO-24 product policy:** APPROVED.
 
-**Owner direction:** Direct browser-to-provider is conditionally preferred and was selected as the target direction by the product owner on 2026-11-03.
+**Owner direction:** The product owner approved BYOK-only, but did not select direct browser-to-provider versus backend-mediated execution in the recorded instruction. Direct browser-to-provider is an engineering candidate recommendation only; owner selection and technical approval remain pending.
 
 **Technical selection:** **PENDING final engineering/security review and implementation-origin/provider tests.** This conditional direction is not an authorization to implement or a claim that the design has passed formal review.
 
-The conditional direction prefers direct provider execution because it avoids adding the caregiver's key to the application backend's custody boundary. It is viable for the currently configured Gemini/OpenRouter HTTP endpoint shapes based on a point-in-time CORS preflight, but must be revalidated for exact provider, account, model, browser, deployment origin, and request format. If a provider fails a gate, show an explicit provider-unavailable/configuration error; do not proxy through the backend or select another provider silently.
+Direct provider execution is a candidate because it avoids adding the caregiver's key to the application backend's custody boundary. It appeared feasible for the currently configured Gemini/OpenRouter HTTP endpoint shapes based on a point-in-time CORS preflight, but must be revalidated for exact provider, account, model, browser, deployment origin, and request format. Backend-mediated BYOK remains an alternative requiring its own threat review and explicit owner approval. No implementation path is selected. If a provider fails a gate, show an explicit provider-unavailable/configuration error; do not use an application-owned key, pooled account, or silent provider substitution.
 
 ### 9.2 Alternatives and consequences
 
 | Option | Benefits | Risks/consequences | WP-01 disposition |
 |---|---|---|---|
-| Direct browser-to-provider | App backend does not receive the API key; provider-specific CORS preflight was observed for current endpoint paths; user controls provider credential and can see destination. | Key exists in browser process memory while used and is exposed to XSS, malicious extensions, compromised scripts, devtools, or device malware; reload requires re-entry; care data goes directly to provider; CORS/API behavior can change; custom URLs can exfiltrate key/data. | **Conditional target direction endorsed by owner; final selection awaits security/engineering gates.** |
+| Direct browser-to-provider | App backend does not receive the API key; provider-specific CORS preflight was observed for current endpoint paths; user controls provider credential and can see destination. | Key exists in browser process memory while used and is exposed to XSS, malicious extensions, compromised scripts, devtools, or device malware; reload requires re-entry; care data goes directly to provider; CORS/API behavior can change; custom URLs can exfiltrate key/data. | **Engineering candidate recommendation only; not selected by owner; security/engineering and owner approval pending.** |
 | Backend-mediated BYOK | Centralized network/error handling; avoids browser-to-provider CORS dependency; provider credentials can be supplied per call. | Key must transit through and be visible to application backend, JVM/framework, proxies, and possibly APM/error tooling; Java immutable strings cannot be reliably zeroed; logging, heap dumps, SSRF, access-control, and operator threat exposure increase. “Transient” does not mean the backend never sees the secret. | Not selected. Would require a separate security review and explicit owner approval before any implementation. |
 | Pending/no architecture | Avoids prematurely freezing a technical design. | Blocks provider integration and Web AI settings implementation until review and decision. | Safe fallback if any direct-call gate fails; no server-managed fallback is permitted. |
 
@@ -321,14 +331,14 @@ Before final technical selection or implementation:
 - [ ] Provider endpoint/key restrictions, terms, user billing/quota, data retention, and data-processing disclosure are reviewed.
 - [ ] Custom URL policy is explicit and validated; unsupported/arbitrary endpoints are rejected.
 - [ ] The present server environment-key failover is identified for later removal/replacement; no implementation is included in WP-01.
-- [ ] Product owner approves the final reviewed architecture record. Until then, PO-24 remains approved but execution architecture stays conditional.
+- [ ] Product owner explicitly selects/approves the final reviewed execution architecture. Until then, PO-24 remains approved but execution architecture stays undecided and conditional.
 
 ## 10. Clinical, security, privacy, and operations review requirements
 
 | Review area | Required reviewer/evidence | Current status and effect |
 |---|---|---|
 | Clinical safety rules (PO-07) | Qualified clinical reviewer must review each rule's inputs, thresholds, text patterns, severity, missing-data behavior, explanation, and fixtures. | **Pending; reviewer not named.** WP-04 rule activation/claims remain blocked. Product owner selected Android logic only as candidate baseline. |
-| BYOK security architecture (PO-24) | Security reviewer and Web engineering review as specified in §9.5. | **Pending formal sign-off.** Direct browser call is conditionally preferred, not implementation-approved. |
+| BYOK security architecture (PO-24) | Security reviewer and Web engineering review as specified in §9.5, followed by explicit product-owner selection. | **Pending formal sign-off and owner selection.** Direct browser call is an engineering candidate, not an owner-approved direction. |
 | AI privacy/consent | Privacy/legal review of provider disclosures, data minimization, provider terms/retention, consent, and revocation. | **Pending.** No provider data-processing guarantee is inferred from source code. |
 | PO-13 durability | Deployment owner supplies durable DB, backup schedule, restore-drill result, retention/deletion policy, and recovery objectives. | **Pending evidence.** Production durability claims and production release remain blocked. |
 | Medication semantics (PO-18) | Product/engineering review of free-text schedule, dose index, intake mark, verification, DST/timezone, and absent-row semantics; caregiver usability review. | **Pending WP-06 design.** PO-09 transfer decisions are not prerequisites. |
@@ -372,7 +382,7 @@ No product-owner question among the requested Web parity decisions remains silen
 | Which existing `active=false` records are archived versus merely deactivated, and what should happen to ambiguous records? | Web data/engineering reports evidence; product owner approves ambiguous mapping. | Pending; blocks lifecycle backfill and deletion behavior. |
 | For each old observation field, does the source UI/version prove empty, `false`, or zero was explicitly chosen, or must it remain `LEGACY_AMBIGUOUS`? | Android/Web engineering supplies capture-path fixtures; product owner approves exceptions. | Pending; blocks observation backfill and WP-02 implementation. |
 | Which Android safety rules, exact thresholds/text patterns, severity, explanation, and missing-data behavior pass clinical review? | Qualified clinical reviewer (not named) and product owner. | Pending; blocks WP-04 activation and clinical claims. |
-| Does direct browser-to-provider pass review for each supported provider, model, deployed origin, XSS/CSP posture, telemetry, custom URL policy, and key lifecycle? | Security reviewer (not named) and Web engineering. | Pending; blocks BYOK integration/settings. |
+| Which execution architecture should be selected after comparing direct browser-to-provider and backend-mediated BYOK, and does the selected path pass provider/model/origin, XSS/CSP, telemetry, custom URL, and key-lifecycle review? | Web engineering and security reviewer provide evidence; product owner selects the final architecture. | Pending; blocks BYOK integration/settings. |
 | What consent/disclosure language and provider retention/processing statements are approved for each supported provider? | Privacy/legal reviewer (not named) and product owner. | Pending; blocks provider-facing generation release. |
 | Does deployed infrastructure meet PO-13 persistence, backup schedule, restore-drill, retention/deletion, RPO/RTO, and recovery evidence requirements? | Deployment owner (not named). | Pending evidence; blocks production durability claims and release gate. |
 | Which CSV columns and import collision actions are allowed? | Product owner and WP-07 owner. | Pending feature contract; blocks WP-07 implementation. |
@@ -383,10 +393,10 @@ No product-owner question among the requested Web parity decisions remains silen
 
 ## 13. WP-01 completion and exit assessment
 
-**Assessment:** WP-01 decision capture and contract documentation are complete, with explicit review and implementation gates. This is not a claim that all later work is unblocked or that the architecture is production-ready.
+**Assessment:** WP-01 decision summaries and semantic contract are documented, with explicit review and implementation gates. Verbatim owner Q/A evidence was not retained for every decision; this limitation is recorded in §3.0. This is not a claim that all later work is unblocked or that the architecture is production-ready.
 
 - PO-01–PO-08, PO-13–PO-19, PO-21, and PO-24 have explicit owner statuses and effective date.
-- PO-07 remains clinically gated; PO-13 remains evidence-gated; Web BYOK execution remains security/engineering-gated.
+- PO-07 remains clinically gated; PO-13 remains evidence-gated; Web BYOK execution architecture remains undecided pending security/engineering review and explicit owner selection.
 - PO-09–PO-12, PO-20, PO-22, and PO-23 remain transfer-only and undecided; they are not Web parity blockers.
 - The domain contract distinguishes values, unknown, not recorded, not applicable, legacy ambiguity, verification, corrections, effective projections, dates, and instants.
 - Legacy migration rules forbid silent deletion, inference, merge, overwrite, and premature uniqueness constraints.
@@ -399,7 +409,7 @@ No product-owner question among the requested Web parity decisions remains silen
 
 ## 14. Documentation consistency notes
 
-1. Phase 1/2/3A and other sections of the existing roadmap describe Web AI as backend-managed. Those descriptions record the prior architecture/baseline and are superseded for future product requirements by approved PO-24. They were not rewritten as historical audit evidence.
+1. Phase 1/2/3A and historical sections of the roadmap describe Web AI as backend-managed. Those descriptions record the prior architecture/baseline and are superseded for future product requirements by approved PO-24. They were not rewritten as historical audit evidence.
 2. The current backend environment-key Gemini/OpenRouter failover conflicts with PO-24 and must be addressed in a separately authorized implementation phase. WP-01 does not change it.
 3. `application.yml` describes a template fallback while the inspected production provider wiring is a primary/backup failover ending in `AI_UNAVAILABLE`; reconcile the description against the actual future BYOK implementation rather than preserving an ambiguous fallback claim.
 4. The Phase 1 parity matrix remains the historical 33-row baseline and has not been modified.
