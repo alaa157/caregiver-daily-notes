@@ -30,10 +30,10 @@ for (const language of ['en', 'ar'] as const) {
     relationship: ar ? 'صلة القرابة أو العلاقة (اختياري)' : 'Relationship (optional)',
     edit: ar ? 'تعديل بيانات المستفيد' : 'Edit recipient',
     save: ar ? 'حفظ التغييرات' : 'Save changes',
-    deactivate: ar ? 'إلغاء تنشيط المستفيد' : 'Deactivate recipient',
-    confirm: ar ? 'تأكيد إلغاء التنشيط' : 'Confirm deactivation',
+    archive: ar ? 'أرشفة المستفيد' : 'Archive recipient',
+    confirmArchive: ar ? 'تأكيد الأرشفة' : 'Archive recipient',
     cancel: ar ? 'إلغاء' : 'Cancel',
-    inactive: ar ? 'غير نشط' : 'Inactive',
+    archived: ar ? 'مؤرشف' : 'Archived',
     back: ar ? 'العودة إلى المستفيدين' : 'Back to care recipients',
     retry: ar ? 'إعادة المحاولة' : 'Retry',
     reload: ar ? 'إعادة تحميل بيانات المستفيد' : 'Reload recipient details',
@@ -47,7 +47,7 @@ for (const language of ['en', 'ar'] as const) {
       }, { locale: language, jwt: token() });
     });
 
-    test('list, create, edit and confirm deactivation work with keyboard and accessible layouts', async ({ page }, info) => {
+    test('list, create, edit and confirm archive work with keyboard and accessible layouts', async ({ page }, info) => {
       const records = [{ ...recipientFixture }];
       const mutations: string[] = [];
       await page.route('**/api/recipients**', async (route) => {
@@ -69,7 +69,9 @@ for (const language of ['en', 'ar'] as const) {
         if (method === 'PATCH') {
           expect(request.postData()).toBeNull();
           mutations.push(method);
-          records.find(({ id }) => path.endsWith(`${id}/deactivate`))!.active = false;
+          const record = records.find(({ id }) => path.includes(id))!;
+          if (path.endsWith(`${record.id}/archive`)) Object.assign(record, { active: false, lifecycleStatus: 'ARCHIVED', archivedAt: '2026-10-15T10:00:00Z', archivedBy: 'b1111111-1111-4111-8111-111111111111' });
+          if (path.endsWith(`${record.id}/restore`)) Object.assign(record, { active: true, lifecycleStatus: 'ACTIVE', restoredAt: '2026-10-16T10:00:00Z', restoredBy: 'b1111111-1111-4111-8111-111111111111' });
         }
         const record = records.find(({ id }) => path.includes(id));
         return route.fulfill({ json: path === '/api/recipients' ? records : record });
@@ -96,31 +98,31 @@ for (const language of ['en', 'ar'] as const) {
       await expect(page.locator('.recipient-success')).toBeVisible();
       await expect(page.locator('.recipient-details')).toContainText(ar ? 'غير محددة' : 'Not specified');
       await accessibility(page);
-      await page.getByRole('button', { name: labels.deactivate, exact: true }).click();
+      await page.getByRole('button', { name: labels.archive, exact: true }).click();
       const dialog = page.getByRole('dialog');
       await expect(dialog.getByRole('button', { name: labels.cancel, exact: true })).toBeFocused();
       await page.keyboard.press('Shift+Tab');
-      await expect(dialog.getByRole('button', { name: labels.confirm })).toBeFocused();
+      await expect(dialog.getByRole('button', { name: labels.confirmArchive })).toBeFocused();
       await page.keyboard.press('Tab');
       await expect(dialog.getByRole('button', { name: labels.cancel, exact: true })).toBeFocused();
       await accessibility(page);
       await page.keyboard.press('Escape');
       await expect(dialog).toHaveCount(0);
-      await expect(page.getByRole('button', { name: labels.deactivate, exact: true })).toBeFocused();
+      await expect(page.getByRole('button', { name: labels.archive, exact: true })).toBeFocused();
       expect(mutations).toEqual(['POST', 'PUT']);
       await page.getByRole('button', { name: labels.deactivate, exact: true }).click();
       await dialog.getByRole('button', { name: labels.cancel, exact: true }).click();
       await expect(dialog).toHaveCount(0);
       await page.getByRole('button', { name: labels.deactivate, exact: true }).click();
       await dialog.getByRole('button', { name: labels.confirm }).click();
-      await expect(page.getByText(labels.inactive, { exact: true })).toBeVisible();
+      await expect(page.getByText(labels.archived, { exact: true })).toBeVisible();
       await expect(page.getByRole('link', { name: labels.edit })).toHaveCount(0);
       await expect(page.locator('.recipient-success')).toBeFocused();
       await accessibility(page);
       await page.evaluate(() => window.scrollTo(0, 0));
       await page.screenshot({ path: info.outputPath('recipient-details.png'), fullPage: true });
       await page.getByRole('link', { name: labels.back }).click();
-      await expect(page.getByRole('list', { name: labels.list }).getByRole('listitem')).toHaveCount(2);
+      await expect(page.getByRole('list', { name: labels.list }).getByRole('listitem')).toHaveCount(1);
       await expect(page.getByText(labels.inactive, { exact: true })).toBeVisible();
       expect(mutations).toEqual(['POST', 'PUT', 'PATCH']);
     });
@@ -141,7 +143,7 @@ for (const language of ['en', 'ar'] as const) {
       await expect(page.getByText('private diagnostics')).toHaveCount(0);
       await accessibility(page);
       await page.getByRole('button', { name: labels.retry }).click();
-      await expect(page.getByRole('status')).toContainText(ar ? 'لا يوجد مستفيدون' : 'No care recipients yet');
+      await expect(page.getByRole('status')).toContainText(ar ? 'لا يوجد مستفيدون' : 'No active care recipients');
       await accessibility(page);
     });
 
@@ -151,7 +153,7 @@ for (const language of ['en', 'ar'] as const) {
         const request = route.request();
         if (request.url().includes(syntheticId)) return route.fulfill({ status: 404, json: { message: 'private ownership details' } });
         if (request.method() === 'PUT') { active = false; return route.fulfill({ status: 409, json: { code: 'INACTIVE_RECIPIENT' } }); }
-        return route.fulfill({ json: { ...recipientFixture, active } });
+        return route.fulfill({ json: active ? recipientFixture : { ...recipientFixture, active: false, lifecycleStatus: 'ARCHIVED', archivedAt: '2026-10-15T10:00:00Z', archivedBy: 'b1111111-1111-4111-8111-111111111111' } });
       });
       await page.goto(`${root}/${syntheticId}`);
       await expect(page.getByRole('alert')).toContainText(ar ? 'هذا المستفيد غير متاح' : 'This recipient is unavailable');
@@ -181,7 +183,7 @@ for (const language of ['en', 'ar'] as const) {
         if (route.request().method() === 'PATCH') {
           attempts += 1;
           if (attempts === 1) return route.fulfill({ status: 503, json: { message: 'private diagnostics' } });
-          return route.fulfill({ json: { ...recipientFixture, active: false } });
+          return route.fulfill({ json: { ...recipientFixture, active: false, lifecycleStatus: 'ARCHIVED', archivedAt: '2026-10-15T10:00:00Z', archivedBy: 'b1111111-1111-4111-8111-111111111111' } });
         }
         return route.fulfill({ json: { ...recipientFixture, name: 'اسم طويل للاختبار Long synthetic recipient name '.repeat(2) } });
       });
