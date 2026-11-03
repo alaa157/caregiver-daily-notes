@@ -80,7 +80,7 @@ for (const language of ['en', 'ar'] as const) {
     const archiveDialog = page.getByRole('dialog', { name: labels.archiveTitle });
     await expect(archiveDialog.getByRole('button', { name: labels.cancel, exact: true })).toBeFocused();
     await accessibility(page);
-    await page.getByRole('button', { name: labels.archive, exact: true }).click();
+    await archiveDialog.getByRole('button', { name: labels.archive, exact: true }).click();
     await expect(page.getByText(labels.archived, { exact: true })).toBeVisible();
     await expect(page.getByText(labels.readOnly, { exact: false })).toBeVisible();
     await expect(page.getByRole('link', { name: labels.edit, exact: true })).toHaveCount(0);
@@ -92,7 +92,7 @@ for (const language of ['en', 'ar'] as const) {
     await page.getByRole('button', { name: labels.restore, exact: true }).click();
     const restoreDialog = page.getByRole('dialog', { name: labels.restoreTitle });
     await expect(restoreDialog).toBeVisible();
-    await page.getByRole('button', { name: labels.restore, exact: true }).click();
+    await restoreDialog.getByRole('button', { name: labels.restore, exact: true }).click();
     await expect(page.getByText(labels.active, { exact: true })).toBeVisible();
     await page.getByRole('link', { name: labels.back, exact: true }).click();
     await page.getByRole('button', { name: labels.activeFilter, exact: true }).click();
