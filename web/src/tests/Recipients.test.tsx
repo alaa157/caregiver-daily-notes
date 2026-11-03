@@ -207,7 +207,7 @@ describe('care recipients screens', () => {
     const fetcher = vi.fn().mockResolvedValueOnce(jsonResponse(recipient)).mockRejectedValueOnce(new TypeError('Failed to fetch')).mockResolvedValueOnce(jsonResponse(archived));
     renderRecipients(detail, fetcher);
     await userEvent.click(await screen.findByRole('button', { name: 'Archive recipient' }));
-    await userEvent.click(screen.getByRole('button', { name: 'Archive recipient' }));
+    await userEvent.click(within(screen.getByRole('dialog')).getByRole('button', { name: 'Archive recipient' }));
     expect(await screen.findByRole('alert')).toHaveFocus();
     expect(screen.getByRole('dialog')).toHaveTextContent('We couldn’t connect.');
     await userEvent.click(within(screen.getByRole('dialog')).getByRole('button', { name: 'Archive recipient' }));
