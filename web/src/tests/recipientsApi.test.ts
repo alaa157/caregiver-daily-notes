@@ -37,11 +37,30 @@ describe('recipient API contract', () => {
     await expect(api.create({ name: recipient.name, relationship: null })).rejects.toThrow('Invalid recipient');
   });
 
-  it('sends the full editable representation with PUT and clears an optional relationship', async () => {
+  it('sends recipient update to the existing PUT endpoint', async () => {
+    const { api, fetcher } = apiWithResponse(recipient);
+    await api.update(recipient.id, {
+      name: recipient.name,
+      relationship: recipient.relationship,
+      caregiverId: 'forged-owner',
+      lifecycleStatus: 'ARCHIVED',
+    } as Parameters<typeof api.update>[1]);
+    expect(fetcher).toHaveBeenCalledWith(`/api/recipients/${recipient.id}`, expect.objectContaining({
+      method: 'PUT',
+      body: JSON.stringify({ name: recipient.name, relationship: recipient.relationship }),
+    }));
+  });
+
+  it('clears an optional relationship in the update request', async () => {
     const { api, fetcher } = apiWithResponse({ ...recipient, relationship: null });
     await api.update(recipient.id, { name: recipient.name, relationship: '  ' });
-    expect(fetcher).toHaveBeenCalledWith(`/api/recipients/${recipient.id}`, expect.objectContaining({ method: 'PUT', body: JSON.stringify({ name: recipient.name, relationship: null }) }));
+    expect(fetcher).toHaveBeenCalledWith(`/api/recipients/${recipient.id}`, expect.objectContaining({
+      method: 'PUT',
+      body: JSON.stringify({ name: recipient.name, relationship: null }),
+    }));
   });
+
+
 
   it('lists a specific lifecycle state using the server filter', async () => {
     const archived = { ...recipient, active: false, lifecycleStatus: 'ARCHIVED' as const,
@@ -62,6 +81,17 @@ describe('recipient API contract', () => {
     expect((await api.restore(recipient.id)).lifecycleStatus).toBe('ACTIVE');
     expect(fetcher.mock.calls[1][0]).toBe(`/api/recipients/${recipient.id}/restore`);
   });
+  it.each([403, 404, 409])('maps archive and restore HTTP %i failures safely', async (status) => {
+    const expected = status === 409 ? 'recipientConflict' : 'recipientUnavailable';
+    const { api, fetcher } = apiWithResponse({ message: 'private server details' }, status);
+    const archiveError = await api.archive(recipient.id).catch((error: unknown) => error);
+    expect(recipientErrorMessage(archiveError)).toBe(expected);
+
+    fetcher.mockResolvedValueOnce(jsonResponse({ message: 'private server details' }, status));
+    const restoreError = await api.restore(recipient.id).catch((error: unknown) => error);
+    expect(recipientErrorMessage(restoreError)).toBe(expected);
+  });
+
 
   it('forwards cancellation and never sends malformed IDs', async () => {
     const { api, fetcher } = apiWithResponse(recipient);

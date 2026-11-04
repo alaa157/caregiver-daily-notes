@@ -128,6 +128,36 @@ class RecipientControllerTest {
   }
 
   @Test
+  void rejectsRecipientLifecycleWritesFromAnotherCaregiver() throws Exception {
+    TestCaregiver owner = register("lifecycle-owner@example.com");
+    TestCaregiver other = register("lifecycle-other@example.com");
+    String id = createRecipient(owner.token(), "{\"name\":\"Owner recipient\",\"relationship\":\"Mother\"}");
+    String path = RECIPIENTS + "/" + id;
+
+    mvc.perform(put(path)
+            .header("Authorization", bearer(other.token()))
+            .contentType(MediaType.APPLICATION_JSON)
+            .content("{\"name\":\"Tampered\",\"relationship\":\"Other\"}"))
+        .andExpect(status().isNotFound())
+        .andExpect(jsonPath("$.code").value("RECIPIENT_NOT_FOUND"))
+        .andExpect(jsonPath("$.name").doesNotExist());
+    mvc.perform(patch(path + "/archive").header("Authorization", bearer(other.token())))
+        .andExpect(status().isNotFound())
+        .andExpect(jsonPath("$.code").value("RECIPIENT_NOT_FOUND"))
+        .andExpect(jsonPath("$.name").doesNotExist());
+    mvc.perform(patch(path + "/restore").header("Authorization", bearer(other.token())))
+        .andExpect(status().isNotFound())
+        .andExpect(jsonPath("$.code").value("RECIPIENT_NOT_FOUND"))
+        .andExpect(jsonPath("$.name").doesNotExist());
+
+    mvc.perform(get(path).header("Authorization", bearer(owner.token())))
+        .andExpect(status().isOk())
+        .andExpect(jsonPath("$.name").value("Owner recipient"))
+        .andExpect(jsonPath("$.relationship").value("Mother"))
+        .andExpect(jsonPath("$.lifecycleStatus").value("ACTIVE"));
+  }
+
+  @Test
   void requestCannotOverrideRecipientOwner() throws Exception {
     TestCaregiver owner = register("request-owner@example.com");
     TestCaregiver other = register("request-other@example.com");
@@ -332,12 +362,23 @@ class RecipientControllerTest {
         .andExpect(status().isOk())
         .andExpect(jsonPath("$[0].id").value(id));
 
+    mvc.perform(put(RECIPIENTS + "/" + id)
+            .header("Authorization", bearer(owner.token()))
+            .contentType(MediaType.APPLICATION_JSON)
+            .content("{\"name\":\"Must remain legacy\",\"relationship\":\"Changed\"}"))
+        .andExpect(status().isConflict())
+        .andExpect(jsonPath("$.code").value("INACTIVE_RECIPIENT"));
     mvc.perform(patch(RECIPIENTS + "/" + id + "/restore")
             .header("Authorization", bearer(owner.token())))
         .andExpect(status().isConflict());
     mvc.perform(patch(RECIPIENTS + "/" + id + "/archive")
             .header("Authorization", bearer(owner.token())))
         .andExpect(status().isConflict());
+    mvc.perform(get(RECIPIENTS + "/" + id).header("Authorization", bearer(owner.token())))
+        .andExpect(status().isOk())
+        .andExpect(jsonPath("$.name").value("Legacy inactive"))
+        .andExpect(jsonPath("$.relationship").value(org.hamcrest.Matchers.nullValue()))
+        .andExpect(jsonPath("$.lifecycleStatus").value("LEGACY_INACTIVE_REVIEW"));
   }
 
   @Test
