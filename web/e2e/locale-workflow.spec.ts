@@ -135,14 +135,14 @@ for (const initial of ['en', 'ar'] as const) {
     await page.goto('/app/notes/new');
     await page.getByLabel(first.recipient, { exact: true }).selectOption(recipient.id);
     await page.getByLabel(first.date, { exact: true }).fill(note.date);
-    await page.getByLabel(`${first.text} — ${initial === 'ar' ? 'حالة الملاحظة' : 'Observation status'}`, { exact: true }).selectOption('RECORDED');
+    await page.getByRole('group', { name: `${first.text} — ${initial === 'ar' ? 'حالة الملاحظة' : 'Observation status'}`, exact: true }).getByText(initial === 'ar' ? 'مسجّل' : 'Recorded', { exact: true }).click();
     await page.getByRole('textbox', { name: first.text, exact: true }).fill(draft);
     await checkPageQuality(page, initial);
 
     await page.getByRole('button', { name: first.switch, exact: true }).click();
     await page.locator('#note-recipientId').selectOption(recipient.id);
     await page.locator('#note-date').fill(note.date);
-    await page.getByLabel(`${second.text} — ${next === 'ar' ? 'حالة الملاحظة' : 'Observation status'}`, { exact: true }).selectOption('RECORDED');
+    await page.getByRole('group', { name: `${second.text} — ${next === 'ar' ? 'حالة الملاحظة' : 'Observation status'}`, exact: true }).getByText(next === 'ar' ? 'مسجّل' : 'Recorded', { exact: true }).click();
     await page.getByRole('textbox', { name: second.text, exact: true }).fill(draft);
     await expect(page.getByLabel(second.date, { exact: true })).toHaveAttribute('dir', 'ltr');
     expect(writes).toHaveLength(0);
@@ -163,11 +163,11 @@ for (const initial of ['en', 'ar'] as const) {
     await page.getByRole('link', { name: second.append, exact: true }).focus();
     await page.keyboard.press('Enter');
     await page.getByRole('checkbox', { name: second.correctText, exact: true }).check();
-    await page.getByLabel(`${second.text} — ${next === 'ar' ? 'حالة الملاحظة' : 'Observation status'}`, { exact: true }).selectOption('RECORDED');
+    await page.getByRole('group', { name: `${second.text} — ${next === 'ar' ? 'حالة الملاحظة' : 'Observation status'}`, exact: true }).getByText(next === 'ar' ? 'مسجّل' : 'Recorded', { exact: true }).click();
     await page.getByRole('textbox', { name: second.text, exact: true }).fill(correction);
     await page.getByRole('button', { name: second.switch, exact: true }).click();
     await page.getByRole('checkbox', { name: `${first.correctText}`, exact: true }).check();
-    await page.getByLabel(`${first.text} — ${initial === 'ar' ? 'حالة الملاحظة' : 'Observation status'}`, { exact: true }).selectOption('RECORDED');
+    await page.getByRole('group', { name: `${first.text} — ${initial === 'ar' ? 'حالة الملاحظة' : 'Observation status'}`, exact: true }).getByText(initial === 'ar' ? 'مسجّل' : 'Recorded', { exact: true }).click();
     await page.getByRole('textbox', { name: first.text, exact: true }).fill(correction);
     await checkPageQuality(page, initial);
 
