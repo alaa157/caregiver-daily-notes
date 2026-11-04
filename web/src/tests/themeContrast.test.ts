@@ -32,9 +32,15 @@ function parseBlocks(css: string): CssBlock[] {
 
 const blocks = parseBlocks(tokensCss);
 const baseBlocks = parseBlocks(webBaseCss);
+const recipientBlocks = parseBlocks(
+  readFileSync(resolve(repositoryRoot, 'web/src/features/recipients/recipients.css'), 'utf8')
+    .replace(/\/\*[\s\S]*?\*\//g, ''),
+);
 const webRootBlock = baseBlocks.find(({ selector }) => selector === ':root')!;
 const primaryButtonBlock = baseBlocks.find(({ selector }) => selector === '.button--primary')!;
+const recipientFilterBlock = recipientBlocks.find(({ selector }) => selector === '.recipient-filter')!;
 const rootBlock = blocks.find(({ selector }) => selector === ':root')!;
+const webBorderThemeBlock = blocks.find(({ selector }) => selector === ':root[data-theme]')!;
 const darkBlock = blocks.find(({ selector }) => /^\[data-theme=['"]dark['"]\]$/.test(selector))!;
 const systemDarkBlock = blocks.find(({ selector }) => selector.includes("[data-theme='system']"))!;
 const darkMetrolistBlock = blocks.find(({ selector }) =>
@@ -52,8 +58,14 @@ const testedPalettes: PaletteBlock[] = [
 if (!webRootBlock || !primaryButtonBlock) {
   throw new Error('base.css must define a :root token scope and the primary button role.');
 }
+if (!recipientFilterBlock) {
+  throw new Error('recipients.css must define the interactive .recipient-filter control.');
+}
 if (!rootBlock || !darkBlock || !systemDarkBlock || !darkMetrolistBlock) {
   throw new Error('tokens.css must define :root, explicit dark, system-dark, and dark Metrolist blocks.');
+}
+if (!webBorderThemeBlock) {
+  throw new Error('tokens.css must map the active web border to a theme-aware accessible outline.');
 }
 if (paletteBlocks.length === 0 || !paletteBlocks.some(({ name }) => name === 'metrolist')) {
   throw new Error('tokens.css must declare at least one palette and the special Metrolist palette.');
@@ -204,6 +216,65 @@ describe('shipped design palette contrast', () => {
           }
         }
       }
+    }
+
+    const borderDeclaration = requiredColor(recipientFilterBlock.declarations, 'border', 'recipient-filter', 'light')
+      .match(/^1px solid var\((--[\w-]+)\)$/);
+    if (!borderDeclaration) {
+      throw new Error('The recipient filter border must reference its semantic CSS custom property.');
+    }
+    const appBorderRole = borderDeclaration[1];
+    if (appBorderRole !== '--color-border') {
+      throw new Error(`The recipient filter must retain --color-border; found ${appBorderRole}.`);
+    }
+    const sharedBorderReference = requiredColor(webRootBlock.declarations, appBorderRole, 'recipient-filter', 'light')
+      .match(/^var\((--[\w-]+)\)$/);
+    if (!sharedBorderReference || sharedBorderReference[1] !== '--web-color-border') {
+      throw new Error('base.css --color-border must resolve to tokens.css --web-color-border.');
+    }
+    const borderTarget = requiredColor(
+      webBorderThemeBlock.declarations, '--color-border', 'recipient-filter', 'light',
+    ).match(/^var\((--[\w-]+)\)$/)?.[1];
+    if (borderTarget !== '--color-outline') {
+      throw new Error('The active --color-border must resolve to --color-outline.');
+    }
+
+    const filterBackground = requiredColor(recipientFilterBlock.declarations, 'background', 'recipient-filter', 'light');
+    if (filterBackground !== 'transparent') {
+      throw new Error(`Expected recipient-filter background to remain transparent; found ${filterBackground}.`);
+    }
+    const pageBackgroundRole = requiredColor(webRootBlock.declarations, 'background', 'recipient-filter', 'light')
+      .match(/^var\((--[\w-]+)\)$/)?.[1];
+    if (!pageBackgroundRole) throw new Error('The application root background must resolve through a shared token.');
+    const pageBackground = requiredColor(rootBlock.declarations, pageBackgroundRole, 'recipient-filter', 'light');
+    const surfaces = [
+      { token: pageBackgroundRole, value: pageBackground },
+      { token: '--web-color-surface', value: requiredColor(rootBlock.declarations, '--web-color-surface', 'recipient-filter', 'light') },
+    ];
+
+    for (const palette of testedPalettes) {
+      for (const mode of effectiveModes) {
+        const tokens = effectiveTokens(palette, mode);
+        const border = requiredColor(tokens, borderTarget, palette.name, mode.name);
+        for (const surface of surfaces) {
+          const result = validateContrast(border, surface.value, 3);
+          if (!result.passes) {
+            failures.push(describePair(
+              'recipient-filter', mode.name, '--color-border', border,
+              surface.token, surface.value, result.ratio, 3,
+            ));
+          }
+        }
+      }
+    }
+
+    for (const surface of surfaces) {
+      const previousBorder = '#dde4d8';
+      const previousResult = validateContrast(previousBorder, surface.value, 3);
+      expect(previousResult.passes, describePair(
+        'recipient-filter-previous-border', 'light', '--color-border', previousBorder,
+        surface.token, surface.value, previousResult.ratio, 3,
+      )).toBe(false);
     }
 
     expect(failures, failures.join('\n')).toEqual([]);
