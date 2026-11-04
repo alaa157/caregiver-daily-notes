@@ -1,6 +1,6 @@
 import { fireEvent, render, screen, waitFor } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
-import { MemoryRouter } from 'react-router-dom';
+import { MemoryRouter, useLocation } from 'react-router-dom';
 import { describe, expect, it, vi } from 'vitest';
 import { App } from '../app/App';
 import { AuthProvider } from '../features/auth/AuthProvider';
@@ -16,7 +16,12 @@ function renderOverview(path: string, fetcher: ReturnType<typeof vi.fn>, languag
   vi.stubGlobal('fetch', fetcher);
   localStorage.setItem('caregiver-language', language);
   sessionStorage.setItem('caregiver-auth-session-v1', JSON.stringify({ token: testToken(), baseUrl: '' }));
-  return render(<I18nProvider><ApiProvider config={{ apiBaseUrl: '' }}><AuthProvider><MemoryRouter initialEntries={[path]}><App /></MemoryRouter></AuthProvider></ApiProvider></I18nProvider>);
+  return render(<I18nProvider><ApiProvider config={{ apiBaseUrl: '' }}><AuthProvider><MemoryRouter initialEntries={[path]}><Location /><App /></MemoryRouter></AuthProvider></ApiProvider></I18nProvider>);
+}
+
+function Location() {
+  const location = useLocation();
+  return <output data-testid="location">{location.pathname}{location.search}</output>;
 }
 
 function historyResponse(content: unknown[], number = 0, totalElements = content.length, totalPages = content.length ? 1 : 0) {
@@ -35,6 +40,22 @@ function serving() {
 }
 
 describe('authenticated workspace overview', () => {
+  it('defaults to the caregiver local calendar date', async () => {
+    vi.stubEnv('TZ', 'America/Los_Angeles');
+    vi.useFakeTimers({ toFake: ['Date'] });
+    vi.setSystemTime(new Date('2026-10-19T01:00:00Z'));
+    try {
+      const fetcher = vi.fn().mockImplementation((path: string) => path === '/api/recipients'
+        ? Promise.resolve(jsonResponse([recipientFixture]))
+        : Promise.resolve(historyResponse([])));
+      renderOverview('/app', fetcher);
+      expect(await screen.findByLabelText('Calendar date')).toHaveValue('2026-10-18');
+      expect(fetcher.mock.calls.some(([path]) => path === '/api/notes?from=2026-10-18&to=2026-10-18&page=0&size=100')).toBe(true);
+    } finally {
+      vi.unstubAllEnvs();
+    }
+  });
+
   it('shows factual per-date note status and links to source and relevant workflows', async () => {
     const fetcher = serving();
     renderOverview('/app?date=2026-10-18', fetcher);
@@ -48,6 +69,98 @@ describe('authenticated workspace overview', () => {
     expect(inactiveRow?.querySelector('a[href^="/app/notes/new"]')).toBeNull();
     expect(fetcher.mock.calls.some(([path]) => path === '/api/notes?from=2026-10-18&to=2026-10-18&page=0&size=100')).toBe(true);
   });
+
+  it('does not offer note creation for an archived recipient', async () => {
+    const fetcher = vi.fn().mockImplementation((path: string) => path === '/api/recipients'
+      ? Promise.resolve(jsonResponse([inactive]))
+      : Promise.resolve(historyResponse([])));
+    renderOverview('/app?date=2026-10-18', fetcher);
+
+    const row = (await screen.findByRole('link', { name: inactive.name })).closest('li');
+    expect(row).toHaveTextContent(/Inactive/);
+    expect(row).toHaveTextContent('No note recorded');
+    expect(row?.querySelector('a[href^="/app/notes/new"]')).toBeNull();
+    expect(row?.querySelector(`a[href="/app/recipients/${inactive.id}"]`)).not.toBeNull();
+  });
+
+  it('does not turn a note request failure into a missing observation', async () => {
+    let failed = true;
+    const fetcher = vi.fn().mockImplementation((path: string) => {
+      if (path === '/api/recipients') return Promise.resolve(jsonResponse([recipientFixture]));
+      return Promise.resolve(failed ? jsonResponse({ message: 'private server diagnostics' }, 500) : historyResponse([]));
+    });
+    renderOverview('/app?date=2026-10-18', fetcher);
+
+    const row = await screen.findByRole('link', { name: recipientFixture.name }).then((link) => link.closest('li'));
+    expect(await screen.findByText('Note status unavailable')).toBeInTheDocument();
+    expect(row).not.toHaveTextContent('No note recorded');
+    expect(screen.queryByText('private server diagnostics')).not.toBeInTheDocument();
+    failed = false;
+    await userEvent.click(row!.querySelector('button')!);
+    expect(await screen.findByText('No note recorded', { exact: true })).toBeInTheDocument();
+    expect(screen.queryByText('Note status unavailable', { exact: true })).not.toBeInTheDocument();
+  });
+
+  it('preserves recorded rows when a later history page fails', async () => {
+    const fetcher = vi.fn().mockImplementation((path: string) => {
+      if (path === '/api/recipients') return Promise.resolve(jsonResponse([recipientFixture, missing]));
+      if (path.includes('page=0')) return Promise.resolve(historyResponse([noteFixture], 0, 101, 2));
+      return Promise.resolve(jsonResponse({ message: 'private server diagnostics' }, 500));
+    });
+    renderOverview('/app?date=2026-10-18', fetcher);
+
+    expect(await screen.findByRole('link', { name: 'Open note' })).toHaveAttribute('href', `/app/notes/${noteFixture.id}`);
+    const missingRow = screen.getByRole('link', { name: missing.name }).closest('li');
+    expect(await screen.findByText('Note status unavailable')).toBeInTheDocument();
+    expect(missingRow).not.toHaveTextContent('No note recorded');
+    expect(screen.getByText('Some note statuses could not be loaded. Retry those rows to refresh the overview.')).toBeInTheDocument();
+  });
+
+  it('keeps selected date in the URL', async () => {
+    const fetcher = serving();
+    renderOverview('/app?date=2026-10-18', fetcher);
+    await screen.findByLabelText('Calendar date');
+    fireEvent.change(screen.getByLabelText('Calendar date'), { target: { value: '2026-10-19' } });
+
+    await waitFor(() => expect(screen.getByTestId('location')).toHaveTextContent('/app?date=2026-10-19'));
+    expect(screen.getByLabelText('Calendar date')).toHaveValue('2026-10-19');
+    await waitFor(() => expect(fetcher.mock.calls.some(([path]) => path === '/api/notes?from=2026-10-19&to=2026-10-19&page=0&size=100')).toBe(true));
+  });
+
+  it('does not send an invalid URL date to the API', async () => {
+    const fetcher = serving();
+    renderOverview('/app?date=2026-02-31', fetcher);
+    const input = await screen.findByLabelText('Calendar date');
+
+    expect(input).not.toHaveValue('2026-02-31');
+    const historyUrl = fetcher.mock.calls.map(([path]) => path).find((path: string) => path.startsWith('/api/notes?'));
+    expect(historyUrl).toBeDefined();
+    expect(new URL(historyUrl!, 'http://localhost').searchParams.get('from')).toBe((input as HTMLInputElement).value);
+  });
+
+  it('does not mark a recipient recorded for another recipient or date', async () => {
+    const otherRecipientNote = { ...noteFixture, recipientId: missing.id };
+    const fetcher = vi.fn().mockImplementation((path: string) => path === '/api/recipients'
+      ? Promise.resolve(jsonResponse([recipientFixture, missing]))
+      : Promise.resolve(historyResponse([otherRecipientNote])));
+    const view = renderOverview('/app?date=2026-10-18', fetcher);
+    const recipientRow = await screen.findByRole('link', { name: recipientFixture.name }).then((link) => link.closest('li'));
+    const otherRow = screen.getByRole('link', { name: missing.name }).closest('li');
+    expect(recipientRow).toHaveTextContent('No note recorded');
+    expect(recipientRow?.querySelector(`a[href="/app/notes/${noteFixture.id}"]`)).toBeNull();
+    expect(otherRow).toHaveTextContent('Note recorded');
+    view.unmount();
+
+    const wrongDateFetcher = vi.fn().mockImplementation((path: string) => path === '/api/recipients'
+      ? Promise.resolve(jsonResponse([recipientFixture]))
+      : Promise.resolve(historyResponse([{ ...noteFixture, date: '2026-10-17' }])));
+    renderOverview('/app?date=2026-10-18', wrongDateFetcher);
+    const wrongDateRow = await screen.findByRole('link', { name: recipientFixture.name }).then((link) => link.closest('li'));
+    expect(wrongDateRow).not.toHaveTextContent('Note recorded');
+    expect(wrongDateRow).not.toHaveTextContent('No note recorded');
+    expect(wrongDateRow).toHaveTextContent('Note status unavailable');
+  });
+
   it('loads every page before treating a recipient as having no note', async () => {
     const laterPageNote = { ...noteFixture, id: 'e5555555-5555-4555-8555-555555555555', recipientId: missing.id };
     const fetcher = vi.fn().mockImplementation((path: string) => {
