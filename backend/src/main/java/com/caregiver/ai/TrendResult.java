@@ -12,9 +12,14 @@ public record TrendResult(
     int currentSampleSize) {
 
   public TrendResult {
-    if (previousSampleSize < 0 || currentSampleSize < 0) {
-      throw new IllegalArgumentException("Sample sizes must be nonnegative");
+    if (previousSampleSize < 0) {
+      throw new IllegalArgumentException("previousSampleSize must be nonnegative");
     }
-    delta = currentCount - previousCount;
+    if (currentSampleSize < 0) {
+      throw new IllegalArgumentException("currentSampleSize must be nonnegative");
+    }
+    if (delta != currentCount - previousCount) {
+      throw new IllegalArgumentException("delta must equal currentCount - previousCount");
+    }
   }
 }

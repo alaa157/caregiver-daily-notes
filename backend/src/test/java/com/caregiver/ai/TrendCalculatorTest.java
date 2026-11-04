@@ -9,6 +9,7 @@ import java.util.Arrays;
 import java.util.List;
 
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
 class TrendCalculatorTest {
 
@@ -86,17 +87,17 @@ class TrendCalculatorTest {
   @Test
   @DisplayName("excludes unknown and unverified medication values from sample size")
   void excludesUnknownAndUnverifiedMedicationValuesFromSampleSize() {
-    var verifiedFalse = note(LocalDate.of(2026, 10, 1), null, null, false, false, null);
-    var unverifiedTrue = note(LocalDate.of(2026, 10, 2), null, null, true, true, null);
-    var unknown = note(LocalDate.of(2026, 10, 3), null, null, null, false, null);
-    var falseTrends = calculator.computeTrends(List.of(verifiedFalse, unverifiedTrue, unknown), List.of());
-    assertThat(trend(falseTrends, "MISSED_MED_COUNT").currentCount()).isZero();
-    assertThat(trend(falseTrends, "MISSED_MED_COUNT").currentSampleSize()).isEqualTo(1);
+    var trends = calculator.computeTrends(
+        List.of(
+            note(LocalDate.of(2026, 10, 1), null, null, true, false, null),
+            note(LocalDate.of(2026, 10, 2), null, null, false, false, null),
+            note(LocalDate.of(2026, 10, 3), null, null, true, true, null),
+            note(LocalDate.of(2026, 10, 4), null, null, false, true, null),
+            note(LocalDate.of(2026, 10, 5), null, null, null, false, null)),
+        List.of());
 
-    var trueTrends = calculator.computeTrends(
-        List.of(note(LocalDate.of(2026, 10, 4), null, null, true, false, null)), List.of());
-    assertThat(trend(trueTrends, "MISSED_MED_COUNT").currentCount()).isEqualTo(1);
-    assertThat(trend(trueTrends, "MISSED_MED_COUNT").currentSampleSize()).isEqualTo(1);
+    assertThat(trend(trends, "MISSED_MED_COUNT").currentCount()).isEqualTo(1);
+    assertThat(trend(trends, "MISSED_MED_COUNT").currentSampleSize()).isEqualTo(2);
   }
 
   @Test
@@ -119,6 +120,38 @@ class TrendCalculatorTest {
     assertThat(result.delta()).isEqualTo(2);
     assertThat(result.previousSampleSize()).isEqualTo(4);
     assertThat(result.currentSampleSize()).isEqualTo(7);
+  }
+
+  @Test
+  @DisplayName("rejects a delta that does not match event counts")
+  void rejectsDeltaThatDoesNotMatchEventCounts() {
+    assertThatThrownBy(() -> new TrendResult("FALL_COUNT", 2, 5, 0, 4, 6))
+        .isInstanceOf(IllegalArgumentException.class)
+        .hasMessage("delta must equal currentCount - previousCount");
+  }
+
+  @Test
+  @DisplayName("rejects negative previous sample size")
+  void rejectsNegativePreviousSampleSize() {
+    assertThatThrownBy(() -> new TrendResult("FALL_COUNT", 2, 5, 3, -1, 6))
+        .isInstanceOf(IllegalArgumentException.class);
+  }
+
+  @Test
+  @DisplayName("rejects negative current sample size")
+  void rejectsNegativeCurrentSampleSize() {
+    assertThatThrownBy(() -> new TrendResult("FALL_COUNT", 2, 5, 3, 4, -1))
+        .isInstanceOf(IllegalArgumentException.class);
+  }
+
+  @Test
+  @DisplayName("preserves negative delta when current event count decreases")
+  void preservesNegativeDeltaWhenCurrentEventCountDecreases() {
+    var result = calculator.computeSingle("FALL_COUNT", 3, 1, 7, 5);
+
+    assertThat(result.delta()).isEqualTo(-2);
+    assertThat(result.previousSampleSize()).isEqualTo(7);
+    assertThat(result.currentSampleSize()).isEqualTo(5);
   }
 
   @Test
