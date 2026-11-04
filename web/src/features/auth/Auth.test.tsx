@@ -130,17 +130,22 @@ describe('caregiver authentication', () => {
     expect(sessionStorage.getItem(SESSION_STORAGE_KEY)).toBeNull();
   });
 
-  it('restores a valid tab session, logs out, and protects the dashboard again', async () => {
+  it('restores a valid tab session, loads protected overview data, and protects the dashboard after logout', async () => {
     saveToken();
     const first = renderApp('/app');
     expect(screen.getByRole('heading', { name: 'Caregiver workspace' })).toBeVisible();
-    expect(fetcher).not.toHaveBeenCalled();
+    await waitFor(() => expect(fetcher).toHaveBeenCalledTimes(2));
+    expect(fetcher.mock.calls.every(([path]) => path === '/api/recipients')).toBe(true);
     first.unmount();
+    fetcher.mockClear();
     renderApp('/app');
+    await waitFor(() => expect(fetcher).toHaveBeenCalledTimes(2));
+    fetcher.mockClear();
     await userEvent.click(screen.getByRole('button', { name: 'Sign out' }));
     expect(await screen.findByRole('heading', { name: 'Caregiver sign in' })).toBeVisible();
     expect(screen.getByText('You have signed out.')).toBeVisible();
     expect(sessionStorage.getItem(SESSION_STORAGE_KEY)).toBeNull();
+    expect(fetcher).not.toHaveBeenCalled();
   });
 
   it.each([testToken(-10), 'invalid-token'])('clears expired or malformed stored sessions under StrictMode', async (token) => {

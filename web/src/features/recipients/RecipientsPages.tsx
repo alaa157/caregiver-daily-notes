@@ -33,11 +33,17 @@ const filterLabel = (status: RecipientLifecycleStatus): MessageKey => status ===
 export function RecipientsListPage() {
   const { t } = useI18n(); const api = useRecipientsApi();
   const [filter, setFilter] = useState<RecipientListFilter>('ACTIVE');
+  const [query, setQuery] = useState('');
   const load = useCallback((signal: AbortSignal) => api.list(signal, filter), [api, filter]);
   const { state, reload } = useRecipientResource(load);
   const empty = filter === 'ACTIVE' ? ['recipientsEmpty', 'recipientsEmptyDescription']
     : filter === 'ARCHIVED' ? ['recipientArchivedEmpty', 'recipientArchivedEmptyDescription']
       : ['recipientReviewEmpty', 'recipientReviewEmptyDescription'];
+  const recipients = state.status === 'ready' ? state.data : [];
+  const normalizedQuery = query.trim().toLocaleLowerCase();
+  const matches = (recipient: Recipient) => !normalizedQuery
+    || `${recipient.name}\n${recipient.relationship ?? ''}`.toLocaleLowerCase().includes(normalizedQuery);
+  const filtered = recipients.filter(matches);
   return <RecipientLayout title={t('recipientsTitle')} description={t('recipientsDescription')}
     action={<ButtonLink to={`${listPath}/new`}>{t('recipientCreate')}<Icon name="arrow-right" className="directional-icon" /></ButtonLink>}>
     <div className="recipient-filters" role="group" aria-label={t('recipientListFilter')}>
@@ -46,16 +52,22 @@ export function RecipientsListPage() {
     </div>
     {state.status === 'loading' && <LoadingState label={t('recipientsLoading')} />}
     {state.status === 'error' && <ErrorState description={t(recipientErrorMessage(state.error))} onRetry={reload} />}
-    {state.status === 'ready' && (state.data.length === 0
-      ? <EmptyState title={t(empty[0] as MessageKey)} description={t(empty[1] as MessageKey)} />
-      : <ul className="recipient-list" aria-label={t(filterLabel(filter as RecipientLifecycleStatus))}>
-        {state.data.map((recipient) => <li key={recipient.id} className="recipient-card">
-          <RecipientStatus status={recipient.lifecycleStatus} />
-          <h2><Link to={`${listPath}/${recipient.id}`}><bdi>{recipient.name}</bdi></Link></h2>
+    {state.status === 'ready' && state.data.length > 0 && <div className="recipient-search">
+      <label htmlFor="recipient-search">{t('recipientSearch')}</label>
+      <div><input id="recipient-search" type="search" value={query} onChange={(event) => setQuery(event.target.value)} />
+        <Button type="button" variant="secondary" disabled={!query} onClick={() => setQuery('')}>{t('recipientSearchClear')}</Button></div>
+    </div>}
+    {state.status === 'ready' && state.data.length === 0 && <EmptyState title={t(empty[0] as MessageKey)} description={t(empty[1] as MessageKey)} />}
+    {state.status === 'ready' && state.data.length > 0 && filtered.length === 0
+      && <EmptyState title={t('recipientSearchNoResults')} description={t('recipientSearchNoResultsDescription')} />}
+    {filtered.length > 0 && <ul className="recipient-list" aria-label={t(filterLabel(filter as RecipientLifecycleStatus))}>
+      {filtered.map((recipient) => <li key={recipient.id} className="recipient-card">
+        <RecipientStatus status={recipient.lifecycleStatus} />
+        <h2><Link to={`${listPath}/${recipient.id}`}><bdi>{recipient.name}</bdi></Link></h2>
           <p className="recipient-hint">{t('recipientRelationshipLabel')}</p>
           <p><bdi>{recipient.relationship || t('recipientRelationshipEmpty')}</bdi></p>
         </li>)}
-      </ul>)}
+      </ul>}
   </RecipientLayout>;
 }
 export function CreateRecipientPage() {
@@ -100,13 +112,13 @@ function RecipientRecord({ id, edit }: { id: string; edit: boolean }) {
             {state.data.archivedAt && <div><dt>{t('recipientArchivedAt')}</dt><dd><time dateTime={state.data.archivedAt}>{date(state.data.archivedAt)}</time></dd></div>}
             {state.data.restoredAt && <div><dt>{t('recipientRestoredAt')}</dt><dd><time dateTime={state.data.restoredAt}>{date(state.data.restoredAt)}</time></dd></div>}
           </dl>
-          {state.data.lifecycleStatus === 'ACTIVE' && <div className="recipient-actions">
-            <ButtonLink to={`${listPath}/${id}/edit`}>{t('recipientEdit')}</ButtonLink>
-            <Button variant="secondary" onClick={() => { setNotice(null); setConfirming('archive'); }}>{t('recipientArchive')}</Button>
-          </div>}
-          {state.data.lifecycleStatus === 'ARCHIVED' && <div className="recipient-actions">
-            <Button variant="secondary" onClick={() => { setNotice(null); setConfirming('restore'); }}>{t('recipientRestore')}</Button>
-          </div>}
+          <div className="recipient-actions">
+            <ButtonLink variant="secondary" to={`/app/notes?recipientId=${encodeURIComponent(id)}`}>{t('historyTitle')}</ButtonLink>
+            {state.data.lifecycleStatus === 'ACTIVE' && <ButtonLink variant="secondary" to={`/app/notes/new?recipientId=${encodeURIComponent(id)}`}>{t('notesCreate')}</ButtonLink>}
+            {state.data.lifecycleStatus === 'ACTIVE' && <ButtonLink to={`${listPath}/${id}/edit`}>{t('recipientEdit')}</ButtonLink>}
+            {state.data.lifecycleStatus === 'ACTIVE' && <Button variant="secondary" onClick={() => { setNotice(null); setConfirming('archive'); }}>{t('recipientArchive')}</Button>}
+            {state.data.lifecycleStatus === 'ARCHIVED' && <Button variant="secondary" onClick={() => { setNotice(null); setConfirming('restore'); }}>{t('recipientRestore')}</Button>}
+          </div>
           {edit && state.data.lifecycleStatus !== 'ACTIVE' && <ButtonLink variant="secondary" to={`${listPath}/${id}`}>{t('recipientDetails')}</ButtonLink>}
         </>}
       </div>

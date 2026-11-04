@@ -14,7 +14,7 @@ The existing `active` column remains as a compatibility projection: it is true o
 
 ## Persistence and migration
 
-Migration: `backend/src/main/resources/db/migration/V8__recipient_archive_lifecycle.sql`.
+Migration: `backend/src/main/resources/db/migration/V9__recipient_archive_lifecycle.sql`.
 
 The migration is additive and leaves recipient identifiers, caregiver ownership, child foreign keys, and historical rows intact. Its backfill is evidence-safe:
 

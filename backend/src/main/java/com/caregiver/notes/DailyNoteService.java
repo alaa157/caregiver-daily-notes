@@ -56,6 +56,7 @@ public class DailyNoteService {
 
   private final DailyNoteRepository notes;
   private final NoteAddendumRepository addenda;
+  private final NoteCorrectionEventRepository corrections;
   private final CareRecipientRepository recipients;
   private final CaregiverRepository caregivers;
   private final AuditService audit;
@@ -64,12 +65,14 @@ public class DailyNoteService {
 
   public DailyNoteService(DailyNoteRepository notes,
       NoteAddendumRepository addenda,
+      NoteCorrectionEventRepository corrections,
       CareRecipientRepository recipients,
       CaregiverRepository caregivers,
       AuditService audit,
       PlatformTransactionManager transactionManager) {
     this.notes = notes;
     this.addenda = addenda;
+    this.corrections = corrections;
     this.recipients = recipients;
     this.caregivers = caregivers;
     this.audit = audit;
@@ -278,13 +281,17 @@ public class DailyNoteService {
         : notes.findAllByCaregiver_IdAndRecipient_IdAndDateBetween(owner, recipientId, from, to, pageable);
     // One aggregate query for the whole page instead of one count per row.
     Map<UUID, Long> counts = new HashMap<>();
+    Map<UUID, Long> correctionCounts = new HashMap<>();
     List<UUID> ids = rows.map(DailyNote::getId).toList();
     if (!ids.isEmpty()) {
       for (Object[] row : notes.countAddendaByNoteIds(ids, owner)) {
         counts.put((UUID) row[0], (Long) row[1]);
       }
+      for (Object[] row : corrections.countByNoteIds(ids, owner)) {
+        correctionCounts.put((UUID) row[0], (Long) row[1]);
+      }
     }
-    return rows.map(note -> response(note, counts.getOrDefault(note.getId(), 0L)));
+    return rows.map(note -> response(note, counts.getOrDefault(note.getId(), 0L), correctionCounts.getOrDefault(note.getId(), 0L)));
   }
 
   @Transactional(readOnly = true)
@@ -335,11 +342,17 @@ public class DailyNoteService {
   }
 
   private NoteResponse response(DailyNote note) {
-    return response(note, addenda.countByNote_IdAndCaregiver_Id(note.getId(), note.getCaregiver().getId()));
+    UUID owner = note.getCaregiver().getId();
+    return response(note, addenda.countByNote_IdAndCaregiver_Id(note.getId(), owner),
+        corrections.countByNote_IdAndCaregiver_Id(note.getId(), owner));
   }
 
   private NoteResponse response(DailyNote note, long count) {
-    return NoteResponse.from(note, count);
+    return response(note, count, corrections.countByNote_IdAndCaregiver_Id(note.getId(), note.getCaregiver().getId()));
+  }
+
+  private NoteResponse response(DailyNote note, long count, long correctionCount) {
+    return NoteResponse.from(note, count, correctionCount);
   }
 
   private String normalizeKey(String key) {

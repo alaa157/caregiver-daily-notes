@@ -1,24 +1,33 @@
 import { useEffect, useRef, useState, type FormEvent } from 'react';
 import { Link } from 'react-router-dom';
+import { isNoteDate, observationFields, noteErrorMessage, uncertainNoteSave, type AddendumInput, type CreateNoteInput, type ObservationField } from '../../api/notes';
 import { ApiError } from '../../lib/api';
-import { noteErrorMessage, observationFields, uncertainNoteSave, type AddendumInput, type CreateNoteInput, type ObservationField } from '../../api/notes';
+import type { Observation, ObservationSet } from '../../api/observation';
 import type { Recipient } from '../../api/recipients';
 import { Button } from '../../components/Button';
 import { FieldError } from '../../components/Feedback';
 import { useI18n } from '../../i18n/I18nProvider';
 import type { MessageKey } from '../../i18n/translations';
 import { createInput, emptyNoteValues, fieldLabels, observationInput, validateNoteValues, type Corrections, type NoteErrors, type NoteValues } from './noteForm';
+import { ObservationStateField } from './ObservationStateField';
 
 interface SharedProps {
   cancelTo: string;
   onSave: (input: CreateNoteInput | AddendumInput, key: string, signal: AbortSignal) => Promise<void>;
 }
-type Props = SharedProps & ({ mode: 'create'; recipients: Recipient[]; onOpen: (recipientId: string, date: string, signal: AbortSignal) => Promise<void> }
+type Props = SharedProps & ({ mode: 'create'; recipients: Recipient[]; onOpen: (recipientId: string, date: string, signal: AbortSignal) => Promise<void>; initialRecipientId?: string; initialDate?: string }
   | { mode: 'append' });
 
 export function NoteForm(props: Props) {
   const { t } = useI18n();
-  const [values, setValues] = useState<NoteValues>(emptyNoteValues);
+  const [values, setValues] = useState<NoteValues>(() => {
+    const initial = emptyNoteValues();
+    if (props.mode === 'create') {
+      if (props.initialRecipientId) initial.recipientId = props.initialRecipientId;
+      if (props.initialDate && isNoteDate(props.initialDate)) initial.date = props.initialDate;
+    }
+    return initial;
+  });
   const [corrections, setCorrections] = useState<Corrections>({});
   const [errors, setErrors] = useState<NoteErrors>({});
   const [failure, setFailure] = useState<MessageKey | null>(null);
@@ -43,7 +52,18 @@ export function NoteForm(props: Props) {
   function showErrors(next: NoteErrors) {
     setErrors(next);
     const first = Object.keys(next)[0];
-    if (first) formRef.current?.querySelector<HTMLElement>(first === 'form' ? '[data-correction]' : `#note-${first}`)?.focus();
+    if (first) {
+      const target = first === 'form'
+        ? '[data-correction]'
+        : first === 'medicationVerification'
+          ? '#note-medicationVerification'
+          : first === 'recipientId'
+            ? '#note-recipientId'
+            : first === 'date'
+              ? '#note-date'
+          : `#note-${first}-state`;
+      formRef.current?.querySelector<HTMLElement>(target)?.focus();
+    }
     return !!first;
   }
   function metadataErrors(): NoteErrors {
@@ -61,8 +81,10 @@ export function NoteForm(props: Props) {
       if (props.mode === 'create' && !recipient?.active) next.recipientId = 'notesRequiredRecipient';
       if (showErrors(next)) return;
       const bytes = crypto.getRandomValues(new Uint8Array(16));
-      attempt.current = { key: Array.from(bytes, (byte) => byte.toString(16).padStart(2, '0')).join(''),
-        input: props.mode === 'create' ? createInput(values) : observationInput(values, corrections) };
+      attempt.current = {
+        key: Array.from(bytes, (byte) => byte.toString(16).padStart(2, '0')).join(''),
+        input: props.mode === 'create' ? createInput(values) : observationInput(values, corrections),
+      };
     }
     const controller = new AbortController();
     request.current = controller;
@@ -93,25 +115,103 @@ export function NoteForm(props: Props) {
       if (!controller.signal.aborted) { request.current = null; setActivity('idle'); }
     }
   }
-  function change(field: keyof NoteValues, value: string) {
+  function changeMetadata(field: 'recipientId' | 'date', value: string) {
     setValues((current) => ({ ...current, [field]: value }));
     setErrors((current) => ({ ...current, [field]: undefined }));
     if (!uncertain) setFailure(null);
   }
-  const hintFor = (field: ObservationField) => field === 'freeText' ? 'notesFreeTextHint' : field === 'medicationStatus' || field === 'medicationVerified' ? 'notesMedicationHint' : null;
-  function fieldInput(field: ObservationField) {
-    const attributes = { id: `note-${field}`, name: field, value: values[field], disabled: locked,
-      'aria-invalid': !!errors[field], 'aria-describedby': [hintFor(field) ? `note-${field}-hint` : '', errors[field] ? `note-${field}-error` : ''].filter(Boolean).join(' ') || undefined,
-      onChange: (event: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement | HTMLSelectElement>) => change(field, event.target.value) };
-    if (field === 'medicationStatus' || field === 'medicationVerified' || field === 'fallReported') return <select {...attributes}>
-      <option value="">{t(props.mode === 'append' ? 'notesChooseValue' : 'notesNotRecorded')}</option>
-      {field === 'medicationStatus' ? <><option value="TAKEN">{t('notesTaken')}</option><option value="MISSED">{t('notesMissed')}</option><option value="UNKNOWN">{t('notesUnknown')}</option></>
-        : <><option value="true">{t('notesYes')}</option><option value="false">{t('notesNo')}</option></>}
-    </select>;
-    if (field === 'freeText') return <textarea {...attributes} dir="auto" rows={6} maxLength={20000} autoCapitalize="none" autoCorrect="off" spellCheck={false} />;
-    if (field === 'painScore') return <input {...attributes} type="number" min={0} max={10} step={1} inputMode="numeric" />;
-    return <input {...attributes} type="text" dir="auto" autoComplete="off" autoCapitalize="none" autoCorrect="off" spellCheck={false} maxLength={40} />;
+  function changeObservation(field: ObservationField, observation: Observation<unknown>) {
+    setValues((current) => ({
+      ...current,
+      observations: { ...current.observations, [field]: observation } as ObservationSet,
+    }));
+    setErrors((current) => ({ ...current, [field]: undefined }));
+    if (!uncertain) setFailure(null);
   }
+  function observationField(field: ObservationField) {
+    const observation = values.observations[field];
+    const hint = field === 'freeText' ? 'notesFreeTextHint'
+      : field === 'medicationStatus' ? 'notesMedicationHint' : undefined;
+    return <ObservationStateField<unknown>
+      id={`note-${field}`}
+      label={t(fieldLabels[field])}
+      observation={observation as Observation<unknown>}
+      onChange={(next) => changeObservation(field, next)}
+      error={errors[field] ? t(errors[field]!) : undefined}
+      hint={hint ? t(hint) : undefined}
+      locked={locked}
+      renderValue={({ id, value, onChange, disabled, describedBy }) => {
+        const common = {
+          id, disabled, 'aria-invalid': errors[field] ? true : undefined,
+          'aria-describedby': describedBy,
+        };
+        if (field === 'medicationStatus') {
+          const current = value === 'TAKEN' || value === 'MISSED' ? value : '';
+          return <select {...common} value={current} onChange={(event) => {
+            const nextValue = event.target.value;
+            onChange(nextValue === 'TAKEN' || nextValue === 'MISSED' ? nextValue : null);
+          }}>
+            <option value="">{t('notesChooseValue')}</option>
+            <option value="TAKEN">{t('notesTaken')}</option>
+            <option value="MISSED">{t('notesMissed')}</option>
+          </select>;
+        }
+        if (field === 'fallReported') {
+          const current = typeof value === 'boolean' ? String(value) : '';
+          return <select {...common} value={current} onChange={(event) => {
+            const nextValue = event.target.value;
+            onChange(nextValue === 'true' ? true : nextValue === 'false' ? false : null);
+          }}>
+            <option value="">{t('notesChooseValue')}</option>
+            <option value="true">{t('notesYes')}</option>
+            <option value="false">{t('notesNo')}</option>
+          </select>;
+        }
+        if (field === 'painScore') {
+          const current = typeof value === 'number' ? String(value) : '';
+          return <input {...common} type="number" min={0} max={10} step={1} inputMode="numeric" value={current}
+            onChange={(event) => onChange(event.target.value === '' ? null : Number(event.target.value))} />;
+        }
+        const current = typeof value === 'string' ? value : '';
+        const onTextChange = (next: string) => onChange(next);
+        return field === 'freeText'
+          ? <textarea {...common} dir="auto" rows={6} maxLength={20000} autoCapitalize="none" autoCorrect="off" spellCheck={false}
+              value={current} onChange={(event) => onTextChange(event.target.value)} />
+          : <input {...common} type="text" dir="auto" autoComplete="off" autoCapitalize="none" autoCorrect="off" spellCheck={false}
+              maxLength={40} value={current} onChange={(event) => onTextChange(event.target.value)} />;
+      }}
+    />;
+  }
+  const verificationControl = (includeCheckbox: boolean) => <>
+    {includeCheckbox && <label className="note-correction">
+      <input type="checkbox" data-correction disabled={locked} checked={!!corrections.medicationVerification}
+        aria-describedby={errors.form ? 'note-corrections-error' : undefined}
+        onChange={(event) => {
+          setCorrections((current) => ({ ...current, medicationVerification: event.target.checked }));
+          setErrors({});
+        }} />
+      {t('notesCorrect')}: {t('notesMedicationVerified')}
+    </label>}
+    {(!includeCheckbox || corrections.medicationVerification) && <div className="note-field note-verification-field">
+      <label htmlFor="note-medicationVerification">{t('notesMedicationVerified')}</label>
+      <select id="note-medicationVerification" value={values.medicationVerification} disabled={locked}
+        aria-invalid={!!errors.medicationVerification}
+        aria-describedby={errors.medicationVerification ? 'note-medicationVerification-error' : 'note-medicationVerification-hint'}
+        onChange={(event) => {
+          const next = event.target.value;
+          if (next === 'VERIFIED' || next === 'UNVERIFIED' || next === 'NOT_ASSERTED') {
+            setValues((current) => ({ ...current, medicationVerification: next }));
+            setErrors((current) => ({ ...current, medicationVerification: undefined }));
+          }
+        }}>
+        <option value="NOT_ASSERTED">{t('obsVerificationNotAsserted')}</option>
+        <option value="VERIFIED">{t('obsVerificationVerified')}</option>
+        <option value="UNVERIFIED">{t('obsVerificationUnverified')}</option>
+      </select>
+      <p id="note-medicationVerification-hint" className="note-hint">{t('obsVerificationHint')}</p>
+      {errors.medicationVerification && <FieldError id="note-medicationVerification-error" message={t(errors.medicationVerification)} />}
+    </div>}
+  </>;
 
   return <form ref={formRef} className="note-form" aria-label={t(props.mode === 'create' ? 'notesCreate' : 'notesAppend')} noValidate onSubmit={(event) => { void submit(event); }}>
     {(failure || uncertain) && <div ref={failureRef} className="note-error" role="alert" tabIndex={-1}>
@@ -122,14 +222,14 @@ export function NoteForm(props: Props) {
     {props.mode === 'create' && <div className="note-metadata note-grid">
       <div className="note-field"><label htmlFor="note-recipientId">{t('notesRecipient')}</label>
         <select id="note-recipientId" name="recipientId" value={values.recipientId} disabled={locked} required aria-invalid={!!errors.recipientId}
-          aria-describedby={errors.recipientId ? 'note-recipientId-error' : undefined} onChange={(event) => change('recipientId', event.target.value)}>
+          aria-describedby={errors.recipientId ? 'note-recipientId-error' : undefined} onChange={(event) => changeMetadata('recipientId', event.target.value)}>
           <option value="">{t('notesChooseRecipient')}</option>
           {props.recipients.map((record) => <option key={record.id} value={record.id}>{record.name}{record.active ? '' : ` (${t('recipientInactive')})`}</option>)}
         </select>{errors.recipientId && <FieldError id="note-recipientId-error" message={t(errors.recipientId)} />}
       </div>
       <div className="note-field"><label htmlFor="note-date">{t('notesDate')}</label>
         <input id="note-date" name="date" type="date" dir="ltr" value={values.date} disabled={locked} required aria-invalid={!!errors.date}
-          aria-describedby={'note-date-hint' + (errors.date ? ' note-date-error' : '')} onChange={(event) => change('date', event.target.value)} />
+          aria-describedby={'note-date-hint' + (errors.date ? ' note-date-error' : '')} onChange={(event) => changeMetadata('date', event.target.value)} />
         <p id="note-date-hint" className="note-hint">{t('notesDateHint')}</p>{errors.date && <FieldError id="note-date-error" message={t(errors.date)} />}
       </div>
       {recipient && !recipient.active && <p className="note-notice">{t('notesInactive')}</p>}
@@ -141,10 +241,12 @@ export function NoteForm(props: Props) {
         {props.mode === 'append' && <label className="note-correction"><input type="checkbox" data-correction disabled={locked} checked={!!corrections[field]}
           aria-describedby={errors.form ? 'note-corrections-error' : undefined} onChange={(event) => { setCorrections((current) => ({ ...current, [field]: event.target.checked })); setErrors({}); }} />
           {t('notesCorrect')}: {t(fieldLabels[field])}</label>}
-        {(props.mode === 'create' || corrections[field]) && <><label htmlFor={`note-${field}`}>{t(fieldLabels[field])}</label>{fieldInput(field)}
-          {hintFor(field) && <p id={`note-${field}-hint`} className="note-hint">{t(hintFor(field)!)}</p>}
-          {errors[field] && <FieldError id={`note-${field}-error`} message={t(errors[field]!)} />}</>}
-      </div>)}</div>
+        {(props.mode === 'create' || corrections[field]) && observationField(field)}
+      </div>)}
+        <div className="note-field note-field--wide">
+          {verificationControl(props.mode === 'append')}
+        </div>
+      </div>
     </fieldset>
     <div className="note-actions">
       <Button type="submit" disabled={pending || (props.mode === 'create' && !!recipient && !recipient.active)}>
