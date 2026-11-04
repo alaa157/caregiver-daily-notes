@@ -29,7 +29,7 @@ public class PlanGenerationService {
     plans.requireGenerationAccess(UUID.fromString(request.recipientId()));
     var generated = summaries.generate(request); // Authorization and owned-source loading happen first.
     SummaryResult summary = generated.result();
-    if (summary.summary().aiUnavailable()) return unavailable(summary.safety());
+    if (summary.summary().aiUnavailable() || summary.summary().observations().isEmpty()) return unavailable(summary.safety());
     UUID recipientId = UUID.fromString(request.recipientId());
     PlanResponse accepted = null;
     try { accepted = plans.latestAcceptedForAi(recipientId); } catch (PlanNotFoundException noAcceptedPlan) { /* First plan. */ }

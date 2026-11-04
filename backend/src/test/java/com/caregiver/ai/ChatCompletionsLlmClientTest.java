@@ -10,8 +10,10 @@ import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
 import java.util.Queue;
+import java.util.concurrent.CancellationException;
 
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
 class ChatCompletionsLlmClientTest {
 
@@ -193,5 +195,34 @@ class ChatCompletionsLlmClientTest {
 
     assertThat(client.complete(request()).status()).isEqualTo(LlmStatus.OK);
     assertThat(exchange.calls.get(0).headers()).doesNotContainKey("Authorization");
+  }
+  @Test
+  void exchangeInterruptionPropagatesAndDoesNotRetry() {
+    var exchange = new FakeExchange();
+    exchange.script.add(() -> { throw new InterruptedException("cancelled"); });
+    var client = client("", null, exchange, ms -> { throw new AssertionError("must not back off"); });
+
+    try {
+      assertThatThrownBy(() -> client.complete(request())).isInstanceOf(CancellationException.class);
+      assertThat(Thread.currentThread().isInterrupted()).isTrue();
+      assertThat(exchange.calls).hasSize(1);
+    } finally {
+      Thread.interrupted();
+    }
+  }
+
+  @Test
+  void backoffInterruptionPropagatesAndDoesNotRetry() {
+    var exchange = new FakeExchange();
+    exchange.addFailure(new IOException("synthetic transport error"));
+    var client = client("", null, exchange, ms -> { throw new InterruptedException("cancelled"); });
+
+    try {
+      assertThatThrownBy(() -> client.complete(request())).isInstanceOf(CancellationException.class);
+      assertThat(Thread.currentThread().isInterrupted()).isTrue();
+      assertThat(exchange.calls).hasSize(1);
+    } finally {
+      Thread.interrupted();
+    }
   }
 }
