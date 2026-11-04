@@ -363,7 +363,9 @@ Use the existing semantic names from `docs/design-system/tokens.css`: `--color-b
 
 - Unit/component/API tests use Vitest (`vitest run` in `web/package.json`), Testing Library (`@testing-library/react`, `user-event`, `jest-dom`) and jsdom.
 - Representative unit files: `web/src/app/App.test.tsx`, `web/src/tests/Overview.test.tsx`, `web/src/tests/Recipients.test.tsx`, `web/src/tests/Notes.test.tsx`, `web/src/tests/History.test.tsx`, `web/src/tests/Summary.test.tsx`, and `web/src/tests/Plans.test.tsx`; API tests include `web/src/tests/recipientsApi.test.ts`, `notesApi.test.ts`, `historyApi.test.ts`, `summaryApi.test.ts`, and `plansApi.test.ts` (all API-test paths except the first are under `web/src/tests/`).
-- Playwright is declared as `@playwright/test`. Existing browser test locations include `web/src/tests/recipients/`, `notes/`, `history/`, `summary/`, `plans/`, and `workflow-live/`. Config files exist in those folders.
+- Playwright is declared as `@playwright/test`. The default runner is configured by `web/playwright.config.ts`; it uses `testDir: '.'` and matches `e2e/**/*.spec.ts` plus `src/tests/**/*.browser.ts`, with desktop, tablet, mobile, and compact-mobile projects.
+- Exact top-level browser specs: `web/e2e/auth.spec.ts`, `web/e2e/foundation.spec.ts`, and `web/e2e/locale-workflow.spec.ts`.
+- Feature browser tests are in `web/src/tests/recipients/`, `notes/`, `history/`, `summary/`, `plans/`, and `workflow-live/`; the individual test/config paths in those folders are listed in the repository tree.
 - Unit command copied from `web/package.json`: `cd web && npm test` (script: `vitest run`).
 - All Playwright tests command copied from `web/package.json`: `cd web && npm run test:e2e` (script builds then runs `playwright test`).
 - Live workflow Playwright command copied from `web/package.json`: `cd web && npm run test:e2e:live` (script builds then uses `src/tests/workflow-live/playwright.config.ts`).
