@@ -9,6 +9,7 @@ public record PlanDocument(int schemaVersion, List<SuggestedPlanChange> changes,
     changes = List.copyOf(changes); medications = List.copyOf(medications);
     for (SuggestedPlanChange change : changes) {
       if (!change.params().keySet().equals(change.action().allowedParams())
+          || change.reason().length() > 500
           || change.params().values().stream().anyMatch(value -> value.isBlank() || value.length() > 500)) throw new ProtectedPlanException();
       if (change.action() == PlanAction.SCHEDULE_CHECK_IN) {
         String days = change.params().get("withinDays");

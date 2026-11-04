@@ -3,6 +3,8 @@ package com.caregiver.ai;
 import com.caregiver.plans.MedicationEntry;
 import com.caregiver.plans.MedicationHardLock;
 import com.caregiver.plans.PlanAction;
+import com.caregiver.plans.PlanDocument;
+import com.caregiver.plans.ProtectedPlanException;
 import com.caregiver.plans.SuggestedPlan;
 import com.caregiver.plans.SuggestedPlanChange;
 import com.caregiver.plans.SuggestedPlanStore;
@@ -71,6 +73,11 @@ public class PlanSuggestionService {
           throw new InvalidModelOutputException("Change " + i + " cites unknown note: " + noteId);
         }
       }
+    }
+    try {
+      new PlanDocument(1, changes, List.of());
+    } catch (ProtectedPlanException invalidDocument) {
+      throw new InvalidModelOutputException("Generated plan contains invalid catalog actions", invalidDocument);
     }
     String basedOn = request.lastAccepted() != null ? request.lastAccepted().versionId() : null;
     SuggestedPlan plan =
