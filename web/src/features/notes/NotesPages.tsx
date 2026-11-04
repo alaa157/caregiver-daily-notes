@@ -9,6 +9,7 @@ import { NoteForm } from './NoteForm';
 import { ObservationValues } from './ObservationValues';
 import { CorrectionEditor } from './CorrectionEditor';
 import { CorrectionHistory } from './CorrectionHistory';
+import { NoteTimelineRow } from './NoteTimelineRow';
 import { useNoteResource, useNotesApis } from './useNotes';
 import './notes.css';
 
@@ -76,12 +77,16 @@ function NoteRecord({ id, append }: { id: string; append: boolean }) {
     {state.status === 'error' && <ErrorState description={t(noteErrorMessage(state.error))} onRetry={reload} />}
     {state.status === 'ready' && <>
       {!append && noticeKey && <p ref={noticeRef} tabIndex={-1} role="status" className="note-success">{t(noticeKey)}</p>}
-      <article className="note-surface" aria-labelledby="original-note-title">
-        <p className="note-recipient"><Link to={`/app/recipients/${encodeURIComponent(state.data.recipient.id)}`}><bdi>{state.data.recipient.name}</bdi></Link> · <time dateTime={state.data.note.date}>{date(state.data.note.date)}</time></p>
-        <h2 id="original-note-title">{t('notesImmutable')}</h2>
-        <p className="note-hint">{t('notesRecordedAt')}: <time dateTime={state.data.note.createdAt}>{date(state.data.note.createdAt, true)}</time></p>
-        <ObservationValues values={state.data.note.observations} />
-      </article>
+      <section className="note-timeline" aria-label={t('notesImmutable')}>
+        <NoteTimelineRow
+          entryLabel={t('notesImmutable')}
+          dateLabel={date(state.data.note.date)}
+          dateTime={state.data.note.date}
+          metadata={<Link to={`/app/recipients/${encodeURIComponent(state.data.recipient.id)}`}><bdi>{state.data.recipient.name}</bdi></Link>}
+          provenance={<>{t('notesRecordedAt')}: <time dateTime={state.data.note.createdAt}>{date(state.data.note.createdAt, true)}</time> · {t('notesTimelineSourceId')}: <bdi>{state.data.note.id}</bdi></>}
+          body={<ObservationValues values={state.data.note.observations} />}
+        />
+      </section>
       {append && !state.data.recipient.active
         ? <p className="note-notice" role="status">{t(state.data.recipient.lifecycleStatus === 'ARCHIVED' ? 'recipientArchivedReadonly' : 'recipientLegacyReviewDescription')}</p>
         : append ? <div className="note-surface"><NoteForm mode="append" cancelTo={`${notesPath}/${id}`} onSave={async (input, key, signal) => {
@@ -101,10 +106,14 @@ function NoteRecord({ id, append }: { id: string; append: boolean }) {
       <section className="note-addenda" aria-labelledby="note-addenda-title">
         <div className="note-actions"><h2 id="note-addenda-title">{t('notesAddenda')}</h2>{state.data.recipient.active ? <ButtonLink to={`${notesPath}/${id}/addenda/new`}>{t('notesAppend')}</ButtonLink> : <p className="note-hint">{t(state.data.recipient.lifecycleStatus === 'ARCHIVED' ? 'recipientArchivedReadonly' : 'recipientLegacyReviewDescription')}</p>}</div>
         {state.data.addenda.length === 0 ? <p className="note-surface">{t('notesNoAddenda')}</p> : <ol className="note-addenda-list">{state.data.addenda.map((item, index) => <li key={item.id}>
-          <article className="note-surface" aria-labelledby={`addendum-${item.id}`}><h3 id={`addendum-${item.id}`}>{t('notesAppend')} {new Intl.NumberFormat(language === 'ar' ? 'ar-EG' : 'en').format(index + 1)}</h3>
-            <p className="note-hint"><time dateTime={item.createdAt}>{date(item.createdAt, true)}</time></p>
-            <ObservationValues values={item.observations} providedFields={item.providedFields}
-              verificationProvided={item.medicationVerificationProvided} correction /></article>
+          <NoteTimelineRow
+            entryLabel={`${t('notesAppend')} ${new Intl.NumberFormat(language === 'ar' ? 'ar-EG' : 'en').format(index + 1)}`}
+            dateLabel={date(item.createdAt, true)}
+            dateTime={item.createdAt}
+            provenance={<><span>{t('notesTimelineSourceId')}:</span> <bdi>{item.id}</bdi></>}
+            body={<ObservationValues values={item.observations} providedFields={item.providedFields}
+              verificationProvided={item.medicationVerificationProvided} correction />}
+          />
         </li>)}</ol>}
       </section></>}
     </>}
