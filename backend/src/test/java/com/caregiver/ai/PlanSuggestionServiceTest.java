@@ -84,6 +84,42 @@ class PlanSuggestionServiceTest {
   }
 
   @Test
+  void rejectsUnknownActionWithoutStoringAPlan() {
+    var store = new InMemorySuggestedPlanStore();
+    var svc = service(store, new LlmResult(LlmStatus.OK,
+        suggestionJson(
+            changeJson("PRESCRIBE_MEDICATION", "\"drug\":\"x\"", "review medication", "\"n1\""), ""), null));
+
+    assertThatThrownBy(() -> svc.suggest(request(Map.of("n1", "ate well"), null, List.of())))
+        .isInstanceOf(InvalidModelOutputException.class);
+    assertThat(store.saves()).isZero();
+  }
+
+  @Test
+  void rejectsInvalidActionParametersWithoutStoringAPlan() {
+    var store = new InMemorySuggestedPlanStore();
+    var svc = service(store, new LlmResult(LlmStatus.OK,
+        suggestionJson(
+            changeJson("SCHEDULE_CHECK_IN", "\"withinDays\":\"0\"", "check soon", "\"n1\""), ""), null));
+
+    assertThatThrownBy(() -> svc.suggest(request(Map.of("n1", "ate well"), null, List.of())))
+        .isInstanceOf(InvalidModelOutputException.class);
+    assertThat(store.saves()).isZero();
+  }
+
+  @Test
+  void rejectsUnsafePlanTextWithoutStoringAPlan() {
+    var store = new InMemorySuggestedPlanStore();
+    var svc = service(store, new LlmResult(LlmStatus.OK,
+        suggestionJson(
+            changeJson("CAREGIVER_EDUCATION_TOPIC", "\"topic\":\"diagnose the condition\"", "review", "\"n1\""), ""), null));
+
+    assertThatThrownBy(() -> svc.suggest(request(Map.of("n1", "ate well"), null, List.of())))
+        .isInstanceOf(InvalidModelOutputException.class);
+    assertThat(store.saves()).isZero();
+  }
+
+  @Test
   void unsupportedTopLevelField_rejectedBeforeStore() {
     var store = new InMemorySuggestedPlanStore();
     var svc = service(store, new LlmResult(LlmStatus.OK,
