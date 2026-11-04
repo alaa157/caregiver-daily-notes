@@ -11,6 +11,7 @@ import '@fontsource-variable/dm-sans';
 import '@fontsource-variable/noto-sans-arabic';
 import '../../docs/design-system/tokens.css';
 import './styles/base.css';
+import { ThemeProvider } from './app/ThemeProvider';
 
 type BootstrapStatus =
   | { kind: 'loading' }
@@ -32,7 +33,7 @@ function Bootstrap() {
   return <I18nProvider>
     {status.kind === 'loading' && <LoadingState />}
     {status.kind === 'error' && <ConfigError retry={() => { setStatus({ kind: 'loading' }); setAttempt((value) => value + 1); }} />}
-    {status.kind === 'ready' && <ApiProvider config={status.config}><AuthProvider><BrowserRouter><App /></BrowserRouter></AuthProvider></ApiProvider>}
+    {status.kind === 'ready' && <ApiProvider config={status.config}><AuthProvider><BrowserRouter><ThemeProvider><App /></ThemeProvider></BrowserRouter></AuthProvider></ApiProvider>}
   </I18nProvider>;
 }
 
