@@ -10,7 +10,7 @@ import { jsonResponse, testToken } from './authFixtures';
 import { recipientFixture } from './recipientFixtures';
 import { noteFixture } from './noteFixtures';
 
-const inactive = { ...recipientFixture, id: 'b2222222-2222-4222-8222-222222222222', name: 'Mona', active: false };
+const inactive = { ...recipientFixture, id: 'b2222222-2222-4222-8222-222222222222', name: 'Mona', active: false, lifecycleStatus: 'ARCHIVED' as const, archivedAt: '2026-10-15T10:00:00Z', archivedBy: 'b1111111-1111-4111-8111-111111111111' };
 const missing = { ...recipientFixture, id: 'c3333333-3333-4333-8333-333333333333', name: 'No note recipient' };
 function renderOverview(path: string, fetcher: ReturnType<typeof vi.fn>, language = 'en') {
   vi.stubGlobal('fetch', fetcher);
