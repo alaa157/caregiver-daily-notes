@@ -77,6 +77,11 @@ describe('recipient API contract', () => {
     await expect(api.list()).rejects.toThrow('Invalid recipient');
   });
 
+  it('rejects an invalid lifecycle status in recipient response', async () => {
+    const { api } = apiWithResponse({ ...recipient, lifecycleStatus: 'DELETED' });
+    await expect(api.get(recipient.id)).rejects.toThrow('Invalid recipient response.');
+  });
+
   it('validates required names and backend length boundaries', () => {
     expect(validateRecipient({ name: '   ', relationship: null })).toEqual({ name: 'recipientNameRequired' });
     expect(validateRecipient({ name: 'x'.repeat(120), relationship: 'y'.repeat(80) })).toEqual({});
