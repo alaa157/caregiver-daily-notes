@@ -51,7 +51,7 @@ describe('care recipients screens', () => {
     expect(within(screen.getByRole('group', { name: 'Filter recipients by lifecycle status' })).getByRole('button', { name: 'Active' })).toHaveAttribute('aria-pressed', 'true');
     expect(screen.queryByText('secret-owner')).not.toBeInTheDocument();
     expect(new Headers(fetcher.mock.calls[0][1].headers).get('Authorization')).toMatch(/^Bearer /);
-    expect(screen.getByRole('navigation').querySelector('[aria-current="page"]')).toHaveTextContent('Care recipients');
+    expect(screen.getByRole('navigation').querySelector('[aria-current="page"]')).toHaveTextContent('People');
   });
 
   it('offers creation from the empty state', async () => {
