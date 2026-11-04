@@ -29,22 +29,26 @@ export function WorkspaceOverview() {
   const load = useCallback(async (signal: AbortSignal) => {
     const recipients = await api.recipients.list(signal);
     if (!recipients.length) return [];
+    const notes: DailyNote[] = [];
+    const rows = (unmatchedStatus: 'missing' | 'error') => {
+      const notesByRecipient = new Map<string, DailyNote>();
+      notes.filter((note) => note.date === date).forEach((note) => notesByRecipient.set(note.recipientId, note));
+      return recipients.map((recipient): RecipientOverview => {
+        const note = notesByRecipient.get(recipient.id) ?? null;
+        return { recipient, note, status: note ? 'recorded' : unmatchedStatus };
+      });
+    };
     try {
-      const notes: DailyNote[] = [];
       let page = await api.notes.history({ from: date, to: date, page: 0, size: 100 }, signal);
       notes.push(...page.content);
       for (let number = 1; number < page.totalPages; number += 1) {
         page = await api.notes.history({ from: date, to: date, page: number, size: 100 }, signal);
         notes.push(...page.content);
       }
-      const notesByRecipient = new Map(notes.map((note) => [note.recipientId, note]));
-      return recipients.map((recipient): RecipientOverview => {
-        const note = notesByRecipient.get(recipient.id) ?? null;
-        return { recipient, note, status: note ? 'recorded' : 'missing' };
-      });
+      return rows('missing');
     } catch (error) {
       if (signal.aborted) throw error;
-      return recipients.map((recipient): RecipientOverview => ({ recipient, note: null, status: 'error' }));
+      return rows('error');
     }
   }, [api, date]);
   const { state, reload } = useNoteResource(load);
@@ -96,4 +100,3 @@ export function WorkspaceOverview() {
     </nav>
   </section>;
 }
-
