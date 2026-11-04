@@ -78,7 +78,7 @@ This document records names and behavior verified in the `main` tree. A NOT FOUN
 - `web/src/features/recipients/RecipientLifecycleDialog.tsx` — archive/restore confirmation UI.
 - `web/src/features/recipients/useRecipientResource.ts` — recipient resource hook.
 - `web/src/features/recipients/recipients.css` — feature styles.
-- Tests: `web/src/tests/Recipients.test.tsx`, `web/src/tests/recipientsApi.test.ts`.
+- Tests: `web/src/tests/Recipients.test.tsx` and `web/src/tests/recipientsApi.test.ts`.
 
 **Backend**
 
@@ -112,7 +112,7 @@ This document records names and behavior verified in the `main` tree. A NOT FOUN
 - `web/src/features/notes/NotesPages.tsx` — note create/detail pages.
 - `web/src/features/notes/ObservationStateField.tsx`, `ObservationValues.tsx`, `CorrectionEditor.tsx`, `CorrectionHistory.tsx`, `useNotes.ts`.
 - `web/src/features/notes/notes.css`.
-- Tests: `web/src/tests/Notes.test.tsx`, `web/src/tests/notesApi.test.ts`.
+- Tests: `web/src/tests/Notes.test.tsx` and `web/src/tests/notesApi.test.ts`.
 
 **Backend**
 
@@ -124,8 +124,16 @@ This document records names and behavior verified in the `main` tree. A NOT FOUN
 - `backend/src/main/java/com/caregiver/notes/NoteCorrectionEvent.java` — `NoteCorrectionEvent` entity.
 - `backend/src/main/java/com/caregiver/notes/NoteAddendum.java` — `NoteAddendum` entity.
 - `backend/src/main/java/com/caregiver/notes/NoteSignalService.java` — `NoteSignalService`.
-- Notes DTOs: `backend/src/main/java/com/caregiver/notes/NoteRequest.java` (`NoteRequest`), `NoteResponse.java` (`NoteResponse`), `NoteDetailResponse.java` (`NoteDetailResponse`), `AddendumRequest.java` (`AddendumRequest`), `NoteAddendumResponse.java` (`NoteAddendumResponse`), `CorrectionRequest.java` (`CorrectionRequest`), `CorrectionHistoryResponse.java` (`CorrectionHistoryResponse`), `NoteCorrectionEventResponse.java` (`NoteCorrectionEventResponse`), and `ObservationSetRequest.java` (`ObservationSetRequest`). All paths in this bullet are under `backend/src/main/java/com/caregiver/notes/`.
-- Shared observation types: `backend/src/main/java/com/caregiver/common/NoteObservations.java` (`NoteObservations`) and `backend/src/main/java/com/caregiver/common/VerificationState.java` (`VerificationState`).
+- `backend/src/main/java/com/caregiver/notes/NoteRequest.java` — `NoteRequest`.
+- `backend/src/main/java/com/caregiver/notes/NoteResponse.java` — `NoteResponse`.
+- `backend/src/main/java/com/caregiver/notes/NoteDetailResponse.java` — `NoteDetailResponse`.
+- `backend/src/main/java/com/caregiver/notes/AddendumRequest.java` — `AddendumRequest`.
+- `backend/src/main/java/com/caregiver/notes/NoteAddendumResponse.java` — `NoteAddendumResponse`.
+- `backend/src/main/java/com/caregiver/notes/CorrectionRequest.java` — `CorrectionRequest`.
+- `backend/src/main/java/com/caregiver/notes/CorrectionHistoryResponse.java` — `CorrectionHistoryResponse`.
+- `backend/src/main/java/com/caregiver/notes/NoteCorrectionEventResponse.java` — `NoteCorrectionEventResponse`.
+- `backend/src/main/java/com/caregiver/notes/ObservationSetRequest.java` — `ObservationSetRequest`.
+- Shared types: `backend/src/main/java/com/caregiver/common/NoteObservations.java` (`NoteObservations`), `backend/src/main/java/com/caregiver/common/NoteSignals.java` (`NoteSignals`), and `backend/src/main/java/com/caregiver/common/VerificationState.java` (`VerificationState`).
 
 **Endpoints**
 
@@ -150,7 +158,7 @@ This document records names and behavior verified in the `main` tree. A NOT FOUN
 - `web/src/features/history/HistoryPage.tsx` — exported `HistoryPage`; reads/writes URL query state and renders paginated history.
 - `web/src/features/history/HistoryFilterForm.tsx`, `web/src/features/history/HistoryNoteCard.tsx`, `web/src/features/history/historyFilters.ts`, and `web/src/features/history/history.css`.
 - API is `createNotesApi().history` in `web/src/api/notes.ts`.
-- Tests: `web/src/tests/History.test.tsx`, `web/src/tests/historyApi.test.ts`; Playwright files under `web/src/tests/history/` and `web/src/tests/history-live/`.
+- Tests: `web/src/tests/History.test.tsx` and `web/src/tests/historyApi.test.ts`; Playwright files are under `web/src/tests/history/` and `web/src/tests/history-live/`.
 
 **Backend**
 
@@ -186,7 +194,7 @@ This document records names and behavior verified in the `main` tree. A NOT FOUN
 - `web/src/features/summary/SummaryPage.tsx` — summary request screen.
 - `web/src/features/summary/SummaryResult.tsx` — summary, uncertainties, evidence, trends rendering.
 - `web/src/features/summary/summary.css`.
-- Tests: `web/src/tests/Summary.test.tsx`, `web/src/tests/summaryApi.test.ts`; Playwright files under `web/src/tests/summary/` and `web/src/tests/summary-live/`.
+- Tests: `web/src/tests/Summary.test.tsx` and `web/src/tests/summaryApi.test.ts`; Playwright files are under `web/src/tests/summary/` and `web/src/tests/summary-live/`.
 
 **Backend**
 
@@ -203,7 +211,7 @@ This document records names and behavior verified in the `main` tree. A NOT FOUN
 - `backend/src/main/java/com/caregiver/ai/SummaryUncertainty.java` — `SummaryUncertainty`.
 - Request DTO: `SummaryRequest(recipientId, periodEndInclusive, periodDays)`; allowed periods are 7, 14, and 30.
 - Response DTO: `SummaryResult(summary, safety, trends)`.
-- Tests include `backend/src/test/java/com/caregiver/ai/SummaryServiceTest.java`, `EvidenceValidatorTest.java`, `SummaryRequestTest.java`, `SummaryPlanHttpTest.java`.
+- Tests include `backend/src/test/java/com/caregiver/ai/SummaryServiceTest.java`, `backend/src/test/java/com/caregiver/ai/EvidenceValidatorTest.java`, `backend/src/test/java/com/caregiver/ai/SummaryRequestTest.java`, and `backend/src/test/java/com/caregiver/ai/SummaryPlanHttpTest.java`.
 
 **Endpoint:** `POST /api/summaries` — body `SummaryRequest`; response `SummaryResult`.
 
@@ -263,7 +271,7 @@ Current implementation instead has provider keys in backend environment configur
 - `web/src/api/plans.ts` — `CarePlan`, `PlanAction`, `PlanChange`, `PlanDocument`, `PlanEditRequest`, `PlanGeneration`, `createPlansApi`, `readPlan`.
 - `web/src/features/plans/PlansPage.tsx` — `PlansPage`, `PlanWorkspace`, `Confirmation`.
 - `web/src/features/plans/PlanCard.tsx`, `web/src/features/plans/PlanEditor.tsx`, `web/src/features/plans/PlanGenerationForm.tsx`, and `web/src/features/plans/plans.css`.
-- Tests: `web/src/tests/Plans.test.tsx`, `web/src/tests/plansApi.test.ts`; Playwright paths under `web/src/tests/plans/` and `web/src/tests/plans-live/`.
+- Tests: `web/src/tests/Plans.test.tsx` and `web/src/tests/plansApi.test.ts`; Playwright paths are under `web/src/tests/plans/` and `web/src/tests/plans-live/`.
 
 **Backend**
 
@@ -327,7 +335,7 @@ Use the existing semantic names from `docs/design-system/tokens.css`: `--color-b
 - `web/src/features/auth/session.ts` — `parseSession`, `storeSession`, `restoreSession`, `clearStoredSession`; uses `sessionStorage` key `caregiver-auth-session-v1`, not localStorage.
 - `web/src/routes/authRedirect.ts` — safe return-path helper.
 - `web/src/features/auth/auth.css`.
-- Tests: `web/src/features/auth/Auth.test.tsx`, `web/src/app/App.test.tsx`.
+- Tests: `web/src/features/auth/Auth.test.tsx` and `web/src/app/App.test.tsx`.
 
 **Backend**
 
@@ -337,7 +345,10 @@ Use the existing semantic names from `docs/design-system/tokens.css`: `--color-b
 - `backend/src/main/java/com/caregiver/auth/JwtAuthenticationFilter.java` — `JwtAuthenticationFilter`.
 - `backend/src/main/java/com/caregiver/auth/AuthContext.java` — `AuthContext`.
 - `backend/src/main/java/com/caregiver/auth/CaregiverPrincipal.java` — `CaregiverPrincipal`.
-- DTOs: `backend/src/main/java/com/caregiver/auth/RegisterRequest.java` (`RegisterRequest`), `LoginRequest.java` (`LoginRequest`), `AuthResponse.java` (`AuthResponse`), and `ErrorResponse.java` (`ErrorResponse`), all in `backend/src/main/java/com/caregiver/auth/`.
+- `backend/src/main/java/com/caregiver/auth/RegisterRequest.java` — `RegisterRequest`.
+- `backend/src/main/java/com/caregiver/auth/LoginRequest.java` — `LoginRequest`.
+- `backend/src/main/java/com/caregiver/auth/AuthResponse.java` — `AuthResponse`.
+- `backend/src/main/java/com/caregiver/auth/ErrorResponse.java` — `ErrorResponse`.
 
 **Endpoints**
 
