@@ -1,3 +1,4 @@
+/* Decision record: ./DECISIONS.md#ds-02. TODO: compute accessible foreground colors per palette and effective theme mode, then verify WCAG AA. No token values are changed by this note. */
 /* Android extraction: feat/standalone-byok-ai. Sources: core/theme/Color.kt, Theme.kt, Spacing.kt; presentation/common/DesignSystem.kt. */
 :root {
   color-scheme: light;
