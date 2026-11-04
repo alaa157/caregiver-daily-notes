@@ -9,6 +9,7 @@ import { ApiProvider } from './lib/api';
 import { loadRuntimeConfig, type RuntimeConfig } from './lib/config';
 import '@fontsource-variable/dm-sans';
 import '@fontsource-variable/noto-sans-arabic';
+import '../../docs/design-system/tokens.css';
 import './styles/base.css';
 
 type BootstrapStatus =
