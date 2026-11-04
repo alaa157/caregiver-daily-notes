@@ -29,6 +29,7 @@ import com.caregiver.recipient.CareRecipientRepository;
 import java.nio.charset.StandardCharsets;
 import java.time.Instant;
 import java.time.LocalDate;
+import java.util.ArrayList;
 import java.util.Comparator;
 import java.util.List;
 import java.util.Optional;
@@ -197,6 +198,63 @@ class SummarySourceLoaderTest {
     verify(correctionEvents).findAllByNote_IdInAndCaregiver_IdOrderByNote_IdAscSequenceNoAsc(
         List.of(note.getId()), OWNER_ID);
     verify(signals).forRange(RECIPIENT_ID, END.minusDays(13), END);
+  }
+
+  @Test
+  @DisplayName("orders interleaved addenda and structured correction events chronologically")
+  void ordersInterleavedAddendaAndStructuredCorrectionEventsChronologically() {
+    when(caregiver.getId()).thenReturn(OWNER_ID);
+    DailyNote note = note("interleaved-note", END, originalObservations());
+    when(notes.findAllByCaregiver_IdAndRecipient_IdAndDateBetweenOrderByDateAsc(
+        OWNER_ID, RECIPIENT_ID, END.minusDays(13), END)).thenReturn(List.of(note));
+
+    Instant earlierAt = CREATED_AT.minusSeconds(30);
+    Instant firstEventAt = CREATED_AT.minusSeconds(20);
+    Instant tiedAt = CREATED_AT.minusSeconds(10);
+    NoteAddendum earlier = addendum(note, "timeline-early", earlierAt,
+        new ObservationPresence(true, false, false, false, false, false, false, false), true,
+        addendumObservations(Observation.state(ObservationState.NOT_RECORDED), "early addendum",
+            VerificationState.UNVERIFIED));
+    NoteAddendum tied = addendum(note, "timeline-tied", tiedAt,
+        new ObservationPresence(false, false, false, false, false, false, false, true), true,
+        addendumObservations(Observation.state(ObservationState.NOT_RECORDED), "tied addendum",
+            VerificationState.UNVERIFIED));
+    NoteAddendum tiedSecond = addendum(note, "timeline-tied-second", tiedAt,
+        new ObservationPresence(false, false, false, false, false, false, false, true), true,
+        addendumObservations(Observation.state(ObservationState.NOT_RECORDED), "second tied addendum",
+            VerificationState.UNVERIFIED));
+    NoteAddendum latest = addendum(note, "timeline-latest", CREATED_AT,
+        new ObservationPresence(false, false, false, false, false, false, false, true), true,
+        addendumObservations(Observation.state(ObservationState.NOT_RECORDED), "latest addendum",
+            VerificationState.UNVERIFIED));
+    when(addenda.findAllByNote_IdInAndCaregiver_IdOrderByCreatedAtAscIdAsc(List.of(note.getId()), OWNER_ID))
+        .thenReturn(List.of(latest, tiedSecond, tied, earlier));
+
+    NoteCorrectionEvent firstEvent = event(note, "timeline-event-1", 1, "mood", CorrectionOperation.SET, "\"first\"");
+    NoteCorrectionEvent secondEvent = event(note, "timeline-event-2", 2, "appetite", CorrectionOperation.SET, "\"second\"");
+    NoteCorrectionEvent thirdEvent = event(note, "timeline-event-3", 3, "sleep", CorrectionOperation.SET, "\"third\"");
+    ReflectionTestUtils.setField(firstEvent, "createdAt", firstEventAt);
+    ReflectionTestUtils.setField(secondEvent, "createdAt", tiedAt);
+    ReflectionTestUtils.setField(thirdEvent, "createdAt", tiedAt);
+    when(correctionEvents.findAllByNote_IdInAndCaregiver_IdOrderByNote_IdAscSequenceNoAsc(
+        List.of(note.getId()), OWNER_ID)).thenReturn(List.of(thirdEvent, firstEvent, secondEvent));
+
+    String transcript = loader.load(request(14)).notes().getFirst().text();
+    List<NoteAddendum> tiedAddenda = List.of(tied, tiedSecond).stream()
+        .sorted(Comparator.comparing(NoteAddendum::getId))
+        .toList();
+    List<Integer> timelinePositions = new ArrayList<>();
+    timelinePositions.add(transcript.indexOf("id: " + earlier.getId()));
+    timelinePositions.add(transcript.indexOf("eventId: " + firstEvent.getId()));
+    tiedAddenda.forEach(addendum -> timelinePositions.add(transcript.indexOf("id: " + addendum.getId())));
+    timelinePositions.add(transcript.indexOf("eventId: " + secondEvent.getId()));
+    timelinePositions.add(transcript.indexOf("eventId: " + thirdEvent.getId()));
+    timelinePositions.add(transcript.indexOf("id: " + latest.getId()));
+
+    assertThat(transcript).contains("early addendum", "tied addendum", "second tied addendum", "latest addendum",
+        "eventId: " + firstEvent.getId(), "eventId: " + secondEvent.getId(), "eventId: " + thirdEvent.getId());
+    assertThat(timelinePositions).allSatisfy(position -> assertThat(position).isGreaterThanOrEqualTo(0));
+    assertThat(timelinePositions).isSorted();
   }
 
   @Test

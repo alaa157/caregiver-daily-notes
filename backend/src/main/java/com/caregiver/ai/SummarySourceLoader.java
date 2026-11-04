@@ -14,7 +14,9 @@ import com.caregiver.notes.NoteCorrectionEventRepository;
 import com.caregiver.notes.NoteSignalService;
 import com.caregiver.recipient.CareRecipientRepository;
 import com.caregiver.recipient.RecipientNotFoundException;
+import java.time.Instant;
 import java.time.LocalDate;
+import java.util.ArrayList;
 import java.util.Comparator;
 import java.util.List;
 import java.util.Map;
@@ -41,6 +43,9 @@ public class SummarySourceLoader {
   }
   public record Source(List<SummaryNote> notes, List<NoteSignals> signals) {}
 
+  private record CorrectionTimelineEntry(Instant createdAt, boolean structuredEvent, long sequenceNo, UUID id,
+      NoteAddendum addendum, NoteCorrectionEvent event) {}
+
   @Transactional(readOnly = true)
   public Source load(SummaryRequest request) {
     UUID recipientId = UUID.fromString(request.recipientId());
@@ -66,15 +71,25 @@ public class SummarySourceLoader {
     // Trends compare the latest two seven-day windows, including for a seven-day summary.
     return new Source(texts, signals.forRange(recipientId, end.minusDays(Math.max(14, request.periodDays()) - 1L), end));
   }
-  private String transcript(DailyNote note, List<NoteAddendum> corrections, List<NoteCorrectionEvent> events) {
+  private String transcript(DailyNote note, List<NoteAddendum> addenda, List<NoteCorrectionEvent> events) {
     StringBuilder text = new StringBuilder("ORIGINAL OBSERVATIONS\n");
     append(text, note.observations());
-    corrections.stream()
-        .sorted(Comparator.comparing(NoteAddendum::getCreatedAt).thenComparing(NoteAddendum::getId))
-        .forEach(correction -> appendAddendum(text, correction));
-    events.stream()
-        .sorted(Comparator.comparingLong(NoteCorrectionEvent::getSequenceNo).thenComparing(NoteCorrectionEvent::getId))
-        .forEach(event -> appendCorrectionEvent(text, event));
+    List<CorrectionTimelineEntry> timeline = new ArrayList<>(addenda.size() + events.size());
+    addenda.forEach(addendum -> timeline.add(new CorrectionTimelineEntry(
+        addendum.getCreatedAt(), false, 0, addendum.getId(), addendum, null)));
+    events.forEach(event -> timeline.add(new CorrectionTimelineEntry(
+        event.getCreatedAt(), true, event.getSequenceNo(), event.getId(), null, event)));
+    timeline.sort(Comparator.comparing(CorrectionTimelineEntry::createdAt)
+        .thenComparing(CorrectionTimelineEntry::structuredEvent)
+        .thenComparingLong(CorrectionTimelineEntry::sequenceNo)
+        .thenComparing(CorrectionTimelineEntry::id));
+    for (CorrectionTimelineEntry entry : timeline) {
+      if (entry.addendum() != null) {
+        appendAddendum(text, entry.addendum());
+      } else {
+        appendCorrectionEvent(text, entry.event());
+      }
+    }
     return text.toString();
   }
   private void appendAddendum(StringBuilder text, NoteAddendum addendum) {
