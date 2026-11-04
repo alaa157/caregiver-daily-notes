@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState, type FormEvent } from 'react';
 import { Link } from 'react-router-dom';
-import { isNoteDate, observationFields, noteErrorMessage, uncertainNoteSave, type AddendumInput, type CreateNoteInput, type ObservationField } from '../../api/notes';
+import { isNoteDate, noteErrorMessage, uncertainNoteSave, type AddendumInput, type CreateNoteInput, type ObservationField } from '../../api/notes';
 import { ApiError } from '../../lib/api';
 import type { Observation, ObservationSet } from '../../api/observation';
 import type { Recipient } from '../../api/recipients';
@@ -95,7 +95,7 @@ export function NoteForm(props: Props) {
       if (!controller.signal.aborted) {
         const unknown = uncertainNoteSave(error) || (props.mode === 'append' && error instanceof ApiError && error.status === 409);
         setUncertain(unknown);
-        setFailure(unknown ? 'notesUncertain' : noteErrorMessage(error));
+        setFailure(unknown ? null : noteErrorMessage(error));
         if (!unknown) attempt.current = null;
       }
     } finally {
@@ -212,6 +212,20 @@ export function NoteForm(props: Props) {
       {errors.medicationVerification && <FieldError id="note-medicationVerification-error" message={t(errors.medicationVerification)} />}
     </div>}
   </>;
+  const observationGroup = (legend: MessageKey, fields: ObservationField[], medication = false) => (
+    <fieldset key={legend} className="note-field-group">
+      <legend>{t(legend)}</legend>
+      <div className="note-grid">
+        {fields.map((field) => <div key={field} className={'note-field' + (field === 'freeText' ? ' note-field--wide' : '')}>
+          {props.mode === 'append' && <label className="note-correction"><input type="checkbox" data-correction disabled={locked} checked={!!corrections[field]}
+            aria-describedby={errors.form ? 'note-corrections-error' : undefined} onChange={(event) => { setCorrections((current) => ({ ...current, [field]: event.target.checked })); setErrors({}); }} />
+            {t('notesCorrect')}: {t(fieldLabels[field])}</label>}
+          {(props.mode === 'create' || corrections[field]) && observationField(field)}
+        </div>)}
+        {medication && <div className="note-field note-field--wide">{verificationControl(props.mode === 'append')}</div>}
+      </div>
+    </fieldset>
+  );
 
   return <form ref={formRef} className="note-form" aria-label={t(props.mode === 'create' ? 'notesCreate' : 'notesAppend')} noValidate onSubmit={(event) => { void submit(event); }}>
     {(failure || uncertain) && <div ref={failureRef} className="note-error" role="alert" tabIndex={-1}>
@@ -219,33 +233,32 @@ export function NoteForm(props: Props) {
       {uncertain && failure && failure !== 'notesUncertain' && <p>{t(failure)}</p>}
       {props.mode === 'append' && <Link to={props.cancelTo}>{t('notesReview')}</Link>}
     </div>}
-    {props.mode === 'create' && <div className="note-metadata note-grid">
-      <div className="note-field"><label htmlFor="note-recipientId">{t('notesRecipient')}</label>
-        <select id="note-recipientId" name="recipientId" value={values.recipientId} disabled={locked} required aria-invalid={!!errors.recipientId}
-          aria-describedby={errors.recipientId ? 'note-recipientId-error' : undefined} onChange={(event) => changeMetadata('recipientId', event.target.value)}>
-          <option value="">{t('notesChooseRecipient')}</option>
-          {props.recipients.map((record) => <option key={record.id} value={record.id}>{record.name}{record.active ? '' : ` (${t('recipientInactive')})`}</option>)}
-        </select>{errors.recipientId && <FieldError id="note-recipientId-error" message={t(errors.recipientId)} />}
+    {props.mode === 'create' && <fieldset className="note-field-group note-metadata">
+      <legend>{t('notesDetailsGroup')}</legend>
+      <div className="note-grid">
+        <div className="note-field"><label htmlFor="note-recipientId">{t('notesRecipient')}</label>
+          <select id="note-recipientId" name="recipientId" value={values.recipientId} disabled={locked} required aria-invalid={!!errors.recipientId}
+            aria-describedby={errors.recipientId ? 'note-recipientId-error' : undefined} onChange={(event) => changeMetadata('recipientId', event.target.value)}>
+            <option value="">{t('notesChooseRecipient')}</option>
+            {props.recipients.map((record) => <option key={record.id} value={record.id}>{record.name}{record.active ? '' : ` (${t('recipientInactive')})`}</option>)}
+          </select>{errors.recipientId && <FieldError id="note-recipientId-error" message={t(errors.recipientId)} />}
+        </div>
+        <div className="note-field"><label htmlFor="note-date">{t('notesDate')}</label>
+          <input id="note-date" name="date" type="date" dir="ltr" value={values.date} disabled={locked} required aria-invalid={!!errors.date}
+            aria-describedby={'note-date-hint' + (errors.date ? ' note-date-error' : '')} onChange={(event) => changeMetadata('date', event.target.value)} />
+          <p id="note-date-hint" className="note-hint">{t('notesDateHint')}</p>{errors.date && <FieldError id="note-date-error" message={t(errors.date)} />}
+        </div>
+        {recipient && !recipient.active && <p className="note-notice">{t('notesInactive')}</p>}
       </div>
-      <div className="note-field"><label htmlFor="note-date">{t('notesDate')}</label>
-        <input id="note-date" name="date" type="date" dir="ltr" value={values.date} disabled={locked} required aria-invalid={!!errors.date}
-          aria-describedby={'note-date-hint' + (errors.date ? ' note-date-error' : '')} onChange={(event) => changeMetadata('date', event.target.value)} />
-        <p id="note-date-hint" className="note-hint">{t('notesDateHint')}</p>{errors.date && <FieldError id="note-date-error" message={t(errors.date)} />}
-      </div>
-      {recipient && !recipient.active && <p className="note-notice">{t('notesInactive')}</p>}
-    </div>}
+    </fieldset>}
     <fieldset className="note-observations"><legend>{t('notesObservations')}</legend>
       <p className="note-hint">{t(props.mode === 'append' ? 'notesAppendDescription' : 'notesObservationHint')}</p>
       {errors.form && <FieldError id="note-corrections-error" message={t(errors.form)} />}
-      <div className="note-grid">{observationFields.map((field) => <div key={field} className={'note-field' + (field === 'freeText' ? ' note-field--wide' : '')}>
-        {props.mode === 'append' && <label className="note-correction"><input type="checkbox" data-correction disabled={locked} checked={!!corrections[field]}
-          aria-describedby={errors.form ? 'note-corrections-error' : undefined} onChange={(event) => { setCorrections((current) => ({ ...current, [field]: event.target.checked })); setErrors({}); }} />
-          {t('notesCorrect')}: {t(fieldLabels[field])}</label>}
-        {(props.mode === 'create' || corrections[field]) && observationField(field)}
-      </div>)}
-        <div className="note-field note-field--wide">
-          {verificationControl(props.mode === 'append')}
-        </div>
+      <div className="note-observation-groups">
+        {observationGroup('notesWellbeingGroup', ['mood', 'appetite', 'sleep', 'mobility'])}
+        {observationGroup('notesMedicationGroup', ['medicationStatus'], true)}
+        {observationGroup('notesSafetyGroup', ['painScore', 'fallReported'])}
+        {observationGroup('notesAdditionalGroup', ['freeText'])}
       </div>
     </fieldset>
     <div className="note-actions">

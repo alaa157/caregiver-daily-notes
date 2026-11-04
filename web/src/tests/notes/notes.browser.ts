@@ -31,6 +31,10 @@ for (const language of ['en', 'ar'] as const) {
     save: ar ? 'حفظ الملاحظة الأصلية' : 'Save original note', saved: ar ? 'تم حفظ الملاحظة الأصلية.' : 'Original note saved.',
     original: ar ? 'الملاحظة الأصلية — للقراءة فقط' : 'Original note — read only', correct: ar ? 'تصحيح هذا الحقل' : 'Correct this field',
     stateLabel: ar ? 'حالة الملاحظة' : 'Observation status',
+    stateRecorded: ar ? 'مسجّل' : 'Recorded', stateUnknown: ar ? 'غير معروف' : 'Unknown',
+    detailsGroup: ar ? 'تفاصيل الملاحظة' : 'Note details', wellbeingGroup: ar ? 'الحالة اليومية' : 'Daily wellbeing',
+    medicationGroup: ar ? 'الدواء' : 'Medication', safetyGroup: ar ? 'الألم والسلامة' : 'Pain and safety',
+    additionalGroup: ar ? 'ملاحظات إضافية' : 'Additional notes',
     append: ar ? 'إضافة تصحيح' : 'Add a correction', saveAppend: ar ? 'حفظ الإضافة' : 'Save addendum',     appended: ar ? 'تم حفظ الإضافة. الملاحظة الأصلية لم تتغير.' : 'Addendum saved. The original note is unchanged.',
     retry: ar ? 'إعادة محاولة الحفظ نفسه' : 'Retry the same save', open: ar ? 'فتح ملاحظة لهذا التاريخ' : 'Open note for this date', new: ar ? 'تسجيل ملاحظة أخرى' : 'Record another note', reload: ar ? 'إعادة المحاولة' : 'Retry',
   };
@@ -46,8 +50,36 @@ for (const language of ['en', 'ar'] as const) {
       await page.getByLabel(label.date, { exact: true }).fill(noteFixture.date);
     }
     async function record(page: Page, field: string) {
-      await page.getByLabel(`${field} — ${label.stateLabel}`, { exact: true }).selectOption('RECORDED');
+      const group = page.getByRole('group', { name: `${field} — ${label.stateLabel}`, exact: true });
+      await group.getByText(label.stateRecorded, { exact: true }).click();
     }
+    async function chooseState(page: Page, field: string, state: 'RECORDED' | 'UNKNOWN') {
+      const group = page.getByRole('group', { name: `${field} — ${label.stateLabel}`, exact: true });
+      await group.getByText(state === 'RECORDED' ? label.stateRecorded : label.stateUnknown, { exact: true }).click();
+    }
+    test('groups editor fields and wraps state choices at 320px', async ({ page }) => {
+      test.skip(page.viewportSize()?.width !== 320, 'This assertion specifically exercises the 320px viewport.');
+      await page.route('**/api/**', async (route) => {
+        const path = new URL(route.request().url()).pathname;
+        return route.fulfill({ json: path === '/api/recipients' ? [recipientFixture] : path.startsWith('/api/recipients/') ? recipientFixture : [] });
+      });
+      await page.goto(`${root}/new`);
+      await expect(page.getByRole('group', { name: label.detailsGroup, exact: true })).toBeVisible();
+      const observations = page.getByRole('group', { name: ar ? 'الملاحظات' : 'Observations', exact: true });
+      for (const legend of [label.wellbeingGroup, label.medicationGroup, label.safetyGroup, label.additionalGroup]) {
+        await expect(observations.getByRole('group', { name: legend, exact: true })).toBeVisible();
+      }
+      const choices = page.locator('.obs-state-options').first().locator('.obs-state-choice');
+      await expect(choices).toHaveCount(4);
+      for (const choice of await choices.all()) await expect(choice).toBeVisible();
+      const first = await choices.nth(0).boundingBox();
+      const second = await choices.nth(1).boundingBox();
+      expect(first).not.toBeNull();
+      expect(second).not.toBeNull();
+      expect(second!.y).toBeGreaterThan(first!.y);
+      expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBe(true);
+      await expect(page.getByRole('button', { name: label.save, exact: true })).toBeVisible();
+    });
     test('creates all observations, preserves mixed text, and appends a correction without changing the original', async ({ page }, info) => {
       let original = { ...noteFixture };
       const addenda: typeof addendumFixture[] = [];
@@ -99,13 +131,13 @@ for (const language of ['en', 'ar'] as const) {
         await record(page, name);
         await page.getByRole('textbox', { name, exact: true }).fill(value);
       }
-      await page.getByLabel(`${label.medication} — ${label.stateLabel}`, { exact: true }).selectOption('UNKNOWN');
+      await chooseState(page, label.medication, 'UNKNOWN');
       await page.getByLabel(label.verified, { exact: true }).selectOption('UNVERIFIED');
       await record(page, label.pain);
       await page.getByRole('spinbutton', { name: label.pain, exact: true }).fill('0');
       await record(page, label.falls);
       await page.getByRole('combobox', { name: label.falls, exact: true }).selectOption('false');
-      await page.getByLabel(`${label.text} — ${label.stateLabel}`, { exact: true }).selectOption('RECORDED');
+      await record(page, label.text);
       await page.getByRole('textbox', { name: label.text, exact: true }).fill(noteObservations.freeText!);
       await page.screenshot({ path: info.outputPath(`note-form-${language}.png`), fullPage: true });
       await page.getByRole('button', { name: label.save, exact: true }).click();
@@ -176,7 +208,7 @@ for (const language of ['en', 'ar'] as const) {
       await metadata(page);
       await page.getByRole('button', { name: label.save, exact: true }).click();
       await expect(page.getByRole('alert')).toBeFocused();
-      await expect(page.getByLabel(`${label.text} — ${label.stateLabel}`, { exact: true })).toBeDisabled();
+      await expect(page.getByRole('group', { name: `${label.text} — ${label.stateLabel}`, exact: true }).getByRole('radio').first()).toBeDisabled();
       await accessibility(page);
       await page.getByRole('button', { name: label.retry, exact: true }).click();
       await expect(page.getByRole('status')).toHaveText(label.saved);
@@ -207,7 +239,7 @@ for (const language of ['en', 'ar'] as const) {
       await page.getByRole('button', { name: label.save, exact: true }).click();
       await expect(page.getByRole('alert')).toBeFocused();
       await expect(page.getByText('private diagnostics', { exact: true })).toHaveCount(0);
-      await expect(page.getByLabel(`${label.text} — ${label.stateLabel}`, { exact: true })).toBeEnabled();
+      await expect(page.getByRole('group', { name: `${label.text} — ${label.stateLabel}`, exact: true }).getByRole('radio').first()).toBeEnabled();
       await accessibility(page);
     });
     test('retries uncertain addenda without changing the original and clears rejected sessions', async ({ page }) => {
