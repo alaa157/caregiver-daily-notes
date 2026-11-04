@@ -20,7 +20,8 @@ public record NoteAddendumResponse(
     String freeText,
     Instant createdAt,
     NoteObservations observations,
-    List<String> providedFields) {
+    List<String> providedFields,
+    boolean medicationVerificationProvided) {
 
   static NoteAddendumResponse from(NoteAddendum addendum) {
     NoteObservations observations = addendum.observations();
@@ -39,6 +40,7 @@ public record NoteAddendumResponse(
         observations.freeText().compatibilityValue(),
         addendum.getCreatedAt(),
         observations,
-        addendum.observationPresence().fieldNames());
+        addendum.observationPresence().fieldNames(),
+        addendum.isMedicationVerificationProvided());
   }
 }

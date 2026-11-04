@@ -1,10 +1,22 @@
 import { ApiError, type ApiClient } from '../lib/api';
 import { isRecipientId } from './recipients';
 import type { MessageKey } from '../i18n/translations';
+import {
+  fromLegacyValue,
+  isObservation,
+  isObservationState,
+  isVerificationValue,
+  structuredObservationFields,
+  type NoteObservations,
+  type ObservationState,
+  type ObservationSet,
+  type StructuredObservationField,
+  type VerificationValue,
+} from './observation';
 
-export const observationFields = ['mood', 'appetite', 'sleep', 'mobility', 'medicationStatus', 'medicationVerified', 'painScore', 'fallReported', 'freeText'] as const;
-export type ObservationField = typeof observationFields[number];
-export interface Observations {
+export const observationFields = structuredObservationFields;
+export type ObservationField = StructuredObservationField;
+export interface LegacyObservations {
   mood: string | null;
   appetite: string | null;
   sleep: string | null;
@@ -15,12 +27,40 @@ export interface Observations {
   fallReported: boolean | null;
   freeText: string | null;
 }
-export interface DailyNote extends Observations {
-  id: string; recipientId: string; date: string; addendumCount: number; createdAt: string;
+export interface DailyNote extends LegacyObservations {
+  id: string; recipientId: string; date: string; addendumCount: number; correctionCount: number; createdAt: string;
+  observations: NoteObservations;
 }
-export interface NoteAddendum extends Observations { id: string; noteId: string; createdAt: string }
-export interface CreateNoteInput extends Observations { recipientId: string; date: string }
-export type AddendumInput = Partial<Observations>;
+export interface NoteAddendum extends LegacyObservations {
+  id: string; noteId: string; createdAt: string; observations: NoteObservations;
+  providedFields: StructuredObservationField[];
+  medicationVerificationProvided: boolean;
+}
+export interface CreateNoteInput {
+  recipientId: string;
+  date: string;
+  observations: ObservationSet;
+  medicationVerification: VerificationValue;
+}
+export interface AddendumInput {
+  observations: Partial<ObservationSet>;
+  medicationVerification?: VerificationValue;
+}
+export type CorrectionOperation = 'SET' | 'CLEAR' | 'UNKNOWN' | 'NOT_RECORDED';
+export interface FieldCorrection { field: ObservationField; operation: CorrectionOperation; value?: string | number | boolean }
+export interface EffectiveObservation {
+  state: ObservationState; value: string | number | boolean | null; rawValue: string | number | boolean | null;
+  lastOperation: CorrectionOperation | null; eventId: string | null; actorId: string | null; updatedAt: string | null;
+}
+export interface CorrectionEvent {
+  id: string; noteId: string; sequenceNo: number; createdAt: string; actorId: string;
+  field: ObservationField; operation: CorrectionOperation; value: string | number | boolean | null;
+  previousEffective: EffectiveObservation; effectiveAfter: EffectiveObservation;
+}
+
+export interface CorrectionHistory {
+  originalNote: DailyNote; events: CorrectionEvent[]; effectiveObservations: Record<ObservationField, EffectiveObservation>;
+}
 export interface NotesHistoryQuery {
   from: string; to: string; recipientId?: string; page?: number; size?: number;
 }
@@ -38,9 +78,9 @@ function object(value: unknown): Record<string, unknown> {
   if (!value || typeof value !== 'object' || Array.isArray(value)) throw new Error('Invalid note response.');
   return value as Record<string, unknown>;
 }
-function readObservations(item: Record<string, unknown>): Observations {
-  const result = {} as Observations;
-  for (const key of observationFields) {
+function readLegacyObservations(item: Record<string, unknown>): LegacyObservations {
+  const result = {} as LegacyObservations;
+  for (const key of [...observationFields, 'medicationVerified'] as const) {
     const value = item[key];
     const valid = value === null || (key === 'painScore'
       ? typeof value === 'number' && Number.isInteger(value) && value >= 0 && value <= 10
@@ -53,6 +93,47 @@ function readObservations(item: Record<string, unknown>): Observations {
   }
   return result;
 }
+function readStructuredObservations(item: Record<string, unknown>, legacy: LegacyObservations): NoteObservations {
+  const observations = item.observations;
+  if (observations === undefined) {
+    const medicationStatus = legacy.medicationStatus === 'UNKNOWN'
+      ? { state: 'UNKNOWN' as const }
+      : fromLegacyValue(legacy.medicationStatus);
+    return {
+      mood: fromLegacyValue(legacy.mood),
+      appetite: fromLegacyValue(legacy.appetite),
+      sleep: fromLegacyValue(legacy.sleep),
+      mobility: fromLegacyValue(legacy.mobility),
+      medicationStatus,
+      painScore: fromLegacyValue(legacy.painScore),
+      fallReported: fromLegacyValue(legacy.fallReported),
+      freeText: fromLegacyValue(legacy.freeText),
+      medicationVerification: legacy.medicationVerified === true ? 'VERIFIED'
+        : legacy.medicationVerified === false ? 'UNVERIFIED' : 'NOT_ASSERTED',
+    };
+  }
+  if (!observations || typeof observations !== 'object' || Array.isArray(observations)) {
+    throw new Error('Invalid note response.');
+  }
+  const fields = observations as Record<string, unknown>;
+  for (const field of observationFields) {
+    if (!isObservation(fields[field], field)) throw new Error('Invalid note response.');
+  }
+  if (!isVerificationValue(fields.medicationVerification)) throw new Error('Invalid note response.');
+  return fields as unknown as NoteObservations;
+}
+function readProvidedFields(value: unknown, legacy: LegacyObservations): StructuredObservationField[] {
+  if (value === undefined) {
+    return observationFields.filter((field) => legacy[field] !== null);
+  }
+  if (!Array.isArray(value) || value.some((field) =>
+    typeof field !== 'string' || !(observationFields as readonly string[]).includes(field))) {
+    throw new Error('Invalid note response.');
+  }
+  const fields = value as StructuredObservationField[];
+  if (new Set(fields).size !== fields.length) throw new Error('Invalid note response.');
+  return fields;
+}
 function readIdentity(item: Record<string, unknown>) {
   if (typeof item.id !== 'string' || !isRecipientId(item.id)
     || typeof item.createdAt !== 'string' || !Number.isFinite(Date.parse(item.createdAt))) throw new Error('Invalid note response.');
@@ -60,24 +141,102 @@ function readIdentity(item: Record<string, unknown>) {
 }
 function readNote(value: unknown): DailyNote {
   const item = object(value);
+  const correctionCount = item.correctionCount ?? 0;
   if (typeof item.recipientId !== 'string' || !isRecipientId(item.recipientId)
     || typeof item.date !== 'string' || !isNoteDate(item.date)
-    || typeof item.addendumCount !== 'number' || !Number.isSafeInteger(item.addendumCount) || item.addendumCount < 0) throw new Error('Invalid note response.');
-  return { ...readIdentity(item), ...readObservations(item), recipientId: item.recipientId, date: item.date, addendumCount: item.addendumCount };
+    || typeof item.addendumCount !== 'number' || !Number.isSafeInteger(item.addendumCount) || item.addendumCount < 0
+    || typeof correctionCount !== 'number' || !Number.isSafeInteger(correctionCount) || correctionCount < 0) throw new Error('Invalid note response.');
+  const legacy = readLegacyObservations(item);
+  return {
+    ...readIdentity(item), ...legacy, recipientId: item.recipientId, date: item.date,
+    addendumCount: item.addendumCount, correctionCount, observations: readStructuredObservations(item, legacy),
+  };
 }
 function readAddendum(value: unknown, noteId: string): NoteAddendum {
   const item = object(value);
   if (item.noteId !== noteId) throw new Error('Invalid note response.');
-  return { ...readIdentity(item), ...readObservations(item), noteId };
+  const legacy = readLegacyObservations(item);
+  const medicationVerificationProvided = item.medicationVerificationProvided === undefined
+    ? legacy.medicationVerified !== null
+    : item.medicationVerificationProvided;
+  if (typeof medicationVerificationProvided !== 'boolean') throw new Error('Invalid note response.');
+  return {
+    ...readIdentity(item), ...legacy, noteId,
+    observations: readStructuredObservations(item, legacy),
+    providedFields: readProvidedFields(item.providedFields, legacy),
+    medicationVerificationProvided,
+  };
 }
 const notePath = (id: string): `/api/notes/${string}` => {
   if (!isRecipientId(id)) throw new ApiError(404, null);
   return `/api/notes/${encodeURIComponent(id)}`;
 };
 function editableFields(input: AddendumInput): AddendumInput {
-  const body: AddendumInput = {};
-  for (const key of observationFields) if (Object.hasOwn(input, key) && input[key] !== undefined) Object.assign(body, { [key]: input[key] });
-  return body;
+  const observations: Partial<ObservationSet> = {};
+  for (const key of observationFields) {
+    const observation = input.observations?.[key];
+    if (observation !== undefined) {
+      if (!isObservation(observation, key)) throw new Error('Invalid observation input.');
+      Object.assign(observations, { [key]: observation });
+    }
+  }
+  if (input.medicationVerification !== undefined && !isVerificationValue(input.medicationVerification)) {
+    throw new Error('Invalid verification input.');
+  }
+  return {
+    observations,
+    ...(input.medicationVerification === undefined ? {} : { medicationVerification: input.medicationVerification }),
+  };
+}
+const correctionOperations: CorrectionOperation[] = ['SET', 'CLEAR', 'UNKNOWN', 'NOT_RECORDED'];
+function validFieldValue(field: ObservationField, value: unknown): value is string | number | boolean {
+  if (field === 'painScore') return typeof value === 'number' && Number.isInteger(value) && value >= 0 && value <= 10;
+  if (field === 'fallReported') return typeof value === 'boolean';
+  if (field === 'medicationStatus') return value === 'TAKEN' || value === 'MISSED';
+  return typeof value === 'string' && value.length <= (field === 'freeText' ? 20000 : 40);
+}
+function readEffective(value: unknown, field: ObservationField): EffectiveObservation {
+  const entry = object(value);
+  if (!isObservationState(entry.state)
+    || !(entry.value === null || validFieldValue(field, entry.value))
+    || !(entry.rawValue === null || validFieldValue(field, entry.rawValue))
+    || !(entry.lastOperation === null || correctionOperations.includes(entry.lastOperation as CorrectionOperation))
+    || !(entry.eventId === null || (typeof entry.eventId === 'string' && isRecipientId(entry.eventId)))
+    || !(entry.actorId === null || (typeof entry.actorId === 'string' && isRecipientId(entry.actorId)))
+    || !(entry.updatedAt === null || (typeof entry.updatedAt === 'string' && Number.isFinite(Date.parse(entry.updatedAt))))
+    || (entry.state === 'RECORDED' && entry.value === null)
+    || (entry.state !== 'RECORDED' && entry.value !== null)
+    || (entry.state !== 'LEGACY_AMBIGUOUS' && entry.rawValue !== null)) throw new Error('Invalid effective observation response.');
+  return { state: entry.state, value: entry.value as EffectiveObservation['value'], rawValue: entry.rawValue as EffectiveObservation['rawValue'],
+    lastOperation: entry.lastOperation as EffectiveObservation['lastOperation'], eventId: entry.eventId as string | null,
+    actorId: entry.actorId as string | null, updatedAt: entry.updatedAt as string | null };
+}
+function readCorrectionHistory(value: unknown, noteId: string): CorrectionHistory {
+  const item = object(value);
+  const originalNote = readNote(item.originalNote);
+  if (originalNote.id !== noteId || !Array.isArray(item.events) || !item.effectiveObservations || typeof item.effectiveObservations !== 'object') throw new Error('Invalid correction history response.');
+  let priorSequence = 0;
+  const events = item.events.map((raw): CorrectionEvent => {
+    const event = object(raw);
+    if (typeof event.id !== 'string' || !isRecipientId(event.id) || event.noteId !== noteId
+      || typeof event.sequenceNo !== 'number' || !Number.isSafeInteger(event.sequenceNo) || event.sequenceNo <= priorSequence
+      || typeof event.createdAt !== 'string' || !Number.isFinite(Date.parse(event.createdAt))
+      || typeof event.actorId !== 'string' || !isRecipientId(event.actorId)
+      || typeof event.field !== 'string' || !observationFields.includes(event.field as ObservationField)
+      || !correctionOperations.includes(event.operation as CorrectionOperation)) throw new Error('Invalid correction history response.');
+    const field = event.field as ObservationField;
+    const operation = event.operation as CorrectionOperation;
+    const correctionValue = event.value;
+    if (operation === 'SET' ? !validFieldValue(field, correctionValue) : correctionValue !== null) throw new Error('Invalid correction history response.');
+    priorSequence = event.sequenceNo;
+    return { id: event.id, noteId, sequenceNo: event.sequenceNo, createdAt: event.createdAt, actorId: event.actorId,
+      field, operation, value: correctionValue as CorrectionEvent['value'],
+      previousEffective: readEffective(event.previousEffective, field), effectiveAfter: readEffective(event.effectiveAfter, field) };
+  });
+  const source = item.effectiveObservations as Record<string, unknown>;
+  const effective = {} as Record<ObservationField, EffectiveObservation>;
+  for (const field of observationFields) effective[field] = readEffective(source[field], field);
+  return { originalNote, events, effectiveObservations: effective };
 }
 function writeHeaders(key: string) {
   if (!key || key.length > 100 || !/^[\w-]+$/.test(key)) throw new Error('Invalid save key.');
@@ -117,8 +276,15 @@ export function createNotesApi(client: ApiClient) {
     },
     async create(input: CreateNoteInput, key: string, signal?: AbortSignal) {
       if (!isRecipientId(input.recipientId) || !isNoteDate(input.date)) throw new ApiError(400, null);
+      for (const field of observationFields) {
+        if (!isObservation(input.observations?.[field], field)) throw new Error('Invalid observation input.');
+      }
+      if (!isVerificationValue(input.medicationVerification)) throw new Error('Invalid verification input.');
       const result = readNote(await client.request({ path: '/api/notes', method: 'POST', signal,
-        headers: writeHeaders(key), body: { recipientId: input.recipientId, date: input.date, ...editableFields(input) } }));
+        headers: writeHeaders(key), body: {
+          recipientId: input.recipientId, date: input.date,
+          observations: input.observations, medicationVerification: input.medicationVerification,
+        } }));
       if (result.recipientId !== input.recipientId || result.date !== input.date) throw new Error('Invalid note response.');
       return result;
     },
@@ -130,6 +296,18 @@ export function createNotesApi(client: ApiClient) {
     async append(id: string, input: AddendumInput, key: string, signal?: AbortSignal) {
       return readAddendum(await client.request({ path: `${notePath(id)}/addenda`, method: 'POST', signal,
         headers: writeHeaders(key), body: editableFields(input) }), id);
+    },
+    async correctionHistory(id: string, signal?: AbortSignal) {
+      return readCorrectionHistory(await client.request({ path: `${notePath(id)}/corrections`, signal }), id);
+    },
+    async correct(id: string, corrections: FieldCorrection[], key: string, signal?: AbortSignal) {
+      if (!corrections.length || corrections.some((entry) => !observationFields.includes(entry.field)
+        || !correctionOperations.includes(entry.operation)
+        || (entry.operation === 'SET' ? !validFieldValue(entry.field, entry.value) : Object.hasOwn(entry, 'value')))) {
+        throw new ApiError(400, null);
+      }
+      return readCorrectionHistory(await client.request({ path: `${notePath(id)}/corrections`, method: 'POST', signal,
+        headers: writeHeaders(key), body: { corrections } }), id);
     },
   };
 }

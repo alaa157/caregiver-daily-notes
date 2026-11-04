@@ -4,12 +4,23 @@ Authenticated routes:
 
 | Route | Behavior |
 | --- | --- |
-| `/app/recipients` | Separate Active, Archived, and Needs review lists. |
+| `/app/recipients` | List, search by name/relationship, with separate Active, Archived, and Needs review lists. |
 | `/app/recipients/new` | Create an ACTIVE recipient. |
-| `/app/recipients/:id` | Read owned recipient details and lifecycle history. |
+| `/app/recipients/:id` | Read owned recipient details and lifecycle history; navigate to recipient-filtered history or create a note for an active recipient. |
 | `/app/recipients/:id/edit` | Edit ACTIVE recipients only; archived and legacy-review records are read-only. |
 
 ## Lifecycle and API contract
+
+Search filters the already-loaded caregiver-owned list by recipient name and
+nullable relationship. Detail pages link to history using `?recipientId=<UUID>`
+and to note creation using a prefilled recipient query. When an active recipient
+and valid date are supplied in the create-note URL, the form preselects them.
+
+The Web application implements the reversible recipient archive lifecycle:
+`ACTIVE`, `ARCHIVED`, and `LEGACY_INACTIVE_REVIEW`. Archived records remain
+readable and can be restored. Legacy inactive records remain for review.
+
+## Backend contract
 
 The canonical Web lifecycle states are `ACTIVE`, `ARCHIVED`, and
 `LEGACY_INACTIVE_REVIEW`. The last state is for pre-existing `active=false`

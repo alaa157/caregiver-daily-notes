@@ -8,7 +8,7 @@ import { defaultHistoryFilters } from '../features/history/historyFilters';
 import { I18nProvider } from '../i18n/I18nProvider';
 import { ApiProvider } from '../lib/api';
 import { jsonResponse, testToken } from './authFixtures';
-import { historyNote, historyPage } from './historyFixtures';
+import { correctionHistoryFixture, historyNote, historyPage } from './historyFixtures';
 import { addendumFixture, noteFixture, noteObservations } from './noteFixtures';
 import { recipientFixture } from './recipientFixtures';
 
@@ -26,7 +26,8 @@ function dataFetcher(override?: (url: URL, init: RequestInit) => Response | Prom
   return vi.fn().mockImplementation((path: string, init: RequestInit) => {
     const url = new URL(path, 'http://localhost');
     return Promise.resolve(override?.(url, init) ?? jsonResponse(url.pathname === '/api/recipients' ? [recipientFixture, otherRecipient]
-      : url.pathname.endsWith('/addenda') ? [addendumFixture] : historyPage()));
+      : url.pathname.endsWith('/addenda') ? [addendumFixture]
+        : url.pathname.endsWith('/corrections') ? correctionHistoryFixture() : historyPage()));
   });
 }
 const queries = (fetcher: ReturnType<typeof vi.fn>) => fetcher.mock.calls.map(([path]) => new URL(path, 'http://localhost')).filter((url) => url.pathname === '/api/notes');
@@ -55,9 +56,9 @@ describe('history screen, filters and immutable records', () => {
     expect(document.title).toContain('Notes history');
     expect(within(card).getByText('Original note')).toBeInTheDocument();
     await userEvent.click(within(card).getByText('View original observations and text'));
-    expect(within(card).getByText('Unknown / unsure')).toBeInTheDocument();
+    expect(within(card).getByText('Unknown')).toBeInTheDocument();
     expect(within(card).getByText('0')).toBeInTheDocument();
-    expect(within(card).getAllByText('No')).toHaveLength(2);
+    expect(within(card).getByText('No')).toBeInTheDocument();
     expect(within(card).getByText(/غير متأكد من الدواء/).textContent).toBe(noteObservations.freeText);
     expect(document.querySelector('script')).not.toBeInTheDocument();
     expect(fetcher.mock.calls.some(([path]) => path.includes('/addenda'))).toBe(false);
