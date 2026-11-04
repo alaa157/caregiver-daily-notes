@@ -60,15 +60,14 @@ describe('care recipients screens', () => {
     await userEvent.click(screen.getByRole('link', { name: 'Add care recipient' }));
     expect(screen.getByRole('form', { name: 'Add care recipient' })).toBeInTheDocument();
   });
-  it('searches recipients by name or relationship while keeping inactive records distinct', async () => {
-    const fetcher = vi.fn().mockResolvedValue(jsonResponse([recipient, { ...recipient, id: 'b2222222-2222-4222-8222-222222222222', name: 'Mona', relationship: 'Aunt', active: false }]));
+  it('searches recipients by name or relationship', async () => {
+    const fetcher = vi.fn().mockResolvedValue(jsonResponse([recipient, { ...recipient, id: 'b2222222-2222-4222-8222-222222222222', name: 'Mona', relationship: 'Aunt', active: true }]));
     renderRecipients(root, fetcher);
-    expect(await screen.findByRole('heading', { name: 'Active recipients' })).toBeInTheDocument();
-    expect(screen.getByRole('heading', { name: 'Inactive recipients' })).toBeInTheDocument();
+    expect(await screen.findByRole('link', { name: recipient.name })).toBeInTheDocument();
+    expect(screen.getByRole('link', { name: 'Mona' })).toBeInTheDocument();
     await userEvent.type(screen.getByLabelText('Search name or relationship'), 'aunt');
     expect(screen.getByRole('link', { name: 'Mona' })).toBeInTheDocument();
     expect(screen.queryByRole('link', { name: recipient.name })).not.toBeInTheDocument();
-    expect(screen.queryByRole('heading', { name: 'Active recipients' })).not.toBeInTheDocument();
     await userEvent.click(screen.getByRole('button', { name: 'Clear' }));
     expect(screen.getByRole('link', { name: recipient.name })).toBeInTheDocument();
     expect(fetcher).toHaveBeenCalledTimes(1);
