@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useRef, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { useSearchParams } from 'react-router-dom';
 import { noteErrorMessage } from '../../api/notes';
 import type { Recipient } from '../../api/recipients';
@@ -12,22 +12,28 @@ import { defaultHistoryFilters, historyPageSizes, historySearch, readHistorySear
 import '../notes/notes.css';
 import './history.css';
 
-function HistoryResults({ filters: { recipientId, from, to }, page, size, recipients, onPage, focusResults }: {
+function HistoryResults({ filters: { recipientId, from, to }, page, size, recipients, onPage, focusResults, pageSizeChanged, onPageSizeResolved }: {
   filters: HistoryFilters; page: number; size: number; recipients: Recipient[];
-  onPage: (page: number) => void; focusResults: boolean;
+  onPage: (page: number) => void; focusResults: boolean; pageSizeChanged: boolean;
+  onPageSizeResolved: (pageIsValid: boolean) => void;
 }) {
   const { t, language } = useI18n();
   const api = useNotesApis();
   const heading = useRef<HTMLHeadingElement>(null);
   const load = useCallback((signal: AbortSignal) => api.notes.history({ from, to, recipientId: recipientId || undefined, page, size }, signal), [api, recipientId, from, to, page, size]);
   const { state, reload } = useNoteResource(load);
-  useEffect(() => { if (state.status === 'ready' && focusResults) heading.current?.focus(); }, [state.status, focusResults]);
+  const pageSizeOutOfRange = state.status === 'ready' && pageSizeChanged && page > 0 && page >= state.data.totalPages;
+  useEffect(() => {
+    if (state.status === 'ready' && pageSizeChanged) onPageSizeResolved(page === 0 || page < state.data.totalPages);
+  }, [state, page, pageSizeChanged, onPageSizeResolved]);
+  useEffect(() => { if (state.status === 'ready' && focusResults && !pageSizeOutOfRange) heading.current?.focus(); }, [state.status, focusResults, pageSizeOutOfRange]);
   const number = (value: number) => new Intl.NumberFormat(language === 'ar' ? 'ar-EG' : 'en').format(value);
-  return <section className="history-results" aria-labelledby="history-results-title" aria-busy={state.status === 'loading'}>
+  return <section className="history-results" aria-labelledby="history-results-title" aria-busy={state.status === 'loading' || pageSizeOutOfRange}>
     <h2 ref={heading} id="history-results-title" tabIndex={-1}>{t('historyResults')}</h2>
     {state.status === 'loading' && <LoadingState label={t('historyLoading')} />}
     {state.status === 'error' && <ErrorState description={t(noteErrorMessage(state.error))} onRetry={reload} />}
-    {state.status === 'ready' && <>
+    {pageSizeOutOfRange && <LoadingState label={t('historyLoading')} />}
+    {state.status === 'ready' && !pageSizeOutOfRange && <>
       <p className="history-result-count" role="status">{t('historyShowing')} {number(state.data.content.length ? page * size + 1 : 0)}–{number(state.data.content.length ? page * size + state.data.content.length : 0)} {t('historyOf')} {number(state.data.totalElements)} {t('historyNotes')}</p>
       <p className="note-hint history-order">{t('historyNewest')}</p>
       {state.data.content.length === 0 ? <div className="note-surface">
@@ -37,7 +43,7 @@ function HistoryResults({ filters: { recipientId, from, to }, page, size, recipi
         <HistoryNoteCard note={note} recipient={recipients.find((recipient) => recipient.id === note.recipientId)} />
       </li>)}</ol>}
       {(state.data.totalPages > 1 || page > 0) && <nav className="history-pagination" aria-label={t('historyPagination')}>
-        <Button variant="secondary" disabled={page === 0} onClick={() => onPage(page - 1)}>{t('historyPrevious')}</Button>
+        <Button variant="secondary" disabled={state.data.first} onClick={() => onPage(page - 1)}>{t('historyPrevious')}</Button>
         <span>{t('historyPage')} {number(page + 1)} {t('historyOf')} {number(state.data.totalPages)}</span>
         <Button variant="secondary" disabled={state.data.last} onClick={() => onPage(page + 1)}>{t('historyNext')}</Button>
       </nav>}
@@ -50,14 +56,20 @@ export function HistoryPage() {
   const api = useNotesApis();
   const [defaults] = useState(defaultHistoryFilters);
   const [search, setSearch] = useSearchParams();
-  const { filters, page, size, paginationValid } = readHistorySearch(search, defaults);
+  const { filters, page, size, paginationValid } = useMemo(() => readHistorySearch(search, defaults), [search, defaults]);
   const [focusResults, setFocusResults] = useState(false);
+  const [pageSizeChanged, setPageSizeChanged] = useState(false);
   const loadRecipients = useCallback((signal: AbortSignal) => api.recipients.list(signal, 'ALL'), [api]);
   const recipients = useNoteResource(loadRecipients);
-  const update = (next: HistoryFilters, nextPage = 0, nextSize = size) => {
+  const update = useCallback((next: HistoryFilters, nextPage = 0, nextSize = size, isPageSizeChange = false) => {
     setFocusResults(true);
+    setPageSizeChanged(isPageSizeChange);
     setSearch(historySearch(next, nextPage, nextSize));
-  };
+  }, [setSearch, size]);
+  const resolvePageSize = useCallback((pageIsValid: boolean) => {
+    setPageSizeChanged(false);
+    if (!pageIsValid) update(filters, 0, size);
+  }, [filters, size, update]);
   return <section className="notes-page container" aria-labelledby="history-heading">
     <header className="notes-heading"><div><p className="eyebrow">{t('dashboardTitle')}</p><h1 id="history-heading">{t('historyTitle')}</h1><p>{t('historyDescription')}</p></div>
       <ButtonLink to="/app/notes/new">{t('notesCreate')}</ButtonLink>
@@ -65,12 +77,13 @@ export function HistoryPage() {
     {recipients.state.status === 'error' && <ErrorState description={t('historyRecipientsError')} onRetry={recipients.reload} />}
     <HistoryFilterForm filters={filters} defaults={defaults} recipients={recipients.state.status === 'ready' ? recipients.state.data : []} recipientsLoading={recipients.state.status === 'loading'} onApply={(next) => update(next)} onReset={() => update(defaults, 0, 20)} />
     <div className="note-field history-page-size"><label htmlFor="history-page-size">{t('historyPageSize')}</label>
-      <select id="history-page-size" value={size} onChange={(event) => update(filters, 0, Number(event.target.value))}>
+      <select id="history-page-size" value={size} onChange={(event) => update(filters, page, Number(event.target.value), true)}>
         {historyPageSizes.map((value) => <option key={value} value={value}>{new Intl.NumberFormat(language === 'ar' ? 'ar-EG' : 'en').format(value)}</option>)}
       </select>
     </div>
     {!paginationValid || Object.keys(validateHistoryFilters(filters)).length ? <ErrorState description={t('historyFixFilters')} />
       : <HistoryResults key={`${filters.recipientId}:${filters.from}:${filters.to}:${page}:${size}`} filters={filters} page={page} size={size}
-        recipients={recipients.state.status === 'ready' ? recipients.state.data : []} focusResults={focusResults} onPage={(next) => update(filters, next)} />}
+        recipients={recipients.state.status === 'ready' ? recipients.state.data : []} focusResults={focusResults} pageSizeChanged={pageSizeChanged}
+        onPageSizeResolved={resolvePageSize} onPage={(next) => update(filters, next)} />}
   </section>;
 }
