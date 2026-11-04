@@ -38,6 +38,20 @@ This document records names and behavior verified in the `main` tree. A NOT FOUN
 
 **Pattern file:** `web/src/routes/NotesRoutes.tsx` for a nested authenticated workflow route.
 
+## Translation dictionaries
+
+- `web/src/i18n/I18nProvider.tsx` — exports `textDirection(language)`, `I18nProvider`, and `useI18n()`. Supported language values are `en` and `ar`; it stores the selected language under `caregiver-language` in `localStorage` and synchronizes `document.documentElement.lang` and `dir`.
+- `web/src/i18n/translations.ts` — imports the feature dictionaries and merges them into `messages.en` and `messages.ar`; it also contains shared application/auth/home/navigation strings.
+- `web/src/i18n/recipientTranslations.ts` — exports `recipientMessages.en` and `recipientMessages.ar`; keys use the `recipient...` and `recipients...` camelCase prefixes.
+- `web/src/i18n/noteTranslations.ts` — exports `noteMessages.en` and `noteMessages.ar`; keys use the `notes...` prefix.
+- `web/src/i18n/historyTranslations.ts` — exports `historyMessages.en` and `historyMessages.ar`; keys use the `history...` prefix.
+- `web/src/i18n/summaryTranslations.ts` — exports `summaryMessages.en` and `summaryMessages.ar`; keys use the `summary...` prefix.
+- `web/src/i18n/planTranslations.ts` — exports `planMessages.en` and `planMessages.ar`; keys use the `plans...` prefix and spreads editor messages.
+- `web/src/i18n/planEditorTranslations.ts` — exports `planEditorMessages.en` and `planEditorMessages.ar`; editor keys also use the `plans...` prefix.
+- Add every new key to both language objects. Keep the existing feature prefix and camelCase spelling; do not create a new dictionary unless the feature has its own separate translation module and is imported by `web/src/i18n/translations.ts`.
+
+**Pattern file:** `web/src/i18n/recipientTranslations.ts` for a feature dictionary with matching English and Arabic keys.
+
 ## 2. Home / overview
 
 **Frontend**
@@ -69,8 +83,11 @@ This document records names and behavior verified in the `main` tree. A NOT FOUN
 **Backend**
 
 - `backend/src/main/java/com/caregiver/recipient/RecipientController.java` — REST mappings.
-- `RecipientService.java`, `CareRecipient.java`, `CareRecipientRepository.java`, `RecipientLifecycleStatus.java`.
-- DTOs: `RecipientRequest`, `RecipientResponse`.
+- `backend/src/main/java/com/caregiver/recipient/RecipientService.java` — `RecipientService`.
+- `backend/src/main/java/com/caregiver/recipient/CareRecipient.java` — `CareRecipient` entity.
+- `backend/src/main/java/com/caregiver/recipient/CareRecipientRepository.java` — `CareRecipientRepository`.
+- `backend/src/main/java/com/caregiver/recipient/RecipientLifecycleStatus.java` — `RecipientLifecycleStatus` enum.
+- DTOs: `backend/src/main/java/com/caregiver/recipient/RecipientRequest.java` (`RecipientRequest`) and `backend/src/main/java/com/caregiver/recipient/RecipientResponse.java` (`RecipientResponse`).
 
 **Endpoints**
 
@@ -100,8 +117,15 @@ This document records names and behavior verified in the `main` tree. A NOT FOUN
 **Backend**
 
 - `backend/src/main/java/com/caregiver/notes/NoteController.java` — REST mappings.
-- `DailyNoteService.java`, `DailyNote.java`, `DailyNoteRepository.java`, `NoteCorrectionService.java`, `NoteCorrectionEvent.java`, `NoteAddendum.java`, `NoteSignalService.java`.
-- DTOs and request types: `NoteRequest`, `NoteResponse`, `NoteDetailResponse`, `AddendumRequest`, `NoteAddendumResponse`, `CorrectionRequest`, `CorrectionHistoryResponse`, `NoteCorrectionEventResponse`, `ObservationSetRequest`, `NoteObservations`, `VerificationState`.
+- `backend/src/main/java/com/caregiver/notes/DailyNoteService.java` — `DailyNoteService`.
+- `backend/src/main/java/com/caregiver/notes/DailyNote.java` — `DailyNote` entity.
+- `backend/src/main/java/com/caregiver/notes/DailyNoteRepository.java` — `DailyNoteRepository`.
+- `backend/src/main/java/com/caregiver/notes/NoteCorrectionService.java` — `NoteCorrectionService`.
+- `backend/src/main/java/com/caregiver/notes/NoteCorrectionEvent.java` — `NoteCorrectionEvent` entity.
+- `backend/src/main/java/com/caregiver/notes/NoteAddendum.java` — `NoteAddendum` entity.
+- `backend/src/main/java/com/caregiver/notes/NoteSignalService.java` — `NoteSignalService`.
+- Notes DTOs: `backend/src/main/java/com/caregiver/notes/NoteRequest.java` (`NoteRequest`), `NoteResponse.java` (`NoteResponse`), `NoteDetailResponse.java` (`NoteDetailResponse`), `AddendumRequest.java` (`AddendumRequest`), `NoteAddendumResponse.java` (`NoteAddendumResponse`), `CorrectionRequest.java` (`CorrectionRequest`), `CorrectionHistoryResponse.java` (`CorrectionHistoryResponse`), `NoteCorrectionEventResponse.java` (`NoteCorrectionEventResponse`), and `ObservationSetRequest.java` (`ObservationSetRequest`). All paths in this bullet are under `backend/src/main/java/com/caregiver/notes/`.
+- Shared observation types: `backend/src/main/java/com/caregiver/common/NoteObservations.java` (`NoteObservations`) and `backend/src/main/java/com/caregiver/common/VerificationState.java` (`VerificationState`).
 
 **Endpoints**
 
@@ -124,7 +148,7 @@ This document records names and behavior verified in the `main` tree. A NOT FOUN
 **Frontend**
 
 - `web/src/features/history/HistoryPage.tsx` — exported `HistoryPage`; reads/writes URL query state and renders paginated history.
-- `HistoryFilterForm.tsx`, `HistoryNoteCard.tsx`, `historyFilters.ts`, `history.css`.
+- `web/src/features/history/HistoryFilterForm.tsx`, `web/src/features/history/HistoryNoteCard.tsx`, `web/src/features/history/historyFilters.ts`, and `web/src/features/history/history.css`.
 - API is `createNotesApi().history` in `web/src/api/notes.ts`.
 - Tests: `web/src/tests/History.test.tsx`, `web/src/tests/historyApi.test.ts`; Playwright files under `web/src/tests/history/` and `web/src/tests/history-live/`.
 
@@ -140,7 +164,7 @@ This document records names and behavior verified in the `main` tree. A NOT FOUN
 **Backend**
 
 - `backend/src/main/java/com/caregiver/ai/TrendCalculator.java` — `computeSingle`, `computeTrends`, and counters for falls, high pain, missed medication, and poor appetite.
-- `TrendResult.java` — response record with metric, previous count, current count, and delta.
+- `backend/src/main/java/com/caregiver/ai/TrendResult.java` — `TrendResult` response record with metric, previous count, current count, and delta.
 - Trends are included in `SummaryResult.trends`; summary service constructs the result.
 
 **Frontend**
@@ -167,7 +191,16 @@ This document records names and behavior verified in the `main` tree. A NOT FOUN
 **Backend**
 
 - `backend/src/main/java/com/caregiver/ai/SummaryController.java` — `POST /api/summaries`.
-- `SummaryApplicationService.java`, `SummarySourceLoader.java`, `SummaryDataBuilder.java`, `SummaryService.java`, `EvidenceValidator.java`, `SummaryRequest.java`, `SummaryResult.java`, `GroundedSummary.java`, `SummaryObservation.java`, `SummaryUncertainty.java`.
+- `backend/src/main/java/com/caregiver/ai/SummaryApplicationService.java` — `SummaryApplicationService`.
+- `backend/src/main/java/com/caregiver/ai/SummarySourceLoader.java` — `SummarySourceLoader`.
+- `backend/src/main/java/com/caregiver/ai/SummaryDataBuilder.java` — `SummaryDataBuilder`.
+- `backend/src/main/java/com/caregiver/ai/SummaryService.java` — `SummaryService`.
+- `backend/src/main/java/com/caregiver/ai/EvidenceValidator.java` — `EvidenceValidator`.
+- `backend/src/main/java/com/caregiver/ai/SummaryRequest.java` — `SummaryRequest`.
+- `backend/src/main/java/com/caregiver/ai/SummaryResult.java` — `SummaryResult`.
+- `backend/src/main/java/com/caregiver/ai/GroundedSummary.java` — `GroundedSummary`.
+- `backend/src/main/java/com/caregiver/ai/SummaryObservation.java` — `SummaryObservation`.
+- `backend/src/main/java/com/caregiver/ai/SummaryUncertainty.java` — `SummaryUncertainty`.
 - Request DTO: `SummaryRequest(recipientId, periodEndInclusive, periodDays)`; allowed periods are 7, 14, and 30.
 - Response DTO: `SummaryResult(summary, safety, trends)`.
 - Tests include `backend/src/test/java/com/caregiver/ai/SummaryServiceTest.java`, `EvidenceValidatorTest.java`, `SummaryRequestTest.java`, `SummaryPlanHttpTest.java`.
@@ -197,6 +230,15 @@ This document records names and behavior verified in the `main` tree. A NOT FOUN
 
 Current implementation instead has provider keys in backend environment configuration and an optional configured provider failover. Do not describe that as caregiver BYOK.
 
+**Read-only Android reference (not current web/backend behavior)**
+
+- Branch inspected: `feat/standalone-byok-ai`.
+- `android/app/src/main/java/com/caregiver/mobile/ai/LlmModels.kt` — `AiProvider` lists OPENAI, ANTHROPIC, GEMINI, XAI, and OPEN_ROUTER with provider endpoint/model metadata.
+- `android/app/src/main/java/com/caregiver/mobile/ai/AiKeyStore.kt` and `AndroidKeyStoreCipher.kt` — Android encrypted-key storage and cipher implementation. This is Android Keystore behavior only; it does not authorize browser storage of a BYOK key.
+- `android/app/src/main/java/com/caregiver/mobile/ai/AiModelCatalog.kt` — Android model catalogue.
+- `android/app/src/main/java/com/caregiver/mobile/presentation/settings/AiSettingsScreen.kt` and `AiSettingsValidation.kt` — Android settings screen and validation.
+- `android/app/src/main/java/com/caregiver/mobile/ai/AnthropicLlmClient.kt`, `GeminiLlmClient.kt`, and `OpenAiCompatibleLlmClient.kt` — separate Android provider adapters. The current backend does not contain these three Android classes and has one `ChatCompletionsLlmClient`; do not infer backend Anthropic support from the Android branch.
+
 **Pattern file:** NOT FOUND for per-request BYOK. The nearest provider-call implementation is `backend/src/main/java/com/caregiver/ai/ChatCompletionsLlmClient.java`; it is not a key-management pattern.
 
 ## 9. Safety signals and acknowledgement
@@ -220,14 +262,22 @@ Current implementation instead has provider keys in backend environment configur
 
 - `web/src/api/plans.ts` — `CarePlan`, `PlanAction`, `PlanChange`, `PlanDocument`, `PlanEditRequest`, `PlanGeneration`, `createPlansApi`, `readPlan`.
 - `web/src/features/plans/PlansPage.tsx` — `PlansPage`, `PlanWorkspace`, `Confirmation`.
-- `PlanCard.tsx`, `PlanEditor.tsx`, `PlanGenerationForm.tsx`, `plans.css`.
+- `web/src/features/plans/PlanCard.tsx`, `web/src/features/plans/PlanEditor.tsx`, `web/src/features/plans/PlanGenerationForm.tsx`, and `web/src/features/plans/plans.css`.
 - Tests: `web/src/tests/Plans.test.tsx`, `web/src/tests/plansApi.test.ts`; Playwright paths under `web/src/tests/plans/` and `web/src/tests/plans-live/`.
 
 **Backend**
 
 - `backend/src/main/java/com/caregiver/plans/PlanController.java` — plan persistence/lifecycle routes.
-- `PlanService.java`, `CarePlan.java`, `CarePlanRepository.java`, `StoredPlanVersion.java`, `PlanDocument.java`, `PlanDocumentCodec.java`, `PlanStatus.java`, `PlanSource.java`, `PlanAction.java`.
-- DTOs: `PlanRequest`, `EditPlanRequest`, `PlanResponse`.
+- `backend/src/main/java/com/caregiver/plans/PlanService.java` — `PlanService`.
+- `backend/src/main/java/com/caregiver/plans/CarePlan.java` — `CarePlan` entity.
+- `backend/src/main/java/com/caregiver/plans/CarePlanRepository.java` — `CarePlanRepository`.
+- `backend/src/main/java/com/caregiver/plans/StoredPlanVersion.java` — `StoredPlanVersion`.
+- `backend/src/main/java/com/caregiver/plans/PlanDocument.java` — `PlanDocument`.
+- `backend/src/main/java/com/caregiver/plans/PlanDocumentCodec.java` — `PlanDocumentCodec`.
+- `backend/src/main/java/com/caregiver/plans/PlanStatus.java` — `PlanStatus` enum.
+- `backend/src/main/java/com/caregiver/plans/PlanSource.java` — `PlanSource` enum.
+- `backend/src/main/java/com/caregiver/plans/PlanAction.java` — `PlanAction` enum.
+- DTOs: `backend/src/main/java/com/caregiver/plans/PlanRequest.java` (`PlanRequest`), `backend/src/main/java/com/caregiver/plans/EditPlanRequest.java` (`EditPlanRequest`), and `backend/src/main/java/com/caregiver/plans/PlanResponse.java` (`PlanResponse`).
 - AI generation: `backend/src/main/java/com/caregiver/ai/PlanGenerationController.java`, `PlanGenerationService.java`, `PlanSuggestionRequest.java`, `PlanSuggestionResult.java`.
 
 **Endpoints**
@@ -248,7 +298,7 @@ Current implementation instead has provider keys in backend environment configur
 
 - `web/src/main.tsx` imports `web/src/styles/base.css`.
 - `web/src/components/AppShell.tsx` imports `web/src/components/AppShell.css`.
-- Feature styles are plain CSS files: `web/src/features/auth/auth.css`, `overview/overview.css`, `recipients/recipients.css`, `notes/notes.css`, `history/history.css`, `summary/summary.css`, and `plans/plans.css`.
+- Feature styles are plain CSS files: `web/src/features/auth/auth.css`, `web/src/features/overview/overview.css`, `web/src/features/recipients/recipients.css`, `web/src/features/notes/notes.css`, `web/src/features/history/history.css`, `web/src/features/summary/summary.css`, and `web/src/features/plans/plans.css`.
 - `web/src/styles/base.css` defines root styles and custom properties including `--color-ink`, `--color-muted`, `--color-green`, `--color-green-dark`, `--color-border`, `--color-surface`, `--color-soft`, and `--radius`.
 - The application uses ordinary CSS files. No CSS Modules imports or Tailwind dependency/configuration were found in the inspected web tree/package manifest.
 - `docs/design-system/tokens.css` exists and defines semantic CSS variables including `--color-primary`, `--color-background`, `--color-surface`, `--caregiver-primary`, `--caregiver-ink`, `--caregiver-muted`, `--space-xs`, `--space-sm`, `--space-md`, `--space-lg`, `--space-xl`, `--space-xxl`, `--radius-card`, `--radius-control`, and `--size-touch-target`. It defines dark/system selectors and palette selectors.
@@ -281,8 +331,13 @@ Use the existing semantic names from `docs/design-system/tokens.css`: `--color-b
 
 **Backend**
 
-- `backend/src/main/java/com/caregiver/auth/AuthController.java`, `AuthService.java`, `JwtService.java`, `JwtAuthenticationFilter.java`, `AuthContext.java`, `CaregiverPrincipal.java`.
-- DTOs: `RegisterRequest`, `LoginRequest`, `AuthResponse`, `ErrorResponse`.
+- `backend/src/main/java/com/caregiver/auth/AuthController.java` — `AuthController`.
+- `backend/src/main/java/com/caregiver/auth/AuthService.java` — `AuthService`.
+- `backend/src/main/java/com/caregiver/auth/JwtService.java` — `JwtService`.
+- `backend/src/main/java/com/caregiver/auth/JwtAuthenticationFilter.java` — `JwtAuthenticationFilter`.
+- `backend/src/main/java/com/caregiver/auth/AuthContext.java` — `AuthContext`.
+- `backend/src/main/java/com/caregiver/auth/CaregiverPrincipal.java` — `CaregiverPrincipal`.
+- DTOs: `backend/src/main/java/com/caregiver/auth/RegisterRequest.java` (`RegisterRequest`), `LoginRequest.java` (`LoginRequest`), `AuthResponse.java` (`AuthResponse`), and `ErrorResponse.java` (`ErrorResponse`), all in `backend/src/main/java/com/caregiver/auth/`.
 
 **Endpoints**
 
@@ -296,7 +351,7 @@ Use the existing semantic names from `docs/design-system/tokens.css`: `--color-b
 **Web**
 
 - Unit/component/API tests use Vitest (`vitest run` in `web/package.json`), Testing Library (`@testing-library/react`, `user-event`, `jest-dom`) and jsdom.
-- Representative unit files: `web/src/app/App.test.tsx`; `web/src/tests/Overview.test.tsx`, `Recipients.test.tsx`, `Notes.test.tsx`, `History.test.tsx`, `Summary.test.tsx`, `Plans.test.tsx`; API tests are named `*Api.test.ts`.
+- Representative unit files: `web/src/app/App.test.tsx`, `web/src/tests/Overview.test.tsx`, `web/src/tests/Recipients.test.tsx`, `web/src/tests/Notes.test.tsx`, `web/src/tests/History.test.tsx`, `web/src/tests/Summary.test.tsx`, and `web/src/tests/Plans.test.tsx`; API tests include `web/src/tests/recipientsApi.test.ts`, `notesApi.test.ts`, `historyApi.test.ts`, `summaryApi.test.ts`, and `plansApi.test.ts` (all API-test paths except the first are under `web/src/tests/`).
 - Playwright is declared as `@playwright/test`. Existing browser test locations include `web/src/tests/recipients/`, `notes/`, `history/`, `summary/`, `plans/`, and `workflow-live/`. Config files exist in those folders.
 - Unit command copied from `web/package.json`: `cd web && npm test` (script: `vitest run`).
 - All Playwright tests command copied from `web/package.json`: `cd web && npm run test:e2e` (script builds then runs `playwright test`).
