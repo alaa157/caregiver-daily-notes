@@ -29,6 +29,19 @@ describe('history API contract', () => {
     fetcher.mockResolvedValue(jsonResponse(historyPage([], 3, 20, 2)));
     expect(await api.history({ ...query, page: 3 })).toMatchObject({ content: [], totalElements: 2, last: true });
   });
+  it('sends date-only history values unchanged', async () => {
+    const { api, fetcher } = setup(historyPage([]));
+    await api.history({ from: '2026-10-01', to: '2026-10-22' });
+    const url = new URL(fetcher.mock.calls[0][0], 'http://localhost');
+    expect(url.searchParams.get('from')).toBe('2026-10-01');
+    expect(url.searchParams.get('to')).toBe('2026-10-22');
+    expect(url.search).not.toMatch(/T\d{2}:\d{2}|Z/);
+  });
+  it('rejects reversed date ranges before fetch', async () => {
+    const { api, fetcher } = setup();
+    await expect(api.history({ from: '2026-10-22', to: '2026-10-01' })).rejects.toMatchObject({ status: 400 });
+    expect(fetcher).not.toHaveBeenCalled();
+  });
   it.each([
     { from: '' }, { to: '2026-02-30' }, { from: '2026-11-01' }, { recipientId: '../other' },
     { recipientId: '' }, { page: -1 }, { page: 0.5 }, { page: Number.MAX_SAFE_INTEGER + 1 }, { size: 0 }, { size: 101 }, { size: 1.5 },

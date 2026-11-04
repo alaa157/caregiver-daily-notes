@@ -50,7 +50,7 @@ export function HistoryPage() {
   const api = useNotesApis();
   const [defaults] = useState(defaultHistoryFilters);
   const [search, setSearch] = useSearchParams();
-  const { filters, page, size } = readHistorySearch(search, defaults);
+  const { filters, page, size, paginationValid } = readHistorySearch(search, defaults);
   const [focusResults, setFocusResults] = useState(false);
   const loadRecipients = useCallback((signal: AbortSignal) => api.recipients.list(signal, 'ALL'), [api]);
   const recipients = useNoteResource(loadRecipients);
@@ -69,7 +69,7 @@ export function HistoryPage() {
         {historyPageSizes.map((value) => <option key={value} value={value}>{new Intl.NumberFormat(language === 'ar' ? 'ar-EG' : 'en').format(value)}</option>)}
       </select>
     </div>
-    {Object.keys(validateHistoryFilters(filters)).length ? <ErrorState description={t('historyFixFilters')} />
+    {!paginationValid || Object.keys(validateHistoryFilters(filters)).length ? <ErrorState description={t('historyFixFilters')} />
       : <HistoryResults key={`${filters.recipientId}:${filters.from}:${filters.to}:${page}:${size}`} filters={filters} page={page} size={size}
         recipients={recipients.state.status === 'ready' ? recipients.state.data : []} focusResults={focusResults} onPage={(next) => update(filters, next)} />}
   </section>;
