@@ -53,12 +53,28 @@ describe('history API contract', () => {
   it.each([
     null, [], {}, { ...historyPage(), content: null }, { ...historyPage(), totalElements: -1 },
     { ...historyPage(), totalElements: 1.5 }, { ...historyPage(), totalPages: 5 },
+    { ...historyPage(), totalPages: -1 }, { ...historyPage(), totalPages: 0.5 },
     { ...historyPage(), number: 1 }, { ...historyPage(), size: 100 }, { ...historyPage(), last: false },
     { ...historyPage(), first: false }, historyPage([{ ...historyNote, date: '2026-09-30' }]),
     historyPage([{ ...historyNote, medicationStatus: 'YES' } as unknown as typeof historyNote]),
     historyPage([historyNote, historyNote]), { ...historyPage(), totalElements: 0, totalPages: 0 },
   ])('rejects malformed, duplicate or out-of-filter results: %j', async (body) => {
     await expect(setup(body).api.history(query)).rejects.toThrow();
+  });
+  it('rejects inconsistent page metadata', async () => {
+    const responses = [
+      { ...historyPage(), number: 1 },
+      { ...historyPage(), number: -1 },
+      { ...historyPage(), totalElements: -1 },
+      { ...historyPage(), totalPages: -1 },
+      { ...historyPage(), size: 0 },
+      { ...historyPage(), size: 50 },
+      { ...historyPage(), first: 'true' },
+      { ...historyPage(), last: 1 },
+    ];
+    for (const body of responses) {
+      await expect(setup(body).api.history(query)).rejects.toThrow('Invalid history response.');
+    }
   });
   it('rejects a recipient mismatch and strips extra private response fields', async () => {
     await expect(setup().api.history({ ...query, recipientId: 'b2222222-2222-4222-8222-222222222222' })).rejects.toThrow();

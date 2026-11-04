@@ -128,7 +128,12 @@ describe('history screen, filters and immutable records', () => {
     expect(queries(fetcher)).toHaveLength(1);
   });
   it('restores filters/pagination from the URL and resets the page after changing size or filters', async () => {
-    const fetcher = dataFetcher((url) => url.pathname === '/api/notes' ? jsonResponse(historyPage([historyNote], Number(url.searchParams.get('page')), Number(url.searchParams.get('size')), 61)) : undefined);
+    const fetcher = dataFetcher((url) => {
+      if (url.pathname !== '/api/notes') return undefined;
+      const page = Number(url.searchParams.get('page'));
+      const size = Number(url.searchParams.get('size'));
+      return jsonResponse(historyPage(page * size >= 61 ? [] : [historyNote], page, size, 61));
+    });
     renderHistory(fetcher, `${range}&page=2&recipientId=${recipientFixture.id}`); await loaded();
     expect(screen.getByLabelText('Care recipient')).toHaveValue(recipientFixture.id);
     expect(screen.getByText('Page 3 of 4')).toBeInTheDocument();
@@ -145,6 +150,89 @@ describe('history screen, filters and immutable records', () => {
     date('From date', '2026-10-02');
     await userEvent.click(screen.getByRole('button', { name: 'Apply filters' })); await loaded();
     expect(queries(fetcher).at(-1)!.searchParams.get('page')).toBe('0');
+  });
+  it('moves to the next page and returns to the previous page', async () => {
+    const secondPageNote = { ...historyNote, id: 'd4444444-4444-4444-8444-444444444444', recipientId: otherRecipient.id, date: '2026-10-19' };
+    const fetcher = dataFetcher((url) => {
+      if (url.pathname !== '/api/notes') return undefined;
+      const page = Number(url.searchParams.get('page'));
+      return jsonResponse(historyPage([page === 0 ? historyNote : secondPageNote], page, 20, 21));
+    });
+    renderHistory(fetcher);
+    await loaded();
+    expect(screen.getByRole('article', { name: recipientFixture.name })).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: 'Next page' })).toBeEnabled();
+
+    await userEvent.click(screen.getByRole('button', { name: 'Next page' }));
+    expect(await screen.findByRole('article', { name: otherRecipient.name })).toBeInTheDocument();
+    expect(new URLSearchParams(screen.getByTestId('location').textContent!.split('?')[1]).get('page')).toBe('1');
+    expect(queries(fetcher).at(-1)!.searchParams.get('page')).toBe('1');
+    expect(screen.getByRole('button', { name: 'Previous page' })).toBeEnabled();
+    expect(screen.getByText('Page 2 of 2')).toBeInTheDocument();
+
+    await userEvent.click(screen.getByRole('button', { name: 'Previous page' }));
+    await loaded();
+    expect(screen.getByRole('article', { name: recipientFixture.name })).toBeInTheDocument();
+    expect(new URLSearchParams(screen.getByTestId('location').textContent!.split('?')[1]).has('page')).toBe(false);
+    expect(queries(fetcher).at(-1)!.searchParams.get('page')).toBe('0');
+  });
+  it('resets page when filters change', async () => {
+    const fetcher = dataFetcher((url) => {
+      if (url.pathname !== '/api/notes') return undefined;
+      const page = Number(url.searchParams.get('page'));
+      const recipientId = url.searchParams.get('recipientId');
+      const note = recipientId ? { ...historyNote, recipientId } : historyNote;
+      return jsonResponse(historyPage([note], page, 20, 101));
+    });
+    renderHistory(fetcher, `${range}&recipientId=${recipientFixture.id}&page=2`);
+    await loaded();
+    await userEvent.selectOptions(screen.getByLabelText('Care recipient'), otherRecipient.id);
+    await userEvent.click(screen.getByRole('button', { name: 'Apply filters' }));
+    await screen.findByRole('article', { name: otherRecipient.name });
+    let activeUrl = new URLSearchParams(screen.getByTestId('location').textContent!.split('?')[1]);
+    expect(activeUrl.get('recipientId')).toBe(otherRecipient.id);
+    expect(activeUrl.has('page')).toBe(false);
+    expect(Object.fromEntries(queries(fetcher).at(-1)!.searchParams)).toMatchObject({ page: '0', recipientId: otherRecipient.id });
+
+    for (const page of [1, 2]) {
+      await userEvent.click(screen.getByRole('button', { name: 'Next page' }));
+      await waitFor(() => expect(queries(fetcher).at(-1)!.searchParams.get('page')).toBe(String(page)));
+    }
+    date('From date', '2026-10-02');
+    await userEvent.click(screen.getByRole('button', { name: 'Apply filters' }));
+    await screen.findByRole('article', { name: otherRecipient.name });
+    activeUrl = new URLSearchParams(screen.getByTestId('location').textContent!.split('?')[1]);
+    expect(activeUrl.get('from')).toBe('2026-10-02');
+    expect(activeUrl.get('recipientId')).toBe(otherRecipient.id);
+    expect(activeUrl.has('page')).toBe(false);
+    expect(queries(fetcher).at(-1)!.searchParams.get('page')).toBe('0');
+    expect(queries(fetcher).at(-1)!.searchParams.get('recipientId')).toBe(otherRecipient.id);
+  });
+  it('keeps a valid page on page-size changes and returns to page zero when it is out of range', async () => {
+    const fetcher = dataFetcher((url) => {
+      if (url.pathname !== '/api/notes') return undefined;
+      const page = Number(url.searchParams.get('page'));
+      const size = Number(url.searchParams.get('size'));
+      return jsonResponse(historyPage(page * size >= 101 ? [] : [historyNote], page, size, 101));
+    });
+    renderHistory(fetcher, `${range}&page=1`);
+    await loaded();
+    await userEvent.selectOptions(screen.getByLabelText('Notes per page'), '50');
+    await loaded();
+    let activeUrl = new URLSearchParams(screen.getByTestId('location').textContent!.split('?')[1]);
+    expect(activeUrl.get('page')).toBe('1');
+    expect(activeUrl.get('size')).toBe('50');
+    expect(Object.fromEntries(queries(fetcher).at(-1)!.searchParams)).toMatchObject({ page: '1', size: '50' });
+
+    await userEvent.click(screen.getByRole('button', { name: 'Next page' }));
+    await loaded();
+    expect(queries(fetcher).at(-1)!.searchParams.get('page')).toBe('2');
+    await userEvent.selectOptions(screen.getByLabelText('Notes per page'), '100');
+    await loaded();
+    activeUrl = new URLSearchParams(screen.getByTestId('location').textContent!.split('?')[1]);
+    expect(activeUrl.has('page')).toBe(false);
+    expect(activeUrl.get('size')).toBe('100');
+    expect(Object.fromEntries(queries(fetcher).at(-1)!.searchParams)).toMatchObject({ page: '0', size: '100' });
   });
   it('restores recipient and date filters after refresh', async () => {
     const path = `${root}?from=2026-10-01&to=2026-10-22&recipientId=${recipientFixture.id}&page=1&size=50`;
@@ -243,12 +331,44 @@ describe('history screen, filters and immutable records', () => {
     expect(screen.getByRole('article', { name: recipientFixture.name })).toBeInTheDocument();
     expect(screen.queryByText('No notes match these filters.')).not.toBeInTheDocument();
   });
-  it('distinguishes an empty result from a page that disappeared and allows return to page one', async () => {
+  it('shows no matches separately from an empty dataset', async () => {
+    const empty = renderHistory(dataFetcher((url) => url.pathname === '/api/notes' ? jsonResponse(historyPage([])) : undefined));
+    expect(await screen.findByText('No notes match these filters.')).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: 'Reset filters' })).toBeEnabled();
+    expect(screen.queryByRole('navigation', { name: 'History pages' })).not.toBeInTheDocument();
+    empty.unmount();
+
     const fetcher = dataFetcher((url) => url.pathname === '/api/notes' ? jsonResponse(url.searchParams.get('page') === '2' ? historyPage([], 2, 20, 1) : historyPage([])) : undefined);
     renderHistory(fetcher, `${range}&page=2`);
     expect(await screen.findByText('This page no longer contains notes.')).toBeInTheDocument();
+    expect(screen.queryByText('No notes match these filters.')).not.toBeInTheDocument();
     await userEvent.click(screen.getByRole('button', { name: 'Go to first page' }));
     expect(await screen.findByText('No notes match these filters.')).toBeInTheDocument();
+  });
+  it('keeps filter controls visible after history request failure', async () => {
+    let fail = true;
+    const fetcher = dataFetcher((url) => {
+      if (url.pathname !== '/api/notes') return undefined;
+      if (fail) return jsonResponse({ message: 'private diagnostics' }, 500);
+      return jsonResponse(historyPage([historyNote], Number(url.searchParams.get('page')), Number(url.searchParams.get('size')), 101));
+    });
+    const path = `${range}&recipientId=${recipientFixture.id}&page=1&size=50`;
+    renderHistory(fetcher, path);
+    expect(await screen.findByRole('alert')).toHaveTextContent('Could not load this information. Try again.');
+    expect(screen.getByLabelText('Care recipient')).toHaveValue(recipientFixture.id);
+    expect(screen.getByLabelText('From date')).toHaveValue('2026-10-01');
+    expect(screen.getByLabelText('To date')).toHaveValue('2026-10-22');
+    expect(screen.getByLabelText('Notes per page')).toHaveValue('50');
+    expect(screen.getByTestId('location')).toHaveTextContent(`recipientId=${recipientFixture.id}`);
+    expect(screen.getByTestId('location')).toHaveTextContent('page=1');
+    const failedQuery = Object.fromEntries(queries(fetcher).at(-1)!.searchParams);
+    expect(failedQuery).toEqual({ from: '2026-10-01', to: '2026-10-22', recipientId: recipientFixture.id, page: '1', size: '50' });
+    expect(screen.getByRole('button', { name: 'Retry' })).toBeEnabled();
+
+    fail = false;
+    await userEvent.click(screen.getByRole('button', { name: 'Retry' }));
+    await loaded();
+    expect(Object.fromEntries(queries(fetcher).at(-1)!.searchParams)).toEqual(failedQuery);
   });
   it('retries a failed history request without exposing backend diagnostics', async () => {
     let failed = true;

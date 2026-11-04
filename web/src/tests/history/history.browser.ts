@@ -63,7 +63,7 @@ async function accessibility(page: Page) {
 for (const language of ['en', 'ar'] as const) {
   const ar = language === 'ar';
   const label = {
-    title: ar ? 'سجل الملاحظات' : 'Notes history', recipient: ar ? 'المستفيد من الرعاية' : 'Care recipient',
+    title: ar ? 'سجل الملاحظات' : 'Notes history', recipient: ar ? 'مستفيد الرعاية' : 'Care recipient',
     from: ar ? 'من تاريخ' : 'From date', to: ar ? 'إلى تاريخ' : 'To date', day: ar ? 'يوم واحد' : 'Single date', date: ar ? 'التاريخ' : 'Date',
     apply: ar ? 'تطبيق التصفية' : 'Apply filters', reset: ar ? 'إعادة ضبط التصفية' : 'Reset filters', results: ar ? 'نتائج السجل' : 'History results',
     fields: ar ? 'عرض المشاهدات والنص الأصلي' : 'View original observations and text', show: ar ? 'عرض التصحيحات (١)' : 'Show corrections (1)',
@@ -160,6 +160,24 @@ for (const language of ['en', 'ar'] as const) {
       await expect(page.locator('.history-note')).toHaveCount(41);
       expect(new URL(page.url()).searchParams.has('page')).toBe(false);
       await expect(page.getByRole('button', { name: label.next, exact: true })).toHaveCount(0);
+      await accessibility(page);
+    });
+    test('keeps the active page when a page-size change leaves it in range', async ({ page }) => {
+      const notes = Array.from({ length: 101 }, (_, index) => ({ ...historyNote,
+        id: `d5555555-5555-4555-8555-${String(index).padStart(12, '0')}`,
+        date: historyNote.date, addendumCount: 0,
+      }));
+      const calls = await serve(page, { notes });
+      await page.goto(`${root}&page=1`);
+      await expect(page.locator('.history-note')).toHaveCount(20);
+      await page.getByLabel(label.size, { exact: true }).selectOption('50');
+      await expect(page.locator('.history-note')).toHaveCount(50);
+      const query = new URL(page.url()).searchParams;
+      expect(query.get('page')).toBe('1');
+      expect(query.get('size')).toBe('50');
+      const lastRequest = calls.filter((url) => url.pathname === '/api/notes').at(-1)!;
+      expect(lastRequest.searchParams.get('page')).toBe('1');
+      expect(lastRequest.searchParams.get('size')).toBe('50');
       await accessibility(page);
     });
     test('validates dates and recovers from errors and empty results with retry/reset', async ({ page }) => {
