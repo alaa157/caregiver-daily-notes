@@ -1,15 +1,49 @@
-import { render, screen, within } from '@testing-library/react';
+import { render, screen, waitFor, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
-import { MemoryRouter } from 'react-router-dom';
-import { describe, expect, it } from 'vitest';
+import { MemoryRouter, useLocation } from 'react-router-dom';
+import { describe, expect, it, vi } from 'vitest';
 import { AuthProvider } from './AuthContext';
 import { I18nProvider } from '../i18n/I18nProvider';
 import { EmptyState, ErrorState, FieldError, LoadingState } from '../components/Feedback';
 import { App } from './App';
 import { ApiProvider } from '../lib/api';
+import { observationFields } from '../api/notes';
+import { jsonResponse, testToken } from '../tests/authFixtures';
+import { recipientFixture } from '../tests/recipientFixtures';
+import { noteFixture } from '../tests/noteFixtures';
 
 function renderRoute(path: string) {
   return render(<I18nProvider><ApiProvider config={{ apiBaseUrl: '' }}><AuthProvider><MemoryRouter initialEntries={[path]}><App /></MemoryRouter></AuthProvider></ApiProvider></I18nProvider>);
+}
+
+function CurrentPath() {
+  return <output data-testid="current-path">{useLocation().pathname}</output>;
+}
+
+function renderAuthenticatedRoute(path: string, fetcher: unknown) {
+  vi.stubGlobal('fetch', fetcher);
+  localStorage.setItem('caregiver-language', 'en');
+  sessionStorage.clear();
+  sessionStorage.setItem('caregiver-auth-session-v1', JSON.stringify({ token: testToken(), baseUrl: '' }));
+  return render(<I18nProvider><ApiProvider config={{ apiBaseUrl: '' }}><AuthProvider>
+    <MemoryRouter initialEntries={[path]}><App /><CurrentPath /></MemoryRouter>
+  </AuthProvider></ApiProvider></I18nProvider>);
+}
+
+function correctionHistoryFixture() {
+  const effectiveObservations = Object.fromEntries(observationFields.map((field) => {
+    const observation = noteFixture.observations[field];
+    return [field, {
+      state: observation.state,
+      value: observation.value ?? null,
+      rawValue: observation.rawValue ?? null,
+      lastOperation: null,
+      eventId: null,
+      actorId: null,
+      updatedAt: noteFixture.createdAt,
+    }];
+  }));
+  return { originalNote: noteFixture, events: [], effectiveObservations };
 }
 
 describe('application foundation', () => {
@@ -128,5 +162,79 @@ describe('application foundation', () => {
     expect(screen.getByRole('button', { name: 'التغيير إلى العربية' })).toHaveAttribute('lang', 'ar');
     await user.click(screen.getByRole('button', { name: 'التغيير إلى العربية' }));
     expect(screen.getByRole('button', { name: 'Switch to English' })).toHaveAttribute('lang', 'en');
+  });
+
+  it('shows four authenticated workspace destinations', async () => {
+    const user = userEvent.setup();
+    renderAuthenticatedRoute('/app', vi.fn().mockResolvedValue(jsonResponse([])));
+    const navigation = screen.getByRole('navigation', { name: 'Main navigation' });
+    const primary = within(navigation).getByRole('group', { name: 'Workspace navigation' });
+
+    expect(within(primary).getAllByRole('link').map((link) => [link.textContent, link.getAttribute('href')])).toEqual([
+      ['Home', '/app'],
+      ['People', '/app/recipients'],
+      ['Notes', '/app/notes/new'],
+      ['History', '/app/notes'],
+    ]);
+    expect(navigation.querySelector('a[href="/"]')).toBeNull();
+    expect(within(primary).getByRole('link', { name: 'Home' })).toHaveAttribute('aria-current', 'page');
+    expect(screen.getByRole('link', { name: 'AI summary & safety' })).toHaveAttribute('href', '/app/notes/summary');
+
+    await user.click(screen.getByRole('button', { name: 'التغيير إلى العربية' }));
+    const arabicPrimary = within(navigation).getByRole('group', { name: 'قائمة مساحة العمل' });
+    expect(within(arabicPrimary).getAllByRole('link').map((link) => link.textContent)).toEqual([
+      'الرئيسية', 'المستفيدون', 'الملاحظات', 'سجل الملاحظات',
+    ]);
+  });
+
+  it('keeps plans outside primary navigation', () => {
+    renderAuthenticatedRoute('/app', vi.fn().mockResolvedValue(jsonResponse([])));
+    const navigation = screen.getByRole('navigation', { name: 'Main navigation' });
+    const primary = within(navigation).getByRole('group', { name: 'Workspace navigation' });
+    const notesGroup = within(navigation).getByRole('group', { name: 'Notes navigation' });
+    const plans = within(notesGroup).getByRole('link', { name: 'Care plans' });
+
+    expect(within(primary).getAllByRole('link')).toHaveLength(4);
+    expect(within(primary).queryByRole('link', { name: 'Care plans' })).not.toBeInTheDocument();
+    expect(plans).toHaveAttribute('href', '/app/notes/plans');
+    expect(primary.contains(plans)).toBe(false);
+  });
+
+  it('returns recipient detail to recipient list', async () => {
+    const fetcher = vi.fn().mockImplementation((path: string) => Promise.resolve(
+      jsonResponse(path.startsWith('/api/recipients?') ? [recipientFixture] : recipientFixture),
+    ));
+    renderAuthenticatedRoute(`/app/recipients/${recipientFixture.id}`, fetcher);
+    expect(await screen.findByRole('heading', { name: recipientFixture.name })).toBeInTheDocument();
+
+    const primary = screen.getByRole('group', { name: 'Workspace navigation' });
+    expect(within(primary).getByRole('link', { name: 'People' })).toHaveAttribute('aria-current', 'page');
+    const back = screen.getByRole('link', { name: 'Back to care recipients' });
+    expect(back).toBeVisible();
+    expect(back).toHaveAttribute('href', '/app/recipients');
+    await userEvent.click(back);
+    await waitFor(() => expect(screen.getByTestId('current-path').textContent).toBe('/app/recipients'));
+  });
+
+  it('returns note detail to history', async () => {
+    const historyPage = { content: [], number: 0, size: 20, totalElements: 0, totalPages: 0 };
+    const correctionHistory = correctionHistoryFixture();
+    const fetcher = vi.fn().mockImplementation((path: string) => {
+      if (path.startsWith('/api/recipients?') || path === '/api/recipients') return Promise.resolve(jsonResponse([recipientFixture]));
+      if (path.startsWith('/api/recipients/')) return Promise.resolve(jsonResponse(recipientFixture));
+      if (path.endsWith('/addenda')) return Promise.resolve(jsonResponse([]));
+      if (path.endsWith('/corrections')) return Promise.resolve(jsonResponse(correctionHistory));
+      if (path.startsWith('/api/notes?')) return Promise.resolve(jsonResponse(historyPage));
+      return Promise.resolve(jsonResponse(noteFixture));
+    });
+    renderAuthenticatedRoute(`/app/notes/${noteFixture.id}`, fetcher);
+    expect(await screen.findByRole('heading', { name: 'Original note — read only' })).toBeInTheDocument();
+
+    const notesPage = document.querySelector('.notes-page');
+    expect(notesPage).not.toBeNull();
+    const history = within(notesPage as HTMLElement).getByRole('link', { name: 'Notes history' });
+    expect(history).toHaveAttribute('href', '/app/notes');
+    await userEvent.click(history);
+    await waitFor(() => expect(screen.getByTestId('current-path').textContent).toBe('/app/notes'));
   });
 });
