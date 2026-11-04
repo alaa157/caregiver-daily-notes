@@ -73,6 +73,60 @@ describe('care recipients screens', () => {
     expect(fetcher).toHaveBeenCalledTimes(1);
   });
 
+  it('filters recipients by case-insensitive name and relationship', async () => {
+    const nameMatch = { ...recipient, name: 'caregiver Samir', relationship: 'Son' };
+    const relationshipMatch = { ...recipient, id: 'b2222222-2222-4222-8222-222222222222', name: 'Mona', relationship: 'Primary caregiver' };
+    const unrelated = { ...recipient, id: 'c3333333-3333-4333-8333-333333333333', name: 'Laila', relationship: 'Aunt' };
+    renderRecipients(root, vi.fn().mockResolvedValue(jsonResponse([nameMatch, relationshipMatch, unrelated])));
+
+    await screen.findByRole('link', { name: nameMatch.name });
+    await userEvent.type(screen.getByLabelText('Search name or relationship'), 'CaReGiVeR');
+    expect(screen.getByRole('link', { name: nameMatch.name })).toBeInTheDocument();
+    expect(screen.getByRole('link', { name: relationshipMatch.name })).toBeInTheDocument();
+    expect(screen.queryByRole('link', { name: unrelated.name })).not.toBeInTheDocument();
+  });
+
+  it('shows no-match state separately from empty recipient list', async () => {
+    const populated = vi.fn().mockResolvedValue(jsonResponse([recipient]));
+    const view = renderRecipients(root, populated);
+    await screen.findByRole('link', { name: recipient.name });
+    await userEvent.type(screen.getByLabelText('Search name or relationship'), 'not found');
+    expect(screen.getByText('No matching recipients')).toBeInTheDocument();
+    expect(screen.queryByText('No active care recipients')).not.toBeInTheDocument();
+    view.unmount();
+
+    const empty = vi.fn().mockResolvedValue(jsonResponse([]));
+    renderRecipients(root, empty);
+    expect(await screen.findByText('No active care recipients')).toBeInTheDocument();
+    expect(screen.queryByText('No matching recipients')).not.toBeInTheDocument();
+  });
+
+  it('clears recipient search without changing lifecycle filter', async () => {
+    const archived = { ...recipient, id: 'b2222222-2222-4222-8222-222222222222', name: 'Archived Mona',
+      active: false, lifecycleStatus: 'ARCHIVED' as const, archivedAt: '2026-10-15T10:00:00Z',
+      archivedBy: 'b1111111-1111-4111-8111-111111111111', relationship: 'Aunt' };
+    const active = { ...recipient, id: 'c3333333-3333-4333-8333-333333333333', name: 'Active Laila' };
+    const fetcher = vi.fn().mockImplementation((path: string) => path === '/api/recipients?status=ARCHIVED'
+      ? Promise.resolve(jsonResponse([archived]))
+      : Promise.resolve(jsonResponse([active])));
+    renderRecipients(root, fetcher);
+
+    await userEvent.click(screen.getByRole('button', { name: 'Archived' }));
+    expect(await screen.findByRole('link', { name: archived.name })).toBeInTheDocument();
+    expect(screen.queryByRole('link', { name: active.name })).not.toBeInTheDocument();
+    const filterGroup = screen.getByRole('group', { name: 'Filter recipients by lifecycle status' });
+    expect(within(filterGroup).getByRole('button', { name: 'Archived' })).toHaveAttribute('aria-pressed', 'true');
+
+    await userEvent.type(screen.getByLabelText('Search name or relationship'), 'no result');
+    expect(screen.getByText('No matching recipients')).toBeInTheDocument();
+    await userEvent.click(screen.getByRole('button', { name: 'Clear' }));
+
+    expect(within(filterGroup).getByRole('button', { name: 'Archived' })).toHaveAttribute('aria-pressed', 'true');
+    expect(screen.getByRole('link', { name: archived.name })).toBeInTheDocument();
+    expect(screen.queryByRole('link', { name: active.name })).not.toBeInTheDocument();
+    expect(fetcher).toHaveBeenCalledWith('/api/recipients?status=ARCHIVED', expect.anything());
+  });
+
   it('retries a list error and does not display raw server messages', async () => {
     const fetcher = vi.fn().mockResolvedValueOnce(jsonResponse({ message: 'private diagnostics' }, 500)).mockResolvedValueOnce(jsonResponse([recipient]));
     renderRecipients(root, fetcher);
@@ -164,6 +218,25 @@ describe('care recipients screens', () => {
     renderRecipients(detail, vi.fn().mockResolvedValue(jsonResponse({ message: 'belongs to other caregiver' }, status)));
     expect(await screen.findByRole('alert')).toHaveTextContent('This recipient is unavailable.');
     expect(screen.queryByText('belongs to other caregiver')).not.toBeInTheDocument();
+  });
+
+  it('shows detail loading and retries an unavailable response without exposing diagnostics', async () => {
+    let resolve!: (response: Response) => void;
+    const archived = { ...recipient, active: false, lifecycleStatus: 'ARCHIVED' as const,
+      archivedAt: '2026-10-15T10:00:00Z', archivedBy: 'b1111111-1111-4111-8111-111111111111' };
+    const fetcher = vi.fn()
+      .mockImplementationOnce(() => new Promise<Response>((done) => { resolve = done; }))
+      .mockResolvedValueOnce(jsonResponse(archived));
+    renderRecipients(detail, fetcher);
+
+    expect(screen.getByText('Loading recipient details…')).toBeInTheDocument();
+    resolve(jsonResponse({ message: 'private detail diagnostics' }, 500));
+    expect(await screen.findByRole('alert')).toHaveTextContent('We couldn’t complete this request.');
+    expect(screen.queryByText('private detail diagnostics')).not.toBeInTheDocument();
+    await userEvent.click(screen.getByRole('button', { name: 'Retry' }));
+    expect(await screen.findByRole('heading', { name: recipient.name })).toBeInTheDocument();
+    expect(screen.getByText('Archived')).toBeInTheDocument();
+    expect(fetcher).toHaveBeenCalledTimes(2);
   });
 
   it('rejects malformed route IDs without calling the backend', async () => {
