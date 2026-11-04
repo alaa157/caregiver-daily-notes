@@ -4,6 +4,7 @@ import { isNoteDate, type DailyNote } from '../../api/notes';
 import { recipientErrorMessage, type Recipient } from '../../api/recipients';
 import { ButtonLink } from '../../components/Button';
 import { EmptyState, ErrorState, LoadingState } from '../../components/Feedback';
+import { Icon } from '../../components/Icon';
 import { useI18n } from '../../i18n/I18nProvider';
 import { useNoteResource, useNotesApis } from '../notes/useNotes';
 import './overview.css';
@@ -18,6 +19,13 @@ type RecipientOverview = {
   note: DailyNote | null;
   status: 'recorded' | 'missing' | 'error';
 };
+
+const workflows = [
+  ['people', '/app/recipients', 'recipientsTitle', 'overviewPeopleHint'],
+  ['edit', '/app/notes/new', 'notesCreate', 'overviewNotesHint'],
+  ['history', '/app/notes', 'historyTitle', 'overviewHistoryHint'],
+  ['journal', '/app/notes/summary', 'summaryTitle', 'overviewSummaryHint'],
+] as const;
 
 export function WorkspaceOverview() {
   const { t, language } = useI18n();
@@ -63,9 +71,9 @@ export function WorkspaceOverview() {
   return <section className="workspace-overview container" aria-labelledby="workspace-overview-title">
     <header className="overview-heading">
       <div><p className="eyebrow">{t('dashboard')}</p><h1 id="workspace-overview-title">{t('dashboardTitle')}</h1><p>{t('overviewDescription')}</p></div>
-      <div className="overview-actions"><ButtonLink to="/app/recipients">{t('recipientsTitle')}</ButtonLink><ButtonLink variant="secondary" to="/app/notes/new">{t('notesCreate')}</ButtonLink></div>
+      <div className="overview-actions"><ButtonLink variant="secondary" to="/app/recipients"><Icon name="people" size={18} />{t('recipientsTitle')}</ButtonLink><ButtonLink to="/app/notes/new"><Icon name="plus" size={18} />{t('notesCreate')}</ButtonLink></div>
     </header>
-    <div className="overview-date"><label htmlFor="overview-date">{t('overviewDateLabel')}</label>
+    <div className="overview-date"><Icon name="calendar" size={20} /><label htmlFor="overview-date">{t('overviewDateLabel')}</label>
       <input id="overview-date" type="date" dir="ltr" value={date} onChange={(event) => updateDate(event.target.value)} />
       <time dateTime={date}>{formattedDate(date)}</time>
     </div>
@@ -78,7 +86,7 @@ export function WorkspaceOverview() {
         <h2 className="overview-section-title">{t('overviewRecipientStatus')}</h2>
         <ul className="overview-list">
           {state.data.map(({ recipient, note, status }) => <li key={recipient.id} className="overview-row">
-            <div className="overview-person"><Link to={`/app/recipients/${recipient.id}`}><bdi>{recipient.name}</bdi></Link>
+            <div className="overview-person"><span className="person-avatar"><Icon name="people" size={20} /></span><Link to={`/app/recipients/${recipient.id}`}><bdi>{recipient.name}</bdi></Link>
               <span className="overview-secondary"><bdi>{recipient.relationship || t('recipientRelationshipEmpty')}</bdi></span>
             </div>
             <div className="overview-note-status" aria-live="polite">
@@ -95,8 +103,16 @@ export function WorkspaceOverview() {
         <p className="overview-footnote">{t('overviewMissingIsNotNegative')}</p>
         {state.data.some((row) => row.status === 'error') && <p className="overview-partial" role="status">{t('overviewPartialData')}</p>}
       </>)}
-    <nav className="overview-secondary-links" aria-label={t('overviewMoreWorkflows')}>
-      <Link to="/app/notes">{t('historyTitle')}</Link><Link to="/app/notes/summary">{t('summaryTitle')}</Link>
-    </nav>
+    <section className="overview-routine" aria-labelledby="routine-title">
+      <h2 id="routine-title">{t('overviewQuickActions')}</h2>
+      <nav className="routine-grid" aria-label={t('overviewMoreWorkflows')}>
+        {workflows.map(([icon, to, title, hint]) => <div className="routine-link" key={to}>
+          <span className="routine-icon"><Icon name={icon} /></span>
+          <Link to={to} aria-describedby={`routine-${icon}-hint`}>{t(title)}</Link>
+          <span id={`routine-${icon}-hint`}>{t(hint)}</span>
+          <Icon name="arrow-right" size={17} className="directional-icon" />
+        </div>)}
+      </nav>
+    </section>
   </section>;
 }
