@@ -3,6 +3,7 @@ package com.caregiver.ai;
 import com.caregiver.common.NoteSignals;
 import java.time.LocalDate;
 import java.util.List;
+import java.util.concurrent.CancellationException;
 import org.springframework.stereotype.Service;
 
 /** Caller data cannot replace owned notes or authoritative deterministic safety. */
@@ -23,7 +24,13 @@ public class SummaryApplicationService {
     try {
       result = source.notes().isEmpty() ? unavailable(request, source.signals(), "No notes in the selected period.")
           : summaries.summarize(request, source.notes(), source.signals());
+    } catch (CancellationException cancelled) {
+      throw cancelled;
     } catch (RuntimeException providerOrValidationFailure) {
+      // Preserve request cancellation instead of reporting it as AI unavailability.
+      if (Thread.currentThread().isInterrupted()) {
+        throw new CancellationException("Summary generation interrupted");
+      }
       // Ownership/data reads happen outside this catch. Invalid model output
       // and provider failures erase model content, never authoritative safety.
       result = unavailable(request, source.signals(), "AI unavailable");

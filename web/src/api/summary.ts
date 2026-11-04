@@ -44,18 +44,18 @@ export function readSummaryResponse(value: unknown): SummaryResponse {
   try {
     const raw = object(item?.summary);
     if (!raw || typeof raw.aiUnavailable !== 'boolean' || !Array.isArray(raw.observations) || !Array.isArray(raw.uncertainties)) throw new Error();
-    const observations = raw.observations.map((value): SummaryObservation => {
-      const observation = object(value);
-      if (!observation || !nonempty(observation.text) || !nonempty(observation.noteId) || !nonempty(observation.quote)) throw new Error();
-      return { text: observation.text, noteId: observation.noteId, quote: observation.quote };
-    });
     const uncertainties = raw.uncertainties.map((value): SummaryUncertainty => {
       const uncertainty = object(value);
       if (!uncertainty || !nonempty(uncertainty.topic) || !nonempty(uncertainty.detail)) throw new Error();
       return { topic: uncertainty.topic, detail: uncertainty.detail };
     });
-    // Fallback is never presented as a successful model summary, even with stray observations.
-    summary = { observations: raw.aiUnavailable ? [] : observations, uncertainties, aiUnavailable: raw.aiUnavailable };
+    // An unavailable response can contain stray provider output; never inspect or expose it as observations.
+    const observations = raw.aiUnavailable ? [] : raw.observations.map((value): SummaryObservation => {
+      const observation = object(value);
+      if (!observation || !nonempty(observation.text) || !nonempty(observation.noteId) || !nonempty(observation.quote)) throw new Error();
+      return { text: observation.text, noteId: observation.noteId, quote: observation.quote };
+    });
+    summary = { observations, uncertainties, aiUnavailable: raw.aiUnavailable };
   } catch { invalidContent = true; }
   try {
     if (!Array.isArray(item?.trends)) throw new Error();

@@ -14,6 +14,7 @@ import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Objects;
+import java.util.concurrent.CancellationException;
 
 /**
  * OpenAI-compatible chat-completions provider behind {@link LlmClient}.
@@ -23,7 +24,8 @@ import java.util.Objects;
  * retry on malformed output, then falls back to an explicit
  * {@code AI_UNAVAILABLE} result. A {@code finish_reason} other than
  * {@code "stop"} (notably {@code "length"}) counts as a failed attempt, never
- * as content. {@code complete} never throws (except on a null request).
+ * as content. Cancellation and interruption propagate rather than becoming a
+ * fallback result.
  */
 public class ChatCompletionsLlmClient implements LlmClient {
 
@@ -103,6 +105,7 @@ public class ChatCompletionsLlmClient implements LlmClient {
     if (request == null) {
       throw new IllegalArgumentException("request");
     }
+    if (Thread.currentThread().isInterrupted()) throw interruptedCancellation();
     int attempts = maxAttempts > 0 ? maxAttempts : MAX_ATTEMPTS;
     Duration effectiveTimeout = timeout != null ? timeout : REQUEST_TIMEOUT;
     long backoffBase = backoffBaseMs >= 0 ? backoffBaseMs : BACKOFF_BASE_MS;
@@ -118,34 +121,36 @@ public class ChatCompletionsLlmClient implements LlmClient {
       repairBody = requestBody(
           request.systemPrompt(), delimitedData(request.dataBlock()) + REPAIR_SUFFIX);
     } catch (IOException e) {
+      if (Thread.currentThread().isInterrupted()) throw interruptedCancellation();
       return fallback("request build failed");
     }
     for (int attempt = 1; attempt <= attempts; attempt++) {
+      if (Thread.currentThread().isInterrupted()) throw interruptedCancellation();
       String raw;
       try {
         raw = exchange.post(url, headers, body, effectiveTimeout);
       } catch (InterruptedException e) {
         Thread.currentThread().interrupt();
-        return fallback("interrupted");
+        throw interruptedCancellation(e);
+      } catch (CancellationException cancelled) {
+        throw cancelled;
       } catch (IOException | RuntimeException e) {
         // Transport exception messages may contain request details; never
         // expose them through the result returned to callers.
         lastError = "transport failure";
-        if (!backoff(attempt, attempts, backoffBase)) {
-          return fallback("interrupted during backoff");
-        }
+        backoff(attempt, attempts, backoffBase);
         continue;
       }
+      if (Thread.currentThread().isInterrupted()) throw interruptedCancellation();
       String text = extractText(raw);
       if (text == null || text.isBlank()) {
         lastError = "empty model output";
-        if (!backoff(attempt, attempts, backoffBase)) {
-          return fallback("interrupted during backoff");
-        }
+        backoff(attempt, attempts, backoffBase);
         continue;
       }
       String stripped = ModelSanitizer.strip(text);
       if (isValidJson(stripped)) {
+        if (Thread.currentThread().isInterrupted()) throw interruptedCancellation();
         return new LlmResult(LlmStatus.OK, stripped, null);
       }
       if (repairs < REPAIR_ATTEMPTS) {
@@ -155,19 +160,19 @@ public class ChatCompletionsLlmClient implements LlmClient {
           repaired = tryRepair(url, headers, repairBody, effectiveTimeout);
         } catch (InterruptedException e) {
           Thread.currentThread().interrupt();
-          return fallback("interrupted");
+          throw interruptedCancellation(e);
         }
         if (repaired != null) {
+          if (Thread.currentThread().isInterrupted()) throw interruptedCancellation();
           return new LlmResult(LlmStatus.REPAIRED, repaired, null);
         }
         lastError = "repair attempt failed";
       } else {
         lastError = "invalid model output";
       }
-      if (!backoff(attempt, attempts, backoffBase)) {
-        return fallback("interrupted during backoff");
-      }
+      backoff(attempt, attempts, backoffBase);
     }
+    if (Thread.currentThread().isInterrupted()) throw interruptedCancellation();
     return fallback(lastError);
   }
 
@@ -176,9 +181,12 @@ public class ChatCompletionsLlmClient implements LlmClient {
     String raw;
     try {
       raw = exchange.post(url, headers, repairBody, timeout);
+    } catch (CancellationException cancelled) {
+      throw cancelled;
     } catch (IOException | RuntimeException e) {
       return null;
     }
+    if (Thread.currentThread().isInterrupted()) throw interruptedCancellation();
     String text = extractText(raw);
     if (text == null || text.isBlank()) {
       return null;
@@ -187,17 +195,25 @@ public class ChatCompletionsLlmClient implements LlmClient {
     return isValidJson(stripped) ? stripped : null;
   }
 
-  private boolean backoff(int attempt, int attempts, long baseMs) {
-    if (attempt >= attempts) {
-      return true;
-    }
+  private void backoff(int attempt, int attempts, long baseMs) {
+    if (Thread.currentThread().isInterrupted()) throw interruptedCancellation();
+    if (attempt >= attempts) return;
     try {
       sleeper.sleep(baseMs * (1L << (attempt - 1)));
     } catch (InterruptedException e) {
       Thread.currentThread().interrupt();
-      return false;
+      throw interruptedCancellation(e);
     }
-    return true;
+  }
+
+  private CancellationException interruptedCancellation() {
+    return new CancellationException("Provider call interrupted");
+  }
+
+  private CancellationException interruptedCancellation(InterruptedException cause) {
+    CancellationException cancelled = interruptedCancellation();
+    cancelled.initCause(cause);
+    return cancelled;
   }
 
   private String trimmedBaseUrl() {

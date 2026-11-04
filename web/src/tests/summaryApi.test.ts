@@ -70,7 +70,7 @@ describe('safety survives invalid generated content', () => {
     expect(result.trends).toEqual(fixture.trends);
     expect(result.safety).toEqual({ ...fixture.safety, incomplete: false });
   });
-  it.each([null, {}, { observations: [], uncertainties: [], aiUnavailable: 'false' }, { observations: [{ text: 'unsupported', noteId: 'n', quote: '' }], uncertainties: [], aiUnavailable: false }])('retains HIGH warnings when model content is malformed: %j', (summary) => {
+  it.each([null, {}, { observations: [], uncertainties: [] }, { observations: [], uncertainties: [], aiUnavailable: 'false' }, { observations: [{ text: 'unsupported', noteId: 'n', quote: '' }], uncertainties: [], aiUnavailable: false }, { observations: [], uncertainties: [{ topic: '', detail: 'missing topic' }], aiUnavailable: false }])('retains HIGH warnings when model content is malformed: %j', (summary) => {
     const result = readSummaryResponse({ ...summaryFixture(), summary });
     expect(result.summary).toBeNull(); expect(result.invalidContent).toBe(true);
     expect(result.safety.needsDoctorBanner).toBe(true);
@@ -103,6 +103,32 @@ describe('safety survives invalid generated content', () => {
     const result = readSummaryResponse(fixture);
     expect(result.summary?.observations).toEqual([]); expect(result.summary?.aiUnavailable).toBe(true);
     expect(result.safety.needsDoctorBanner).toBe(true); expect(result.trends).toEqual(fixture.trends);
+  });
+  it('does not parse unavailable output as successful observations', () => {
+    const fixture = summaryFixture();
+    fixture.summary.aiUnavailable = true;
+    fixture.summary.observations.push({ text: 'stray model output', noteId: 'n2', quote: 'stray quote' });
+    fixture.summary.observations[0].quote = '';
+
+    const result = readSummaryResponse(fixture);
+
+    expect(result.summary?.aiUnavailable).toBe(true);
+    expect(result.summary?.observations).toEqual([]);
+    expect(result.summary?.uncertainties).toEqual(fixture.summary.uncertainties);
+    expect(result.safety.needsDoctorBanner).toBe(true);
+    expect(result.trends).toEqual(fixture.trends);
+    expect(result.invalidContent).toBe(false);
+  });
+  it('marks malformed summary response as invalid content', () => {
+    const fixture = summaryFixture();
+    fixture.summary.observations = [{ text: 'partial generated text', noteId: 'n1', quote: '' }];
+
+    const result = readSummaryResponse(fixture);
+
+    expect(result.invalidContent).toBe(true);
+    expect(result.summary).toBeNull();
+    expect(result.safety).toMatchObject({ needsDoctorBanner: true, signals: fixture.safety.signals });
+    expect(result.trends).toEqual(fixture.trends);
   });
   it('does not invent counts or repair contradictory backend trends', () => {
     const fixture = summaryFixture(); fixture.trends[0].delta = 99;
