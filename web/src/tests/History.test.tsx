@@ -1,6 +1,6 @@
 import { act, fireEvent, render, screen, waitFor, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
-import { MemoryRouter, useLocation } from 'react-router-dom';
+import { MemoryRouter, useLocation, useNavigate } from 'react-router-dom';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { App } from '../app/App';
 import { AuthProvider } from '../features/auth/AuthProvider';
@@ -21,11 +21,15 @@ const root = '/app/notes';
 const range = `${root}?from=2026-10-01&to=2026-10-22`;
 const otherRecipient = { ...recipientFixture, id: 'b2222222-2222-4222-8222-222222222222', name: 'ليلى Smith', active: false, lifecycleStatus: 'ARCHIVED', archivedAt: '2026-10-15T10:00:00Z', archivedBy: 'b1111111-1111-4111-8111-111111111111' };
 function Location() { const location = useLocation(); return <output data-testid="location">{location.pathname}{location.search}</output>; }
-function renderHistory(fetcher: ReturnType<typeof vi.fn>, path = range, language = 'en', authenticated = true) {
+function HistoryNavigationControls() {
+  const navigate = useNavigate();
+  return <div><button onClick={() => navigate(-1)}>Test Back</button><button onClick={() => navigate(1)}>Test Forward</button></div>;
+}
+function renderHistory(fetcher: ReturnType<typeof vi.fn>, path = range, language = 'en', authenticated = true, navigationControls = false) {
   vi.stubGlobal('fetch', fetcher);
   localStorage.setItem('caregiver-language', language);
   if (authenticated) sessionStorage.setItem('caregiver-auth-session-v1', JSON.stringify({ token: testToken(), baseUrl: '' }));
-  return render(<I18nProvider><ApiProvider config={{ apiBaseUrl: '' }}><AuthProvider><MemoryRouter initialEntries={[path]}><App /><Location /></MemoryRouter></AuthProvider></ApiProvider></I18nProvider>);
+  return render(<I18nProvider><ApiProvider config={{ apiBaseUrl: '' }}><AuthProvider><MemoryRouter initialEntries={[path]}>{navigationControls && <HistoryNavigationControls />}<App /><Location /></MemoryRouter></AuthProvider></ApiProvider></I18nProvider>);
 }
 function dataFetcher(override?: (url: URL, init: RequestInit) => Response | Promise<Response> | undefined) {
   return vi.fn().mockImplementation((path: string, init: RequestInit) => {
@@ -101,7 +105,12 @@ describe('history screen, filters and immutable records', () => {
     expect(screen.getByLabelText('From date')).toHaveValue(defaults.from);
     expect(screen.getByLabelText('To date')).toHaveValue(defaults.to);
     expect(screen.getByLabelText('Notes per page')).toHaveValue('20');
+    expect(Object.fromEntries(new URLSearchParams(screen.getByTestId('location').textContent!.split('?')[1]))).toEqual({
+      from: defaults.from, to: defaults.to,
+    });
     expect(queries(fetcher).at(-1)!.searchParams.get('page')).toBe('0');
+    expect(queries(fetcher).at(-1)!.searchParams.get('size')).toBe('20');
+    expect(queries(fetcher).at(-1)!.searchParams.has('recipientId')).toBe(false);
     date('From date', '2026-01-01');
     await userEvent.click(screen.getByRole('button', { name: 'Reset filters' }));
     expect(screen.getByLabelText('From date')).toHaveValue(defaults.from);
@@ -136,6 +145,90 @@ describe('history screen, filters and immutable records', () => {
     date('From date', '2026-10-02');
     await userEvent.click(screen.getByRole('button', { name: 'Apply filters' })); await loaded();
     expect(queries(fetcher).at(-1)!.searchParams.get('page')).toBe('0');
+  });
+  it('restores recipient and date filters after refresh', async () => {
+    const path = `${root}?from=2026-10-01&to=2026-10-22&recipientId=${recipientFixture.id}&page=1&size=50`;
+    const fetcher = dataFetcher((url) => url.pathname === '/api/notes'
+      ? jsonResponse(historyPage([historyNote], Number(url.searchParams.get('page')), Number(url.searchParams.get('size')), 101))
+      : undefined);
+    const first = renderHistory(fetcher, path);
+    await loaded();
+    expect(screen.getByLabelText('From date')).toHaveValue('2026-10-01');
+    expect(screen.getByLabelText('To date')).toHaveValue('2026-10-22');
+    expect(screen.getByLabelText('Care recipient')).toHaveValue(recipientFixture.id);
+    expect(screen.getByLabelText('Notes per page')).toHaveValue('50');
+    expect(Object.fromEntries(queries(fetcher).at(-1)!.searchParams)).toEqual({
+      from: '2026-10-01', to: '2026-10-22', recipientId: recipientFixture.id, page: '1', size: '50',
+    });
+    first.unmount();
+
+    renderHistory(fetcher, path);
+    await loaded();
+    expect(screen.getByLabelText('From date')).toHaveValue('2026-10-01');
+    expect(screen.getByLabelText('To date')).toHaveValue('2026-10-22');
+    expect(screen.getByLabelText('Care recipient')).toHaveValue(recipientFixture.id);
+    expect(screen.getByLabelText('Notes per page')).toHaveValue('50');
+    expect(Object.fromEntries(queries(fetcher).at(-1)!.searchParams)).toEqual({
+      from: '2026-10-01', to: '2026-10-22', recipientId: recipientFixture.id, page: '1', size: '50',
+    });
+  });
+  it('does not normalize invalid pagination parameters into a history request', async () => {
+    const fetcher = dataFetcher();
+    renderHistory(fetcher, `${root}?from=2026-10-01&to=2026-10-22&page=invalid&size=30`);
+    expect(await screen.findByText('Check the filters before loading notes.')).toBeInTheDocument();
+    expect(screen.getByLabelText('Notes per page')).toHaveValue('20');
+    expect(queries(fetcher)).toHaveLength(0);
+  });
+  it('restores prior filter state with browser back', async () => {
+    const fetcher = dataFetcher((url) => url.pathname === '/api/notes'
+      ? jsonResponse(historyPage([], Number(url.searchParams.get('page')), Number(url.searchParams.get('size'))))
+      : undefined);
+    renderHistory(fetcher, root, 'en', true, true);
+
+    await screen.findByText('No notes match these filters.');
+    await userEvent.selectOptions(screen.getByLabelText('Care recipient'), otherRecipient.id);
+    date('From date', '2026-10-10');
+    date('To date', '2026-10-20');
+    await userEvent.click(screen.getByRole('button', { name: 'Apply filters' }));
+    await screen.findByText('No notes match these filters.');
+    await waitFor(() => expect(Object.fromEntries(new URLSearchParams(screen.getByTestId('location').textContent!.split('?')[1]))).toMatchObject({
+      from: '2026-10-10', to: '2026-10-20', recipientId: otherRecipient.id,
+    }));
+    expect(screen.getByLabelText('Care recipient')).toHaveValue(otherRecipient.id);
+    expect(Object.fromEntries(queries(fetcher).at(-1)!.searchParams)).toMatchObject({
+      from: '2026-10-10', to: '2026-10-20', recipientId: otherRecipient.id,
+    });
+
+    await userEvent.selectOptions(screen.getByLabelText('Care recipient'), recipientFixture.id);
+    date('From date', '2026-10-11');
+    date('To date', '2026-10-21');
+    await userEvent.click(screen.getByRole('button', { name: 'Apply filters' }));
+    await screen.findByText('No notes match these filters.');
+    await waitFor(() => expect(screen.getByLabelText('From date')).toHaveValue('2026-10-11'));
+    expect(screen.getByLabelText('Care recipient')).toHaveValue(recipientFixture.id);
+    expect(Object.fromEntries(queries(fetcher).at(-1)!.searchParams)).toMatchObject({
+      from: '2026-10-11', to: '2026-10-21', recipientId: recipientFixture.id,
+    });
+
+    await userEvent.click(screen.getByRole('button', { name: 'Test Back' }));
+    await waitFor(() => {
+      expect(screen.getByLabelText('From date')).toHaveValue('2026-10-10');
+      expect(screen.getByLabelText('To date')).toHaveValue('2026-10-20');
+      expect(screen.getByLabelText('Care recipient')).toHaveValue(otherRecipient.id);
+    });
+    await waitFor(() => expect(Object.fromEntries(queries(fetcher).at(-1)!.searchParams)).toMatchObject({
+      from: '2026-10-10', to: '2026-10-20', recipientId: otherRecipient.id,
+    }));
+
+    await userEvent.click(screen.getByRole('button', { name: 'Test Forward' }));
+    await waitFor(() => {
+      expect(screen.getByLabelText('From date')).toHaveValue('2026-10-11');
+      expect(screen.getByLabelText('To date')).toHaveValue('2026-10-21');
+      expect(screen.getByLabelText('Care recipient')).toHaveValue(recipientFixture.id);
+    });
+    await waitFor(() => expect(Object.fromEntries(queries(fetcher).at(-1)!.searchParams)).toMatchObject({
+      from: '2026-10-11', to: '2026-10-21', recipientId: recipientFixture.id,
+    }));
   });
   it('cancels a superseded request and ignores its late response', async () => {
     let resolve!: (value: Response) => void; let abandoned!: AbortSignal;

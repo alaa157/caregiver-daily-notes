@@ -23,12 +23,17 @@ export function validateHistoryFilters(filters: HistoryFilters): HistoryErrors {
 }
 
 export function readHistorySearch(search: URLSearchParams, defaults: HistoryFilters) {
-  const page = Number(search.get('page') ?? 0);
-  const size = Number(search.get('size') ?? 20);
+  const rawPage = search.get('page');
+  const rawSize = search.get('size');
+  const page = Number(rawPage ?? 0);
+  const size = Number(rawSize ?? 20);
+  const validPage = rawPage === null || (/^(0|[1-9]\d*)$/.test(rawPage) && Number.isSafeInteger(page) && page >= 0);
+  const validSize = rawSize === null || (/^\d+$/.test(rawSize) && historyPageSizes.some((value) => value === size));
   return {
     filters: { recipientId: search.get('recipientId') ?? '', from: search.get('from') ?? defaults.from, to: search.get('to') ?? defaults.to },
     page: Number.isSafeInteger(page) && page >= 0 ? page : 0,
     size: historyPageSizes.some((value) => value === size) ? size : 20,
+    paginationValid: validPage && validSize,
   };
 }
 
