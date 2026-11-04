@@ -55,9 +55,9 @@ describe('history screen, filters and immutable records', () => {
     expect(document.title).toContain('Notes history');
     expect(within(card).getByText('Original note')).toBeInTheDocument();
     await userEvent.click(within(card).getByText('View original observations and text'));
-    expect(within(card).getByText('Unknown')).toBeInTheDocument();
+    expect(within(card).getByText('Unknown / unsure')).toBeInTheDocument();
     expect(within(card).getByText('0')).toBeInTheDocument();
-    expect(within(card).getByText('No')).toBeInTheDocument();
+    expect(within(card).getAllByText('No')).toHaveLength(2);
     expect(within(card).getByText(/غير متأكد من الدواء/).textContent).toBe(noteObservations.freeText);
     expect(document.querySelector('script')).not.toBeInTheDocument();
     expect(fetcher.mock.calls.some(([path]) => path.includes('/addenda'))).toBe(false);

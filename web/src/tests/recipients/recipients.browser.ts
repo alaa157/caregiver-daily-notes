@@ -4,7 +4,6 @@ import { recipientFixture } from '../recipientFixtures';
 
 const require = createRequire(import.meta.url);
 const root = '/app/recipients';
-const detail = `${root}/${recipientFixture.id}`;
 const token = () => {
   const encode = (value: unknown) => Buffer.from(JSON.stringify(value)).toString('base64url');
   return [encode({ alg: 'HS256' }), encode({ sub: '12345678-1234-1234-1234-123456789abc', exp: Math.floor(Date.now() / 1000) + 3600 }), 'synthetic-signature'].join('.');
@@ -29,14 +28,17 @@ for (const language of ['en', 'ar'] as const) {
     archived: ar ? 'مؤرشف' : 'Archived',
     active: ar ? 'نشط' : 'Active',
     archive: ar ? 'أرشفة المستفيد' : 'Archive recipient',
+    confirmArchive: ar ? 'تأكيد الأرشفة' : 'Archive recipient',
     archiveTitle: ar ? 'هل تريد أرشفة هذا المستفيد؟' : 'Archive this recipient?',
     restore: ar ? 'استعادة المستفيد' : 'Restore recipient',
+    confirmRestore: ar ? 'تأكيد الاستعادة' : 'Restore recipient',
     restoreTitle: ar ? 'هل تريد استعادة هذا المستفيد؟' : 'Restore this recipient?',
     cancel: ar ? 'إلغاء' : 'Cancel',
     back: ar ? 'العودة إلى المستفيدين' : 'Back to care recipients',
     edit: ar ? 'تعديل بيانات المستفيد' : 'Edit recipient',
     review: ar ? 'يتطلب المراجعة' : 'Needs review',
     readOnly: ar ? 'هذا المستفيد مؤرشف وبياناته للقراءة فقط' : 'This recipient is archived and read-only',
+    noActive: ar ? 'لا يوجد مستفيدون نشطون من الرعاية' : 'No active care recipients',
   };
 
   test(`reversible recipient archive lifecycle — ${language}`, async ({ page }) => {
@@ -80,19 +82,19 @@ for (const language of ['en', 'ar'] as const) {
     const archiveDialog = page.getByRole('dialog', { name: labels.archiveTitle });
     await expect(archiveDialog.getByRole('button', { name: labels.cancel, exact: true })).toBeFocused();
     await accessibility(page);
-    await archiveDialog.getByRole('button', { name: labels.archive, exact: true }).click();
+    await archiveDialog.getByRole('button', { name: labels.confirmArchive, exact: true }).click();
     await expect(page.getByText(labels.archived, { exact: true })).toBeVisible();
     await expect(page.getByText(labels.readOnly, { exact: false })).toBeVisible();
     await expect(page.getByRole('link', { name: labels.edit, exact: true })).toHaveCount(0);
     await page.getByRole('link', { name: labels.back, exact: true }).click();
-    await expect(page.getByText(ar ? 'لا يوجد مستفيدون مؤرشفون' : 'No active care recipients')).toBeVisible();
+    await expect(page.getByText(labels.noActive)).toBeVisible();
     await page.getByRole('button', { name: labels.archivedFilter, exact: true }).click();
     await expect(page.getByRole('link', { name: recipientFixture.name })).toBeVisible();
     await page.getByRole('link', { name: recipientFixture.name }).click();
     await page.getByRole('button', { name: labels.restore, exact: true }).click();
     const restoreDialog = page.getByRole('dialog', { name: labels.restoreTitle });
     await expect(restoreDialog).toBeVisible();
-    await restoreDialog.getByRole('button', { name: labels.restore, exact: true }).click();
+    await restoreDialog.getByRole('button', { name: labels.confirmRestore, exact: true }).click();
     await expect(page.getByText(labels.active, { exact: true })).toBeVisible();
     await page.getByRole('link', { name: labels.back, exact: true }).click();
     await page.getByRole('button', { name: labels.activeFilter, exact: true }).click();

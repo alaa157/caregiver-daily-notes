@@ -150,12 +150,16 @@ for (const initial of ['en', 'ar'] as const) {
     await page.reload();
     await expect(active().locator('.plan-status')).toHaveText(t.plansStatusAccepted);
 
-    // Deactivation preserves the note/addendum and the accepted plan.
+    // Archive preserves the note/addendum and accepted plan; restore reopens the workflow.
     await navigation().getByRole('link', { name: t.recipientsTitle, exact: true }).click();
     await page.getByRole('link', { name, exact: true }).click();
-    await page.getByRole('button', { name: t.recipientDeactivate, exact: true }).click();
-    await page.getByRole('button', { name: t.recipientConfirmDeactivate, exact: true }).click();
-    await expect(page.locator('.recipient-success')).toHaveText(t.recipientDeactivated);
+    await page.getByRole('button', { name: t.recipientArchive, exact: true }).click();
+    await page.getByRole('button', { name: t.recipientConfirmArchive, exact: true }).click();
+    await expect(page.locator('.recipient-success')).toHaveText(t.recipientArchivedSuccess);
+    await expect(page.getByRole('button', { name: t.recipientRestore, exact: true })).toBeVisible();
+    await page.getByRole('button', { name: t.recipientRestore, exact: true }).click();
+    await page.getByRole('button', { name: t.recipientConfirmRestore, exact: true }).click();
+    await expect(page.locator('.recipient-success')).toHaveText(t.recipientRestoredSuccess);
     const note = await request.get(`${backend}/api/notes/${noteId}`, { headers: owner });
     expect(note.status()).toBe(200);
     const savedNote = await note.json();
