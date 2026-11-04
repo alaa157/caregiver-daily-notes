@@ -1,6 +1,7 @@
 import { observationFields, type CorrectionEvent, type CorrectionHistory as CorrectionHistoryData, type EffectiveObservation, type ObservationField } from '../../api/notes';
 import { useI18n } from '../../i18n/I18nProvider';
 import { fieldLabels } from './noteForm';
+import { NoteTimelineRow } from './NoteTimelineRow';
 
 function scalarText(field: ObservationField, value: string | number | boolean, t: ReturnType<typeof useI18n>['t'], language: string) {
   if (value === '') return t('notesEmptyValue');
@@ -42,15 +43,18 @@ export function CorrectionHistory({ history, idPrefix = 'note' }: { history: Cor
         </div>)}</dl>
       </section>
       <ol className="structured-correction-list">{history.events.map((event) => <li key={event.id}>
-        <article className="structured-correction-event" aria-labelledby={`structured-event-${event.id}`}>
-          <h4 id={`structured-event-${event.id}`}>{t('notesCorrectionEvent')} {new Intl.NumberFormat(language === 'ar' ? 'ar-EG' : 'en').format(event.sequenceNo)} · {t(fieldLabels[event.field])}</h4>
-          <p className="note-hint"><time dateTime={event.createdAt}>{time(event.createdAt)}</time></p>
-          <dl className="correction-event-values">
+        <NoteTimelineRow
+          entryLabel={`${t('notesCorrectionEvent')} ${new Intl.NumberFormat(language === 'ar' ? 'ar-EG' : 'en').format(event.sequenceNo)} · ${t(fieldLabels[event.field])}`}
+          dateLabel={time(event.createdAt)}
+          dateTime={event.createdAt}
+          metadata={<>{t('notesCorrectionActor')}: <bdi>{event.actorId}</bdi></>}
+          provenance={<>{t('notesTimelineSourceId')}: <bdi>{event.id}</bdi></>}
+          collapsible={false}
+          body={<dl className="correction-event-values structured-correction-event">
             <div><dt>{t('notesCorrectionPrevious')}</dt><dd dir="auto" className="note-verbatim">{valueText(event.field, event.previousEffective, t, language)}</dd></div>
             <div><dt>{t('notesCorrectionNew')}</dt><dd dir="auto" className="note-verbatim">{operationText(event, t, language)}</dd></div>
-            <div><dt>{t('notesCorrectionActor')}</dt><dd><bdi>{event.actorId}</bdi></dd></div>
-          </dl>
-        </article>
+          </dl>}
+        />
       </li>)}</ol>
     </>}
   </section>;

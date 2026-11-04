@@ -53,6 +53,24 @@
 .correction-event-values dd { margin: .25rem 0 0; overflow-wrap: anywhere; }
 .effective-observations { margin-block: .75rem 1.5rem; padding-block-end: 1rem; border-block-end: 1px solid #d8ded6; }
 .effective-observations h3 { margin-block: 0; }
+.note-timeline { min-width: 0; }
+.note-timeline-row { min-width: 0; padding-block: var(--space-md); border-block-end: 1px solid var(--caregiver-border); overflow-wrap: anywhere; }
+.note-timeline-row__header { display: flex; align-items: start; justify-content: space-between; gap: var(--space-sm) var(--space-md); flex-wrap: wrap; margin-block-end: var(--space-sm); }
+.note-timeline-row__identity { display: grid; gap: var(--space-xs); min-width: 0; }
+.note-timeline-row__label { margin: 0; font-size: 1rem; line-height: 1.5; }
+.note-timeline-row__metadata, .note-timeline-row__date, .note-timeline-row__provenance { color: var(--caregiver-muted); overflow-wrap: anywhere; }
+.note-timeline-row__actions { min-width: 0; max-width: 100%; }
+.note-timeline-row__actions .button { max-width: 100%; white-space: normal; text-align: center; overflow-wrap: anywhere; }
+.note-timeline-row__body { min-width: 0; line-height: 1.5; overflow-wrap: anywhere; }
+.note-timeline-row__body--collapsed { max-block-size: 6em; overflow: hidden; }
+.note-timeline-row__toggle { min-height: var(--size-touch-target); margin-block-start: var(--space-xs); }
+.note-timeline-row :focus-visible { outline: 3px solid var(--color-outline); outline-offset: 3px; }
+.note-timeline-row__body .note-values { margin-block-start: var(--space-sm); }
+.note-addenda-list, .history-corrections-list { list-style: none; padding: 0; margin: 0; }
+.note-addenda-list > li + li, .history-corrections-list > li + li { border-block-start: 1px solid var(--caregiver-border); }
+.history-note { min-width: 0; padding-block: var(--space-md); border-block-end: 1px solid var(--caregiver-border); }
+.history-original { min-width: 0; }
+.history-original summary { cursor: pointer; min-height: var(--size-touch-target); display: flex; align-items: center; color: var(--caregiver-primary); font-weight: 600; }
 @media (max-width: 600px) { .correction-editor-fields, .correction-event-values { grid-template-columns: minmax(0, 1fr); } }
 @media (max-width: 600px) { .note-grid, .note-values { grid-template-columns: minmax(0, 1fr); } .note-surface { border-radius: 12px; } .note-actions .button { flex: 1 1 12rem; } }
 

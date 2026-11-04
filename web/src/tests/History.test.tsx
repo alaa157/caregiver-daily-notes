@@ -12,6 +12,11 @@ import { correctionHistoryFixture, historyNote, historyPage } from './historyFix
 import { addendumFixture, noteFixture, noteObservations } from './noteFixtures';
 import { recipientFixture } from './recipientFixtures';
 
+function forceTimelineOverflow(body: HTMLElement) {
+  Object.defineProperty(body, 'scrollHeight', { configurable: true, value: 600 });
+  fireEvent(window, new Event('resize'));
+}
+
 const root = '/app/notes';
 const range = `${root}?from=2026-10-01&to=2026-10-22`;
 const otherRecipient = { ...recipientFixture, id: 'b2222222-2222-4222-8222-222222222222', name: 'ليلى Smith', active: false, lifecycleStatus: 'ARCHIVED', archivedAt: '2026-10-15T10:00:00Z', archivedBy: 'b1111111-1111-4111-8111-111111111111' };
@@ -177,6 +182,70 @@ describe('history screen, filters and immutable records', () => {
     await userEvent.click(within(card).getByRole('button', { name: 'Hide corrections (1)' }));
     expect(screen.queryByRole('article', { name: 'Correction 1' })).not.toBeInTheDocument();
     expect(fetcher.mock.calls.every(([, init]) => init.method === 'GET')).toBe(true);
+  });
+  it('renders structured correction events in shared timeline rows with visible provenance', async () => {
+    const history = correctionHistoryFixture();
+    const actorId = 'f5555555-5555-4555-8555-555555555555';
+    const eventId = 'e5555555-5555-4555-8555-555555555555';
+    const previousEffective = {
+      state: 'RECORDED', value: 'okay', rawValue: null, lastOperation: null,
+      eventId: null, actorId: null, updatedAt: historyNote.createdAt,
+    };
+    const effectiveAfter = {
+      ...previousEffective, value: 'calm', lastOperation: 'SET',
+      eventId, actorId, updatedAt: '2026-10-18T12:00:00Z',
+    };
+    const event = {
+      id: eventId, noteId: historyNote.id, sequenceNo: 1, createdAt: '2026-10-18T12:00:00Z',
+      actorId, field: 'mood', operation: 'SET', value: 'calm', previousEffective, effectiveAfter,
+    };
+    const fetcher = dataFetcher((url) => url.pathname.endsWith('/corrections')
+      ? jsonResponse({ ...history, events: [event], effectiveObservations: { ...history.effectiveObservations, mood: effectiveAfter } })
+      : undefined);
+    renderHistory(fetcher);
+    const card = await loaded();
+    await userEvent.click(within(card).getByRole('button', { name: 'Show corrections (1)' }));
+
+    const correction = await within(card).findByRole('article', { name: /Correction event 1.*Mood/ });
+    expect(within(correction).getByText(actorId)).toBeVisible();
+    expect(within(correction).getByText(eventId)).toBeVisible();
+    expect(within(correction).getByText('Previous effective value')).toBeVisible();
+    expect(within(correction).getByText('New effective value')).toBeVisible();
+    expect(within(correction).getByText('okay')).toBeVisible();
+    expect(within(correction).getByText('Set to calm')).toBeVisible();
+    expect(within(card).getByRole('heading', { name: 'Current effective value' })).toBeVisible();
+    expect(within(card).getByText('calm')).toBeVisible();
+    expect(within(correction).queryByRole('button', { name: 'Show more' })).not.toBeInTheDocument();
+  });
+  it('keeps timeline recipient, date, note link, and correction provenance visible', async () => {
+    const longText = Array.from({ length: 10 }, (_, index) => `تصحيح ${index + 1} — mixed English`).join('\n');
+    const longAddendum = {
+      ...addendumFixture,
+      freeText: longText,
+      observations: { ...addendumFixture.observations, freeText: { state: 'RECORDED' as const, value: longText } },
+    };
+    const fetcher = dataFetcher((url) => url.pathname.endsWith('/addenda')
+      ? jsonResponse([longAddendum]) : undefined);
+    renderHistory(fetcher);
+
+    const card = await loaded();
+    const original = within(card).getByRole('article', { name: 'Original note' });
+    expect(within(original).getByText(recipientFixture.name)).toBeVisible();
+    expect(within(original).getByRole('time')).toHaveAttribute('dateTime', historyNote.date);
+    expect(within(original).getByRole('link', { name: 'Open full note' })).toHaveAttribute('href', `/app/notes/${historyNote.id}`);
+    await userEvent.click(within(original).getByText('View original observations and text'));
+    expect(within(original).getByText('Unknown')).toBeVisible();
+
+    await userEvent.click(within(card).getByRole('button', { name: 'Show corrections (1)' }));
+    const correction = await within(card).findByRole('article', { name: 'Correction 1' });
+    const body = within(correction).getByTestId('note-timeline-body');
+    forceTimelineOverflow(body);
+    await within(correction).findByRole('button', { name: 'Show more' });
+    expect(body).toHaveAttribute('data-collapsed', 'true');
+    expect(within(correction).getByText('Source ID:')).toBeVisible();
+    expect(within(correction).getByText(addendumFixture.id)).toBeVisible();
+    expect(within(correction).getByRole('time')).toHaveAttribute('dateTime', addendumFixture.createdAt);
+    expect(within(correction).getByText(/تصحيح 1/).textContent).toBe(longText);
   });
   it('keeps history available if recipient names cannot load, then retries metadata', async () => {
     let failed = true;
