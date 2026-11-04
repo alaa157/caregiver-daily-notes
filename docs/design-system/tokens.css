@@ -31,7 +31,12 @@
   --size-top-bar:56px; --size-top-bar-avatar:36px; --size-bottom-nav:64px; --size-bottom-nav-icon:22px;
   --size-fab:56px; --size-avatar:48px; --size-note-avatar:40px;
   --size-icon-small:20px; --size-icon-medium:24px; --size-icon-large:30px;
-  --elevation-card:1px; --elevation-account-popup-tonal:8px; --elevation-dialog-tonal:0px;
+  /* Web base.css alias tokens — preserve original base.css literal values exactly */
+  --web-color-ink:#213b32; --web-color-background:#fafaf6;
+  --web-color-muted:#59695f;
+  --web-color-green:#285b45; --web-color-green-dark:#1d4635;
+  --web-color-border:#dde4d8; --web-color-surface:#fff; --web-color-soft:#eef2e8;
+  --web-radius:18px;
 }
 
 [data-theme='dark'] {

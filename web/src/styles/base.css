@@ -1,18 +1,18 @@
 :root {
   font-family: 'DM Sans Variable', system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
-  color: #213b32;
-  background: #fafaf6;
+  color: var(--web-color-ink);
+  background: var(--web-color-background);
   font-synthesis: none;
   text-rendering: optimizeLegibility;
   -webkit-font-smoothing: antialiased;
-  --color-ink: #213b32;
-  --color-muted: #59695f;
-  --color-green: #285b45;
-  --color-green-dark: #1d4635;
-  --color-border: #dde4d8;
-  --color-surface: #fff;
-  --color-soft: #eef2e8;
-  --radius: 18px;
+  --color-ink: var(--web-color-ink);
+  --color-muted: var(--web-color-muted);
+  --color-green: var(--web-color-green);
+  --color-green-dark: var(--web-color-green-dark);
+  --color-border: var(--web-color-border);
+  --color-surface: var(--web-color-surface);
+  --color-soft: var(--web-color-soft);
+  --radius: var(--web-radius);
   --ease: cubic-bezier(.2, .65, .3, 1);
 }
 * { box-sizing: border-box; }
