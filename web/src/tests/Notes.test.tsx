@@ -4,6 +4,7 @@ import { MemoryRouter } from 'react-router-dom';
 import { describe, expect, it, vi } from 'vitest';
 import { App } from '../app/App';
 import { AuthProvider } from '../features/auth/AuthProvider';
+import { NoteTimelineRow } from '../features/notes/NoteTimelineRow';
 import { I18nProvider } from '../i18n/I18nProvider';
 import { ApiProvider } from '../lib/api';
 import { jsonResponse, testToken } from './authFixtures';
@@ -61,8 +62,78 @@ async function metadata() {
 async function setRecorded(label: string) {
   await userEvent.selectOptions(screen.getByLabelText(`${label} — Observation status`), 'RECORDED');
 }
+function forceTimelineOverflow(body: HTMLElement) {
+  Object.defineProperty(body, 'scrollHeight', { configurable: true, value: 600 });
+  fireEvent(window, new Event('resize'));
+}
 
 describe('daily-note creation and immutable corrections', () => {
+  it('expands a note body longer than four lines', async () => {
+    const text = 'Line one\nLine two\nLine three\nLine four\nLine five';
+    render(<I18nProvider><NoteTimelineRow entryLabel="Original note" dateLabel="Oct 18, 2026"
+      body={<p className="note-verbatim">{text}</p>} /></I18nProvider>);
+    const row = screen.getByRole('article', { name: 'Original note' });
+    const body = within(row).getByTestId('note-timeline-body');
+    forceTimelineOverflow(body);
+
+    const showMore = await within(row).findByRole('button', { name: 'Show more' });
+    expect(body).toHaveAttribute('data-collapsed', 'true');
+    await userEvent.click(showMore);
+    expect(showMore).toHaveAttribute('aria-expanded', 'true');
+    expect(body).toHaveAttribute('data-collapsed', 'false');
+    expect(body.textContent).toBe(text);
+    await userEvent.click(within(row).getByRole('button', { name: 'Show less' }));
+    expect(within(row).getByRole('button', { name: 'Show more' })).toHaveAttribute('aria-expanded', 'false');
+    expect(body).toHaveAttribute('data-collapsed', 'true');
+  });
+
+  it('does not show expansion for short note text', () => {
+    render(<I18nProvider><NoteTimelineRow entryLabel="Original note" dateLabel="Oct 18, 2026"
+      body={<p>Short note text.</p>} /></I18nProvider>);
+
+    expect(screen.getByText('Short note text.')).toBeVisible();
+    expect(screen.queryByRole('button', { name: 'Show more' })).not.toBeInTheDocument();
+  });
+
+  it('keeps correction provenance visible when body is collapsed', async () => {
+    const longText = Array.from({ length: 10 }, (_, index) => `تصحيح ${index + 1} — mixed English`).join('\n');
+    const longNote = {
+      ...noteFixture,
+      freeText: longText,
+      observations: { ...noteFixture.observations, freeText: { state: 'RECORDED' as const, value: longText } },
+    };
+    const longAddendum = {
+      ...addendumFixture,
+      freeText: longText,
+      observations: { ...addendumFixture.observations, freeText: { state: 'RECORDED' as const, value: longText } },
+    };
+    const corrections = correctionResponse([
+      { field: 'mood', operation: 'SET', value: 'calm' },
+      { field: 'painScore', operation: 'SET', value: 3 },
+    ]);
+    const fetcher = dataFetcher((path) => {
+      if (path === `/api/notes/${noteFixture.id}`) return jsonResponse(longNote);
+      if (path.endsWith('/addenda')) return jsonResponse([longAddendum]);
+      if (path.endsWith('/corrections')) return jsonResponse(corrections);
+    });
+    renderNotes(detail, fetcher);
+
+    const addendum = await screen.findByRole('article', { name: 'Add a correction 1' });
+    const body = within(addendum).getByTestId('note-timeline-body');
+    forceTimelineOverflow(body);
+    await within(addendum).findByRole('button', { name: 'Show more' });
+    expect(body).toHaveAttribute('data-collapsed', 'true');
+    expect(within(addendum).getByText('Source ID:')).toBeVisible();
+    expect(within(addendum).getByText(addendumFixture.id)).toBeVisible();
+    expect(within(addendum).getByRole('time')).toHaveAttribute('dateTime', addendumFixture.createdAt);
+
+    const eventsBefore = Array.from(document.querySelectorAll('.structured-correction-event h4'), (heading) => heading.textContent);
+    await userEvent.click(within(addendum).getByRole('button', { name: 'Show more' }));
+    expect(body).toHaveAttribute('data-collapsed', 'false');
+    expect(Array.from(document.querySelectorAll('.structured-correction-event h4'), (heading) => heading.textContent))
+      .toEqual(eventsBefore);
+  });
+
   it('protects direct note/addendum URLs before any API request', () => {
     const fetcher = vi.fn();
     renderNotes(`${detail}/addenda/new`, fetcher, 'en', false);
