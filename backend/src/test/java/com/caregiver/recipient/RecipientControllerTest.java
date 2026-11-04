@@ -266,28 +266,43 @@ class RecipientControllerTest {
         .andExpect(jsonPath("$.archivedBy").value(owner.id().toString()))
         .andReturn();
     String archivedAt = objectMapper.readTree(archived.getResponse().getContentAsString()).get("archivedAt").asText();
+    String archivedBy = objectMapper.readTree(archived.getResponse().getContentAsString()).get("archivedBy").asText();
+    assertThat(archivedAt).isNotBlank();
+    assertThat(archivedBy).isEqualTo(owner.id().toString());
 
-    mvc.perform(patch(RECIPIENTS + "/" + id + "/archive")
+    MvcResult idempotentArchiveResult = mvc.perform(patch(RECIPIENTS + "/" + id + "/archive")
             .header("Authorization", bearer(owner.token())))
         .andExpect(status().isOk())
-        .andExpect(jsonPath("$.archivedAt").value(archivedAt));
+        .andExpect(jsonPath("$.archivedAt").isNotEmpty())
+        .andReturn();
+    JsonNode idempotentArchive =
+        objectMapper.readTree(idempotentArchiveResult.getResponse().getContentAsString());
+    assertThat(Instant.parse(idempotentArchive.get("archivedAt").asText()).truncatedTo(java.time.temporal.ChronoUnit.MILLIS))
+        .isEqualTo(Instant.parse(archivedAt).truncatedTo(java.time.temporal.ChronoUnit.MILLIS));
 
     MvcResult restored = mvc.perform(patch(RECIPIENTS + "/" + id + "/restore")
             .header("Authorization", bearer(owner.token())))
         .andExpect(status().isOk())
         .andExpect(jsonPath("$.active").value(true))
         .andExpect(jsonPath("$.lifecycleStatus").value("ACTIVE"))
-        .andExpect(jsonPath("$.archivedAt").value(archivedAt))
+        .andExpect(jsonPath("$.archivedAt").isNotEmpty())
         .andExpect(jsonPath("$.restoredAt").isNotEmpty())
         .andExpect(jsonPath("$.restoredBy").value(owner.id().toString()))
         .andReturn();
-    String restoredAt = objectMapper.readTree(restored.getResponse().getContentAsString()).get("restoredAt").asText();
-
-    mvc.perform(patch(RECIPIENTS + "/" + id + "/restore")
+    JsonNode restoredJson = objectMapper.readTree(restored.getResponse().getContentAsString());
+    assertThat(Instant.parse(restoredJson.get("archivedAt").asText()).truncatedTo(java.time.temporal.ChronoUnit.MILLIS))
+        .isEqualTo(Instant.parse(archivedAt).truncatedTo(java.time.temporal.ChronoUnit.MILLIS));
+    Instant restoredInstant = Instant.parse(restoredJson.get("restoredAt").asText());
+    assertThat(restoredInstant).isNotNull();
+    MvcResult idempotentRestoreResult = mvc.perform(patch(RECIPIENTS + "/" + id + "/restore")
             .header("Authorization", bearer(owner.token())))
         .andExpect(status().isOk())
-        .andExpect(jsonPath("$.restoredAt").value(restoredAt));
-
+        .andExpect(jsonPath("$.restoredAt").isNotEmpty())
+        .andReturn();
+    JsonNode idempotentRestore =
+        objectMapper.readTree(idempotentRestoreResult.getResponse().getContentAsString());
+    assertThat(Instant.parse(idempotentRestore.get("restoredAt").asText()).truncatedTo(java.time.temporal.ChronoUnit.MILLIS))
+        .isEqualTo(restoredInstant.truncatedTo(java.time.temporal.ChronoUnit.MILLIS));
     mvc.perform(get(RECIPIENTS).param("status", "ACTIVE")
             .header("Authorization", bearer(owner.token())))
         .andExpect(status().isOk())

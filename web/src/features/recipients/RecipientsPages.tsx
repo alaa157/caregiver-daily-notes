@@ -48,7 +48,7 @@ export function RecipientsListPage() {
     {state.status === 'error' && <ErrorState description={t(recipientErrorMessage(state.error))} onRetry={reload} />}
     {state.status === 'ready' && (state.data.length === 0
       ? <EmptyState title={t(empty[0] as MessageKey)} description={t(empty[1] as MessageKey)} />
-      : <ul className="recipient-list" aria-label={t(filterLabel(filter))}>
+      : <ul className="recipient-list" aria-label={t(filterLabel(filter as RecipientLifecycleStatus))}>
         {state.data.map((recipient) => <li key={recipient.id} className="recipient-card">
           <RecipientStatus status={recipient.lifecycleStatus} />
           <h2><Link to={`${listPath}/${recipient.id}`}><bdi>{recipient.name}</bdi></Link></h2>

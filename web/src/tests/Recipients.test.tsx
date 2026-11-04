@@ -48,7 +48,7 @@ describe('care recipients screens', () => {
     expect(screen.getByText('Loading your care recipients…')).toBeInTheDocument();
     resolve(jsonResponse([recipient]));
     expect(await screen.findByRole('link', { name: recipient.name })).toHaveAttribute('href', detail);
-    expect(screen.getByText('Active')).toBeInTheDocument();
+    expect(within(screen.getByRole('group', { name: 'Filter recipients by lifecycle status' })).getByRole('button', { name: 'Active' })).toHaveAttribute('aria-pressed', 'true');
     expect(screen.queryByText('secret-owner')).not.toBeInTheDocument();
     expect(new Headers(fetcher.mock.calls[0][1].headers).get('Authorization')).toMatch(/^Bearer /);
     expect(screen.getByRole('navigation').querySelector('[aria-current="page"]')).toHaveTextContent('Care recipients');
@@ -56,7 +56,7 @@ describe('care recipients screens', () => {
 
   it('offers creation from the empty state', async () => {
     renderRecipients(root, vi.fn().mockResolvedValue(jsonResponse([])));
-    expect(await screen.findByText('No care recipients yet')).toBeInTheDocument();
+    expect(await screen.findByText('No active care recipients', { exact: true })).toBeInTheDocument();
     await userEvent.click(screen.getByRole('link', { name: 'Add care recipient' }));
     expect(screen.getByRole('form', { name: 'Add care recipient' })).toBeInTheDocument();
   });

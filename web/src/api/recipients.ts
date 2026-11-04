@@ -72,7 +72,7 @@ export function createRecipientsApi(client: ApiClient) {
     signal?: AbortSignal, body?: RecipientInput) => readRecipient(await client.request<unknown>({ path, method, signal, body }));
   return {
     async list(signal?: AbortSignal, filter: RecipientListFilter = 'ALL'): Promise<Recipient[]> {
-      const path = filter === 'ALL' ? '/api/recipients' : `/api/recipients?status=${encodeURIComponent(filter)}`;
+      const path: `/api/recipients${string}` = filter === 'ALL' ? '/api/recipients' : `/api/recipients?status=${encodeURIComponent(filter)}`;
       const response = await client.request<unknown>({ path, signal });
       if (!Array.isArray(response)) throw new Error('Invalid recipient list response.');
       return response.map(readRecipient);
@@ -84,7 +84,5 @@ export function createRecipientsApi(client: ApiClient) {
     update: (id: string, input: RecipientInput, signal?: AbortSignal) => single(pathFor(id), 'PUT', signal, fields(input)),
     archive: (id: string, signal?: AbortSignal) => single(`${pathFor(id)}/archive`, 'PATCH', signal),
     restore: (id: string, signal?: AbortSignal) => single(`${pathFor(id)}/restore`, 'PATCH', signal),
-    /** Compatibility alias; newly updated screens use archive(). */
-    deactivate: (id: string, signal?: AbortSignal) => single(`${pathFor(id)}/archive`, 'PATCH', signal),
   };
 }
