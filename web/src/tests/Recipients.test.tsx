@@ -41,14 +41,14 @@ describe('care recipients screens', () => {
     expect(fetcher).not.toHaveBeenCalled();
   });
 
-  it('renders loading, owned recipients and inactive status without ownership internals', async () => {
+  it('renders loading, owned recipients and active status without ownership internals', async () => {
     let resolve!: (response: Response) => void;
     const fetcher = vi.fn().mockImplementation(() => new Promise<Response>((done) => { resolve = done; }));
     renderRecipients(root, fetcher);
     expect(screen.getByText('Loading your care recipients…')).toBeInTheDocument();
-    resolve(jsonResponse([recipient, { ...recipient, id: 'b2222222-2222-4222-8222-222222222222', name: 'Mona', active: false, caregiverId: 'secret-owner' }]));
+    resolve(jsonResponse([recipient]));
     expect(await screen.findByRole('link', { name: recipient.name })).toHaveAttribute('href', detail);
-    expect(screen.getByText('Inactive')).toBeInTheDocument();
+    expect(within(screen.getByRole('group', { name: 'Filter recipients by lifecycle status' })).getByRole('button', { name: 'Active' })).toHaveAttribute('aria-pressed', 'true');
     expect(screen.queryByText('secret-owner')).not.toBeInTheDocument();
     expect(new Headers(fetcher.mock.calls[0][1].headers).get('Authorization')).toMatch(/^Bearer /);
     expect(screen.getByRole('navigation').querySelector('[aria-current="page"]')).toHaveTextContent('Care recipients');
@@ -56,19 +56,18 @@ describe('care recipients screens', () => {
 
   it('offers creation from the empty state', async () => {
     renderRecipients(root, vi.fn().mockResolvedValue(jsonResponse([])));
-    expect(await screen.findByText('No care recipients yet')).toBeInTheDocument();
+    expect(await screen.findByText('No active care recipients', { exact: true })).toBeInTheDocument();
     await userEvent.click(screen.getByRole('link', { name: 'Add care recipient' }));
     expect(screen.getByRole('form', { name: 'Add care recipient' })).toBeInTheDocument();
   });
-  it('searches recipients by name or relationship while keeping inactive records distinct', async () => {
-    const fetcher = vi.fn().mockResolvedValue(jsonResponse([recipient, { ...recipient, id: 'b2222222-2222-4222-8222-222222222222', name: 'Mona', relationship: 'Aunt', active: false }]));
+  it('searches recipients by name or relationship', async () => {
+    const fetcher = vi.fn().mockResolvedValue(jsonResponse([recipient, { ...recipient, id: 'b2222222-2222-4222-8222-222222222222', name: 'Mona', relationship: 'Aunt', active: true }]));
     renderRecipients(root, fetcher);
-    expect(await screen.findByRole('heading', { name: 'Active recipients' })).toBeInTheDocument();
-    expect(screen.getByRole('heading', { name: 'Inactive recipients' })).toBeInTheDocument();
+    expect(await screen.findByRole('link', { name: recipient.name })).toBeInTheDocument();
+    expect(screen.getByRole('link', { name: 'Mona' })).toBeInTheDocument();
     await userEvent.type(screen.getByLabelText('Search name or relationship'), 'aunt');
     expect(screen.getByRole('link', { name: 'Mona' })).toBeInTheDocument();
     expect(screen.queryByRole('link', { name: recipient.name })).not.toBeInTheDocument();
-    expect(screen.queryByRole('heading', { name: 'Active recipients' })).not.toBeInTheDocument();
     await userEvent.click(screen.getByRole('button', { name: 'Clear' }));
     expect(screen.getByRole('link', { name: recipient.name })).toBeInTheDocument();
     expect(fetcher).toHaveBeenCalledTimes(1);
@@ -138,27 +137,27 @@ describe('care recipients screens', () => {
     expect(await screen.findByRole('heading', { name: updated.name })).toBeInTheDocument();
   });
 
-  it('reloads an inactive conflict without silently losing the entered values', async () => {
-    const fetcher = vi.fn().mockResolvedValueOnce(jsonResponse(recipient)).mockResolvedValueOnce(jsonResponse({ code: 'INACTIVE_RECIPIENT' }, 409)).mockResolvedValueOnce(jsonResponse({ ...recipient, active: false }));
+  it('reloads an archived conflict without silently losing the entered values', async () => {
+    const fetcher = vi.fn().mockResolvedValueOnce(jsonResponse(recipient)).mockResolvedValueOnce(jsonResponse({ code: 'INACTIVE_RECIPIENT' }, 409)).mockResolvedValueOnce(jsonResponse({ ...recipient, active: false, lifecycleStatus: 'ARCHIVED', archivedAt: '2026-10-15T10:00:00Z', archivedBy: 'b1111111-1111-4111-8111-111111111111' }));
     renderRecipients(`${detail}/edit`, fetcher);
     const name = await screen.findByLabelText('Name');
     await userEvent.clear(name);
     await userEvent.type(name, 'Unsaved name');
     await userEvent.click(screen.getByRole('button', { name: 'Save changes' }));
-    expect(await screen.findByRole('alert')).toHaveTextContent('The recipient can no longer be updated');
+    expect(await screen.findByRole('alert')).toHaveTextContent('This recipient’s lifecycle changed or requires review');
     expect(name).toHaveValue('Unsaved name');
     expect(screen.getByRole('button', { name: 'Save changes' })).toBeDisabled();
     await userEvent.click(screen.getByRole('button', { name: 'Reload recipient details' }));
-    expect(await screen.findByText('Inactive')).toBeInTheDocument();
+    expect(await screen.findByText('Archived')).toBeInTheDocument();
     expect(screen.queryByRole('form')).not.toBeInTheDocument();
-    expect(screen.getByText(/Their historical notes and plans are preserved/)).toBeInTheDocument();
+    expect(screen.getByText(/This recipient is archived and read-only/)).toBeInTheDocument();
   });
 
-  it('keeps inactive detail/edit routes read-only with no delete or reactivate operation', async () => {
-    renderRecipients(`${detail}/edit`, vi.fn().mockResolvedValue(jsonResponse({ ...recipient, active: false })));
-    expect(await screen.findByText('Inactive')).toBeInTheDocument();
+  it('keeps legacy-review detail/edit routes read-only with no lifecycle transition', async () => {
+    renderRecipients(`${detail}/edit`, vi.fn().mockResolvedValue(jsonResponse({ ...recipient, active: false, lifecycleStatus: 'LEGACY_INACTIVE_REVIEW' })));
+    expect(await screen.findByText('Needs review')).toBeInTheDocument();
     expect(screen.queryByRole('textbox')).not.toBeInTheDocument();
-    expect(screen.queryByRole('button', { name: /Deactivate|Delete|Reactivate/ })).not.toBeInTheDocument();
+    expect(screen.queryByRole('button', { name: /Archive|Delete|Restore/ })).not.toBeInTheDocument();
   });
 
   it.each([403, 404])('uses a safe unavailable message for HTTP %i', async (status) => {
@@ -174,43 +173,66 @@ describe('care recipients screens', () => {
     expect(fetcher).not.toHaveBeenCalled();
   });
 
-  it('requires confirmation and restores focus when deactivation is cancelled', async () => {
+  it('requires confirmation before archive and restores focus when cancelled', async () => {
     const fetcher = vi.fn().mockResolvedValue(jsonResponse(recipient));
     renderRecipients(detail, fetcher);
-    const trigger = await screen.findByRole('button', { name: 'Deactivate recipient' });
+    const trigger = await screen.findByRole('button', { name: 'Archive recipient' });
     await userEvent.click(trigger);
-    const dialog = screen.getByRole('dialog', { name: 'Deactivate this recipient?' });
+    const dialog = screen.getByRole('dialog', { name: 'Archive this recipient?' });
     expect(within(dialog).getByRole('button', { name: 'Cancel' })).toHaveFocus();
-    expect(dialog).toHaveTextContent('Their historical notes and plans will be preserved.');
+    expect(dialog).toHaveTextContent('Existing notes, corrections, plans, and history will be preserved.');
     await userEvent.click(within(dialog).getByRole('button', { name: 'Cancel' }));
     expect(screen.queryByRole('dialog')).not.toBeInTheDocument();
     expect(trigger).toHaveFocus();
     expect(fetcher).toHaveBeenCalledTimes(1);
   });
 
-  it('confirms deactivation once and leaves the record visible as inactive', async () => {
-    const fetcher = vi.fn().mockResolvedValueOnce(jsonResponse(recipient)).mockResolvedValueOnce(jsonResponse({ ...recipient, active: false }));
+  it('archives the recipient through the API and makes the detail read-only', async () => {
+    const archived = { ...recipient, active: false, lifecycleStatus: 'ARCHIVED' as const, archivedAt: '2026-10-15T10:00:00Z', archivedBy: 'b1111111-1111-4111-8111-111111111111' };
+    const fetcher = vi.fn().mockResolvedValueOnce(jsonResponse(recipient)).mockResolvedValueOnce(jsonResponse(archived));
     renderRecipients(detail, fetcher);
-    await userEvent.click(await screen.findByRole('button', { name: 'Deactivate recipient' }));
-    await userEvent.click(screen.getByRole('button', { name: 'Confirm deactivation' }));
-    expect(await screen.findByText('Inactive')).toBeInTheDocument();
+    await userEvent.click(await screen.findByRole('button', { name: 'Archive recipient' }));
+    await userEvent.click(within(screen.getByRole('dialog')).getByRole('button', { name: 'Archive recipient' }));
+    expect(await screen.findByText('Archived')).toBeInTheDocument();
     expect(screen.queryByRole('dialog')).not.toBeInTheDocument();
     expect(screen.queryByRole('link', { name: 'Edit recipient' })).not.toBeInTheDocument();
-    expect(screen.getByText('Recipient deactivated. Their historical notes and plans are preserved.')).toHaveFocus();
-    expect(fetcher.mock.calls[1][0]).toBe(`${detail.replace('/app/', '/api/')}/deactivate`);
+    expect(screen.getByText('Recipient archived. Their history has been preserved.')).toHaveFocus();
+    expect(fetcher.mock.calls[1][0]).toBe(`${detail.replace('/app/', '/api/')}/archive`);
     expect(fetcher.mock.calls[1][1].method).toBe('PATCH');
     expect(fetcher.mock.calls[1][1].body).toBeUndefined();
   });
 
-  it('keeps the confirmation open after a failed deactivation and permits retry', async () => {
-    const fetcher = vi.fn().mockResolvedValueOnce(jsonResponse(recipient)).mockRejectedValueOnce(new TypeError('Failed to fetch')).mockResolvedValueOnce(jsonResponse({ ...recipient, active: false }));
+  it('restores an archived recipient to active status', async () => {
+    const archived = { ...recipient, active: false, lifecycleStatus: 'ARCHIVED' as const, archivedAt: '2026-10-15T10:00:00Z', archivedBy: 'b1111111-1111-4111-8111-111111111111' };
+    const restored = { ...recipient, restoredAt: '2026-10-16T10:00:00Z', restoredBy: 'b1111111-1111-4111-8111-111111111111' };
+    const fetcher = vi.fn().mockResolvedValueOnce(jsonResponse(archived)).mockResolvedValueOnce(jsonResponse(restored));
     renderRecipients(detail, fetcher);
-    await userEvent.click(await screen.findByRole('button', { name: 'Deactivate recipient' }));
-    await userEvent.click(screen.getByRole('button', { name: 'Confirm deactivation' }));
+    await userEvent.click(await screen.findByRole('button', { name: 'Restore recipient' }));
+    await userEvent.click(within(screen.getByRole('dialog')).getByRole('button', { name: 'Restore recipient' }));
+    expect(await screen.findByText('Active')).toBeInTheDocument();
+    expect(screen.getByText('Recipient restored to active status.')).toHaveFocus();
+    expect(fetcher.mock.calls[1][0]).toBe(`${detail.replace('/app/', '/api/')}/restore`);
+  });
+
+  it('keeps the archive dialog open after a failed request and allows retry', async () => {
+    const archived = { ...recipient, active: false, lifecycleStatus: 'ARCHIVED' as const, archivedAt: '2026-10-15T10:00:00Z', archivedBy: 'b1111111-1111-4111-8111-111111111111' };
+    const fetcher = vi.fn().mockResolvedValueOnce(jsonResponse(recipient)).mockRejectedValueOnce(new TypeError('Failed to fetch')).mockResolvedValueOnce(jsonResponse(archived));
+    renderRecipients(detail, fetcher);
+    await userEvent.click(await screen.findByRole('button', { name: 'Archive recipient' }));
+    await userEvent.click(within(screen.getByRole('dialog')).getByRole('button', { name: 'Archive recipient' }));
     expect(await screen.findByRole('alert')).toHaveFocus();
     expect(screen.getByRole('dialog')).toHaveTextContent('We couldn’t connect.');
-    await userEvent.click(screen.getByRole('button', { name: 'Confirm deactivation' }));
-    expect(await screen.findByText('Inactive')).toBeInTheDocument();
+    await userEvent.click(within(screen.getByRole('dialog')).getByRole('button', { name: 'Archive recipient' }));
+    expect(await screen.findByText('Archived')).toBeInTheDocument();
+  });
+
+  it('keeps legacy inactive records in a review-only state', async () => {
+    const legacy = { ...recipient, active: false, lifecycleStatus: 'LEGACY_INACTIVE_REVIEW' as const };
+    renderRecipients(detail, vi.fn().mockResolvedValue(jsonResponse(legacy)));
+    expect(await screen.findByText('Needs review')).toBeInTheDocument();
+    expect(screen.getByText(/historical meaning is unknown/i)).toBeInTheDocument();
+    expect(screen.queryByRole('button', { name: 'Restore recipient' })).not.toBeInTheDocument();
+    expect(screen.queryByRole('button', { name: 'Archive recipient' })).not.toBeInTheDocument();
   });
 
   it('expires rejected sessions and removes private UI', async () => {

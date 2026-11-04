@@ -27,6 +27,7 @@ describe('recipient API contract', () => {
     const { api, fetcher } = apiWithResponse({ ...recipient, createdAt: null, updatedAt: null, caregiverId: 'private-owner' }, 201);
     expect(await api.create({ name: recipient.name, relationship: recipient.relationship })).toEqual({
       id: recipient.id, name: recipient.name, relationship: recipient.relationship, active: true,
+      lifecycleStatus: 'ACTIVE', archivedAt: null, archivedBy: null, restoredAt: null, restoredBy: null,
     });
     expect(fetcher).toHaveBeenCalledTimes(1);
   });
@@ -42,11 +43,24 @@ describe('recipient API contract', () => {
     expect(fetcher).toHaveBeenCalledWith(`/api/recipients/${recipient.id}`, expect.objectContaining({ method: 'PUT', body: JSON.stringify({ name: recipient.name, relationship: null }) }));
   });
 
-  it('deactivates using PATCH without a request body', async () => {
-    const { api, fetcher } = apiWithResponse({ ...recipient, active: false });
-    const result = await api.deactivate(recipient.id);
-    expect(result.active).toBe(false);
-    expect(fetcher).toHaveBeenCalledWith(`/api/recipients/${recipient.id}/deactivate`, expect.objectContaining({ method: 'PATCH', body: undefined }));
+  it('lists a specific lifecycle state using the server filter', async () => {
+    const archived = { ...recipient, active: false, lifecycleStatus: 'ARCHIVED' as const,
+      archivedAt: '2026-10-15T10:00:00Z', archivedBy: 'b1111111-1111-4111-8111-111111111111' };
+    const { api, fetcher } = apiWithResponse([archived]);
+    expect(await api.list(undefined, 'ARCHIVED')).toEqual([archived]);
+    expect(fetcher).toHaveBeenCalledWith('/api/recipients?status=ARCHIVED', expect.objectContaining({ method: 'GET' }));
+  });
+
+  it('archives and restores through distinct PATCH endpoints', async () => {
+    const archived = { ...recipient, active: false, lifecycleStatus: 'ARCHIVED' as const,
+      archivedAt: '2026-10-15T10:00:00Z', archivedBy: 'b1111111-1111-4111-8111-111111111111' };
+    const restored = { ...recipient, restoredAt: '2026-10-16T10:00:00Z', restoredBy: 'b1111111-1111-4111-8111-111111111111' };
+    const fetcher = vi.fn().mockResolvedValueOnce(jsonResponse(archived)).mockResolvedValueOnce(jsonResponse(restored));
+    const api = createRecipientsApi(createApiClient({ apiBaseUrl: '' }, fetcher));
+    expect((await api.archive(recipient.id)).lifecycleStatus).toBe('ARCHIVED');
+    expect(fetcher.mock.calls[0][0]).toBe(`/api/recipients/${recipient.id}/archive`);
+    expect((await api.restore(recipient.id)).lifecycleStatus).toBe('ACTIVE');
+    expect(fetcher.mock.calls[1][0]).toBe(`/api/recipients/${recipient.id}/restore`);
   });
 
   it('forwards cancellation and never sends malformed IDs', async () => {

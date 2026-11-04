@@ -23,9 +23,10 @@ function dataFetcher(overrides?: (path: string, init: RequestInit) => Response |
   return vi.fn().mockImplementation((path: string, init: RequestInit) => {
     const override = overrides?.(path, init);
     if (override) return Promise.resolve(override);
-    return Promise.resolve(jsonResponse(path === '/api/recipients' ? [recipientFixture]
-      : path === `/api/recipients/${recipientFixture.id}` ? recipientFixture
-        : path.endsWith('/addenda') ? [] : path.endsWith('/corrections') ? correctionHistoryFixture() : noteFixture));
+    if (path.startsWith('/api/recipients?')) return Promise.resolve(jsonResponse(path.includes('status=ARCHIVED') ? [] : [recipientFixture]));
+    if (path === '/api/recipients') return Promise.resolve(jsonResponse([recipientFixture]));
+    if (path.startsWith('/api/recipients/')) return Promise.resolve(jsonResponse(recipientFixture));
+    return Promise.resolve(jsonResponse(path.endsWith('/addenda') ? [] : path.endsWith('/corrections') ? correctionHistoryFixture() : noteFixture));
   });
 }
 function correctionHistoryFixture(events: unknown[] = []) {
@@ -190,7 +191,17 @@ describe('daily-note creation and immutable corrections', () => {
     expect(fetcher.mock.calls.filter(([, init]) => init.method === 'POST')).toHaveLength(1);
   });
   it('can open an inactive recipient’s existing note but cannot create one', async () => {
-    renderNotes(`${root}/new`, dataFetcher((path) => path === '/api/recipients' ? jsonResponse([{ ...recipientFixture, active: false }]) : undefined));
+    const inactiveRecipient = {
+      ...recipientFixture,
+      active: false,
+      lifecycleStatus: 'ARCHIVED' as const,
+      archivedAt: '2026-10-15T10:00:00Z',
+      archivedBy: 'b1111111-1111-4111-8111-111111111111',
+    };
+    renderNotes(`${root}/new`, dataFetcher((path) => {
+      if (path.startsWith('/api/recipients/')) return jsonResponse(inactiveRecipient);
+      if (path.startsWith('/api/recipients')) return jsonResponse([inactiveRecipient]);
+    }));
     await metadata();
     expect(screen.getByRole('button', { name: 'Save original note' })).toBeDisabled();
     await userEvent.click(screen.getByRole('button', { name: 'Open note for this date' }));

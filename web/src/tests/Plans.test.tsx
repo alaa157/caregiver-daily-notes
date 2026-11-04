@@ -14,7 +14,7 @@ import { jsonResponse, testToken } from './authFixtures';
 
 const root = '/app/notes/plans';
 const selected = `${root}?recipientId=${recipient.id}`;
-const other = { ...recipient, id: 'b2222222-2222-4222-8222-222222222222', name: 'ليلى Smith', active: false };
+const other = { ...recipient, id: 'b2222222-2222-4222-8222-222222222222', name: 'ليلى Smith', active: false, lifecycleStatus: 'ARCHIVED' as const, archivedAt: '2026-10-15T10:00:00Z', archivedBy: 'b1111111-1111-4111-8111-111111111111' };
 function renderPlans(fetcher: ReturnType<typeof vi.fn>, path = selected, language = 'en', authenticated = true) {
   vi.stubGlobal('fetch', fetcher); localStorage.setItem('caregiver-language', language);
   if (authenticated) sessionStorage.setItem('caregiver-auth-session-v1', JSON.stringify({ token: testToken(), baseUrl: '' }));
@@ -26,8 +26,14 @@ function serve(options: { inactive?: boolean; history?: CarePlan[]; active?: Car
   return vi.fn().mockImplementation((path: string, init: RequestInit) => {
     const url = new URL(path, 'http://localhost');
     const custom = options.override?.(url, init); if (custom) return Promise.resolve(custom);
-    if (url.pathname === '/api/recipients') return Promise.resolve(jsonResponse([{ ...recipient, active: !options.inactive }, other]));
-    if (url.pathname.endsWith(`/recipients/${recipient.id}`)) return Promise.resolve(jsonResponse({ ...recipient, active: !options.inactive }));
+    if (url.pathname === '/api/recipients') {
+      const current = options.inactive ? { ...recipient, active: false, lifecycleStatus: 'ARCHIVED', archivedAt: '2026-10-15T10:00:00Z', archivedBy: 'b1111111-1111-4111-8111-111111111111' } : recipient;
+      return Promise.resolve(jsonResponse([current, other]));
+    }
+    if (url.pathname.endsWith(`/recipients/${recipient.id}`)) {
+      const current = options.inactive ? { ...recipient, active: false, lifecycleStatus: 'ARCHIVED', archivedAt: '2026-10-15T10:00:00Z', archivedBy: 'b1111111-1111-4111-8111-111111111111' } : recipient;
+      return Promise.resolve(jsonResponse(current));
+    }
     if (url.pathname.endsWith(`/recipients/${other.id}`)) return Promise.resolve(jsonResponse(other));
     if (init.method === 'POST') {
       if (url.pathname.endsWith('/edit-and-accept')) {

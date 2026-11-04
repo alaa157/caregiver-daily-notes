@@ -7,19 +7,17 @@ import com.caregiver.auth.CaregiverRepository;
 import com.caregiver.auth.InvalidTokenException;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
-
 import java.util.List;
 import java.util.UUID;
 
-/** Enforces recipient ownership at the service boundary for every operation. */
+/** Enforces recipient ownership and lifecycle transitions at the service boundary. */
 @Service
 public class RecipientService {
   private final CareRecipientRepository recipients;
   private final CaregiverRepository caregivers;
   private final AuditService audit;
 
-  public RecipientService(CareRecipientRepository recipients, CaregiverRepository caregivers,
-      AuditService audit) {
+  public RecipientService(CareRecipientRepository recipients, CaregiverRepository caregivers, AuditService audit) {
     this.recipients = recipients;
     this.caregivers = caregivers;
     this.audit = audit;
@@ -30,18 +28,18 @@ public class RecipientService {
     UUID caregiverId = AuthContext.currentCaregiverId();
     Caregiver caregiver = caregivers.findById(caregiverId)
         .orElseThrow(() -> new InvalidTokenException("Authentication required."));
-    CareRecipient recipient = new CareRecipient(caregiver, request.name(), request.relationship());
-    recipient = recipients.saveAndFlush(recipient);
+    CareRecipient recipient = recipients.saveAndFlush(new CareRecipient(caregiver, request.name(), request.relationship()));
     audit.record("RECIPIENT_CREATED", "CARE_RECIPIENT", recipient.getId().toString(), null);
     return RecipientResponse.from(recipient);
   }
 
   @Transactional(readOnly = true)
-  public List<RecipientResponse> listMine() {
+  public List<RecipientResponse> listMine(RecipientLifecycleStatus status) {
     UUID caregiverId = AuthContext.currentCaregiverId();
-    return recipients.findAllByCaregiver_IdOrderByCreatedAtDesc(caregiverId).stream()
-        .map(RecipientResponse::from)
-        .toList();
+    var owned = status == null
+        ? recipients.findAllByCaregiver_IdOrderByCreatedAtDesc(caregiverId)
+        : recipients.findAllByCaregiver_IdAndLifecycleStatusOrderByCreatedAtDesc(caregiverId, status);
+    return owned.stream().map(RecipientResponse::from).toList();
   }
 
   @Transactional(readOnly = true)
@@ -51,10 +49,7 @@ public class RecipientService {
 
   @Transactional
   public RecipientResponse update(UUID id, RecipientRequest request) {
-    CareRecipient recipient = findOwned(id);
-    if (!recipient.isActive()) {
-      throw new InactiveRecipientException();
-    }
+    CareRecipient recipient = findOwnedForUpdate(id);
     recipient.update(request.name(), request.relationship());
     recipient = recipients.saveAndFlush(recipient);
     audit.record("RECIPIENT_UPDATED", "CARE_RECIPIENT", recipient.getId().toString(), null);
@@ -62,17 +57,48 @@ public class RecipientService {
   }
 
   @Transactional
-  public RecipientResponse deactivate(UUID id) {
-    CareRecipient recipient = findOwned(id);
-    recipient.deactivate();
-    recipient = recipients.saveAndFlush(recipient);
-    audit.record("RECIPIENT_DEACTIVATED", "CARE_RECIPIENT", recipient.getId().toString(), null);
+  public RecipientResponse archive(UUID id) {
+    CareRecipient recipient = findOwnedForUpdate(id);
+    if (recipient.getLifecycleStatus() == RecipientLifecycleStatus.LEGACY_INACTIVE_REVIEW) {
+      throw new InactiveRecipientException("This legacy inactive recipient requires review; it was not assumed to be archived.");
+    }
+    if (recipient.getLifecycleStatus() == RecipientLifecycleStatus.ACTIVE) {
+      UUID actor = AuthContext.currentCaregiverId();
+      recipient.archive(actor);
+      recipient = recipients.saveAndFlush(recipient);
+      audit.record("RECIPIENT_ARCHIVED", "CARE_RECIPIENT", recipient.getId().toString(), "lifecycleStatus=ARCHIVED");
+    }
     return RecipientResponse.from(recipient);
   }
 
+  @Transactional
+  public RecipientResponse restore(UUID id) {
+    CareRecipient recipient = findOwnedForUpdate(id);
+    if (recipient.getLifecycleStatus() == RecipientLifecycleStatus.LEGACY_INACTIVE_REVIEW) {
+      throw new InactiveRecipientException("This legacy inactive recipient requires review; it cannot be restored automatically.");
+    }
+    if (recipient.getLifecycleStatus() == RecipientLifecycleStatus.ARCHIVED) {
+      UUID actor = AuthContext.currentCaregiverId();
+      recipient.restore(actor);
+      recipient = recipients.saveAndFlush(recipient);
+      audit.record("RECIPIENT_RESTORED", "CARE_RECIPIENT", recipient.getId().toString(), "lifecycleStatus=ACTIVE");
+    }
+    return RecipientResponse.from(recipient);
+  }
+
+  /** Backward-compatible alias for older clients; now means reversible archive. */
+  @Transactional
+  public RecipientResponse deactivate(UUID id) {
+    return archive(id);
+  }
+
   private CareRecipient findOwned(UUID id) {
-    UUID caregiverId = AuthContext.currentCaregiverId();
-    return recipients.findByIdAndCaregiver_Id(id, caregiverId)
+    return recipients.findByIdAndCaregiver_Id(id, AuthContext.currentCaregiverId())
+        .orElseThrow(RecipientNotFoundException::new);
+  }
+
+  private CareRecipient findOwnedForUpdate(UUID id) {
+    return recipients.findOwnedForUpdate(id, AuthContext.currentCaregiverId())
         .orElseThrow(RecipientNotFoundException::new);
   }
 }
