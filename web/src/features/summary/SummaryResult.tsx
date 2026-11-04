@@ -11,6 +11,8 @@ export function SummaryResult({ view }: { view: SummaryView }) {
   const from = new Date(`${request.periodEndInclusive}T00:00:00Z`);
   from.setUTCDate(from.getUTCDate() - request.periodDays + 1);
   const format = (value: number) => new Intl.NumberFormat(language === 'ar' ? 'ar-EG' : 'en').format(value);
+  const hasAiObservations = !!response.summary && !response.summary.aiUnavailable
+    && response.summary.observations.length > 0;
   return <section className="summary-result" aria-labelledby="summary-result-heading">
     <header className="summary-result-heading"><h2 id="summary-result-heading">{t(view.failed ? 'summaryFailureSafety' : 'summaryResult')}</h2>
       <p className="summary-recipient"><bdi>{view.recipientName}</bdi></p>
@@ -20,10 +22,14 @@ export function SummaryResult({ view }: { view: SummaryView }) {
     {response.invalidContent && <p className="summary-notice" role="alert">{t('summaryInvalidContent')}</p>}
     {response.summary?.aiUnavailable && <p className="summary-notice" role="status">{t('summaryFallback')}</p>}
     {response.summary && <>
-      {!response.summary.aiUnavailable && <section className="summary-surface" aria-labelledby="summary-observations-heading">
-        <h3 id="summary-observations-heading">{t('summaryObservations')}</h3>
+      {!response.summary.aiUnavailable && <section className="summary-surface summary-ai" aria-labelledby="summary-observations-heading">
+        <div className="summary-ai-heading">
+          <h3 id="summary-observations-heading">{t('summaryObservations')}</h3>
+          {hasAiObservations && <span className="summary-ai-label">{t('summaryAiGeneratedLabel')}</span>}
+        </div>
+        {hasAiObservations && <p className="summary-educational-disclaimer">{t('summaryEducationalDisclaimer')}</p>}
         {!response.summary.observations.length && <p>{t('summaryNoObservations')}</p>}
-        <ol className="summary-observations">{response.summary.observations.map((observation, index) => <li key={index}>
+        {!!response.summary.observations.length && <ol className="summary-observations">{response.summary.observations.map((observation, index) => <li key={index}>
           <p className="summary-untrusted" dir="auto">{observation.text}</p>
           <div className="summary-evidence"><h4>{t('summaryEvidence')}</h4>
             <blockquote className="summary-untrusted" dir="auto">{observation.quote}</blockquote>
@@ -31,7 +37,7 @@ export function SummaryResult({ view }: { view: SummaryView }) {
               ? <Link to={`/app/notes/${encodeURIComponent(observation.noteId)}`}>{t('summarySourceNote')}: <bdi>{observation.noteId}</bdi></Link>
               : <>{t('summaryUnlinkedSource')}: <bdi>{observation.noteId}</bdi></>}</p>
           </div>
-        </li>)}</ol>
+        </li>)}</ol>}
       </section>}
       <section className="summary-surface summary-uncertainties" aria-labelledby="summary-uncertainty-heading">
         <h3 id="summary-uncertainty-heading">{t('summaryUncertainty')}</h3>
