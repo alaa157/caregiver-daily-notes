@@ -38,6 +38,8 @@
   --web-color-border:#dde4d8; --web-color-surface:#fff; --web-color-soft:#eef2e8;
   --web-radius:18px;
 }
+/* Theme-aware web control borders use the shared accessible outline role. */
+:root[data-theme] { --color-border:var(--color-outline); }
 
 [data-theme='dark'] {
   color-scheme: dark;
