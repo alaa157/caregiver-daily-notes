@@ -1,0 +1,108 @@
+/* Android extraction: feat/standalone-byok-ai. Sources: core/theme/Color.kt, Theme.kt, Spacing.kt; presentation/common/DesignSystem.kt. */
+:root {
+  color-scheme: light;
+  --color-primary:#00897B; --color-on-primary:#FFFFFF; --color-primary-container:#00897B; --color-on-primary-container:#FFFFFF;
+  --color-secondary:#625B71; --color-on-secondary:#FFFFFF; --color-secondary-container:#E3E7EA; --color-on-secondary-container:#1F2A2E;
+  --color-tertiary:#7D5260; --color-on-tertiary:#FFFFFF; --color-tertiary-container:#FFD8E4; --color-on-tertiary-container:#31111D;
+  --color-background:#F7F6F3; --color-on-background:#1F2A2E; --color-surface:#FAF9F5; --color-on-surface:#1F2A2E;
+  --color-surface-container:#FAF9F5; --color-surface-variant:#E3E7EA; --color-on-surface-variant:#5B6B70; --color-outline:#C5CDD1;
+  --color-error:#8B2B25; --color-on-error:#FFFFFF; --color-error-container:#F7E3E1; --color-on-error-container:#8B2B25;
+  --caregiver-primary:#0E6B66; --caregiver-primary-soft:#DCE5D6; --caregiver-ink:#1F2A2E; --caregiver-muted:#5B6B70;
+  --caregiver-background:#F7F6F3; --caregiver-surface:#FAF9F5; --caregiver-border:#C5CDD1; --caregiver-border-soft:#E3E7EA;
+  --caregiver-danger:#8B2B25; --caregiver-danger-container:#F7E3E1; --caregiver-danger-border:#EBC3BF;
+  --caregiver-success:#1F5C38; --caregiver-success-container:#E3F1E8;
+  --caregiver-info:#24507E; --caregiver-info-container:#E8F0F9; --caregiver-info-border:#C9DAEC;
+  --caregiver-warning:#7A4B00; --caregiver-warning-container:#FBF0D9;
+  --caregiver-pill-gray-container:#E8EDF3; --caregiver-pill-gray-content:#34495E;
+  --caregiver-pill-light-blue-container:#E4EEF8; --caregiver-pill-light-blue-content:#1F4A86;
+  --caregiver-avatar-container:#DCE9F5; --caregiver-avatar-content:#24507E; --caregiver-lock-bar:#EEF1F4; --caregiver-skeleton:#E3E7EA;
+  --font-family-app:'IBM Plex Sans Arabic',sans-serif; --font-weight-regular:400; --font-weight-medium:500; --font-weight-bold:700;
+  --font-size-display-large:57px; --font-size-display-medium:45px; --font-size-display-small:36px;
+  --font-size-headline-large:32px; --font-size-headline-medium:28px; --font-size-headline-small:24px;
+  --font-size-title-large:22px; --font-size-title-medium:16px; --font-size-title-small:14px;
+  --font-size-body-large:16px; --font-size-body-medium:14px; --font-size-body-small:12px;
+  --font-size-label-large:14px; --font-size-label-medium:12px; --font-size-label-small:11px;
+  --space-xs:4px; --space-sm:8px; --space-md:16px; --space-lg:24px; --space-xl:32px; --space-xxl:48px;
+  --gap-card:12px; --gap-section:14px; --screen-inline-padding:16px; --card-padding:14px; --section-padding:20px; --page-padding:24px; --alert-padding:16px;
+  --radius-extra-small:12px; --radius-small:12px; --radius-medium:12px; --radius-large:14px; --radius-extra-large:28px;
+  --radius-card:14px; --radius-control:12px; --radius-account-popup:16px; --radius-pill:999px;
+  --size-touch-target:48px; --size-button:48px; --size-button-large:56px; --size-input-min:52px;
+  --size-top-bar:56px; --size-top-bar-avatar:36px; --size-bottom-nav:64px; --size-bottom-nav-icon:22px;
+  --size-fab:56px; --size-avatar:48px; --size-note-avatar:40px;
+  --size-icon-small:20px; --size-icon-medium:24px; --size-icon-large:30px;
+  --elevation-card:1px; --elevation-account-popup-tonal:8px; --elevation-dialog-tonal:0px;
+}
+
+[data-theme='dark'] {
+  color-scheme: dark;
+  --color-primary:#00897B; --color-on-primary:#FFFFFF; --color-primary-container:#00897B; --color-on-primary-container:#FFFFFF;
+  --color-secondary:#CCC2DC; --color-on-secondary:#332D41; --color-secondary-container:#2A3336; --color-on-secondary-container:#E3E7EA;
+  --color-tertiary:#EFB8C8; --color-on-tertiary:#492532; --color-tertiary-container:#633B48; --color-on-tertiary-container:#FFD8E4;
+  --color-background:#121616; --color-on-background:#E3E7EA; --color-surface:#1A1F1F; --color-on-surface:#E3E7EA;
+  --color-surface-container:#1A1F1F; --color-surface-variant:#2A3336; --color-on-surface-variant:#B0BEC5; --color-outline:#3A4548;
+  --color-error:#EF9A9A; --color-on-error:#2E1412; --color-error-container:#5C1A1A; --color-on-error-container:#EF9A9A;
+  --caregiver-primary-soft:#1A3A38; --caregiver-ink:#E3E7EA; --caregiver-muted:#B0BEC5;
+  --caregiver-background:#121616; --caregiver-surface:#1A1F1F; --caregiver-border:#3A4548; --caregiver-border-soft:#2A3336;
+  --caregiver-danger:#EF9A9A; --caregiver-danger-container:#5C1A1A; --caregiver-danger-border:#8B2B25;
+  --caregiver-success:#81C784; --caregiver-success-container:#1B3A24;
+  --caregiver-info:#90CAF9; --caregiver-info-container:#1A2F4A; --caregiver-info-border:#24507E;
+  --caregiver-warning:#FFB74D; --caregiver-warning-container:#3A2A0A;
+  --caregiver-pill-gray-container:#2A3336; --caregiver-pill-gray-content:#B0BEC5;
+  --caregiver-pill-light-blue-container:#1A2F4A; --caregiver-pill-light-blue-content:#90CAF9;
+  --caregiver-avatar-container:#1A2F4A; --caregiver-avatar-content:#90CAF9; --caregiver-lock-bar:#1A1F1F; --caregiver-skeleton:#2A3336;
+}
+
+/* System mode follows OS dark unless Light or Dark was explicitly selected. */
+@media (prefers-color-scheme:dark) {
+  :root:not([data-theme='light']):not([data-theme='dark']), [data-theme='system'] {
+    color-scheme:dark;
+    --color-background:#121616; --color-on-background:#E3E7EA; --color-surface:#1A1F1F; --color-on-surface:#E3E7EA;
+    --color-surface-container:#1A1F1F; --color-surface-variant:#2A3336; --color-on-surface-variant:#B0BEC5; --color-outline:#3A4548;
+    --color-error:#EF9A9A; --color-error-container:#5C1A1A; --color-on-error-container:#EF9A9A;
+    --caregiver-primary-soft:#1A3A38; --caregiver-ink:#E3E7EA; --caregiver-muted:#B0BEC5;
+    --caregiver-background:#121616; --caregiver-surface:#1A1F1F; --caregiver-border:#3A4548; --caregiver-border-soft:#2A3336;
+    --caregiver-danger:#EF9A9A; --caregiver-danger-container:#5C1A1A; --caregiver-danger-border:#8B2B25;
+    --caregiver-success:#81C784; --caregiver-success-container:#1B3A24;
+    --caregiver-info:#90CAF9; --caregiver-info-container:#1A2F4A; --caregiver-info-border:#24507E;
+    --caregiver-warning:#FFB74D; --caregiver-warning-container:#3A2A0A;
+    --caregiver-pill-gray-container:#2A3336; --caregiver-pill-gray-content:#B0BEC5;
+    --caregiver-pill-light-blue-container:#1A2F4A; --caregiver-pill-light-blue-content:#90CAF9;
+    --caregiver-avatar-container:#1A2F4A; --caregiver-avatar-content:#90CAF9; --caregiver-lock-bar:#1A1F1F; --caregiver-skeleton:#2A3336;
+  }
+}
+
+/* Selected accent palettes set Material 3 primary roles. */
+[data-palette='dynamic']{--color-primary:#ED5564;--color-primary-container:#ED5564}
+[data-palette='crimson']{--color-primary:#EC5464;--color-primary-container:#EC5464}
+[data-palette='rose']{--color-primary:#D81B60;--color-primary-container:#D81B60;--caregiver-primary:#C2185B}
+[data-palette='purple']{--color-primary:#8E24AA;--color-primary-container:#8E24AA}
+[data-palette='deep_purple']{--color-primary:#5E35B1;--color-primary-container:#5E35B1}
+[data-palette='indigo']{--color-primary:#3949AB;--color-primary-container:#3949AB;--caregiver-primary:#3F51B5}
+[data-palette='blue']{--color-primary:#1E88E5;--color-primary-container:#1E88E5}
+[data-palette='sky_blue']{--color-primary:#039BE5;--color-primary-container:#039BE5}
+[data-palette='cyan']{--color-primary:#00ACC1;--color-primary-container:#00ACC1}
+[data-palette='teal']{--color-primary:#00897B;--color-primary-container:#00897B}
+[data-palette='green']{--color-primary:#43A047;--color-primary-container:#43A047}
+[data-palette='light_green']{--color-primary:#7CB342;--color-primary-container:#7CB342}
+[data-palette='lime']{--color-primary:#C0CA33;--color-primary-container:#C0CA33}
+[data-palette='yellow']{--color-primary:#FDD835;--color-primary-container:#FDD835}
+[data-palette='amber']{--color-primary:#FFB300;--color-primary-container:#FFB300}
+[data-palette='orange']{--color-primary:#FB8C00;--color-primary-container:#FB8C00}
+[data-palette='deep_orange']{--color-primary:#F4511E;--color-primary-container:#F4511E}
+[data-palette='brown']{--color-primary:#6D4C41;--color-primary-container:#6D4C41}
+[data-palette='grey']{--color-primary:#757575;--color-primary-container:#757575}
+[data-palette='blue_grey']{--color-primary:#546E7A;--color-primary-container:#546E7A}
+
+/* Metrolist is a separate full Material 3 scheme. */
+[data-palette='metrolist']{--color-primary:#6750A4;--color-on-primary:#FFFFFF;--color-primary-container:#EADDFF;--color-on-primary-container:#21005D;--color-secondary-container:#E8DEF8;--color-on-secondary-container:#1D192B;--color-background:#FFFBFE;--color-on-background:#1C1B1F;--color-surface:#FFFBFE;--color-on-surface:#1C1B1F;--color-surface-variant:#E7E0EC;--color-on-surface-variant:#49454F;--color-outline:#79747E;--color-error:#B3261E;--caregiver-primary:#6750A4}
+[data-theme='dark'][data-palette='metrolist']{--color-primary:#D0BCFF;--color-on-primary:#381E72;--color-primary-container:#4F378B;--color-on-primary-container:#EADDFF;--color-secondary-container:#4A4458;--color-on-secondary-container:#E8DEF8;--color-background:#1C1B1F;--color-on-background:#E6E1E5;--color-surface:#1C1B1F;--color-on-surface:#E6E1E5;--color-surface-variant:#49454F;--color-on-surface-variant:#CAC4D0;--color-outline:#938F99;--color-error:#F2B8B5}
+
+/* Android pure-black changes M3 background/surface only. */
+[data-theme='dark'][data-pure-black='true']{--color-background:#000000;--color-surface:#000000}
+
+/* Prefer logical properties for locale-independent layout. */
+.screen-gutter{padding-inline:var(--screen-inline-padding)}
+.card-content{padding-inline:var(--card-padding)}
+.page-content{padding-inline:var(--page-padding)}
+.alert-content{padding-inline:var(--alert-padding)}
+[dir='rtl'] .directional-icon{transform:scaleX(-1)}

@@ -1,0 +1,841 @@
+{
+  "$schema": "https://design-tokens.github.io/community-group/format/",
+  "$description": "Platform-neutral token extraction from Android Compose on feat/standalone-byok-ai. Source paths and line ranges are included.",
+  "meta": {
+    "repository": "alaa157/caregiver-daily-notes",
+    "sourceBranch": "feat/standalone-byok-ai",
+    "targetBranch": "main",
+    "platform": "Android / Kotlin / Jetpack Compose",
+    "composeBom": "2024.10.00",
+    "defaultThemeMode": "system",
+    "defaultPalette": "teal",
+    "defaultLanguage": "ar",
+    "defaultPureBlack": false,
+    "sources": {
+      "colors": "android/app/src/main/java/com/caregiver/mobile/core/theme/Color.kt:13-40,86-150",
+      "theme": "android/app/src/main/java/com/caregiver/mobile/core/theme/Theme.kt:22-74,79-160,190-219",
+      "typography": "android/app/src/main/java/com/caregiver/mobile/core/theme/Type.kt:9-42",
+      "spacing": "android/app/src/main/java/com/caregiver/mobile/core/theme/Spacing.kt:5-18",
+      "dimensions": "android/app/src/main/java/com/caregiver/mobile/presentation/common/DesignSystem.kt:71-113"
+    }
+  },
+  "color": {
+    "$description": "MaterialTheme colorScheme and custom CaregiverColors coexist. Keep both layers explicit until their primary-color inconsistency is resolved.",
+    "caregiver": {
+      "light": {
+        "primarySoft": {
+          "$type": "color",
+          "$value": "#DCE5D6"
+        },
+        "ink": {
+          "$type": "color",
+          "$value": "#1F2A2E"
+        },
+        "muted": {
+          "$type": "color",
+          "$value": "#5B6B70"
+        },
+        "background": {
+          "$type": "color",
+          "$value": "#F7F6F3"
+        },
+        "surface": {
+          "$type": "color",
+          "$value": "#FAF9F5"
+        },
+        "border": {
+          "$type": "color",
+          "$value": "#C5CDD1"
+        },
+        "borderSoft": {
+          "$type": "color",
+          "$value": "#E3E7EA"
+        },
+        "danger": {
+          "$type": "color",
+          "$value": "#8B2B25"
+        },
+        "dangerContainer": {
+          "$type": "color",
+          "$value": "#F7E3E1"
+        },
+        "dangerBorder": {
+          "$type": "color",
+          "$value": "#EBC3BF"
+        },
+        "success": {
+          "$type": "color",
+          "$value": "#1F5C38"
+        },
+        "successContainer": {
+          "$type": "color",
+          "$value": "#E3F1E8"
+        },
+        "info": {
+          "$type": "color",
+          "$value": "#24507E"
+        },
+        "infoContainer": {
+          "$type": "color",
+          "$value": "#E8F0F9"
+        },
+        "infoBorder": {
+          "$type": "color",
+          "$value": "#C9DAEC"
+        },
+        "warning": {
+          "$type": "color",
+          "$value": "#7A4B00"
+        },
+        "warningContainer": {
+          "$type": "color",
+          "$value": "#FBF0D9"
+        },
+        "pillGrayContainer": {
+          "$type": "color",
+          "$value": "#E8EDF3"
+        },
+        "pillGrayContent": {
+          "$type": "color",
+          "$value": "#34495E"
+        },
+        "pillLightBlueContainer": {
+          "$type": "color",
+          "$value": "#E4EEF8"
+        },
+        "pillLightBlueContent": {
+          "$type": "color",
+          "$value": "#1F4A86"
+        },
+        "avatarContainer": {
+          "$type": "color",
+          "$value": "#DCE9F5"
+        },
+        "avatarContent": {
+          "$type": "color",
+          "$value": "#24507E"
+        },
+        "lockBar": {
+          "$type": "color",
+          "$value": "#EEF1F4"
+        },
+        "skeleton": {
+          "$type": "color",
+          "$value": "#E3E7EA"
+        }
+      },
+      "dark": {
+        "primarySoft": {
+          "$type": "color",
+          "$value": "#1A3A38"
+        },
+        "ink": {
+          "$type": "color",
+          "$value": "#E3E7EA"
+        },
+        "muted": {
+          "$type": "color",
+          "$value": "#B0BEC5"
+        },
+        "background": {
+          "$type": "color",
+          "$value": "#121616"
+        },
+        "surface": {
+          "$type": "color",
+          "$value": "#1A1F1F"
+        },
+        "border": {
+          "$type": "color",
+          "$value": "#3A4548"
+        },
+        "borderSoft": {
+          "$type": "color",
+          "$value": "#2A3336"
+        },
+        "danger": {
+          "$type": "color",
+          "$value": "#EF9A9A"
+        },
+        "dangerContainer": {
+          "$type": "color",
+          "$value": "#5C1A1A"
+        },
+        "dangerBorder": {
+          "$type": "color",
+          "$value": "#8B2B25"
+        },
+        "success": {
+          "$type": "color",
+          "$value": "#81C784"
+        },
+        "successContainer": {
+          "$type": "color",
+          "$value": "#1B3A24"
+        },
+        "info": {
+          "$type": "color",
+          "$value": "#90CAF9"
+        },
+        "infoContainer": {
+          "$type": "color",
+          "$value": "#1A2F4A"
+        },
+        "infoBorder": {
+          "$type": "color",
+          "$value": "#24507E"
+        },
+        "warning": {
+          "$type": "color",
+          "$value": "#FFB74D"
+        },
+        "warningContainer": {
+          "$type": "color",
+          "$value": "#3A2A0A"
+        },
+        "pillGrayContainer": {
+          "$type": "color",
+          "$value": "#2A3336"
+        },
+        "pillGrayContent": {
+          "$type": "color",
+          "$value": "#B0BEC5"
+        },
+        "pillLightBlueContainer": {
+          "$type": "color",
+          "$value": "#1A2F4A"
+        },
+        "pillLightBlueContent": {
+          "$type": "color",
+          "$value": "#90CAF9"
+        },
+        "avatarContainer": {
+          "$type": "color",
+          "$value": "#1A2F4A"
+        },
+        "avatarContent": {
+          "$type": "color",
+          "$value": "#90CAF9"
+        },
+        "lockBar": {
+          "$type": "color",
+          "$value": "#1A1F1F"
+        },
+        "skeleton": {
+          "$type": "color",
+          "$value": "#2A3336"
+        }
+      }
+    },
+    "paletteAccents": {
+      "dynamic": {
+        "$type": "color",
+        "$value": "#ED5564",
+        "$description": "Material 3 primary and primaryContainer. Theme.kt:103-125"
+      },
+      "crimson": {
+        "$type": "color",
+        "$value": "#EC5464",
+        "$description": "Material 3 primary and primaryContainer. Theme.kt:103-125"
+      },
+      "rose": {
+        "$type": "color",
+        "$value": "#D81B60",
+        "$description": "Material 3 primary and primaryContainer. Theme.kt:103-125"
+      },
+      "purple": {
+        "$type": "color",
+        "$value": "#8E24AA",
+        "$description": "Material 3 primary and primaryContainer. Theme.kt:103-125"
+      },
+      "deepPurple": {
+        "$type": "color",
+        "$value": "#5E35B1",
+        "$description": "Material 3 primary and primaryContainer. Theme.kt:103-125"
+      },
+      "indigo": {
+        "$type": "color",
+        "$value": "#3949AB",
+        "$description": "Material 3 primary and primaryContainer. Theme.kt:103-125"
+      },
+      "blue": {
+        "$type": "color",
+        "$value": "#1E88E5",
+        "$description": "Material 3 primary and primaryContainer. Theme.kt:103-125"
+      },
+      "skyBlue": {
+        "$type": "color",
+        "$value": "#039BE5",
+        "$description": "Material 3 primary and primaryContainer. Theme.kt:103-125"
+      },
+      "cyan": {
+        "$type": "color",
+        "$value": "#00ACC1",
+        "$description": "Material 3 primary and primaryContainer. Theme.kt:103-125"
+      },
+      "teal": {
+        "$type": "color",
+        "$value": "#00897B",
+        "$description": "Material 3 primary and primaryContainer. Theme.kt:103-125"
+      },
+      "green": {
+        "$type": "color",
+        "$value": "#43A047",
+        "$description": "Material 3 primary and primaryContainer. Theme.kt:103-125"
+      },
+      "lightGreen": {
+        "$type": "color",
+        "$value": "#7CB342",
+        "$description": "Material 3 primary and primaryContainer. Theme.kt:103-125"
+      },
+      "lime": {
+        "$type": "color",
+        "$value": "#C0CA33",
+        "$description": "Material 3 primary and primaryContainer. Theme.kt:103-125"
+      },
+      "yellow": {
+        "$type": "color",
+        "$value": "#FDD835",
+        "$description": "Material 3 primary and primaryContainer. Theme.kt:103-125"
+      },
+      "amber": {
+        "$type": "color",
+        "$value": "#FFB300",
+        "$description": "Material 3 primary and primaryContainer. Theme.kt:103-125"
+      },
+      "orange": {
+        "$type": "color",
+        "$value": "#FB8C00",
+        "$description": "Material 3 primary and primaryContainer. Theme.kt:103-125"
+      },
+      "deepOrange": {
+        "$type": "color",
+        "$value": "#F4511E",
+        "$description": "Material 3 primary and primaryContainer. Theme.kt:103-125"
+      },
+      "brown": {
+        "$type": "color",
+        "$value": "#6D4C41",
+        "$description": "Material 3 primary and primaryContainer. Theme.kt:103-125"
+      },
+      "grey": {
+        "$type": "color",
+        "$value": "#757575",
+        "$description": "Material 3 primary and primaryContainer. Theme.kt:103-125"
+      },
+      "blueGrey": {
+        "$type": "color",
+        "$value": "#546E7A",
+        "$description": "Material 3 primary and primaryContainer. Theme.kt:103-125"
+      }
+    },
+    "componentPrimary": {
+      "$description": "caregiverScheme() handles only indigo, rose and metrolist specially; remaining palette keys use teal fallback. Color.kt:86-92.",
+      "fallback": "#0E6B66",
+      "rose": "#C2185B",
+      "indigo": "#3F51B5",
+      "metrolist": "#6750A4"
+    },
+    "material3": {
+      "standardLight": {
+        "primary": "selected accent",
+        "onPrimary": "#FFFFFF",
+        "primaryContainer": "selected accent",
+        "onPrimaryContainer": "#FFFFFF",
+        "secondaryContainer": "#E3E7EA",
+        "onSecondaryContainer": "#1F2A2E",
+        "background": "#F7F6F3",
+        "onBackground": "#1F2A2E",
+        "surface": "#FAF9F5",
+        "onSurface": "#1F2A2E",
+        "surfaceContainer": "#FAF9F5",
+        "surfaceVariant": "#E3E7EA",
+        "onSurfaceVariant": "#5B6B70",
+        "outline": "#C5CDD1",
+        "error": "#8B2B25",
+        "onError": "#FFFFFF",
+        "errorContainer": "#F7E3E1",
+        "onErrorContainer": "#8B2B25",
+        "$source": "Theme.kt:22-41"
+      },
+      "standardDark": {
+        "primary": "selected accent",
+        "onPrimary": "#FFFFFF",
+        "primaryContainer": "selected accent",
+        "onPrimaryContainer": "#FFFFFF",
+        "secondaryContainer": "#2A3336",
+        "onSecondaryContainer": "#E3E7EA",
+        "background": "#121616",
+        "onBackground": "#E3E7EA",
+        "surface": "#1A1F1F",
+        "onSurface": "#E3E7EA",
+        "surfaceContainer": "#1A1F1F",
+        "surfaceVariant": "#2A3336",
+        "onSurfaceVariant": "#B0BEC5",
+        "outline": "#3A4548",
+        "error": "#EF9A9A",
+        "onError": "#2E1412",
+        "errorContainer": "#5C1A1A",
+        "onErrorContainer": "#EF9A9A",
+        "$source": "Theme.kt:43-62"
+      },
+      "metrolistLight": {
+        "primary": "#6750A4",
+        "onPrimary": "#FFFFFF",
+        "primaryContainer": "#EADDFF",
+        "onPrimaryContainer": "#21005D",
+        "secondaryContainer": "#E8DEF8",
+        "onSecondaryContainer": "#1D192B",
+        "background": "#FFFBFE",
+        "onBackground": "#1C1B1F",
+        "surface": "#FFFBFE",
+        "onSurface": "#1C1B1F",
+        "surfaceVariant": "#E7E0EC",
+        "onSurfaceVariant": "#49454F",
+        "outline": "#79747E",
+        "error": "#B3261E",
+        "$source": "Theme.kt:128-143"
+      },
+      "metrolistDark": {
+        "primary": "#D0BCFF",
+        "onPrimary": "#381E72",
+        "primaryContainer": "#4F378B",
+        "onPrimaryContainer": "#EADDFF",
+        "secondaryContainer": "#4A4458",
+        "onSecondaryContainer": "#E8DEF8",
+        "background": "#1C1B1F",
+        "onBackground": "#E6E1E5",
+        "surface": "#1C1B1F",
+        "onSurface": "#E6E1E5",
+        "surfaceVariant": "#49454F",
+        "onSurfaceVariant": "#CAC4D0",
+        "outline": "#938F99",
+        "error": "#F2B8B5",
+        "$source": "Theme.kt:145-160"
+      },
+      "defaults": {
+        "$description": "Roles not explicitly set by the app remain Material 3 library defaults. Confirm exact values against the resolved Material3 artifact before hardcoding. Compose BOM is pinned at 2024.10.00.",
+        "$source": "Theme.kt:22-62,128-160; android/gradle/libs.versions.toml:1-7,36-44"
+      }
+    }
+  },
+  "typography": {
+    "fontFamilies": {
+      "latin": "IBM Plex Sans Arabic (same family supplies Latin glyphs)",
+      "arabic": "IBM Plex Sans Arabic",
+      "files": [
+        "android/app/src/main/res/font/plex_arabic_regular.ttf",
+        "android/app/src/main/res/font/plex_arabic_medium.ttf",
+        "android/app/src/main/res/font/plex_arabic_bold.ttf"
+      ],
+      "weights": {
+        "regular": 400,
+        "medium": 500,
+        "bold": 700
+      },
+      "$source": "Type.kt:9-18"
+    },
+    "material3DefaultScale": {
+      "displayLarge": {
+        "fontSize": "57sp",
+        "lineHeight": "64sp",
+        "fontWeight": 400,
+        "letterSpacing": "-0.25sp",
+        "$description": "Material3 Typography() default, font family replaced with PlexArabic. Type.kt:20-42"
+      },
+      "displayMedium": {
+        "fontSize": "45sp",
+        "lineHeight": "52sp",
+        "fontWeight": 400,
+        "letterSpacing": "0sp",
+        "$description": "Material3 Typography() default, font family replaced with PlexArabic. Type.kt:20-42"
+      },
+      "displaySmall": {
+        "fontSize": "36sp",
+        "lineHeight": "44sp",
+        "fontWeight": 400,
+        "letterSpacing": "0sp",
+        "$description": "Material3 Typography() default, font family replaced with PlexArabic. Type.kt:20-42"
+      },
+      "headlineLarge": {
+        "fontSize": "32sp",
+        "lineHeight": "40sp",
+        "fontWeight": 400,
+        "letterSpacing": "0sp",
+        "$description": "Material3 Typography() default, font family replaced with PlexArabic. Type.kt:20-42"
+      },
+      "headlineMedium": {
+        "fontSize": "28sp",
+        "lineHeight": "36sp",
+        "fontWeight": 400,
+        "letterSpacing": "0sp",
+        "$description": "Material3 Typography() default, font family replaced with PlexArabic. Type.kt:20-42"
+      },
+      "headlineSmall": {
+        "fontSize": "24sp",
+        "lineHeight": "32sp",
+        "fontWeight": 400,
+        "letterSpacing": "0sp",
+        "$description": "Material3 Typography() default, font family replaced with PlexArabic. Type.kt:20-42"
+      },
+      "titleLarge": {
+        "fontSize": "22sp",
+        "lineHeight": "28sp",
+        "fontWeight": 400,
+        "letterSpacing": "0sp",
+        "$description": "Material3 Typography() default, font family replaced with PlexArabic. Type.kt:20-42"
+      },
+      "titleMedium": {
+        "fontSize": "16sp",
+        "lineHeight": "24sp",
+        "fontWeight": 500,
+        "letterSpacing": "0.15sp",
+        "$description": "Material3 Typography() default, font family replaced with PlexArabic. Type.kt:20-42"
+      },
+      "titleSmall": {
+        "fontSize": "14sp",
+        "lineHeight": "20sp",
+        "fontWeight": 500,
+        "letterSpacing": "0.1sp",
+        "$description": "Material3 Typography() default, font family replaced with PlexArabic. Type.kt:20-42"
+      },
+      "bodyLarge": {
+        "fontSize": "16sp",
+        "lineHeight": "24sp",
+        "fontWeight": 400,
+        "letterSpacing": "0.5sp",
+        "$description": "Material3 Typography() default, font family replaced with PlexArabic. Type.kt:20-42"
+      },
+      "bodyMedium": {
+        "fontSize": "14sp",
+        "lineHeight": "20sp",
+        "fontWeight": 400,
+        "letterSpacing": "0.25sp",
+        "$description": "Material3 Typography() default, font family replaced with PlexArabic. Type.kt:20-42"
+      },
+      "bodySmall": {
+        "fontSize": "12sp",
+        "lineHeight": "16sp",
+        "fontWeight": 400,
+        "letterSpacing": "0.4sp",
+        "$description": "Material3 Typography() default, font family replaced with PlexArabic. Type.kt:20-42"
+      },
+      "labelLarge": {
+        "fontSize": "14sp",
+        "lineHeight": "20sp",
+        "fontWeight": 500,
+        "letterSpacing": "0.1sp",
+        "$description": "Material3 Typography() default, font family replaced with PlexArabic. Type.kt:20-42"
+      },
+      "labelMedium": {
+        "fontSize": "12sp",
+        "lineHeight": "16sp",
+        "fontWeight": 500,
+        "letterSpacing": "0.5sp",
+        "$description": "Material3 Typography() default, font family replaced with PlexArabic. Type.kt:20-42"
+      },
+      "labelSmall": {
+        "fontSize": "11sp",
+        "lineHeight": "16sp",
+        "fontWeight": 500,
+        "letterSpacing": "0.5sp",
+        "$description": "Material3 Typography() default, font family replaced with PlexArabic. Type.kt:20-42"
+      }
+    },
+    "localOverrides": {
+      "screenTitle": "22sp / 28sp line height / bold — DesignSystem.kt:140-177; HomeScreen.kt:236-244",
+      "sectionTitle": "19sp bold — DesignSystem.kt:239-249",
+      "groupLabel": "14sp bold — DesignSystem.kt:251-260",
+      "topBarTitle": "18sp bold — DesignSystem.kt:207-215",
+      "noteRowName": "15sp bold; noteRowTime 13sp; body 15sp — NoteRow.kt:108-150",
+      "summaryBody": "16sp / 29sp line height — SummaryScreen.kt:393-402",
+      "buttonLabel": "15sp bold; large 17sp — DesignSystem.kt:263-330",
+      "pillLabel": "13sp bold — DesignSystem.kt:388-423"
+    }
+  },
+  "spacing": {
+    "scale": {
+      "xs": "4dp",
+      "sm": "8dp",
+      "md": "16dp",
+      "lg": "24dp",
+      "xl": "32dp",
+      "xxl": "48dp"
+    },
+    "additional": {
+      "cardGap": "12dp",
+      "sectionGap": "14dp"
+    },
+    "layout": {
+      "screenHorizontalPadding": "16dp",
+      "cardPadding": "14dp",
+      "sectionPadding": "20dp",
+      "pagePadding": "24dp",
+      "alertPadding": "16dp",
+      "formGap": "8dp"
+    },
+    "$source": "Spacing.kt:5-18; DesignSystem.kt:80-113"
+  },
+  "shape": {
+    "material3Scale": {
+      "extraSmall": "12dp",
+      "small": "12dp",
+      "medium": "12dp",
+      "large": "14dp",
+      "extraLarge": "28dp"
+    },
+    "components": {
+      "card": "14dp",
+      "button": "12dp",
+      "input": "12dp",
+      "accountPopup": "16dp",
+      "paletteSwatch": "12dp",
+      "painLevelButton": "8dp",
+      "pill": "999dp",
+      "avatar": "CircleShape",
+      "settingsGroup": "24dp outside corners, 6dp row joins",
+      "dialog": "AlertDialogDefaults.shape; app extraLarge shape is 28dp"
+    },
+    "$source": "Theme.kt:64-74; DesignSystem.kt:80-113,332-423; AccountPopupMenu.kt:42-48; CaregiverSettings.kt:groupRowShape; Dialog.kt:80-95,207-223"
+  },
+  "elevation": {
+    "card": "1dp shadow plus 1dp border",
+    "accountPopup": "8dp tonal elevation",
+    "dialog": "AlertDialogDefaults.TonalElevation (Material3 default)",
+    "settingsGroup": "0dp elevation",
+    "bottomNavigation": "No explicit shadow; 1dp border",
+    "bottomActionBar": "No explicit shadow; 1dp border",
+    "$source": "DesignSystem.kt:332-352,672-684; AccountPopupMenu.kt:42-48; Dialog.kt:84-90; MainScaffold.kt:281-299"
+  },
+  "iconography": {
+    "library": "androidx.compose.material:material-icons-extended",
+    "style": "Material Icons Filled and Outlined; auto-mirrored directional icons where applicable",
+    "sizes": {
+      "small": "20dp",
+      "medium": "24dp",
+      "large": "30dp",
+      "bottomNavigation": "22dp"
+    },
+    "$source": "android/gradle/libs.versions.toml:36-44; DesignSystem.kt:107-112; AppNavigation.kt:268-283; SyncStatusIndicator.kt:39-60"
+  },
+  "motion": {
+    "topBarEnterFade": "300ms",
+    "topBarExitFade": "200ms",
+    "routeTransition": "200ms slide + fade; slide offset one eighth of viewport width",
+    "fab": "fadeIn/scaleIn and fadeOut/scaleOut; duration not explicitly set",
+    "settingsGroup": "animateContentSize() with Compose default spec",
+    "reducedMotion": "NOT FOUND in inspected Android theme/common UI/navigation layers",
+    "$source": "MainScaffold.kt:254-257,332-336,380-417; CaregiverSettings.kt"
+  },
+  "componentSizes": {
+    "minimumInteractiveTarget": "48dp observed",
+    "buttonHeight": "48dp minimum",
+    "largeButtonHeight": "56dp",
+    "inputMinimumHeight": "52dp",
+    "topBarHeight": "56dp",
+    "topBarAvatar": "36dp",
+    "bottomNavigationHeight": "64dp",
+    "bottomNavigationIcon": "22dp",
+    "floatingActionButton": "56dp",
+    "avatar": "48dp",
+    "noteRowAvatar": "40dp",
+    "successConfirmationCircle": "72dp",
+    "$source": "DesignSystem.kt:80-113; SyncStatusIndicator.kt:31-37; MainScaffold.kt:281-363; NoteScreens.kt:324-345"
+  },
+  "themeModes": {
+    "values": [
+      "system",
+      "light",
+      "dark"
+    ],
+    "default": "system",
+    "pureBlack": {
+      "type": "boolean",
+      "default": false,
+      "behavior": "In dark mode only MaterialTheme background and surface become #000000; CaregiverColors retain standard dark values."
+    },
+    "$source": "ThemeMode.kt:9-21; Theme.kt:208-218; SettingsStore.kt:102-106"
+  },
+  "statusColorUsage": [
+    {
+      "usage": "Home done today",
+      "color": "success",
+      "text": true,
+      "icon": false,
+      "source": "HomeScreen.kt:478-480"
+    },
+    {
+      "usage": "Home high pain and fall flag",
+      "color": "danger",
+      "text": true,
+      "icon": false,
+      "source": "HomeScreen.kt:478-480"
+    },
+    {
+      "usage": "Home no note/missed today",
+      "color": "gray",
+      "text": true,
+      "icon": false,
+      "source": "HomeScreen.kt:478-480"
+    },
+    {
+      "usage": "Home safety alert",
+      "color": "danger container/border/text",
+      "text": true,
+      "icon": true,
+      "source": "HomeScreen.kt:456-480; DesignSystem.kt:425-460"
+    },
+    {
+      "usage": "Archived recipient/no note",
+      "color": "gray",
+      "text": true,
+      "icon": false,
+      "source": "RecipientScreens.kt:348-349,628-632"
+    },
+    {
+      "usage": "Recipient done",
+      "color": "success",
+      "text": true,
+      "icon": false,
+      "source": "RecipientScreens.kt:628-637"
+    },
+    {
+      "usage": "History fall tag",
+      "color": "danger",
+      "text": true,
+      "icon": false,
+      "source": "HistoryScreen.kt:304-307"
+    },
+    {
+      "usage": "Plan accepted/edited accepted",
+      "color": "success",
+      "text": true,
+      "icon": false,
+      "source": "PlanScreens.kt:133-139"
+    },
+    {
+      "usage": "Plan dismissed",
+      "color": "danger",
+      "text": true,
+      "icon": false,
+      "source": "PlanScreens.kt:133-139"
+    },
+    {
+      "usage": "Plan suggested",
+      "color": "light blue",
+      "text": true,
+      "icon": false,
+      "source": "PlanScreens.kt:133-139"
+    },
+    {
+      "usage": "Unknown plan status fallback",
+      "color": "success",
+      "text": true,
+      "icon": false,
+      "source": "PlanScreens.kt:133-139"
+    },
+    {
+      "usage": "Summary red flags",
+      "color": "danger container/border/text",
+      "text": true,
+      "icon": true,
+      "source": "SummaryScreen.kt:307-319; DesignSystem.kt:425-460"
+    },
+    {
+      "usage": "AI recovery warning",
+      "color": "warning",
+      "text": true,
+      "icon": false,
+      "source": "DesignSystem.kt:605-628"
+    },
+    {
+      "usage": "Load error",
+      "color": "danger",
+      "text": true,
+      "icon": false,
+      "source": "DesignSystem.kt:577-602"
+    },
+    {
+      "usage": "CSV/backup success or failure",
+      "color": "success/danger",
+      "text": true,
+      "icon": false,
+      "source": "CsvTransferUi.kt:55-97; BackupRestoreUi.kt:48-88"
+    },
+    {
+      "usage": "Field validation error",
+      "color": "danger",
+      "text": true,
+      "icon": false,
+      "source": "DesignSystem.kt:687-695; NoteScreens.kt:178-201"
+    },
+    {
+      "usage": "Saved confirmation",
+      "color": "success",
+      "text": true,
+      "icon": true,
+      "source": "NoteScreens.kt:324-345"
+    },
+    {
+      "usage": "Sync states",
+      "color": "muted/primary/danger",
+      "text": "accessible description",
+      "icon": true,
+      "source": "SyncStatusIndicator.kt:25-61"
+    },
+    {
+      "usage": "Pending note sync",
+      "color": "muted",
+      "text": "accessible description",
+      "icon": true,
+      "source": "NoteRow.kt:119-135"
+    }
+  ],
+  "accessibility": {
+    "standardContrastRatios": {
+      "lightInkBackground": 13.6,
+      "lightInkSurface": 13.95,
+      "lightMutedBackground": 5.14,
+      "darkInkBackground": 14.66,
+      "darkInkSurface": 13.4,
+      "darkMutedBackground": 9.56,
+      "lightDangerContainer": 6.89,
+      "lightSuccessContainer": 6.81,
+      "lightInfoContainer": 7.24,
+      "lightWarningContainer": 6.55,
+      "darkDangerContainer": 6.03,
+      "darkSuccessContainer": 6.22,
+      "darkInfoContainer": 7.75,
+      "darkWarningContainer": 8.01,
+      "lightGrayPill": 7.89,
+      "lightBluePill": 7.51,
+      "darkGrayPill": 6.78,
+      "darkLightBluePill": 7.75
+    },
+    "whiteTextOnAccent": {
+      "dynamic": 3.45,
+      "crimson": 3.49,
+      "rose": 4.95,
+      "purple": 7.04,
+      "deepPurple": 8.02,
+      "indigo": 7.73,
+      "blue": 3.68,
+      "skyBlue": 3.08,
+      "cyan": 2.74,
+      "teal": 4.32,
+      "green": 3.3,
+      "lightGreen": 2.5,
+      "lime": 1.79,
+      "yellow": 1.4,
+      "amber": 1.79,
+      "orange": 2.37,
+      "deepOrange": 3.48,
+      "brown": 7.61,
+      "grey": 4.61,
+      "blueGrey": 5.4,
+      "metrolistLight": 6.44,
+      "metrolistDark": 7.71
+    },
+    "wcag": "Calculated from extracted sRGB colors using WCAG relative luminance. AA for normal text >=4.5:1; large text/non-text UI >=3:1. Base caregiver text and status pairs pass; multiple white-on-accent pairs fail."
+  }
+}
