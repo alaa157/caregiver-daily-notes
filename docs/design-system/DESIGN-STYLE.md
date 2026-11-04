@@ -13,6 +13,10 @@ Theme sources:
 
 Additional sources: `NoteRow.kt`, `CaregiverSettings.kt`, `AccountPopupMenu.kt`, `SyncStatusIndicator.kt`, screen files for home/recipients/notes/history/summary/plans/settings, `MainScaffold.kt`, `AppNavigation.kt` and `Bidi.kt`.
 
+## Decisions that affect this guide
+
+The web parity direction is tracked in [Design System Parity Decisions](DECISIONS.md). The decisions affecting this guide are [DS-01](DECISIONS.md#ds-01) (selected palette is the web primary source), [DS-02](DECISIONS.md#ds-02) (computed accessible foregrounds), [DS-04](DECISIONS.md#ds-04) (fixed-coral Dynamic naming), [DS-06](DECISIONS.md#ds-06) (IBM Plex Sans Arabic for both languages) and [DS-07](DECISIONS.md#ds-07) (status mapping remains open and blocks status-pill/plan-status work).
+
 ## 1. Visual personality
 
 The app is warm, restrained, practical and care-oriented. Its default appearance uses warm off-white surfaces, charcoal-green text, muted blue-gray secondary text, teal-led accents, thin borders, modest elevation and rounded controls. It feels more like a quiet utility than a decorative dashboard.
