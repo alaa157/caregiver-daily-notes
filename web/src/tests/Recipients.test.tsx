@@ -178,7 +178,8 @@ describe('care recipients screens', () => {
 
   it('edits current data with PUT, including removing the optional relationship', async () => {
     const updated = { ...recipient, name: 'Samir Updated', relationship: null };
-    const fetcher = vi.fn().mockResolvedValueOnce(jsonResponse(recipient)).mockResolvedValueOnce(jsonResponse(updated)).mockResolvedValueOnce(jsonResponse(updated));
+    const fetcher = vi.fn().mockResolvedValueOnce(jsonResponse(recipient))
+      .mockResolvedValueOnce(jsonResponse(updated)).mockResolvedValueOnce(jsonResponse(updated));
     renderRecipients(`${detail}/edit`, fetcher);
     expect(await screen.findByLabelText('Name')).toHaveValue(recipient.name);
     await userEvent.clear(screen.getByLabelText('Name'));
@@ -189,6 +190,39 @@ describe('care recipients screens', () => {
     expect(JSON.parse(fetcher.mock.calls[1][1].body)).toEqual({ name: updated.name, relationship: null });
     expect(fetcher.mock.calls[1][1].method).toBe('PUT');
     expect(await screen.findByRole('heading', { name: updated.name })).toBeInTheDocument();
+  });
+
+  it('keeps archived recipient fields read only', async () => {
+    const archived = { ...recipient, active: false, lifecycleStatus: 'ARCHIVED' as const,
+      archivedAt: '2026-10-15T10:00:00Z', archivedBy: 'b1111111-1111-4111-8111-111111111111' };
+    renderRecipients(detail, vi.fn().mockResolvedValue(jsonResponse(archived)));
+
+    expect(await screen.findByRole('heading', { name: recipient.name })).toBeInTheDocument();
+    expect(screen.getByText('Father')).toBeInTheDocument();
+    expect(screen.queryByRole('form')).not.toBeInTheDocument();
+    expect(screen.queryByRole('link', { name: 'Edit recipient' })).not.toBeInTheDocument();
+    expect(screen.getByRole('button', { name: 'Restore recipient' })).toBeInTheDocument();
+  });
+
+  it('shows archive and restore success messages', async () => {
+    const archived = { ...recipient, active: false, lifecycleStatus: 'ARCHIVED' as const,
+      archivedAt: '2026-10-15T10:00:00Z', archivedBy: 'b1111111-1111-4111-8111-111111111111' };
+    const restored = { ...recipient, restoredAt: '2026-10-16T10:00:00Z', restoredBy: 'b1111111-1111-4111-8111-111111111111' };
+    const fetcher = vi.fn().mockResolvedValueOnce(jsonResponse(recipient))
+      .mockResolvedValueOnce(jsonResponse(archived)).mockResolvedValueOnce(jsonResponse(restored));
+    renderRecipients(detail, fetcher);
+
+    await userEvent.click(await screen.findByRole('button', { name: 'Archive recipient' }));
+    await userEvent.click(within(screen.getByRole('dialog')).getByRole('button', { name: 'Archive recipient' }));
+    expect(await screen.findByText('Archived')).toBeInTheDocument();
+    expect(screen.getByText('Recipient archived. Their history has been preserved.')).toBeVisible();
+    expect(screen.getByRole('button', { name: 'Restore recipient' })).toBeVisible();
+
+    await userEvent.click(screen.getByRole('button', { name: 'Restore recipient' }));
+    await userEvent.click(within(screen.getByRole('dialog')).getByRole('button', { name: 'Restore recipient' }));
+    expect(await screen.findByText('Active')).toBeInTheDocument();
+    expect(screen.getByText('Recipient restored to active status.')).toBeVisible();
+    expect(screen.getByRole('link', { name: 'Edit recipient' })).toBeVisible();
   });
 
   it('reloads an archived conflict without silently losing the entered values', async () => {
