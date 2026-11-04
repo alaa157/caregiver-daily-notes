@@ -10,6 +10,7 @@ export interface NoteTimelineRowProps {
   metadata?: ReactNode;
   provenance?: ReactNode;
   actions?: ReactNode;
+  collapsible?: boolean;
 }
 
 export function NoteTimelineRow({
@@ -20,6 +21,7 @@ export function NoteTimelineRow({
   metadata,
   provenance,
   actions,
+  collapsible = true,
 }: NoteTimelineRowProps) {
   const { t } = useI18n();
   const headingId = useId();
@@ -29,14 +31,20 @@ export function NoteTimelineRow({
 
   useLayoutEffect(() => {
     const element = bodyRef.current;
-    if (!element) return;
+    if (!element || !collapsible) {
+      setIsLong(false);
+      setExpanded(false);
+      return;
+    }
 
     const measure = () => {
       const style = window.getComputedStyle(element);
       const lineHeight = Number.parseFloat(style.lineHeight);
       const fontSize = Number.parseFloat(style.fontSize) || 16;
       const maxHeight = (Number.isFinite(lineHeight) ? lineHeight : fontSize * 1.5) * 4;
-      setIsLong(element.scrollHeight > maxHeight + 1);
+      const overflows = element.scrollHeight > maxHeight;
+      setIsLong(overflows);
+      if (!overflows) setExpanded(false);
     };
 
     measure();
@@ -48,7 +56,7 @@ export function NoteTimelineRow({
       window.removeEventListener('resize', measure);
       observer?.disconnect();
     };
-  }, [body]);
+  }, [body, collapsible]);
 
   return (
     <article className="note-timeline-row" aria-labelledby={headingId}>
@@ -70,7 +78,7 @@ export function NoteTimelineRow({
       >
         {body}
       </div>
-      {isLong && (
+      {collapsible && isLong && (
         <Button
           variant="text"
           className="note-timeline-row__toggle"

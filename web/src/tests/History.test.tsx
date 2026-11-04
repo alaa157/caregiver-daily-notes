@@ -183,6 +183,40 @@ describe('history screen, filters and immutable records', () => {
     expect(screen.queryByRole('article', { name: 'Correction 1' })).not.toBeInTheDocument();
     expect(fetcher.mock.calls.every(([, init]) => init.method === 'GET')).toBe(true);
   });
+  it('renders structured correction events in shared timeline rows with visible provenance', async () => {
+    const history = correctionHistoryFixture();
+    const actorId = 'f5555555-5555-4555-8555-555555555555';
+    const eventId = 'e5555555-5555-4555-8555-555555555555';
+    const previousEffective = {
+      state: 'RECORDED', value: 'okay', rawValue: null, lastOperation: null,
+      eventId: null, actorId: null, updatedAt: historyNote.createdAt,
+    };
+    const effectiveAfter = {
+      ...previousEffective, value: 'calm', lastOperation: 'SET',
+      eventId, actorId, updatedAt: '2026-10-18T12:00:00Z',
+    };
+    const event = {
+      id: eventId, noteId: historyNote.id, sequenceNo: 1, createdAt: '2026-10-18T12:00:00Z',
+      actorId, field: 'mood', operation: 'SET', value: 'calm', previousEffective, effectiveAfter,
+    };
+    const fetcher = dataFetcher((url) => url.pathname.endsWith('/corrections')
+      ? jsonResponse({ ...history, events: [event], effectiveObservations: { ...history.effectiveObservations, mood: effectiveAfter } })
+      : undefined);
+    renderHistory(fetcher);
+    const card = await loaded();
+    await userEvent.click(within(card).getByRole('button', { name: 'Show corrections (1)' }));
+
+    const correction = await within(card).findByRole('article', { name: /Correction event 1.*Mood/ });
+    expect(within(correction).getByText(actorId)).toBeVisible();
+    expect(within(correction).getByText(eventId)).toBeVisible();
+    expect(within(correction).getByText('Previous effective value')).toBeVisible();
+    expect(within(correction).getByText('New effective value')).toBeVisible();
+    expect(within(correction).getByText('okay')).toBeVisible();
+    expect(within(correction).getByText('Set to calm')).toBeVisible();
+    expect(within(card).getByRole('heading', { name: 'Current effective value' })).toBeVisible();
+    expect(within(card).getByText('calm')).toBeVisible();
+    expect(within(correction).queryByRole('button', { name: 'Show more' })).not.toBeInTheDocument();
+  });
   it('keeps timeline recipient, date, note link, and correction provenance visible', async () => {
     const longText = Array.from({ length: 10 }, (_, index) => `تصحيح ${index + 1} — mixed English`).join('\n');
     const longAddendum = {

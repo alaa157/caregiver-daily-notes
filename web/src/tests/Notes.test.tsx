@@ -1,4 +1,4 @@
-import { fireEvent, render, screen, waitFor, within } from '@testing-library/react';
+import { act, fireEvent, render, screen, waitFor, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { MemoryRouter } from 'react-router-dom';
 import { describe, expect, it, vi } from 'vitest';
@@ -62,9 +62,33 @@ async function metadata() {
 async function setRecorded(label: string) {
   await userEvent.selectOptions(screen.getByLabelText(`${label} — Observation status`), 'RECORDED');
 }
-function forceTimelineOverflow(body: HTMLElement) {
-  Object.defineProperty(body, 'scrollHeight', { configurable: true, value: 600 });
-  fireEvent(window, new Event('resize'));
+function mockTimelineDimensions(body: HTMLElement, initialHeight = 0) {
+  let scrollHeight = initialHeight;
+  let clientHeight = initialHeight;
+  body.style.lineHeight = '20px';
+  body.style.fontSize = '10px';
+  Object.defineProperty(body, 'scrollHeight', { configurable: true, get: () => scrollHeight });
+  Object.defineProperty(body, 'clientHeight', { configurable: true, get: () => clientHeight });
+  return {
+    set(scroll: number, client: number) {
+      scrollHeight = scroll;
+      clientHeight = client;
+    },
+  };
+}
+
+class ControlledResizeObserver implements ResizeObserver {
+  static instances: ControlledResizeObserver[] = [];
+  disconnected = false;
+
+  constructor(private readonly callback: ResizeObserverCallback) {
+    ControlledResizeObserver.instances.push(this);
+  }
+
+  observe() {}
+  unobserve() {}
+  disconnect() { this.disconnected = true; }
+  notify() { this.callback([], this); }
 }
 
 describe('daily-note creation and immutable corrections', () => {
@@ -74,17 +98,81 @@ describe('daily-note creation and immutable corrections', () => {
       body={<p className="note-verbatim">{text}</p>} /></I18nProvider>);
     const row = screen.getByRole('article', { name: 'Original note' });
     const body = within(row).getByTestId('note-timeline-body');
-    forceTimelineOverflow(body);
+    mockTimelineDimensions(body, 81);
+    fireEvent(window, new Event('resize'));
 
     const showMore = await within(row).findByRole('button', { name: 'Show more' });
     expect(body).toHaveAttribute('data-collapsed', 'true');
-    await userEvent.click(showMore);
+    showMore.focus();
+    await userEvent.keyboard('{Enter}');
     expect(showMore).toHaveAttribute('aria-expanded', 'true');
     expect(body).toHaveAttribute('data-collapsed', 'false');
     expect(body.textContent).toBe(text);
-    await userEvent.click(within(row).getByRole('button', { name: 'Show less' }));
+    await userEvent.keyboard(' ');
     expect(within(row).getByRole('button', { name: 'Show more' })).toHaveAttribute('aria-expanded', 'false');
     expect(body).toHaveAttribute('data-collapsed', 'true');
+  });
+
+  it('does not show expansion when the body is exactly four rendered lines', () => {
+    render(<I18nProvider><NoteTimelineRow entryLabel="Original note" dateLabel="Oct 18, 2026" body={<p>Four lines.</p>} /></I18nProvider>);
+    const body = screen.getByTestId('note-timeline-body');
+    mockTimelineDimensions(body, 80);
+    fireEvent(window, new Event('resize'));
+
+    expect(body).toHaveAttribute('data-collapsed', 'false');
+    expect(screen.queryByRole('button', { name: 'Show more' })).not.toBeInTheDocument();
+  });
+
+  it('does not show expansion when the body is below four rendered lines', () => {
+    render(<I18nProvider><NoteTimelineRow entryLabel="Original note" dateLabel="Oct 18, 2026" body={<p>Two lines.</p>} /></I18nProvider>);
+    const body = screen.getByTestId('note-timeline-body');
+    mockTimelineDimensions(body, 40);
+    fireEvent(window, new Event('resize'));
+
+    expect(body).toHaveAttribute('data-collapsed', 'false');
+    expect(screen.queryByRole('button', { name: 'Show more' })).not.toBeInTheDocument();
+  });
+
+  it('shows expansion when content grows beyond four lines after render', async () => {
+    ControlledResizeObserver.instances = [];
+    vi.stubGlobal('ResizeObserver', ControlledResizeObserver);
+    const { unmount } = render(<I18nProvider><NoteTimelineRow entryLabel="Original note" dateLabel="Oct 18, 2026" body={<p>Changing content.</p>} /></I18nProvider>);
+    const body = screen.getByTestId('note-timeline-body');
+    const dimensions = mockTimelineDimensions(body, 80);
+    expect(screen.queryByRole('button', { name: 'Show more' })).not.toBeInTheDocument();
+
+    dimensions.set(81, 80);
+    act(() => ControlledResizeObserver.instances[0].notify());
+    expect(await screen.findByRole('button', { name: 'Show more' })).toHaveAttribute('aria-expanded', 'false');
+    expect(body).toHaveAttribute('data-collapsed', 'true');
+
+    unmount();
+    expect(ControlledResizeObserver.instances[0].disconnected).toBe(true);
+  });
+
+  it('removes expansion when content fits again and resets expanded state', async () => {
+    ControlledResizeObserver.instances = [];
+    vi.stubGlobal('ResizeObserver', ControlledResizeObserver);
+    const { unmount } = render(<I18nProvider><NoteTimelineRow entryLabel="Original note" dateLabel="Oct 18, 2026" body={<p>Changing content.</p>} /></I18nProvider>);
+    const body = screen.getByTestId('note-timeline-body');
+    const dimensions = mockTimelineDimensions(body, 81);
+    act(() => ControlledResizeObserver.instances[0].notify());
+
+    await userEvent.click(await screen.findByRole('button', { name: 'Show more' }));
+    expect(screen.getByRole('button', { name: 'Show less' })).toHaveAttribute('aria-expanded', 'true');
+
+    dimensions.set(80, 80);
+    act(() => ControlledResizeObserver.instances[0].notify());
+    expect(screen.queryByRole('button', { name: 'Show more' })).not.toBeInTheDocument();
+    expect(screen.queryByRole('button', { name: 'Show less' })).not.toBeInTheDocument();
+    expect(body).toHaveAttribute('data-collapsed', 'false');
+
+    dimensions.set(81, 80);
+    act(() => ControlledResizeObserver.instances[0].notify());
+    expect(await screen.findByRole('button', { name: 'Show more' })).toHaveAttribute('aria-expanded', 'false');
+    expect(body).toHaveAttribute('data-collapsed', 'true');
+    unmount();
+    expect(ControlledResizeObserver.instances[0].disconnected).toBe(true);
   });
 
   it('does not show expansion for short note text', () => {
@@ -120,18 +208,28 @@ describe('daily-note creation and immutable corrections', () => {
 
     const addendum = await screen.findByRole('article', { name: 'Add a correction 1' });
     const body = within(addendum).getByTestId('note-timeline-body');
-    forceTimelineOverflow(body);
+    mockTimelineDimensions(body, 200);
+    fireEvent(window, new Event('resize'));
     await within(addendum).findByRole('button', { name: 'Show more' });
     expect(body).toHaveAttribute('data-collapsed', 'true');
     expect(within(addendum).getByText('Source ID:')).toBeVisible();
     expect(within(addendum).getByText(addendumFixture.id)).toBeVisible();
     expect(within(addendum).getByRole('time')).toHaveAttribute('dateTime', addendumFixture.createdAt);
 
-    const eventsBefore = Array.from(document.querySelectorAll('.structured-correction-event h4'), (heading) => heading.textContent);
+    const correctionRows = screen.getAllByRole('article', { name: /Correction event/ });
+    expect(correctionRows).toHaveLength(2);
+    expect(correctionRows.map((row) => row.querySelector('.note-timeline-row__label')?.textContent))
+      .toEqual(['Correction event 1 · Mood', 'Correction event 2 · Pain score (0–10)']);
+    expect(within(correctionRows[0]).getByText('Recorded by caregiver:')).toBeVisible();
+    expect(within(correctionRows[0]).getByText(corrections.events[0].actorId)).toBeVisible();
+    expect(within(correctionRows[0]).getByText(corrections.events[0].id)).toBeVisible();
+    expect(within(correctionRows[0]).getByText('Previous effective value')).toBeVisible();
+    expect(within(correctionRows[0]).getByText('New effective value')).toBeVisible();
+    const eventsBefore = correctionRows.map((row) => row.querySelector('.note-timeline-row__label')?.textContent);
     await userEvent.click(within(addendum).getByRole('button', { name: 'Show more' }));
     expect(body).toHaveAttribute('data-collapsed', 'false');
-    expect(Array.from(document.querySelectorAll('.structured-correction-event h4'), (heading) => heading.textContent))
-      .toEqual(eventsBefore);
+    expect(screen.getAllByRole('article', { name: /Correction event/ })
+      .map((row) => row.querySelector('.note-timeline-row__label')?.textContent)).toEqual(eventsBefore);
   });
 
   it('protects direct note/addendum URLs before any API request', () => {
