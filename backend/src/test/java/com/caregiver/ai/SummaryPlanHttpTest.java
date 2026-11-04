@@ -10,6 +10,7 @@ import java.util.List;
 import java.util.Map;
 import java.util.UUID;
 import org.junit.jupiter.api.BeforeEach;
+import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.ValueSource;
@@ -64,6 +65,7 @@ class SummaryPlanHttpTest {
       if (summaryMode.equals("throw")) throw new IllegalStateException("private provider diagnostic");
       if (summaryMode.equals("fallback")) return new LlmResult(LlmStatus.FALLBACK, "", "private provider diagnostic");
       if (summaryMode.equals("malformed")) return new LlmResult(LlmStatus.OK, "not-json", "");
+      if (summaryMode.equals("empty")) return ok(Map.of("observations", List.of(), "uncertainties", List.of()));
       return ok(Map.of("observations", List.of(Map.of("text", "Reported observation.", "noteId", noteId, "quote", summaryMode.equals("quote") ? "fabricated quote" : "Source note")), "uncertainties", List.of()));
     });
   }
@@ -93,6 +95,59 @@ class SummaryPlanHttpTest {
         .andExpect(jsonPath("$.summary.aiUnavailable").value(true)).andExpect(jsonPath("$.summary.observations").isEmpty())
         .andExpect(jsonPath("$.safety.needsDoctorBanner").value(true));
     assertThat(response.andReturn().getResponse().getContentAsString()).doesNotContain("private provider diagnostic");
+  }
+  @Test @DisplayName("returns unavailable summary with no model observations after provider failure")
+  void returnsUnavailableSummaryWithNoModelObservationsAfterProviderFailure() throws Exception {
+    summaryMode = "throw";
+    var response = call("/api/summaries", owner, request(7)).andExpect(status().isOk())
+        .andExpect(jsonPath("$.summary.aiUnavailable").value(true))
+        .andExpect(jsonPath("$.summary.observations").isEmpty())
+        .andExpect(jsonPath("$.safety.needsDoctorBanner").value(true));
+
+    JsonNode body = json(response);
+    assertThat(body.path("trends").isArray()).isTrue();
+    assertThat(body.path("trends").size()).isPositive();
+    assertThat(body.path("trends").get(0).path("metric").asText()).isNotBlank();
+    assertThat(body.path("summary").path("uncertainties").get(0).path("topic").asText()).isEqualTo("availability");
+    assertThat(response.andReturn().getResponse().getContentAsString())
+        .doesNotContain("private provider diagnostic", "Reported observation.");
+  }
+
+  @Test @DisplayName("does not call provider when recipient ownership check fails")
+  void doesNotCallProviderWhenRecipientOwnershipCheckFails() throws Exception {
+    String otherCaregiver = register();
+    reset(llm);
+
+    var response = call("/api/summaries", otherCaregiver, request(7)).andExpect(status().isNotFound());
+
+    assertThat(response.andReturn().getResponse().getContentAsString())
+        .doesNotContain("Synthetic مستفيد", "Source note عربي.");
+    verifyNoInteractions(llm);
+  }
+
+  @Test void doesNotGenerateOrPersistAPlanAfterSummaryFailure() throws Exception {
+    summaryMode = "throw";
+
+    call("/api/plans/generate", owner, request(7)).andExpect(status().isOk())
+        .andExpect(jsonPath("$.aiUnavailable").value(true))
+        .andExpect(jsonPath("$.plan").isEmpty())
+        .andExpect(jsonPath("$.safety.needsDoctorBanner").value(true));
+
+    assertThat(history().size()).isZero();
+    var captured = org.mockito.ArgumentCaptor.forClass(LlmRequest.class);
+    verify(llm, times(1)).complete(captured.capture());
+    assertThat(captured.getValue().dataBlock()).doesNotStartWith("SUMMARY:");
+  }
+
+  @Test void doesNotGenerateAPlanWithoutValidatedObservationEvidence() throws Exception {
+    summaryMode = "empty";
+
+    call("/api/plans/generate", owner, request(7)).andExpect(status().isOk())
+        .andExpect(jsonPath("$.aiUnavailable").value(true))
+        .andExpect(jsonPath("$.plan").isEmpty());
+
+    assertThat(history().size()).isZero();
+    verify(llm, times(1)).complete(any());
   }
 
   @Test void authenticationOwnershipValidationAndEmptyPeriodsNeverInvokeTheProvider() throws Exception {

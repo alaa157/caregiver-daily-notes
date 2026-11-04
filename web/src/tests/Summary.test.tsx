@@ -109,6 +109,8 @@ describe('on-demand summary and safety workflow', () => {
     expect(await screen.findByRole('heading', { name: 'Safety information returned with the failed request' })).toBeVisible();
     expect(screen.queryByText('AI-generated')).not.toBeInTheDocument();
     expect(screen.queryByText('Educational project. Not medical advice.')).not.toBeInTheDocument();
+    expect(screen.queryByText('Reported appetite varied. ملاحظة غير مؤكدة.')).not.toBeInTheDocument();
+    expect(screen.queryByRole('blockquote')).not.toBeInTheDocument();
     expect(screen.getByRole('region', { name: 'Safety information' })).toHaveTextContent('HIGH');
     expect(screen.getByRole('region', { name: 'Safety information' })).toHaveTextContent('RETRY_WARNING');
   });
@@ -130,13 +132,36 @@ describe('on-demand summary and safety workflow', () => {
     expect(screen.getByRole('region', { name: 'Unclear or conflicting information' })).toBeVisible();
     expect(screen.getByRole('region', { name: 'Recorded observation counts' })).toHaveTextContent('poor_appetite');
   });
-  it('does not label unavailable output as a successful summary', async () => {
-    const fixture = summaryFixture(); fixture.summary.aiUnavailable = true;
-    show(dataFetcher((path) => path === summaryTestPath ? jsonResponse(fixture) : undefined)); await generate();
+  it('does not show AI success label for unavailable response', async () => {
+    const fixture = summaryFixture();
+    fixture.summary.aiUnavailable = true;
+    fixture.summary.observations[0].text = 'stray unavailable model text';
+    show(dataFetcher((path) => path === summaryTestPath ? jsonResponse(fixture) : undefined));
+    await choose(); await userEvent.click(screen.getByRole('button', { name: 'Generate summary' }));
+    await screen.findByRole('status');
+    expect(screen.getByText(/AI is unavailable/)).toBeVisible();
+    expect(screen.queryByRole('heading', { name: 'Requested summary' })).not.toBeInTheDocument();
     expect(screen.queryByText('AI-generated')).not.toBeInTheDocument();
     expect(screen.queryByText('Educational project. Not medical advice.')).not.toBeInTheDocument();
-    expect(screen.getByText(/AI is unavailable/)).toBeVisible();
+    expect(screen.queryByText('stray unavailable model text')).not.toBeInTheDocument();
+    expect(screen.queryByRole('blockquote')).not.toBeInTheDocument();
     expect(screen.getByRole('region', { name: 'Safety information' })).toHaveTextContent('HIGH');
+    expect(screen.getByRole('region', { name: 'Recorded observation counts' })).toHaveTextContent('poor_appetite');
+  });
+  it('does not render malformed model observations as successful content', async () => {
+    const fixture = summaryFixture();
+    fixture.summary.observations[0].text = 'partially parsed model content';
+    fixture.summary.observations[0].quote = '';
+    show(dataFetcher((path) => path === summaryTestPath ? jsonResponse(fixture) : undefined));
+    await choose(); await userEvent.click(screen.getByRole('button', { name: 'Generate summary' }));
+    expect(await screen.findByRole('alert')).toHaveTextContent('could not be verified');
+    expect(screen.queryByRole('heading', { name: 'Requested summary' })).not.toBeInTheDocument();
+    expect(screen.getByRole('heading', { name: 'Summary information could not be fully verified' })).toBeVisible();
+    expect(screen.queryByText('AI-generated')).not.toBeInTheDocument();
+    expect(screen.queryByText('Educational project. Not medical advice.')).not.toBeInTheDocument();
+    expect(screen.queryByText('partially parsed model content')).not.toBeInTheDocument();
+    expect(screen.getByRole('region', { name: 'Safety information' })).toHaveTextContent('HIGH');
+    expect(screen.getByRole('region', { name: 'Recorded observation counts' })).toHaveTextContent('poor_appetite');
   });
   it('does not label an empty observation collection as generated', async () => {
     const fixture = summaryFixture(); fixture.summary.observations = [];
@@ -180,7 +205,9 @@ describe('on-demand summary and safety workflow', () => {
   });
   it('shows backend fallback without generated observations, retaining warnings and uncertainty', async () => {
     const fixture = summaryFixture(); fixture.summary.aiUnavailable = true;
-    show(dataFetcher((path) => path === summaryTestPath ? jsonResponse(fixture) : undefined)); await generate();
+    show(dataFetcher((path) => path === summaryTestPath ? jsonResponse(fixture) : undefined));
+    await choose(); await userEvent.click(screen.getByRole('button', { name: 'Generate summary' }));
+    await screen.findByRole('status');
     expect(screen.getByText(/AI is unavailable/)).toBeInTheDocument(); expect(screen.getByText('HIGH')).toBeVisible();
     expect(screen.queryByRole('heading', { name: 'Generated observations' })).not.toBeInTheDocument();
     expect(screen.getByRole('heading', { name: 'Unclear or conflicting information' })).toBeInTheDocument();
