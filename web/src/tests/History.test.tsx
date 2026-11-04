@@ -14,7 +14,7 @@ import { recipientFixture } from './recipientFixtures';
 
 const root = '/app/notes';
 const range = `${root}?from=2026-10-01&to=2026-10-22`;
-const otherRecipient = { ...recipientFixture, id: 'b2222222-2222-4222-8222-222222222222', name: 'ليلى Smith', active: false };
+const otherRecipient = { ...recipientFixture, id: 'b2222222-2222-4222-8222-222222222222', name: 'ليلى Smith', active: false, lifecycleStatus: 'ARCHIVED', archivedAt: '2026-10-15T10:00:00Z', archivedBy: 'b1111111-1111-4111-8111-111111111111' };
 function Location() { const location = useLocation(); return <output data-testid="location">{location.pathname}{location.search}</output>; }
 function renderHistory(fetcher: ReturnType<typeof vi.fn>, path = range, language = 'en', authenticated = true) {
   vi.stubGlobal('fetch', fetcher);

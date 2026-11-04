@@ -11,7 +11,7 @@ import { jsonResponse, testToken } from './authFixtures';
 import { recipientFixture } from './recipientFixtures';
 import { summaryFixture, summaryOpenApi, summaryTestPath } from './summaryFixtures';
 
-const other = { ...recipientFixture, id: 'b2222222-2222-4222-8222-222222222222', name: 'ليلى Smith', active: false };
+const other = { ...recipientFixture, id: 'b2222222-2222-4222-8222-222222222222', name: 'ليلى Smith', active: false, lifecycleStatus: 'ARCHIVED' as const, archivedAt: '2026-10-15T10:00:00Z', archivedBy: 'b1111111-1111-4111-8111-111111111111' };
 const root = '/app/notes/summary';
 function dataFetcher(override?: (path: string, init: RequestInit) => Response | Promise<Response> | undefined) {
   return vi.fn().mockImplementation((path: string, init: RequestInit) => Promise.resolve(override?.(path, init)

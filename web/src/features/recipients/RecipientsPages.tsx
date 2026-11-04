@@ -1,52 +1,55 @@
 import { useCallback, useEffect, useRef, useState, type ReactNode } from 'react';
 import { Link, useLocation, useNavigate, useParams } from 'react-router-dom';
-import { recipientErrorMessage, type Recipient } from '../../api/recipients';
+import { recipientErrorMessage, type Recipient, type RecipientLifecycleStatus, type RecipientListFilter } from '../../api/recipients';
 import { Button, ButtonLink } from '../../components/Button';
 import { EmptyState, ErrorState, LoadingState } from '../../components/Feedback';
 import { Icon } from '../../components/Icon';
 import { useI18n } from '../../i18n/I18nProvider';
 import type { MessageKey } from '../../i18n/translations';
-import { DeactivateRecipientDialog } from './DeactivateRecipientDialog';
+import { RecipientLifecycleDialog } from './RecipientLifecycleDialog';
 import { RecipientForm } from './RecipientForm';
 import { useRecipientResource, useRecipientsApi } from './useRecipientResource';
 import './recipients.css';
 
 const listPath = '/app/recipients';
-
-function RecipientLayout({ title, description, action, children }: {
-  title: string; description: string; action?: ReactNode; children: ReactNode;
-}) {
+function RecipientLayout({ title, description, action, children }: { title: string; description: string; action?: ReactNode; children: ReactNode }) {
   const { t } = useI18n();
   return <section className="recipients-page container" aria-labelledby="recipients-heading">
-    <header className="recipients-heading">
-      <div><p className="eyebrow">{t('dashboardTitle')}</p><h1 id="recipients-heading">{title}</h1><p>{description}</p></div>
-      {action}
-    </header>
+    <header className="recipients-heading"><div><p className="eyebrow">{t('dashboardTitle')}</p><h1 id="recipients-heading">{title}</h1><p>{description}</p></div>{action}</header>
     {children}
   </section>;
 }
-
-function RecipientStatus({ active }: { active: boolean }) {
+function RecipientStatus({ status }: { status: RecipientLifecycleStatus }) {
   const { t } = useI18n();
-  return <span className={'recipient-status' + (active ? '' : ' recipient-status--inactive')}>
-    <span aria-hidden="true" className="status-dot" />{t(active ? 'recipientActive' : 'recipientInactive')}
+  const key = status === 'ACTIVE' ? 'recipientActive' : status === 'ARCHIVED' ? 'recipientArchived' : 'recipientNeedsReview';
+  return <span className={`recipient-status recipient-status--${status.toLowerCase().replaceAll('_', '-')}`}>
+    <span aria-hidden="true" className="status-dot" />{t(key)}
   </span>;
 }
+const filters: RecipientLifecycleStatus[] = ['ACTIVE', 'ARCHIVED', 'LEGACY_INACTIVE_REVIEW'];
+const filterLabel = (status: RecipientLifecycleStatus): MessageKey => status === 'ACTIVE' ? 'recipientActiveFilter'
+  : status === 'ARCHIVED' ? 'recipientArchivedFilter' : 'recipientReviewFilter';
 
 export function RecipientsListPage() {
-  const { t } = useI18n();
-  const api = useRecipientsApi();
+  const { t } = useI18n(); const api = useRecipientsApi();
+  const [filter, setFilter] = useState<RecipientListFilter>('ACTIVE');
   const [query, setQuery] = useState('');
-  const load = useCallback((signal: AbortSignal) => api.list(signal), [api]);
+  const load = useCallback((signal: AbortSignal) => api.list(signal, filter), [api, filter]);
   const { state, reload } = useRecipientResource(load);
+  const empty = filter === 'ACTIVE' ? ['recipientsEmpty', 'recipientsEmptyDescription']
+    : filter === 'ARCHIVED' ? ['recipientArchivedEmpty', 'recipientArchivedEmptyDescription']
+      : ['recipientReviewEmpty', 'recipientReviewEmptyDescription'];
   const recipients = state.status === 'ready' ? state.data : [];
   const normalizedQuery = query.trim().toLocaleLowerCase();
   const matches = (recipient: Recipient) => !normalizedQuery
     || `${recipient.name}\n${recipient.relationship ?? ''}`.toLocaleLowerCase().includes(normalizedQuery);
-  const active = recipients.filter((recipient) => recipient.active && matches(recipient));
-  const inactive = recipients.filter((recipient) => !recipient.active && matches(recipient));
+  const filtered = recipients.filter(matches);
   return <RecipientLayout title={t('recipientsTitle')} description={t('recipientsDescription')}
     action={<ButtonLink to={`${listPath}/new`}>{t('recipientCreate')}<Icon name="arrow-right" className="directional-icon" /></ButtonLink>}>
+    <div className="recipient-filters" role="group" aria-label={t('recipientListFilter')}>
+      {filters.map((status) => <button type="button" key={status} className="recipient-filter" aria-pressed={filter === status}
+        onClick={() => setFilter(status)}>{t(filterLabel(status))}</button>)}
+    </div>
     {state.status === 'loading' && <LoadingState label={t('recipientsLoading')} />}
     {state.status === 'error' && <ErrorState description={t(recipientErrorMessage(state.error))} onRetry={reload} />}
     {state.status === 'ready' && state.data.length > 0 && <div className="recipient-search">
@@ -54,38 +57,21 @@ export function RecipientsListPage() {
       <div><input id="recipient-search" type="search" value={query} onChange={(event) => setQuery(event.target.value)} />
         <Button type="button" variant="secondary" disabled={!query} onClick={() => setQuery('')}>{t('recipientSearchClear')}</Button></div>
     </div>}
-    {state.status === 'ready' && state.data.length === 0 && <EmptyState title={t('recipientsEmpty')} description={t('recipientsEmptyDescription')} />}
-    {state.status === 'ready' && state.data.length > 0 && active.length + inactive.length === 0
+    {state.status === 'ready' && state.data.length === 0 && <EmptyState title={t(empty[0] as MessageKey)} description={t(empty[1] as MessageKey)} />}
+    {state.status === 'ready' && state.data.length > 0 && filtered.length === 0
       && <EmptyState title={t('recipientSearchNoResults')} description={t('recipientSearchNoResultsDescription')} />}
-    {active.length > 0 && <section className="recipient-group" aria-labelledby="active-recipients-title">
-      <h2 id="active-recipients-title">{t('recipientActiveGroup')}</h2>
-      <ul className="recipient-list" aria-label={t('recipientActiveGroup')}>
-        {active.map((recipient) => <li key={recipient.id} className="recipient-card">
-          <RecipientStatus active />
-          <h3><Link to={`${listPath}/${recipient.id}`}><bdi>{recipient.name}</bdi></Link></h3>
+    {filtered.length > 0 && <ul className="recipient-list" aria-label={t(filterLabel(filter as RecipientLifecycleStatus))}>
+      {filtered.map((recipient) => <li key={recipient.id} className="recipient-card">
+        <RecipientStatus status={recipient.lifecycleStatus} />
+        <h2><Link to={`${listPath}/${recipient.id}`}><bdi>{recipient.name}</bdi></Link></h2>
           <p className="recipient-hint">{t('recipientRelationshipLabel')}</p>
           <p><bdi>{recipient.relationship || t('recipientRelationshipEmpty')}</bdi></p>
         </li>)}
-      </ul>
-    </section>}
-    {inactive.length > 0 && <section className="recipient-group" aria-labelledby="inactive-recipients-title">
-      <h2 id="inactive-recipients-title">{t('recipientInactiveGroup')}</h2>
-      <ul className="recipient-list" aria-label={t('recipientInactiveGroup')}>
-        {inactive.map((recipient) => <li key={recipient.id} className="recipient-card">
-          <RecipientStatus active={false} />
-          <h3><Link to={`${listPath}/${recipient.id}`}><bdi>{recipient.name}</bdi></Link></h3>
-          <p className="recipient-hint">{t('recipientRelationshipLabel')}</p>
-          <p><bdi>{recipient.relationship || t('recipientRelationshipEmpty')}</bdi></p>
-        </li>)}
-      </ul>
-    </section>}
+      </ul>}
   </RecipientLayout>;
 }
-
 export function CreateRecipientPage() {
-  const { t } = useI18n();
-  const api = useRecipientsApi();
-  const navigate = useNavigate();
+  const { t } = useI18n(); const api = useRecipientsApi(); const navigate = useNavigate();
   return <RecipientLayout title={t('recipientCreate')} description={t('recipientCreateDescription')}>
     <div className="recipient-surface"><RecipientForm cancelTo={listPath} onSave={async (input, signal) => {
       const recipient = await api.create(input, signal);
@@ -93,15 +79,11 @@ export function CreateRecipientPage() {
     }} /></div>
   </RecipientLayout>;
 }
-
 function RecipientRecord({ id, edit }: { id: string; edit: boolean }) {
-  const { t, language } = useI18n();
-  const api = useRecipientsApi();
-  const navigate = useNavigate();
-  const location = useLocation();
+  const { t, language } = useI18n(); const api = useRecipientsApi(); const navigate = useNavigate(); const location = useLocation();
   const load = useCallback((signal: AbortSignal) => api.get(id, signal), [api, id]);
   const { state, reload, replace } = useRecipientResource<Recipient>(load);
-  const [confirming, setConfirming] = useState(false);
+  const [confirming, setConfirming] = useState<'archive' | 'restore' | null>(null);
   const [notice, setNotice] = useState<MessageKey | null>(() => {
     const value = (location.state as { recipientNotice?: unknown } | null)?.recipientNotice;
     return value === 'created' ? 'recipientCreated' : value === 'updated' ? 'recipientUpdated' : null;
@@ -109,7 +91,6 @@ function RecipientRecord({ id, edit }: { id: string; edit: boolean }) {
   const noticeRef = useRef<HTMLParagraphElement>(null);
   useEffect(() => { if (notice && state.status === 'ready') noticeRef.current?.focus(); }, [notice, state.status]);
   const date = (value: string) => new Intl.DateTimeFormat(language === 'ar' ? 'ar-EG' : 'en', { dateStyle: 'medium' }).format(new Date(value));
-
   return <RecipientLayout title={t(edit ? 'recipientEdit' : 'recipientDetails')} description={t(edit ? 'recipientEditDescription' : 'recipientDetailsDescription')}
     action={<ButtonLink variant="secondary" to={listPath}><Icon name="arrow-left" className="directional-icon" />{t('recipientsBack')}</ButtonLink>}>
     {state.status === 'loading' && <LoadingState label={t('recipientLoading')} />}
@@ -117,9 +98,10 @@ function RecipientRecord({ id, edit }: { id: string; edit: boolean }) {
     {state.status === 'ready' && <>
       {notice && <p ref={noticeRef} tabIndex={-1} role="status" className="recipient-success">{t(notice)}</p>}
       <div className="recipient-surface">
-        <div className="recipient-record-heading"><h2><bdi>{state.data.name}</bdi></h2><RecipientStatus active={state.data.active} /></div>
-        {!state.data.active && <p className="recipient-inactive-notice">{t('recipientInactiveDescription')}</p>}
-        {edit && state.data.active ? <RecipientForm initial={state.data} cancelTo={`${listPath}/${id}`} onReload={reload} onSave={async (input, signal) => {
+        <div className="recipient-record-heading"><h2><bdi>{state.data.name}</bdi></h2><RecipientStatus status={state.data.lifecycleStatus} /></div>
+        {state.data.lifecycleStatus === 'ARCHIVED' && <p className="recipient-inactive-notice">{t('recipientArchivedDescription')}</p>}
+        {state.data.lifecycleStatus === 'LEGACY_INACTIVE_REVIEW' && <p className="recipient-review-notice">{t('recipientLegacyReviewDescription')}</p>}
+        {edit && state.data.lifecycleStatus === 'ACTIVE' ? <RecipientForm initial={state.data} cancelTo={`${listPath}/${id}`} onReload={reload} onSave={async (input, signal) => {
           await api.update(id, input, signal);
           if (!signal.aborted) navigate(`${listPath}/${id}`, { replace: true, state: { recipientNotice: 'updated' } });
         }} /> : <>
@@ -127,32 +109,31 @@ function RecipientRecord({ id, edit }: { id: string; edit: boolean }) {
             <div><dt>{t('recipientRelationshipLabel')}</dt><dd><bdi>{state.data.relationship || t('recipientRelationshipEmpty')}</bdi></dd></div>
             <div><dt>{t('recipientCreatedAt')}</dt><dd><time dateTime={state.data.createdAt}>{date(state.data.createdAt)}</time></dd></div>
             <div><dt>{t('recipientUpdatedAt')}</dt><dd><time dateTime={state.data.updatedAt}>{date(state.data.updatedAt)}</time></dd></div>
+            {state.data.archivedAt && <div><dt>{t('recipientArchivedAt')}</dt><dd><time dateTime={state.data.archivedAt}>{date(state.data.archivedAt)}</time></dd></div>}
+            {state.data.restoredAt && <div><dt>{t('recipientRestoredAt')}</dt><dd><time dateTime={state.data.restoredAt}>{date(state.data.restoredAt)}</time></dd></div>}
           </dl>
           <div className="recipient-actions">
             <ButtonLink variant="secondary" to={`/app/notes?recipientId=${encodeURIComponent(id)}`}>{t('historyTitle')}</ButtonLink>
-            {state.data.active && <ButtonLink variant="secondary" to={`/app/notes/new?recipientId=${encodeURIComponent(id)}`}>{t('notesCreate')}</ButtonLink>}
-            {state.data.active && <ButtonLink to={`${listPath}/${id}/edit`}>{t('recipientEdit')}</ButtonLink>}
-            {state.data.active && <Button variant="secondary" className="recipient-danger-outline" onClick={() => { setNotice(null); setConfirming(true); }}>{t('recipientDeactivate')}</Button>}
+            {state.data.lifecycleStatus === 'ACTIVE' && <ButtonLink variant="secondary" to={`/app/notes/new?recipientId=${encodeURIComponent(id)}`}>{t('notesCreate')}</ButtonLink>}
+            {state.data.lifecycleStatus === 'ACTIVE' && <ButtonLink to={`${listPath}/${id}/edit`}>{t('recipientEdit')}</ButtonLink>}
+            {state.data.lifecycleStatus === 'ACTIVE' && <Button variant="secondary" onClick={() => { setNotice(null); setConfirming('archive'); }}>{t('recipientArchive')}</Button>}
+            {state.data.lifecycleStatus === 'ARCHIVED' && <Button variant="secondary" onClick={() => { setNotice(null); setConfirming('restore'); }}>{t('recipientRestore')}</Button>}
           </div>
-          {edit && <ButtonLink variant="secondary" to={`${listPath}/${id}`}>{t('recipientDetails')}</ButtonLink>}
+          {edit && state.data.lifecycleStatus !== 'ACTIVE' && <ButtonLink variant="secondary" to={`${listPath}/${id}`}>{t('recipientDetails')}</ButtonLink>}
         </>}
       </div>
-      {confirming && <DeactivateRecipientDialog recipient={state.data} onClose={() => setConfirming(false)} onConfirm={async (signal) => {
-        const recipient = await api.deactivate(id, signal);
-        if (!signal.aborted) { replace(recipient); setNotice('recipientDeactivated'); }
+      {confirming && <RecipientLifecycleDialog recipient={state.data} action={confirming} onClose={() => setConfirming(null)} onConfirm={async (signal) => {
+        const updated = confirming === 'archive' ? await api.archive(id, signal) : await api.restore(id, signal);
+        if (!signal.aborted) { replace(updated); setNotice(confirming === 'archive' ? 'recipientArchivedSuccess' : 'recipientRestoredSuccess'); }
       }} />}
     </>}
   </RecipientLayout>;
 }
-
 export function RecipientPage({ edit = false }: { edit?: boolean }) {
   const { id = '' } = useParams();
   return <RecipientRecord key={`${id}:${edit}`} id={id} edit={edit} />;
 }
-
 export function RecipientsNotFoundPage() {
   const { t } = useI18n();
-  return <RecipientLayout title={t('pageNotFound')} description={t('recipientUnavailable')}>
-    <ButtonLink variant="secondary" to={listPath}>{t('recipientsBack')}</ButtonLink>
-  </RecipientLayout>;
+  return <RecipientLayout title={t('pageNotFound')} description={t('recipientUnavailable')}><ButtonLink variant="secondary" to={listPath}>{t('recipientsBack')}</ButtonLink></RecipientLayout>;
 }

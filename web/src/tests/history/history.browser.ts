@@ -10,7 +10,7 @@ import { recipientFixture } from '../recipientFixtures';
 const require = createRequire(import.meta.url);
 const fixtureNow = new Date('2026-10-27T12:00:00Z');
 const root = '/app/notes?from=2026-10-01&to=2026-10-22';
-const otherRecipient = { ...recipientFixture, id: 'b2222222-2222-4222-8222-222222222222', name: 'ليلى Smith', active: false };
+const otherRecipient = { ...recipientFixture, id: 'b2222222-2222-4222-8222-222222222222', name: 'ليلى Smith', active: false, lifecycleStatus: 'ARCHIVED' as const, archivedAt: '2026-10-15T10:00:00Z', archivedBy: 'b1111111-1111-4111-8111-111111111111' };
 const secondNote = { ...historyNote, id: 'c3333333-3333-4333-8333-333333333333', date: '2026-10-19', recipientId: otherRecipient.id, addendumCount: 0 };
 function correctionHistory(note: DailyNote) {
   return { originalNote: note, events: [], effectiveObservations: Object.fromEntries(observationFields.map((field) => {

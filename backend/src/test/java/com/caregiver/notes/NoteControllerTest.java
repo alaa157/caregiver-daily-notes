@@ -529,8 +529,8 @@ class NoteControllerTest {
             .header("Authorization", bearer(owner.token()))
             .contentType(MediaType.APPLICATION_JSON)
             .content(noteJson(recipientId, "2026-10-20")))
-        .andExpect(status().isBadRequest())
-        .andExpect(jsonPath("$.code").value("INVALID_REQUEST"));
+        .andExpect(status().isConflict())
+        .andExpect(jsonPath("$.code").value("INACTIVE_RECIPIENT"));
 
     assertThat(notes.count()).isZero();
   }

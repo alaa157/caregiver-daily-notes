@@ -6,6 +6,11 @@ export const recipientFixture: Recipient = {
   name: 'Samir Hassan',
   relationship: 'Father',
   active: true,
+  lifecycleStatus: 'ACTIVE',
+  archivedAt: null,
+  archivedBy: null,
+  restoredAt: null,
+  restoredBy: null,
   createdAt: '2026-10-01T10:00:00Z',
   updatedAt: '2026-10-01T10:00:00Z',
 };
