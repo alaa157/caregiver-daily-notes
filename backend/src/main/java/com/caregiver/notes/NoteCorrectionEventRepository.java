@@ -15,4 +15,8 @@ public interface NoteCorrectionEventRepository extends Repository<NoteCorrection
   long countByNote_IdAndCaregiver_Id(UUID noteId, UUID caregiverId);
   @Query("select e.note.id, count(e) from NoteCorrectionEvent e where e.note.id in :noteIds and e.caregiver.id = :owner group by e.note.id")
   List<Object[]> countByNoteIds(@Param("noteIds") Collection<UUID> noteIds, @Param("owner") UUID owner);
+  @Query("select event from NoteCorrectionEvent event where event.note.id in :noteIds "
+      + "and event.caregiver.id = :owner order by event.note.id asc, event.sequenceNo asc")
+  List<NoteCorrectionEvent> findAllByNote_IdInAndCaregiver_IdOrderByNote_IdAscSequenceNoAsc(
+      @Param("noteIds") Collection<UUID> noteIds, @Param("owner") UUID owner);
 }

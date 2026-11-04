@@ -94,4 +94,7 @@ public class NoteAddendum extends ObservationColumns {
         moodProvided, appetiteProvided, sleepProvided, mobilityProvided,
         medicationStatusProvided, painScoreProvided, fallReportedProvided, freeTextProvided);
   }
+  public boolean medicationVerificationWasProvided() {
+    return isMedicationVerificationProvided();
+  }
 }
