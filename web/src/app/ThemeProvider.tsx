@@ -1,4 +1,4 @@
-import { createContext, useContext, useEffect, useState, type ReactNode } from 'react';
+import { createContext, useContext, useLayoutEffect, useState, type ReactNode } from 'react';
 
 export type ThemeMode = 'system' | 'light' | 'dark';
 
@@ -34,8 +34,8 @@ function getSystemTheme(): ResolvedTheme {
 
 export function ThemeProvider({ children }: { children: ReactNode }) {
   const [mode, setModeState] = useState<ThemeMode>(readStoredMode);
-  const [resolvedTheme, setResolvedTheme] = useState<ResolvedTheme>(() =>
-    mode === 'system' ? getSystemTheme() : mode,
+  const [systemTheme, setSystemTheme] = useState<ResolvedTheme>(() =>
+    mode === 'system' ? getSystemTheme() : 'light',
   );
 
   const setMode = (nextMode: ThemeMode) => {
@@ -47,31 +47,30 @@ export function ThemeProvider({ children }: { children: ReactNode }) {
     }
   };
 
-  useEffect(() => {
+  useLayoutEffect(() => {
     document.documentElement.dataset.theme = mode;
 
-    if (mode !== 'system') {
-      setResolvedTheme(mode);
-      return;
-    }
+    if (mode !== 'system') return;
 
     if (typeof window.matchMedia !== 'function') {
-      setResolvedTheme('light');
+      setSystemTheme((current) => current === 'light' ? current : 'light');
       return;
     }
 
     const mediaQuery = window.matchMedia(SYSTEM_COLOR_SCHEME_QUERY);
-    const updateResolvedTheme = (event: MediaQueryListEvent) => {
-      setResolvedTheme(event.matches ? 'dark' : 'light');
+    const updateResolvedTheme = (isDark: boolean) => {
+      const nextTheme = isDark ? 'dark' : 'light';
+      setSystemTheme((current) => current === nextTheme ? current : nextTheme);
     };
+    const handleChange = (event: MediaQueryListEvent) => updateResolvedTheme(event.matches);
 
-    setResolvedTheme(mediaQuery.matches ? 'dark' : 'light');
-    mediaQuery.addEventListener('change', updateResolvedTheme);
-    return () => mediaQuery.removeEventListener('change', updateResolvedTheme);
+    updateResolvedTheme(mediaQuery.matches);
+    mediaQuery.addEventListener('change', handleChange);
+    return () => mediaQuery.removeEventListener('change', handleChange);
   }, [mode]);
 
   return (
-    <ThemeContext.Provider value={{ mode, setMode, resolvedTheme }}>
+    <ThemeContext.Provider value={{ mode, setMode, resolvedTheme: mode === 'system' ? systemTheme : mode }}>
       {children}
     </ThemeContext.Provider>
   );
