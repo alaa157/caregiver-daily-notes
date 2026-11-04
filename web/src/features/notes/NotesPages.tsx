@@ -103,7 +103,8 @@ function NoteRecord({ id, append }: { id: string; append: boolean }) {
         {state.data.addenda.length === 0 ? <p className="note-surface">{t('notesNoAddenda')}</p> : <ol className="note-addenda-list">{state.data.addenda.map((item, index) => <li key={item.id}>
           <article className="note-surface" aria-labelledby={`addendum-${item.id}`}><h3 id={`addendum-${item.id}`}>{t('notesAppend')} {new Intl.NumberFormat(language === 'ar' ? 'ar-EG' : 'en').format(index + 1)}</h3>
             <p className="note-hint"><time dateTime={item.createdAt}>{date(item.createdAt, true)}</time></p>
-            <ObservationValues values={item} correction /></article>
+            <ObservationValues values={item.observations} providedFields={item.providedFields}
+              verificationProvided={item.medicationVerificationProvided} correction /></article>
         </li>)}</ol>}
       </section></>}
     </>}
