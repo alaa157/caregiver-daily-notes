@@ -1,7 +1,5 @@
 import {
-  OBSERVATION_STATES,
   SELECTABLE_OBSERVATION_STATES,
-  isObservationState,
   isSelectableObservationState,
   isVerificationValue,
   type Observation,
@@ -82,7 +80,6 @@ export type ObservationStateFieldProps<T> = {
   error?: string;
   hint?: string;
   locked?: boolean;
-  allowLegacy?: boolean;
 };
 
 /**
@@ -103,7 +100,6 @@ export function ObservationStateField<T>({
   error,
   hint,
   locked = false,
-  allowLegacy = false,
 }: ObservationStateFieldProps<T>) {
   const { t } = useI18n();
   const stateId = `${id}-state`;
@@ -111,10 +107,6 @@ export function ObservationStateField<T>({
   const errorId = error ? `${id}-error` : undefined;
   const hintId = hint ? `${id}-hint` : undefined;
   const describedBy = [hintId, errorId].filter(Boolean).join(' ') || undefined;
-
-  const selectable = allowLegacy
-    ? (OBSERVATION_STATES as readonly ObservationState[])
-    : SELECTABLE_OBSERVATION_STATES;
 
   function setState(nextState: ObservationState) {
     if (locked) return;
@@ -161,35 +153,36 @@ export function ObservationStateField<T>({
         )}
       </div>
 
-      <div className="obs-state-group" role="group" aria-labelledby={`${id}-label`}>
-        <label htmlFor={stateId} className="obs-state-label">
-          {t('obsStateLabel')}
-        </label>
-        <select
-          id={stateId}
-          className="obs-state-select"
-          aria-label={`${label} — ${t('obsStateLabel')}`}
-          value={observation.state}
-          disabled={locked || (isLegacy && !allowLegacy)}
-          aria-describedby={[describedBy, `${id}-state-hint`].filter(Boolean).join(' ')}
-          aria-invalid={error ? true : undefined}
-          onChange={(e) => {
-            const v = e.target.value;
-            if (isSelectableObservationState(v) || (allowLegacy && isObservationState(v))) {
-              setState(v as ObservationState);
-            }
-          }}
-        >
-          {selectable.map((s) => (
-            <option key={s} value={s}>
-              {t(stateLabelKeys[s])}
-            </option>
+      <fieldset
+        className="obs-state-group"
+        aria-label={`${label} — ${t('obsStateLabel')}`}
+        aria-describedby={[describedBy, `${id}-state-hint`].filter(Boolean).join(' ')}
+        disabled={locked || isLegacy}
+      >
+        <legend className="obs-state-label">{t('obsStateLabel')}</legend>
+        <div className="obs-state-options">
+          {SELECTABLE_OBSERVATION_STATES.map((state, index) => (
+            <label key={state} className="obs-state-choice" data-selected={observation.state === state}>
+              <input
+                type="radio"
+                id={index === 0 ? stateId : `${stateId}-${state.toLowerCase()}`}
+                name={stateId}
+                value={state}
+                checked={observation.state === state}
+                aria-label={`${label} — ${t(stateLabelKeys[state])}`}
+                aria-invalid={error ? true : undefined}
+                onChange={() => {
+                  if (isSelectableObservationState(state)) setState(state);
+                }}
+              />
+              <span>{t(stateLabelKeys[state])}</span>
+            </label>
           ))}
-        </select>
+        </div>
         <p className="obs-state-hint" id={`${id}-state-hint`}>
           {t(stateHintKeys[observation.state])}
         </p>
-      </div>
+      </fieldset>
 
       <ValueEditor fieldId={id} disabled={!isRecorded}>
         {renderValue({

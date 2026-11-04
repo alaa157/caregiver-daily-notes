@@ -60,7 +60,17 @@ async function metadata() {
   fireEvent.change(screen.getByLabelText('Observation date'), { target: { value: noteFixture.date } });
 }
 async function setRecorded(label: string) {
-  await userEvent.selectOptions(screen.getByLabelText(`${label} — Observation status`), 'RECORDED');
+  await setObservationState(label, 'RECORDED');
+}
+async function setObservationState(label: string, state: 'RECORDED' | 'UNKNOWN' | 'NOT_RECORDED' | 'NOT_APPLICABLE') {
+  const stateText = {
+    RECORDED: 'Recorded',
+    UNKNOWN: 'Unknown',
+    NOT_RECORDED: 'Not recorded',
+    NOT_APPLICABLE: 'Not applicable',
+  }[state];
+  const group = screen.getByRole('group', { name: `${label} — Observation status` });
+  await userEvent.click(within(group).getByText(stateText, { exact: true }));
 }
 function mockTimelineDimensions(body: HTMLElement, initialHeight = 0) {
   let scrollHeight = initialHeight;
@@ -92,6 +102,113 @@ class ControlledResizeObserver implements ResizeObserver {
 }
 
 describe('daily-note creation and immutable corrections', () => {
+  it('groups note fields with fieldset legends', async () => {
+    renderNotes(`${root}/new`, dataFetcher());
+
+    const details = await screen.findByRole('group', { name: 'Note details' });
+    const observations = screen.getByRole('group', { name: 'Observations' });
+    expect(details).toBeVisible();
+    expect(observations).toBeVisible();
+    for (const legend of ['Daily wellbeing', 'Medication', 'Pain and safety', 'Additional notes']) {
+      expect(within(observations).getByRole('group', { name: legend })).toBeVisible();
+    }
+    expect(within(details).getByLabelText('Care recipient')).toBeInTheDocument();
+    expect(within(details).getByLabelText('Observation date')).toBeInTheDocument();
+    expect(within(screen.getByRole('group', { name: 'Daily wellbeing' })).getByRole('radio', { name: 'Mood — Recorded' })).toBeInTheDocument();
+    expect(within(screen.getByRole('group', { name: 'Medication' })).getByLabelText('Medication report verified')).toBeInTheDocument();
+    expect(within(screen.getByRole('group', { name: 'Pain and safety' })).getByLabelText('Fall reported')).toBeInTheDocument();
+    expect(within(screen.getByRole('group', { name: 'Additional notes' }))
+      .getByRole('group', { name: 'Free-text observations — Observation status' })).toBeInTheDocument();
+  });
+
+  it('keeps state choices keyboard accessible and exposes the selected state', async () => {
+    renderNotes(`${root}/new`, dataFetcher());
+    await screen.findByRole('group', { name: 'Mood — Observation status' });
+    const group = screen.getByRole('group', { name: 'Mood — Observation status' });
+    await userEvent.click(within(group).getByText('Recorded', { exact: true }));
+    const recorded = within(group).getByRole('radio', { name: 'Mood — Recorded' });
+    recorded.focus();
+    expect(recorded).toBeChecked();
+    await userEvent.keyboard('{ArrowDown}');
+    expect(within(group).getByRole('radio', { name: 'Mood — Unknown' })).toBeChecked();
+    expect(recorded).not.toBeChecked();
+    expect(within(group).getByText('Unknown', { exact: true })).toBeVisible();
+  });
+
+  it('keeps recorded false and zero values in the submitted request', async () => {
+    let submitted: Record<string, unknown> | null = null;
+    const fetcher = dataFetcher((path, init) => {
+      if (path === '/api/notes' && init.method === 'POST') {
+        submitted = JSON.parse(init.body as string);
+        return jsonResponse(noteFixture, 201);
+      }
+    });
+    renderNotes(`${root}/new`, fetcher);
+    await metadata();
+    await setRecorded('Fall reported');
+    await userEvent.selectOptions(screen.getByRole('combobox', { name: 'Fall reported' }), 'false');
+    await setRecorded('Pain score (0–10)');
+    fireEvent.change(screen.getByRole('spinbutton', { name: 'Pain score (0–10)' }), { target: { value: '0' } });
+    await userEvent.click(screen.getByRole('button', { name: 'Save original note' }));
+    await screen.findByText('Original note saved.');
+    expect(submitted).toMatchObject({
+      observations: {
+        fallReported: { state: 'RECORDED', value: false },
+        painScore: { state: 'RECORDED', value: 0 },
+      },
+    });
+  });
+
+  it('keeps unknown and not-recorded states separate from zero and empty values', async () => {
+    let submitted: Record<string, unknown> | null = null;
+    const fetcher = dataFetcher((path, init) => {
+      if (path === '/api/notes' && init.method === 'POST') {
+        submitted = JSON.parse(init.body as string);
+        return jsonResponse(noteFixture, 201);
+      }
+    });
+    renderNotes(`${root}/new`, fetcher);
+    await metadata();
+    await setObservationState('Pain score (0–10)', 'UNKNOWN');
+    await setObservationState('Fall reported', 'NOT_RECORDED');
+    await setRecorded('Free-text observations');
+    const text = screen.getByRole('textbox', { name: 'Free-text observations' });
+    await userEvent.type(text, 'x');
+    await userEvent.clear(text);
+    await userEvent.click(screen.getByRole('button', { name: 'Save original note' }));
+    await screen.findByText('Original note saved.');
+    expect(submitted).toMatchObject({
+      observations: {
+        painScore: { state: 'UNKNOWN', value: null },
+        fallReported: { state: 'NOT_RECORDED' },
+        freeText: { state: 'RECORDED', value: '' },
+      },
+    });
+    expect(submitted).not.toHaveProperty('observations.fallReported.value');
+  });
+
+  it('announces save success and save failure separately', async () => {
+    const successView = renderNotes(`${root}/new`, dataFetcher((path, init) =>
+      path === '/api/notes' && init.method === 'POST' ? jsonResponse(noteFixture, 201) : undefined));
+    await metadata();
+    await userEvent.click(screen.getByRole('button', { name: 'Save original note' }));
+    expect(await screen.findByRole('status')).toHaveTextContent('Original note saved.');
+    successView.unmount();
+
+    renderNotes(`${root}/new`, dataFetcher((path, init) =>
+      path === '/api/notes' && init.method === 'POST' ? jsonResponse({ message: 'private server detail' }, 500) : undefined));
+    await metadata();
+    await setRecorded('Free-text observations');
+    const text = screen.getByRole('textbox', { name: 'Free-text observations' });
+    fireEvent.change(text, { target: { value: 'Keep this entry for a retry.' } });
+    await userEvent.click(screen.getByRole('button', { name: 'Save original note' }));
+    expect(await screen.findByRole('alert')).toHaveTextContent('Could not confirm that the save completed');
+    expect(screen.queryByText('Original note saved.')).not.toBeInTheDocument();
+    expect(screen.getByRole('textbox', { name: 'Free-text observations' })).toHaveValue('Keep this entry for a retry.');
+    expect(screen.getByRole('button', { name: 'Retry the same save' })).toBeEnabled();
+    expect(screen.queryByText('private server detail')).not.toBeInTheDocument();
+  });
+
   it('expands a note body longer than four lines', async () => {
     const text = 'Line one\nLine two\nLine three\nLine four\nLine five';
     render(<I18nProvider><NoteTimelineRow entryLabel="Original note" dateLabel="Oct 18, 2026"
@@ -281,7 +398,7 @@ describe('daily-note creation and immutable corrections', () => {
       await setRecorded(label);
       fireEvent.change(screen.getByRole('textbox', { name: label }), { target: { value } });
     }
-    await userEvent.selectOptions(screen.getByLabelText('Medication taken — Observation status'), 'UNKNOWN');
+    await setObservationState('Medication taken', 'UNKNOWN');
     await userEvent.selectOptions(screen.getByLabelText('Medication report verified'), 'UNVERIFIED');
     await setRecorded('Pain score (0–10)');
     fireEvent.change(screen.getByRole('spinbutton', { name: 'Pain score (0–10)' }), { target: { value: '0' } });
@@ -329,7 +446,7 @@ describe('daily-note creation and immutable corrections', () => {
     expect(screen.getByRole('button', { name: 'Saving…' })).toBeDisabled();
     reject(new TypeError('response lost'));
     expect(await screen.findByRole('alert')).toHaveTextContent(/could not confirm/i);
-    expect(screen.getByLabelText('Free-text observations — Observation status')).toBeDisabled();
+    expect(within(screen.getByRole('group', { name: 'Free-text observations — Observation status' })).getAllByRole('radio')[0]).toBeDisabled();
     await userEvent.click(screen.getByRole('button', { name: 'Retry the same save' }));
     await screen.findByText('Original note saved.');
     expect(posts).toHaveLength(2);
@@ -396,12 +513,12 @@ describe('daily-note creation and immutable corrections', () => {
     expect(screen.getByRole('checkbox', { name: 'Correct this field: Mood' })).toHaveFocus();
     expect(writes).toHaveLength(0);
     await userEvent.click(screen.getByRole('checkbox', { name: 'Correct this field: Medication taken' }));
-    await userEvent.selectOptions(screen.getByLabelText('Medication taken — Observation status'), 'RECORDED');
+    await setRecorded('Medication taken');
     await userEvent.selectOptions(screen.getByRole('combobox', { name: 'Medication taken' }), 'MISSED');
     await userEvent.click(screen.getByRole('checkbox', { name: 'Correct this field: Medication report verified' }));
     await userEvent.selectOptions(screen.getByLabelText('Medication report verified', { exact: true }), 'UNVERIFIED');
     await userEvent.click(screen.getByRole('checkbox', { name: 'Correct this field: Free-text observations' }));
-    await userEvent.selectOptions(screen.getByLabelText('Free-text observations — Observation status'), 'RECORDED');
+    await setRecorded('Free-text observations');
     fireEvent.change(screen.getByRole('textbox', { name: 'Free-text observations' }), { target: { value: addendumFixture.freeText } });
     await userEvent.click(screen.getByRole('button', { name: 'Save addendum' }));
     expect(await screen.findByText('Addendum saved. The original note is unchanged.')).toHaveFocus();
@@ -513,9 +630,9 @@ describe('daily-note creation and immutable corrections', () => {
     renderNotes(`${detail}/addenda/new`, dataFetcher());
     await screen.findByRole('form', { name: 'Add a correction' });
     await userEvent.click(screen.getByRole('checkbox', { name: 'Correct this field: Medication taken' }));
-    await userEvent.selectOptions(screen.getByLabelText('Medication taken — Observation status'), 'RECORDED');
+    await setRecorded('Medication taken');
     await userEvent.click(screen.getByRole('button', { name: 'Save addendum' }));
-    expect(screen.getByLabelText('Medication taken — Observation status')).toHaveFocus();
+    expect(within(screen.getByRole('group', { name: 'Medication taken — Observation status' })).getAllByRole('radio')[0]).toHaveFocus();
     expect(screen.getByRole('alert')).toHaveTextContent('Enter a value when status is Recorded');
   });
   it('renders Arabic/RTL and mixed text safely without altering its content', async () => {
