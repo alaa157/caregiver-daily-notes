@@ -7,6 +7,7 @@ export function SummarySafety({ safety }: { safety: Safety }) {
   const urgent = safety.needsDoctorBanner || safety.incomplete || safety.signals.some((signal) => signal.severity !== 'INFO' && signal.severity !== 'WATCH');
   return <section className={`summary-safety${urgent ? ' summary-safety--urgent' : ''}`} aria-label={t('summarySafety')}>
     <h3>{t(safety.needsDoctorBanner ? 'summaryClinicalReview' : 'summarySafety')}</h3>
+    <p className="summary-safety-source">{t('summarySafetyIndependent')}</p>
     {safety.incomplete && <p className="summary-safety-warning" role="alert">{t('summarySafetyUnknown')}</p>}
     {safety.signals.length > 0 && <ul className="summary-signals">{safety.signals.map((signal, index) => <li key={index}>
       <div><strong className="summary-severity"><bdi>{signal.severity ?? t('summaryUnknownSeverity')}</bdi></strong>{' '}
