@@ -9,10 +9,13 @@ import com.caregiver.notes.DailyNote;
 import com.caregiver.notes.DailyNoteRepository;
 import com.caregiver.notes.NoteAddendum;
 import com.caregiver.notes.NoteAddendumRepository;
+import com.caregiver.notes.NoteCorrectionEvent;
+import com.caregiver.notes.NoteCorrectionEventRepository;
 import com.caregiver.notes.NoteSignalService;
 import com.caregiver.recipient.CareRecipientRepository;
 import com.caregiver.recipient.RecipientNotFoundException;
 import java.time.LocalDate;
+import java.util.Comparator;
 import java.util.List;
 import java.util.Map;
 import java.util.UUID;
@@ -26,10 +29,15 @@ public class SummarySourceLoader {
   private final CareRecipientRepository recipients;
   private final DailyNoteRepository notes;
   private final NoteAddendumRepository addenda;
+  private final NoteCorrectionEventRepository correctionEvents;
   private final NoteSignalService signals;
   public SummarySourceLoader(CareRecipientRepository recipients, DailyNoteRepository notes,
-      NoteAddendumRepository addenda, NoteSignalService signals) {
-    this.recipients = recipients; this.notes = notes; this.addenda = addenda; this.signals = signals;
+      NoteAddendumRepository addenda, NoteCorrectionEventRepository correctionEvents, NoteSignalService signals) {
+    this.recipients = recipients;
+    this.notes = notes;
+    this.addenda = addenda;
+    this.correctionEvents = correctionEvents;
+    this.signals = signals;
   }
   public record Source(List<SummaryNote> notes, List<NoteSignals> signals) {}
 
@@ -37,26 +45,59 @@ public class SummarySourceLoader {
   public Source load(SummaryRequest request) {
     UUID recipientId = UUID.fromString(request.recipientId());
     UUID owner = AuthContext.currentCaregiverId();
-    recipients.findByIdAndCaregiver_Id(recipientId, owner).orElseThrow(RecipientNotFoundException::new);
+    if (recipients.findByIdAndCaregiver_Id(recipientId, owner).isEmpty()) {
+      throw new RecipientNotFoundException();
+    }
     LocalDate end = request.periodEndInclusive();
-    List<DailyNote> found = notes.findAllByCaregiver_IdAndRecipient_IdAndDateBetweenOrderByDateAsc(
-        owner, recipientId, end.minusDays(request.periodDays() - 1L), end);
-    Map<UUID, List<NoteAddendum>> grouped = found.isEmpty() ? Map.of() : addenda
-        .findAllByNote_IdInAndCaregiver_IdOrderByCreatedAtAscIdAsc(found.stream().map(DailyNote::getId).toList(), owner)
+    List<DailyNote> selected = notes.findAllByCaregiver_IdAndRecipient_IdAndDateBetweenOrderByDateAsc(
+        owner, recipientId, end.minusDays(request.periodDays() - 1L), end).stream()
+        .sorted(Comparator.comparing(DailyNote::getDate).thenComparing(DailyNote::getId))
+        .toList();
+    List<UUID> noteIds = selected.stream().map(DailyNote::getId).toList();
+    Map<UUID, List<NoteAddendum>> addendaByNote = selected.isEmpty() ? Map.of() : addenda
+        .findAllByNote_IdInAndCaregiver_IdOrderByCreatedAtAscIdAsc(noteIds, owner)
         .stream().collect(Collectors.groupingBy(item -> item.getNote().getId()));
-    List<SummaryNote> texts = found.stream().map(note -> new SummaryNote(note.getId().toString(), note.getDate(),
-        transcript(note, grouped.getOrDefault(note.getId(), List.of())))).toList();
+    Map<UUID, List<NoteCorrectionEvent>> eventsByNote = selected.isEmpty() ? Map.of() : correctionEvents
+        .findAllByNote_IdInAndCaregiver_IdOrderByNote_IdAscSequenceNoAsc(noteIds, owner)
+        .stream().collect(Collectors.groupingBy(event -> event.getNote().getId()));
+    List<SummaryNote> texts = selected.stream().map(note -> new SummaryNote(note.getId().toString(), note.getDate(),
+        transcript(note, addendaByNote.getOrDefault(note.getId(), List.of()),
+            eventsByNote.getOrDefault(note.getId(), List.of())))).toList();
     // Trends compare the latest two seven-day windows, including for a seven-day summary.
     return new Source(texts, signals.forRange(recipientId, end.minusDays(Math.max(14, request.periodDays()) - 1L), end));
   }
-  private String transcript(DailyNote note, List<NoteAddendum> corrections) {
+  private String transcript(DailyNote note, List<NoteAddendum> corrections, List<NoteCorrectionEvent> events) {
     StringBuilder text = new StringBuilder("ORIGINAL OBSERVATIONS\n");
     append(text, note.observations());
-    for (NoteAddendum correction : corrections) {
-      text.append("\nAPPENDED CORRECTION ").append(correction.getId()).append("\n");
-      append(text, correction.observations());
-    }
+    corrections.stream()
+        .sorted(Comparator.comparing(NoteAddendum::getCreatedAt).thenComparing(NoteAddendum::getId))
+        .forEach(correction -> appendAddendum(text, correction));
+    events.stream()
+        .sorted(Comparator.comparingLong(NoteCorrectionEvent::getSequenceNo).thenComparing(NoteCorrectionEvent::getId))
+        .forEach(event -> appendCorrectionEvent(text, event));
     return text.toString();
+  }
+  private void appendAddendum(StringBuilder text, NoteAddendum addendum) {
+    text.append("\nAPPENDED ADDENDUM\n")
+        .append("id: ").append(addendum.getId()).append('\n')
+        .append("createdAt: ").append(addendum.getCreatedAt()).append('\n')
+        .append("actorId: ").append(addendum.getCaregiver().getId()).append('\n')
+        .append("providedFields: ").append(addendum.observationPresence().fieldNames()).append('\n')
+        .append("medicationVerificationProvided: ").append(addendum.medicationVerificationWasProvided()).append('\n');
+    append(text, addendum.observations());
+  }
+  private void appendCorrectionEvent(StringBuilder text, NoteCorrectionEvent event) {
+    text.append("\nSTRUCTURED CORRECTION EVENT\n")
+        .append("eventId: ").append(event.getId()).append('\n')
+        .append("noteId: ").append(event.getNote().getId()).append('\n')
+        .append("sequenceNo: ").append(event.getSequenceNo()).append('\n')
+        .append("createdAt: ").append(event.getCreatedAt()).append('\n')
+        .append("actorId: ").append(event.getCaregiver().getId()).append('\n')
+        .append("field: ").append(event.getField()).append('\n')
+        .append("operation: ").append(event.getOperation()).append('\n');
+    if ("SET".equals(event.getOperation())) {
+      text.append("valueJson: ").append(event.getValueJson()).append('\n');
+    }
   }
 
   private void append(StringBuilder text, NoteObservations observations) {
