@@ -2,11 +2,11 @@
 /* Android extraction: feat/standalone-byok-ai. Sources: core/theme/Color.kt, Theme.kt, Spacing.kt; presentation/common/DesignSystem.kt. */
 :root {
   color-scheme: light;
-  --color-primary:#00897B; --color-on-primary:#FFFFFF; --color-primary-container:#00897B; --color-on-primary-container:#FFFFFF;
+  --color-primary:#00897B; --color-on-primary:#000000; --color-primary-container:#00897B; --color-on-primary-container:#000000;
   --color-secondary:#625B71; --color-on-secondary:#FFFFFF; --color-secondary-container:#E3E7EA; --color-on-secondary-container:#1F2A2E;
   --color-tertiary:#7D5260; --color-on-tertiary:#FFFFFF; --color-tertiary-container:#FFD8E4; --color-on-tertiary-container:#31111D;
   --color-background:#F7F6F3; --color-on-background:#1F2A2E; --color-surface:#FAF9F5; --color-on-surface:#1F2A2E;
-  --color-surface-container:#FAF9F5; --color-surface-variant:#E3E7EA; --color-on-surface-variant:#5B6B70; --color-outline:#C5CDD1;
+  --color-surface-container:#FAF9F5; --color-surface-variant:#E3E7EA; --color-on-surface-variant:#5B6B70; --color-outline:#70787C;
   --color-error:#8B2B25; --color-on-error:#FFFFFF; --color-error-container:#F7E3E1; --color-on-error-container:#8B2B25;
   --caregiver-primary:#0E6B66; --caregiver-primary-soft:#DCE5D6; --caregiver-ink:#1F2A2E; --caregiver-muted:#5B6B70;
   --caregiver-background:#F7F6F3; --caregiver-surface:#FAF9F5; --caregiver-border:#C5CDD1; --caregiver-border-soft:#E3E7EA;
@@ -38,14 +38,16 @@
   --web-color-border:#dde4d8; --web-color-surface:#fff; --web-color-soft:#eef2e8;
   --web-radius:18px;
 }
+/* Theme-aware web control borders use the shared accessible outline role. */
+:root[data-theme] { --color-border:var(--color-outline); }
 
 [data-theme='dark'] {
   color-scheme: dark;
-  --color-primary:#00897B; --color-on-primary:#FFFFFF; --color-primary-container:#00897B; --color-on-primary-container:#FFFFFF;
+  --color-primary:#00897B; --color-on-primary:#000000; --color-primary-container:#00897B; --color-on-primary-container:#000000;
   --color-secondary:#CCC2DC; --color-on-secondary:#332D41; --color-secondary-container:#2A3336; --color-on-secondary-container:#E3E7EA;
   --color-tertiary:#EFB8C8; --color-on-tertiary:#492532; --color-tertiary-container:#633B48; --color-on-tertiary-container:#FFD8E4;
   --color-background:#121616; --color-on-background:#E3E7EA; --color-surface:#1A1F1F; --color-on-surface:#E3E7EA;
-  --color-surface-container:#1A1F1F; --color-surface-variant:#2A3336; --color-on-surface-variant:#B0BEC5; --color-outline:#3A4548;
+  --color-surface-container:#1A1F1F; --color-surface-variant:#2A3336; --color-on-surface-variant:#B0BEC5; --color-outline:#78868B;
   --color-error:#EF9A9A; --color-on-error:#2E1412; --color-error-container:#5C1A1A; --color-on-error-container:#EF9A9A;
   --caregiver-primary-soft:#1A3A38; --caregiver-ink:#E3E7EA; --caregiver-muted:#B0BEC5;
   --caregiver-background:#121616; --caregiver-surface:#1A1F1F; --caregiver-border:#3A4548; --caregiver-border-soft:#2A3336;
@@ -63,7 +65,7 @@
   :root:not([data-theme='light']):not([data-theme='dark']), [data-theme='system'] {
     color-scheme:dark;
     --color-background:#121616; --color-on-background:#E3E7EA; --color-surface:#1A1F1F; --color-on-surface:#E3E7EA;
-    --color-surface-container:#1A1F1F; --color-surface-variant:#2A3336; --color-on-surface-variant:#B0BEC5; --color-outline:#3A4548;
+    --color-surface-container:#1A1F1F; --color-surface-variant:#2A3336; --color-on-surface-variant:#B0BEC5; --color-outline:#78868B;
     --color-error:#EF9A9A; --color-error-container:#5C1A1A; --color-on-error-container:#EF9A9A;
     --caregiver-primary-soft:#1A3A38; --caregiver-ink:#E3E7EA; --caregiver-muted:#B0BEC5;
     --caregiver-background:#121616; --caregiver-surface:#1A1F1F; --caregiver-border:#3A4548; --caregiver-border-soft:#2A3336;
@@ -78,26 +80,26 @@
 }
 
 /* Selected accent palettes set Material 3 primary roles. */
-[data-palette='dynamic']{--color-primary:#ED5564;--color-primary-container:#ED5564}
-[data-palette='crimson']{--color-primary:#EC5464;--color-primary-container:#EC5464}
-[data-palette='rose']{--color-primary:#D81B60;--color-primary-container:#D81B60;--caregiver-primary:#C2185B}
-[data-palette='purple']{--color-primary:#8E24AA;--color-primary-container:#8E24AA}
-[data-palette='deep_purple']{--color-primary:#5E35B1;--color-primary-container:#5E35B1}
-[data-palette='indigo']{--color-primary:#3949AB;--color-primary-container:#3949AB;--caregiver-primary:#3F51B5}
-[data-palette='blue']{--color-primary:#1E88E5;--color-primary-container:#1E88E5}
-[data-palette='sky_blue']{--color-primary:#039BE5;--color-primary-container:#039BE5}
-[data-palette='cyan']{--color-primary:#00ACC1;--color-primary-container:#00ACC1}
-[data-palette='teal']{--color-primary:#00897B;--color-primary-container:#00897B}
-[data-palette='green']{--color-primary:#43A047;--color-primary-container:#43A047}
-[data-palette='light_green']{--color-primary:#7CB342;--color-primary-container:#7CB342}
-[data-palette='lime']{--color-primary:#C0CA33;--color-primary-container:#C0CA33}
-[data-palette='yellow']{--color-primary:#FDD835;--color-primary-container:#FDD835}
-[data-palette='amber']{--color-primary:#FFB300;--color-primary-container:#FFB300}
-[data-palette='orange']{--color-primary:#FB8C00;--color-primary-container:#FB8C00}
-[data-palette='deep_orange']{--color-primary:#F4511E;--color-primary-container:#F4511E}
-[data-palette='brown']{--color-primary:#6D4C41;--color-primary-container:#6D4C41}
-[data-palette='grey']{--color-primary:#757575;--color-primary-container:#757575}
-[data-palette='blue_grey']{--color-primary:#546E7A;--color-primary-container:#546E7A}
+[data-palette='dynamic']{--color-primary:#ED5564;--color-primary-container:#ED5564;--color-on-primary:#1C1B1F;--color-on-primary-container:#1C1B1F}
+[data-palette='crimson']{--color-primary:#EC5464;--color-primary-container:#EC5464;--color-on-primary:#1C1B1F;--color-on-primary-container:#1C1B1F}
+[data-palette='rose']{--color-primary:#D81B60;--color-primary-container:#D81B60;--caregiver-primary:#C2185B;--color-on-primary:#FFFFFF;--color-on-primary-container:#FFFFFF}
+[data-palette='purple']{--color-primary:#8E24AA;--color-primary-container:#8E24AA;--color-on-primary:#FFFFFF;--color-on-primary-container:#FFFFFF}
+[data-palette='deep_purple']{--color-primary:#5E35B1;--color-primary-container:#5E35B1;--color-on-primary:#FFFFFF;--color-on-primary-container:#FFFFFF}
+[data-palette='indigo']{--color-primary:#3949AB;--color-primary-container:#3949AB;--caregiver-primary:#3F51B5;--color-on-primary:#FFFFFF;--color-on-primary-container:#FFFFFF}
+[data-palette='blue']{--color-primary:#1E88E5;--color-primary-container:#1E88E5;--color-on-primary:#1C1B1F;--color-on-primary-container:#1C1B1F}
+[data-palette='sky_blue']{--color-primary:#039BE5;--color-primary-container:#039BE5;--color-on-primary:#1F2A2E;--color-on-primary-container:#1F2A2E}
+[data-palette='cyan']{--color-primary:#00ACC1;--color-primary-container:#00ACC1;--color-on-primary:#1F2A2E;--color-on-primary-container:#1F2A2E}
+[data-palette='teal']{--color-primary:#00897B;--color-primary-container:#00897B;--color-on-primary:#000000;--color-on-primary-container:#000000}
+[data-palette='green']{--color-primary:#43A047;--color-primary-container:#43A047;--color-on-primary:#1C1B1F;--color-on-primary-container:#1C1B1F}
+[data-palette='light_green']{--color-primary:#7CB342;--color-primary-container:#7CB342;--color-on-primary:#1F2A2E;--color-on-primary-container:#1F2A2E}
+[data-palette='lime']{--color-primary:#C0CA33;--color-primary-container:#C0CA33;--color-on-primary:#1F2A2E;--color-on-primary-container:#1F2A2E}
+[data-palette='yellow']{--color-primary:#FDD835;--color-primary-container:#FDD835;--color-on-primary:#1F2A2E;--color-on-primary-container:#1F2A2E}
+[data-palette='amber']{--color-primary:#FFB300;--color-primary-container:#FFB300;--color-on-primary:#1F2A2E;--color-on-primary-container:#1F2A2E}
+[data-palette='orange']{--color-primary:#FB8C00;--color-primary-container:#FB8C00;--color-on-primary:#1F2A2E;--color-on-primary-container:#1F2A2E}
+[data-palette='deep_orange']{--color-primary:#F4511E;--color-primary-container:#F4511E;--color-on-primary:#1C1B1F;--color-on-primary-container:#1C1B1F}
+[data-palette='brown']{--color-primary:#6D4C41;--color-primary-container:#6D4C41;--color-on-primary:#FFFFFF;--color-on-primary-container:#FFFFFF}
+[data-palette='grey']{--color-primary:#757575;--color-primary-container:#757575;--color-on-primary:#FFFFFF;--color-on-primary-container:#FFFFFF}
+[data-palette='blue_grey']{--color-primary:#546E7A;--color-primary-container:#546E7A;--color-on-primary:#FFFFFF;--color-on-primary-container:#FFFFFF}
 
 /* Metrolist is a separate full Material 3 scheme. */
 [data-palette='metrolist']{--color-primary:#6750A4;--color-on-primary:#FFFFFF;--color-primary-container:#EADDFF;--color-on-primary-container:#21005D;--color-secondary-container:#E8DEF8;--color-on-secondary-container:#1D192B;--color-background:#FFFBFE;--color-on-background:#1C1B1F;--color-surface:#FFFBFE;--color-on-surface:#1C1B1F;--color-surface-variant:#E7E0EC;--color-on-surface-variant:#49454F;--color-outline:#79747E;--color-error:#B3261E;--caregiver-primary:#6750A4}
