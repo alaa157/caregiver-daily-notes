@@ -791,6 +791,22 @@
       "source": "NoteRow.kt:119-135"
     }
   ],
+  "webAliases": {
+    "$description": "Semantic alias variables in docs/design-system/tokens.css that map the web application's base.css root color and radius declarations to exact shared design-system values. Added by PR #134 (DSP-01). Values exactly match the original base.css literals.",
+    "color": {
+      "ink": { "$type": "color", "$value": "#213b32" },
+      "background": { "$type": "color", "$value": "#fafaf6" },
+      "muted": { "$type": "color", "$value": "#59695f" },
+      "green": { "$type": "color", "$value": "#285b45" },
+      "greenDark": { "$type": "color", "$value": "#1d4635" },
+      "border": { "$type": "color", "$value": "#dde4d8" },
+      "surface": { "$type": "color", "$value": "#fff" },
+      "soft": { "$type": "color", "$value": "#eef2e8" }
+    },
+    "radius": {
+      "default": { "$type": "dimension", "$value": "18px" }
+    }
+  },
   "accessibility": {
     "standardContrastRatios": {
       "lightInkBackground": 13.6,
