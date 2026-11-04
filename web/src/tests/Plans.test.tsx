@@ -73,7 +73,7 @@ describe('care-plan review and authoritative backend decisions', () => {
     expect(fetcher.mock.calls.every(([path, init]) => (path === '/api/recipients' || path.includes(recipient.id)) && new Headers(init.headers).has('Authorization'))).toBe(true);
     expect(document.title).toMatch(/^Care plans/);
     expect(screen.getByRole('link', { name: 'Care plans' })).toHaveAttribute('aria-current', 'page');
-    expect(screen.getByRole('link', { name: 'Daily notes' })).not.toHaveAttribute('aria-current');
+    expect(screen.getByRole('link', { name: 'History' })).not.toHaveAttribute('aria-current');
   });
   it('handles no recipients and invalid/unknown URL IDs without fetching plans', async () => {
     const fetcher = serve({ override: (url) => url.pathname === '/api/recipients' ? jsonResponse([]) : undefined });

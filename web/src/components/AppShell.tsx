@@ -48,18 +48,24 @@ export function AppShell({ children }: { children: ReactNode }) {
           </Link>
           <nav className={'site-nav' + (auth.status === 'authenticated' ? ' site-nav--authenticated' : '')} aria-label={t('mainNavigation')}>
             <div className="nav-links">
-              <NavLink end to="/" className={navClass}>{t('home')}</NavLink>
               {auth.status === 'authenticated' ? <>
-                <NavLink end to="/app" className={navClass}>{t('dashboard')}</NavLink>
-                <NavLink to="/app/recipients" className={navClass}>{t('recipientsTitle')}</NavLink>
-                <NavLink to="/app/notes/summary" className={navClass}>{t('summaryTitle')}</NavLink>
-                <NavLink end to="/app/notes" className={navClass}>{t('notesTitle')}</NavLink>
-                <NavLink to="/app/notes/plans" className={navClass}>{t('plansTitle')}</NavLink>
+                <div className="workspace-primary-links" role="group" aria-label={t('workspacePrimaryNavigation')}>
+                  <NavLink end to="/app" className={navClass}>{t('home')}</NavLink>
+                  <NavLink to="/app/recipients" className={navClass}>{t('workspacePeople')}</NavLink>
+                  <NavLink end to="/app/notes/new" className={navClass}>{t('workspaceNotes')}</NavLink>
+                  <NavLink end to="/app/notes" className={navClass}>{t('workspaceHistory')}</NavLink>
+                </div>
+                <div className="workspace-secondary-links" role="group" aria-label={t('workspaceNotesNavigation')}>
+                  <NavLink to="/app/notes/plans" className={({ isActive }) => `${navClass({ isActive })} workspace-secondary-link`}>{t('plansTitle')}</NavLink>
+                </div>
                 <button type="button" className="nav-link auth-logout" onClick={auth.logout}>{t('authSignOut')}</button>
-              </> : <NavLink to="/login" className={navClass}>{t('signIn')}</NavLink>}
+              </> : <>
+                <NavLink end to="/" className={navClass}>{t('home')}</NavLink>
+                <NavLink to="/login" className={navClass}>{t('signIn')}</NavLink>
+              </>}
             </div>
             <button type="button" className="language-toggle" lang={nextLanguage} dir={nextLanguage === 'ar' ? 'rtl' : 'ltr'}
-              aria-label={language === 'ar' ? 'Switch to English' : 'التغيير إلى العربية'}
+              aria-label={t(language === 'ar' ? 'switchToEnglish' : 'switchToArabic')}
               onClick={() => setLanguage(nextLanguage)}>
               <Icon name="globe" size={17} />{t('switchLanguage')}
             </button>
