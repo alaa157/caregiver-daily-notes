@@ -34,6 +34,7 @@ export const summaryMessages = {
     summaryNetworkError: 'The summary service could not be reached. Check your connection and try again.',
     summaryServiceError: 'A summary could not be returned. Any previous result and warnings remain visible. Try again later.',
     summaryFailureSafety: 'Safety information returned with the failed request',
+    summaryInvalidSummaryTitle: 'Summary information could not be fully verified',
   },
   ar: {
     summaryTitle: 'ملخص الذكاء الاصطناعي والسلامة',
@@ -70,5 +71,6 @@ export const summaryMessages = {
     summaryNetworkError: 'تعذّر الاتصال بخدمة الملخص. تحقق من اتصالك وحاول مجددًا.',
     summaryServiceError: 'تعذّر إرجاع الملخص. تظل النتيجة والتحذيرات السابقة ظاهرة. حاول لاحقًا.',
     summaryFailureSafety: 'معلومات السلامة الواردة مع الطلب الذي تعذّر إكماله',
+    summaryInvalidSummaryTitle: 'تعذّر التحقق من معلومات الملخص بالكامل',
   },
 } as const;

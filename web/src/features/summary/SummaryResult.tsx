@@ -11,10 +11,11 @@ export function SummaryResult({ view }: { view: SummaryView }) {
   const from = new Date(`${request.periodEndInclusive}T00:00:00Z`);
   from.setUTCDate(from.getUTCDate() - request.periodDays + 1);
   const format = (value: number) => new Intl.NumberFormat(language === 'ar' ? 'ar-EG' : 'en').format(value);
-  const hasAiObservations = !!response.summary && !response.summary.aiUnavailable
-    && response.summary.observations.length > 0;
+  const canPresentAiSuccess = response.summary !== null && !response.summary.aiUnavailable
+    && !response.invalidContent && !view.failed && response.summary.observations.length > 0;
+  const headingKey = view.failed ? 'summaryFailureSafety' : response.invalidContent ? 'summaryInvalidSummaryTitle' : 'summaryResult';
   return <section className="summary-result" aria-labelledby="summary-result-heading">
-    <header className="summary-result-heading"><h2 id="summary-result-heading">{t(view.failed ? 'summaryFailureSafety' : 'summaryResult')}</h2>
+    <header className="summary-result-heading"><h2 id="summary-result-heading">{t(headingKey)}</h2>
       <p className="summary-recipient"><bdi>{view.recipientName}</bdi></p>
       <p>{t('summaryCoverage')}: <bdi>{from.toISOString().slice(0, 10)}</bdi> – <bdi>{request.periodEndInclusive}</bdi> ({format(request.periodDays)} {t('summaryDays')})</p>
     </header>
@@ -25,9 +26,9 @@ export function SummaryResult({ view }: { view: SummaryView }) {
       {!response.summary.aiUnavailable && <section className="summary-surface summary-ai" aria-labelledby="summary-observations-heading">
         <div className="summary-ai-heading">
           <h3 id="summary-observations-heading">{t('summaryObservations')}</h3>
-          {hasAiObservations && <span className="summary-ai-label">{t('summaryAiGeneratedLabel')}</span>}
+          {canPresentAiSuccess && <span className="summary-ai-label">{t('summaryAiGeneratedLabel')}</span>}
         </div>
-        {hasAiObservations && <p className="summary-educational-disclaimer">{t('summaryEducationalDisclaimer')}</p>}
+        {canPresentAiSuccess && <p className="summary-educational-disclaimer">{t('summaryEducationalDisclaimer')}</p>}
         {!response.summary.observations.length && <p>{t('summaryNoObservations')}</p>}
         {!!response.summary.observations.length && <ol className="summary-observations">{response.summary.observations.map((observation, index) => <li key={index}>
           <p className="summary-untrusted" dir="auto">{observation.text}</p>
