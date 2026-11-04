@@ -1,3 +1,5 @@
+Decision record: [Design System Parity Decisions](DECISIONS.md).
+
 # Android → Web Design Parity Gaps
 
 Source: Android branch `feat/standalone-byok-ai`; target web branch `main`. Read-only inspection; web comparison limited to package metadata and easily identifiable theme/base files.
@@ -42,16 +44,16 @@ Source: Android branch `feat/standalone-byok-ai`; target web branch `main`. Read
 
 ## Open developer questions
 
-1. Should CaregiverColors.Primary always follow palettePrimary(), or should web mirror the current discrepancy?
-2. Should light accents use a dark onPrimary, or should accent colors be darkened to retain white labels?
-3. Should Metrolist become a visible theme option?
-4. Is Dynamic intentionally fixed coral, or should it eventually use Android dynamic color?
-5. Should pure-black affect every surface consistently?
-6. Should web use IBM Plex Sans Arabic for both languages?
-7. Are current status mappings approved, including unknown plan statuses falling back to green?
-8. What chart visualization is intended for Trends? Android currently has only a placeholder.
-9. Should web support all accent choices and pure-black in its first parity release?
-10. Is Tailwind planned? It is not declared in the inspected web package.
+1. Should CaregiverColors.Primary always follow palettePrimary(), or should web mirror the current discrepancy? Resolved by [DS-01](DECISIONS.md#ds-01).
+2. Should light accents use a dark onPrimary, or should accent colors be darkened to retain white labels? Resolved by [DS-02](DECISIONS.md#ds-02).
+3. Should Metrolist become a visible theme option? Resolved by [DS-03](DECISIONS.md#ds-03).
+4. Is Dynamic intentionally fixed coral, or should it eventually use Android dynamic color? Resolved by [DS-04](DECISIONS.md#ds-04).
+5. Should pure-black affect every surface consistently? Resolved by [DS-05](DECISIONS.md#ds-05).
+6. Should web use IBM Plex Sans Arabic for both languages? Resolved by [DS-06](DECISIONS.md#ds-06).
+7. Are current status mappings approved, including unknown plan statuses falling back to green? Open — see [DS-07](DECISIONS.md#ds-07).
+8. What chart visualization is intended for Trends? Android currently has only a placeholder. Resolved by [DS-08](DECISIONS.md#ds-08).
+9. Should web support all accent choices and pure-black in its first parity release? Resolved by [DS-09](DECISIONS.md#ds-09).
+10. Is Tailwind planned? It is not declared in the inspected web package. Resolved by [DS-10](DECISIONS.md#ds-10).
 
 ## Inspection limitations
 

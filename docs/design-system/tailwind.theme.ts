@@ -1,3 +1,4 @@
+// Optional and unused by the web app; see ./DECISIONS.md#ds-10.
 // OPTIONAL ONLY: Tailwind is not declared in the current web package.
 // Use tokens.css as source of truth if Tailwind is adopted.
 const tailwindTheme = {
