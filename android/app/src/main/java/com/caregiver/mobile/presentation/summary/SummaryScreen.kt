@@ -431,19 +431,27 @@ private fun SummaryBody(
                 )
             }
         }
+        val exportScope = rememberCoroutineScope()
+        var exporting by remember { mutableStateOf(false) }
+        var exportError by remember { mutableStateOf<String?>(null) }
+        @Suppress("DEPRECATION")
+        val pdfLocaleTag = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.N) {
+            LocalConfiguration.current.locales[0].toLanguageTag()
+        } else {
+            LocalConfiguration.current.locale.toLanguageTag()
+        }
         androidx.compose.material3.Button(
             onClick = {
                 exportError = null
                 exporting = true
                 exportScope.launch {
                     try {
-                        val shared = shareSummaryPdf(
-                            context = context,
-                            graph = graph,
-                            summary = summary,
-                            periodDays = periodDays,
-                            languageTag = effectiveLocale.toLanguageTag(),
-                            shareText = null,
+                        val uri = CareSummaryPdfExporter.prepareUri(
+                            graph.context,
+                            graph,
+                            summary,
+                            periodDays,
+                            pdfLocaleTag,
                         )
                         if (!shared) {
                             exportError = context.getString(R.string.export_failed)
@@ -461,7 +469,7 @@ private fun SummaryBody(
             },
             enabled = !exporting,
         ) {
-            Text(if (exporting) "..." else stringResource(R.string.export_pdf))
+            Text(if (exporting) stringResource(R.string.exporting_pdf) else stringResource(R.string.export_pdf))
         }
         // The PDF carries the overview, care flags, evidence, recorded
         // observations, uncertainties and disclaimer, so it remains useful
@@ -498,7 +506,55 @@ private fun SummaryBody(
                 color = CaregiverColors.Muted,
             )
         }
-        if (showShareConfirm) {
+        // "Share with doctor": only when a real, usable summary exists.
+        // The offline demo summary is an illustration, never shareable.
+        //
+        // Tapping never shares on its own: the tap opens a privacy
+        // confirmation first (the summary may contain sensitive care or
+        // health information), and only "Continue" opens the system share
+        // sheet — exactly once per confirmation (launch guard), with
+        // failures degrading silently so the screen can never crash and the
+        // summary text can never leak into logs.
+        val context = LocalContext.current
+        // Effective per-app locale (the LocaleHelper-wrapped configuration),
+        // not the process default: the app language may differ from the
+        // device language, and the shared message — including its date
+        // format — must follow the language the user actually sees.
+        // Configuration.locales/LocaleList require API 24 (minSdk is 23);
+        // on API 23 the wrapped configuration still carries its locale in
+        // the deprecated Configuration.locale.
+        val configuration = LocalConfiguration.current
+        @Suppress("DEPRECATION")
+        val effectiveLocale =
+            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.N) {
+                configuration.locales[0]
+            } else {
+                configuration.locale
+            }
+        val arabic = effectiveLocale.language == "ar"
+        val appName = stringResource(R.string.app_name)
+        val shareText = remember(summary.text, arabic) {
+            CareSummaryShare.shareText(
+                summaryText = summary.text,
+                dateText = DateFormats.historyDay(LocalDate.now().toString(), arabic),
+                appName = appName,
+                arabic = arabic,
+            )
+        }
+        var showShareConfirm by rememberSaveable { mutableStateOf(false) }
+        var shareLaunched by remember { mutableStateOf(false) }
+        if (shareText != null && !isDemo) {
+            PrimaryButton(
+                label = stringResource(R.string.share_summary_action),
+                onClick = {
+                    // Re-opening the confirmation rearms the launch guard.
+                    shareLaunched = false
+                    showShareConfirm = true
+                },
+                height = 52.dp,
+            )
+        }
+        if (showShareConfirm && shareText != null) {
             DefaultDialog(
                 onDismiss = { showShareConfirm = false },
                 title = {
@@ -523,18 +579,18 @@ private fun SummaryBody(
                                 exporting = true
                                 exportScope.launch {
                                     try {
-                                        val shared = shareSummaryPdf(
-                                            context = context,
-                                            graph = graph,
-                                            summary = summary,
-                                            periodDays = periodDays,
-                                            languageTag = effectiveLocale.toLanguageTag(),
-                                            shareText = shareText,
+                                        val uri = CareSummaryPdfExporter.prepareUri(
+                                            context,
+                                            graph,
+                                            summary,
+                                            periodDays,
+                                            pdfLocaleTag,
                                         )
                                         if (!shared) {
                                             exportError = context.getString(R.string.export_failed)
                                         }
-                                    } catch (e: CancellationException) {
+                                        context.startActivity(Intent.createChooser(share, null))
+                                    } catch (e: kotlinx.coroutines.CancellationException) {
                                         throw e
                                     } catch (e: Exception) {
                                         Log.e("SummaryScreen", "PDF share failed: ${e.javaClass.name}")

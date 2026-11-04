@@ -13,6 +13,8 @@ import androidx.core.content.FileProvider
 import com.caregiver.mobile.R
 import com.caregiver.mobile.core.i18n.Bidi
 import com.caregiver.mobile.core.time.DateFormats
+import com.caregiver.mobile.AppGraph
+import com.caregiver.mobile.ai.SummaryWindow
 import com.caregiver.mobile.data.api.NoteDto
 import com.caregiver.mobile.data.api.SummaryDto
 import com.caregiver.mobile.presentation.notes.OptionGroup
@@ -238,5 +240,34 @@ object CareSummaryPdfExporter {
         "POOR_APPETITE_DAYS" -> context.getString(R.string.flag_poor_appetite)
         "MODEL_URGENT" -> context.getString(R.string.flag_model_urgent)
         else -> context.getString(R.string.flag_unknown)
+     * Fetches the observations + recipient name needed for a care summary
+     * and renders the PDF. Shared by every export/share entry point so
+     * behaviour, cancellation and error handling stay identical.
+     */
+    suspend fun prepareUri(
+        context: android.content.Context,
+        graph: AppGraph,
+        summary: SummaryDto,
+        periodDays: Int,
+        languageTag: String,
+    ): android.net.Uri {
+        val today = java.time.LocalDate.now()
+        val from = SummaryWindow.start(today, periodDays).toString()
+        val to = today.toString()
+        val notes = try {
+            graph.apis.notes().history(summary.recipientId, from, to)
+        } catch (e: kotlinx.coroutines.CancellationException) {
+            throw e
+        } catch (e: Exception) {
+            emptyList()
+        }
+        val recipientName = try {
+            graph.apis.recipients().get(summary.recipientId).name
+        } catch (e: kotlinx.coroutines.CancellationException) {
+            throw e
+        } catch (e: Exception) {
+            null
+        }
+        return export(context, summary, recipientName, languageTag, notes)
     }
 }
