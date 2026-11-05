@@ -16,22 +16,28 @@ import {
   validateNoteValues,
 } from '../features/notes/noteForm';
 
-function effective(state: EffectiveObservation['state'], value: EffectiveObservation['value'], operation: EffectiveObservation['lastOperation'] = null): EffectiveObservation {
-  return { state, value, rawValue: null, lastOperation: operation, eventId: 'f6666666-6666-4666-8666-666666666666',
-    actorId: 'a1111111-1111-4111-8111-111111111111', updatedAt: '2026-10-18T12:00:00Z' };
+function effective(state: EffectiveObservation['state'], value: EffectiveObservation['value'], operation: EffectiveObservation['lastOperation'] = null,
+  provenance: Pick<EffectiveObservation, 'eventId' | 'actorId' | 'updatedAt'> = {
+    eventId: null, actorId: null, updatedAt: noteFixture.createdAt,
+  }): EffectiveObservation {
+  return { state, value, rawValue: null, lastOperation: operation, ...provenance };
 }
 function correctionResponse() {
   const effectiveObservations = Object.fromEntries(observationFields.map((field) => {
     const observation = noteFixture.observations[field];
     return [field, { ...effective(observation.state, observation.value ?? null), rawValue: observation.rawValue ?? null }];
   })) as Record<(typeof observationFields)[number], EffectiveObservation>;
-  effectiveObservations.mood = effective('RECORDED', '');
-  effectiveObservations.painScore = effective('RECORDED', 0);
-  effectiveObservations.fallReported = effective('RECORDED', false);
   const event = { id: 'f6666666-6666-4666-8666-666666666666', noteId: noteFixture.id, sequenceNo: 1,
     createdAt: '2026-10-18T12:00:00Z', actorId: 'a1111111-1111-4111-8111-111111111111',
     field: 'mood', operation: 'SET', value: '', previousEffective: effective('RECORDED', noteFixture.mood),
-    effectiveAfter: effective('RECORDED', '') };
+    effectiveAfter: effective('RECORDED', '', 'SET', {
+      eventId: 'f6666666-6666-4666-8666-666666666666',
+      actorId: 'a1111111-1111-4111-8111-111111111111',
+      updatedAt: '2026-10-18T12:00:00Z',
+    }) };
+  effectiveObservations.mood = event.effectiveAfter;
+  effectiveObservations.painScore = effective('RECORDED', 0);
+  effectiveObservations.fallReported = effective('RECORDED', false);
   return { originalNote: noteFixture, events: [event], effectiveObservations };
 }
 
@@ -208,6 +214,64 @@ describe('daily-note API and explicit observation values', () => {
       sleep: { state: 'NOT_APPLICABLE', value: null },
     });
   });
+  it('rejects correction history with duplicate or decreasing sequence numbers', async () => {
+    const response = correctionResponse();
+    const first = response.events[0];
+    const second = { ...first, id: 'f6666666-6666-4666-8666-666666666667' };
+    for (const events of [[{ ...first, sequenceNo: 2 }, { ...second, sequenceNo: 1 }], [
+      { ...first, sequenceNo: 1 }, { ...second, sequenceNo: 1 },
+    ]]) {
+      const { api, fetcher } = setup({ ...response, events });
+      await expect(api.correctionHistory(noteFixture.id)).rejects.toThrow('Invalid correction history response');
+      expect(fetcher).toHaveBeenCalledTimes(1);
+    }
+  });
+
+  it('rejects effective-value provenance that does not reference a correction event', async () => {
+    const response = correctionResponse();
+    const effectiveObservations = {
+      ...response.effectiveObservations,
+      mood: { ...response.effectiveObservations.mood, eventId: 'f6666666-6666-4666-8666-666666666667' },
+    };
+    const { api } = setup({ ...response, effectiveObservations });
+    await expect(api.correctionHistory(noteFixture.id)).rejects.toThrow('Invalid correction history response');
+  });
+
+  it('preserves effective observation values, including false and zero, and event provenance', async () => {
+    const response = correctionResponse();
+    const moodEventId = response.events[0].id;
+    const { api } = setup(response);
+    const history = await api.correctionHistory(noteFixture.id);
+    expect(history.effectiveObservations.painScore.value).toBe(0);
+    expect(history.effectiveObservations.fallReported.value).toBe(false);
+    expect(history.effectiveObservations.mood.eventId).toBe(moodEventId);
+  });
+  it('validates effective correction provenance for repeated changes to a field', async () => {
+    const response = correctionResponse();
+    const first = response.events[0];
+    const second = {
+      ...first,
+      id: 'f6666666-6666-4666-8666-666666666667',
+      sequenceNo: 2,
+      createdAt: '2026-10-19T12:00:00Z',
+      value: 'relaxed',
+      previousEffective: first.effectiveAfter,
+      effectiveAfter: effective('RECORDED', 'relaxed', 'SET', {
+        eventId: 'f6666666-6666-4666-8666-666666666667',
+        actorId: 'a1111111-1111-4111-8111-111111111111',
+        updatedAt: '2026-10-19T12:00:00Z',
+      }),
+    };
+    const { api } = setup({
+      ...response,
+      events: [first, second],
+      effectiveObservations: { ...response.effectiveObservations, mood: second.effectiveAfter },
+    });
+    const history = await api.correctionHistory(noteFixture.id);
+    expect(history.events.map((event) => event.sequenceNo)).toEqual([1, 2]);
+    expect(history.effectiveObservations.mood.eventId).toBe(second.id);
+  });
+
 
 
   it('validates required metadata, field lengths, state/value pairs and numeric boundaries', () => {

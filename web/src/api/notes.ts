@@ -215,11 +215,15 @@ function readEffective(value: unknown, field: ObservationField): EffectiveObserv
 function readCorrectionHistory(value: unknown, noteId: string): CorrectionHistory {
   const item = object(value);
   const originalNote = readNote(item.originalNote);
-  if (originalNote.id !== noteId || !Array.isArray(item.events) || !item.effectiveObservations || typeof item.effectiveObservations !== 'object') throw new Error('Invalid correction history response.');
+  if (originalNote.id !== noteId || !Array.isArray(item.events) || !item.effectiveObservations
+    || typeof item.effectiveObservations !== 'object' || Array.isArray(item.effectiveObservations)) {
+    throw new Error('Invalid correction history response.');
+  }
   let priorSequence = 0;
+  const eventIds = new Set<string>();
   const events = item.events.map((raw): CorrectionEvent => {
     const event = object(raw);
-    if (typeof event.id !== 'string' || !isRecipientId(event.id) || event.noteId !== noteId
+    if (typeof event.id !== 'string' || !isRecipientId(event.id) || eventIds.has(event.id) || event.noteId !== noteId
       || typeof event.sequenceNo !== 'number' || !Number.isSafeInteger(event.sequenceNo) || event.sequenceNo <= priorSequence
       || typeof event.createdAt !== 'string' || !Number.isFinite(Date.parse(event.createdAt))
       || typeof event.actorId !== 'string' || !isRecipientId(event.actorId)
@@ -228,15 +232,48 @@ function readCorrectionHistory(value: unknown, noteId: string): CorrectionHistor
     const field = event.field as ObservationField;
     const operation = event.operation as CorrectionOperation;
     const correctionValue = event.value;
-    if (operation === 'SET' ? !validFieldValue(field, correctionValue) : correctionValue !== null) throw new Error('Invalid correction history response.');
+    if (operation === 'SET' ? !validFieldValue(field, correctionValue) : correctionValue !== null) {
+      throw new Error('Invalid correction history response.');
+    }
+    const previousEffective = readEffective(event.previousEffective, field);
+    const effectiveAfter = readEffective(event.effectiveAfter, field);
+    const expectedState = operation === 'SET' ? 'RECORDED' : operation === 'UNKNOWN' ? 'UNKNOWN' : 'NOT_RECORDED';
+    if (effectiveAfter.state !== expectedState
+      || effectiveAfter.value !== (operation === 'SET' ? correctionValue : null)
+      || effectiveAfter.eventId !== event.id
+      || effectiveAfter.actorId !== event.actorId
+      || effectiveAfter.updatedAt !== event.createdAt
+      || effectiveAfter.lastOperation !== operation) throw new Error('Invalid correction history response.');
     priorSequence = event.sequenceNo;
+    eventIds.add(event.id);
     return { id: event.id, noteId, sequenceNo: event.sequenceNo, createdAt: event.createdAt, actorId: event.actorId,
-      field, operation, value: correctionValue as CorrectionEvent['value'],
-      previousEffective: readEffective(event.previousEffective, field), effectiveAfter: readEffective(event.effectiveAfter, field) };
+      field, operation, value: correctionValue as CorrectionEvent['value'], previousEffective, effectiveAfter };
   });
   const source = item.effectiveObservations as Record<string, unknown>;
   const effective = {} as Record<ObservationField, EffectiveObservation>;
-  for (const field of observationFields) effective[field] = readEffective(source[field], field);
+  for (const field of observationFields) {
+    effective[field] = readEffective(source[field], field);
+  }
+  for (const field of observationFields) {
+    const observation = effective[field];
+    let lastEvent: CorrectionEvent | undefined;
+    for (const event of events) {
+      if (event.field === field) lastEvent = event;
+    }
+    if (lastEvent) {
+      if (observation.eventId !== lastEvent.id
+        || observation.state !== lastEvent.effectiveAfter.state
+        || observation.value !== lastEvent.effectiveAfter.value
+        || observation.actorId !== lastEvent.actorId
+        || observation.updatedAt !== lastEvent.createdAt
+        || observation.lastOperation !== lastEvent.operation) {
+        throw new Error('Invalid correction history response.');
+      }
+    } else if (observation.eventId !== null || observation.lastOperation !== null
+      || observation.actorId !== null || observation.updatedAt !== originalNote.createdAt) {
+      throw new Error('Invalid correction history response.');
+    }
+  }
   return { originalNote, events, effectiveObservations: effective };
 }
 function writeHeaders(key: string) {

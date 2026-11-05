@@ -24,8 +24,8 @@ function valueText(field: ObservationField, observation: EffectiveObservation, t
 function operationText(event: CorrectionEvent, t: ReturnType<typeof useI18n>['t'], language: string) {
   if (event.operation === 'CLEAR') return t('notesCorrectionCleared');
   if (event.operation === 'UNKNOWN') return t('notesCorrectionMarkedUnknown');
-  if (event.operation === 'NOT_RECORDED') return t('notesCorrectionMarkedNotRecorded');
-  return `${t('notesCorrectionSetAs')} ${valueText(event.field, event.effectiveAfter, t, language)}`;
+  if (event.operation === 'SET') return `${t('notesCorrectionSetAs')} ${valueText(event.field, event.effectiveAfter, t, language)}`;
+  return t('notesCorrectionMarkedNotRecorded');
 }
 
 export function CorrectionHistory({ history, idPrefix = 'note' }: { history: CorrectionHistoryData; idPrefix?: string }) {
@@ -33,13 +33,25 @@ export function CorrectionHistory({ history, idPrefix = 'note' }: { history: Cor
   const time = (value: string) => new Intl.DateTimeFormat(language === 'ar' ? 'ar-EG' : 'en', { dateStyle: 'medium', timeStyle: 'short' }).format(new Date(value));
   const historyTitleId = `structured-correction-history-title-${idPrefix}`;
   const effectiveTitleId = `effective-values-title-${idPrefix}`;
+  const sourceEventById = new Map(history.events.map((event) => [event.id, event]));
+  const renderEffectiveValue = (field: ObservationField, observation: EffectiveObservation) => {
+    const sourceEvent = observation.eventId === null ? undefined : sourceEventById.get(observation.eventId);
+    return <>
+      <span dir="auto" className="note-verbatim">{valueText(field, observation, t, language)}</span>
+      {sourceEvent && <a
+        className="effective-observation-source"
+        href={`#correction-event-${idPrefix}-${sourceEvent.id}`}
+        aria-label={`${t('notesCorrectionSourceEvent')}: ${sourceEvent.id}`}
+      >{t('notesCorrectionSourceEvent')}: <bdi>{sourceEvent.id}</bdi></a>}
+    </>;
+  };
   return <section className="structured-correction-history" aria-labelledby={historyTitleId}>
     <h3 id={historyTitleId}>{t('notesCorrectionHistory')}</h3>
     {history.events.length === 0 ? <p className="note-hint">{t('notesNoStructuredCorrections')}</p> : <>
-      <section aria-labelledby={effectiveTitleId} className="effective-observations">
+      <section aria-labelledby={effectiveTitleId} className="effective-observations" role="region">
         <h3 id={effectiveTitleId}>{t('notesCorrectionUpdatedValue')}</h3>
         <dl className="note-values">{observationFields.map((field) => <div key={field} className={field === 'freeText' ? 'note-field--wide' : ''}>
-          <dt>{t(fieldLabels[field])}</dt><dd dir="auto" className="note-verbatim">{valueText(field, history.effectiveObservations[field], t, language)}</dd>
+          <dt>{t(fieldLabels[field])}</dt><dd>{renderEffectiveValue(field, history.effectiveObservations[field])}</dd>
         </div>)}</dl>
       </section>
       <ol className="structured-correction-list">{history.events.map((event) => <li key={event.id}>
@@ -54,6 +66,7 @@ export function CorrectionHistory({ history, idPrefix = 'note' }: { history: Cor
             <div><dt>{t('notesCorrectionPrevious')}</dt><dd dir="auto" className="note-verbatim">{valueText(event.field, event.previousEffective, t, language)}</dd></div>
             <div><dt>{t('notesCorrectionNew')}</dt><dd dir="auto" className="note-verbatim">{operationText(event, t, language)}</dd></div>
           </dl>}
+          actions={<span id={`correction-event-${idPrefix}-${event.id}`} tabIndex={-1} className="correction-event-anchor" />}
         />
       </li>)}</ol>
     </>}
