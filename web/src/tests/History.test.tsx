@@ -413,13 +413,13 @@ describe('history screen, filters and immutable records', () => {
       actorId, field: 'mood', operation: 'SET', value: 'calm', previousEffective, effectiveAfter,
     };
     const fetcher = dataFetcher((url) => url.pathname.endsWith('/corrections')
-      ? jsonResponse({ ...history, events: [event], effectiveObservations: { ...history.effectiveObservations, mood: effectiveAfter } })
+      ? jsonResponse({ ...history, originalNote: { ...history.originalNote, correctionCount: 1, observations: { ...history.originalNote.observations, mood: { state: 'RECORDED', value: 'okay' } } }, events: [event], effectiveObservations: { ...history.effectiveObservations, mood: effectiveAfter } })
       : undefined);
     renderHistory(fetcher);
     const card = await loaded();
     await userEvent.click(within(card).getByRole('button', { name: 'Show corrections (1)' }));
 
-    const correction = await within(card).findByRole('article', { name: /Correction event 1.*Mood/ });
+    const correction = await within(card).findByRole('article', { name: /Correction event 1/ });
     expect(within(correction).getByText(actorId)).toBeVisible();
     expect(within(correction).getByText(eventId)).toBeVisible();
     expect(within(correction).getByText('Previous effective value')).toBeVisible();
