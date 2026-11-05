@@ -118,6 +118,9 @@ It is **not** a persisted intake event value.
 - Missing information is information that was not supplied or captured.
 - Unknown and missing information are not additional persisted intake event
   values. Do not treat either as a negative observation or as a missed dose.
+- Missing or unknown medication information must never be presented as a
+  green, normal, healthy, safe, or confirmed status. Absence of information
+  must not be interpreted as a positive observation.
 - If no intake event exists, the application may display `NOT_RECORDED`.
 - Do not create a fake event row for `NOT_RECORDED`.
 - Do not convert `NOT_RECORDED` into `MISSED`.
@@ -132,7 +135,9 @@ It is **not** a persisted intake event value.
 | `NOT_RECORDED` | No intake event is present; display state only | No |
 
 `NOT_RECORDED` must not be treated as another event state or as evidence that
-the dose was missed.
+the dose was missed. Preserve the distinctions among unknown information,
+missing information, an explicit `UNSURE` report, and `NOT_RECORDED`; do not
+add persisted intake-event values or domain enums for them.
 
 ## F. VerificationState
 
