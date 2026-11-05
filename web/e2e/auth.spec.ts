@@ -80,8 +80,11 @@ for (const language of ['en', 'ar'] as const) {
       await page.reload();
       await expect(page.getByRole('heading', { level: 1 })).toHaveText(labels.workspace);
       expect(requests).toBe(1);
-      await page.getByRole('navigation').getByRole('link', { name: ar ? 'الرئيسية' : 'Home', exact: true }).click();
-      await page.getByRole('navigation').getByRole('link', { name: ar ? 'لوحة التحكم' : 'Dashboard', exact: true }).click();
+      const navigation = page.getByRole('navigation', { name: ar ? 'القائمة الرئيسية' : 'Main navigation' });
+      await navigation.getByRole('link', { name: ar ? 'المستفيدون' : 'People', exact: true }).click();
+      await expect(page).toHaveURL(/\/app\/recipients$/);
+      await navigation.getByRole('link', { name: ar ? 'الرئيسية' : 'Home', exact: true }).click();
+      await expect(page).toHaveURL(/\/app$/);
       await page.getByRole('button', { name: labels.signOut, exact: true }).click();
       await expect(page).toHaveURL(/\/login$/);
       expect(await page.evaluate(() => sessionStorage.getItem('caregiver-auth-session-v1'))).toBeNull();

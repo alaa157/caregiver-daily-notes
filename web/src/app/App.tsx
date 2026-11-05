@@ -11,6 +11,7 @@ import { ProtectedRoute } from './ProtectedRoute';
 import { RecipientsRoutes } from '../routes/RecipientsRoutes';
 import { NotesRoutes } from '../routes/NotesRoutes';
 import { WorkspaceOverview } from '../features/overview/WorkspaceOverview';
+import { ThemeProvider } from './ThemeProvider';
 
 function HomePage() {
   const { t } = useI18n();
@@ -26,6 +27,10 @@ function HomePage() {
             <a className="button button--text" href="#foundation">{t('explore')}<span aria-hidden="true">↓</span></a>
           </div>
           <p className="disclaimer"><Icon name="shield" size={16} />{t('note')}</p>
+          <ul className="hero-details">
+            <li><Icon name="check" size={16} />{t('heroDetailNotes')}</li>
+            <li><Icon name="check" size={16} />{t('heroDetailLanguages')}</li>
+          </ul>
         </div>
         <CareIllustration />
       </section>
@@ -46,6 +51,11 @@ function HomePage() {
           <div className="foundation-notice"><Icon name="info" size={18} /><p>{t('foundationNotice')}</p></div>
         </div>
       </section>
+      <section className="home-invitation container" aria-labelledby="invitation-title">
+        <span className="invitation-icon"><Icon name="leaf" size={30} /></span>
+        <div><h2 id="invitation-title">{t('invitationTitle')}</h2><p>{t('invitationDescription')}</p></div>
+        <ButtonLink to="/login">{t('signIn')}<Icon name="arrow-right" className="directional-icon" /></ButtonLink>
+      </section>
     </>
   );
 }
@@ -62,7 +72,7 @@ function NotFoundPage() {
 
 export function App() {
   return (
-    <AppShell>
+    <ThemeProvider><AppShell>
       <Routes>
         <Route path="/" element={<HomePage />} />
         <Route path="/login" element={<LoginPage />} />
@@ -73,6 +83,6 @@ export function App() {
         </Route>
         <Route path="*" element={<NotFoundPage />} />
       </Routes>
-    </AppShell>
+    </AppShell></ThemeProvider>
   );
 }
