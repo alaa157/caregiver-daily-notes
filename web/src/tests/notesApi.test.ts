@@ -45,7 +45,7 @@ describe('daily-note API and explicit observation values', () => {
     const input = {
       recipientId: noteFixture.recipientId,
       date: noteFixture.date,
-      observations: structuredObservations,
+      observations: { ...structuredObservations, fallReported: { state: 'NOT_RECORDED' as const } },
       medicationVerification: 'UNVERIFIED' as const,
       caregiverId: 'forged',
     };
@@ -55,10 +55,12 @@ describe('daily-note API and explicit observation values', () => {
     expect(path).toBe('/api/notes');
     expect(init.method).toBe('POST');
     expect(new Headers(init.headers).get('Idempotency-Key')).toBe('save-key');
-    expect(JSON.parse(init.body)).toEqual({
+    const serializedObservations = JSON.parse(init.body).observations;
+    expect(serializedObservations.fallReported).toEqual({ state: 'NOT_RECORDED', value: null });
+    expect(serializedObservations.medicationStatus).toEqual({ state: 'UNKNOWN' });
+    expect(JSON.parse(init.body)).toMatchObject({
       recipientId: noteFixture.recipientId,
       date: noteFixture.date,
-      observations: structuredObservations,
       medicationVerification: 'UNVERIFIED',
     });
   });

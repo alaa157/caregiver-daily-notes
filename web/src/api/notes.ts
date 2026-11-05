@@ -280,10 +280,16 @@ export function createNotesApi(client: ApiClient) {
         if (!isObservation(input.observations?.[field], field)) throw new Error('Invalid observation input.');
       }
       if (!isVerificationValue(input.medicationVerification)) throw new Error('Invalid verification input.');
+      const observations = Object.fromEntries(observationFields.map((field) => {
+        const observation = input.observations[field];
+        return [field, observation.state === 'NOT_RECORDED'
+          ? { ...observation, value: null }
+          : observation];
+      })) as ObservationSet;
       const result = readNote(await client.request({ path: '/api/notes', method: 'POST', signal,
         headers: writeHeaders(key), body: {
-          recipientId: input.recipientId, date: input.date,
-          observations: input.observations, medicationVerification: input.medicationVerification,
+          recipientId: input.recipientId, date: input.date, observations,
+          medicationVerification: input.medicationVerification,
         } }));
       if (result.recipientId !== input.recipientId || result.date !== input.date) throw new Error('Invalid note response.');
       return result;
