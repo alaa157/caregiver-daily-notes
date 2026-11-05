@@ -6,6 +6,7 @@ import org.springframework.jdbc.core.JdbcTemplate;
 import com.caregiver.auth.CaregiverRepository;
 import com.caregiver.config.CaregiverApplication;
 import com.caregiver.auth.JwtService;
+import com.caregiver.recipient.CareRecipient;
 import com.caregiver.recipient.CareRecipientRepository;
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
@@ -18,6 +19,8 @@ import org.springframework.http.MediaType;
 import org.springframework.test.web.servlet.MockMvc;
 import org.springframework.test.web.servlet.MvcResult;
 
+import java.util.List;
+import java.util.Map;
 import java.util.UUID;
 import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.ExecutorService;
@@ -51,6 +54,7 @@ class PlanControllerTest {
   @Autowired private ObjectMapper mapper;
   @Autowired private JwtService jwtService;
   @Autowired private CarePlanRepository plans;
+  @Autowired private PlanDocumentCodec documents;
   @Autowired private CareRecipientRepository recipients;
   @Autowired private CaregiverRepository caregivers;
   @Autowired private JdbcTemplate jdbcTemplate;
@@ -94,6 +98,93 @@ class PlanControllerTest {
 
     assertThat(plans.findAllByRecipient_IdOrderByVersionNumberDesc(UUID.fromString(recipientId)))
         .filteredOn(p -> p.getStatus().isActiveAccepted()).hasSize(1);
+  }
+
+  @Test
+  void returnsLegacyPlanTextByteForByte() throws Exception {
+    TestCaregiver owner = register("plan-legacy-exact@example.com");
+    String recipientId = createRecipient(owner.token());
+    String legacyContent = " \tخطة متابعة care-ID-١٢٣ / Case-A 🩺؟ — “مرحبا!”\n"
+        + "English line: preserve <b>literal</b> & <script>alert('x')</script>\n"
+        + "  second line with mixed ID: ملف-ABC-42 \n\t";
+
+    MvcResult createdResult = mvc.perform(post(PLANS + recipientId + "/plans/suggestions")
+            .header("Authorization", bearer(owner.token()))
+            .contentType(MediaType.APPLICATION_JSON)
+            .content(mapper.writeValueAsBytes(Map.of("content", legacyContent, "evidenceNoteIds", List.of("note-1")))))
+        .andExpect(status().isCreated())
+        .andReturn();
+    JsonNode created = mapper.readTree(createdResult.getResponse().getContentAsByteArray());
+    assertThat(created.get("content").asText()).isEqualTo(legacyContent);
+    assertThat(created.get("sourceType").asText()).isEqualTo("CAREGIVER_SUBMITTED");
+    assertThat(created.get("structuredContent").isNull()).isTrue();
+    assertThat(created.get("editable").asBoolean()).isFalse();
+
+    MvcResult historyResult = mvc.perform(get(PLANS + recipientId + "/plans/history")
+            .header("Authorization", bearer(owner.token())))
+        .andExpect(status().isOk())
+        .andReturn();
+    JsonNode history = mapper.readTree(historyResult.getResponse().getContentAsByteArray());
+    assertThat(history).hasSize(1);
+    assertThat(history.get(0).get("content").asText()).isEqualTo(legacyContent);
+    assertThat(history.get(0).get("sourceType").asText()).isEqualTo("CAREGIVER_SUBMITTED");
+    assertThat(history.get(0).get("structuredContent").isNull()).isTrue();
+    assertThat(history.get(0).get("editable").asBoolean()).isFalse();
+  }
+
+  @Test
+  void keepsLegacyPlanVisibleAfterStructuredPlanIsAdded() throws Exception {
+    TestCaregiver owner = register("plan-legacy-history@example.com");
+    String recipientId = createRecipient(owner.token());
+    String legacyContent = "  Legacy version one — keep this text.\n"
+        + "Mixed text: مراجعة case-17 <b>not markup</b>\n";
+    JsonNode legacy = suggestOpaque(owner.token(), recipientId, legacyContent);
+    assertThat(legacy.get("version").asInt()).isEqualTo(1);
+
+    CareRecipient recipient = recipients.findById(UUID.fromString(recipientId)).orElseThrow();
+    PlanDocument structuredDocument = new PlanDocument(1,
+        List.of(new SuggestedPlanChange(PlanAction.SCHEDULE_CHECK_IN, Map.of("withinDays", "5"),
+            "Review the recorded notes.", List.of("note-1"))),
+        List.of());
+    CarePlan structured = plans.saveAndFlush(new CarePlan(recipient, 2, PlanStatus.SUGGESTED,
+        mapper.writeValueAsString(structuredDocument), null, null, null, PlanSource.AI_GENERATED));
+
+    MvcResult historyResult = mvc.perform(get(PLANS + recipientId + "/plans/history")
+            .header("Authorization", bearer(owner.token())))
+        .andExpect(status().isOk())
+        .andReturn();
+    JsonNode history = mapper.readTree(historyResult.getResponse().getContentAsByteArray());
+    assertThat(history).hasSize(2);
+    assertThat(history.get(0).get("version").asInt()).isEqualTo(2);
+    assertThat(history.get(0).get("id").asText()).isEqualTo(structured.getId().toString());
+    assertThat(history.get(0).get("sourceType").asText()).isEqualTo("AI_GENERATED");
+    assertThat(history.get(0).get("structuredContent").isNull()).isFalse();
+    assertThat(history.get(1).get("version").asInt()).isEqualTo(1);
+    assertThat(history.get(1).get("id").asText()).isEqualTo(legacy.get("id").asText());
+    assertThat(history.get(1).get("sourceType").asText()).isEqualTo("CAREGIVER_SUBMITTED");
+    assertThat(history.get(1).get("content").asText()).isEqualTo(legacyContent);
+    assertThat(history.get(1).get("structuredContent").isNull()).isTrue();
+    assertThat(history.get(1).get("editable").asBoolean()).isFalse();
+  }
+
+  @Test
+  void decodesStructuredContentOnlyForSupportedSourceTypes() throws Exception {
+    TestCaregiver owner = register("plan-codec-sources@example.com");
+    CareRecipient recipient = recipients.findById(UUID.fromString(createRecipient(owner.token()))).orElseThrow();
+    PlanDocument document = new PlanDocument(1,
+        List.of(new SuggestedPlanChange(PlanAction.SCHEDULE_CHECK_IN, Map.of("withinDays", "5"),
+            "Review the recorded notes.", List.of("note-1"))),
+        List.of());
+    String content = mapper.writeValueAsString(document);
+
+    for (PlanSource source : List.of(PlanSource.AI_GENERATED, PlanSource.CAREGIVER_EDITED)) {
+      CarePlan plan = new CarePlan(recipient, 1, PlanStatus.SUGGESTED, content, null, null, null, source);
+      assertThat(documents.read(plan)).isEqualTo(document);
+    }
+    for (PlanSource source : List.of(PlanSource.CAREGIVER_SUBMITTED, PlanSource.UNSPECIFIED)) {
+      CarePlan plan = new CarePlan(recipient, 1, PlanStatus.SUGGESTED, content, null, null, null, source);
+      assertThat(documents.read(plan)).isNull();
+    }
   }
 
   @Test
@@ -245,6 +336,16 @@ class PlanControllerTest {
             .header("Authorization", bearer(token))
             .contentType(MediaType.APPLICATION_JSON)
             .content("{\"content\":\"" + content + "\"" + summary + ",\"evidenceNoteIds\":[\"note-1\"]}"))
+        .andExpect(status().isCreated())
+        .andReturn();
+    return mapper.readTree(result.getResponse().getContentAsString());
+  }
+
+  private JsonNode suggestOpaque(String token, String recipientId, String content) throws Exception {
+    MvcResult result = mvc.perform(post(PLANS + recipientId + "/plans/suggestions")
+            .header("Authorization", bearer(token))
+            .contentType(MediaType.APPLICATION_JSON)
+            .content(mapper.writeValueAsBytes(Map.of("content", content, "evidenceNoteIds", List.of("note-1")))))
         .andExpect(status().isCreated())
         .andReturn();
     return mapper.readTree(result.getResponse().getContentAsString());
