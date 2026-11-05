@@ -238,6 +238,8 @@ This document records names and behavior verified in the `main` tree. A NOT FOUN
 
 Current implementation instead has provider keys in backend environment configuration and an optional configured provider failover. Do not describe that as caregiver BYOK.
 
+**Architecture contract:** [`byok-execution.md`](byok-execution.md) defines the current-versus-target caregiver BYOK boundary and credential non-persistence requirements.
+
 **Read-only Android reference (not current web/backend behavior)**
 
 - Branch inspected: `feat/standalone-byok-ai`.
