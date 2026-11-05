@@ -33,9 +33,18 @@ public class PlanService {
   @Transactional
   public PlanResponse saveSuggested(UUID recipientId, PlanRequest request) {
     CareRecipient recipient = ownedRecipientForUpdate(recipientId);
+    String content;
+    if (request.structuredContent() != null) {
+      content = documents.write(request.structuredContent());
+    } else {
+      if (request.content() == null || request.content().isBlank()) {
+        throw new IllegalArgumentException("content must be non-blank");
+      }
+      content = request.content();
+    }
     int version = plans.maxVersionForRecipient(recipientId) + 1;
     CarePlan plan = plans.save(new CarePlan(recipient, version, PlanStatus.SUGGESTED,
-        request.content(), request.sourceSummaryId(), null, encodeIds(request.evidenceNoteIds()), PlanSource.CAREGIVER_SUBMITTED));
+        content, request.sourceSummaryId(), null, encodeIds(request.evidenceNoteIds()), PlanSource.CAREGIVER_SUBMITTED));
     audit.record("PLAN_SUGGESTED", "CARE_PLAN", plan.getId().toString(), "version=" + version);
     return response(plan);
   }

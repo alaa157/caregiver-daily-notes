@@ -177,13 +177,161 @@ class PlanControllerTest {
         List.of());
     String content = mapper.writeValueAsString(document);
 
-    for (PlanSource source : List.of(PlanSource.AI_GENERATED, PlanSource.CAREGIVER_EDITED)) {
+    for (PlanSource source : List.of(
+        PlanSource.AI_GENERATED, PlanSource.CAREGIVER_EDITED, PlanSource.CAREGIVER_SUBMITTED)) {
       CarePlan plan = new CarePlan(recipient, 1, PlanStatus.SUGGESTED, content, null, null, null, source);
       assertThat(documents.read(plan)).isEqualTo(document);
     }
-    for (PlanSource source : List.of(PlanSource.CAREGIVER_SUBMITTED, PlanSource.UNSPECIFIED)) {
+    for (PlanSource source : List.of(PlanSource.UNSPECIFIED)) {
       CarePlan plan = new CarePlan(recipient, 1, PlanStatus.SUGGESTED, content, null, null, null, source);
       assertThat(documents.read(plan)).isNull();
+    }
+  }
+
+  @Test
+  void createsCaregiverStructuredDraftWithSuggestedStatus() throws Exception {
+    TestCaregiver owner = register("plan-structured-draft@example.com");
+    String recipientId = createRecipient(owner.token());
+    suggest(owner.token(), recipientId, "Earlier draft", null);
+    String request = """
+        {
+          "content": "",
+          "sourceSummaryId": "summary-structured",
+          "evidenceNoteIds": ["outer-note"],
+          "structuredContent": {
+            "schemaVersion": 1,
+            "changes": [{
+              "action": "SCHEDULE_CHECK_IN",
+              "params": {"withinDays": "3"},
+              "reason": "Review recorded notes",
+              "evidenceNoteIds": ["note-1"]
+            }],
+            "medications": []
+          }
+        }
+        """;
+
+    MvcResult result = mvc.perform(post(PLANS + recipientId + "/plans/suggestions")
+            .header("Authorization", bearer(owner.token()))
+            .contentType(MediaType.APPLICATION_JSON)
+            .content(request))
+        .andExpect(status().isCreated())
+        .andExpect(jsonPath("$.version").value(2))
+        .andExpect(jsonPath("$.status").value("SUGGESTED"))
+        .andExpect(jsonPath("$.sourceType").value("CAREGIVER_SUBMITTED"))
+        .andExpect(jsonPath("$.structuredContent.schemaVersion").value(1))
+        .andExpect(jsonPath("$.structuredContent.changes[0].action").value("SCHEDULE_CHECK_IN"))
+        .andExpect(jsonPath("$.structuredContent.changes[0].params.withinDays").value("3"))
+        .andReturn();
+
+    JsonNode response = mapper.readTree(result.getResponse().getContentAsByteArray());
+    CarePlan stored = plans.findById(UUID.fromString(response.get("id").asText())).orElseThrow();
+    assertThat(stored.getVersionNumber()).isEqualTo(2);
+    assertThat(stored.getStatus()).isEqualTo(PlanStatus.SUGGESTED);
+    assertThat(stored.getSourceType()).isEqualTo(PlanSource.CAREGIVER_SUBMITTED);
+    assertThat(stored.getSourceSummaryId()).isEqualTo("summary-structured");
+    assertThat(stored.getEvidenceNoteIds()).isEqualTo("outer-note");
+    assertThat(documents.read(stored)).isEqualTo(new PlanDocument(1,
+        List.of(new SuggestedPlanChange(PlanAction.SCHEDULE_CHECK_IN, Map.of("withinDays", "3"),
+            "Review recorded notes", List.of("note-1"))), List.of()));
+  }
+
+  @Test
+  void rejectsUnsupportedStructuredDraftAction() throws Exception {
+    TestCaregiver owner = register("plan-unsupported-action@example.com");
+    String recipientId = createRecipient(owner.token());
+    String request = """
+        {"content":"","structuredContent":{"schemaVersion":1,"changes":[
+          {"action":"PRESCRIBE_MEDICATION","params":{"drug":"medicine"},
+           "reason":"Review medication","evidenceNoteIds":["note-1"]}
+        ],"medications":[]}}
+        """;
+
+    mvc.perform(post(PLANS + recipientId + "/plans/suggestions")
+            .header("Authorization", bearer(owner.token()))
+            .contentType(MediaType.APPLICATION_JSON)
+            .content(request))
+        .andExpect(status().isUnprocessableEntity());
+
+    assertThat(plans.findAllByRecipient_IdOrderByVersionNumberDesc(UUID.fromString(recipientId))).isEmpty();
+  }
+
+  @Test
+  void rejectsStructuredDraftWithInvalidActionParameters() throws Exception {
+    TestCaregiver owner = register("plan-invalid-structured-param@example.com");
+    String recipientId = createRecipient(owner.token());
+    String request = """
+        {"content":"","structuredContent":{"schemaVersion":1,"changes":[
+          {"action":"SCHEDULE_CHECK_IN","params":{"withinDays":"0"},
+           "reason":"Review recorded notes","evidenceNoteIds":["note-1"]}
+        ],"medications":[]}}
+        """;
+
+    mvc.perform(post(PLANS + recipientId + "/plans/suggestions")
+            .header("Authorization", bearer(owner.token()))
+            .contentType(MediaType.APPLICATION_JSON)
+            .content(request))
+        .andExpect(status().isUnprocessableEntity());
+
+    assertThat(plans.findAllByRecipient_IdOrderByVersionNumberDesc(UUID.fromString(recipientId))).isEmpty();
+  }
+
+  @Test
+  void preservesExistingFreeTextSuggestionRequest() throws Exception {
+    TestCaregiver owner = register("plan-free-text-compatible@example.com");
+    String recipientId = createRecipient(owner.token());
+    String originalContent = "Caregiver note: follow up after breakfast.\nKeep this wording.";
+    MvcResult result = mvc.perform(post(PLANS + recipientId + "/plans/suggestions")
+            .header("Authorization", bearer(owner.token()))
+            .contentType(MediaType.APPLICATION_JSON)
+            .content(mapper.writeValueAsBytes(Map.of(
+                "content", originalContent,
+                "sourceSummaryId", "summary-text",
+                "evidenceNoteIds", List.of("note-1")))))
+        .andExpect(status().isCreated())
+        .andReturn();
+    JsonNode created = mapper.readTree(result.getResponse().getContentAsByteArray());
+
+    assertThat(created.get("content").asText()).isEqualTo(originalContent);
+    assertThat(created.get("status").asText()).isEqualTo("SUGGESTED");
+    assertThat(created.get("sourceType").asText()).isEqualTo("CAREGIVER_SUBMITTED");
+    assertThat(created.get("structuredContent").isNull()).isTrue();
+    CarePlan stored = plans.findById(UUID.fromString(created.get("id").asText())).orElseThrow();
+    assertThat(stored.getContent()).isEqualTo(originalContent);
+    assertThat(documents.read(stored)).isNull();
+  }
+
+  @Test
+  void keepsMalformedCaregiverContentOpaqueInHistory() throws Exception {
+    TestCaregiver owner = register("plan-malformed-caregiver-content@example.com");
+    String recipientId = createRecipient(owner.token());
+    List<String> originalContents = List.of(
+        "{\"schemaVersion\":1,\"changes\":[}",
+        """
+        {"schemaVersion":2,"changes":[{"action":"SCHEDULE_CHECK_IN","params":{"withinDays":"3"},"reason":"Review notes","evidenceNoteIds":["note-1"]}],"medications":[]}
+        """,
+        """
+        {"schemaVersion":1,"changes":[{"action":"PRESCRIBE_MEDICATION","params":{"drug":"medicine"},"reason":"Review notes","evidenceNoteIds":["note-1"]}],"medications":[]}
+        """);
+    List<String> ids = List.of(
+        suggestOpaque(owner.token(), recipientId, originalContents.get(0)).get("id").asText(),
+        suggestOpaque(owner.token(), recipientId, originalContents.get(1)).get("id").asText(),
+        suggestOpaque(owner.token(), recipientId, originalContents.get(2)).get("id").asText());
+
+    MvcResult result = mvc.perform(get(PLANS + recipientId + "/plans/history")
+            .header("Authorization", bearer(owner.token())))
+        .andExpect(status().isOk())
+        .andReturn();
+
+    JsonNode history = mapper.readTree(result.getResponse().getContentAsByteArray());
+    assertThat(history).hasSize(3);
+    for (int i = 0; i < originalContents.size(); i++) {
+      int historyIndex = originalContents.size() - i - 1;
+      assertThat(history.get(historyIndex).get("id").asText()).isEqualTo(ids.get(i));
+      assertThat(history.get(historyIndex).get("content").asText()).isEqualTo(originalContents.get(i));
+      assertThat(history.get(historyIndex).get("structuredContent").isNull()).isTrue();
+      assertThat(plans.findById(UUID.fromString(ids.get(i))).orElseThrow().getContent())
+          .isEqualTo(originalContents.get(i));
     }
   }
 
