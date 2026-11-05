@@ -5,6 +5,11 @@ import { useI18n } from '../../i18n/I18nProvider';
 import { SummarySafety } from '../safety/SummarySafety';
 
 export interface SummaryView { request: SummaryRequest; recipientName: string; response: SummaryResponse; failed?: boolean }
+const sampleSizeKey = (metric: string) => {
+  if (metric === 'MISSED_MED_COUNT' || metric === 'POOR_APPETITE_COUNT') return 'summarySampleSizeDays';
+  if (metric === 'FALL_COUNT' || metric === 'HIGH_PAIN_COUNT') return 'summarySampleSizeObservations';
+  return 'summarySampleSize';
+};
 export function SummaryResult({ view }: { view: SummaryView }) {
   const { t, language } = useI18n();
   const { response, request } = view;
@@ -53,9 +58,15 @@ export function SummaryResult({ view }: { view: SummaryView }) {
       <h3 id="summary-trends-heading">{t('summaryTrends')}</h3>
       <ul className="summary-trends">{response.trends.map((trend, index) => <li key={index}>
         <h4 className="summary-untrusted" dir="auto">{trend.metric}</h4>
-        <dl><div><dt>{t('summaryPreviousCount')}</dt><dd>{format(trend.previousCount)}</dd></div>
-          <div><dt>{t('summaryCurrentCount')}</dt><dd>{format(trend.currentCount)}</dd></div>
-          <div><dt>{t('summaryDelta')}</dt><dd><bdi>{format(trend.delta)}</bdi></dd></div></dl>
+        <dl>
+          <div><dt>{t('summaryPreviousPeriod')}</dt><dd>{trend.previousSampleSize === 0 ? <span role="status">{t('summaryNoRecordedData')}</span> : <>
+            <span>{t('summaryEventCount')}: {format(trend.previousCount)}</span><br />
+            <span>{t(sampleSizeKey(trend.metric))}: {format(trend.previousSampleSize)}</span></>}</dd></div>
+          <div><dt>{t('summaryRequestedPeriod')}</dt><dd>{trend.currentSampleSize === 0 ? <span role="status">{t('summaryNoRecordedData')}</span> : <>
+            <span>{t('summaryEventCount')}: {format(trend.currentCount)}</span><br />
+            <span>{t(sampleSizeKey(trend.metric))}: {format(trend.currentSampleSize)}</span></>}</dd></div>
+          {trend.previousSampleSize > 0 && trend.currentSampleSize > 0 && <div><dt>{t('summaryDelta')}</dt><dd><bdi>{format(trend.delta)}</bdi></dd></div>}
+        </dl>
       </li>)}</ul>
     </section>}
   </section>;

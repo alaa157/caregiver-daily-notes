@@ -15,16 +15,21 @@ jobs:
       - name: Set up Node.js 22
         uses: actions/setup-node@v4
         with:
-          node-version: "22"
+          node-version: 22
           cache: npm
           cache-dependency-path: web/package-lock.json
 
-      - name: Install, test, and typecheck frontend
+      - name: Install frontend dependencies
         working-directory: web
-        run: |
-          npm ci
-          npm test
-          npm run typecheck
+        run: npm ci
+
+      - name: Run frontend tests
+        working-directory: web
+        run: npm test
+
+      - name: Typecheck frontend
+        working-directory: web
+        run: npm run typecheck
   backend:
     runs-on: ubuntu-latest
     steps:
