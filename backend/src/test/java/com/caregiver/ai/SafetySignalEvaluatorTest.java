@@ -15,7 +15,7 @@ class SafetySignalEvaluatorTest {
   private static final LocalDate END = LocalDate.of(2026, 10, 7);
 
   private static NoteSignals note(
-      String id, LocalDate date, boolean fall, Integer pain,
+      String id, LocalDate date, Boolean fall, Integer pain,
       Boolean missed, boolean unverified, Boolean appetite) {
     return new NoteSignals(id, date, fall, pain, missed, unverified, appetite, "");
   }
@@ -24,89 +24,166 @@ class SafetySignalEvaluatorTest {
     return note("r1", date, false, null, null, false, null);
   }
 
-  @Test
-  void pain6_noFlag_pain7_flagsHigh() {
-    var mild = evaluator.evaluate(List.of(note("r1", END, false, 6, null, false, null)), END, 7);
-    assertThat(mild.signals()).extracting(SafetySignal::ruleId).doesNotContain(SafetyRuleId.HIGH_PAIN);
-    assertThat(mild.needsDoctorBanner()).isFalse();
-
-    var severe = evaluator.evaluate(List.of(note("r1", END, false, 7, null, false, null)), END, 7);
-    assertThat(severe.signals()).extracting(SafetySignal::ruleId).contains(SafetyRuleId.HIGH_PAIN);
-    var painSignal = severe.signals().stream()
-        .filter(s -> s.ruleId() == SafetyRuleId.HIGH_PAIN).findFirst().orElseThrow();
-    assertThat(painSignal.severity()).isEqualTo(Severity.HIGH);
-    assertThat(severe.needsDoctorBanner()).isTrue();
+  private static boolean hasRule(SafetyEvaluation evaluation, SafetyRuleId ruleId) {
+    return evaluation.signals().stream().anyMatch(signal -> signal.ruleId() == ruleId);
   }
 
   @Test
-  void singleMissedMed_noFlag_twoVerifiedMissed_flagsHigh() {
-    var single = evaluator.evaluate(
-        List.of(note("r1", END, false, null, true, false, null)), END, 7);
-    assertThat(single.signals()).extracting(SafetySignal::ruleId)
-        .doesNotContain(SafetyRuleId.REPEATED_MISSED_MED);
-    assertThat(single.needsDoctorBanner()).isFalse();
+  void highPainBelowAtAndAboveThresholdPreservesSeverityAndBanner() {
+    for (int pain : List.of(6, 7, 8)) {
+      var evaluation = evaluator.evaluate(
+          List.of(note("r1", END, false, pain, null, false, null)), END, 7);
+      boolean expected = pain >= 7;
 
-    var two = evaluator.evaluate(List.of(
-        note("r1", END.minusDays(1), false, null, true, false, null),
-        note("r1", END, false, null, true, false, null)), END, 7);
-    assertThat(two.signals()).extracting(SafetySignal::ruleId).contains(SafetyRuleId.REPEATED_MISSED_MED);
-    var medSignal = two.signals().stream()
-        .filter(s -> s.ruleId() == SafetyRuleId.REPEATED_MISSED_MED).findFirst().orElseThrow();
-    assertThat(medSignal.severity()).isEqualTo(Severity.HIGH);
-    assertThat(two.needsDoctorBanner()).isTrue();
+      assertThat(hasRule(evaluation, SafetyRuleId.HIGH_PAIN)).isEqualTo(expected);
+      assertThat(evaluation.needsDoctorBanner()).isEqualTo(expected);
+      if (expected) {
+        var signal = evaluation.signals().stream()
+            .filter(value -> value.ruleId() == SafetyRuleId.HIGH_PAIN).findFirst().orElseThrow();
+        assertThat(signal.severity()).isEqualTo(Severity.HIGH);
+      }
+    }
   }
 
   @Test
-  void unverifiedMissedMeds_doNotCount() {
-    var eval = evaluator.evaluate(List.of(
-        note("r1", END.minusDays(1), false, null, true, true, null),
-        note("r1", END, false, null, true, true, null)), END, 7);
-    assertThat(eval.signals()).extracting(SafetySignal::ruleId)
-        .doesNotContain(SafetyRuleId.REPEATED_MISSED_MED);
-    assertThat(eval.needsDoctorBanner()).isFalse();
+  void repeatedMissedMedicationUsesOneTwoAndThreeDistinctVerifiedDates() {
+    for (int dates : List.of(1, 2, 3)) {
+      var notes = java.util.stream.IntStream.range(0, dates)
+          .mapToObj(day -> note("r1", END.minusDays(day), false, null, true, false, null))
+          .toList();
+      var evaluation = evaluator.evaluate(notes, END, 7);
+      boolean expected = dates >= 2;
+
+      assertThat(hasRule(evaluation, SafetyRuleId.REPEATED_MISSED_MED)).isEqualTo(expected);
+      assertThat(evaluation.needsDoctorBanner()).isEqualTo(expected);
+      if (expected) {
+        var signal = evaluation.signals().stream()
+            .filter(value -> value.ruleId() == SafetyRuleId.REPEATED_MISSED_MED).findFirst().orElseThrow();
+        assertThat(signal.severity()).isEqualTo(Severity.HIGH);
+      }
+    }
   }
 
   @Test
-  void poorAppetite2days_noFlag_3days_flagsWatch() {
-    var two = evaluator.evaluate(List.of(
-        note("r1", END.minusDays(1), false, null, null, false, true),
-        note("r1", END, false, null, null, false, true)), END, 7);
-    assertThat(two.signals()).extracting(SafetySignal::ruleId)
-        .doesNotContain(SafetyRuleId.POOR_APPETITE_DAYS);
-    assertThat(two.needsDoctorBanner()).isFalse();
+  void repeatedMissedMedicationCountsDistinctDatesNotReports() {
+    var sameDate = evaluator.evaluate(List.of(
+        note("n1", END, false, null, true, false, null),
+        note("n2", END, false, null, true, false, null)), END, 7);
+    assertThat(hasRule(sameDate, SafetyRuleId.REPEATED_MISSED_MED)).isFalse();
+    assertThat(sameDate.needsDoctorBanner()).isFalse();
 
-    var three = evaluator.evaluate(List.of(
-        note("r1", END.minusDays(2), false, null, null, false, true),
-        note("r1", END.minusDays(1), false, null, null, false, true),
-        note("r1", END, false, null, null, false, true)), END, 7);
-    assertThat(three.signals()).extracting(SafetySignal::ruleId).contains(SafetyRuleId.POOR_APPETITE_DAYS);
-    var appetiteSignal = three.signals().stream()
-        .filter(s -> s.ruleId() == SafetyRuleId.POOR_APPETITE_DAYS).findFirst().orElseThrow();
-    assertThat(appetiteSignal.severity()).isEqualTo(Severity.WATCH);
-    assertThat(three.needsDoctorBanner()).isFalse();
+    var differentDates = evaluator.evaluate(List.of(
+        note("n1", END, false, null, true, false, null),
+        note("n2", END.minusDays(1), false, null, true, false, null)), END, 7);
+    assertThat(hasRule(differentDates, SafetyRuleId.REPEATED_MISSED_MED)).isTrue();
+    assertThat(differentDates.needsDoctorBanner()).isTrue();
   }
 
   @Test
-  void anyFall_flagsHigh() {
-    var eval = evaluator.evaluate(List.of(note("r1", END, true, null, null, false, null)), END, 7);
-    assertThat(eval.signals()).extracting(SafetySignal::ruleId).contains(SafetyRuleId.FALL_DETECTED);
-    var fallSignal = eval.signals().stream()
-        .filter(s -> s.ruleId() == SafetyRuleId.FALL_DETECTED).findFirst().orElseThrow();
-    assertThat(fallSignal.severity()).isEqualTo(Severity.HIGH);
-    assertThat(eval.needsDoctorBanner()).isTrue();
+  void unverifiedAndMissingMedicationReportsDoNotCount() {
+    var allUnverified = evaluator.evaluate(List.of(
+        note("n1", END, false, null, true, true, null),
+        note("n2", END.minusDays(1), false, null, true, true, null),
+        note("n3", END.minusDays(2), false, null, null, false, null)), END, 7);
+    assertThat(hasRule(allUnverified, SafetyRuleId.REPEATED_MISSED_MED)).isFalse();
+    assertThat(allUnverified.needsDoctorBanner()).isFalse();
+
+    var oneVerifiedWithUnverified = evaluator.evaluate(List.of(
+        note("n1", END, false, null, true, false, null),
+        note("n2", END.minusDays(1), false, null, true, true, null),
+        note("n3", END.minusDays(2), false, null, null, false, null)), END, 7);
+    assertThat(hasRule(oneVerifiedWithUnverified, SafetyRuleId.REPEATED_MISSED_MED)).isFalse();
+
+    var twoVerifiedWithUnverified = evaluator.evaluate(List.of(
+        note("n1", END, false, null, true, false, null),
+        note("n2", END.minusDays(1), false, null, true, true, null),
+        note("n3", END.minusDays(2), false, null, true, false, null)), END, 7);
+    assertThat(hasRule(twoVerifiedWithUnverified, SafetyRuleId.REPEATED_MISSED_MED)).isTrue();
   }
 
   @Test
-  void outOfWindowNotes_ignored() {
+  void poorAppetiteBelowAtAndAboveThresholdUsesDistinctDatesAndWatchSeverity() {
+    for (int dates : List.of(2, 3, 4)) {
+      var notes = java.util.stream.IntStream.range(0, dates)
+          .mapToObj(day -> note("r1", END.minusDays(day), false, null, null, false, true))
+          .toList();
+      var evaluation = evaluator.evaluate(notes, END, 7);
+      boolean expected = dates >= 3;
+
+      assertThat(hasRule(evaluation, SafetyRuleId.POOR_APPETITE_DAYS)).isEqualTo(expected);
+      if (expected) {
+        var signal = evaluation.signals().stream()
+            .filter(value -> value.ruleId() == SafetyRuleId.POOR_APPETITE_DAYS).findFirst().orElseThrow();
+        assertThat(signal.severity()).isEqualTo(Severity.WATCH);
+      }
+      assertThat(evaluation.needsDoctorBanner()).isFalse();
+    }
+  }
+
+  @Test
+  void duplicatePoorAppetiteReportsOnOneDateCountOnce() {
+    var evaluation = evaluator.evaluate(List.of(
+        note("n1", END, false, null, null, false, true),
+        note("n2", END, false, null, null, false, true),
+        note("n3", END.minusDays(1), false, null, null, false, true)), END, 7);
+
+    assertThat(hasRule(evaluation, SafetyRuleId.POOR_APPETITE_DAYS)).isFalse();
+    assertThat(evaluation.needsDoctorBanner()).isFalse();
+  }
+
+  @Test
+  void onlyExplicitTrueFallProducesHighSignal() {
+    var reported = evaluator.evaluate(
+        List.of(note("r1", END, true, null, null, false, null)), END, 7);
+    assertThat(hasRule(reported, SafetyRuleId.FALL_DETECTED)).isTrue();
+    var signal = reported.signals().stream()
+        .filter(value -> value.ruleId() == SafetyRuleId.FALL_DETECTED).findFirst().orElseThrow();
+    assertThat(signal.severity()).isEqualTo(Severity.HIGH);
+    assertThat(reported.needsDoctorBanner()).isTrue();
+
+    var explicitFalse = evaluator.evaluate(
+        List.of(note("r1", END, false, null, null, false, null)), END, 7);
+    assertThat(hasRule(explicitFalse, SafetyRuleId.FALL_DETECTED)).isFalse();
+    assertThat(explicitFalse.needsDoctorBanner()).isFalse();
+
+    var missing = evaluator.evaluate(
+        List.of(note("r1", END, null, null, null, false, null)), END, 7);
+    assertThat(hasRule(missing, SafetyRuleId.FALL_DETECTED)).isFalse();
+    assertThat(missing.needsDoctorBanner()).isFalse();
+  }
+
+  @Test
+  void sevenDayWindowIncludesBothBoundariesAndExcludesAdjacentDates() {
+    var startInclusive = evaluator.evaluate(
+        List.of(note("r1", LocalDate.of(2026, 10, 1), false, 7, null, false, null)), END, 7);
+    assertThat(hasRule(startInclusive, SafetyRuleId.HIGH_PAIN)).isTrue();
+
+    var endInclusive = evaluator.evaluate(
+        List.of(note("r1", LocalDate.of(2026, 10, 7), false, 7, null, false, null)), END, 7);
+    assertThat(hasRule(endInclusive, SafetyRuleId.HIGH_PAIN)).isTrue();
+
+    var beforeStart = evaluator.evaluate(
+        List.of(note("r1", LocalDate.of(2026, 9, 30), false, 8, null, false, null)), END, 7);
+    assertThat(beforeStart.signals()).isEmpty();
+    assertThat(beforeStart.needsDoctorBanner()).isFalse();
+
+    var afterEnd = evaluator.evaluate(
+        List.of(note("r1", LocalDate.of(2026, 10, 8), false, 8, null, false, null)), END, 7);
+    assertThat(afterEnd.signals()).isEmpty();
+    assertThat(afterEnd.needsDoctorBanner()).isFalse();
+  }
+
+  @Test
+  void outOfWindowNotesAreIgnored() {
     var old = LocalDate.of(2026, 9, 20);
-    var eval = evaluator.evaluate(List.of(
-        note("r1", old, true, 9, true, false, true)), END, 7);
-    assertThat(eval.signals()).isEmpty();
-    assertThat(eval.needsDoctorBanner()).isFalse();
+    var evaluation = evaluator.evaluate(
+        List.of(note("r1", old, true, 9, true, false, true)), END, 7);
+    assertThat(evaluation.signals()).isEmpty();
+    assertThat(evaluation.needsDoctorBanner()).isFalse();
   }
 
   @Test
-  void nullAndEmptyInput_returnsEmptyNoBanner() {
+  void nullAndEmptyInputReturnEmptyWithoutBanner() {
     var fromNull = evaluator.evaluate(null, END, 7);
     assertThat(fromNull.signals()).isEmpty();
     assertThat(fromNull.needsDoctorBanner()).isFalse();
