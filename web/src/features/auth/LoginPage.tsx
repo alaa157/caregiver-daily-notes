@@ -4,6 +4,7 @@ import { Button, ButtonLink } from '../../components/Button';
 import { FieldError } from '../../components/Feedback';
 import { Icon } from '../../components/Icon';
 import { PagePanel } from '../../components/PagePanel';
+import { CareIllustration } from '../../components/CareIllustration';
 import { useI18n } from '../../i18n/I18nProvider';
 import type { MessageKey } from '../../i18n/translations';
 import { ApiError } from '../../lib/api';
@@ -70,7 +71,8 @@ export function LoginPage() {
     }
   };
   return (
-    <PagePanel icon="lock" eyebrow={t('authWelcome')} title={t('loginTitle')} description={t('loginDescription')}>
+    <PagePanel icon="lock" eyebrow={t('authWelcome')} title={t('loginTitle')} description={t('loginDescription')}
+      aside={<><CareIllustration /><h2>{t('authAsideTitle')}</h2><p>{t('authAsideDescription')}</p></>}>
       {auth.reason === 'expired' && !error && <p className="notice" role="alert">{t('authSessionExpired')}</p>}
       {auth.reason === 'signedOut' && <p className="notice" role="status">{t('authSignedOut')}</p>}
       <form className="auth-form" aria-label={t('loginTitle')} noValidate onSubmit={submit}>

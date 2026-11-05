@@ -3,11 +3,19 @@ import { Link, NavLink, useLocation } from 'react-router-dom';
 import { useI18n } from '../i18n/I18nProvider';
 import { Icon } from './Icon';
 import { useAuth } from '../features/auth/AuthProvider';
+import { useTheme, type ThemeMode } from '../app/ThemeProvider';
 import './AppShell.css';
+
+function isHistoryRoute(pathname: string) {
+  if (pathname === '/app/notes' || pathname === '/app/notes/history') return true;
+  const noteRoute = pathname.match(/^\/app\/notes\/([^/]+)(?:\/addenda\/new)?$/);
+  return Boolean(noteRoute && !['new', 'summary', 'plans', 'history'].includes(noteRoute[1]));
+}
 
 export function AppShell({ children }: { children: ReactNode }) {
   const { t, language, setLanguage } = useI18n();
   const auth = useAuth();
+  const { mode, setMode } = useTheme();
   const { pathname } = useLocation();
   const mainRef = useRef<HTMLElement>(null);
   const previousPath = useRef(pathname);
@@ -42,33 +50,46 @@ export function AppShell({ children }: { children: ReactNode }) {
       <a className="skip-link" href="#main-content" onClick={() => mainRef.current?.focus()}>{t('skipToContent')}</a>
       <header className={`site-header${auth.status === 'authenticated' ? ' site-header--workspace' : ''}`}>
         <div className="header-inner container">
-          <Link className="brand" to="/">
+          <Link className="brand" to={auth.status === 'authenticated' ? '/app' : '/'}>
             <span className="brand-mark"><Icon name="leaf" size={25} /></span>
             <span className="brand-text"><span>{t('brand')}</span><span className="brand-tagline">{t('brandTagline')}</span></span>
           </Link>
+          <div className="nav-utilities">
+            <div className="appearance-control">
+              <Icon name={mode === 'system' ? 'monitor' : mode === 'dark' ? 'moon' : 'sun'} size={17} />
+              <select aria-label={t('appearance')} value={mode} onChange={(event) => setMode(event.target.value as ThemeMode)}>
+                <option value="system">{t('themeSystem')}</option>
+                <option value="light">{t('themeLight')}</option>
+                <option value="dark">{t('themeDark')}</option>
+              </select>
+            </div>
+            <button type="button" className="language-toggle" lang={nextLanguage} dir={nextLanguage === 'ar' ? 'rtl' : 'ltr'}
+            aria-label={t(language === 'ar' ? 'switchToEnglish' : 'switchToArabic')}
+            onClick={() => setLanguage(nextLanguage)}>
+            <Icon name="globe" size={17} />{t('switchLanguage')}
+            </button>
+            {auth.status === 'authenticated' && <button type="button" className="nav-link auth-logout" onClick={auth.logout}><Icon name="logout" size={18} /><span>{t('authSignOut')}</span></button>}
+          </div>
           <nav className={'site-nav' + (auth.status === 'authenticated' ? ' site-nav--authenticated' : '')} aria-label={t('mainNavigation')}>
             <div className="nav-links">
               {auth.status === 'authenticated' ? <>
                 <div className="workspace-primary-links" role="group" aria-label={t('workspacePrimaryNavigation')}>
-                  <NavLink end to="/app" className={navClass}>{t('home')}</NavLink>
-                  <NavLink to="/app/recipients" className={navClass}>{t('workspacePeople')}</NavLink>
-                  <NavLink end to="/app/notes/new" className={navClass}>{t('workspaceNotes')}</NavLink>
-                  <NavLink end to="/app/notes" className={navClass}>{t('workspaceHistory')}</NavLink>
+                  <NavLink end to="/app" className={navClass}><Icon name="home" size={19} />{t('home')}</NavLink>
+                  <NavLink to="/app/recipients" className={navClass}><Icon name="people" size={19} />{t('workspacePeople')}</NavLink>
+                  <NavLink end to="/app/notes/new" className={navClass}><Icon name="edit" size={19} />{t('workspaceNotes')}</NavLink>
+                  <Link to="/app/notes" aria-current={isHistoryRoute(pathname) ? 'page' : undefined}
+                    className={navClass({ isActive: isHistoryRoute(pathname) })}>
+                    <Icon name="history" size={19} />{t('workspaceHistory')}
+                  </Link>
                 </div>
                 <div className="workspace-secondary-links" role="group" aria-label={t('workspaceNotesNavigation')}>
-                  <NavLink to="/app/notes/plans" className={({ isActive }) => `${navClass({ isActive })} workspace-secondary-link`}>{t('plansTitle')}</NavLink>
+                  <NavLink to="/app/notes/plans" className={({ isActive }) => `${navClass({ isActive })} workspace-secondary-link`}><Icon name="shield" size={18} />{t('plansTitle')}</NavLink>
                 </div>
-                <button type="button" className="nav-link auth-logout" onClick={auth.logout}>{t('authSignOut')}</button>
               </> : <>
                 <NavLink end to="/" className={navClass}>{t('home')}</NavLink>
                 <NavLink to="/login" className={navClass}>{t('signIn')}</NavLink>
               </>}
             </div>
-            <button type="button" className="language-toggle" lang={nextLanguage} dir={nextLanguage === 'ar' ? 'rtl' : 'ltr'}
-              aria-label={t(language === 'ar' ? 'switchToEnglish' : 'switchToArabic')}
-              onClick={() => setLanguage(nextLanguage)}>
-              <Icon name="globe" size={17} />{t('switchLanguage')}
-            </button>
           </nav>
         </div>
       </header>

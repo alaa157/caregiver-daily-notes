@@ -62,6 +62,7 @@ export function RecipientsListPage() {
       && <EmptyState title={t('recipientSearchNoResults')} description={t('recipientSearchNoResultsDescription')} />}
     {filtered.length > 0 && <ul className="recipient-list" aria-label={t(filterLabel(filter as RecipientLifecycleStatus))}>
       {filtered.map((recipient) => <li key={recipient.id} className="recipient-card">
+        <span className="person-avatar"><Icon name="people" size={24} /></span>
         <RecipientStatus status={recipient.lifecycleStatus} />
         <h2><Link to={`${listPath}/${recipient.id}`}><bdi>{recipient.name}</bdi></Link></h2>
           <p className="recipient-hint">{t('recipientRelationshipLabel')}</p>
