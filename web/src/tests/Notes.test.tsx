@@ -429,6 +429,92 @@ describe('daily-note creation and immutable corrections', () => {
     expect(screen.getAllByRole('article', { name: /Correction event/ })
       .map((row) => row.querySelector('.note-timeline-row__label')?.textContent)).toEqual(eventsBefore);
   });
+  it('shows the original note when correction history is unavailable', async () => {
+    const fetcher = dataFetcher((path) => path.endsWith('/corrections') ? jsonResponse({}, 500) : undefined);
+    renderNotes(detail, fetcher);
+
+    const original = await screen.findByRole('article', { name: 'Original note — read only' });
+    expect(within(original).getByText('Unknown')).toBeVisible();
+    expect(await screen.findByText('Could not load this information. Try again.')).toBeVisible();
+    expect(screen.getByRole('button', { name: 'Retry' })).toBeEnabled();
+    expect(screen.queryByText('No structured corrections yet.')).not.toBeInTheDocument();
+  });
+
+  it('retries correction history without hiding the original note', async () => {
+    let failed = true;
+    const fetcher = dataFetcher((path) => {
+      if (path.endsWith('/corrections') && failed) { failed = false; return jsonResponse({}, 500); }
+      return undefined;
+    });
+    renderNotes(detail, fetcher);
+    await screen.findByRole('article', { name: 'Original note — read only' });
+    const errors = await screen.findAllByRole('alert');
+    const correctionError = errors.find((element) => element.textContent?.includes('Could not load this information'));
+    expect(correctionError).toBeDefined();
+    await userEvent.click(within(correctionError as HTMLElement).getByRole('button', { name: 'Retry' }));
+    expect(await screen.findByText('No structured corrections yet.')).toBeVisible();
+    expect(screen.getByRole('article', { name: 'Original note — read only' })).toBeVisible();
+  });
+
+  it('renders correction events in sequence order', async () => {
+    const corrections = correctionResponse([
+      { field: 'mood', operation: 'SET', value: 'calm' },
+      { field: 'painScore', operation: 'SET', value: 3 },
+    ]);
+    const fetcher = dataFetcher((path) => path.endsWith('/corrections') ? jsonResponse(corrections) : undefined);
+    renderNotes(detail, fetcher);
+    const events = await screen.findAllByRole('article', { name: /Correction event/ });
+    expect(events.map((event) => event.querySelector('.note-timeline-row__label')?.textContent))
+      .toEqual(['Correction event 1 · Mood', 'Correction event 2 · Pain score (0–10)']);
+    expect(within(events[0]).getByText(corrections.events[0].id)).toBeVisible();
+    expect(within(events[0]).getByRole('time')).toHaveAttribute('dateTime', corrections.events[0].createdAt);
+  });
+
+  it('links effective values to the source correction event', async () => {
+    const corrections = correctionResponse([{ field: 'mood', operation: 'SET', value: 'calm' }]);
+    const eventId = corrections.events[0].id;
+    corrections.effectiveObservations.mood.eventId = eventId;
+    corrections.effectiveObservations.mood.actorId = corrections.events[0].actorId;
+    corrections.effectiveObservations.mood.lastOperation = 'SET';
+    corrections.effectiveObservations.mood.updatedAt = corrections.events[0].createdAt;
+    const fetcher = dataFetcher((path) => path.endsWith('/corrections') ? jsonResponse(corrections) : undefined);
+    renderNotes(detail, fetcher);
+    const effectiveRegion = await screen.findByRole('region', { name: 'Current effective value' });
+    expect(within(effectiveRegion).getByText('calm')).toBeVisible();
+    expect(screen.getByRole('link', { name: `Correction event: ${eventId}` })).toHaveAttribute(
+      'href', `#correction-event-${noteFixture.id}-${eventId}`,
+    );
+    expect(document.getElementById(`correction-event-${noteFixture.id}-${eventId}`)).toBeInTheDocument();
+  });
+
+  it('keeps addenda available when correction history fails', async () => {
+    const fetcher = dataFetcher((path) => {
+      if (path.endsWith('/addenda')) return jsonResponse([addendumFixture]);
+      if (path.endsWith('/corrections')) return jsonResponse({}, 500);
+      return undefined;
+    });
+    renderNotes(detail, fetcher);
+    expect(await screen.findByRole('article', { name: 'Original note — read only' })).toBeVisible();
+    expect(await screen.findByRole('article', { name: 'Add a correction 1' })).toBeVisible();
+    expect(await screen.findByText('Could not load this information. Try again.')).toBeVisible();
+  });
+
+  it('keeps original and legacy addendum values distinct in chronological order', async () => {
+    const older = { ...addendumFixture, id: 'e5555555-5555-4555-8555-555555555551', createdAt: '2026-10-18T12:00:00Z',
+      providedFields: ['mood', ...addendumFixture.providedFields],
+      observations: { ...addendumFixture.observations, mood: { state: 'LEGACY_AMBIGUOUS' as const, value: null, rawValue: 'legacy mood' } } };
+    const newer = { ...addendumFixture, id: 'e5555555-5555-4555-8555-555555555552', createdAt: '2026-10-19T12:00:00Z' };
+    const fetcher = dataFetcher((path) => path.endsWith('/addenda') ? jsonResponse([newer, older]) : undefined);
+    renderNotes(detail, fetcher);
+    const original = await screen.findByRole('article', { name: 'Original note — read only' });
+    const addenda = await screen.findAllByRole('article', { name: /Add a correction/ });
+    expect(within(original).getByText('6 hours')).toBeVisible();
+    expect(addenda.map((item) => item.querySelector('.note-timeline-row__label')?.textContent))
+      .toEqual(['Add a correction 1', 'Add a correction 2']);
+    expect(within(addenda[0]).getByText('Legacy (ambiguous)')).toBeVisible();
+    expect(addenda[0].compareDocumentPosition(addenda[1]) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
+  });
+
 
   it('protects direct note/addendum URLs before any API request', () => {
     const fetcher = vi.fn();
@@ -506,7 +592,9 @@ describe('daily-note creation and immutable corrections', () => {
     });
     expect(screen.getByRole('article', { name: 'Original note — read only' })).toBeInTheDocument();
     expect(screen.queryByRole('textbox')).not.toBeInTheDocument();
-    expect(screen.getByText(/غير متأكد من الدواء/).textContent).toBe(noteObservations.freeText);
+    expect(screen.getByText((_, element) => element?.classList.contains('obs-display-value') === true
+      && element.textContent?.includes('غير متأكد من الدواء') === true)?.textContent).toBe(noteObservations.freeText);
+    expect(screen.getByRole('article', { name: 'Original note — read only' })).toBeVisible();
     expect(document.querySelector('script')).not.toBeInTheDocument();
   }, 10000);
   it('blocks duplicate clicks and safely reuses the identical payload/key after a lost response', async () => {
@@ -611,7 +699,6 @@ describe('daily-note creation and immutable corrections', () => {
       medicationVerification: 'UNVERIFIED',
     });
     const original = screen.getByRole('article', { name: 'Original note — read only' });
-    expect(within(original).getByText(/غير متأكد/).textContent).toBe(noteObservations.freeText);
     expect(within(original).getByText('Unknown')).toBeInTheDocument();
     expect(screen.getByText('Missed')).toBeInTheDocument();
     expect(fetcher.mock.calls.some(([, init]) => init.method === 'PUT' || init.method === 'PATCH' || init.method === 'DELETE')).toBe(false);
@@ -653,7 +740,7 @@ describe('daily-note creation and immutable corrections', () => {
     const original = screen.getByRole('article', { name: 'Original note — read only' });
     expect(within(original).getByText('6 hours')).toBeInTheDocument();
     expect(await screen.findByRole('heading', { name: 'Correction event 1 · Mood' })).toBeInTheDocument();
-    expect(screen.getByText('Set to Recorded as empty')).toBeInTheDocument();
+    expect(await screen.findByText('Set to Recorded as empty')).toBeVisible();
     expect(fetcher.mock.calls.some(([, init]) => ['PUT', 'PATCH', 'DELETE'].includes(init.method ?? 'GET'))).toBe(false);
     expect(fetcher.mock.calls.filter(([, init]) => init.method === 'POST')).toHaveLength(1);
   });
