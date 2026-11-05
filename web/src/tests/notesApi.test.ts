@@ -38,7 +38,14 @@ function correctionResponse() {
   effectiveObservations.mood = event.effectiveAfter;
   effectiveObservations.painScore = effective('RECORDED', 0);
   effectiveObservations.fallReported = effective('RECORDED', false);
-  return { originalNote: noteFixture, events: [event], effectiveObservations };
+  const originalNote = { ...noteFixture, correctionCount: 1 };
+  return { originalNote, events: [event], effectiveObservations };
+}
+function replaceMoodState(
+  observation: EffectiveObservation,
+  state: EffectiveObservation['state'],
+): EffectiveObservation {
+  return { ...observation, state };
 }
 
 function setup(body: unknown, status = 200) {
@@ -226,6 +233,137 @@ describe('daily-note API and explicit observation values', () => {
       expect(fetcher).toHaveBeenCalledTimes(1);
     }
   });
+  it('accepts untouched effective observations that match the original note', async () => {
+    const response = correctionResponse();
+    const { api } = setup(response);
+    const history = await api.correctionHistory(noteFixture.id);
+    expect(history.effectiveObservations.appetite).toMatchObject({
+      state: noteFixture.observations.appetite.state,
+      value: noteFixture.observations.appetite.value,
+      rawValue: noteFixture.observations.appetite.rawValue ?? null,
+      lastOperation: null,
+      eventId: null,
+      actorId: null,
+      updatedAt: noteFixture.createdAt,
+    });
+  });
+
+  it.each([
+    ['different value', (value: EffectiveObservation) => ({ ...value, value: 'angry' })],
+    ['different state', (value: EffectiveObservation) => replaceMoodState(value, 'UNKNOWN')],
+    ['different raw value', (value: EffectiveObservation) => ({ ...value, rawValue: 'unexpected' })],
+    ['different correction provenance', (value: EffectiveObservation) => ({
+      ...value, eventId: 'f6666666-6666-4666-8666-666666666667',
+    })],
+    ['different correction actor', (value: EffectiveObservation) => ({
+      ...value, actorId: 'a2222222-2222-4222-8222-222222222222',
+    })],
+    ['different correction timestamp', (value: EffectiveObservation) => ({ ...value, updatedAt: '2026-10-20T12:00:00Z' })],
+    ['different correction operation', (value: EffectiveObservation) => ({ ...value, lastOperation: 'UNKNOWN' as const })],
+  ])('rejects an effective observation with %s', async (_label, alter) => {
+    const response = correctionResponse();
+    const { api } = setup({
+      ...response,
+      effectiveObservations: {
+        ...response.effectiveObservations,
+        mood: alter(response.effectiveObservations.mood),
+      },
+    });
+    await expect(api.correctionHistory(noteFixture.id)).rejects.toThrow('Invalid correction history response');
+  });
+
+  it.each([
+    ['value', (value: EffectiveObservation) => ({ ...value, value: 'angry' })],
+    ['state', (value: EffectiveObservation) => replaceMoodState(value, 'UNKNOWN')],
+    ['rawValue', (value: EffectiveObservation) => ({ ...value, rawValue: 'unexpected' })],
+  ])('rejects an untouched effective field with a different %s from the original', async (_label, alter) => {
+    const response = correctionResponse();
+    const { api } = setup({
+      ...response,
+      effectiveObservations: {
+        ...response.effectiveObservations,
+        appetite: alter(response.effectiveObservations.appetite),
+      },
+    });
+    await expect(api.correctionHistory(noteFixture.id)).rejects.toThrow('Invalid correction history response');
+  });
+
+  it.each([0, 2])('rejects correction count %s when one event is present', async (correctionCount) => {
+    const response = correctionResponse();
+    const { api } = setup({
+      ...response,
+      originalNote: { ...response.originalNote, correctionCount },
+    });
+    await expect(api.correctionHistory(noteFixture.id)).rejects.toThrow('Invalid correction history response');
+  });
+
+  it('rejects a first event whose previous effective observation differs from the original', async () => {
+    const response = correctionResponse();
+    const [event] = response.events;
+    const { api } = setup({
+      ...response,
+      events: [{ ...event, previousEffective: { ...event.previousEffective, value: 'angry' } }],
+    });
+    await expect(api.correctionHistory(noteFixture.id)).rejects.toThrow('Invalid correction history response');
+  });
+
+  it('rejects a later event whose previous effective state breaks replay continuity', async () => {
+    const response = correctionResponse();
+    const first = response.events[0];
+    const secondId = 'f6666666-6666-4666-8666-666666666667';
+    const second = {
+      ...first,
+      id: secondId,
+      sequenceNo: 2,
+      createdAt: '2026-10-19T12:00:00Z',
+      value: 'relaxed',
+      previousEffective: { ...first.effectiveAfter, value: 'angry' },
+      effectiveAfter: effective('RECORDED', 'relaxed', 'SET', {
+        eventId: secondId,
+        actorId: first.actorId,
+        updatedAt: '2026-10-19T12:00:00Z',
+      }),
+    };
+    const { api } = setup({
+      ...response,
+      events: [first, second],
+      originalNote: { ...response.originalNote, correctionCount: 2 },
+      effectiveObservations: { ...response.effectiveObservations, mood: second.effectiveAfter },
+    });
+    await expect(api.correctionHistory(noteFixture.id)).rejects.toThrow('Invalid correction history response');
+  });
+
+  it('replays corrections on different fields in sequence and validates untouched fields independently', async () => {
+    const response = correctionResponse();
+    const first = response.events[0];
+    const secondId = 'f6666666-6666-4666-8666-666666666667';
+    const appetite = response.originalNote.observations.appetite;
+    const second = {
+      id: secondId,
+      noteId: noteFixture.id,
+      sequenceNo: 2,
+      createdAt: '2026-10-19T12:00:00Z',
+      actorId: first.actorId,
+      field: 'appetite',
+      operation: 'SET',
+      value: 'hungry',
+      previousEffective: effective(appetite.state, appetite.value ?? null),
+      effectiveAfter: effective('RECORDED', 'hungry', 'SET', {
+        eventId: secondId,
+        actorId: first.actorId,
+        updatedAt: '2026-10-19T12:00:00Z',
+      }),
+    };
+    const { api } = setup({
+      ...response,
+      events: [first, second],
+      originalNote: { ...response.originalNote, correctionCount: 2 },
+      effectiveObservations: { ...response.effectiveObservations, appetite: second.effectiveAfter },
+    });
+    const history = await api.correctionHistory(noteFixture.id);
+    expect(history.events.map((event) => event.field)).toEqual(['mood', 'appetite']);
+    expect(history.effectiveObservations.sleep.value).toBe(noteFixture.observations.sleep.value);
+  });
 
   it('rejects effective-value provenance that does not reference a correction event', async () => {
     const response = correctionResponse();
@@ -265,6 +403,7 @@ describe('daily-note API and explicit observation values', () => {
     const { api } = setup({
       ...response,
       events: [first, second],
+      originalNote: { ...response.originalNote, correctionCount: 2 },
       effectiveObservations: { ...response.effectiveObservations, mood: second.effectiveAfter },
     });
     const history = await api.correctionHistory(noteFixture.id);

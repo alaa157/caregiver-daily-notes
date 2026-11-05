@@ -8,8 +8,9 @@ import { useI18n } from '../../i18n/I18nProvider';
 import { NoteForm } from './NoteForm';
 import { ObservationValues } from './ObservationValues';
 import { CorrectionEditor } from './CorrectionEditor';
-import { CorrectionHistory } from './CorrectionHistory';
 import { NoteTimelineRow } from './NoteTimelineRow';
+import { CorrectionEffectiveValues, CorrectionEventRow } from './CorrectionHistory';
+import { fieldLabels } from './noteForm';
 import { useNoteResource, useNotesApis } from './useNotes';
 import './notes.css';
 
@@ -53,8 +54,8 @@ export function CreateNotePage() {
   </NotesLayout>;
 }
 
-function CorrectionSection({
-  id, recipientActive, lifecycleStatus, editing, onEdit, onCancel, onSaved,
+function NoteChangesTimeline({
+  id, recipientActive, lifecycleStatus, editing, onEdit, onCancel, onSaved, date,
 }: {
   id: string;
   recipientActive: boolean;
@@ -63,62 +64,69 @@ function CorrectionSection({
   onEdit: () => void;
   onCancel: () => void;
   onSaved: () => void;
-}) {
-  const { t } = useI18n();
-  const api = useNotesApis();
-  const load = useCallback((signal: AbortSignal) => api.notes.correctionHistory(id, signal), [api, id]);
-  const { state, reload } = useNoteResource(load);
-  return <section className="note-surface note-structured-corrections" aria-labelledby={`structured-correction-title-${id}`}>
-    <div className="note-actions"><h2 id={`structured-correction-title-${id}`}>{t('notesStructuredCorrections')}</h2>
-      {recipientActive && !editing && <Button onClick={onEdit}>{t('notesAddStructuredCorrection')}</Button>}
-      {!recipientActive && <p className="note-hint">{t(lifecycleStatus === 'ARCHIVED' ? 'recipientArchivedReadonly' : 'recipientLegacyReviewDescription')}</p>}
-    </div>
-    {editing ? <CorrectionEditor onCancel={onCancel} onSave={async (entries: FieldCorrection[], key, signal) => {
-      await api.notes.correct(id, entries, key, signal);
-      if (!signal.aborted) reload();
-      if (!signal.aborted) onSaved();
-    }} /> : state.status === 'loading'
-      ? <LoadingState label={t('notesLoading')} />
-      : state.status === 'error'
-        ? <ErrorState description={t(noteErrorMessage(state.error))} onRetry={reload} />
-        : <CorrectionHistory history={state.data} idPrefix={id} />}
-  </section>;
-}
-
-
-function AddendaSection({
-  id, recipientActive, lifecycleStatus, date,
-}: {
-  id: string;
-  recipientActive: boolean;
-  lifecycleStatus: 'ACTIVE' | 'ARCHIVED' | 'LEGACY_INACTIVE_REVIEW';
   date: (value: string, instant?: boolean) => string;
 }) {
   const { t, language } = useI18n();
   const api = useNotesApis();
-  const load = useCallback((signal: AbortSignal) => api.notes.addenda(id, signal), [api, id]);
-  const { state, reload } = useNoteResource(load);
-  const orderedAddenda = state.status === 'ready'
-    ? [...state.data].sort((left, right) => Date.parse(left.createdAt) - Date.parse(right.createdAt) || left.id.localeCompare(right.id))
+  const loadAddenda = useCallback((signal: AbortSignal) => api.notes.addenda(id, signal), [api, id]);
+  const loadCorrections = useCallback((signal: AbortSignal) => api.notes.correctionHistory(id, signal), [api, id]);
+  const { state: addendaState, reload: reloadAddenda } = useNoteResource(loadAddenda);
+  const { state: correctionState, reload: reloadCorrections } = useNoteResource(loadCorrections);
+  const addenda = addendaState.status === 'ready'
+    ? [...addendaState.data].sort((left, right) => Date.parse(left.createdAt) - Date.parse(right.createdAt)
+      || (left.id < right.id ? -1 : left.id > right.id ? 1 : 0))
     : [];
-  return <section className="note-addenda" aria-labelledby={`note-addenda-title-${id}`}>
-    <div className="note-actions"><h2 id={`note-addenda-title-${id}`}>{t('notesAddenda')}</h2>
-      {recipientActive ? <ButtonLink to={`${notesPath}/${id}/addenda/new`}>{t('notesAppend')}</ButtonLink>
-        : <p className="note-hint">{t(lifecycleStatus === 'ARCHIVED' ? 'recipientArchivedReadonly' : 'recipientLegacyReviewDescription')}</p>}
+  const events = correctionState.status === 'ready' ? correctionState.data.events : [];
+  const addendumNumber = new Map(addenda.map((entry, index) => [entry.id, index + 1]));
+  const timeline = [
+    ...addenda.map((entry) => ({ kind: 'addendum' as const, id: entry.id, createdAt: entry.createdAt, entry })),
+    ...events.map((event) => ({ kind: 'correction' as const, id: event.id, createdAt: event.createdAt, event })),
+  ].sort((left, right) => Date.parse(left.createdAt) - Date.parse(right.createdAt)
+    || (left.kind === right.kind ? 0 : left.kind === 'correction' ? -1 : 1)
+    || (left.id < right.id ? -1 : left.id > right.id ? 1 : 0));
+  const titleId = `note-changes-title-${id}`;
+
+  return <section className="note-surface note-structured-corrections" aria-labelledby={titleId}>
+    <div className="note-actions"><h2 id={titleId}>{t('notesChanges')}</h2>
+      {recipientActive && !editing && <Button onClick={onEdit}>{t('notesAddStructuredCorrection')}</Button>}
+      {!recipientActive && <p className="note-hint">{t(lifecycleStatus === 'ARCHIVED' ? 'recipientArchivedReadonly' : 'recipientLegacyReviewDescription')}</p>}
+      {recipientActive && <ButtonLink to={`${notesPath}/${id}/addenda/new`}>{t('notesAppend')}</ButtonLink>}
     </div>
-    {state.status === 'loading' ? <LoadingState label={t('notesLoading')} />
-      : state.status === 'error' ? <ErrorState description={t(noteErrorMessage(state.error))} onRetry={reload} />
-        : orderedAddenda.length === 0 ? <p className="note-surface">{t('notesNoAddenda')}</p>
-          : <ol className="note-addenda-list">{orderedAddenda.map((item, index) => <li key={item.id}>
-            <NoteTimelineRow
-              entryLabel={`${t('notesAppend')} ${new Intl.NumberFormat(language === 'ar' ? 'ar-EG' : 'en').format(index + 1)}`}
-              dateLabel={date(item.createdAt, true)}
-              dateTime={item.createdAt}
-              provenance={<><span>{t('notesTimelineSourceId')}:</span> <bdi>{item.id}</bdi></>}
-              body={<ObservationValues values={item.observations} providedFields={item.providedFields}
-                verificationProvided={item.medicationVerificationProvided} correction />}
-            />
-          </li>)}</ol>}
+    {addendaState.status === 'loading' && <LoadingState label={t('notesLoading')} />}
+    {addendaState.status === 'error' && <ErrorState description={t(noteErrorMessage(addendaState.error))} onRetry={reloadAddenda} />}
+    {correctionState.status === 'loading' && <LoadingState label={t('notesLoading')} />}
+    {correctionState.status === 'error' && <ErrorState description={t(noteErrorMessage(correctionState.error))} onRetry={reloadCorrections} />}
+    {correctionState.status === 'ready' && correctionState.data.events.length > 0
+      && <CorrectionEffectiveValues history={correctionState.data} idPrefix={id} />}
+    {addendaState.status === 'ready' && addenda.length === 0 && <p className="note-hint">{t('notesNoAddenda')}</p>}
+    {correctionState.status === 'ready' && correctionState.data.events.length === 0
+      && <p className="note-hint">{t('notesNoStructuredCorrections')}</p>}
+    {editing && <CorrectionEditor onCancel={onCancel} onSave={async (entries: FieldCorrection[], key, signal) => {
+      await api.notes.correct(id, entries, key, signal);
+      if (!signal.aborted) {
+        reloadCorrections();
+        onSaved();
+      }
+    }} />}
+    {timeline.length > 0 && <ol className="note-addenda-list">{timeline.map((item) => (
+      item.kind === 'addendum'
+        ? <li key={`addendum:${item.id}`}>
+          <NoteTimelineRow
+            entryLabel={`${t('notesAppend')} ${new Intl.NumberFormat(language === 'ar' ? 'ar-EG' : 'en').format(addendumNumber.get(item.id) ?? 0)}`}
+            dateLabel={date(item.createdAt, true)}
+            dateTime={item.createdAt}
+            provenance={<>{t('notesTimelineSourceId')}: <bdi>{item.id}</bdi></>}
+            body={<ObservationValues values={item.entry.observations} providedFields={item.entry.providedFields}
+              verificationProvided={item.entry.medicationVerificationProvided} correction />}
+          />
+        </li>
+        : <li key={`correction:${item.id}`}>
+          <CorrectionEventRow event={item.event} idPrefix={id}
+            entryLabel={`${t('notesCorrectionEvent')} ${new Intl.NumberFormat(language === 'ar' ? 'ar-EG' : 'en').format(item.event.sequenceNo)} · ${t(fieldLabels[item.event.field])}`} />
+        </li>
+    ))}</ol>}
+    {timeline.length === 0 && addendaState.status === 'ready' && correctionState.status === 'ready'
+      && <p className="note-hint">{t('notesNoChanges')}</p>}
   </section>;
 }
 
@@ -162,8 +170,7 @@ function NoteRecord({ id, append }: { id: string; append: boolean }) {
           await api.notes.append(id, input as AddendumInput, key, signal);
           if (!signal.aborted) navigate(`${notesPath}/${id}`, { replace: true, state: { noteNotice: 'appended' } });
         }} /></div> : <>
-      <AddendaSection id={id} recipientActive={state.data.recipient.active} lifecycleStatus={state.data.recipient.lifecycleStatus} date={date} />
-      <CorrectionSection
+      <NoteChangesTimeline
         id={id}
         recipientActive={state.data.recipient.active}
         lifecycleStatus={state.data.recipient.lifecycleStatus}
@@ -174,6 +181,7 @@ function NoteRecord({ id, append }: { id: string; append: boolean }) {
           setEditingCorrection(false);
           navigate(`${notesPath}/${id}`, { replace: true, state: { noteNotice: 'correctionSaved' } });
         }}
+        date={date}
       />
       </>}
     </>}
