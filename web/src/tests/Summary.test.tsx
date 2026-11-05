@@ -300,6 +300,35 @@ describe('on-demand summary and safety workflow', () => {
     expect(await screen.findByRole('heading', { name: 'Caregiver sign in' })).toBeInTheDocument();
     expect(sessionStorage.getItem('caregiver-auth-session-v1')).toBeNull();
   });
+  it('shows exact summary dates and trend sample counts', async () => {
+    show(dataFetcher()); await generate();
+    expect(screen.getByText('2026-10-18')).toBeVisible(); expect(screen.getByText('2026-10-24')).toBeVisible();
+    expect(screen.getByText('Events: 1')).toBeVisible(); expect(screen.getByText('Recorded observations: 4')).toBeVisible();
+    expect(screen.getByText('Events: 3')).toBeVisible(); expect(screen.getByText('Recorded observations: 6')).toBeVisible();
+  });
+  it('shows no recorded data instead of zero for empty trend sample', async () => {
+    const fixture = summaryFixture(); fixture.trends[0].previousSampleSize = 0;
+    const fetcher = dataFetcher((path) => path === summaryTestPath ? jsonResponse(fixture) : undefined);
+    show(fetcher); await generate();
+    expect(screen.getByText('No recorded data for this period')).toBeVisible();
+    expect(screen.queryByText('Events: 1')).not.toBeInTheDocument(); expect(screen.getByText('Events: 3')).toBeVisible();
+    expect(screen.getByText('Recorded observations: 6')).toBeVisible(); expect(screen.queryByText('Change')).not.toBeInTheDocument();
+  });
+  it('shows recorded zero event count when sample size is nonzero', async () => {
+    const fixture = summaryFixture(); fixture.trends[0].previousCount = 0; fixture.trends[0].previousSampleSize = 3; fixture.trends[0].delta = 3;
+    show(dataFetcher((path) => path === summaryTestPath ? jsonResponse(fixture) : undefined)); await generate();
+    expect(screen.getByText('Events: 0')).toBeVisible(); expect(screen.getByText('Recorded observations: 3')).toBeVisible();
+    expect(screen.queryByText('No recorded data for this period')).not.toBeInTheDocument();
+  });
+  it('renders trend sample labels in Arabic', async () => {
+    const fixture = summaryFixture(); fixture.trends[0].previousSampleSize = 0;
+    show(dataFetcher((path) => path === summaryTestPath ? jsonResponse(fixture) : undefined)); await generate();
+    await userEvent.click(screen.getByRole('button', { name: 'التغيير إلى العربية' }));
+    expect(document.documentElement).toHaveAttribute('dir', 'rtl');
+    expect(screen.getByText('لا توجد بيانات مسجلة لهذه الفترة')).toBeVisible();
+    expect(screen.getByText(/عدد الأحداث: ٣/)).toBeVisible(); expect(screen.getByText(/المشاهدات المسجلة: ٦/)).toBeVisible();
+    expect(screen.queryByText('Previous period')).not.toBeInTheDocument(); expect(screen.queryByText('Events')).not.toBeInTheDocument();
+  });
   it('renders Arabic/RTL and bidi isolation; language changes do not regenerate or store summary content', async () => {
     const fetcher = dataFetcher(); show(fetcher); await generate();
     await userEvent.click(screen.getByRole('button', { name: 'التغيير إلى العربية' }));

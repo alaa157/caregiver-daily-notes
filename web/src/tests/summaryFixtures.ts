@@ -25,6 +25,6 @@ export function summaryFixture() {
       aiUnavailable: false,
     },
     safety: { needsDoctorBanner: true, signals: [{ ruleId: 'FALL_DETECTED', severity: 'HIGH', reason: 'Fall reported in period / تم الإبلاغ عن سقوط' }] },
-    trends: [{ metric: 'poor_appetite', previousCount: 1, currentCount: 3, delta: 2 }],
+    trends: [{ metric: 'poor_appetite', previousCount: 1, currentCount: 3, delta: 2, previousSampleSize: 4, currentSampleSize: 6 }],
   };
 }

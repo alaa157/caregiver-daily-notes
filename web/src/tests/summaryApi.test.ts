@@ -130,6 +130,23 @@ describe('safety survives invalid generated content', () => {
     expect(result.safety).toMatchObject({ needsDoctorBanner: true, signals: fixture.safety.signals });
     expect(result.trends).toEqual(fixture.trends);
   });
+  it('parses trend sample sizes', () => {
+    const result = readSummaryResponse(summaryFixture());
+    expect(result.invalidContent).toBe(false);
+    expect(result.trends[0]).toEqual({ metric: 'poor_appetite', previousCount: 1, currentCount: 3, delta: 2, previousSampleSize: 4, currentSampleSize: 6 });
+  });
+  it('rejects negative trend sample size', () => {
+    for (const change of [{ currentSampleSize: -1 }, { previousSampleSize: undefined }, { currentSampleSize: null }, { previousSampleSize: '4' }, { currentSampleSize: 1.5 }, { previousSampleSize: Number.MAX_SAFE_INTEGER + 1 }]) {
+      const fixture = summaryFixture(); Object.assign(fixture.trends[0], change);
+      const result = readSummaryResponse(fixture);
+      expect(result.trends).toEqual([]); expect(result.invalidContent).toBe(true);
+    }
+  });
+  it('rejects trend delta that does not match counts', () => {
+    const fixture = summaryFixture(); fixture.trends[0].previousCount = 2; fixture.trends[0].currentCount = 3; fixture.trends[0].delta = 0;
+    const result = readSummaryResponse(fixture);
+    expect(result.trends).toEqual([]); expect(result.invalidContent).toBe(true);
+  });
   it('does not invent counts or repair contradictory backend trends', () => {
     const fixture = summaryFixture(); fixture.trends[0].delta = 99;
     const result = readSummaryResponse(fixture);

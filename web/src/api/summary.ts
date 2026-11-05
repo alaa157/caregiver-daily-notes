@@ -13,7 +13,7 @@ export interface SummaryContent {
 }
 export interface SafetySignal { ruleId: string | null; severity: string | null; reason: string | null }
 export interface SummarySafety { signals: SafetySignal[]; needsDoctorBanner: boolean; incomplete: boolean }
-export interface SummaryTrend { metric: string; previousCount: number; currentCount: number; delta: number }
+export interface SummaryTrend { metric: string; previousCount: number; currentCount: number; delta: number; previousSampleSize: number; currentSampleSize: number }
 export interface SummaryResponse { safety: SummarySafety; summary: SummaryContent | null; trends: SummaryTrend[]; invalidContent: boolean }
 
 const object = (value: unknown): Record<string, unknown> | null => value !== null && typeof value === 'object' && !Array.isArray(value)
@@ -63,8 +63,11 @@ export function readSummaryResponse(value: unknown): SummaryResponse {
       const trend = object(value);
       if (!trend || !nonempty(trend.metric) || !Number.isSafeInteger(trend.previousCount) || (trend.previousCount as number) < 0
         || !Number.isSafeInteger(trend.currentCount) || (trend.currentCount as number) < 0 || !Number.isSafeInteger(trend.delta)
+        || !Number.isSafeInteger(trend.previousSampleSize) || (trend.previousSampleSize as number) < 0
+        || !Number.isSafeInteger(trend.currentSampleSize) || (trend.currentSampleSize as number) < 0
         || trend.delta !== (trend.currentCount as number) - (trend.previousCount as number)) throw new Error();
-      return { metric: trend.metric, previousCount: trend.previousCount as number, currentCount: trend.currentCount as number, delta: trend.delta as number };
+      return { metric: trend.metric, previousCount: trend.previousCount as number, currentCount: trend.currentCount as number, delta: trend.delta as number,
+        previousSampleSize: trend.previousSampleSize as number, currentSampleSize: trend.currentSampleSize as number };
     });
   } catch { invalidContent = true; }
   return { safety, summary, trends, invalidContent };
