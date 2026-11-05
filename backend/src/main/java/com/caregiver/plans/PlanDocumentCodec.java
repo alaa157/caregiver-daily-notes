@@ -9,9 +9,14 @@ public class PlanDocumentCodec {
   private final ObjectMapper mapper;
   public PlanDocumentCodec(ObjectMapper mapper) { this.mapper = mapper.copy().enable(DeserializationFeature.FAIL_ON_UNKNOWN_PROPERTIES); }
   public PlanDocument read(CarePlan plan) {
-    if (plan.getSourceType() != PlanSource.AI_GENERATED && plan.getSourceType() != PlanSource.CAREGIVER_EDITED) return null;
+    boolean caregiverSubmitted = plan.getSourceType() == PlanSource.CAREGIVER_SUBMITTED;
+    if (!caregiverSubmitted && plan.getSourceType() != PlanSource.AI_GENERATED
+        && plan.getSourceType() != PlanSource.CAREGIVER_EDITED) return null;
     try { return mapper.readValue(plan.getContent(), PlanDocument.class); }
-    catch (Exception invalidStoredDocument) { throw new ProtectedPlanException(); }
+    catch (Exception invalidStoredDocument) {
+      if (caregiverSubmitted) return null;
+      throw new ProtectedPlanException();
+    }
   }
   public String write(PlanDocument document) {
     try {
