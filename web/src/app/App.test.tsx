@@ -1,6 +1,6 @@
 import { render, screen, waitFor, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
-import { MemoryRouter, useLocation } from 'react-router-dom';
+import { MemoryRouter, useLocation, useNavigate } from 'react-router-dom';
 import { describe, expect, it, vi } from 'vitest';
 import { AuthProvider } from './AuthContext';
 import { I18nProvider } from '../i18n/I18nProvider';
@@ -20,13 +20,26 @@ function CurrentPath() {
   return <output data-testid="current-path">{useLocation().pathname}</output>;
 }
 
-function renderAuthenticatedRoute(path: string, fetcher: unknown) {
+function HistoryControls() {
+  const navigate = useNavigate();
+  return <>
+    <button type="button" onClick={() => navigate(-1)}>Test back</button>
+    <button type="button" onClick={() => navigate(1)}>Test forward</button>
+  </>;
+}
+
+function renderAuthenticatedRoute(path: string, fetcher: unknown, withHistoryControls = false) {
   vi.stubGlobal('fetch', fetcher);
+  localStorage.clear();
   localStorage.setItem('caregiver-language', 'en');
   sessionStorage.clear();
   sessionStorage.setItem('caregiver-auth-session-v1', JSON.stringify({ token: testToken(), baseUrl: '' }));
   return render(<I18nProvider><ApiProvider config={{ apiBaseUrl: '' }}><AuthProvider>
-    <MemoryRouter initialEntries={[path]}><App /><CurrentPath /></MemoryRouter>
+    <MemoryRouter initialEntries={[path]}>
+      {withHistoryControls && <HistoryControls />}
+      <App />
+      <CurrentPath />
+    </MemoryRouter>
   </AuthProvider></ApiProvider></I18nProvider>);
 }
 
@@ -216,6 +229,100 @@ describe('application foundation', () => {
     await waitFor(() => expect(screen.getByTestId('current-path').textContent).toBe('/app/recipients'));
   });
 
+  it('opens recipient detail from a direct route', async () => {
+    const fetcher = vi.fn().mockImplementation((path: string) => Promise.resolve(
+      jsonResponse(path.startsWith('/api/recipients?') ? [recipientFixture] : recipientFixture),
+    ));
+    renderAuthenticatedRoute(`/app/recipients/${recipientFixture.id}`, fetcher);
+
+    expect(await screen.findByRole('heading', { name: recipientFixture.name })).toBeVisible();
+    expect(screen.getByRole('heading', { name: 'Recipient details' })).toBeVisible();
+    expect(document.querySelector('.recipient-list')).toBeNull();
+    expect(screen.getByTestId('current-path')).toHaveTextContent(`/app/recipients/${recipientFixture.id}`);
+  });
+
+  it('opens note detail from a direct route', async () => {
+    const correctionHistory = correctionHistoryFixture();
+    const fetcher = vi.fn().mockImplementation((path: string) => {
+      if (path.startsWith('/api/recipients?') || path === '/api/recipients') return Promise.resolve(jsonResponse([recipientFixture]));
+      if (path.startsWith('/api/recipients/')) return Promise.resolve(jsonResponse(recipientFixture));
+      if (path.endsWith('/addenda')) return Promise.resolve(jsonResponse([]));
+      if (path.endsWith('/corrections')) return Promise.resolve(jsonResponse(correctionHistory));
+      if (path.startsWith('/api/notes?')) return Promise.resolve(jsonResponse({ content: [], number: 0, size: 20, totalElements: 0, totalPages: 0 }));
+      return Promise.resolve(jsonResponse(noteFixture));
+    });
+    renderAuthenticatedRoute(`/app/notes/${noteFixture.id}`, fetcher);
+
+    expect(await screen.findByRole('heading', { name: 'Original note — read only' })).toBeVisible();
+    expect(screen.getByText(/غير متأكد من الدواء\./)).toBeVisible();
+    expect(screen.queryByRole('heading', { name: 'Notes history' })).not.toBeInTheDocument();
+    expect(screen.queryByRole('form', { name: 'Record a daily note' })).not.toBeInTheDocument();
+    expect(screen.getByTestId('current-path')).toHaveTextContent(`/app/notes/${noteFixture.id}`);
+  });
+
+  it('opens note addendum route directly', async () => {
+    const fetcher = vi.fn().mockImplementation((path: string) => {
+      if (path.startsWith('/api/recipients/')) return Promise.resolve(jsonResponse(recipientFixture));
+      if (path.endsWith('/addenda')) return Promise.resolve(jsonResponse([]));
+      if (path.endsWith('/corrections')) return Promise.resolve(jsonResponse(correctionHistoryFixture()));
+      return Promise.resolve(jsonResponse(noteFixture));
+    });
+    renderAuthenticatedRoute(`/app/notes/${noteFixture.id}/addenda/new`, fetcher);
+
+    expect(await screen.findByRole('heading', { name: 'Add a correction' })).toBeVisible();
+    expect(screen.getByRole('form', { name: 'Add a correction' })).toBeVisible();
+    expect(screen.getByRole('button', { name: 'Save addendum' })).toBeVisible();
+    expect(screen.getByRole('link', { name: 'Back to this note' })).toHaveAttribute('href', `/app/notes/${noteFixture.id}`);
+    expect(screen.queryByRole('heading', { name: 'Daily note details' })).not.toBeInTheDocument();
+    expect(screen.getByTestId('current-path')).toHaveTextContent(`/app/notes/${noteFixture.id}/addenda/new`);
+    expect(fetcher).toHaveBeenCalledWith(`/api/notes/${noteFixture.id}`, expect.anything());
+  });
+
+  it('shows recipient not found for an unknown recipient child route', () => {
+    renderAuthenticatedRoute('/app/recipients/unknown/invalid-child', vi.fn());
+
+    expect(screen.getByRole('heading', { name: 'Page not found' })).toBeVisible();
+    expect(screen.getByText(/This recipient is unavailable\./)).toBeVisible();
+    expect(screen.queryByText(/We couldn’t find that page\./)).not.toBeInTheDocument();
+    expect(screen.getByTestId('current-path')).toHaveTextContent('/app/recipients/unknown/invalid-child');
+  });
+
+  it('shows notes not found for an unknown note child route', () => {
+    renderAuthenticatedRoute('/app/notes/unknown/invalid-child', vi.fn());
+
+    expect(screen.getByRole('heading', { name: 'Page not found' })).toBeVisible();
+    expect(screen.getByText('This note or recipient is not available. Choose a record from your workspace.')).toBeVisible();
+    expect(screen.queryByText(/We couldn’t find that page\./)).not.toBeInTheDocument();
+    expect(screen.getByTestId('current-path')).toHaveTextContent('/app/notes/unknown/invalid-child');
+  });
+
+  it('restores previous caregiver routes with Back and Forward without storing resource IDs', async () => {
+    const user = userEvent.setup();
+    const fetcher = vi.fn().mockImplementation((path: string) => Promise.resolve(
+      jsonResponse(path.startsWith('/api/recipients?') ? [recipientFixture] : recipientFixture),
+    ));
+    renderAuthenticatedRoute('/app/recipients', fetcher, true);
+    expect(await screen.findByRole('heading', { name: 'Care recipients' })).toBeVisible();
+
+    await user.click(screen.getByRole('link', { name: recipientFixture.name }));
+    expect(await screen.findByRole('heading', { name: 'Samir Hassan' })).toBeVisible();
+    expect(screen.getByTestId('current-path')).toHaveTextContent(`/app/recipients/${recipientFixture.id}`);
+
+    await user.click(screen.getByRole('link', { name: 'Edit recipient' }));
+    expect(await screen.findByRole('heading', { name: 'Edit recipient' })).toBeVisible();
+    expect(screen.getByTestId('current-path')).toHaveTextContent(`/app/recipients/${recipientFixture.id}/edit`);
+    expect(JSON.stringify(localStorage)).not.toContain(recipientFixture.id);
+
+    await user.click(screen.getByRole('button', { name: 'Test back' }));
+    expect(await screen.findByRole('heading', { name: 'Recipient details' })).toBeVisible();
+    expect(screen.getByTestId('current-path')).toHaveTextContent(`/app/recipients/${recipientFixture.id}`);
+
+    await user.click(screen.getByRole('button', { name: 'Test forward' }));
+    expect(await screen.findByRole('heading', { name: 'Edit recipient' })).toBeVisible();
+    expect(screen.getByTestId('current-path')).toHaveTextContent(`/app/recipients/${recipientFixture.id}/edit`);
+    expect(JSON.stringify(localStorage)).not.toContain(recipientFixture.id);
+  });
+
   it('returns note detail to history', async () => {
     const historyPage = { content: [], number: 0, size: 20, totalElements: 0, totalPages: 0 };
     const correctionHistory = correctionHistoryFixture();
@@ -237,4 +344,20 @@ describe('application foundation', () => {
     await userEvent.click(history);
     await waitFor(() => expect(screen.getByTestId('current-path').textContent).toBe('/app/notes'));
   });
+
+  it.each([
+    '/app/recipients/a1111111-1111-4111-8111-111111111111',
+    '/app/notes/d4444444-4444-4444-8444-444444444444',
+    '/app/notes/d4444444-4444-4444-8444-444444444444/addenda/new',
+  ])('protects direct caregiver route %s when unauthenticated', (path) => {
+    const fetcher = vi.fn();
+    vi.stubGlobal('fetch', fetcher);
+    renderRoute(path);
+
+    expect(screen.getByRole('heading', { name: 'Caregiver sign in' })).toBeVisible();
+    expect(screen.queryByRole('heading', { name: 'Recipient details' })).not.toBeInTheDocument();
+    expect(screen.queryByRole('heading', { name: 'Original note — read only' })).not.toBeInTheDocument();
+    expect(fetcher).not.toHaveBeenCalled();
+  });
+
 });
