@@ -226,6 +226,47 @@ describe('daily-note creation and immutable corrections', () => {
 
     expect(submitted).toMatchObject({ observations: { freeText: { state: 'RECORDED', value: '' } } });
   });
+  it('submits a stale typed value as null after selecting unknown', async () => {
+    let submitted: Record<string, unknown> | null = null;
+    const fetcher = dataFetcher((path, init) => {
+      if (path === '/api/notes' && init.method === 'POST') {
+        submitted = JSON.parse(init.body as string);
+        return jsonResponse(noteFixture, 201);
+      }
+    });
+    renderNotes(`${root}/new`, fetcher);
+    await metadata();
+    await setRecorded('Mood');
+    fireEvent.change(screen.getByRole('textbox', { name: 'Mood' }), { target: { value: 'Calm' } });
+    await setObservationState('Mood', 'UNKNOWN');
+    await userEvent.click(screen.getByRole('button', { name: 'Save original note' }));
+    await screen.findByText('Original note saved.');
+    expect(submitted).toMatchObject({ observations: { mood: { state: 'UNKNOWN', value: null } } });
+  });
+
+  it('does not submit twice while save is pending', async () => {
+    let resolve!: (response: Response) => void;
+    const fetcher = dataFetcher((path, init) => {
+      if (path === '/api/notes' && init.method === 'POST') {
+        return new Promise<Response>((done) => { resolve = done; });
+      }
+    });
+    renderNotes(`${root}/new`, fetcher);
+    await metadata();
+    const form = screen.getByRole('form', { name: 'Record a daily note' });
+    fireEvent.submit(form);
+    fireEvent.submit(form);
+    expect(fetcher.mock.calls.filter(([path, init]) => path === '/api/notes' && init.method === 'POST')).toHaveLength(1);
+    expect(screen.getByRole('button', { name: 'Saving…' })).toBeDisabled();
+    resolve(jsonResponse(noteFixture, 201));
+    expect(await screen.findByText('Original note saved.')).toBeInTheDocument();
+  });
+
+  it('does not offer legacy ambiguous as a state when creating a note', async () => {
+    renderNotes(`${root}/new`, dataFetcher());
+    const group = await screen.findByRole('group', { name: 'Mood — Observation status' });
+    expect(within(group).queryByRole('radio', { name: 'Mood — Legacy ambiguous' })).not.toBeInTheDocument();
+  });
 
   it('announces save success and save failure separately', async () => {
     const successView = renderNotes(`${root}/new`, dataFetcher((path, init) =>
