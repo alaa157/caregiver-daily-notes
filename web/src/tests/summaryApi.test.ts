@@ -133,11 +133,40 @@ describe('safety survives invalid generated content', () => {
   it('parses trend sample sizes', () => {
     const result = readSummaryResponse(summaryFixture());
     expect(result.invalidContent).toBe(false);
-    expect(result.trends[0]).toEqual({ metric: 'poor_appetite', previousCount: 1, currentCount: 3, delta: 2, previousSampleSize: 4, currentSampleSize: 6 });
+    expect(result.trends[0]).toEqual({ metric: 'POOR_APPETITE_COUNT', previousCount: 1, currentCount: 3, delta: 2, previousSampleSize: 4, currentSampleSize: 6 });
   });
   it('rejects negative trend sample size', () => {
     for (const change of [{ currentSampleSize: -1 }, { previousSampleSize: undefined }, { currentSampleSize: null }, { previousSampleSize: '4' }, { currentSampleSize: 1.5 }, { previousSampleSize: Number.MAX_SAFE_INTEGER + 1 }]) {
       const fixture = summaryFixture(); Object.assign(fixture.trends[0], change);
+      const result = readSummaryResponse(fixture);
+      expect(result.trends).toEqual([]); expect(result.invalidContent).toBe(true);
+    }
+  });
+  it('rejects impossible event counts and accepts valid count/sample boundaries', () => {
+    const impossible = [
+      { previousCount: 5, previousSampleSize: 4, currentCount: 3, currentSampleSize: 6, delta: -2 },
+      { previousCount: 1, previousSampleSize: 4, currentCount: 7, currentSampleSize: 6, delta: 6 },
+      { previousCount: 5, previousSampleSize: 4, currentCount: 7, currentSampleSize: 6, delta: 2 },
+    ];
+    for (const values of impossible) {
+      const fixture = summaryFixture(); Object.assign(fixture.trends[0], values);
+      const result = readSummaryResponse(fixture);
+      expect(result.trends).toEqual([]); expect(result.invalidContent).toBe(true);
+    }
+    const valid = [
+      { previousCount: 4, previousSampleSize: 4, currentCount: 6, currentSampleSize: 6, delta: 2 },
+      { previousCount: 0, previousSampleSize: 3, currentCount: 1, currentSampleSize: 6, delta: 1 },
+      { previousCount: 0, previousSampleSize: 0, currentCount: 0, currentSampleSize: 0, delta: 0 },
+    ];
+    for (const values of valid) {
+      const fixture = summaryFixture(); Object.assign(fixture.trends[0], values);
+      const result = readSummaryResponse(fixture);
+      expect(result.trends).toHaveLength(1); expect(result.invalidContent).toBe(false);
+    }
+  });
+  it('rejects negative trend counts', () => {
+    for (const values of [{ previousCount: -1 }, { currentCount: -1 }]) {
+      const fixture = summaryFixture(); Object.assign(fixture.trends[0], values);
       const result = readSummaryResponse(fixture);
       expect(result.trends).toEqual([]); expect(result.invalidContent).toBe(true);
     }
