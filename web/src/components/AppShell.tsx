@@ -54,6 +54,22 @@ export function AppShell({ children }: { children: ReactNode }) {
             <span className="brand-mark"><Icon name="leaf" size={25} /></span>
             <span className="brand-text"><span>{t('brand')}</span><span className="brand-tagline">{t('brandTagline')}</span></span>
           </Link>
+          <div className="nav-utilities">
+            <div className="appearance-control">
+              <Icon name={mode === 'system' ? 'monitor' : mode === 'dark' ? 'moon' : 'sun'} size={17} />
+              <select aria-label={t('appearance')} value={mode} onChange={(event) => setMode(event.target.value as ThemeMode)}>
+                <option value="system">{t('themeSystem')}</option>
+                <option value="light">{t('themeLight')}</option>
+                <option value="dark">{t('themeDark')}</option>
+              </select>
+            </div>
+            <button type="button" className="language-toggle" lang={nextLanguage} dir={nextLanguage === 'ar' ? 'rtl' : 'ltr'}
+            aria-label={t(language === 'ar' ? 'switchToEnglish' : 'switchToArabic')}
+            onClick={() => setLanguage(nextLanguage)}>
+            <Icon name="globe" size={17} />{t('switchLanguage')}
+            </button>
+            {auth.status === 'authenticated' && <button type="button" className="nav-link auth-logout" onClick={auth.logout}><Icon name="logout" size={18} /><span>{t('authSignOut')}</span></button>}
+          </div>
           <nav className={'site-nav' + (auth.status === 'authenticated' ? ' site-nav--authenticated' : '')} aria-label={t('mainNavigation')}>
             <div className="nav-links">
               {auth.status === 'authenticated' ? <>
@@ -73,22 +89,6 @@ export function AppShell({ children }: { children: ReactNode }) {
                 <NavLink end to="/" className={navClass}>{t('home')}</NavLink>
                 <NavLink to="/login" className={navClass}>{t('signIn')}</NavLink>
               </>}
-            </div>
-            <div className="nav-utilities">
-              <div className="appearance-control">
-                <Icon name={mode === 'system' ? 'monitor' : mode === 'dark' ? 'moon' : 'sun'} size={17} />
-                <select aria-label={t('appearance')} value={mode} onChange={(event) => setMode(event.target.value as ThemeMode)}>
-                  <option value="system">{t('themeSystem')}</option>
-                  <option value="light">{t('themeLight')}</option>
-                  <option value="dark">{t('themeDark')}</option>
-                </select>
-              </div>
-              <button type="button" className="language-toggle" lang={nextLanguage} dir={nextLanguage === 'ar' ? 'rtl' : 'ltr'}
-              aria-label={t(language === 'ar' ? 'switchToEnglish' : 'switchToArabic')}
-              onClick={() => setLanguage(nextLanguage)}>
-              <Icon name="globe" size={17} />{t('switchLanguage')}
-              </button>
-              {auth.status === 'authenticated' && <button type="button" className="nav-link auth-logout" onClick={auth.logout}><Icon name="logout" size={18} /><span>{t('authSignOut')}</span></button>}
             </div>
           </nav>
         </div>
