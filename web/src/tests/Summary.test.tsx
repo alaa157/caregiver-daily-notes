@@ -130,7 +130,7 @@ describe('on-demand summary and safety workflow', () => {
     expect(within(safetySection).getByText(/evaluated independently/)).toBeVisible();
     expect(aiSection.contains(safetySection)).toBe(false);
     expect(screen.getByRole('region', { name: 'Unclear or conflicting information' })).toBeVisible();
-    expect(screen.getByRole('region', { name: 'Recorded observation counts' })).toHaveTextContent('poor_appetite');
+    expect(screen.getByRole('region', { name: 'Recorded observation counts' })).toHaveTextContent('POOR_APPETITE_COUNT');
   });
   it('does not show AI success label for unavailable response', async () => {
     const fixture = summaryFixture();
@@ -146,7 +146,7 @@ describe('on-demand summary and safety workflow', () => {
     expect(screen.queryByText('stray unavailable model text')).not.toBeInTheDocument();
     expect(screen.queryByRole('blockquote')).not.toBeInTheDocument();
     expect(screen.getByRole('region', { name: 'Safety information' })).toHaveTextContent('HIGH');
-    expect(screen.getByRole('region', { name: 'Recorded observation counts' })).toHaveTextContent('poor_appetite');
+    expect(screen.getByRole('region', { name: 'Recorded observation counts' })).toHaveTextContent('POOR_APPETITE_COUNT');
   });
   it('does not render malformed model observations as successful content', async () => {
     const fixture = summaryFixture();
@@ -161,7 +161,7 @@ describe('on-demand summary and safety workflow', () => {
     expect(screen.queryByText('Educational project. Not medical advice.')).not.toBeInTheDocument();
     expect(screen.queryByText('partially parsed model content')).not.toBeInTheDocument();
     expect(screen.getByRole('region', { name: 'Safety information' })).toHaveTextContent('HIGH');
-    expect(screen.getByRole('region', { name: 'Recorded observation counts' })).toHaveTextContent('poor_appetite');
+    expect(screen.getByRole('region', { name: 'Recorded observation counts' })).toHaveTextContent('POOR_APPETITE_COUNT');
   });
   it('does not label an empty observation collection as generated', async () => {
     const fixture = summaryFixture(); fixture.summary.observations = [];
@@ -299,6 +299,60 @@ describe('on-demand summary and safety workflow', () => {
     await userEvent.click(screen.getByRole('button', { name: 'Generate summary' }));
     expect(await screen.findByRole('heading', { name: 'Caregiver sign in' })).toBeInTheDocument();
     expect(sessionStorage.getItem('caregiver-auth-session-v1')).toBeNull();
+  });
+  it('shows exact summary dates and trend sample counts', async () => {
+    show(dataFetcher()); await generate();
+    expect(screen.getByText('2026-10-18')).toBeVisible(); expect(screen.getByText('2026-10-24')).toBeVisible();
+    expect(screen.getByText('Events: 1')).toBeVisible(); expect(screen.getByText('Recorded days: 4')).toBeVisible();
+    expect(screen.getByText('Events: 3')).toBeVisible(); expect(screen.getByText('Recorded days: 6')).toBeVisible();
+  });
+  it('shows no recorded data instead of zero for empty trend sample', async () => {
+    const fixture = summaryFixture(); fixture.trends[0].previousCount = 0; fixture.trends[0].previousSampleSize = 0; fixture.trends[0].delta = 3;
+    const fetcher = dataFetcher((path) => path === summaryTestPath ? jsonResponse(fixture) : undefined);
+    show(fetcher); await generate();
+    expect(screen.getByText('No recorded data for this period')).toBeVisible();
+    expect(screen.queryByText('Events: 0')).not.toBeInTheDocument(); expect(screen.getByText('Events: 3')).toBeVisible();
+    expect(screen.getByText('Recorded days: 6')).toBeVisible(); expect(screen.queryByText('Change')).not.toBeInTheDocument();
+  });
+  it('shows recorded zero event count when sample size is nonzero', async () => {
+    const fixture = summaryFixture(); fixture.trends[0].previousCount = 0; fixture.trends[0].previousSampleSize = 3; fixture.trends[0].delta = 3;
+    show(dataFetcher((path) => path === summaryTestPath ? jsonResponse(fixture) : undefined)); await generate();
+    expect(screen.getByText('Events: 0')).toBeVisible(); expect(screen.getByText('Recorded days: 3')).toBeVisible();
+    expect(screen.queryByText('No recorded data for this period')).not.toBeInTheDocument();
+  });
+  it('renders trend sample labels in Arabic', async () => {
+    const fixture = summaryFixture(); fixture.trends[0].previousCount = 0; fixture.trends[0].previousSampleSize = 0; fixture.trends[0].delta = 3;
+    show(dataFetcher((path) => path === summaryTestPath ? jsonResponse(fixture) : undefined)); await generate();
+    await userEvent.click(screen.getByRole('button', { name: 'التغيير إلى العربية' }));
+    expect(document.documentElement).toHaveAttribute('dir', 'rtl');
+    expect(screen.getByText('لا توجد بيانات مسجلة لهذه الفترة')).toBeVisible();
+    expect(screen.getByText(/عدد الأحداث: ٣/)).toBeVisible(); expect(screen.getByText(/الأيام التي سُجّلت فيها بيانات: ٦/)).toBeVisible();
+    expect(screen.queryByText('Previous period')).not.toBeInTheDocument(); expect(screen.queryByText('Events')).not.toBeInTheDocument();
+  });
+  it('uses metric-specific sampling units in English and Arabic', async () => {
+    const fixture = summaryFixture();
+    fixture.trends = ['FALL_COUNT', 'HIGH_PAIN_COUNT', 'MISSED_MED_COUNT', 'POOR_APPETITE_COUNT'].map((metric) => ({ ...fixture.trends[0], metric }));
+    show(dataFetcher((path) => path === summaryTestPath ? jsonResponse(fixture) : undefined)); await generate();
+    expect(screen.getAllByText('Recorded note observations: 4')).toHaveLength(2);
+    expect(screen.getAllByText('Recorded note observations: 6')).toHaveLength(2);
+    expect(screen.getAllByText('Recorded days: 4')).toHaveLength(2);
+    expect(screen.getAllByText('Recorded days: 6')).toHaveLength(2);
+    await userEvent.click(screen.getByRole('button', { name: 'التغيير إلى العربية' }));
+    expect(document.documentElement).toHaveAttribute('dir', 'rtl');
+    expect(screen.getAllByText('الملاحظات المسجلة: ٤')).toHaveLength(2);
+    expect(screen.getAllByText('الملاحظات المسجلة: ٦')).toHaveLength(2);
+    expect(screen.getAllByText('الأيام التي سُجّلت فيها بيانات: ٤')).toHaveLength(2);
+    expect(screen.getAllByText('الأيام التي سُجّلت فيها بيانات: ٦')).toHaveLength(2);
+  });
+  it.each([
+    { previousSampleSize: 4, currentSampleSize: 0, previousCount: 1, currentCount: 0, delta: -1 },
+    { previousSampleSize: 0, currentSampleSize: 0, previousCount: 0, currentCount: 0, delta: 0 },
+  ])('handles empty requested or both empty periods: %j', async (periods) => {
+    const fixture = summaryFixture(); Object.assign(fixture.trends[0], periods);
+    show(dataFetcher((path) => path === summaryTestPath ? jsonResponse(fixture) : undefined)); await generate();
+    expect(screen.getAllByText('No recorded data for this period')).toHaveLength(periods.previousSampleSize === 0 ? 2 : 1);
+    expect(screen.queryByText('Change')).not.toBeInTheDocument();
+    if (periods.previousSampleSize > 0) expect(screen.getByText('Events: 1')).toBeVisible();
   });
   it('renders Arabic/RTL and bidi isolation; language changes do not regenerate or store summary content', async () => {
     const fetcher = dataFetcher(); show(fetcher); await generate();
