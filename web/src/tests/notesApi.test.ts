@@ -45,7 +45,10 @@ describe('daily-note API and explicit observation values', () => {
     const input = {
       recipientId: noteFixture.recipientId,
       date: noteFixture.date,
-      observations: { ...structuredObservations, fallReported: { state: 'NOT_RECORDED' as const } },
+      observations: {
+        ...structuredObservations,
+        fallReported: { state: 'NOT_RECORDED' as const },
+      },
       medicationVerification: 'UNVERIFIED' as const,
       caregiverId: 'forged',
     };
@@ -57,10 +60,17 @@ describe('daily-note API and explicit observation values', () => {
     expect(new Headers(init.headers).get('Idempotency-Key')).toBe('save-key');
     const serializedObservations = JSON.parse(init.body).observations;
     expect(serializedObservations.fallReported).toEqual({ state: 'NOT_RECORDED', value: null });
-    expect(serializedObservations.medicationStatus).toEqual({ state: 'UNKNOWN' });
-    expect(JSON.parse(init.body)).toMatchObject({
+    expect(serializedObservations.medicationStatus).toEqual({ state: 'UNKNOWN', value: null });
+    expect(JSON.parse(init.body)).toEqual({
       recipientId: noteFixture.recipientId,
       date: noteFixture.date,
+      observations: Object.fromEntries(observationFields.map((field) => {
+        const observation = input.observations[field];
+        return [field, {
+          state: observation.state,
+          value: observation.state === 'RECORDED' ? observation.value : null,
+        }];
+      })),
       medicationVerification: 'UNVERIFIED',
     });
   });
@@ -152,8 +162,9 @@ describe('daily-note API and explicit observation values', () => {
   });
   it('rejects typed values for non recorded observation states', async () => {
     const invalidObservations = [
+      { ...structuredObservations, painScore: { state: 'UNKNOWN', value: 5 } },
+      { ...structuredObservations, painScore: { state: 'NOT_RECORDED', value: 5 } },
       { ...structuredObservations, medicationStatus: { state: 'UNKNOWN', value: 'TAKEN' } },
-      { ...structuredObservations, medicationStatus: { state: 'NOT_RECORDED', value: 'MISSED' } },
     ] as const;
     for (const observations of invalidObservations) {
       const { api, fetcher } = setup(noteFixture);
@@ -166,6 +177,38 @@ describe('daily-note API and explicit observation values', () => {
       expect(fetcher).not.toHaveBeenCalled();
     }
   });
+  it('rejects a legacy ambiguous state from a create request', async () => {
+    const { api, fetcher } = setup(noteFixture);
+    await expect(api.create({
+      recipientId: noteFixture.recipientId,
+      date: noteFixture.date,
+      observations: { ...structuredObservations, mood: { state: 'LEGACY_AMBIGUOUS' } },
+      medicationVerification: 'NOT_ASSERTED',
+    }, 'legacy-state-key')).rejects.toThrow('Invalid observation input.');
+    expect(fetcher).not.toHaveBeenCalled();
+  });
+
+  it('serializes every non-recorded selectable state as an explicit null value', async () => {
+    const { api, fetcher } = setup(noteFixture, 201);
+    await api.create({
+      recipientId: noteFixture.recipientId,
+      date: noteFixture.date,
+      observations: {
+        ...structuredObservations,
+        mood: { state: 'UNKNOWN' },
+        appetite: { state: 'NOT_RECORDED' },
+        sleep: { state: 'NOT_APPLICABLE' },
+      },
+      medicationVerification: 'NOT_ASSERTED',
+    }, 'non-recorded-key');
+    const body = JSON.parse(fetcher.mock.calls[0][1].body);
+    expect(body.observations).toMatchObject({
+      mood: { state: 'UNKNOWN', value: null },
+      appetite: { state: 'NOT_RECORDED', value: null },
+      sleep: { state: 'NOT_APPLICABLE', value: null },
+    });
+  });
+
 
   it('validates required metadata, field lengths, state/value pairs and numeric boundaries', () => {
     const values = emptyNoteValues();
@@ -225,6 +268,16 @@ describe('daily-note API and explicit observation values', () => {
       ...values,
       observations: { ...values.observations, mood: { state: 'RECORDED' } },
     })).toMatchObject({ mood: 'obsRecordedValueRequired' });
+  });
+  it('preserves recorded empty text, false, and zero in create input', () => {
+    const values = emptyNoteValues();
+    values.observations = {
+      ...values.observations,
+      freeText: { state: 'RECORDED', value: '' },
+      fallReported: { state: 'RECORDED', value: false },
+      painScore: { state: 'RECORDED', value: 0 },
+    };
+    expect(createInput(values).observations).toEqual(values.observations);
   });
   it('maps errors to fixed messages rather than backend diagnostics', () => {
     for (const status of [403, 404]) expect(noteErrorMessage(new ApiError(status, { message: 'private' }))).toBe('notesUnavailable');

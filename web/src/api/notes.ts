@@ -5,6 +5,7 @@ import {
   fromLegacyValue,
   isObservation,
   isObservationState,
+  isSelectableObservationState,
   isVerificationValue,
   structuredObservationFields,
   type NoteObservations,
@@ -277,14 +278,18 @@ export function createNotesApi(client: ApiClient) {
     async create(input: CreateNoteInput, key: string, signal?: AbortSignal) {
       if (!isRecipientId(input.recipientId) || !isNoteDate(input.date)) throw new ApiError(400, null);
       for (const field of observationFields) {
-        if (!isObservation(input.observations?.[field], field)) throw new Error('Invalid observation input.');
+        const observation = input.observations?.[field];
+        if (!isObservation(observation, field) || !isSelectableObservationState(observation.state)) {
+          throw new Error('Invalid observation input.');
+        }
       }
       if (!isVerificationValue(input.medicationVerification)) throw new Error('Invalid verification input.');
       const observations = Object.fromEntries(observationFields.map((field) => {
         const observation = input.observations[field];
-        return [field, observation.state === 'NOT_RECORDED'
-          ? { ...observation, value: null }
-          : observation];
+        return [field, {
+          state: observation.state,
+          value: observation.state === 'RECORDED' ? observation.value : null,
+        }];
       })) as ObservationSet;
       const result = readNote(await client.request({ path: '/api/notes', method: 'POST', signal,
         headers: writeHeaders(key), body: {
