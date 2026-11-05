@@ -6,6 +6,12 @@ import { useAuth } from '../features/auth/AuthProvider';
 import { useTheme, type ThemeMode } from '../app/ThemeProvider';
 import './AppShell.css';
 
+function isHistoryRoute(pathname: string) {
+  if (pathname === '/app/notes' || pathname === '/app/notes/history') return true;
+  const noteRoute = pathname.match(/^\/app\/notes\/([^/]+)(?:\/addenda\/new)?$/);
+  return Boolean(noteRoute && !['new', 'summary', 'plans', 'history'].includes(noteRoute[1]));
+}
+
 export function AppShell({ children }: { children: ReactNode }) {
   const { t, language, setLanguage } = useI18n();
   const auth = useAuth();
@@ -55,7 +61,10 @@ export function AppShell({ children }: { children: ReactNode }) {
                   <NavLink end to="/app" className={navClass}><Icon name="home" size={19} />{t('home')}</NavLink>
                   <NavLink to="/app/recipients" className={navClass}><Icon name="people" size={19} />{t('workspacePeople')}</NavLink>
                   <NavLink end to="/app/notes/new" className={navClass}><Icon name="edit" size={19} />{t('workspaceNotes')}</NavLink>
-                  <NavLink end to="/app/notes" className={navClass}><Icon name="history" size={19} />{t('workspaceHistory')}</NavLink>
+                  <Link to="/app/notes" aria-current={isHistoryRoute(pathname) ? 'page' : undefined}
+                    className={navClass({ isActive: isHistoryRoute(pathname) })}>
+                    <Icon name="history" size={19} />{t('workspaceHistory')}
+                  </Link>
                 </div>
                 <div className="workspace-secondary-links" role="group" aria-label={t('workspaceNotesNavigation')}>
                   <NavLink to="/app/notes/plans" className={({ isActive }) => `${navClass({ isActive })} workspace-secondary-link`}><Icon name="shield" size={18} />{t('plansTitle')}</NavLink>

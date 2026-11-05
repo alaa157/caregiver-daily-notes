@@ -91,6 +91,7 @@ for (const language of ['en', 'ar'] as const) {
           await inspect(page);
         }
       }
+
       await serveSyntheticRecords(page);
       await page.evaluate((token) => sessionStorage.setItem('caregiver-auth-session-v1', JSON.stringify({ token, baseUrl: '' })), testToken());
       for (const path of [
@@ -114,6 +115,7 @@ for (const language of ['en', 'ar'] as const) {
           await inspect(page);
         }
       }
+
       await page.goto('/app/notes/summary');
       await page.getByLabel(language === 'ar' ? 'المستفيد من الرعاية' : 'Care recipient', { exact: true }).selectOption(recipientFixture.id);
       await page.getByRole('button', { name: language === 'ar' ? 'إنشاء ملخص' : 'Generate summary', exact: true }).click();
@@ -123,3 +125,45 @@ for (const language of ['en', 'ar'] as const) {
     });
   }
 }
+
+test('system appearance follows live OS changes while explicit themes remain selected', async ({ page }) => {
+  await page.emulateMedia({ colorScheme: 'light' });
+  await page.goto('/');
+
+  const appearance = page.getByRole('combobox', { name: 'Appearance' });
+  const root = page.locator('html');
+  await expect(appearance).toHaveValue('system');
+  await expect(root).toHaveAttribute('data-theme', 'system');
+  await expect.poll(() => root.evaluate((element) => getComputedStyle(element).colorScheme)).toBe('light');
+  const consoleErrors: string[] = [];
+  page.on('console', (message) => {
+    if (message.type() === 'error') consoleErrors.push(message.text());
+  });
+
+  await page.emulateMedia({ colorScheme: 'dark' });
+  await expect.poll(() => root.evaluate((element) => getComputedStyle(element).colorScheme)).toBe('dark');
+  await expect(appearance).toHaveValue('system');
+  await expect(root).toHaveAttribute('data-theme', 'system');
+
+  await page.emulateMedia({ colorScheme: 'light' });
+  await expect.poll(() => root.evaluate((element) => getComputedStyle(element).colorScheme)).toBe('light');
+  await expect(appearance).toHaveValue('system');
+
+  await appearance.selectOption('light');
+  await page.emulateMedia({ colorScheme: 'dark' });
+  await expect.poll(() => root.evaluate((element) => getComputedStyle(element).colorScheme)).toBe('light');
+  await expect(appearance).toHaveValue('light');
+
+  await appearance.selectOption('dark');
+  await page.emulateMedia({ colorScheme: 'light' });
+  await expect.poll(() => root.evaluate((element) => getComputedStyle(element).colorScheme)).toBe('dark');
+  await expect(appearance).toHaveValue('dark');
+
+  await appearance.selectOption('system');
+  await expect.poll(() => root.evaluate((element) => getComputedStyle(element).colorScheme)).toBe('light');
+  await page.emulateMedia({ colorScheme: 'dark' });
+  await expect.poll(() => root.evaluate((element) => getComputedStyle(element).colorScheme)).toBe('dark');
+  await expect(appearance).toHaveValue('system');
+  expect(await page.evaluate(() => localStorage.getItem('caregiver-theme-mode'))).toBe('system');
+  expect(consoleErrors).toEqual([]);
+});

@@ -15,7 +15,7 @@ jobs:
       - name: Set up Node.js 22
         uses: actions/setup-node@v4
         with:
-          node-version: 22
+          node-version: "22"
           cache: npm
           cache-dependency-path: web/package-lock.json
 
@@ -23,13 +23,36 @@ jobs:
         working-directory: web
         run: npm ci
 
-      - name: Run frontend tests
+      - name: Run frontend unit tests
         working-directory: web
         run: npm test
 
-      - name: Typecheck frontend
+      - name: Check frontend types
         working-directory: web
         run: npm run typecheck
+
+      - name: Build frontend
+        working-directory: web
+        run: npm run build
+
+      - name: Install Playwright Chromium and system dependencies
+        working-directory: web
+        run: npx playwright install --with-deps chromium
+
+      - name: Run frontend browser tests
+        working-directory: web
+        run: npx playwright test
+
+      - name: Upload Playwright reports and traces
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: playwright-failure-artifacts
+          path: |
+            web/playwright-report/
+            web/test-results/
+          if-no-files-found: warn
+          retention-days: 7
 
   backend:
     runs-on: ubuntu-latest
@@ -69,11 +92,6 @@ jobs:
   docker:
     needs: backend
     runs-on: ubuntu-latest
-    # No @SpringBootApplication main class exists yet (foundation work pending,
-    # Member 3 #12), so `mvn package` fails at spring-boot:repackage and this
-    # job fails too. Non-blocking until the entrypoint lands; then delete the
-    # `continue-on-error` line to make image builds enforcing.
-    continue-on-error: true
     steps:
       - uses: actions/checkout@v4
 

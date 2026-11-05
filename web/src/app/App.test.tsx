@@ -213,6 +213,27 @@ describe('application foundation', () => {
     expect(primary.contains(plans)).toBe(false);
   });
 
+  it.each([
+    { path: '/app', activeLabel: 'Home' },
+    { path: '/app/recipients', activeLabel: 'People' },
+    { path: `/app/recipients/${recipientFixture.id}`, activeLabel: 'People' },
+    { path: `/app/recipients/${recipientFixture.id}/edit`, activeLabel: 'People' },
+    { path: '/app/notes/new', activeLabel: 'Notes' },
+    { path: '/app/notes', activeLabel: 'History' },
+    { path: '/app/notes/history', activeLabel: 'History' },
+    { path: `/app/notes/${noteFixture.id}`, activeLabel: 'History' },
+    { path: `/app/notes/${noteFixture.id}/addenda/new`, activeLabel: 'History' },
+    { path: '/app/notes/summary' },
+    { path: '/app/notes/plans' },
+  ])('marks only the appropriate workspace destination active on $path', ({ path, activeLabel }) => {
+    const view = renderAuthenticatedRoute(path, vi.fn().mockResolvedValue(jsonResponse([])));
+    const primary = within(screen.getByRole('group', { name: 'Workspace navigation' }));
+    const activeLinks = primary.getAllByRole('link').filter((link) => link.getAttribute('aria-current') === 'page');
+
+    expect(activeLinks.map((link) => link.textContent)).toEqual(activeLabel ? [activeLabel] : []);
+    view.unmount();
+  });
+
   it('returns recipient detail to recipient list', async () => {
     const fetcher = vi.fn().mockImplementation((path: string) => Promise.resolve(
       jsonResponse(path.startsWith('/api/recipients?') ? [recipientFixture] : recipientFixture),
