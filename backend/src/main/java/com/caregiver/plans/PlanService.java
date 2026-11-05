@@ -36,10 +36,20 @@ public class PlanService {
   public PlanResponse saveSuggested(UUID recipientId, PlanRequest request) {
     CareRecipient recipient = ownedRecipientForUpdate(recipientId);
     String content;
+    UUID sourcePlanId = null;
     if (request.structuredContent() != null) {
       if (request.content() != null && !request.content().isBlank()) {
         throw new ProtectedPlanException();
       }
+      CarePlan baseline = currentAccepted(recipient.getId());
+      PlanDocument baselineDocument = baseline == null ? null : documents.read(baseline);
+      if (baseline != null && baselineDocument == null) {
+        throw new ProtectedPlanException();
+      }
+      MedicationHardLock.checkUnchanged(
+          baselineDocument == null ? List.of() : baselineDocument.medications(),
+          request.structuredContent().medications());
+      sourcePlanId = baseline == null ? null : baseline.getId();
       content = documents.write(request.structuredContent());
     } else {
       if (request.content() == null || request.content().isBlank()) {
@@ -49,7 +59,7 @@ public class PlanService {
     }
     int version = plans.maxVersionForRecipient(recipientId) + 1;
     CarePlan plan = plans.save(new CarePlan(recipient, version, PlanStatus.SUGGESTED,
-        content, request.sourceSummaryId(), null, encodeIds(request.evidenceNoteIds()), PlanSource.CAREGIVER_SUBMITTED));
+        content, request.sourceSummaryId(), sourcePlanId, encodeIds(request.evidenceNoteIds()), PlanSource.CAREGIVER_SUBMITTED));
     audit.record("PLAN_SUGGESTED", "CARE_PLAN", plan.getId().toString(), "version=" + version);
     return response(plan);
   }
