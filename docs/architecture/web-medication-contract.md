@@ -45,6 +45,14 @@ one recipient. Its vocabulary consists of exactly these fields:
 | `createdAt` | Record creation timestamp |
 | `updatedAt` | Last update timestamp |
 
+This eight-field list defines the `MedicationRecord` domain/API vocabulary; it
+does not remove backend ownership requirements or prescribe database columns.
+Backend persistence must maintain both caregiver and recipient relationships.
+Repository queries must always enforce both caregiver and recipient scope, and
+the caregiver identity must come from authenticated backend context, never
+browser-supplied ownership fields. Ownership relationships required for secure
+persistence are not additional `MedicationRecord` vocabulary fields.
+
 Rules:
 
 1. A medication record belongs to exactly one recipient.
@@ -101,6 +109,15 @@ Rules:
 `NOT_RECORDED` is a display state representing the absence of an intake event.
 It is **not** a persisted intake event value.
 
+- `UNSURE` is an explicit caregiver report of uncertainty about whether a dose
+  was taken.
+- `NOT_RECORDED` means that no intake event exists; it is not a report of
+  uncertainty.
+- Unknown medication information is information the caregiver cannot
+  establish.
+- Missing information is information that was not supplied or captured.
+- Unknown and missing information are not additional persisted intake event
+  values. Do not treat either as a negative observation or as a missed dose.
 - If no intake event exists, the application may display `NOT_RECORDED`.
 - Do not create a fake event row for `NOT_RECORDED`.
 - Do not convert `NOT_RECORDED` into `MISSED`.
