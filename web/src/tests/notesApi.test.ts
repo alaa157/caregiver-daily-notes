@@ -148,6 +148,23 @@ describe('daily-note API and explicit observation values', () => {
     fetcher.mockResolvedValue(jsonResponse([{ ...addendumFixture, noteId: addendumFixture.id }]));
     await expect(api.addenda(noteFixture.id)).rejects.toThrow('Invalid note response');
   });
+  it('rejects typed values for non recorded observation states', async () => {
+    const invalidObservations = [
+      { ...structuredObservations, medicationStatus: { state: 'UNKNOWN', value: 'TAKEN' } },
+      { ...structuredObservations, medicationStatus: { state: 'NOT_RECORDED', value: 'MISSED' } },
+    ] as const;
+    for (const observations of invalidObservations) {
+      const { api, fetcher } = setup(noteFixture);
+      await expect(api.create({
+        recipientId: noteFixture.recipientId,
+        date: noteFixture.date,
+        observations,
+        medicationVerification: 'NOT_ASSERTED',
+      }, 'invalid-state-value-key')).rejects.toThrow('Invalid observation input.');
+      expect(fetcher).not.toHaveBeenCalled();
+    }
+  });
+
   it('validates required metadata, field lengths, state/value pairs and numeric boundaries', () => {
     const values = emptyNoteValues();
     values.date = '';

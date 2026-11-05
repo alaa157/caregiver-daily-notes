@@ -135,31 +135,26 @@ describe('daily-note creation and immutable corrections', () => {
     expect(within(group).getByText('Unknown', { exact: true })).toBeVisible();
   });
 
-  it('keeps recorded false and zero values in the submitted request', async () => {
-    let submitted: Record<string, unknown> | null = null;
-    const fetcher = dataFetcher((path, init) => {
-      if (path === '/api/notes' && init.method === 'POST') {
-        submitted = JSON.parse(init.body as string);
-        return jsonResponse(noteFixture, 201);
-      }
-    });
+  it('submits recorded zero and false without coercion', async () => {
+    const fetcher = dataFetcher();
     renderNotes(`${root}/new`, fetcher);
     await metadata();
-    await setRecorded('Fall reported');
-    await userEvent.selectOptions(screen.getByRole('combobox', { name: 'Fall reported' }), 'false');
     await setRecorded('Pain score (0–10)');
     fireEvent.change(screen.getByRole('spinbutton', { name: 'Pain score (0–10)' }), { target: { value: '0' } });
+    await setRecorded('Fall reported');
+    await userEvent.selectOptions(screen.getByRole('combobox', { name: 'Fall reported' }), 'false');
     await userEvent.click(screen.getByRole('button', { name: 'Save original note' }));
     await screen.findByText('Original note saved.');
-    expect(submitted).toMatchObject({
-      observations: {
-        fallReported: { state: 'RECORDED', value: false },
-        painScore: { state: 'RECORDED', value: 0 },
-      },
-    });
+
+    const posted = fetcher.mock.calls.find(([path, init]) => path === '/api/notes' && init.method === 'POST');
+    const observations = JSON.parse(posted?.[1].body as string).observations as Record<string, { state: string; value?: unknown }>;
+    expect(observations.painScore).toEqual({ state: 'RECORDED', value: 0 });
+    expect(typeof observations.painScore.value).toBe('number');
+    expect(observations.fallReported).toEqual({ state: 'RECORDED', value: false });
+    expect(typeof observations.fallReported.value).toBe('boolean');
   });
 
-  it('keeps unknown and not-recorded states separate from zero and empty values', async () => {
+  it('submits unknown without a typed value', async () => {
     let submitted: Record<string, unknown> | null = null;
     const fetcher = dataFetcher((path, init) => {
       if (path === '/api/notes' && init.method === 'POST') {
@@ -170,21 +165,67 @@ describe('daily-note creation and immutable corrections', () => {
     renderNotes(`${root}/new`, fetcher);
     await metadata();
     await setObservationState('Pain score (0–10)', 'UNKNOWN');
-    await setObservationState('Fall reported', 'NOT_RECORDED');
-    await setRecorded('Free-text observations');
-    const text = screen.getByRole('textbox', { name: 'Free-text observations' });
-    await userEvent.type(text, 'x');
-    await userEvent.clear(text);
     await userEvent.click(screen.getByRole('button', { name: 'Save original note' }));
     await screen.findByText('Original note saved.');
-    expect(submitted).toMatchObject({
-      observations: {
-        painScore: { state: 'UNKNOWN', value: null },
-        fallReported: { state: 'NOT_RECORDED' },
-        freeText: { state: 'RECORDED', value: '' },
-      },
+
+    expect(submitted).toMatchObject({ observations: { painScore: { state: 'UNKNOWN', value: null } } });
+  });
+
+  it('submits not recorded without a typed value', async () => {
+    let submitted: Record<string, unknown> | null = null;
+    const fetcher = dataFetcher((path, init) => {
+      if (path === '/api/notes' && init.method === 'POST') {
+        submitted = JSON.parse(init.body as string);
+        return jsonResponse(noteFixture, 201);
+      }
     });
+    renderNotes(`${root}/new`, fetcher);
+    await metadata();
+    await setObservationState('Fall reported', 'NOT_RECORDED');
+    await userEvent.click(screen.getByRole('button', { name: 'Save original note' }));
+    await screen.findByText('Original note saved.');
+
+    expect(submitted).toMatchObject({ observations: { fallReported: { state: 'NOT_RECORDED' } } });
     expect(submitted).not.toHaveProperty('observations.fallReported.value');
+  });
+
+  it('preserves medication verification independently from medication observation state', async () => {
+    let submitted: Record<string, unknown> | null = null;
+    const fetcher = dataFetcher((path, init) => {
+      if (path === '/api/notes' && init.method === 'POST') {
+        submitted = JSON.parse(init.body as string);
+        return jsonResponse(noteFixture, 201);
+      }
+    });
+    renderNotes(`${root}/new`, fetcher);
+    await metadata();
+    await setObservationState('Medication taken', 'UNKNOWN');
+    await userEvent.selectOptions(screen.getByLabelText('Medication report verified'), 'VERIFIED');
+    await userEvent.click(screen.getByRole('button', { name: 'Save original note' }));
+    await screen.findByText('Original note saved.');
+
+    expect(submitted).toMatchObject({
+      observations: { medicationStatus: { state: 'UNKNOWN', value: null } },
+      medicationVerification: 'VERIFIED',
+    });
+  });
+
+  it('preserves recorded empty text', async () => {
+    let submitted: Record<string, unknown> | null = null;
+    const fetcher = dataFetcher((path, init) => {
+      if (path === '/api/notes' && init.method === 'POST') {
+        submitted = JSON.parse(init.body as string);
+        return jsonResponse(noteFixture, 201);
+      }
+    });
+    renderNotes(`${root}/new`, fetcher);
+    await metadata();
+    await setRecorded('Free-text observations');
+    await userEvent.type(screen.getByRole('textbox', { name: 'Free-text observations' }), 'x');
+    await userEvent.clear(screen.getByRole('textbox', { name: 'Free-text observations' }));
+    await userEvent.click(screen.getByRole('button', { name: 'Save original note' }));
+
+    expect(submitted).toMatchObject({ observations: { freeText: { state: 'RECORDED', value: '' } } });
   });
 
   it('announces save success and save failure separately', async () => {
