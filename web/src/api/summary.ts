@@ -65,6 +65,8 @@ export function readSummaryResponse(value: unknown): SummaryResponse {
         || !Number.isSafeInteger(trend.currentCount) || (trend.currentCount as number) < 0 || !Number.isSafeInteger(trend.delta)
         || !Number.isSafeInteger(trend.previousSampleSize) || (trend.previousSampleSize as number) < 0
         || !Number.isSafeInteger(trend.currentSampleSize) || (trend.currentSampleSize as number) < 0
+        || (trend.previousCount as number) > (trend.previousSampleSize as number)
+        || (trend.currentCount as number) > (trend.currentSampleSize as number)
         || trend.delta !== (trend.currentCount as number) - (trend.previousCount as number)) throw new Error();
       return { metric: trend.metric, previousCount: trend.previousCount as number, currentCount: trend.currentCount as number, delta: trend.delta as number,
         previousSampleSize: trend.previousSampleSize as number, currentSampleSize: trend.currentSampleSize as number };
