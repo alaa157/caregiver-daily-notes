@@ -15,6 +15,16 @@ import { jsonResponse, testToken } from './authFixtures';
 const root = '/app/notes/plans';
 const selected = `${root}?recipientId=${recipient.id}`;
 const other = { ...recipient, id: 'b2222222-2222-4222-8222-222222222222', name: 'ليلى Smith', active: false, lifecycleStatus: 'ARCHIVED' as const, archivedAt: '2026-10-15T10:00:00Z', archivedBy: 'b1111111-1111-4111-8111-111111111111' };
+const legacyContent = ' \tخطة قديمة legacy-ID-42 — “keep exact.”\nLiteral text: <script>alert("legacy")</script>\n  final line \n\t';
+const legacyPlan: CarePlan = {
+  ...suggestion,
+  id: 'a7777777-7777-4777-8777-777777777777',
+  version: 3,
+  sourceType: 'CAREGIVER_SUBMITTED',
+  structuredContent: null,
+  editable: false,
+  content: legacyContent,
+};
 function renderPlans(fetcher: ReturnType<typeof vi.fn>, path = selected, language = 'en', authenticated = true) {
   vi.stubGlobal('fetch', fetcher); localStorage.setItem('caregiver-language', language);
   if (authenticated) sessionStorage.setItem('caregiver-auth-session-v1', JSON.stringify({ token: testToken(), baseUrl: '' }));
@@ -94,6 +104,47 @@ describe('care-plan review and authoritative backend decisions', () => {
     expect(within(suggestions()).getByText('summary-2').closest('a')).toBeNull();
     expect(within(suggestions()).getByText(/AI authorship cannot be confirmed/)).toBeInTheDocument();
     expect(screen.getByRole('region', { name: 'Plan history' }).querySelectorAll('details')).toHaveLength(2);
+  });
+  it('rendersOpaqueLegacyPlanContentWithoutStructuredEditing', async () => {
+    renderPlans(serve({ history: [legacyPlan, active] }));
+    await loaded();
+    const content = within(suggestions()).getByText((_text, element) => element?.classList.contains('plan-content') ?? false);
+    expect(content).toHaveAttribute('dir', 'auto');
+    expect(content.textContent).toBe(legacyContent);
+    expect(content.querySelector('script')).toBeNull();
+    expect(suggestions().querySelector('.plan-structured')).toBeNull();
+    expect(within(suggestions()).getByRole('button', { name: 'Accept suggestion' })).toBeEnabled();
+    expect(within(suggestions()).getByRole('button', { name: 'Dismiss suggestion' })).toBeEnabled();
+    const edit = within(suggestions()).getByRole('button', { name: 'Edit and accept' });
+    expect(edit).toBeDisabled();
+    await userEvent.click(edit);
+    expect(screen.queryByRole('textbox')).not.toBeInTheDocument();
+  });
+  it('keepsOpaqueLegacyPlanVisibleInHistoryBesideStructuredVersions', async () => {
+    const newerStructured: CarePlan = {
+      ...protectedActive,
+      id: 'f8888888-8888-4888-8888-888888888888',
+      recipientId: recipient.id,
+      version: 2,
+      status: 'ARCHIVED',
+    };
+    const olderLegacy = { ...legacyPlan, version: 1, status: 'DISMISSED' };
+    renderPlans(serve({ active: null, history: [newerStructured, olderLegacy] }));
+    await loaded();
+    const history = screen.getByRole('region', { name: 'Plan history' });
+    const entries = [...history.querySelectorAll('details')];
+    expect(entries).toHaveLength(2);
+    expect(entries[0]).toHaveTextContent('Version 2');
+    expect(entries[1]).toHaveTextContent('Version 1');
+    await userEvent.click(entries[0].querySelector('summary')!);
+    await userEvent.click(entries[1].querySelector('summary')!);
+    expect(entries[0].querySelector('.plan-structured')).toBeInTheDocument();
+    const content = entries[1].querySelector('.plan-content');
+    expect(content).toBeVisible();
+    expect(content).toHaveAttribute('dir', 'auto');
+    expect(content?.textContent).toBe(legacyContent);
+    expect(within(entries[1]).queryByRole('button', { name: 'Edit and accept' })).not.toBeInTheDocument();
+    expect(within(entries[1]).queryByRole('textbox')).not.toBeInTheDocument();
   });
   it('opens the linked original in history while preserving edited and original versions', async () => {
     const edited = { ...suggestion, status: 'EDITED_AND_ACCEPTED', sourcePlanId: active.id, content: 'Edited saved text' };
