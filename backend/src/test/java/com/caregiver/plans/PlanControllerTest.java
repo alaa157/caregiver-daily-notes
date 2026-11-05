@@ -208,6 +208,104 @@ class PlanControllerTest {
   }
 
   @Test
+  void editAndAcceptCreatesANewVersionWithoutChangingSourceContent() throws Exception {
+    TestCaregiver owner = register("plan-edit-version@example.com");
+    String recipientId = createRecipient(owner.token());
+    JsonNode original = saveStructuredSuggestion(recipientId);
+    String originalContent = original.get("content").asText();
+    String originalId = original.get("id").asText();
+
+    mvc.perform(post(path(recipientId, originalId, "edit-and-accept"))
+            .header("Authorization", bearer(owner.token()))
+            .contentType(MediaType.APPLICATION_JSON)
+            .content("""
+                {"expectedVersion":1,"changes":[{"index":0,"params":{"activity":"walk indoors","frequency":"daily"}}]}
+                """))
+        .andExpect(status().isOk())
+        .andExpect(jsonPath("$.status").value("EDITED_AND_ACCEPTED"))
+        .andExpect(jsonPath("$.version").value(2))
+        .andExpect(jsonPath("$.sourcePlanId").value(originalId))
+        .andExpect(jsonPath("$.structuredContent.changes[0].params.activity").value("walk indoors"));
+
+    JsonNode history = mapper.readTree(mvc.perform(get(PLANS + recipientId + "/plans/history")
+            .header("Authorization", bearer(owner.token())))
+        .andExpect(status().isOk())
+        .andReturn().getResponse().getContentAsString());
+    assertThat(history.size()).isEqualTo(2);
+    assertThat(history.get(0).get("version").asInt()).isEqualTo(2);
+    assertThat(history.get(0).get("sourcePlanId").asText()).isEqualTo(originalId);
+    assertThat(history.get(0).get("sourceSummaryId").asText()).isEqualTo("summary-edit-version");
+    assertThat(history.get(0).get("evidenceNoteIds").asText()).isEqualTo("note-1");
+    assertThat(history.get(1).get("version").asInt()).isEqualTo(1);
+    assertThat(history.get(1).get("status").asText()).isEqualTo("ARCHIVED");
+    assertThat(history.get(1).get("content").asText()).isEqualTo(originalContent);
+    assertThat(history.get(1).get("sourcePlanId").isNull()).isTrue();
+    assertThat(history.get(1).get("sourceSummaryId").asText()).isEqualTo("summary-edit-version");
+    assertThat(history.get(1).get("evidenceNoteIds").asText()).isEqualTo("note-1");
+  }
+
+  @Test
+  void historicalVersionRejectsAnotherEdit() throws Exception {
+    TestCaregiver owner = register("plan-historical-edit@example.com");
+    String recipientId = createRecipient(owner.token());
+    JsonNode first = suggest(owner.token(), recipientId, "First suggestion", null);
+    mvc.perform(post(path(recipientId, first.get("id").asText(), "accept"))
+            .header("Authorization", bearer(owner.token())))
+        .andExpect(status().isOk());
+
+    JsonNode second = suggest(owner.token(), recipientId, "Replacement suggestion", null);
+    mvc.perform(post(path(recipientId, second.get("id").asText(), "accept"))
+            .header("Authorization", bearer(owner.token())))
+        .andExpect(status().isOk());
+
+    mvc.perform(post(path(recipientId, first.get("id").asText(), "edit-and-accept"))
+            .header("Authorization", bearer(owner.token()))
+            .contentType(MediaType.APPLICATION_JSON)
+            .content("{\"expectedVersion\":1,\"changes\":[]}"))
+        .andExpect(status().isConflict());
+    mvc.perform(post(path(recipientId, first.get("id").asText(), "accept"))
+            .header("Authorization", bearer(owner.token())))
+        .andExpect(status().isConflict());
+
+    mvc.perform(get(PLANS + recipientId + "/plans/history")
+            .header("Authorization", bearer(owner.token())))
+        .andExpect(status().isOk())
+        .andExpect(jsonPath("$.length()").value(2))
+        .andExpect(jsonPath("$[1].id").value(first.get("id").asText()))
+        .andExpect(jsonPath("$[1].content").value("First suggestion"))
+        .andExpect(jsonPath("$[1].status").value("ARCHIVED"));
+  }
+
+  @Test
+  void dismissedVersionRemainsVisibleAndCannotBeAccepted() throws Exception {
+    TestCaregiver owner = register("plan-dismissed-version@example.com");
+    String recipientId = createRecipient(owner.token());
+    JsonNode dismissed = suggest(owner.token(), recipientId, "Keep this dismissed plan", null);
+    String planId = dismissed.get("id").asText();
+
+    mvc.perform(post(path(recipientId, planId, "dismiss"))
+            .header("Authorization", bearer(owner.token())))
+        .andExpect(status().isOk())
+        .andExpect(jsonPath("$.status").value("DISMISSED"));
+    mvc.perform(post(path(recipientId, planId, "accept"))
+            .header("Authorization", bearer(owner.token())))
+        .andExpect(status().isConflict());
+    mvc.perform(post(path(recipientId, planId, "edit-and-accept"))
+            .header("Authorization", bearer(owner.token()))
+            .contentType(MediaType.APPLICATION_JSON)
+            .content("{\"expectedVersion\":1,\"changes\":[]}"))
+        .andExpect(status().isConflict());
+
+    mvc.perform(get(PLANS + recipientId + "/plans/history")
+            .header("Authorization", bearer(owner.token())))
+        .andExpect(status().isOk())
+        .andExpect(jsonPath("$.length()").value(1))
+        .andExpect(jsonPath("$[0].id").value(planId))
+        .andExpect(jsonPath("$[0].content").value("Keep this dismissed plan"))
+        .andExpect(jsonPath("$[0].status").value("DISMISSED"));
+  }
+
+  @Test
   void crossCaregiverCannotReadOrChangeAnotherCaregiversPlans() throws Exception {
     TestCaregiver owner = register("plan-owner2@example.com");
     TestCaregiver other = register("plan-other@example.com");
@@ -312,12 +410,35 @@ class PlanControllerTest {
 
       assertThat(acceptFirst.get(15, TimeUnit.SECONDS)).isEqualTo(200);
       assertThat(acceptSecond.get(15, TimeUnit.SECONDS)).isEqualTo(200);
-      assertThat(plans.findAllByRecipient_IdOrderByVersionNumberDesc(UUID.fromString(recipientId)))
+      var history = plans.findAllByRecipient_IdOrderByVersionNumberDesc(UUID.fromString(recipientId));
+      assertThat(history)
           .filteredOn(plan -> plan.getStatus().isActiveAccepted())
           .hasSize(1);
+      assertThat(history).hasSize(2)
+          .extracting(CarePlan::getVersionNumber)
+          .containsExactly(2, 1);
+      assertThat(history).extracting(CarePlan::getContent)
+          .containsExactlyInAnyOrder("Concurrent plan A", "Concurrent plan B");
+      assertThat(history).extracting(CarePlan::getStatus)
+          .containsExactlyInAnyOrder(PlanStatus.ACCEPTED, PlanStatus.ARCHIVED);
+      assertThat(jdbcTemplate.queryForObject(
+          "select count(*) from care_plan_versions where recipient_id = ? and active_accepted_key = true",
+          Integer.class, UUID.fromString(recipientId))).isEqualTo(1);
     } finally {
       executor.shutdownNow();
     }
+  }
+
+  private JsonNode saveStructuredSuggestion(String recipientId) throws Exception {
+    var recipient = recipients.findById(UUID.fromString(recipientId)).orElseThrow();
+    var document = new PlanDocument(1,
+        List.of(new SuggestedPlanChange(PlanAction.LOG_MOBILITY_GOAL,
+            Map.of("activity", "walk outside", "frequency", "daily"),
+            "Encourage safe movement", List.of("note-1"))),
+        List.of());
+    CarePlan plan = plans.saveAndFlush(new CarePlan(recipient, 1, PlanStatus.SUGGESTED,
+        documents.write(document), "summary-edit-version", null, "note-1", PlanSource.AI_GENERATED));
+    return mapper.valueToTree(PlanResponse.from(plan, document));
   }
 
   private int acceptStatus(String token, String recipientId, String planId) throws Exception {
