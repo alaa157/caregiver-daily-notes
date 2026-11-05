@@ -185,8 +185,7 @@ describe('daily-note creation and immutable corrections', () => {
     await userEvent.click(screen.getByRole('button', { name: 'Save original note' }));
     await screen.findByText('Original note saved.');
 
-    expect(submitted).toMatchObject({ observations: { fallReported: { state: 'NOT_RECORDED' } } });
-    expect(submitted).not.toHaveProperty('observations.fallReported.value');
+    expect(submitted).toMatchObject({ observations: { fallReported: { state: 'NOT_RECORDED', value: null } } });
   });
 
   it('preserves medication verification independently from medication observation state', async () => {
