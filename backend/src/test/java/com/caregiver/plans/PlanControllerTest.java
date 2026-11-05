@@ -277,6 +277,65 @@ class PlanControllerTest {
   }
 
   @Test
+  void rejectsBlankOrMissingContentWithoutStructuredContent() throws Exception {
+    TestCaregiver owner = register("plan-missing-content@example.com");
+    String recipientId = createRecipient(owner.token());
+    List<String> requests = List.of(
+        "{\"sourceSummaryId\":\"summary-missing\"}",
+        "{\"content\":\"   \"}");
+
+    for (String request : requests) {
+      mvc.perform(post(PLANS + recipientId + "/plans/suggestions")
+              .header("Authorization", bearer(owner.token()))
+              .contentType(MediaType.APPLICATION_JSON)
+              .content(request))
+          .andExpect(status().isBadRequest());
+      assertThat(plans.findAllByRecipient_IdOrderByVersionNumberDesc(UUID.fromString(recipientId))).isEmpty();
+    }
+  }
+
+  @Test
+  void rejectsNonBlankContentWhenStructuredContentIsAlsoProvided() throws Exception {
+    TestCaregiver owner = register("plan-conflicting-content@example.com");
+    String recipientId = createRecipient(owner.token());
+    String request = """
+        {"content":"legacy text","structuredContent":{"schemaVersion":1,"changes":[
+          {"action":"SCHEDULE_CHECK_IN","params":{"withinDays":"3"},
+           "reason":"Review recorded notes","evidenceNoteIds":["note-1"]}
+        ],"medications":[]}}
+        """;
+
+    mvc.perform(post(PLANS + recipientId + "/plans/suggestions")
+            .header("Authorization", bearer(owner.token()))
+            .contentType(MediaType.APPLICATION_JSON)
+            .content(request))
+        .andExpect(status().isUnprocessableEntity());
+
+    assertThat(plans.findAllByRecipient_IdOrderByVersionNumberDesc(UUID.fromString(recipientId))).isEmpty();
+  }
+
+  @Test
+  void rejectsStructuredDraftExceedingSerializedSizeLimit() throws Exception {
+    TestCaregiver owner = register("plan-oversized-structured@example.com");
+    String recipientId = createRecipient(owner.token());
+    String longName = "x".repeat(20_001);
+    String request = mapper.writeValueAsString(Map.of(
+        "content", "",
+        "structuredContent", Map.of(
+            "schemaVersion", 1,
+            "changes", List.of(),
+            "medications", List.of(Map.of("name", longName, "dose", "5mg", "schedule", "daily")))));
+
+    mvc.perform(post(PLANS + recipientId + "/plans/suggestions")
+            .header("Authorization", bearer(owner.token()))
+            .contentType(MediaType.APPLICATION_JSON)
+            .content(request))
+        .andExpect(status().isUnprocessableEntity());
+
+    assertThat(plans.findAllByRecipient_IdOrderByVersionNumberDesc(UUID.fromString(recipientId))).isEmpty();
+  }
+
+  @Test
   void preservesExistingFreeTextSuggestionRequest() throws Exception {
     TestCaregiver owner = register("plan-free-text-compatible@example.com");
     String recipientId = createRecipient(owner.token());
@@ -353,6 +412,31 @@ class PlanControllerTest {
         .andExpect(jsonPath("$.length()").value(1))
         .andExpect(jsonPath("$[0].content").value("AI suggestion"))
         .andExpect(jsonPath("$[0].status").value("SUGGESTED"));
+  }
+
+  @Test
+  void malformedCaregiverContentCannotBeEditedAsStructured() throws Exception {
+    TestCaregiver owner = register("plan-malformed-edit@example.com");
+    String recipientId = createRecipient(owner.token());
+    JsonNode original = suggestOpaque(owner.token(), recipientId, "{\"schemaVersion\":1,\"changes\":[}");
+    String planId = original.get("id").asText();
+
+    mvc.perform(post(path(recipientId, planId, "edit-and-accept"))
+            .header("Authorization", bearer(owner.token()))
+            .contentType(MediaType.APPLICATION_JSON)
+            .content("""
+                {"expectedVersion":1,"changes":[{"index":0,"params":{"withinDays":"5"}}]}
+                """))
+        .andExpect(status().isUnprocessableEntity());
+
+    mvc.perform(get(PLANS + recipientId + "/plans/history")
+            .header("Authorization", bearer(owner.token())))
+        .andExpect(status().isOk())
+        .andExpect(jsonPath("$.length()").value(1))
+        .andExpect(jsonPath("$[0].id").value(planId))
+        .andExpect(jsonPath("$[0].content").value("{\"schemaVersion\":1,\"changes\":[}"))
+        .andExpect(jsonPath("$[0].status").value("SUGGESTED"))
+        .andExpect(jsonPath("$[0].structuredContent").doesNotExist());
   }
 
   @Test

@@ -8,6 +8,8 @@ import com.caregiver.recipient.RecipientNotFoundException;
 import com.caregiver.recipient.InactiveRecipientException;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
+import org.springframework.http.HttpStatus;
+import org.springframework.web.server.ResponseStatusException;
 
 import java.util.List;
 import java.util.ArrayList;
@@ -35,10 +37,13 @@ public class PlanService {
     CareRecipient recipient = ownedRecipientForUpdate(recipientId);
     String content;
     if (request.structuredContent() != null) {
+      if (request.content() != null && !request.content().isBlank()) {
+        throw new ProtectedPlanException();
+      }
       content = documents.write(request.structuredContent());
     } else {
       if (request.content() == null || request.content().isBlank()) {
-        throw new IllegalArgumentException("content must be non-blank");
+        throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "content must be non-blank");
       }
       content = request.content();
     }
