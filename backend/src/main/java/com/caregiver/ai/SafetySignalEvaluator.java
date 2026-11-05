@@ -11,6 +11,7 @@ import java.util.List;
  * Deterministic red-flag decision table over note signals.
  * Missing data yields absent signals, never positives.
  */
+// capstone baseline, not clinically validated
 public class SafetySignalEvaluator {
   public static final int HIGH_PAIN_THRESHOLD = 7;
   public static final int MISSED_MED_COUNT_THRESHOLD = 2;
