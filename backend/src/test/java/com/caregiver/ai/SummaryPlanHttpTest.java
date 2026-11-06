@@ -41,7 +41,7 @@ class SummaryPlanHttpTest {
   @Autowired CareRecipientRepository recipients;
   @Autowired PlanDocumentCodec documents;
   @MockBean LlmClient llm;
-  private String owner, recipientId, noteId;
+  private String owner, recipientId, noteId, outOfWindowNoteId;
   private List<MedicationEntry> medications = List.of();
   private String summaryMode, planMode;
 
@@ -66,6 +66,7 @@ class SummaryPlanHttpTest {
       if (summaryMode.equals("fallback")) return new LlmResult(LlmStatus.FALLBACK, "", "private provider diagnostic");
       if (summaryMode.equals("malformed")) return new LlmResult(LlmStatus.OK, "not-json", "");
       if (summaryMode.equals("empty")) return ok(Map.of("observations", List.of(), "uncertainties", List.of()));
+      if (summaryMode.equals("out-of-window")) return ok(Map.of("observations", List.of(Map.of("text", "Out of range.", "noteId", outOfWindowNoteId, "quote", "OUTSIDE_PERIOD")), "uncertainties", List.of()));
       return ok(Map.of("observations", List.of(Map.of("text", "Reported observation.", "noteId", noteId, "quote", summaryMode.equals("quote") ? "fabricated quote" : "Source note")), "uncertainties", List.of()));
     });
   }
@@ -75,11 +76,25 @@ class SummaryPlanHttpTest {
     String start = LocalDate.parse("2026-10-26").minusDays(days - 1L).toString();
     String included = note(start, "Boundary inside", false);
     String excluded = note(LocalDate.parse(start).minusDays(1).toString(), "OUTSIDE_PERIOD", false);
+    outOfWindowNoteId = excluded;
     note("2026-10-27", "FUTURE_NOTE", false);
     call("/api/summaries", owner, request(days)).andExpect(status().isOk()).andExpect(jsonPath("$.summary.aiUnavailable").value(false))
         .andExpect(jsonPath("$.summary.observations[0].noteId").value(noteId)).andExpect(jsonPath("$.safety.needsDoctorBanner").value(true));
     var capture = org.mockito.ArgumentCaptor.forClass(LlmRequest.class); verify(llm).complete(capture.capture());
     assertThat(capture.getValue().dataBlock()).contains(included, "Source note عربي.").doesNotContain(excluded, "OUTSIDE_PERIOD", "FUTURE_NOTE");
+  }
+
+  @Test void outOfWindowNoteCannotBeAcceptedAsEvidenceEvenWhenModelNamesItsId() throws Exception {
+    outOfWindowNoteId = note("2026-10-18", "OUTSIDE_PERIOD", false);
+    summaryMode = "out-of-window";
+
+    call("/api/summaries", owner, request(7)).andExpect(status().isOk())
+        .andExpect(jsonPath("$.summary.aiUnavailable").value(true))
+        .andExpect(jsonPath("$.summary.observations").isEmpty());
+
+    var capture = org.mockito.ArgumentCaptor.forClass(LlmRequest.class);
+    verify(llm).complete(capture.capture());
+    assertThat(capture.getValue().dataBlock()).doesNotContain("OUTSIDE_PERIOD");
   }
 
   @Test void advertisesTheConcreteSummaryRequestAndResultAsJson() throws Exception {
