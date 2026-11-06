@@ -8,6 +8,7 @@ import { useI18n } from '../../i18n/I18nProvider';
 import type { MessageKey } from '../../i18n/translations';
 import { RecipientLifecycleDialog } from './RecipientLifecycleDialog';
 import { RecipientForm } from './RecipientForm';
+import { MedicationListPanel } from '../medications/MedicationListPanel';
 import { useRecipientResource, useRecipientsApi } from './useRecipientResource';
 import './recipients.css';
 
@@ -123,6 +124,9 @@ function RecipientRecord({ id, edit }: { id: string; edit: boolean }) {
           {edit && state.data.lifecycleStatus !== 'ACTIVE' && <ButtonLink variant="secondary" to={`${listPath}/${id}`}>{t('recipientDetails')}</ButtonLink>}
         </>}
       </div>
+      {!edit && <div className="recipient-surface medication-surface">
+        <MedicationListPanel recipientId={state.data.id} canEdit={state.data.lifecycleStatus === 'ACTIVE'} />
+      </div>}
       {confirming && <RecipientLifecycleDialog recipient={state.data} action={confirming} onClose={() => setConfirming(null)} onConfirm={async (signal) => {
         const updated = confirming === 'archive' ? await api.archive(id, signal) : await api.restore(id, signal);
         if (!signal.aborted) { replace(updated); setNotice(confirming === 'archive' ? 'recipientArchivedSuccess' : 'recipientRestoredSuccess'); }
