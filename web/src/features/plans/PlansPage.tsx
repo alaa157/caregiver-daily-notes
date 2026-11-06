@@ -31,7 +31,7 @@ function Confirmation({ action, disabled, onCancel, onConfirm }: {
   const cancel = useRef<HTMLButtonElement>(null);
   const hintId = useId();
   useEffect(() => { cancel.current?.focus(); }, []);
-  return <div className="plan-confirmation" role="alertdialog" aria-label={t(action === 'accept' ? 'plansConfirmAccept' : 'plansConfirmDismiss')} aria-describedby={hintId}>
+  return <div className="plan-confirmation" role="group" aria-label={t(action === 'accept' ? 'plansConfirmAccept' : 'plansConfirmDismiss')} aria-describedby={hintId}>
     <p id={hintId}>{t(action === 'accept' ? 'plansAcceptHint' : 'plansDismissHint')}</p>
     <div className="note-actions">
       <button className="button button--secondary" type="button" ref={cancel} disabled={disabled} onClick={onCancel}>{t('plansCancel')}</button>

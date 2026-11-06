@@ -418,7 +418,7 @@ describe('care-plan review and authoritative backend decisions', () => {
   it('requires confirmation before accepting a suggested version', async () => {
     const fetcher = serve(); renderPlans(fetcher); await loaded(); await begin();
     // Test A: confirmation UI appears before any POST, confirm sends the exact endpoint.
-    expect(screen.getByRole('alertdialog', { name: 'Confirm acceptance' })).toBeInTheDocument();
+    expect(screen.getByRole('group', { name: 'Confirm acceptance' })).toBeInTheDocument();
     expect(writes(fetcher)).toHaveLength(0);
     await userEvent.click(screen.getByRole('button', { name: 'Confirm acceptance' }));
     await screen.findByText(/The server accepted the suggestion/);
@@ -487,7 +487,7 @@ describe('care-plan review and authoritative backend decisions', () => {
   it('requires confirmation before dismissing a suggested version', async () => {
     // Test E: dismiss mirrors accept — no POST before confirm, exact endpoint after.
     const fetcher = serve(); renderPlans(fetcher); await loaded(); await begin('Dismiss suggestion');
-    expect(screen.getByRole('alertdialog', { name: 'Confirm dismissal' })).toBeInTheDocument();
+    expect(screen.getByRole('group', { name: 'Confirm dismissal' })).toBeInTheDocument();
     expect(writes(fetcher)).toHaveLength(0);
     await userEvent.click(screen.getByRole('button', { name: 'Confirm dismissal' }));
     await screen.findByText(/The server dismissed the suggestion/);
