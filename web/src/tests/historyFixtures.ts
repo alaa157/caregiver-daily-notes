@@ -1,8 +1,8 @@
-import type { DailyNote, NotesHistoryPage } from '../api/notes';
+import type { NoteListItem, NotesHistoryPage } from '../api/notes';
 import { observationFields } from '../api/notes';
-import { noteFixture } from './noteFixtures';
+import { noteFixture, noteListFixture } from './noteFixtures';
 
-export const historyNote = { ...noteFixture, addendumCount: 1 };
+export const historyNote = { ...noteFixture, addendumCount: 1, correctionCount: 0 };
 export function correctionHistoryFixture() {
   const effectiveObservations = Object.fromEntries(observationFields.map((field) => {
     const observation = noteFixture.observations[field];
@@ -16,9 +16,9 @@ export function correctionHistoryFixture() {
       updatedAt: noteFixture.createdAt,
     }];
   }));
-  return { originalNote: noteFixture, events: [], effectiveObservations };
+  return { originalNote: noteListFixture, events: [], effectiveObservations };
 }
-export function historyPage(content: DailyNote[] = [historyNote], number = 0, size = 20, totalElements = content.length): NotesHistoryPage {
+export function historyPage(content: NoteListItem[] = [historyNote], number = 0, size = 20, totalElements = content.length): NotesHistoryPage {
   const totalPages = Math.ceil(totalElements / size);
   return { content, number, size, totalElements, totalPages, first: number === 0, last: number >= totalPages - 1 };
 }
