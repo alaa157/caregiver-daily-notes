@@ -50,6 +50,7 @@
 .summary-trends { list-style: none; padding: 0; margin: 0; }
 .summary-trends h4 { margin-block: 0 .75rem; }
 .summary-trends dl { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 1rem; }
+.summary-trends dl > div { min-inline-size: 0; overflow-wrap: anywhere; }
 .summary-trends dt { font-size: .9rem; color: var(--caregiver-muted); }
 .summary-trends dd { margin: .4rem 0 0; font-size: 1.15rem; font-weight: 600; }
 @media (max-width: 600px) {
