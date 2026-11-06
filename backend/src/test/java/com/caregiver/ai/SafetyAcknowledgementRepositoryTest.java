@@ -109,6 +109,17 @@ class SafetyAcknowledgementRepositoryTest {
   }
 
   @Test
+  void rejectsAcknowledgementForAnotherCaregiversRecipient() {
+    Caregiver owner = caregiver("ack-ownership-owner@example.com");
+    Caregiver other = caregiver("ack-ownership-other@example.com");
+    CareRecipient ownedRecipient = recipient(owner, "Ownership recipient");
+
+    assertThatThrownBy(() -> entityManager.persistAndFlush(acknowledgement(other, ownedRecipient, 7)))
+        .isInstanceOf(IllegalArgumentException.class)
+        .hasMessage("caregiver must own recipient");
+  }
+
+  @Test
   void keepsAcknowledgementsInSeparateSummaryPeriods() {
     Caregiver caregiver = caregiver("ack-periods@example.com");
     CareRecipient recipient = recipient(caregiver, "Period recipient");
@@ -141,6 +152,18 @@ class SafetyAcknowledgementRepositoryTest {
         .isInstanceOf(DataIntegrityViolationException.class);
     assertThatThrownBy(() -> insertRaw(
         UUID.randomUUID(), caregiver.getId(), UUID.randomUUID(),
+        SafetyRuleId.FALL_DETECTED.name(), PERIOD_END, 7))
+        .isInstanceOf(DataIntegrityViolationException.class);
+  }
+
+  @Test
+  void databaseRejectsAcknowledgementWithMismatchedRecipientOwner() {
+    Caregiver owner = caregiver("ack-database-owner@example.com");
+    Caregiver other = caregiver("ack-database-other@example.com");
+    CareRecipient ownedRecipient = recipient(owner, "Database ownership recipient");
+
+    assertThatThrownBy(() -> insertRaw(
+        UUID.randomUUID(), other.getId(), ownedRecipient.getId(),
         SafetyRuleId.FALL_DETECTED.name(), PERIOD_END, 7))
         .isInstanceOf(DataIntegrityViolationException.class);
   }

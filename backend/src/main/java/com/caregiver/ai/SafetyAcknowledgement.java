@@ -64,6 +64,11 @@ public class SafetyAcknowledgement {
       LocalDate periodEndInclusive, int periodDays) {
     this.caregiver = Objects.requireNonNull(caregiver, "caregiver");
     this.recipient = Objects.requireNonNull(recipient, "recipient");
+    Caregiver recipientCaregiver = Objects.requireNonNull(recipient.getCaregiver(), "recipient.caregiver");
+    if (caregiver != recipientCaregiver
+        && (caregiver.getId() == null || !caregiver.getId().equals(recipientCaregiver.getId()))) {
+      throw new IllegalArgumentException("caregiver must own recipient");
+    }
     this.ruleId = Objects.requireNonNull(ruleId, "ruleId");
     this.periodEndInclusive = Objects.requireNonNull(periodEndInclusive, "periodEndInclusive");
     if (periodDays <= 0) {
