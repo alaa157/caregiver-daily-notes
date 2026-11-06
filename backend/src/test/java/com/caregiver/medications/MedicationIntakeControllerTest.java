@@ -108,6 +108,59 @@ class MedicationIntakeControllerTest {
   }
 
   @Test
+  void rejectsForeignRecipientForPostAndGetWithoutLeakingEvents() throws Exception {
+    Fixture owner = fixture();
+    Fixture foreign = fixture();
+    JsonNode foreignEvent = createEvent(foreign, "TAKEN", "2026-10-22T08:30:00Z", "VERIFIED");
+    long foreignEventCount = eventCount(foreign);
+
+    JsonNode postError = json(mvc.perform(post(path(foreign))
+            .header("Authorization", bearer(owner.caregiver().token()))
+            .contentType(MediaType.APPLICATION_JSON)
+            .content(mapper.writeValueAsBytes(request("TAKEN", "2026-10-23T08:30:00Z", "VERIFIED"))))
+        .andExpect(status().isNotFound())
+        .andReturn());
+    assertThat(postError.toString()).doesNotContain(foreignEvent.path("id").asText());
+    assertThat(eventCount(owner.caregiver().id(), foreign.recipientId(), foreign.medicationId())).isZero();
+    assertThat(eventCount(foreign)).isEqualTo(foreignEventCount);
+
+    JsonNode getError = json(mvc.perform(get(path(foreign))
+            .header("Authorization", bearer(owner.caregiver().token())))
+        .andExpect(status().isNotFound())
+        .andReturn());
+    assertThat(getError.toString()).doesNotContain(foreignEvent.path("id").asText(), "TAKEN");
+    assertThat(eventCount(owner.caregiver().id(), foreign.recipientId(), foreign.medicationId())).isZero();
+    assertThat(eventCount(foreign)).isEqualTo(foreignEventCount);
+  }
+
+  @Test
+  void rejectsCrossRecipientMedicationPairForPostAndGet() throws Exception {
+    CaregiverFixture caregiver = register();
+    Fixture firstRecipient = fixture(caregiver);
+    Fixture secondRecipient = fixture(caregiver);
+    JsonNode event = createEvent(secondRecipient, "TAKEN", "2026-10-22T08:30:00Z", "VERIFIED");
+    long eventCountBefore = eventCount(secondRecipient);
+
+    JsonNode postError = json(mvc.perform(post(path(firstRecipient.recipientId(), secondRecipient.medicationId()))
+            .header("Authorization", bearer(caregiver.token()))
+            .contentType(MediaType.APPLICATION_JSON)
+            .content(mapper.writeValueAsBytes(request("TAKEN", "2026-10-23T08:30:00Z", "VERIFIED"))))
+        .andExpect(status().isNotFound())
+        .andReturn());
+    assertThat(postError.toString()).doesNotContain(event.path("id").asText());
+    assertThat(eventCount(caregiver.id(), firstRecipient.recipientId(), secondRecipient.medicationId())).isZero();
+    assertThat(eventCount(secondRecipient)).isEqualTo(eventCountBefore);
+
+    JsonNode getError = json(mvc.perform(get(path(firstRecipient.recipientId(), secondRecipient.medicationId()))
+            .header("Authorization", bearer(caregiver.token())))
+        .andExpect(status().isNotFound())
+        .andReturn());
+    assertThat(getError.toString()).doesNotContain(event.path("id").asText(), "TAKEN");
+    assertThat(eventCount(caregiver.id(), firstRecipient.recipientId(), secondRecipient.medicationId())).isZero();
+    assertThat(eventCount(secondRecipient)).isEqualTo(eventCountBefore);
+  }
+
+  @Test
   void rejectsUnsupportedIntakeEventValue() throws Exception {
     Fixture fixture = fixture();
 
@@ -161,7 +214,10 @@ class MedicationIntakeControllerTest {
   }
 
   private Fixture fixture() throws Exception {
-    CaregiverFixture caregiver = register();
+    return fixture(register());
+  }
+
+  private Fixture fixture(CaregiverFixture caregiver) throws Exception {
     UUID recipientId = createRecipient(caregiver.token());
     UUID medicationId = createMedication(caregiver.token(), recipientId);
     return new Fixture(caregiver, recipientId, medicationId);
@@ -213,9 +269,13 @@ class MedicationIntakeControllerTest {
   }
 
   private long eventCount(Fixture fixture) {
+    return eventCount(fixture.caregiver().id(), fixture.recipientId(), fixture.medicationId());
+  }
+
+  private long eventCount(UUID caregiverId, UUID recipientId, UUID medicationId) {
     return jdbc.queryForObject(
         "select count(*) from medication_intake_events where caregiver_id = ? and recipient_id = ? and medication_id = ?",
-        Long.class, fixture.caregiver().id(), fixture.recipientId(), fixture.medicationId());
+        Long.class, caregiverId, recipientId, medicationId);
   }
 
   private static Map<String, Object> request(String intakeState, String occurredAt, String verificationState) {
