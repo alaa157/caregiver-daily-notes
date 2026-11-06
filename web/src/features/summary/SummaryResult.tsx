@@ -25,7 +25,7 @@ export function SummaryResult({ view }: { view: SummaryView }) {
   return <section className="summary-result" aria-labelledby="summary-result-heading">
     <header className="summary-result-heading"><h2 id="summary-result-heading">{t(headingKey)}</h2>
       <p className="summary-recipient"><bdi>{view.recipientName}</bdi></p>
-      <p>{t('summaryCoverage')}: <bdi>{from.toISOString().slice(0, 10)}</bdi> – <bdi>{request.periodEndInclusive}</bdi> ({format(request.periodDays)} {t('summaryDays')})</p>
+      <p>{t('summaryCoverage')}: <bdi>{from.toISOString().slice(0, 10)}</bdi> – <bdi>{request.periodEndInclusive}</bdi> (<bdi>{format(request.periodDays)}</bdi> {t('summaryDays')})</p>
     </header>
     <SummarySafety safety={response.safety} recipientId={request.recipientId}
       periodEndInclusive={request.periodEndInclusive} periodDays={request.periodDays} />
@@ -61,11 +61,11 @@ export function SummaryResult({ view }: { view: SummaryView }) {
         <h4 className="summary-untrusted" dir="auto">{trend.metric}</h4>
         <dl>
           <div><dt>{t('summaryPreviousPeriod')}</dt><dd>{trend.previousSampleSize === 0 ? <span role="status">{t('summaryNoRecordedData')}</span> : <>
-            <span>{t('summaryEventCount')}: {format(trend.previousCount)}</span><br />
-            <span>{t(sampleSizeKey(trend.metric))}: {format(trend.previousSampleSize)}</span></>}</dd></div>
+            <span>{t('summaryEventCount')}: <bdi>{format(trend.previousCount)}</bdi></span><br />
+            <span>{t(sampleSizeKey(trend.metric))}: <bdi>{format(trend.previousSampleSize)}</bdi></span></>}</dd></div>
           <div><dt>{t('summaryRequestedPeriod')}</dt><dd>{trend.currentSampleSize === 0 ? <span role="status">{t('summaryNoRecordedData')}</span> : <>
-            <span>{t('summaryEventCount')}: {format(trend.currentCount)}</span><br />
-            <span>{t(sampleSizeKey(trend.metric))}: {format(trend.currentSampleSize)}</span></>}</dd></div>
+            <span>{t('summaryEventCount')}: <bdi>{format(trend.currentCount)}</bdi></span><br />
+            <span>{t(sampleSizeKey(trend.metric))}: <bdi>{format(trend.currentSampleSize)}</bdi></span></>}</dd></div>
           {trend.previousSampleSize > 0 && trend.currentSampleSize > 0 && <div><dt>{t('summaryDelta')}</dt><dd><bdi>{format(trend.delta)}</bdi></dd></div>}
         </dl>
       </li>)}</ul>

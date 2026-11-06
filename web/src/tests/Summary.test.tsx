@@ -73,6 +73,7 @@ async function choose() {
 }
 async function generate() { await choose(); await userEvent.click(screen.getByRole('button', { name: 'Generate summary' })); return screen.findByRole('heading', { name: 'Requested summary' }); }
 const posts = (fetcher: ReturnType<typeof vi.fn>) => fetcher.mock.calls.filter(([, init]) => init.method === 'POST');
+const renderedTrendLines = (period: Element) => Array.from(period.querySelectorAll('dd > span'), (line) => line.textContent?.trim() ?? '');
 
 describe('on-demand summary and safety workflow', () => {
   it('protects the route before fetching private data', () => {
@@ -537,21 +538,26 @@ describe('on-demand summary and safety workflow', () => {
   it('shows exact summary dates and trend sample counts', async () => {
     show(dataFetcher()); await generate();
     expect(screen.getByText('2026-10-18')).toBeVisible(); expect(screen.getByText('2026-10-24')).toBeVisible();
-    expect(screen.getByText('Events: 1')).toBeVisible(); expect(screen.getByText('Recorded days: 4')).toBeVisible();
-    expect(screen.getByText('Events: 3')).toBeVisible(); expect(screen.getByText('Recorded days: 6')).toBeVisible();
+    const periods = screen.getByRole('region', { name: 'Recorded observation counts' }).querySelectorAll('dl > div');
+    expect(renderedTrendLines(periods[0])).toEqual(['Events: 1', 'Recorded days: 4']);
+    expect(renderedTrendLines(periods[1])).toEqual(['Events: 3', 'Recorded days: 6']);
   });
   it('shows no recorded data instead of zero for empty trend sample', async () => {
     const fixture = summaryFixture(); fixture.trends[0].previousCount = 0; fixture.trends[0].previousSampleSize = 0; fixture.trends[0].delta = 3;
     const fetcher = dataFetcher((path) => path === byokSummaryPath ? jsonResponse(fixture) : undefined);
     show(fetcher); await generate();
     expect(screen.getByText('No recorded data for this period')).toBeVisible();
-    expect(screen.queryByText('Events: 0')).not.toBeInTheDocument(); expect(screen.getByText('Events: 3')).toBeVisible();
-    expect(screen.getByText('Recorded days: 6')).toBeVisible(); expect(screen.queryByText('Change')).not.toBeInTheDocument();
+    expect(screen.queryByText('Events: 0')).not.toBeInTheDocument();
+    const periods = screen.getByRole('region', { name: 'Recorded observation counts' }).querySelectorAll('dl > div');
+    expect(periods[0].querySelector('dd bdi')).toBeNull();
+    expect(renderedTrendLines(periods[1])).toEqual(['Events: 3', 'Recorded days: 6']);
+    expect(screen.queryByText('Change')).not.toBeInTheDocument();
   });
   it('shows recorded zero event count when sample size is nonzero', async () => {
     const fixture = summaryFixture(); fixture.trends[0].previousCount = 0; fixture.trends[0].previousSampleSize = 3; fixture.trends[0].delta = 3;
     show(dataFetcher((path) => path === byokSummaryPath ? jsonResponse(fixture) : undefined)); await generate();
-    expect(screen.getByText('Events: 0')).toBeVisible(); expect(screen.getByText('Recorded days: 3')).toBeVisible();
+    const previous = screen.getByRole('region', { name: 'Recorded observation counts' }).querySelector('dl > div')!;
+    expect(renderedTrendLines(previous)).toEqual(['Events: 0', 'Recorded days: 3']);
     expect(screen.queryByText('No recorded data for this period')).not.toBeInTheDocument();
   });
   it('renders trend sample labels in Arabic', async () => {
@@ -560,23 +566,26 @@ describe('on-demand summary and safety workflow', () => {
     await userEvent.click(screen.getByRole('button', { name: 'التغيير إلى العربية' }));
     expect(document.documentElement).toHaveAttribute('dir', 'rtl');
     expect(screen.getByText('لا توجد بيانات مسجلة لهذه الفترة')).toBeVisible();
-    expect(screen.getByText(/عدد الأحداث: ٣/)).toBeVisible(); expect(screen.getByText(/الأيام التي سُجّلت فيها بيانات: ٦/)).toBeVisible();
+    const periods = screen.getByRole('region', { name: 'أعداد المشاهدات المسجلة' }).querySelectorAll('dl > div');
+    expect(renderedTrendLines(periods[1])).toEqual(['عدد الأحداث: ٣', 'الأيام التي سُجّلت فيها بيانات: ٦']);
     expect(screen.queryByText('Previous period')).not.toBeInTheDocument(); expect(screen.queryByText('Events')).not.toBeInTheDocument();
   });
   it('uses metric-specific sampling units in English and Arabic', async () => {
     const fixture = summaryFixture();
     fixture.trends = ['FALL_COUNT', 'HIGH_PAIN_COUNT', 'MISSED_MED_COUNT', 'POOR_APPETITE_COUNT'].map((metric) => ({ ...fixture.trends[0], metric }));
     show(dataFetcher((path) => path === byokSummaryPath ? jsonResponse(fixture) : undefined)); await generate();
-    expect(screen.getAllByText('Recorded note observations: 4')).toHaveLength(2);
-    expect(screen.getAllByText('Recorded note observations: 6')).toHaveLength(2);
-    expect(screen.getAllByText('Recorded days: 4')).toHaveLength(2);
-    expect(screen.getAllByText('Recorded days: 6')).toHaveLength(2);
+    const trends = screen.getByRole('region', { name: 'Recorded observation counts' }).querySelectorAll('li');
+    expect(trends).toHaveLength(4);
+    expect(trends[0].textContent).toContain('Recorded note observations: 4');
+    expect(trends[0].textContent).toContain('Recorded note observations: 6');
+    expect(trends[2].textContent).toContain('Recorded days: 4');
+    expect(trends[2].textContent).toContain('Recorded days: 6');
     await userEvent.click(screen.getByRole('button', { name: 'التغيير إلى العربية' }));
     expect(document.documentElement).toHaveAttribute('dir', 'rtl');
-    expect(screen.getAllByText('الملاحظات المسجلة: ٤')).toHaveLength(2);
-    expect(screen.getAllByText('الملاحظات المسجلة: ٦')).toHaveLength(2);
-    expect(screen.getAllByText('الأيام التي سُجّلت فيها بيانات: ٤')).toHaveLength(2);
-    expect(screen.getAllByText('الأيام التي سُجّلت فيها بيانات: ٦')).toHaveLength(2);
+    expect(trends[0].textContent).toContain('الملاحظات المسجلة: ٤');
+    expect(trends[0].textContent).toContain('الملاحظات المسجلة: ٦');
+    expect(trends[2].textContent).toContain('الأيام التي سُجّلت فيها بيانات: ٤');
+    expect(trends[2].textContent).toContain('الأيام التي سُجّلت فيها بيانات: ٦');
   });
   it.each([
     { previousSampleSize: 4, currentSampleSize: 0, previousCount: 1, currentCount: 0, delta: -1 },
@@ -586,7 +595,10 @@ describe('on-demand summary and safety workflow', () => {
     show(dataFetcher((path) => path === byokSummaryPath ? jsonResponse(fixture) : undefined)); await generate();
     expect(screen.getAllByText('No recorded data for this period')).toHaveLength(periods.previousSampleSize === 0 ? 2 : 1);
     expect(screen.queryByText('Change')).not.toBeInTheDocument();
-    if (periods.previousSampleSize > 0) expect(screen.getByText('Events: 1')).toBeVisible();
+    if (periods.previousSampleSize > 0) {
+      const previous = screen.getByRole('region', { name: 'Recorded observation counts' }).querySelector('dl > div')!;
+      expect(renderedTrendLines(previous)).toContain('Events: 1');
+    }
   });
   it('renders Arabic/RTL and bidi isolation; language changes do not regenerate or store summary content', async () => {
     const fetcher = dataFetcher(); show(fetcher); await generate();
@@ -596,5 +608,84 @@ describe('on-demand summary and safety workflow', () => {
     expect(screen.getByText(recipientFixture.name, { selector: 'bdi' }).tagName).toBe('BDI');
     expect(screen.getByRole('blockquote')).toHaveAttribute('dir', 'auto'); expect(posts(fetcher)).toHaveLength(1);
     expect(JSON.stringify(localStorage)).not.toContain('Reported appetite'); expect(JSON.stringify(sessionStorage)).not.toContain('Reported appetite');
+  });
+  it('isolates mixed Arabic evidence and Latin note id', async () => {
+    const fixture = summaryFixture();
+    const observationText = 'تم تسجيل سقوط في الساعة 10:30 — NOTE-123 (review pending)';
+    const evidenceQuote = 'تمت المراجعة الساعة 10:30 — NOTE-123 (review pending)';
+    const unlinkedId = 'NOTE-123';
+    const linkedId = 'c3333333-3333-4333-8333-333333333333';
+    fixture.summary.observations = [
+      { text: observationText, noteId: unlinkedId, quote: evidenceQuote },
+      { text: 'ملاحظة مرتبطة بالرعاية', noteId: linkedId, quote: 'تم التحقق من المصدر NOTE-456.' },
+    ];
+    fixture.summary.uncertainties = [{ topic: 'موعد / FOLLOW_UP', detail: 'التفاصيل غير مؤكدة؛ review pending for ID ABC-9 at 10:30.' }];
+    fixture.safety.signals = [{ ruleId: 'FALL_DETECTED', severity: 'HIGH', reason: 'تنبيه FALL_DETECTED — review 2 notes.' }];
+    const fetcher = dataFetcher((path) => path === byokSummaryPath ? jsonResponse(fixture) : undefined);
+    show(fetcher); await generate();
+    await userEvent.click(screen.getByRole('button', { name: 'التغيير إلى العربية' }));
+
+    expect(document.documentElement).toHaveAttribute('lang', 'ar');
+    expect(document.documentElement).toHaveAttribute('dir', 'rtl');
+    const generated = screen.getByRole('region', { name: 'المشاهدات المُولّدة' });
+    const observation = within(generated).getByText(observationText, { exact: true });
+    expect(observation).toBeVisible(); expect(observation.textContent).toBe(observationText);
+    expect(observation).toHaveAttribute('dir', 'auto');
+    const firstCard = observation.closest('li')!;
+    const quote = within(firstCard).getByRole('blockquote');
+    expect(quote.textContent).toBe(evidenceQuote); expect(quote).toHaveAttribute('dir', 'auto');
+    const unlinked = within(firstCard).getByText(unlinkedId, { exact: true });
+    expect(unlinked.tagName).toBe('BDI');
+    expect(unlinked.parentElement?.tagName).toBe('P');
+    expect(unlinked.parentElement?.textContent).toContain(unlinkedId);
+    const linkedCard = within(generated).getByText('ملاحظة مرتبطة بالرعاية', { exact: true }).closest('li')!;
+    expect(within(linkedCard).getByRole('link')).toHaveAttribute('href', `/app/notes/${linkedId}`);
+    expect(within(linkedCard).getByText(linkedId, { exact: true }).tagName).toBe('BDI');
+
+    const dates = within(screen.getByRole('region', { name: 'الملخص المطلوب' }));
+    expect(dates.getByText('2026-10-18', { exact: true }).tagName).toBe('BDI');
+    expect(dates.getByText('2026-10-24', { exact: true }).tagName).toBe('BDI');
+    const uncertainty = screen.getByRole('region', { name: 'معلومات غير واضحة أو متعارضة' });
+    expect(within(uncertainty).getByText('التفاصيل غير مؤكدة؛ review pending for ID ABC-9 at 10:30.', { exact: true })).toHaveAttribute('dir', 'auto');
+    const safety = screen.getByRole('region', { name: 'معلومات السلامة' });
+    expect(within(safety).getByText('HIGH', { exact: true }).tagName).toBe('BDI');
+    expect(within(safety).getByText('FALL_DETECTED', { exact: true }).tagName).toBe('BDI');
+    expect(within(safety).getByText('تنبيه FALL_DETECTED — review 2 notes.', { exact: true })).toHaveAttribute('dir', 'auto');
+  });
+  it('keeps trend values readable in Arabic RTL', async () => {
+    const fixture = summaryFixture();
+    Object.assign(fixture.trends[0], { previousCount: 3, previousSampleSize: 4, currentCount: 1, currentSampleSize: 2, delta: -2 });
+    const fetcher = dataFetcher((path) => path === byokSummaryPath ? jsonResponse(fixture) : undefined);
+    show(fetcher); await generate();
+    await userEvent.click(screen.getByRole('button', { name: 'التغيير إلى العربية' }));
+
+    expect(document.documentElement).toHaveAttribute('dir', 'rtl');
+    const trend = screen.getByRole('region', { name: 'أعداد المشاهدات المسجلة' });
+    const periods = trend.querySelectorAll<HTMLElement>('dl > div');
+    expect(periods).toHaveLength(3);
+    const format = (value: number) => new Intl.NumberFormat('ar-EG').format(value);
+    expect(within(periods[0]).getByText('الفترة السابقة', { exact: true })).toBeVisible();
+    expect(Array.from(periods[0].querySelectorAll('dd bdi'), (item) => item.textContent)).toEqual([format(3), format(4)]);
+    expect(within(periods[1]).getByText('الفترة المطلوبة', { exact: true })).toBeVisible();
+    expect(Array.from(periods[1].querySelectorAll('dd bdi'), (item) => item.textContent)).toEqual([format(1), format(2)]);
+    expect(within(periods[2]).getByText('التغير', { exact: true })).toBeVisible();
+    const delta = periods[2].querySelector('dd bdi');
+    expect(delta?.textContent).toBe(format(-2));
+    expect(delta?.textContent).toContain('-');
+  });
+  it('uses the translated no-data message for a zero sample in Arabic', async () => {
+    const fixture = summaryFixture();
+    Object.assign(fixture.trends[0], { previousCount: 0, previousSampleSize: 0, currentCount: 2, currentSampleSize: 3, delta: 2 });
+    const fetcher = dataFetcher((path) => path === byokSummaryPath ? jsonResponse(fixture) : undefined);
+    show(fetcher); await generate();
+    await userEvent.click(screen.getByRole('button', { name: 'التغيير إلى العربية' }));
+
+    const trend = screen.getByRole('region', { name: 'أعداد المشاهدات المسجلة' });
+    const previous = trend.querySelectorAll<HTMLElement>('dl > div')[0];
+    expect(within(previous).getByRole('status')).toHaveTextContent('لا توجد بيانات مسجلة لهذه الفترة');
+    expect(previous.querySelector('dd bdi')).toBeNull();
+    expect(within(previous).queryByText(/عدد الأحداث:/)).not.toBeInTheDocument();
+    expect(Array.from(trend.querySelectorAll('dl > div')[1].querySelectorAll('dd bdi'), (item) => item.textContent))
+      .toEqual([new Intl.NumberFormat('ar-EG').format(2), new Intl.NumberFormat('ar-EG').format(3)]);
   });
 });
