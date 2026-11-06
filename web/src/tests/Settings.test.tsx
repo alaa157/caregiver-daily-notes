@@ -52,6 +52,9 @@ describe('authenticated grouped settings page', () => {
     renderSettings();
 
     expect(labels.en.groups.map((heading) => screen.getByRole('heading', { name: heading, level: 2 }).textContent)).toEqual(labels.en.groups);
+    for (const heading of labels.en.groups) {
+      expect(screen.getByRole('region', { name: heading })).toHaveClass('note-surface');
+    }
   });
 
   it('opens the existing AI settings dialog and closes back to Settings', async () => {

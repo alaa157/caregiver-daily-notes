@@ -33,7 +33,7 @@ export function SettingsPage() {
         <p>{t('settingsDescription')}</p>
       </header>
 
-      <section className="settings-group" aria-labelledby="settings-interface-title">
+      <section className="note-surface settings-group" aria-labelledby="settings-interface-title">
         <h2 id="settings-interface-title">{t('settingsInterfaceGroup')}</h2>
         <ul className="settings-list">
           <li className="settings-row" data-settings-theme-preview-entry>
@@ -51,7 +51,7 @@ export function SettingsPage() {
       </section>
 
       {placeholderGroups.map((group) => (
-        <section className="settings-group" key={group.title} aria-labelledby={`settings-${group.title}`}>
+        <section className="note-surface settings-group" key={group.title} aria-labelledby={`settings-${group.title}`}>
           <h2 id={`settings-${group.title}`}>{t(group.title)}</h2>
           <ul className="settings-list">
             {group.rows.map((row) => (
