@@ -7,6 +7,7 @@ import { ErrorState, FieldError, LoadingState } from '../../components/Feedback'
 import { useI18n } from '../../i18n/I18nProvider';
 import type { MessageKey } from '../../i18n/translations';
 import { ApiError, useApiClient } from '../../lib/api';
+import { useByok } from '../ai/ByokContext';
 import { useNoteResource } from '../notes/useNotes';
 import { SummaryResult, type SummaryView } from './SummaryResult';
 import './summary.css';
@@ -18,6 +19,7 @@ const sameRequest = (a: SummaryRequest, b: SummaryRequest) => a.recipientId === 
 export function SummaryPage() {
   const { t, language } = useI18n();
   const client = useApiClient();
+  const { credentials } = useByok();
   const api = useMemo(() => createSummaryApi(client), [client]);
   const recipientsApi = useMemo(() => createRecipientsApi(client), [client]);
   const loadRecipients = useCallback((signal: AbortSignal) => recipientsApi.list(signal, 'ALL'), [recipientsApi]);
@@ -49,6 +51,11 @@ export function SummaryPage() {
     if (!isNoteDate(periodEndInclusive)) invalid.date = 'summaryRequiredDate';
     setErrors(invalid);
     if (Object.keys(invalid).length) { (invalid.recipient ? recipientField.current : dateField.current)?.focus(); return; }
+    if (!credentials) {
+      setError('summaryByokMissingCredentials');
+      setCancelled(false);
+      return;
+    }
     const request = { recipientId, periodDays, periodEndInclusive };
     const controller = new AbortController();
     active.current = controller;
@@ -60,7 +67,7 @@ export function SummaryPage() {
     }, SUMMARY_TIMEOUT_MS);
     timeout.current = timer;
     try {
-      const response = await api.generate(request, controller.signal);
+      const response = await api.generateByok({ summary: request, credentials }, controller.signal);
       if (active.current !== controller || controller.signal.aborted) return;
       setView((previous) => ({ request, recipientName: recipient!.name, response: {
         ...response, safety: retainSafety(previous && sameRequest(previous.request, request) ? previous.response.safety : undefined, response.safety),
