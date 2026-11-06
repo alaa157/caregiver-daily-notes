@@ -50,6 +50,37 @@ public class PlanGenerationService {
       return result.aiUnavailable() ? unavailable(summary.safety()) : new PlanGenerationController.Result(saved.get(), false, summary.safety());
     } catch (InvalidModelOutputException | ProtectedPlanException invalidSuggestion) { return unavailable(summary.safety()); }
   }
+  public PlanGenerationController.Result generate(ByokPlanGenerationRequest request) {
+    SummaryRequest summaryRequest = request.summary();
+    ProviderCredentials credentials = request.credentials();
+    plans.requireGenerationAccess(UUID.fromString(summaryRequest.recipientId()));
+    var generated = summaries.generate(summaryRequest, credentials);
+    SummaryResult summary = generated.result();
+    if (summary.summary().aiUnavailable() || summary.summary().observations().isEmpty()) return unavailable(summary.safety());
+    UUID recipientId = UUID.fromString(summaryRequest.recipientId());
+    PlanResponse accepted = null;
+    try { accepted = plans.latestAcceptedForAi(recipientId); } catch (PlanNotFoundException noAcceptedPlan) { /* First plan. */ }
+    if (accepted != null && accepted.structuredContent() == null) return unavailable(summary.safety());
+    PlanDocument baseline = accepted == null ? new PlanDocument(1, List.of(), List.of()) : accepted.structuredContent();
+    StoredPlanVersion last = accepted == null ? null : new StoredPlanVersion(accepted.id().toString(),
+        new SuggestedPlan(baseline.changes(), baseline.medications(), baseline.medications(), null));
+    String reference = fingerprint(summary);
+    AtomicReference<PlanResponse> saved = new AtomicReference<>();
+    var pipeline = new PlanSuggestionService(provider::complete, (id, suggestion) -> {
+      PlanResponse response = plans.saveGenerated(UUID.fromString(id), suggestion, reference);
+      saved.set(response);
+      return new StoredPlanVersion(response.id().toString(), suggestion);
+    });
+    try {
+      var result = pipeline.suggest(new PlanSuggestionRequest(summaryRequest.recipientId(), summary.summary(),
+          summary.safety(), generated.notes().stream().collect(Collectors.toMap(SummaryNote::noteId, SummaryNote::text)),
+          last, baseline.medications()), credentials);
+      return result.aiUnavailable() ? unavailable(summary.safety())
+          : new PlanGenerationController.Result(saved.get(), false, summary.safety());
+    } catch (InvalidModelOutputException | ProtectedPlanException invalidSuggestion) {
+      return unavailable(summary.safety());
+    }
+  }
   private PlanGenerationController.Result unavailable(SafetyEvaluation safety) { return new PlanGenerationController.Result(null, true, safety); }
   private String fingerprint(SummaryResult result) {
     try { return "summary-sha256:" + HexFormat.of().formatHex(MessageDigest.getInstance("SHA-256").digest(mapper.writeValueAsBytes(result))); }

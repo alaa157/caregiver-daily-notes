@@ -22,9 +22,12 @@ public class SummaryApplicationService {
     SummarySourceLoader.Source source = loader.load(request);
     return summarizeLoaded(request, source, null);
   }
+  public Generated generate(SummaryRequest request, ProviderCredentials credentials) {
+    SummarySourceLoader.Source source = loader.load(request);
+    return summarizeLoaded(request, source, credentials);
+  }
   public SummaryResult generate(ByokSummaryRequest request) {
-    SummarySourceLoader.Source source = loader.load(request.summary());
-    return summarizeLoaded(request.summary(), source, request.credentials()).result();
+    return generate(request.summary(), request.credentials()).result();
   }
   private Generated summarizeLoaded(SummaryRequest request, SummarySourceLoader.Source source,
       ProviderCredentials credentials) {

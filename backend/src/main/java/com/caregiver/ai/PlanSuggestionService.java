@@ -46,10 +46,14 @@ public class PlanSuggestionService {
   }
 
   public PlanSuggestionResult suggest(PlanSuggestionRequest request) {
+    return suggest(request, null);
+  }
+
+  public PlanSuggestionResult suggest(PlanSuggestionRequest request, ProviderCredentials credentials) {
     if (request == null) {
       throw new IllegalArgumentException("request");
     }
-    LlmResult result = llm.complete(new LlmRequest(PLAN_SYSTEM_PROMPT, renderInput(request)));
+    LlmResult result = llm.complete(new LlmRequest(PLAN_SYSTEM_PROMPT, renderInput(request), credentials));
     if (result.status() == LlmStatus.FALLBACK) {
       return new PlanSuggestionResult(null, true);
     }

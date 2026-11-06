@@ -219,6 +219,100 @@ class SummaryPlanHttpTest {
         Map.of("providerId", "GEMINI", "model", "gemini-3.8-flash", "apiKey", apiKey));
   }
 
+  @Test @DisplayName("generates plan with the same request-scoped credentials as its summary")
+  void generatesPlanWithRequestScopedCredentials() throws Exception {
+    String secret = "synthetic-byok-plan-key";
+
+    var response = call("/api/plans/generate/byok", owner, byokRequest(recipientId, secret))
+        .andExpect(status().isOk())
+        .andExpect(jsonPath("$.aiUnavailable").value(false))
+        .andExpect(jsonPath("$.plan").isNotEmpty());
+
+    var captured = org.mockito.ArgumentCaptor.forClass(LlmRequest.class);
+    verify(llm, times(2)).complete(captured.capture());
+    List<LlmRequest> calls = captured.getAllValues();
+    assertThat(calls.get(0).dataBlock()).doesNotStartWith("SUMMARY:");
+    assertThat(calls.get(1).dataBlock()).startsWith("SUMMARY:");
+    assertThat(calls).allSatisfy(call -> assertThat(call.credentials().providerId()).isEqualTo("GEMINI"));
+    assertThat(calls.get(1).credentials()).isSameAs(calls.get(0).credentials());
+    assertThat(response.andReturn().getResponse().getContentAsString()).doesNotContain(secret);
+  }
+
+  @Test @DisplayName("does not save a plan when the BYOK summary is unavailable")
+  void doesNotSavePlanWhenByokSummaryIsUnavailable() throws Exception {
+    summaryMode = "fallback";
+
+    call("/api/plans/generate/byok", owner, byokRequest(recipientId, "synthetic-byok-fallback-key"))
+        .andExpect(status().isOk())
+        .andExpect(jsonPath("$.aiUnavailable").value(true))
+        .andExpect(jsonPath("$.plan").isEmpty());
+
+    assertThat(history().size()).isZero();
+    verify(llm, times(1)).complete(any());
+  }
+
+  @Test @DisplayName("does not save a plan when BYOK plan output fails validation")
+  void doesNotSavePlanWhenByokPlanOutputFailsValidation() throws Exception {
+    planMode = "unknown";
+
+    call("/api/plans/generate/byok", owner, byokRequest(recipientId, "synthetic-byok-invalid-plan-key"))
+        .andExpect(status().isOk())
+        .andExpect(jsonPath("$.aiUnavailable").value(true))
+        .andExpect(jsonPath("$.plan").isEmpty());
+
+    assertThat(history().size()).isZero();
+    verify(llm, times(2)).complete(any());
+  }
+
+  @Test @DisplayName("rejects BYOK plan generation for a foreign recipient before provider calls")
+  void rejectsByokPlanGenerationForForeignRecipientBeforeProviderCalls() throws Exception {
+    String otherCaregiver = register();
+    String foreignRecipientId = json(call("/api/recipients", otherCaregiver, Map.of("name", "Other synthetic recipient"))
+        .andExpect(status().isCreated())).get("id").asText();
+    reset(llm);
+
+    var response = call("/api/plans/generate/byok", owner, byokRequest(foreignRecipientId, "synthetic-byok-foreign-key"))
+        .andExpect(status().isNotFound());
+
+    assertThat(response.andReturn().getResponse().getContentAsString()).doesNotContain("synthetic-byok-foreign-key");
+    verifyNoInteractions(llm);
+  }
+
+  @Test @DisplayName("never returns BYOK plan request keys")
+  void neverReturnsByokPlanRequestKeys() throws Exception {
+    String secret = "synthetic-plan-response-secret";
+
+    var response = call("/api/plans/generate/byok", owner, byokRequest(recipientId, secret))
+        .andExpect(status().isOk());
+
+    assertThat(response.andReturn().getResponse().getContentAsString()).doesNotContain(secret, "apiKey", "credentials");
+  }
+
+  @Test @DisplayName("requires authentication for BYOK plan generation")
+  void requiresAuthenticationForByokPlanGeneration() throws Exception {
+    reset(llm);
+
+    mvc.perform(post("/api/plans/generate/byok")
+        .contentType(MediaType.APPLICATION_JSON)
+        .content(mapper.writeValueAsString(byokRequest(recipientId, "synthetic-unauthenticated-key"))))
+        .andExpect(status().isUnauthorized());
+
+    verifyNoInteractions(llm);
+  }
+
+  @Test @DisplayName("rejects unsupported BYOK plan providers without exposing credentials")
+  void rejectsUnsupportedByokPlanProvidersWithoutExposingCredentials() throws Exception {
+    String secret = "synthetic-unsupported-provider-key";
+    var invalid = Map.of("summary", request(7), "credentials",
+        Map.of("providerId", "UNSUPPORTED", "model", "synthetic-model", "apiKey", secret));
+
+    var response = call("/api/plans/generate/byok", owner, invalid)
+        .andExpect(status().isUnprocessableEntity());
+
+    assertThat(response.andReturn().getResponse().getContentAsString()).doesNotContain(secret);
+    verifyNoInteractions(llm);
+  }
+
 
 
 

@@ -22,8 +22,12 @@ public final class ByokSummaryRequest {
   private static ByokSummaryRequest fromJson(
       @JsonProperty("summary") SummaryRequest summary,
       @JsonProperty("credentials") JsonNode credentials) {
+    return new ByokSummaryRequest(summary, parseCredentials(credentials));
+  }
+
+  static ProviderCredentials parseCredentials(JsonNode credentials) {
     if (credentials == null || credentials.isNull()) {
-      return new ByokSummaryRequest(summary, null);
+      return null;
     }
     String providerId = text(credentials, "providerId");
     String model = text(credentials, "model");
@@ -31,8 +35,7 @@ public final class ByokSummaryRequest {
     if (apiKey == null || apiKey.isBlank()) {
       throw new IllegalArgumentException("apiKey is required");
     }
-    return new ByokSummaryRequest(summary,
-        new ProviderCredentials(providerId, approvedBaseUrl(providerId), model, apiKey));
+    return new ProviderCredentials(providerId, approvedBaseUrl(providerId), model, apiKey);
   }
 
   public SummaryRequest summary() {
