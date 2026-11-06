@@ -130,7 +130,6 @@ h2 { max-width: 470px; font-size: clamp(27px, 3vw, 37px); font-weight: 550; line
 .config-error { margin: 12vh 20px; }
 .config-error .feedback { width: min(520px, 100%); }
 [dir='rtl'] .directional-icon { transform: scaleX(-1); }
-[dir='rtl'] .brand-mark { border-radius: 14px 14px 4px 14px; }
 :lang(ar) { font-family: 'Noto Sans Arabic Variable', 'DM Sans Variable', sans-serif; letter-spacing: 0; }
 :lang(ar) h1 { line-height: 1.55; letter-spacing: 0; font-size: clamp(36px, 3.8vw, 54px); }
 :lang(ar) h2 { line-height: 1.65; letter-spacing: 0; font-size: clamp(25px, 2.6vw, 33px); }
