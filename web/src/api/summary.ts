@@ -104,6 +104,25 @@ function isUsableCredentials(credentials: ByokCredentials): boolean {
     && typeof credentials.apiKey === 'string' && credentials.apiKey.trim());
 }
 
+function safeErrorSafety(details: unknown, apiKey: string): SummarySafety | null {
+  const payload = object(details);
+  if (!payload || !Object.hasOwn(payload, 'safety')) return null;
+  const safety = readSummarySafety(payload.safety);
+  const secrets = [apiKey, apiKey.trim()].filter(Boolean);
+  const redact = (value: string | null) => {
+    if (value === null) return null;
+    return secrets.reduce((result, secret) => result.split(secret).join('[redacted]'), value);
+  };
+  return {
+    ...safety,
+    signals: safety.signals.map((signal) => ({
+      ruleId: redact(signal.ruleId),
+      severity: redact(signal.severity),
+      reason: redact(signal.reason),
+    })),
+  };
+}
+
 /**
  * Use only the compatible SummaryRequest/SummaryResult POST advertised by the
  * backend's OpenAPI document; never redirect authenticated generation externally.
@@ -164,9 +183,16 @@ export function createSummaryApi(client: ApiClient, fetcher: typeof fetch = fetc
           apiKey: input.credentials.apiKey,
         },
       };
-      const response = await client.request<unknown, ByokSummaryRequest>({
-        path: '/api/summaries/byok', method: 'POST', signal, body,
-      });
+      let response: unknown;
+      try {
+        response = await client.request<unknown, ByokSummaryRequest>({
+          path: '/api/summaries/byok', method: 'POST', signal, body,
+        });
+      } catch (failure: unknown) {
+        if (!(failure instanceof ApiError)) throw failure;
+        const safety = safeErrorSafety(failure.details, input.credentials.apiKey);
+        throw new ApiError(failure.status, safety ? { safety } : null);
+      }
       return readSummaryResponse(response);
     },
   };

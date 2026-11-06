@@ -14,10 +14,23 @@ interface ByokValue {
   clearCredentials: () => void;
 }
 
+declare global {
+  interface Window {
+    __E2E_BYOK_CREDENTIALS__?: ByokCredentials;
+  }
+}
+
 const ByokContext = createContext<ByokValue | null>(null);
 
+function initialCredentials(): ByokCredentials | null {
+  if (import.meta.env.MODE !== 'e2e' || typeof window === 'undefined') return null;
+  const credentials = window.__E2E_BYOK_CREDENTIALS__ ?? null;
+  delete window.__E2E_BYOK_CREDENTIALS__;
+  return credentials;
+}
+
 export function ByokProvider({ children }: { children: ReactNode }) {
-  const [credentials, setCredentials] = useState<ByokCredentials | null>(null);
+  const [credentials, setCredentials] = useState<ByokCredentials | null>(initialCredentials);
   const value: ByokValue = {
     credentials,
     setCredentials,
