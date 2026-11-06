@@ -2,7 +2,7 @@ import { createRequire } from 'node:module';
 import { expect, test, type Page } from '@playwright/test';
 import { testToken } from '../src/tests/authFixtures';
 import { correctionHistoryFixture, historyPage } from '../src/tests/historyFixtures';
-import { noteFixture } from '../src/tests/noteFixtures';
+import { noteListFixture } from '../src/tests/noteFixtures';
 import { activePlanFixture, suggestedPlanFixture } from '../src/tests/planFixtures';
 import { recipientFixture } from '../src/tests/recipientFixtures';
 import { summaryFixture, summaryOpenApi, summaryTestPath } from '../src/tests/summaryFixtures';
@@ -34,7 +34,7 @@ async function serveSyntheticRecords(page: Page) {
     const { pathname, searchParams } = new URL(route.request().url());
     if (pathname === '/api/recipients') return route.fulfill({ json: [recipientFixture] });
     if (pathname === `/api/recipients/${recipientFixture.id}`) return route.fulfill({ json: recipientFixture });
-    if (pathname === '/api/notes') return route.fulfill({ json: historyPage([noteFixture], 0, Number(searchParams.get('size') || 20)) });
+    if (pathname === '/api/notes') return route.fulfill({ json: historyPage([noteListFixture], 0, Number(searchParams.get('size') || 20)) });
     if (pathname.endsWith('/plans/active')) return route.fulfill({ json: activePlanFixture });
     if (pathname.endsWith('/plans/history')) return route.fulfill({ json: [suggestedPlanFixture, activePlanFixture] });
     if (pathname.endsWith('/corrections')) return route.fulfill({ json: correctionHistoryFixture() });
