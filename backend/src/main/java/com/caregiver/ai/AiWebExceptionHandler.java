@@ -10,7 +10,11 @@ import org.springframework.http.converter.HttpMessageNotReadableException;
 import org.springframework.web.bind.annotation.ExceptionHandler;
 import org.springframework.web.bind.annotation.RestControllerAdvice;
 
-@RestControllerAdvice(assignableTypes = {SummaryController.class, PlanGenerationController.class})
+@RestControllerAdvice(assignableTypes = {
+    SummaryController.class,
+    PlanGenerationController.class,
+    SafetyAcknowledgementController.class
+})
 public class AiWebExceptionHandler {
   @ExceptionHandler(RecipientNotFoundException.class)
   public ResponseEntity<ErrorResponse> missing(RuntimeException exception) {
