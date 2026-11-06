@@ -5,7 +5,11 @@ package com.caregiver.ai;
  * caregiver notes travel exclusively in {@code dataBlock}, wrapped in
  * delimiters by the client, never in the system prompt.
  */
-public record LlmRequest(String systemPrompt, String dataBlock) {
+public record LlmRequest(String systemPrompt, String dataBlock, ProviderCredentials credentials) {
+
+  public LlmRequest(String systemPrompt, String dataBlock) {
+    this(systemPrompt, dataBlock, null);
+  }
 
   public LlmRequest {
     if (systemPrompt == null || systemPrompt.isBlank()) {

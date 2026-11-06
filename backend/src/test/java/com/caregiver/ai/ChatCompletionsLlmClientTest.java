@@ -1,5 +1,6 @@
 package com.caregiver.ai;
 
+import com.fasterxml.jackson.databind.ObjectMapper;
 import org.junit.jupiter.api.Test;
 
 import java.io.IOException;
@@ -11,6 +12,12 @@ import java.util.List;
 import java.util.Map;
 import java.util.Queue;
 import java.util.concurrent.CancellationException;
+import java.util.concurrent.ConcurrentLinkedQueue;
+import java.util.concurrent.CountDownLatch;
+import java.util.concurrent.ExecutorService;
+import java.util.concurrent.Executors;
+import java.util.concurrent.Future;
+import java.util.concurrent.TimeUnit;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
@@ -196,6 +203,245 @@ class ChatCompletionsLlmClientTest {
     assertThat(client.complete(request()).status()).isEqualTo(LlmStatus.OK);
     assertThat(exchange.calls.get(0).headers()).doesNotContainKey("Authorization");
   }
+
+  @Test
+  void usesRequestScopedKeyForOneProviderCall() {
+    var exchange = new FakeExchange();
+    exchange.addBody(VALID_BODY);
+    var client = client("configured-synthetic-key", null, exchange, ms -> { });
+    var credentials = new ProviderCredentials(
+        "OPENAI", "https://api.openai.com/v1/", "byok-model", "byok-synthetic-key");
+
+    var result = client.complete(new LlmRequest("system", "notes", credentials));
+
+    assertThat(result.status()).isEqualTo(LlmStatus.OK);
+    assertThat(exchange.calls).hasSize(1);
+    var call = exchange.calls.get(0);
+    assertThat(call.url()).isEqualTo("https://api.openai.com/v1/chat/completions");
+    assertThat(call.headers()).containsEntry("Authorization", "Bearer byok-synthetic-key")
+        .doesNotContainValue("Bearer configured-synthetic-key");
+    assertThat(call.body()).contains("\"model\":\"byok-model\"")
+        .doesNotContain("test-model");
+  }
+
+  @Test
+  void doesNotMutateConfiguredCredentialsAfterRequestScopedCall() {
+    var exchange = new FakeExchange();
+    exchange.addBody(VALID_BODY);
+    exchange.addBody(VALID_BODY);
+    var client = client("configured-synthetic-key", null, exchange, ms -> { });
+    var credentials = new ProviderCredentials(
+        "XAI", "https://api.x.ai/v1", "xai-model", "byok-synthetic-key");
+
+    client.complete(new LlmRequest("system", "notes", credentials));
+    client.complete(request());
+
+    assertThat(exchange.calls).hasSize(2);
+    assertThat(exchange.calls.get(0).url()).isEqualTo("https://api.x.ai/v1/chat/completions");
+    assertThat(exchange.calls.get(0).headers()).containsEntry("Authorization", "Bearer byok-synthetic-key");
+    assertThat(exchange.calls.get(0).body()).contains("\"model\":\"xai-model\"");
+    assertThat(exchange.calls.get(1).url()).isEqualTo("https://inference.example.com/chat/completions");
+    assertThat(exchange.calls.get(1).headers()).containsEntry("Authorization", "Bearer configured-synthetic-key")
+        .doesNotContainValue("Bearer byok-synthetic-key");
+    assertThat(exchange.calls.get(1).body()).contains("\"model\":\"test-model\"")
+        .doesNotContain("xai-model");
+    assertThat(client.baseUrl()).isEqualTo("https://inference.example.com");
+    assertThat(client.model()).isEqualTo("test-model");
+  }
+
+  @Test
+  void redactsProviderCredentialsFromStringOutput() throws Exception {
+    var credentials = new ProviderCredentials(
+        "OPEN_ROUTER", "https://openrouter.ai/api/v1", "openai/model", "synthetic-secret-123");
+
+    assertThat(credentials.toString()).contains("[REDACTED]").doesNotContain("synthetic-secret-123");
+    var request = new LlmRequest("system", "notes", credentials);
+    assertThat(request.toString()).contains("[REDACTED]").doesNotContain("synthetic-secret-123");
+    assertThat(new ObjectMapper().writeValueAsString(request))
+        .doesNotContain("synthetic-secret-123", "\"credentials\"");
+  }
+
+  @Test
+  void doesNotReturnRequestKeyInProviderFailureResult() {
+    var exchange = new FakeExchange();
+    exchange.addFailure(new IOException("provider echoed synthetic-sensitive-key"));
+    exchange.addFailure(new IOException("provider echoed synthetic-sensitive-key"));
+    exchange.addFailure(new IOException("provider echoed synthetic-sensitive-key"));
+    var client = client("configured-synthetic-key", null, exchange, ms -> { });
+    var credentials = new ProviderCredentials(
+        "OPENAI", "https://api.openai.com/v1", "byok-model", "synthetic-sensitive-key");
+
+    var result = client.complete(new LlmRequest("system", "notes", credentials));
+
+    assertThat(result.status()).isEqualTo(LlmStatus.FALLBACK);
+    assertThat(result.error()).isEqualTo("AI_UNAVAILABLE: transport failure")
+        .doesNotContain("synthetic-sensitive-key", "provider echoed", "configured-synthetic-key");
+    assertThat(exchange.calls).hasSize(3);
+    assertThat(exchange.calls).allSatisfy(call ->
+        assertThat(call.headers()).containsEntry("Authorization", "Bearer synthetic-sensitive-key"));
+  }
+
+  @Test
+  void rejectsAnUnlistedProviderHost() {
+    var exchange = new FakeExchange();
+    var client = client("configured-key", null, exchange, ms -> { });
+
+    assertThatThrownBy(() -> client.complete(new LlmRequest("system", "notes",
+        new ProviderCredentials("OPENAI", "https://attacker.example/v1", "model", "key"))))
+        .isInstanceOf(IllegalArgumentException.class)
+        .hasMessage("baseUrl is not approved for providerId");
+    assertThat(exchange.calls).isEmpty();
+  }
+
+  @Test
+  void rejectsUnsupportedAnthropicProviderId() {
+    assertThatThrownBy(() -> new ProviderCredentials(
+        "ANTHROPIC", "https://api.anthropic.com", "model", "synthetic-key"))
+        .isInstanceOf(IllegalArgumentException.class)
+        .hasMessage("providerId is unsupported");
+  }
+
+  @Test
+  void rejectsProviderIdPairedWithAnotherProvidersHost() {
+    assertThatThrownBy(() -> new ProviderCredentials(
+        "OPENAI", "https://generativelanguage.googleapis.com", "model", "synthetic-key"))
+        .isInstanceOf(IllegalArgumentException.class)
+        .hasMessage("baseUrl is not approved for providerId");
+  }
+
+  @Test
+  void rejectsUnsafeOrMalformedProviderUrls() {
+    List<String> invalidUrls = List.of(
+        "http://api.openai.com/v1",
+        "https://sub.api.openai.com/v1",
+        "https://api.openai.com.evil.test/v1",
+        "https://user:pass@api.openai.com/v1",
+        "https://api.openai.com:8443/v1",
+        "https://api.openai.com/v1?query=value",
+        "https://api.openai.com/v1#fragment",
+        "https://api.openai.com:bad/v1");
+
+    for (String invalidUrl : invalidUrls) {
+      assertThatThrownBy(() -> new ProviderCredentials(
+          "OPENAI", invalidUrl, "model", "synthetic-key"))
+          .as("reject URL %s", invalidUrl)
+          .isInstanceOf(IllegalArgumentException.class);
+    }
+  }
+
+  @Test
+  void usesExistingGeminiOpenAiCompatibleEndpoint() {
+    var exchange = new FakeExchange();
+    exchange.addBody(VALID_BODY);
+    var credentials = new ProviderCredentials(
+        "GEMINI", "https://generativelanguage.googleapis.com", "gemini-model", "gemini-key");
+
+    client("configured-key", null, exchange, ms -> { })
+        .complete(new LlmRequest("system", "notes", credentials));
+
+    assertThat(exchange.calls).singleElement().satisfies(call -> {
+      assertThat(call.url()).isEqualTo(
+          "https://generativelanguage.googleapis.com/v1beta/openai/chat/completions");
+      assertThat(call.headers()).containsEntry("Authorization", "Bearer gemini-key");
+      assertThat(call.body()).contains("\"model\":\"gemini-model\"");
+    });
+  }
+
+  @Test
+  void omitsAuthorizationHeaderForBlankRequestScopedKey() {
+    var exchange = new FakeExchange();
+    exchange.addBody(VALID_BODY);
+    var credentials = new ProviderCredentials(
+        "OPENAI", "https://api.openai.com/v1", "model", " ");
+
+    client("configured-key", null, exchange, ms -> { })
+        .complete(new LlmRequest("system", "notes", credentials));
+
+    assertThat(exchange.calls).singleElement().satisfies(call -> {
+      assertThat(call.headers()).doesNotContainKey("Authorization");
+      assertThat(call.url()).isEqualTo("https://api.openai.com/v1/chat/completions");
+    });
+  }
+
+  @Test
+  void keepsRequestScopedCredentialsAcrossRetryAndRepairAttempts() {
+    var exchange = new FakeExchange();
+    exchange.addBody("{\"choices\":[{\"message\":{\"content\":\"not-json\"},\"finish_reason\":\"stop\"}]}");
+    exchange.addBody("{\"choices\":[{\"message\":{\"content\":\"still-not-json\"},\"finish_reason\":\"stop\"}]}");
+    exchange.addBody(VALID_BODY);
+    var credentials = new ProviderCredentials(
+        "OPEN_ROUTER", "https://openrouter.ai/api/v1", "route/model", "retry-synthetic-key");
+
+    var result = client("configured-key", null, exchange, ms -> { })
+        .complete(new LlmRequest("system", "notes", credentials));
+
+    assertThat(result.status()).isEqualTo(LlmStatus.OK);
+    assertThat(exchange.calls).hasSize(3).allSatisfy(call -> {
+      assertThat(call.url()).isEqualTo("https://openrouter.ai/api/v1/chat/completions");
+      assertThat(call.headers()).containsEntry("Authorization", "Bearer retry-synthetic-key")
+          .doesNotContainValue("Bearer configured-key");
+      assertThat(call.body()).contains("\"model\":\"route/model\"");
+    });
+  }
+
+  @Test
+  void isolatesConcurrentRequestCredentials() throws Exception {
+    var calls = new ConcurrentLinkedQueue<FakeExchange.Call>();
+    var bothRequestsEntered = new CountDownLatch(2);
+    HttpExchange exchange = (url, headers, body, timeout) -> {
+      calls.add(new FakeExchange.Call(url, Map.copyOf(headers), body));
+      bothRequestsEntered.countDown();
+      if (!bothRequestsEntered.await(5, TimeUnit.SECONDS)) {
+        throw new IOException("concurrent test synchronization timed out");
+      }
+      return VALID_BODY;
+    };
+    var client = new ChatCompletionsLlmClient(
+        "https://inference.example.com", "test-model", "configured-key", 10000, null,
+        Duration.ofSeconds(30), 3, 0L, exchange, ms -> { });
+    var firstCredentials = new ProviderCredentials(
+        "OPENAI", "https://api.openai.com/v1", "openai-model", "openai-synthetic-key");
+    var secondCredentials = new ProviderCredentials(
+        "XAI", "https://api.x.ai/v1", "xai-model", "xai-synthetic-key");
+    ExecutorService executor = Executors.newFixedThreadPool(2);
+
+    try {
+      Future<LlmResult> first = executor.submit(() ->
+          client.complete(new LlmRequest("system", "notes A", firstCredentials)));
+      Future<LlmResult> second = executor.submit(() ->
+          client.complete(new LlmRequest("system", "notes B", secondCredentials)));
+      assertThat(first.get(10, TimeUnit.SECONDS).status()).isEqualTo(LlmStatus.OK);
+      assertThat(second.get(10, TimeUnit.SECONDS).status()).isEqualTo(LlmStatus.OK);
+    } finally {
+      executor.shutdownNow();
+    }
+
+    assertThat(calls).hasSize(2);
+    var openAiCall = calls.stream().filter(call -> call.url().startsWith("https://api.openai.com/")).findFirst().orElseThrow();
+    var xaiCall = calls.stream().filter(call -> call.url().startsWith("https://api.x.ai/")).findFirst().orElseThrow();
+    assertThat(openAiCall.url()).isEqualTo("https://api.openai.com/v1/chat/completions");
+    assertThat(openAiCall.headers()).containsEntry("Authorization", "Bearer openai-synthetic-key")
+        .doesNotContainValue("Bearer xai-synthetic-key");
+    assertThat(openAiCall.body()).contains("\"model\":\"openai-model\"")
+        .doesNotContain("xai-model");
+    assertThat(xaiCall.url()).isEqualTo("https://api.x.ai/v1/chat/completions");
+    assertThat(xaiCall.headers()).containsEntry("Authorization", "Bearer xai-synthetic-key")
+        .doesNotContainValue("Bearer openai-synthetic-key");
+    assertThat(xaiCall.body()).contains("\"model\":\"xai-model\"")
+        .doesNotContain("openai-model");
+    assertThat(client.baseUrl()).isEqualTo("https://inference.example.com");
+    assertThat(client.model()).isEqualTo("test-model");
+  }
+
+  @Test
+  void oldLlmRequestConstructorRemainsCompatible() {
+    LlmRequest request = new LlmRequest("system", "notes");
+
+    assertThat(request.credentials()).isNull();
+    assertThat(request.systemPrompt()).isEqualTo("system");
+    assertThat(request.dataBlock()).isEqualTo("notes");
+  }
+
   @Test
   void exchangeInterruptionPropagatesAndDoesNotRetry() {
     var exchange = new FakeExchange();

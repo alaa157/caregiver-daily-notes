@@ -105,21 +105,31 @@ public class ChatCompletionsLlmClient implements LlmClient {
     if (request == null) {
       throw new IllegalArgumentException("request");
     }
+    ProviderCredentials credentials = request.credentials();
+    String effectiveBaseUrl = baseUrl;
+    String effectiveModel = model;
+    String effectiveApiKey = apiKey;
+    if (credentials != null) {
+      credentials.validate();
+      effectiveBaseUrl = credentials.chatCompletionsBaseUrl();
+      effectiveModel = credentials.modelId();
+      effectiveApiKey = credentials.apiKey();
+    }
     if (Thread.currentThread().isInterrupted()) throw interruptedCancellation();
     int attempts = maxAttempts > 0 ? maxAttempts : MAX_ATTEMPTS;
     Duration effectiveTimeout = timeout != null ? timeout : REQUEST_TIMEOUT;
     long backoffBase = backoffBaseMs >= 0 ? backoffBaseMs : BACKOFF_BASE_MS;
-    String url = trimmedBaseUrl() + "/chat/completions";
-    Map<String, String> headers = headers();
+    String url = trimmedBaseUrl(effectiveBaseUrl) + "/chat/completions";
+    Map<String, String> headers = headers(effectiveApiKey);
 
     String lastError = "no attempts made";
     int repairs = 0;
     String body;
     String repairBody;
     try {
-      body = requestBody(request.systemPrompt(), delimitedData(request.dataBlock()));
+      body = requestBody(effectiveModel, request.systemPrompt(), delimitedData(request.dataBlock()));
       repairBody = requestBody(
-          request.systemPrompt(), delimitedData(request.dataBlock()) + REPAIR_SUFFIX);
+          effectiveModel, request.systemPrompt(), delimitedData(request.dataBlock()) + REPAIR_SUFFIX);
     } catch (IOException e) {
       if (Thread.currentThread().isInterrupted()) throw interruptedCancellation();
       return fallback("request build failed");
@@ -216,7 +226,7 @@ public class ChatCompletionsLlmClient implements LlmClient {
     return cancelled;
   }
 
-  private String trimmedBaseUrl() {
+  private static String trimmedBaseUrl(String baseUrl) {
     String base = baseUrl;
     while (base.endsWith("/")) {
       base = base.substring(0, base.length() - 1);
@@ -231,7 +241,7 @@ public class ChatCompletionsLlmClient implements LlmClient {
         .replace(DATA_END, "\\u003c\\u003c\\u003cEND_NOTES_DATA\\u003e\\u003e\\u003e");
   }
 
-  private Map<String, String> headers() {
+  private static Map<String, String> headers(String apiKey) {
     Map<String, String> headers = new LinkedHashMap<>();
     headers.put("Content-Type", "application/json");
     if (apiKey != null && !apiKey.isBlank()) {
@@ -244,7 +254,7 @@ public class ChatCompletionsLlmClient implements LlmClient {
     return DATA_BEGIN + "\n" + escapeDataMarkers(dataBlock) + "\n" + DATA_END;
   }
 
-  private String requestBody(String systemPrompt, String userContent) throws IOException {
+  private String requestBody(String model, String systemPrompt, String userContent) throws IOException {
     Map<String, Object> root = new LinkedHashMap<>();
     root.put("model", model);
     List<Map<String, String>> messages = new ArrayList<>();
