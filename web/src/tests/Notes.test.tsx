@@ -546,9 +546,26 @@ describe('daily-note creation and immutable corrections', () => {
       event.previousEffective.updatedAt = timestamp;
       event.effectiveAfter.updatedAt = timestamp;
     });
-    const sequenceOne = { ...corrections.events[0], id: 'e5555555-5555-4555-8555-000000000002' };
-    const sequenceTwo = { ...corrections.events[1], id: 'e5555555-5555-4555-8555-000000000001' };
+    const sequenceOne = { ...corrections.events[0], id: 'e5555555-5555-4555-8555-000000000002',
+      effectiveAfter: { ...corrections.events[0].effectiveAfter } };
+    const sequenceTwo = { ...corrections.events[1], id: 'e5555555-5555-4555-8555-000000000001',
+      previousEffective: { ...corrections.events[1].previousEffective },
+      effectiveAfter: { ...corrections.events[1].effectiveAfter } };
     corrections.events = [sequenceOne, sequenceTwo];
+    sequenceOne.effectiveAfter.eventId = sequenceOne.id;
+    sequenceTwo.previousEffective.eventId = sequenceOne.id;
+    sequenceTwo.effectiveAfter.eventId = sequenceTwo.id;
+    corrections.effectiveObservations.mood = sequenceOne.effectiveAfter;
+    corrections.effectiveObservations.painScore = sequenceTwo.effectiveAfter;
+    corrections.originalNote = {
+      ...corrections.originalNote,
+      createdAt: timestamp,
+      observations: {
+        ...corrections.originalNote.observations,
+        mood: { ...corrections.originalNote.observations.mood, updatedAt: timestamp },
+        painScore: { ...corrections.originalNote.observations.painScore, updatedAt: timestamp },
+      },
+    };
     const addenda = [
       { ...addendumFixture, id: 'e5555555-5555-4555-8555-000000000004', createdAt: timestamp },
       { ...addendumFixture, id: 'e5555555-5555-4555-8555-000000000003', createdAt: timestamp },
@@ -556,6 +573,7 @@ describe('daily-note creation and immutable corrections', () => {
     const fetcher = dataFetcher((path) => path.endsWith('/addenda') ? jsonResponse(addenda)
       : path.endsWith('/corrections') ? jsonResponse(corrections) : undefined);
     renderNotes(detail, fetcher);
+    await waitFor(() => expect(screen.queryByRole('status', { name: 'Loading note data…' })).toBeNull());
     const rows = await screen.findAllByRole('article', { name: /^(Add a correction|Correction event)/ });
     expect(rows.map((row) => row.querySelector('.note-timeline-row__label')?.textContent)).toEqual([
       'Correction event 1 · Mood', 'Correction event 2 · Pain score (0–10)', 'Add a correction 1', 'Add a correction 2',
