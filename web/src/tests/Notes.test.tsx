@@ -8,9 +8,9 @@ import { NoteTimelineRow } from '../features/notes/NoteTimelineRow';
 import { I18nProvider } from '../i18n/I18nProvider';
 import { ApiProvider } from '../lib/api';
 import { jsonResponse, testToken } from './authFixtures';
-import { recipientFixture } from './recipientFixtures';
-import { addendumFixture, noteFixture, noteObservations } from './noteFixtures';
+import { addendumFixture, noteDetailFixture, noteFixture, noteListFixture, noteObservations } from './noteFixtures';
 import { observationFields, type FieldCorrection } from '../api/notes';
+import { recipientFixture } from './recipientFixtures';
 
 const root = '/app/notes';
 const detail = `${root}/${noteFixture.id}`;
@@ -27,7 +27,7 @@ function dataFetcher(overrides?: (path: string, init: RequestInit) => Response |
     if (path.startsWith('/api/recipients?')) return Promise.resolve(jsonResponse(path.includes('status=ARCHIVED') ? [] : [recipientFixture]));
     if (path === '/api/recipients') return Promise.resolve(jsonResponse([recipientFixture]));
     if (path.startsWith('/api/recipients/')) return Promise.resolve(jsonResponse(recipientFixture));
-    return Promise.resolve(jsonResponse(path.endsWith('/addenda') ? [] : path.endsWith('/corrections') ? correctionHistoryFixture() : noteFixture));
+    return Promise.resolve(jsonResponse(path.endsWith('/addenda') ? [] : path.endsWith('/corrections') ? correctionHistoryFixture() : path === '/api/notes' ? noteListFixture : path.startsWith('/api/notes/') && !path.endsWith('/addenda') && !path.endsWith('/corrections') ? noteDetailFixture : noteListFixture));
   });
 }
 function correctionHistoryFixture(events: unknown[] = []) {
@@ -36,7 +36,7 @@ function correctionHistoryFixture(events: unknown[] = []) {
     return [field, { state: observation.state, value: observation.value ?? null, rawValue: observation.rawValue ?? null,
       lastOperation: null, eventId: null, actorId: null, updatedAt: noteFixture.createdAt }];
   }));
-  return { originalNote: { ...noteFixture, correctionCount: events.length }, events, effectiveObservations };
+  return { originalNote: { ...noteListFixture, correctionCount: events.length }, events, effectiveObservations };
 }
 function correctionResponse(corrections: FieldCorrection[] = []) {
   let effectiveObservations = correctionHistoryFixture().effectiveObservations as Record<string, Record<string, unknown>>;
@@ -159,7 +159,7 @@ describe('daily-note creation and immutable corrections', () => {
     const fetcher = dataFetcher((path, init) => {
       if (path === '/api/notes' && init.method === 'POST') {
         submitted = JSON.parse(init.body as string);
-        return jsonResponse(noteFixture, 201);
+        return jsonResponse(noteListFixture, 201);
       }
     });
     renderNotes(`${root}/new`, fetcher);
@@ -176,7 +176,7 @@ describe('daily-note creation and immutable corrections', () => {
     const fetcher = dataFetcher((path, init) => {
       if (path === '/api/notes' && init.method === 'POST') {
         submitted = JSON.parse(init.body as string);
-        return jsonResponse(noteFixture, 201);
+        return jsonResponse(noteListFixture, 201);
       }
     });
     renderNotes(`${root}/new`, fetcher);
@@ -193,7 +193,7 @@ describe('daily-note creation and immutable corrections', () => {
     const fetcher = dataFetcher((path, init) => {
       if (path === '/api/notes' && init.method === 'POST') {
         submitted = JSON.parse(init.body as string);
-        return jsonResponse(noteFixture, 201);
+        return jsonResponse(noteListFixture, 201);
       }
     });
     renderNotes(`${root}/new`, fetcher);
@@ -214,7 +214,7 @@ describe('daily-note creation and immutable corrections', () => {
     const fetcher = dataFetcher((path, init) => {
       if (path === '/api/notes' && init.method === 'POST') {
         submitted = JSON.parse(init.body as string);
-        return jsonResponse(noteFixture, 201);
+        return jsonResponse(noteListFixture, 201);
       }
     });
     renderNotes(`${root}/new`, fetcher);
@@ -231,7 +231,7 @@ describe('daily-note creation and immutable corrections', () => {
     const fetcher = dataFetcher((path, init) => {
       if (path === '/api/notes' && init.method === 'POST') {
         submitted = JSON.parse(init.body as string);
-        return jsonResponse(noteFixture, 201);
+        return jsonResponse(noteListFixture, 201);
       }
     });
     renderNotes(`${root}/new`, fetcher);
@@ -258,7 +258,7 @@ describe('daily-note creation and immutable corrections', () => {
     fireEvent.submit(form);
     expect(fetcher.mock.calls.filter(([path, init]) => path === '/api/notes' && init.method === 'POST')).toHaveLength(1);
     expect(screen.getByRole('button', { name: 'Saving…' })).toBeDisabled();
-    resolve(jsonResponse(noteFixture, 201));
+    resolve(jsonResponse(noteListFixture, 201));
     expect(await screen.findByText('Original note saved.')).toBeInTheDocument();
   });
 
@@ -270,7 +270,7 @@ describe('daily-note creation and immutable corrections', () => {
 
   it('announces save success and save failure separately', async () => {
     const successView = renderNotes(`${root}/new`, dataFetcher((path, init) =>
-      path === '/api/notes' && init.method === 'POST' ? jsonResponse(noteFixture, 201) : undefined));
+      path === '/api/notes' && init.method === 'POST' ? jsonResponse(noteListFixture, 201) : undefined));
     await metadata();
     await userEvent.click(screen.getByRole('button', { name: 'Save original note' }));
     expect(await screen.findByRole('status')).toHaveTextContent('Original note saved.');
@@ -403,15 +403,16 @@ describe('daily-note creation and immutable corrections', () => {
       value: longText,
     };
     const fetcher = dataFetcher((path) => {
-      if (path === `/api/notes/${noteFixture.id}`) return jsonResponse(longNote);
+      if (path === `/api/notes/${noteFixture.id}`) return jsonResponse({ ...noteDetailFixture, ...longNote, addenda: [] });
       if (path.endsWith('/addenda')) return jsonResponse([longAddendum]);
       if (path.endsWith('/corrections')) return jsonResponse(corrections);
+      return undefined;
     });
     renderNotes(detail, fetcher);
 
     const addendum = await screen.findByRole('article', { name: 'Add a correction 1' });
     const body = within(addendum).getByTestId('note-timeline-body');
-    mockTimelineDimensions(body, 200);
+    mockTimelineDimensions(body, 81);
     fireEvent(window, new Event('resize'));
     await within(addendum).findByRole('button', { name: 'Show more' });
     expect(body).toHaveAttribute('data-collapsed', 'true');
@@ -530,27 +531,45 @@ describe('daily-note creation and immutable corrections', () => {
     expect(within(changes[0]).getByText(corrections.events[0].id)).toBeVisible();
     expect(within(changes[2]).getByText(corrections.events[1].id)).toBeVisible();
   });
-  it('orders equal timeline timestamps deterministically with corrections first', async () => {
-    const corrections = correctionResponse([{ field: 'mood', operation: 'SET', value: 'calm' }]);
-    corrections.originalNote = { ...corrections.originalNote, createdAt: addendumFixture.createdAt };
-    corrections.events[0].createdAt = addendumFixture.createdAt;
+  it('orders equal timestamps by correction sequence and deterministic addendum ID', async () => {
+    const corrections = correctionResponse([
+      { field: 'mood', operation: 'SET', value: 'calm' },
+      { field: 'painScore', operation: 'SET', value: 3 },
+    ]);
+    const timestamp = addendumFixture.createdAt;
+    corrections.originalNote = { ...corrections.originalNote, createdAt: timestamp };
     Object.values(corrections.effectiveObservations).forEach((observation) => {
-      if (observation.eventId === null) observation.updatedAt = addendumFixture.createdAt;
+      if (observation.eventId === null) observation.updatedAt = timestamp;
     });
-    corrections.events[0].previousEffective.updatedAt = addendumFixture.createdAt;
-    corrections.events[0].effectiveAfter.updatedAt = addendumFixture.createdAt;
-    corrections.effectiveObservations.mood = corrections.events[0].effectiveAfter;
-    const fetcher = dataFetcher((path) => {
-      if (path.endsWith('/addenda')) return jsonResponse([addendumFixture]);
-      if (path.endsWith('/corrections')) return jsonResponse(corrections);
-      return undefined;
+    corrections.events.forEach((event) => {
+      event.createdAt = timestamp;
+      event.previousEffective.updatedAt = timestamp;
+      event.effectiveAfter.updatedAt = timestamp;
     });
+    const sequenceOne = { ...corrections.events[0], id: 'e5555555-5555-4555-8555-000000000002' };
+    const sequenceTwo = { ...corrections.events[1], id: 'e5555555-5555-4555-8555-000000000001' };
+    corrections.events = [sequenceOne, sequenceTwo];
+    const addenda = [
+      { ...addendumFixture, id: 'e5555555-5555-4555-8555-000000000004', createdAt: timestamp },
+      { ...addendumFixture, id: 'e5555555-5555-4555-8555-000000000003', createdAt: timestamp },
+    ];
+    const fetcher = dataFetcher((path) => path.endsWith('/addenda') ? jsonResponse(addenda)
+      : path.endsWith('/corrections') ? jsonResponse(corrections) : undefined);
     renderNotes(detail, fetcher);
-
-    await screen.findByRole('article', { name: 'Correction event 1 · Mood' });
-    const changes = screen.getAllByRole('article', { name: /^(Add a correction|Correction event)/ });
-    expect(changes.map((entry) => entry.querySelector('.note-timeline-row__label')?.textContent))
-      .toEqual(['Correction event 1 · Mood', 'Add a correction 1']);
+    const rows = await screen.findAllByRole('article', { name: /^(Add a correction|Correction event)/ });
+    expect(rows.map((row) => row.querySelector('.note-timeline-row__label')?.textContent)).toEqual([
+      'Correction event 1 · Mood', 'Correction event 2 · Pain score (0–10)', 'Add a correction 1', 'Add a correction 2',
+    ]);
+    expect(within(rows[0]).getByText(sequenceOne.id)).toBeVisible();
+    expect(within(rows[1]).getByText(sequenceTwo.id)).toBeVisible();
+    expect(within(rows[2]).getByText(addenda[1].id)).toBeVisible();
+    expect(within(rows[3]).getByText(addenda[0].id)).toBeVisible();
+  });
+  it('opens a note detail using the backend NoteDetailResponse shape', async () => {
+    const fetcher = dataFetcher();
+    renderNotes(detail, fetcher);
+    expect(await screen.findByRole('article', { name: 'Original note — read only' })).toBeVisible();
+    expect(fetcher.mock.calls.some(([path]) => path === `/api/notes/${noteFixture.id}`)).toBe(true);
   });
 
   it('keeps structured corrections available when addenda fail', async () => {
@@ -637,7 +656,7 @@ describe('daily-note creation and immutable corrections', () => {
   it('submits state/value envelopes and mixed free text unchanged, then shows a read-only original', async () => {
     let saved: Record<string, unknown> | null = null;
     const fetcher = dataFetcher((path, init) => {
-      if (path === '/api/notes' && init.method === 'POST') { saved = JSON.parse(init.body as string); return jsonResponse(noteFixture, 201); }
+      if (path === '/api/notes' && init.method === 'POST') { saved = JSON.parse(init.body as string); return jsonResponse(noteListFixture, 201); }
     });
     renderNotes(`${root}/new`, fetcher);
     await metadata();
@@ -683,7 +702,7 @@ describe('daily-note creation and immutable corrections', () => {
     const fetcher = dataFetcher((path, init) => {
       if (path === '/api/notes' && init.method === 'POST') {
         posts.push(init);
-        return posts.length === 1 ? new Promise<Response>((_, fail) => { reject = fail; }) : jsonResponse(noteFixture, 201);
+        return posts.length === 1 ? new Promise<Response>((_, fail) => { reject = fail; }) : jsonResponse(noteListFixture, 201);
       }
     });
     renderNotes(`${root}/new`, fetcher);
@@ -908,7 +927,7 @@ describe('daily-note creation and immutable corrections', () => {
     fireEvent.submit(screen.getByRole('form', { name: 'Record a daily note' }));
     view.unmount();
     expect(signal.aborted).toBe(true);
-    resolve(jsonResponse(noteFixture, 201));
+    resolve(jsonResponse(noteListFixture, 201));
     await waitFor(() => expect(fetcher.mock.calls.filter(([, init]) => init.method === 'POST')).toHaveLength(1));
   });
   it('creates explicit correction events without changing the canonical original observation states', async () => {

@@ -1,6 +1,6 @@
 import { createRequire } from 'node:module';
 import { expect, test, type Page } from '@playwright/test';
-import type { DailyNote } from '../../api/notes';
+import type { DailyNote, NoteListItem } from '../../api/notes';
 import { observationFields } from '../../api/notes';
 import { testToken } from '../authFixtures';
 import { historyNote, historyPage } from '../historyFixtures';
@@ -24,7 +24,7 @@ function correctionHistory(note: DailyNote) {
   })) };
 }
 
-async function serve(page: Page, options: { notes?: DailyNote[]; fail?: boolean; failCorrections?: boolean } = {}) {
+async function serve(page: Page, options: { notes?: NoteListItem[]; fail?: boolean; failCorrections?: boolean } = {}) {
   const calls: URL[] = [];
   await page.route('**/api/**', async (route) => {
     const request = route.request();

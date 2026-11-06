@@ -8,7 +8,7 @@ import { I18nProvider } from '../i18n/I18nProvider';
 import { ApiProvider } from '../lib/api';
 import { jsonResponse, testToken } from './authFixtures';
 import { recipientFixture } from './recipientFixtures';
-import { noteFixture } from './noteFixtures';
+import { noteFixture, noteListFixture } from './noteFixtures';
 
 const inactive = { ...recipientFixture, id: 'b2222222-2222-4222-8222-222222222222', name: 'Mona', active: false, lifecycleStatus: 'ARCHIVED' as const, archivedAt: '2026-10-15T10:00:00Z', archivedBy: 'b1111111-1111-4111-8111-111111111111' };
 const missing = { ...recipientFixture, id: 'c3333333-3333-4333-8333-333333333333', name: 'No note recipient' };
@@ -33,7 +33,7 @@ function serving() {
     if (path === '/api/recipients') return Promise.resolve(jsonResponse([recipientFixture, inactive, missing]));
     if (path.startsWith('/api/notes?')) {
       const date = new URL(path, 'http://localhost').searchParams.get('from');
-      return Promise.resolve(historyResponse(date === noteFixture.date ? [noteFixture] : []));
+      return Promise.resolve(historyResponse(date === noteListFixture.date ? [noteListFixture] : []));
     }
     return Promise.resolve(jsonResponse({}, 404));
   });
@@ -104,7 +104,7 @@ describe('authenticated workspace overview', () => {
   it('preserves recorded rows when a later history page fails', async () => {
     const fetcher = vi.fn().mockImplementation((path: string) => {
       if (path === '/api/recipients') return Promise.resolve(jsonResponse([recipientFixture, missing]));
-      if (path.includes('page=0')) return Promise.resolve(historyResponse([noteFixture], 0, 101, 2));
+      if (path.includes('page=0')) return Promise.resolve(historyResponse([noteListFixture], 0, 101, 2));
       return Promise.resolve(jsonResponse({ message: 'private server diagnostics' }, 500));
     });
     renderOverview('/app?date=2026-10-18', fetcher);
@@ -139,7 +139,7 @@ describe('authenticated workspace overview', () => {
   });
 
   it('does not mark a recipient recorded for another recipient or date', async () => {
-    const otherRecipientNote = { ...noteFixture, recipientId: missing.id };
+    const otherRecipientNote = { ...noteListFixture, recipientId: missing.id };
     const fetcher = vi.fn().mockImplementation((path: string) => path === '/api/recipients'
       ? Promise.resolve(jsonResponse([recipientFixture, missing]))
       : Promise.resolve(historyResponse([otherRecipientNote])));
@@ -153,7 +153,7 @@ describe('authenticated workspace overview', () => {
 
     const wrongDateFetcher = vi.fn().mockImplementation((path: string) => path === '/api/recipients'
       ? Promise.resolve(jsonResponse([recipientFixture]))
-      : Promise.resolve(historyResponse([{ ...noteFixture, date: '2026-10-17' }])));
+      : Promise.resolve(historyResponse([{ ...noteListFixture, date: '2026-10-17' }])));
     renderOverview('/app?date=2026-10-18', wrongDateFetcher);
     const wrongDateRow = await screen.findByRole('link', { name: recipientFixture.name }).then((link) => link.closest('li'));
     expect(wrongDateRow).not.toHaveTextContent('Note recorded');
@@ -162,7 +162,7 @@ describe('authenticated workspace overview', () => {
   });
 
   it('loads every page before treating a recipient as having no note', async () => {
-    const laterPageNote = { ...noteFixture, id: 'e5555555-5555-4555-8555-555555555555', recipientId: missing.id };
+    const laterPageNote = { ...noteListFixture, id: 'e5555555-5555-4555-8555-555555555555', recipientId: missing.id };
     const fetcher = vi.fn().mockImplementation((path: string) => {
       if (path === '/api/recipients') return Promise.resolve(jsonResponse([recipientFixture, missing]));
       if (path.startsWith('/api/notes?')) {
