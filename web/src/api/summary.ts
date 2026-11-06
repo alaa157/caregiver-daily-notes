@@ -2,10 +2,12 @@ import { ApiError, createApiClient, type ApiClient } from '../lib/api';
 import { isNoteDate } from './notes';
 import { isRecipientId } from './recipients';
 import type { MessageKey } from '../i18n/translations';
+import type { ByokCredentials } from '../features/ai/ByokContext';
 
 /** Matches the Java SummaryRequest/Result records; the browser never calls an LLM. */
 export const summaryPeriods = [7, 14, 30] as const;
 export interface SummaryRequest { recipientId: string; periodEndInclusive: string; periodDays: 7 | 14 | 30 }
+export interface ByokSummaryRequest { summary: SummaryRequest; credentials: ByokCredentials }
 export interface SummaryObservation { text: string; noteId: string; quote: string }
 export interface SummaryUncertainty { topic: string; detail: string }
 export interface SummaryContent {
@@ -87,6 +89,21 @@ export class SummaryEndpointUnavailable extends Error {
   constructor() { super('No unambiguous compatible summary operation is advertised by the backend.'); }
 }
 
+const supportedProviderIds: ReadonlySet<string> = new Set(['OPENAI', 'GEMINI', 'XAI', 'OPEN_ROUTER']);
+
+function isValidSummaryRequest(input: SummaryRequest): boolean {
+  return isRecipientId(input?.recipientId)
+    && isNoteDate(input?.periodEndInclusive)
+    && summaryPeriods.includes(input?.periodDays);
+}
+
+function isUsableCredentials(credentials: ByokCredentials): boolean {
+  return Boolean(credentials && typeof credentials === 'object'
+    && supportedProviderIds.has(credentials.providerId)
+    && typeof credentials.model === 'string' && credentials.model.trim()
+    && typeof credentials.apiKey === 'string' && credentials.apiKey.trim());
+}
+
 /**
  * Use only the compatible SummaryRequest/SummaryResult POST advertised by the
  * backend's OpenAPI document; never redirect authenticated generation externally.
@@ -123,13 +140,33 @@ export function createSummaryApi(client: ApiClient, fetcher: typeof fetch = fetc
   const documentation = createApiClient({ apiBaseUrl: client.baseUrl.replace(/\/api$/, '') }, fetcher);
   return {
     async generate(input: SummaryRequest, signal?: AbortSignal): Promise<SummaryResponse> {
-      if (!isRecipientId(input.recipientId) || !isNoteDate(input.periodEndInclusive) || !summaryPeriods.includes(input.periodDays)) throw new ApiError(400, null);
+      if (!isValidSummaryRequest(input)) throw new ApiError(400, null);
       const document = await documentation.request<unknown>({ path: '/v3/api-docs', signal });
       if (signal?.aborted) throw new DOMException('Cancelled.', 'AbortError');
       const path = findSummaryEndpoint(document);
       const response = await client.request<unknown>({ path, method: 'POST', signal, body: {
         recipientId: input.recipientId, periodEndInclusive: input.periodEndInclusive, periodDays: input.periodDays,
       } });
+      return readSummaryResponse(response);
+    },
+    async generateByok(input: ByokSummaryRequest, signal?: AbortSignal): Promise<SummaryResponse> {
+      if (!input || typeof input !== 'object' || !isValidSummaryRequest(input.summary)
+        || !isUsableCredentials(input.credentials)) throw new ApiError(400, null);
+      const body: ByokSummaryRequest = {
+        summary: {
+          recipientId: input.summary.recipientId,
+          periodEndInclusive: input.summary.periodEndInclusive,
+          periodDays: input.summary.periodDays,
+        },
+        credentials: {
+          providerId: input.credentials.providerId,
+          model: input.credentials.model,
+          apiKey: input.credentials.apiKey,
+        },
+      };
+      const response = await client.request<unknown, ByokSummaryRequest>({
+        path: '/api/summaries/byok', method: 'POST', signal, body,
+      });
       return readSummaryResponse(response);
     },
   };
