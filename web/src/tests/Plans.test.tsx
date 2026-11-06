@@ -10,12 +10,14 @@ import { activePlanFixture as active, suggestedPlanFixture as suggestion } from 
 import { protectedActiveFixture as protectedActive, protectedSuggestionFixture as protectedSuggestion } from './planFixtures';
 import type { CarePlan } from '../api/plans';
 import { recipientFixture as recipient } from './recipientFixtures';
+import { noteListFixture } from './noteFixtures';
 import { jsonResponse, testToken } from './authFixtures';
 
 const root = '/app/notes/plans';
 const selected = `${root}?recipientId=${recipient.id}`;
 const other = { ...recipient, id: 'b2222222-2222-4222-8222-222222222222', name: 'ليلى Smith', active: false, lifecycleStatus: 'ARCHIVED' as const, archivedAt: '2026-10-15T10:00:00Z', archivedBy: 'b1111111-1111-4111-8111-111111111111' };
 const legacyContent = ' \tخطة قديمة legacy-ID-42 — “keep exact.”\nLiteral text: <script>alert("legacy")</script>\n  final line \n\t';
+const draftEvidenceId = 'b8888888-8888-4888-8888-888888888888';
 const legacyPlan: CarePlan = {
   ...suggestion,
   id: 'a7777777-7777-4777-8777-777777777777',
@@ -36,6 +38,15 @@ function serve(options: { inactive?: boolean; history?: CarePlan[]; active?: Car
   return vi.fn().mockImplementation((path: string, init: RequestInit) => {
     const url = new URL(path, 'http://localhost');
     const custom = options.override?.(url, init); if (custom) return Promise.resolve(custom);
+    if (url.pathname === '/api/notes') {
+      const now = new Date();
+      const date = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}-${String(now.getDate()).padStart(2, '0')}`;
+      return Promise.resolve(jsonResponse({
+        content: [{ ...noteListFixture, id: draftEvidenceId, recipientId: recipient.id, date }],
+        number: Number(url.searchParams.get('page')), size: Number(url.searchParams.get('size')),
+        totalElements: 1, totalPages: 1, first: true, last: true,
+      }));
+    }
     if (url.pathname === '/api/recipients') {
       const current = options.inactive ? { ...recipient, active: false, lifecycleStatus: 'ARCHIVED', archivedAt: '2026-10-15T10:00:00Z', archivedBy: 'b1111111-1111-4111-8111-111111111111' } : recipient;
       return Promise.resolve(jsonResponse([current, other]));
@@ -54,6 +65,26 @@ function serve(options: { inactive?: boolean; history?: CarePlan[]; active?: Car
           status: 'EDITED_AND_ACCEPTED', sourceType: 'CAREGIVER_EDITED', sourcePlanId: original.id, editable: false, structuredContent, content: JSON.stringify(structuredContent) };
         history = [edited, ...history.map((plan) => ({ ...plan, status: 'ARCHIVED', editable: false }))]; current = edited;
         return Promise.resolve(jsonResponse({ ...edited, createdAt: null }));
+      }
+      if (url.pathname.endsWith('/plans/suggestions')) {
+        const payload = JSON.parse(init.body as string);
+        const created = {
+          ...suggestion,
+          id: 'f7777777-7777-4777-8777-777777777777',
+          recipientId: recipient.id,
+          version: Math.max(...history.map((plan) => plan.version)) + 1,
+          status: 'SUGGESTED',
+          content: '',
+          sourceSummaryId: null,
+          sourcePlanId: null,
+          evidenceNoteIds: null,
+          createdAt: '2026-10-18T12:00:00Z',
+          sourceType: 'CAREGIVER_SUBMITTED',
+          editable: false,
+          structuredContent: payload.structuredContent,
+        };
+        history = [created, ...history];
+        return Promise.resolve(jsonResponse(created, 201));
       }
       const dismiss = url.pathname.endsWith('/dismiss');
       history = history.map((plan) => plan.id === suggestion.id ? { ...plan, status: dismiss ? 'DISMISSED' : 'ACCEPTED', ...(plan.editable !== undefined ? { editable: false } : {}) }
@@ -97,7 +128,7 @@ describe('care-plan review and authoritative backend decisions', () => {
     expect(within(section).getByText(active.content, { normalizer: (value) => value })).toHaveAttribute('dir', 'auto');
     expect(within(suggestions()).getByText(/مُراجعة notes/).textContent).toBe(suggestion.content);
     expect(view.container.querySelector('script')).toBeNull();
-    expect(screen.queryByRole('textbox')).not.toBeInTheDocument();
+    expect(within(suggestions()).queryByRole('textbox')).not.toBeInTheDocument();
     expect(within(suggestions()).getByRole('button', { name: 'Edit and accept' })).toBeDisabled();
     expect(within(suggestions()).getByRole('link', { name: 'e5555555-5555-4555-8555-555555555555' })).toHaveAttribute('href', '/app/notes/e5555555-5555-4555-8555-555555555555');
     expect(within(suggestions()).getByText('reference:/external').tagName).toBe('BDI');
@@ -118,7 +149,7 @@ describe('care-plan review and authoritative backend decisions', () => {
     const edit = within(suggestions()).getByRole('button', { name: 'Edit and accept' });
     expect(edit).toBeDisabled();
     await userEvent.click(edit);
-    expect(screen.queryByRole('textbox')).not.toBeInTheDocument();
+    expect(within(suggestions()).queryByRole('textbox')).not.toBeInTheDocument();
   });
   it('keepsOpaqueLegacyPlanVisibleInHistoryBesideStructuredVersions', async () => {
     const newerStructured: CarePlan = {
@@ -217,6 +248,79 @@ describe('care-plan review and authoritative backend decisions', () => {
     renderPlans(serve({ active: null, history: [{ ...suggestion, status: 'toString' }] })); await loaded();
     expect(screen.getAllByText('toString').length).toBeGreaterThan(0); expect(screen.queryByRole('button', { name: 'Accept suggestion' })).not.toBeInTheDocument();
   });
+  it('creates a suggested draft without activating it and reloads the server history', async () => {
+    const fetcher = serve(); renderPlans(fetcher); await loaded();
+    await userEvent.type(await screen.findByLabelText('Reason for this action'), 'Review the loaded note.');
+    await userEvent.click(screen.getByRole('checkbox', { name: new RegExp(draftEvidenceId) }));
+    await userEvent.click(screen.getByRole('button', { name: 'Save as suggested draft' }));
+    await screen.findByText('A new structured draft was saved as a suggestion. It has not been accepted.');
+    const create = writes(fetcher).find(([path]) => path.endsWith('/plans/suggestions'));
+    expect(create?.[0]).toBe(`/api/recipients/${recipient.id}/plans/suggestions`);
+    expect(JSON.parse(create?.[1].body as string)).toEqual({
+      content: '',
+      structuredContent: {
+        schemaVersion: 1,
+        changes: [{ action: 'SCHEDULE_CHECK_IN', params: { withinDays: '3' }, reason: 'Review the loaded note.', evidenceNoteIds: [draftEvidenceId] }],
+        medications: [],
+      },
+    });
+    expect(writes(fetcher)).toHaveLength(1);
+    expect(within(suggestions()).getAllByText('Suggested — not accepted').length).toBeGreaterThan(0);
+    expect(fetcher.mock.calls.filter(([path]) => path.endsWith('/history'))).toHaveLength(2);
+  });
+  it('exposes only the five supported actions with their exact parameter fields', async () => {
+    renderPlans(serve()); await loaded();
+    const action = await screen.findByLabelText('Action') as HTMLSelectElement;
+    expect(Array.from(action.options, (option) => option.value)).toEqual([
+      'SCHEDULE_CHECK_IN', 'UPDATE_MEAL_REMINDER', 'LOG_MOBILITY_GOAL', 'CAREGIVER_EDUCATION_TOPIC', 'ESCALATE_TO_DOCTOR',
+    ]);
+    const parameters: Record<string, string[]> = {
+      SCHEDULE_CHECK_IN: ['Within days'],
+      UPDATE_MEAL_REMINDER: ['Meal', 'Time'],
+      LOG_MOBILITY_GOAL: ['Activity', 'Frequency'],
+      CAREGIVER_EDUCATION_TOPIC: ['Topic'],
+      ESCALATE_TO_DOCTOR: ['Escalation reason'],
+    };
+    const allParameters = Object.values(parameters).flat();
+    for (const [actionId, expected] of Object.entries(parameters)) {
+      await userEvent.selectOptions(action, actionId);
+      for (const label of allParameters) {
+        if (expected.includes(label)) expect(screen.getByLabelText(label)).toBeInTheDocument();
+        else expect(screen.queryByLabelText(label)).not.toBeInTheDocument();
+      }
+    }
+    const medications = screen.getByRole('region', { name: 'Medication record — read-only' });
+    expect(within(medications).queryByRole('textbox')).not.toBeInTheDocument();
+  });
+  it('rejects invalid check-in days before posting a draft', async () => {
+    const fetcher = serve(); renderPlans(fetcher); await loaded();
+    await userEvent.clear(await screen.findByLabelText('Within days'));
+    await userEvent.type(screen.getByLabelText('Within days'), '0');
+    await userEvent.type(screen.getByLabelText('Reason for this action'), 'Review the loaded note.');
+    await userEvent.click(screen.getByRole('checkbox', { name: new RegExp(draftEvidenceId) }));
+    await userEvent.click(screen.getByRole('button', { name: 'Save as suggested draft' }));
+    expect(await screen.findByRole('alert')).toHaveTextContent('Enter an integer from 1 through 365');
+    expect(writes(fetcher)).toHaveLength(0);
+  });
+  it.each(['reason', 'evidence'])('rejects a draft with missing %s before the request', async (missing) => {
+    const fetcher = serve(); renderPlans(fetcher); await loaded();
+    await screen.findByRole('checkbox', { name: new RegExp(draftEvidenceId) });
+    if (missing === 'reason') await userEvent.click(screen.getByRole('checkbox', { name: new RegExp(draftEvidenceId) }));
+    else await userEvent.type(screen.getByLabelText('Reason for this action'), 'Review the loaded note.');
+    await userEvent.click(screen.getByRole('button', { name: 'Save as suggested draft' }));
+    expect(await screen.findByRole('alert')).toHaveTextContent(missing === 'reason' ? 'Enter a reason' : 'Choose at least one note');
+    expect(writes(fetcher)).toHaveLength(0);
+  });
+  it('keeps legacy free text visible and unchanged after creating a structured draft', async () => {
+    const fetcher = serve({ history: [legacyPlan, active] }); renderPlans(fetcher); await loaded();
+    await userEvent.type(await screen.findByLabelText('Reason for this action'), 'Review the loaded note.');
+    await userEvent.click(screen.getByRole('checkbox', { name: new RegExp(draftEvidenceId) }));
+    await userEvent.click(screen.getByRole('button', { name: 'Save as suggested draft' }));
+    await screen.findByText('A new structured draft was saved as a suggestion. It has not been accepted.');
+    const content = within(suggestions()).getByText((_text, element) => element?.classList.contains('plan-content') ?? false);
+    expect(content.textContent).toBe(legacyContent);
+    expect(writes(fetcher)).toHaveLength(1);
+  });
   it('cancels old recipient reads and ignores a late result', async () => {
     let resolve!: (response: Response) => void; let oldSignal!: AbortSignal;
     const fetcher = serve({ override: (url, init) => url.pathname.includes(recipient.id) && url.pathname.endsWith('/history')
@@ -277,8 +381,8 @@ describe('care-plan review and authoritative backend decisions', () => {
     const meds = within(suggestions()).getByRole('region', { name: 'Medication record — read-only' });
     expect(within(meds).getByText('SYNTHETIC_REPORTED_ITEM')).toBeInTheDocument(); expect(within(meds).queryByRole('textbox')).not.toBeInTheDocument();
     await userEvent.click(within(suggestions()).getByRole('button', { name: 'Edit and accept' }));
-    expect(screen.getByLabelText('Within days')).toHaveFocus();
-    await userEvent.clear(screen.getByLabelText('Within days')); await userEvent.type(screen.getByLabelText('Within days'), '10');
+    expect(within(suggestions()).getByLabelText('Within days')).toHaveFocus();
+    await userEvent.clear(within(suggestions()).getByLabelText('Within days')); await userEvent.type(within(suggestions()).getByLabelText('Within days'), '10');
     await userEvent.click(screen.getByRole('button', { name: 'Review changes' }));
     expect(screen.getByRole('heading', { name: 'Review and accept a new version' })).toHaveFocus(); expect(writes(fetcher)).toHaveLength(0);
     await userEvent.click(screen.getByRole('button', { name: 'Confirm edit and acceptance' }));
@@ -297,14 +401,14 @@ describe('care-plan review and authoritative backend decisions', () => {
     const fetcher = serve({ active: protectedActive, history: [protectedSuggestion, protectedActive] }); renderPlans(fetcher); await loaded();
     const button = within(suggestions()).getByRole('button', { name: 'Edit and accept' }); await userEvent.click(button);
     await userEvent.click(screen.getByRole('button', { name: 'Review changes' })); expect(screen.getByRole('alert')).toHaveTextContent('change at least one parameter');
-    await userEvent.clear(screen.getByLabelText('Within days')); await userEvent.click(screen.getByRole('button', { name: 'Review changes' }));
-    expect(screen.getByLabelText('Within days')).toHaveFocus(); expect(writes(fetcher)).toHaveLength(0);
+    await userEvent.clear(within(suggestions()).getByLabelText('Within days')); await userEvent.click(screen.getByRole('button', { name: 'Review changes' }));
+    expect(within(suggestions()).getByLabelText('Within days')).toHaveFocus(); expect(writes(fetcher)).toHaveLength(0);
     await userEvent.click(screen.getByRole('button', { name: 'Cancel' })); expect(button).toHaveFocus();
   });
   it.each([409, 422])('handles protected-edit rejection HTTP %s without retrying or changing the original', async (code) => {
     const fetcher = serve({ active: protectedActive, history: [protectedSuggestion, protectedActive], override: (_url, init) => init.method === 'POST' ? jsonResponse({ code: 'INVALID_PLAN_TRANSITION' }, code) : undefined });
     renderPlans(fetcher); await loaded(); await userEvent.click(within(suggestions()).getByRole('button', { name: 'Edit and accept' }));
-    await userEvent.type(screen.getByLabelText('Within days'), '0'); await userEvent.click(screen.getByRole('button', { name: 'Review changes' }));
+    await userEvent.type(within(suggestions()).getByLabelText('Within days'), '0'); await userEvent.click(screen.getByRole('button', { name: 'Review changes' }));
     await userEvent.click(screen.getByRole('button', { name: 'Confirm edit and acceptance' }));
     expect(await screen.findByRole('alert')).toBeInTheDocument(); expect(writes(fetcher)).toHaveLength(1);
     expect(within(suggestions()).getByText('reported-schedule')).toBeInTheDocument();

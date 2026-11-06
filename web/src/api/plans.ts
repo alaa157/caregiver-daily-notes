@@ -23,6 +23,7 @@ export type PlanAction = 'accept' | 'dismiss' | 'edit-and-accept';
 export interface PlanChange { action: string; params: Record<string, string>; reason: string; evidenceNoteIds: string[] }
 export interface MedicationEntry { name: string; dose: string; schedule: string }
 export interface PlanDocument { schemaVersion: 1; changes: PlanChange[]; medications: MedicationEntry[] }
+export interface CreateStructuredPlanInput { schemaVersion: 1; changes: PlanChange[]; medications: MedicationEntry[] }
 export interface PlanEditRequest { expectedVersion: number; changes: { index: number; params: Record<string, string> }[] }
 export interface PlanGeneration { plan: CarePlan | null; aiUnavailable: boolean; safety: SummarySafety; invalidPlan: boolean }
 const catalog: Record<string, readonly string[]> = {
@@ -125,6 +126,15 @@ export function createPlansApi(client: ApiClient) {
       if (new Set(plans.map((item) => item.id)).size !== plans.length
         || new Set(plans.map((item) => item.version)).size !== plans.length) throw new Error('Invalid plan history response.');
       return plans;
+    },
+    async createSuggested(recipientId: string, input: CreateStructuredPlanInput, signal?: AbortSignal): Promise<CarePlan> {
+      const path: `/api/recipients/${string}/plans/suggestions` = `${root(recipientId)}/suggestions`;
+      if (!input || input.schemaVersion !== 1 || !Array.isArray(input.changes)
+        || !Array.isArray(input.medications) || input.medications.length !== 0) throw new ApiError(400, null);
+      const result = readPlan(await client.request<unknown>({ path, method: 'POST', signal,
+        body: { content: '', structuredContent: input } }), recipientId);
+      if (result.status !== 'SUGGESTED' || !result.structuredContent) throw new Error('Invalid suggested plan response.');
+      return result;
     },
     async transition(recipientId: string, planId: string, action: PlanAction, signal?: AbortSignal): Promise<void> {
       if (!isRecipientId(planId) || (action !== 'accept' && action !== 'dismiss')) throw new Error('Invalid plan action.');

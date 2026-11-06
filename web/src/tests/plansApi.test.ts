@@ -1,5 +1,5 @@
 import { describe, expect, it, vi } from 'vitest';
-import { createPlansApi, planErrorMessage, readPlan, type PlanAction } from '../api/plans';
+import { createPlansApi, planErrorMessage, readPlan, type CreateStructuredPlanInput, type PlanAction } from '../api/plans';
 import { ApiError, createApiClient } from '../lib/api';
 import { activePlanFixture as active, suggestedPlanFixture as suggestion } from './planFixtures';
 import { protectedSuggestionFixture as protectedSuggestion } from './planFixtures';
@@ -7,6 +7,11 @@ import { recipientFixture } from './recipientFixtures';
 import { jsonResponse } from './authFixtures';
 
 const recipientId = recipientFixture.id;
+const draftInput: CreateStructuredPlanInput = {
+  schemaVersion: 1,
+  changes: [{ action: 'SCHEDULE_CHECK_IN', params: { withinDays: '3' }, reason: 'Review the loaded note.', evidenceNoteIds: ['e5555555-5555-4555-8555-555555555555'] }],
+  medications: [],
+};
 function setup(response: unknown, status = 200) {
   const fetcher = vi.fn().mockResolvedValue(jsonResponse(response, status));
   return { fetcher, api: createPlansApi(createApiClient({ apiBaseUrl: '' }, fetcher)) };
@@ -45,6 +50,26 @@ describe('plan contract and scoped transport', () => {
     expect(await api.history(recipientId)).toEqual([suggestion, active]);
     expect(fetcher.mock.calls.map(([path]) => path)).toEqual([`/api/recipients/${recipientId}/plans/active`, `/api/recipients/${recipientId}/plans/history`]);
     expect(fetcher.mock.calls.every(([, init]) => init.method === 'GET' && init.cache === 'no-store')).toBe(true);
+  });
+  it('creates a structured caregiver draft at the existing suggestions endpoint', async () => {
+    const response = { ...suggestion, content: '', status: 'SUGGESTED', sourceType: 'CAREGIVER_SUBMITTED',
+      editable: false, structuredContent: draftInput };
+    const { api, fetcher } = setup(response, 201);
+    const created = await api.createSuggested(recipientId, draftInput);
+    expect(created.status).toBe('SUGGESTED');
+    expect(fetcher.mock.calls[0][0]).toBe(`/api/recipients/${recipientId}/plans/suggestions`);
+    expect(fetcher.mock.calls[0][1].method).toBe('POST');
+    expect(JSON.parse(fetcher.mock.calls[0][1].body)).toEqual({ content: '', structuredContent: draftInput });
+  });
+  it('rejects invalid recipient IDs before fetching when creating a draft', async () => {
+    const { api, fetcher } = setup({});
+    await expect(api.createSuggested('../other', draftInput)).rejects.toBeInstanceOf(ApiError);
+    expect(fetcher).not.toHaveBeenCalled();
+  });
+  it('refuses medication changes in a new structured draft before fetching', async () => {
+    const { api, fetcher } = setup({});
+    await expect(api.createSuggested(recipientId, { ...draftInput, medications: [{ name: 'Item', dose: 'Dose', schedule: 'Schedule' }] })).rejects.toBeInstanceOf(ApiError);
+    expect(fetcher).not.toHaveBeenCalled();
   });
   it('preserves exact content and opaque source references while excluding extra fields', () => {
     expect(readPlan({ ...suggestion, caregiverId: 'untrusted', medication: 'untrusted' }, recipientId)).toEqual(suggestion);
