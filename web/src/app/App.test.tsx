@@ -11,10 +11,24 @@ import { observationFields } from '../api/notes';
 import { jsonResponse, testToken } from '../tests/authFixtures';
 import { recipientFixture } from '../tests/recipientFixtures';
 import { noteDetailFixture, noteFixture, noteListFixture } from '../tests/noteFixtures';
+import { ByokProvider, useByok } from '../features/ai/ByokContext';
+import { AiSettingsDialog } from '../features/ai/AiSettingsDialog';
 
 function renderRoute(path: string) {
   return render(<I18nProvider><ApiProvider config={{ apiBaseUrl: '' }}><AuthProvider><MemoryRouter initialEntries={[path]}><App /></MemoryRouter></AuthProvider></ApiProvider></I18nProvider>);
 }
+function ByokStateProbe() {
+  const { credentials } = useByok();
+  return <output data-testid="byok-state">{credentials ? 'configured' : 'empty'}</output>;
+}
+
+function renderByokDialogUnderProvider(fetcher: unknown) {
+  vi.stubGlobal('fetch', fetcher);
+  return render(<I18nProvider><ApiProvider config={{ apiBaseUrl: '' }}><ByokProvider>
+    <AiSettingsDialog open /><ByokStateProbe />
+  </ByokProvider></ApiProvider></I18nProvider>);
+}
+
 
 function CurrentPath() {
   return <output data-testid="current-path">{useLocation().pathname}</output>;
@@ -379,6 +393,90 @@ describe('application foundation', () => {
     expect(screen.queryByRole('heading', { name: 'Recipient details' })).not.toBeInTheDocument();
     expect(screen.queryByRole('heading', { name: 'Original note — read only' })).not.toBeInTheDocument();
     expect(fetcher).not.toHaveBeenCalled();
+  });
+
+  it('renders the authenticated application without adding a settings navigation link', () => {
+    localStorage.clear();
+    localStorage.setItem('caregiver-language', 'en');
+    sessionStorage.clear();
+    sessionStorage.setItem('caregiver-auth-session-v1', JSON.stringify({ token: testToken(), baseUrl: '' }));
+    const { unmount } = render(<I18nProvider><ApiProvider config={{ apiBaseUrl: '' }}><AuthProvider>
+      <MemoryRouter initialEntries={['/app']}><App /></MemoryRouter>
+    </AuthProvider></ApiProvider></I18nProvider>);
+
+    expect(screen.getByRole('navigation', { name: 'Main navigation' })).toBeVisible();
+    expect(screen.queryByRole('link', { name: /settings/i })).not.toBeInTheDocument();
+    unmount();
+  });
+
+  it('opens the AI settings dialog under its provider and offers only the supported providers', () => {
+    render(<I18nProvider><ApiProvider config={{ apiBaseUrl: '' }}><ByokProvider>
+      <AiSettingsDialog open />
+      <ByokStateProbe />
+    </ByokProvider></ApiProvider></I18nProvider>);
+    expect(screen.getByRole('dialog', { name: 'AI provider settings' })).toBeVisible();
+    expect(screen.getByRole('combobox', { name: 'Provider' }).querySelectorAll('option')).toHaveLength(4);
+  });
+
+  it('stores credentials only after a successful connection test', async () => {
+    const user = userEvent.setup();
+    const fetcher = vi.fn().mockResolvedValue(jsonResponse({ success: true, providerId: 'GEMINI', model: 'gemini-3.8-flash', errorCode: null }));
+    renderByokDialogUnderProvider(fetcher);
+    await user.type(screen.getByLabelText('Model'), 'gemini-3.8-flash');
+    await user.type(screen.getByLabelText('API key'), 'synthetic-secret-123');
+    expect(screen.getByTestId('byok-state')).toHaveTextContent('empty');
+    await user.click(screen.getByRole('button', { name: 'Test connection' }));
+
+    expect(await screen.findByText(/Connection test succeeded/)).toBeVisible();
+    expect(screen.getByTestId('byok-state')).toHaveTextContent('configured');
+    expect(fetcher).toHaveBeenCalledWith('/api/ai/byok/connection-test', expect.objectContaining({
+      method: 'POST',
+      body: JSON.stringify({ credentials: { providerId: 'GEMINI', model: 'gemini-3.8-flash', apiKey: 'synthetic-secret-123' } }),
+    }));
+  });
+
+  it('does not store credentials after a failed connection test or expose provider text', async () => {
+    const user = userEvent.setup();
+    const response = jsonResponse({ success: false, errorCode: 'invalid_key', providerMessage: 'provider text', detail: 'synthetic-secret-123' }, 400);
+    const fetcher = vi.fn().mockResolvedValue(response);
+    renderByokDialogUnderProvider(fetcher);
+    await user.type(screen.getByLabelText('Model'), 'bad-model');
+    await user.type(screen.getByLabelText('API key'), 'synthetic-secret-123');
+    await user.click(screen.getByRole('button', { name: 'Test connection' }));
+
+    expect(await screen.findByRole('alert')).toHaveTextContent('The provider rejected this key.');
+    expect(screen.getByTestId('byok-state')).toHaveTextContent('empty');
+    expect(screen.getByRole('alert')).not.toHaveTextContent('synthetic-secret-123');
+    expect(screen.getByRole('alert')).not.toHaveTextContent('provider text');
+  });
+
+  it('removes the key from memory and clears the password field', async () => {
+    const user = userEvent.setup();
+    const fetcher = vi.fn().mockResolvedValue(jsonResponse({ success: true }));
+    renderByokDialogUnderProvider(fetcher);
+    await user.type(screen.getByLabelText('Model'), 'gpt-test-model');
+    await user.type(screen.getByLabelText('API key'), 'synthetic-secret-123');
+    await user.click(screen.getByRole('button', { name: 'Test connection' }));
+    expect(await screen.findByTestId('byok-state')).toHaveTextContent('configured');
+
+    await user.click(screen.getByRole('button', { name: 'Remove key' }));
+
+    expect(screen.getByLabelText('API key')).toHaveValue('');
+    expect(screen.getByTestId('byok-state')).toHaveTextContent('empty');
+    expect(fetcher).toHaveBeenCalledTimes(1);
+  });
+
+  it('does not write BYOK credentials to browser storage', async () => {
+    const user = userEvent.setup();
+    const storage = vi.spyOn(Storage.prototype, 'setItem');
+    renderByokDialogUnderProvider(vi.fn().mockResolvedValue(jsonResponse({ success: true })));
+    await user.type(screen.getByLabelText('Model'), 'gpt-test-model');
+    await user.type(screen.getByLabelText('API key'), 'synthetic-secret-123');
+    await user.click(screen.getByRole('button', { name: 'Test connection' }));
+
+    expect(await screen.findByTestId('byok-state')).toHaveTextContent('configured');
+    expect(storage.mock.calls.flat().join(' ')).not.toContain('synthetic-secret-123');
+    storage.mockRestore();
   });
 
 });

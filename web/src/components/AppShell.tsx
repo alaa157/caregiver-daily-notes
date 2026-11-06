@@ -4,6 +4,7 @@ import { useI18n } from '../i18n/I18nProvider';
 import { Icon } from './Icon';
 import { useAuth } from '../features/auth/AuthProvider';
 import { useTheme, type ThemeMode } from '../app/ThemeProvider';
+import { ByokProvider } from '../features/ai/ByokContext';
 import './AppShell.css';
 
 function isHistoryRoute(pathname: string) {
@@ -93,7 +94,9 @@ export function AppShell({ children }: { children: ReactNode }) {
           </nav>
         </div>
       </header>
-      <main id="main-content" ref={mainRef} tabIndex={-1} className="main-content">{children}</main>
+      <main id="main-content" ref={mainRef} tabIndex={-1} className="main-content">
+        {auth.status === 'authenticated' ? <ByokProvider>{children}</ByokProvider> : children}
+      </main>
       <footer className="site-footer">
         <div className="container footer-inner">
           <span className="footer-brand"><Icon name="leaf" size={18} />{t('footer')}</span>
