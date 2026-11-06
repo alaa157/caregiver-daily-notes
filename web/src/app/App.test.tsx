@@ -272,13 +272,16 @@ describe('application foundation', () => {
     renderAuthenticatedRoute('/app', vi.fn().mockResolvedValue(jsonResponse([])));
     const navigation = screen.getByRole('navigation', { name: 'Main navigation' });
     const primary = within(navigation).getByRole('group', { name: 'Workspace navigation' });
-    const notesGroup = within(navigation).getByRole('group', { name: 'Notes navigation' });
-    const plans = within(notesGroup).getByRole('link', { name: 'Care plans' });
+    const secondary = within(navigation).getByRole('group', { name: 'Additional workspace links' });
+    const plans = within(secondary).getByRole('link', { name: 'Care plans' });
+    const settings = within(secondary).getByRole('link', { name: 'Settings' });
 
     expect(within(primary).getAllByRole('link')).toHaveLength(4);
     expect(within(primary).queryByRole('link', { name: 'Care plans' })).not.toBeInTheDocument();
     expect(plans).toHaveAttribute('href', '/app/notes/plans');
+    expect(settings).toHaveAttribute('href', '/app/settings');
     expect(primary.contains(plans)).toBe(false);
+    expect(primary.contains(settings)).toBe(false);
   });
 
   it.each([
@@ -449,7 +452,7 @@ describe('application foundation', () => {
     expect(fetcher).not.toHaveBeenCalled();
   });
 
-  it('renders the authenticated application without adding a settings navigation link', () => {
+  it('renders the authenticated application with a Settings navigation link', () => {
     localStorage.clear();
     localStorage.setItem('caregiver-language', 'en');
     sessionStorage.clear();
@@ -458,8 +461,9 @@ describe('application foundation', () => {
       <MemoryRouter initialEntries={['/app']}><App /></MemoryRouter>
     </AuthProvider></ApiProvider></I18nProvider>);
 
-    expect(screen.getByRole('navigation', { name: 'Main navigation' })).toBeVisible();
-    expect(screen.queryByRole('link', { name: /settings/i })).not.toBeInTheDocument();
+    const navigation = screen.getByRole('navigation', { name: 'Main navigation' });
+    expect(navigation).toBeVisible();
+    expect(within(navigation).getByRole('link', { name: 'Settings' })).toHaveAttribute('href', '/app/settings');
     unmount();
   });
 

@@ -1,0 +1,21 @@
+.settings-page { max-width: 1000px; padding-block: 40px 64px; }
+.settings-heading { margin-bottom: var(--space-lg); }
+.settings-heading h1 { margin-bottom: var(--space-sm); color: var(--color-on-background); font-size: clamp(30px, 3.2vw, 43px); font-weight: 650; letter-spacing: -.045em; line-height: 1.25; }
+.settings-heading p { max-width: 720px; margin-bottom: 0; color: var(--caregiver-muted); font-size: 14px; line-height: 1.85; }
+:lang(ar) .settings-heading h1 { font-size: clamp(27px, 3vw, 38px); line-height: 1.65; letter-spacing: 0; }
+.settings-group { overflow: hidden; padding: 0; margin-block: 0 var(--space-md); }
+.settings-group h2 { max-width: none; margin: 0; padding: var(--space-md); border-block-end: 1px solid var(--caregiver-border); color: var(--color-on-surface); font-size: 18px; font-weight: 650; line-height: 1.5; letter-spacing: 0; }
+.settings-list { margin: 0; padding: 0; list-style: none; }
+.settings-row { display: grid; grid-template-columns: 24px minmax(0, 1fr) auto; align-items: center; gap: var(--space-sm); min-width: 0; min-height: var(--size-touch-target); padding: var(--space-sm) var(--space-md); color: var(--color-on-surface); }
+.settings-row + .settings-row { border-block-start: 1px solid var(--caregiver-border); }
+.settings-row-icon { display: grid; place-items: center; color: var(--color-primary); }
+.settings-row-label, .settings-action { min-width: 0; font-size: 14px; font-weight: 600; line-height: 1.6; }
+.settings-unavailable { color: var(--caregiver-muted); font-size: 12px; line-height: 1.6; text-align: end; }
+.settings-action { justify-self: start; min-height: var(--size-touch-target); padding: 0; border: 0; color: var(--color-on-surface); background: transparent; text-align: start; cursor: pointer; }
+.settings-action:hover { color: var(--color-primary); text-decoration: underline; text-underline-offset: 3px; }
+.settings-action:focus-visible { border-radius: var(--radius-control); }
+@media (max-width: 540px) {
+  .settings-page { padding-block: 30px 44px; }
+  .settings-row { grid-template-columns: 24px minmax(0, 1fr); gap: var(--space-sm); padding-inline: var(--space-sm); }
+  .settings-unavailable { grid-column: 2; text-align: start; }
+}
