@@ -138,7 +138,7 @@ export function AiSettingsDialog({ open, onClose }: { open: boolean; onClose?: (
       <h2 id="byok-dialog-title">{t('byokDialogTitle')}</h2>
       <section aria-label={t('byokActiveCredentialsLabel')} className="byok-active">
         {credentials && activeProvider
-          ? <p><strong>{t('byokActiveCredentialsLabel')}:</strong> {t(activeProvider.label)} · {credentials.model}</p>
+          ? <p><strong>{t('byokActiveCredentialsLabel')}:</strong> {t(activeProvider.label)} · <bdi>{credentials.model}</bdi></p>
           : <p>{t('byokNoActiveCredentials')}</p>}
         <p>{t('byokDraftNotice')}</p>
       </section>

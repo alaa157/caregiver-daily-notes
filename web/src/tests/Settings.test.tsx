@@ -93,7 +93,9 @@ describe('authenticated grouped settings page', () => {
     await user.click(screen.getByRole('button', { name: 'AI Settings' }));
 
     const reopened = screen.getByRole('dialog', { name: 'AI provider settings' });
-    expect(within(reopened).getByText(/OpenAI · gpt-test/)).toBeVisible();
+    const activeCredentials = within(reopened).getByRole('region', { name: 'Currently active credentials' });
+    expect(activeCredentials).toHaveTextContent('OpenAI · gpt-test');
+    expect(activeCredentials.querySelector('bdi')).toHaveTextContent('gpt-test');
     expect(document.body).not.toHaveTextContent('settings-test-secret');
     expect(fetcher).toHaveBeenCalledWith('/api/ai/byok/connection-test', expect.objectContaining({ method: 'POST' }));
   });
