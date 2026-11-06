@@ -8,6 +8,7 @@ import { I18nProvider } from '../i18n/I18nProvider';
 import { ApiProvider } from '../lib/api';
 import { jsonResponse, testToken } from './authFixtures';
 import { recipientFixture as recipient } from './recipientFixtures';
+import { MedicationListPanel } from '../features/medications/MedicationListPanel';
 
 const root = '/app/recipients';
 const detail = `${root}/${recipient.id}`;
@@ -208,7 +209,7 @@ describe('care recipients screens', () => {
     const archived = { ...recipient, active: false, lifecycleStatus: 'ARCHIVED' as const,
       archivedAt: '2026-10-15T10:00:00Z', archivedBy: 'b1111111-1111-4111-8111-111111111111' };
     const restored = { ...recipient, restoredAt: '2026-10-16T10:00:00Z', restoredBy: 'b1111111-1111-4111-8111-111111111111' };
-    const fetcher = vi.fn().mockResolvedValueOnce(jsonResponse(recipient))
+    const fetcher = vi.fn().mockResolvedValueOnce(jsonResponse(recipient)).mockResolvedValueOnce(jsonResponse([]))
       .mockResolvedValueOnce(jsonResponse(archived)).mockResolvedValueOnce(jsonResponse(restored));
     renderRecipients(detail, fetcher);
 
@@ -260,7 +261,7 @@ describe('care recipients screens', () => {
       archivedAt: '2026-10-15T10:00:00Z', archivedBy: 'b1111111-1111-4111-8111-111111111111' };
     const fetcher = vi.fn()
       .mockImplementationOnce(() => new Promise<Response>((done) => { resolve = done; }))
-      .mockResolvedValueOnce(jsonResponse(archived));
+      .mockResolvedValueOnce(jsonResponse(archived)).mockResolvedValueOnce(jsonResponse([]));
     renderRecipients(detail, fetcher);
 
     expect(screen.getByText('Loading recipient details…')).toBeInTheDocument();
@@ -270,7 +271,7 @@ describe('care recipients screens', () => {
     await userEvent.click(screen.getByRole('button', { name: 'Retry' }));
     expect(await screen.findByRole('heading', { name: recipient.name })).toBeInTheDocument();
     expect(screen.getByText('Archived')).toBeInTheDocument();
-    expect(fetcher).toHaveBeenCalledTimes(2);
+    expect(fetcher).toHaveBeenCalledTimes(3);
   });
 
   it('rejects malformed route IDs without calling the backend', async () => {
@@ -281,7 +282,8 @@ describe('care recipients screens', () => {
   });
 
   it('requires confirmation before archive and restores focus when cancelled', async () => {
-    const fetcher = vi.fn().mockResolvedValue(jsonResponse(recipient));
+    const fetcher = vi.fn().mockImplementation((path: string) => Promise.resolve(
+      jsonResponse(path.endsWith('/medications') ? [] : recipient)));
     renderRecipients(detail, fetcher);
     const trigger = await screen.findByRole('button', { name: 'Archive recipient' });
     await userEvent.click(trigger);
@@ -291,12 +293,13 @@ describe('care recipients screens', () => {
     await userEvent.click(within(dialog).getByRole('button', { name: 'Cancel' }));
     expect(screen.queryByRole('dialog')).not.toBeInTheDocument();
     expect(trigger).toHaveFocus();
-    expect(fetcher).toHaveBeenCalledTimes(1);
+    expect(fetcher).toHaveBeenCalledTimes(2);
   });
 
   it('archives the recipient through the API and makes the detail read-only', async () => {
     const archived = { ...recipient, active: false, lifecycleStatus: 'ARCHIVED' as const, archivedAt: '2026-10-15T10:00:00Z', archivedBy: 'b1111111-1111-4111-8111-111111111111' };
-    const fetcher = vi.fn().mockResolvedValueOnce(jsonResponse(recipient)).mockResolvedValueOnce(jsonResponse(archived));
+    const fetcher = vi.fn().mockResolvedValueOnce(jsonResponse(recipient)).mockResolvedValueOnce(jsonResponse([]))
+      .mockResolvedValueOnce(jsonResponse(archived));
     renderRecipients(detail, fetcher);
     await userEvent.click(await screen.findByRole('button', { name: 'Archive recipient' }));
     await userEvent.click(within(screen.getByRole('dialog')).getByRole('button', { name: 'Archive recipient' }));
@@ -304,26 +307,28 @@ describe('care recipients screens', () => {
     expect(screen.queryByRole('dialog')).not.toBeInTheDocument();
     expect(screen.queryByRole('link', { name: 'Edit recipient' })).not.toBeInTheDocument();
     expect(screen.getByText('Recipient archived. Their history has been preserved.')).toHaveFocus();
-    expect(fetcher.mock.calls[1][0]).toBe(`${detail.replace('/app/', '/api/')}/archive`);
-    expect(fetcher.mock.calls[1][1].method).toBe('PATCH');
-    expect(fetcher.mock.calls[1][1].body).toBeUndefined();
+    expect(fetcher.mock.calls[2][0]).toBe(`${detail.replace('/app/', '/api/')}/archive`);
+    expect(fetcher.mock.calls[2][1].method).toBe('PATCH');
+    expect(fetcher.mock.calls[2][1].body).toBeUndefined();
   });
 
   it('restores an archived recipient to active status', async () => {
     const archived = { ...recipient, active: false, lifecycleStatus: 'ARCHIVED' as const, archivedAt: '2026-10-15T10:00:00Z', archivedBy: 'b1111111-1111-4111-8111-111111111111' };
     const restored = { ...recipient, restoredAt: '2026-10-16T10:00:00Z', restoredBy: 'b1111111-1111-4111-8111-111111111111' };
-    const fetcher = vi.fn().mockResolvedValueOnce(jsonResponse(archived)).mockResolvedValueOnce(jsonResponse(restored));
+    const fetcher = vi.fn().mockResolvedValueOnce(jsonResponse(archived)).mockResolvedValueOnce(jsonResponse([]))
+      .mockResolvedValueOnce(jsonResponse(restored));
     renderRecipients(detail, fetcher);
     await userEvent.click(await screen.findByRole('button', { name: 'Restore recipient' }));
     await userEvent.click(within(screen.getByRole('dialog')).getByRole('button', { name: 'Restore recipient' }));
     expect(await screen.findByText('Active')).toBeInTheDocument();
     expect(screen.getByText('Recipient restored to active status.')).toHaveFocus();
-    expect(fetcher.mock.calls[1][0]).toBe(`${detail.replace('/app/', '/api/')}/restore`);
+    expect(fetcher.mock.calls[2][0]).toBe(`${detail.replace('/app/', '/api/')}/restore`);
   });
 
   it('keeps the archive dialog open after a failed request and allows retry', async () => {
     const archived = { ...recipient, active: false, lifecycleStatus: 'ARCHIVED' as const, archivedAt: '2026-10-15T10:00:00Z', archivedBy: 'b1111111-1111-4111-8111-111111111111' };
-    const fetcher = vi.fn().mockResolvedValueOnce(jsonResponse(recipient)).mockRejectedValueOnce(new TypeError('Failed to fetch')).mockResolvedValueOnce(jsonResponse(archived));
+    const fetcher = vi.fn().mockResolvedValueOnce(jsonResponse(recipient)).mockResolvedValueOnce(jsonResponse([]))
+      .mockRejectedValueOnce(new TypeError('Failed to fetch')).mockResolvedValueOnce(jsonResponse(archived));
     renderRecipients(detail, fetcher);
     await userEvent.click(await screen.findByRole('button', { name: 'Archive recipient' }));
     await userEvent.click(within(screen.getByRole('dialog')).getByRole('button', { name: 'Archive recipient' }));
@@ -382,4 +387,303 @@ describe('care recipients screens', () => {
     expect(document.documentElement.dir).toBe('ltr');
     expect(screen.getByLabelText('Name')).toHaveAttribute('dir', 'auto');
   });
+
+  it('loads medications for the selected recipient only', async () => {
+    const otherRecipient = 'b2222222-2222-4222-8222-222222222222';
+    const medication = medicationFixture(recipient.id, 'Vitamin D');
+    const otherMedication = medicationFixture(otherRecipient, 'Private medicine');
+    const fetcher = vi.fn().mockImplementation((path: string) => path === '/api/recipients'
+      ? Promise.resolve(jsonResponse([recipient]))
+      : path === `${root}/${recipient.id}`.replace('/app/', '/api/')
+        ? Promise.resolve(jsonResponse(recipient))
+        : Promise.resolve(jsonResponse([medication])));
+    renderRecipients(detail, fetcher);
+
+    expect(await screen.findByText('Vitamin D')).toBeInTheDocument();
+    expect(screen.queryByText(otherMedication.displayName)).not.toBeInTheDocument();
+    expect(fetcher.mock.calls.some(([path]) => path === `/api/recipients/${recipient.id}/medications`)).toBe(true);
+    expect(fetcher.mock.calls.some(([path]) => path === `/api/recipients/${otherRecipient}/medications`)).toBe(false);
+  });
+
+  it('creates a medication with exact mixed Arabic and English text', async () => {
+    const value = medicationFixture(recipient.id, 'Vitamin D');
+    const input = { displayName: 'دواء صباحي / Morning 💊', doseText: ' الجرعة ٥ ملغ — 5 mg ', scheduleText: 'كل يوم at 08:30\nبعد الإفطار' };
+    const fetcher = vi.fn()
+      .mockResolvedValueOnce(jsonResponse(recipient))
+      .mockResolvedValueOnce(jsonResponse([]))
+      .mockResolvedValueOnce(jsonResponse({ ...value, ...input }, 201))
+      .mockResolvedValueOnce(jsonResponse([{ ...value, ...input }]));
+    renderRecipients(detail, fetcher);
+    await screen.findByText('No medication records yet');
+    await userEvent.click(screen.getByRole('button', { name: 'Add medication' }));
+    await userEvent.type(screen.getByLabelText('Medication name'), input.displayName);
+    await userEvent.type(screen.getByLabelText('Dose'), input.doseText);
+    await userEvent.type(screen.getByLabelText('Schedule'), input.scheduleText);
+    await userEvent.click(screen.getByRole('button', { name: 'Save medication' }));
+
+    expect(await screen.findByText(input.displayName)).toBeInTheDocument();
+    const displayedSchedule = screen.getByText((_, element) => element?.tagName === 'BDI' && element.textContent === input.scheduleText);
+    expect(displayedSchedule).toBeInTheDocument();
+    const post = fetcher.mock.calls.find(([, options]) => options.method === 'POST');
+    expect(post?.[0]).toBe(`/api/recipients/${recipient.id}/medications`);
+    expect(JSON.parse(post?.[1].body)).toEqual(input);
+  });
+
+  it('updates medication using PUT and preserves the exact edited text', async () => {
+    const initial = medicationFixture(recipient.id, 'Old name');
+    const updated = { ...initial, displayName: 'دواء جديد / New 💊', doseText: ' ٢ ملغ (2 mg) ', scheduleText: 'ليلًا — at night' };
+    const fetcher = vi.fn().mockResolvedValueOnce(jsonResponse(recipient)).mockResolvedValueOnce(jsonResponse([initial]))
+      .mockResolvedValueOnce(jsonResponse(updated)).mockResolvedValueOnce(jsonResponse([updated]));
+    renderRecipients(detail, fetcher);
+    await userEvent.click(await screen.findByRole('button', { name: 'Edit' }));
+    await userEvent.clear(screen.getByLabelText('Medication name'));
+    await userEvent.type(screen.getByLabelText('Medication name'), updated.displayName);
+    await userEvent.clear(screen.getByLabelText('Dose'));
+    await userEvent.type(screen.getByLabelText('Dose'), updated.doseText);
+    await userEvent.clear(screen.getByLabelText('Schedule'));
+    await userEvent.type(screen.getByLabelText('Schedule'), updated.scheduleText);
+    await userEvent.click(screen.getByRole('button', { name: 'Save medication' }));
+
+    expect(await screen.findByText(updated.displayName)).toBeInTheDocument();
+    const put = fetcher.mock.calls.find(([, options]) => options.method === 'PUT');
+    expect(put?.[0]).toBe(`/api/recipients/${recipient.id}/medications/${initial.id}`);
+    expect(JSON.parse(put?.[1].body)).toEqual({ displayName: updated.displayName, doseText: updated.doseText, scheduleText: updated.scheduleText });
+  });
+
+  it('archives medication through PATCH and keeps its historical text visible', async () => {
+    const active = medicationFixture(recipient.id, 'Long-term record');
+    const archived = { ...active, active: false };
+    const fetcher = vi.fn().mockResolvedValueOnce(jsonResponse(recipient)).mockResolvedValueOnce(jsonResponse([active]))
+      .mockResolvedValueOnce(jsonResponse(archived)).mockResolvedValueOnce(jsonResponse([archived]));
+    renderRecipients(detail, fetcher);
+    expect(await screen.findByText('Long-term record')).toBeInTheDocument();
+    await userEvent.click(screen.getByRole('button', { name: 'Archive' }));
+
+    expect(await screen.findByText('Archived', { selector: 'span' })).toBeInTheDocument();
+    expect(screen.getByText('Long-term record')).toBeInTheDocument();
+    expect(screen.getByText(archived.doseText)).toBeInTheDocument();
+    const patch = fetcher.mock.calls.find(([, options]) => options.method === 'PATCH');
+    expect(patch?.[0]).toBe(`/api/recipients/${recipient.id}/medications/${active.id}/archive`);
+    expect(patch?.[1].body).toBeUndefined();
+    expect(screen.queryByRole('button', { name: 'Edit' })).not.toBeInTheDocument();
+  });
+
+  it('keeps loading, empty, error and retry states distinct', async () => {
+    let resolve!: (response: Response) => void;
+    const pending = vi.fn().mockImplementation((path: string) => path === `/api/recipients/${recipient.id}`
+      ? Promise.resolve(jsonResponse(recipient))
+      : new Promise<Response>((done) => { resolve = done; }));
+    const loadingView = renderRecipients(detail, pending);
+    await waitFor(() => expect(pending).toHaveBeenCalledTimes(2));
+    expect(screen.getByText('Loading medication records…')).toBeInTheDocument();
+    resolve(jsonResponse([]));
+    expect(await screen.findByRole('heading', { name: 'Medications' })).toBeInTheDocument();
+    loadingView.unmount();
+
+    const emptyFetcher = vi.fn().mockResolvedValueOnce(jsonResponse(recipient)).mockResolvedValueOnce(jsonResponse([]));
+    const emptyView = renderRecipients(detail, emptyFetcher);
+    expect(await screen.findByText('No medication records yet')).toBeInTheDocument();
+    expect(screen.getByText(/does not indicate whether medication is used/)).toBeInTheDocument();
+    emptyView.unmount();
+
+    const errorFetcher = vi.fn().mockResolvedValueOnce(jsonResponse(recipient)).mockResolvedValueOnce(jsonResponse({ message: 'private details' }, 500))
+      .mockResolvedValueOnce(jsonResponse([medicationFixture(recipient.id, 'Recovered')]));
+    renderRecipients(detail, errorFetcher);
+    expect(await screen.findByRole('alert')).toHaveTextContent('We couldn’t complete this medication request.');
+    expect(screen.queryByText('private details')).not.toBeInTheDocument();
+    await userEvent.click(screen.getByRole('button', { name: 'Retry' }));
+    expect(await screen.findByText('Recovered')).toBeInTheDocument();
+  });
+
+  it('shows archived recipient medication history read-only', async () => {
+    const archivedRecipient = { ...recipient, active: false, lifecycleStatus: 'ARCHIVED' as const,
+      archivedAt: '2026-10-15T10:00:00Z', archivedBy: 'b1111111-1111-4111-8111-111111111111' };
+    const medication = medicationFixture(recipient.id, 'Archived recipient record');
+    const fetcher = vi.fn().mockResolvedValueOnce(jsonResponse(archivedRecipient)).mockResolvedValueOnce(jsonResponse([medication]));
+    renderRecipients(detail, fetcher);
+    expect(await screen.findByText('Archived recipient record')).toBeInTheDocument();
+    expect(screen.queryByRole('button', { name: 'Add medication' })).not.toBeInTheDocument();
+    expect(screen.queryByRole('button', { name: 'Edit' })).not.toBeInTheDocument();
+    expect(screen.queryByRole('button', { name: 'Archive' })).not.toBeInTheDocument();
+  });
+
+  it('keeps legacy inactive recipients read-only for medication management', async () => {
+    const legacy = { ...recipient, active: false, lifecycleStatus: 'LEGACY_INACTIVE_REVIEW' as const };
+    const medication = medicationFixture(recipient.id, 'Legacy medication history');
+    const fetcher = vi.fn().mockResolvedValueOnce(jsonResponse(legacy)).mockResolvedValueOnce(jsonResponse([medication]));
+    renderRecipients(detail, fetcher);
+    expect(await screen.findByText('Legacy medication history')).toBeInTheDocument();
+    expect(screen.queryByRole('button', { name: 'Add medication' })).not.toBeInTheDocument();
+    expect(screen.queryByRole('button', { name: 'Edit' })).not.toBeInTheDocument();
+    expect(screen.queryByRole('button', { name: 'Archive' })).not.toBeInTheDocument();
+  });
+
+  it('does not offer edit or archive controls for an archived medication', async () => {
+    const archived = { ...medicationFixture(recipient.id, 'Old medication'), active: false };
+    renderRecipients(detail, vi.fn().mockResolvedValueOnce(jsonResponse(recipient)).mockResolvedValueOnce(jsonResponse([archived])));
+    expect(await screen.findByText('Old medication')).toBeInTheDocument();
+    expect(screen.getByText('Archived', { selector: 'span' })).toBeInTheDocument();
+    expect(screen.queryByRole('button', { name: 'Edit' })).not.toBeInTheDocument();
+    expect(screen.queryByRole('button', { name: 'Archive' })).not.toBeInTheDocument();
+  });
+
+  it('prevents duplicate medication submissions and preserves input after failure', async () => {
+    let failCreate!: (response: Response) => void;
+    const fetcher = vi.fn().mockImplementation((path: string, options: RequestInit = {}) => {
+      if (path === `/api/recipients/${recipient.id}`) return Promise.resolve(jsonResponse(recipient));
+      if (path === `/api/recipients/${recipient.id}/medications` && options.method === 'GET') return Promise.resolve(jsonResponse([]));
+      if (options.method === 'POST') return new Promise<Response>((resolve) => { failCreate = resolve; });
+      return Promise.reject(new Error(`Unexpected request: ${options.method} ${path}`));
+    });
+    renderRecipients(detail, fetcher);
+    await screen.findByText('No medication records yet');
+    await userEvent.click(screen.getByRole('button', { name: 'Add medication' }));
+    const entered = { name: 'دواء', dose: '5 mg', schedule: 'with breakfast' };
+    await userEvent.type(screen.getByLabelText('Medication name'), entered.name);
+    await userEvent.type(screen.getByLabelText('Dose'), entered.dose);
+    await userEvent.type(screen.getByLabelText('Schedule'), entered.schedule);
+    await userEvent.dblClick(screen.getByRole('button', { name: 'Save medication' }));
+    expect(fetcher.mock.calls.filter(([, options]) => options.method === 'POST')).toHaveLength(1);
+    failCreate(jsonResponse({ code: 'SERVER_ERROR' }, 500));
+    expect(await screen.findByRole('alert')).toHaveTextContent('We couldn’t complete this medication request.');
+    expect(screen.getByLabelText('Medication name')).toHaveValue(entered.name);
+    expect(screen.getByLabelText('Dose')).toHaveValue(entered.dose);
+    expect(screen.getByLabelText('Schedule')).toHaveValue(entered.schedule);
+    expect(fetcher.mock.calls.filter(([, options]) => options.method === 'POST')).toHaveLength(1);
+  });
+
+  it('preserves edited text after an update request fails', async () => {
+    const initial = medicationFixture(recipient.id, 'Current medicine');
+    const fetcher = vi.fn().mockResolvedValueOnce(jsonResponse(recipient)).mockResolvedValueOnce(jsonResponse([initial]))
+      .mockRejectedValueOnce(new TypeError('Failed to fetch'));
+    renderRecipients(detail, fetcher);
+    await userEvent.click(await screen.findByRole('button', { name: 'Edit' }));
+    await userEvent.clear(screen.getByLabelText('Medication name'));
+    await userEvent.type(screen.getByLabelText('Medication name'), 'مسودة غير محفوظة');
+    await userEvent.click(screen.getByRole('button', { name: 'Save medication' }));
+    expect(await screen.findByRole('alert')).toHaveTextContent('We couldn’t connect.');
+    expect(screen.getByLabelText('Medication name')).toHaveValue('مسودة غير محفوظة');
+    expect(screen.getByLabelText('Dose')).toHaveValue(initial.doseText);
+    expect(screen.getByLabelText('Schedule')).toHaveValue(initial.scheduleText);
+  });
+
+  it('keeps an active medication visible and retryable after an archive failure', async () => {
+    const active = medicationFixture(recipient.id, 'Retry archive');
+    const archived = { ...active, active: false };
+    let medicationReads = 0;
+    const fetcher = vi.fn().mockImplementation((path: string, options: RequestInit = {}) => {
+      if (!options.method || options.method === 'GET') {
+        if (path.endsWith('/medications')) {
+          medicationReads += 1;
+          return Promise.resolve(jsonResponse(medicationReads === 1 ? [active] : [archived]));
+        }
+        return Promise.resolve(jsonResponse(recipient));
+      }
+      if (options.method === 'PATCH') {
+        const attempts = fetcher.mock.calls.filter(([, call]) => call.method === 'PATCH').length;
+        return attempts === 1 ? Promise.reject(new TypeError('Failed to fetch')) : Promise.resolve(jsonResponse(archived));
+      }
+      throw new Error(`Unexpected request: ${options.method}`);
+    });
+    renderRecipients(detail, fetcher);
+    expect(await screen.findByText('Retry archive')).toBeInTheDocument();
+    await userEvent.click(screen.getByRole('button', { name: 'Archive' }));
+    expect(await screen.findByText('We couldn’t connect. Check your connection and try again.')).toBeInTheDocument();
+    expect(screen.getByText('Retry archive')).toBeInTheDocument();
+    await userEvent.click(screen.getByRole('button', { name: 'Archive' }));
+    expect(await screen.findByText('Archived', { selector: 'span' })).toBeInTheDocument();
+    expect(screen.getByText('Retry archive')).toBeInTheDocument();
+  });
+
+  it('keeps a medication archived after the API reports an archived-record conflict', async () => {
+    const active = medicationFixture(recipient.id, 'Externally archived');
+    const archived = { ...active, active: false };
+    let medicationReads = 0;
+    const fetcher = vi.fn().mockImplementation((path: string, options: RequestInit = {}) => {
+      if (path === `/api/recipients/${recipient.id}`) return Promise.resolve(jsonResponse(recipient));
+      if (path === `/api/recipients/${recipient.id}/medications` && options.method === 'GET') {
+        medicationReads += 1;
+        return Promise.resolve(jsonResponse(medicationReads === 1 ? [active] : [archived]));
+      }
+      if (options.method === 'PUT') return Promise.resolve(jsonResponse({ code: 'MEDICATION_CONFLICT' }, 409));
+      throw new Error(`Unexpected request: ${options.method} ${path}`);
+    });
+    renderRecipients(detail, fetcher);
+    await userEvent.click(await screen.findByRole('button', { name: 'Edit' }));
+    const name = screen.getByLabelText('Medication name');
+    await userEvent.clear(name);
+    await userEvent.type(name, 'Unsaved text');
+    await userEvent.click(screen.getByRole('button', { name: 'Save medication' }));
+    expect(await screen.findByText('Archived', { selector: 'span' })).toBeInTheDocument();
+    expect(screen.getByRole('alert')).toHaveTextContent('This medication record can no longer be changed.');
+    expect(screen.getByLabelText('Medication name')).toHaveValue('Unsaved text');
+    expect(screen.getByLabelText('Medication name')).toHaveAttribute('readonly');
+    expect(screen.getByRole('button', { name: 'Save medication' })).toBeDisabled();
+  });
+
+  it('validates required medication fields and maximum lengths before sending', async () => {
+    const fetcher = vi.fn().mockResolvedValueOnce(jsonResponse(recipient)).mockResolvedValueOnce(jsonResponse([]));
+    renderRecipients(detail, fetcher);
+    await screen.findByText('No medication records yet');
+    await userEvent.click(screen.getByRole('button', { name: 'Add medication' }));
+    await userEvent.click(screen.getByRole('button', { name: 'Save medication' }));
+    expect(screen.getByText('Enter a medication name.')).toBeInTheDocument();
+    fireEvent.change(screen.getByLabelText('Medication name'), { target: { value: 'x'.repeat(161) } });
+    fireEvent.change(screen.getByLabelText('Dose'), { target: { value: 'x'.repeat(501) } });
+    fireEvent.change(screen.getByLabelText('Schedule'), { target: { value: 'schedule' } });
+    await userEvent.click(screen.getByRole('button', { name: 'Save medication' }));
+    expect(screen.getByText('Use a medication name of up to 160 characters.')).toBeInTheDocument();
+    expect(screen.getByText('Use no more than 500 characters.')).toBeInTheDocument();
+    expect(fetcher.mock.calls.filter(([, options]) => options.method === 'POST')).toHaveLength(0);
+  });
+
+  it('does not display malformed medication responses as an empty list', async () => {
+    const malformed = { ...medicationFixture(recipient.id, 'Malformed'), active: 'false' };
+    const fetcher = vi.fn().mockResolvedValueOnce(jsonResponse(recipient)).mockResolvedValueOnce(jsonResponse([malformed]));
+    renderRecipients(detail, fetcher);
+    expect(await screen.findByRole('alert')).toHaveTextContent('We couldn’t complete this medication request.');
+    expect(screen.queryByText('No medication records yet')).not.toBeInTheDocument();
+  });
+
+  it('renders Arabic medication labels and mixed-direction values accessibly', async () => {
+    const medication = medicationFixture(recipient.id, 'فيتامين D / Vitamin');
+    renderRecipients(detail, vi.fn().mockResolvedValueOnce(jsonResponse(recipient)).mockResolvedValueOnce(jsonResponse([medication])), 'ar');
+    expect(await screen.findByRole('heading', { name: 'الأدوية' })).toBeInTheDocument();
+    const displayed = screen.getByText(medication.displayName);
+    expect(displayed.closest('bdi')).toHaveAttribute('dir', 'auto');
+    expect(screen.getByText('وصف الجرعة')).toBeInTheDocument();
+    expect(document.documentElement.dir).toBe('rtl');
+  });
+
+  it('aborts old recipient medication requests and ignores late results after recipient changes', async () => {
+    const secondRecipient = 'b2222222-2222-4222-8222-222222222222';
+    let resolveFirst!: (response: Response) => void;
+    const firstPending = new Promise<Response>((done) => { resolveFirst = done; });
+    const firstMedication = medicationFixture(recipient.id, 'First recipient only');
+    const secondMedication = medicationFixture(secondRecipient, 'Second recipient only');
+    const fetcher = vi.fn().mockImplementation((path: string) => path === `/api/recipients/${recipient.id}/medications`
+      ? firstPending : Promise.resolve(jsonResponse([secondMedication])));
+    vi.stubGlobal('fetch', fetcher);
+    localStorage.setItem('caregiver-language', 'en');
+    sessionStorage.setItem('caregiver-auth-session-v1', JSON.stringify({ token: testToken(), baseUrl: '' }));
+    const panel = (id: string) => <I18nProvider><ApiProvider config={{ apiBaseUrl: '' }}><AuthProvider>
+      <MemoryRouter><MedicationListPanel recipientId={id} canEdit /></MemoryRouter>
+    </AuthProvider></ApiProvider></I18nProvider>;
+    const view = render(panel(recipient.id));
+    await waitFor(() => expect(fetcher).toHaveBeenCalledTimes(1));
+    view.rerender(panel(secondRecipient));
+    expect(fetcher.mock.calls[0][1].signal.aborted).toBe(true);
+    expect(await screen.findByText('Second recipient only')).toBeInTheDocument();
+    resolveFirst(jsonResponse([firstMedication]));
+    await waitFor(() => expect(screen.queryByText('First recipient only')).not.toBeInTheDocument());
+    expect(fetcher.mock.calls[1][0]).toBe(`/api/recipients/${secondRecipient}/medications`);
+  });
 });
+
+function medicationFixture(recipientId: string, displayName: string) {
+  return {
+    id: 'c3333333-3333-4333-8333-333333333333', recipientId, displayName,
+    doseText: '1 tablet', scheduleText: 'once daily', active: true,
+    createdAt: '2026-10-01T10:00:00Z', updatedAt: '2026-10-01T10:00:00Z',
+  };
+}
