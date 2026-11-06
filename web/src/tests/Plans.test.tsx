@@ -1,9 +1,14 @@
+import { useEffect } from 'react';
 import { act, fireEvent, render, screen, waitFor, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { Link, MemoryRouter } from 'react-router-dom';
 import { describe, expect, it, vi } from 'vitest';
 import { App } from '../app/App';
+import { ThemeProvider } from '../app/ThemeProvider';
+import { AppShell } from '../components/AppShell';
+import { useByok, type ByokCredentials } from '../features/ai/ByokContext';
 import { AuthProvider } from '../features/auth/AuthProvider';
+import { PlansPage } from '../features/plans/PlansPage';
 import { I18nProvider } from '../i18n/I18nProvider';
 import { ApiProvider } from '../lib/api';
 import { activePlanFixture as active, suggestedPlanFixture as suggestion } from './planFixtures';
@@ -18,6 +23,17 @@ const selected = `${root}?recipientId=${recipient.id}`;
 const other = { ...recipient, id: 'b2222222-2222-4222-8222-222222222222', name: 'ليلى Smith', active: false, lifecycleStatus: 'ARCHIVED' as const, archivedAt: '2026-10-15T10:00:00Z', archivedBy: 'b1111111-1111-4111-8111-111111111111' };
 const legacyContent = ' \tخطة قديمة legacy-ID-42 — “keep exact.”\nLiteral text: <script>alert("legacy")</script>\n  final line \n\t';
 const draftEvidenceId = 'b8888888-8888-4888-8888-888888888888';
+const byokCredentials: ByokCredentials = { providerId: 'GEMINI', model: 'gemini-3.8-flash', apiKey: 'synthetic-byok-key-123' };
+const generationSafety = { signals: [{ ruleId: 'HIGH_PAIN', severity: 'HIGH', reason: 'Review the reported pain.' }], needsDoctorBanner: true };
+const generatedPlan: CarePlan = {
+  ...protectedSuggestion,
+  id: 'f9999999-9999-4999-8999-999999999999',
+  version: 3,
+  status: 'SUGGESTED',
+  sourceType: 'AI_GENERATED',
+  content: 'Generated plan content.',
+  editable: true,
+};
 const legacyPlan: CarePlan = {
   ...suggestion,
   id: 'a7777777-7777-4777-8777-777777777777',
@@ -32,7 +48,31 @@ function renderPlans(fetcher: ReturnType<typeof vi.fn>, path = selected, languag
   if (authenticated) sessionStorage.setItem('caregiver-auth-session-v1', JSON.stringify({ token: testToken(), baseUrl: '' }));
   return render(<I18nProvider><ApiProvider config={{ apiBaseUrl: '' }}><AuthProvider><MemoryRouter initialEntries={[path]}><App /><Link to="/app">Leave plans</Link></MemoryRouter></AuthProvider></ApiProvider></I18nProvider>);
 }
-function serve(options: { inactive?: boolean; history?: CarePlan[]; active?: CarePlan | null; override?: (url: URL, init: RequestInit) => Response | Promise<Response> | undefined } = {}) {
+function ByokCredentialSeeder({ credentials }: { credentials: ByokCredentials | null }) {
+  const { setCredentials } = useByok();
+  useEffect(() => { if (credentials) setCredentials(credentials); }, [credentials, setCredentials]);
+  return null;
+}
+function renderPlansWithByok(
+  fetcher: ReturnType<typeof vi.fn>,
+  credentials: ByokCredentials | null,
+  path = selected,
+  language = 'en',
+) {
+  vi.stubGlobal('fetch', fetcher); localStorage.setItem('caregiver-language', language);
+  sessionStorage.setItem('caregiver-auth-session-v1', JSON.stringify({ token: testToken(), baseUrl: '' }));
+  return render(<I18nProvider><ApiProvider config={{ apiBaseUrl: '' }}><AuthProvider><MemoryRouter initialEntries={[path]}><ThemeProvider>
+    <AppShell><ByokCredentialSeeder credentials={credentials} /><PlansPage /></AppShell>
+  </ThemeProvider></MemoryRouter></AuthProvider></ApiProvider></I18nProvider>);
+}
+function serve(options: {
+  inactive?: boolean;
+  history?: CarePlan[];
+  active?: CarePlan | null;
+  generationResult?: unknown;
+  generatedPlan?: CarePlan;
+  override?: (url: URL, init: RequestInit) => Response | Promise<Response> | undefined;
+} = {}) {
   let history = options.history ?? [suggestion, active];
   let current = options.active === undefined ? active : options.active;
   return vi.fn().mockImplementation((path: string, init: RequestInit) => {
@@ -56,6 +96,12 @@ function serve(options: { inactive?: boolean; history?: CarePlan[]; active?: Car
       return Promise.resolve(jsonResponse(current));
     }
     if (url.pathname.endsWith(`/recipients/${other.id}`)) return Promise.resolve(jsonResponse(other));
+    if (url.pathname === '/api/plans/generate/byok' && init.method === 'POST') {
+      if (options.generatedPlan) history = [options.generatedPlan, ...history];
+      return Promise.resolve(jsonResponse(options.generationResult ?? {
+        plan: null, aiUnavailable: true, safety: { signals: [], needsDoctorBanner: false },
+      }));
+    }
     if (init.method === 'POST') {
       if (url.pathname.endsWith('/edit-and-accept')) {
         const original = history.find((plan) => plan.id === suggestion.id)!;
@@ -100,6 +146,11 @@ const writes = (fetcher: ReturnType<typeof vi.fn>) => fetcher.mock.calls.filter(
 const suggestions = () => screen.getByRole('region', { name: 'Suggested plans' });
 async function loaded() { return screen.findByRole('region', { name: 'Active accepted plan' }); }
 async function begin(action = 'Accept suggestion') { await userEvent.click(within(suggestions()).getByRole('button', { name: action })); }
+async function requestPlan(periodDays = 7) {
+  fireEvent.change(screen.getByLabelText('End date (inclusive)'), { target: { value: '2026-10-22' } });
+  await userEvent.selectOptions(screen.getByLabelText('Summary period'), String(periodDays));
+  await userEvent.click(screen.getByRole('button', { name: 'Request plan suggestion' }));
+}
 
 describe('care-plan review and authoritative backend decisions', () => {
   it('protects the deep link before any plan/recipient requests', () => {
@@ -115,6 +166,135 @@ describe('care-plan review and authoritative backend decisions', () => {
     expect(document.title).toMatch(/^Care plans/);
     expect(screen.getByRole('link', { name: 'Care plans' })).toHaveAttribute('aria-current', 'page');
     expect(screen.getByRole('link', { name: 'History' })).not.toHaveAttribute('aria-current');
+  });
+  it('requires BYOK credentials before plan generation', async () => {
+    const fetcher = serve();
+    renderPlans(fetcher); await loaded();
+
+    await requestPlan(14);
+
+    expect(screen.getByText('You need to configure an AI provider and API key in AI Settings before generating a care plan.', { exact: true })).toBeVisible();
+    expect(fetcher.mock.calls.filter(([path]) => path === '/api/plans/generate' || path === '/api/plans/generate/byok')).toHaveLength(0);
+    expect(screen.getByLabelText('End date (inclusive)')).toHaveValue('2026-10-22');
+    expect(screen.getByLabelText('Summary period')).toHaveValue('14');
+    expect(screen.getByRole('button', { name: 'Request plan suggestion' })).toBeEnabled();
+    expect(within(screen.getByRole('region', { name: 'Active accepted plan' }))
+      .getByText(active.content, { normalizer: (value) => value })).toBeVisible();
+    expect(screen.getByRole('region', { name: 'Plan history' })).toHaveTextContent('Version 2');
+  });
+  it('does not fall back to server provider when BYOK credentials are missing', async () => {
+    const fetcher = serve();
+    renderPlans(fetcher); await loaded();
+
+    await requestPlan();
+
+    expect(screen.getByText('You need to configure an AI provider and API key in AI Settings before generating a care plan.', { exact: true })).toBeVisible();
+    expect(fetcher.mock.calls.some(([path]) => path === '/api/plans/generate'
+      || path === '/api/plans/generate/byok'
+      || path === '/api/ai/byok/connection-test')).toBe(false);
+  });
+  it('generates a plan using current in-memory BYOK credentials', async () => {
+    const fetcher = serve({
+      generationResult: { plan: generatedPlan, aiUnavailable: false, safety: generationSafety },
+      generatedPlan,
+    });
+    renderPlansWithByok(fetcher, byokCredentials); await loaded();
+
+    await requestPlan(14);
+
+    expect(await screen.findByText('A new AI suggestion was saved for your review. It is not accepted yet.')).toBeVisible();
+    const generationCalls = fetcher.mock.calls.filter(([path]) => path === '/api/plans/generate/byok');
+    expect(generationCalls).toHaveLength(1);
+    expect(generationCalls[0][1].method).toBe('POST');
+    expect(JSON.parse(generationCalls[0][1].body as string)).toEqual({
+      summary: { recipientId: recipient.id, periodEndInclusive: '2026-10-22', periodDays: 14 },
+      credentials: byokCredentials,
+    });
+    expect(fetcher.mock.calls.some(([path]) => path === '/api/plans/generate')).toBe(false);
+    expect(fetcher.mock.calls.filter(([path]) => path.endsWith('/history'))).toHaveLength(2);
+    expect(within(suggestions()).getByText('Review logged observations.', { exact: true })).toBeVisible();
+    expect(within(suggestions()).getByText('AI-generated', { exact: true })).toBeVisible();
+    expect(within(suggestions()).getAllByText('Suggested — not accepted', { exact: true })).toHaveLength(2);
+    expect(screen.getByLabelText('End date (inclusive)')).toHaveValue('2026-10-22');
+    expect(screen.getByLabelText('Summary period')).toHaveValue('14');
+    expect(within(screen.getByRole('region', { name: 'Active accepted plan' }))
+      .getByText(active.content, { normalizer: (value) => value })).toBeVisible();
+    expect(writes(fetcher).map(([path]) => path)).toEqual(['/api/plans/generate/byok']);
+  });
+  it('shows unavailable state when BYOK generation fails', async () => {
+    const fetcher = serve({
+      history: [active],
+      generationResult: { plan: null, aiUnavailable: true, safety: generationSafety },
+    });
+    renderPlansWithByok(fetcher, byokCredentials); await loaded();
+
+    await requestPlan();
+
+    expect(await screen.findByText('An AI suggestion is unavailable for this request. Saved plans remain available for review.')).toBeVisible();
+    expect(screen.getByRole('heading', { name: 'Clinical review requested' })).toBeVisible();
+    expect(screen.queryByRole('button', { name: 'Accept suggestion' })).not.toBeInTheDocument();
+    expect(fetcher.mock.calls.filter(([path]) => path.endsWith('/history'))).toHaveLength(1);
+    expect(fetcher.mock.calls.filter(([path]) => path === '/api/plans/generate/byok')).toHaveLength(1);
+  });
+  it('does not save or display a plan from invalid provider content', async () => {
+    const fetcher = serve({
+      history: [active],
+      generationResult: {
+        plan: { ...generatedPlan, version: 0, content: 'UNSAFE_RAW_PROVIDER_OUTPUT' },
+        aiUnavailable: false,
+        safety: generationSafety,
+      },
+    });
+    renderPlansWithByok(fetcher, byokCredentials); await loaded();
+
+    await requestPlan();
+
+    expect(await screen.findByText(/The result could not be confirmed/)).toBeVisible();
+    expect(screen.queryByText('UNSAFE_RAW_PROVIDER_OUTPUT')).not.toBeInTheDocument();
+    expect(screen.queryByRole('button', { name: 'Accept suggestion' })).not.toBeInTheDocument();
+    expect(fetcher.mock.calls.filter(([path]) => path.endsWith('/history'))).toHaveLength(1);
+    expect(writes(fetcher).filter(([path]) => /\/(accept|dismiss|edit-and-accept)$/.test(path))).toHaveLength(0);
+  });
+  it('does not expose BYOK credentials in plan errors or rendered content', async () => {
+    const apiKey = 'synthetic-byok-error-key-456';
+    const credentials = { ...byokCredentials, apiKey };
+    const fetcher = serve({
+      history: [active],
+      override: (url) => url.pathname === '/api/plans/generate/byok'
+        ? jsonResponse({ message: apiKey }, 503)
+        : undefined,
+    });
+    const consoleSpies = [
+      vi.spyOn(console, 'error').mockImplementation(() => undefined),
+      vi.spyOn(console, 'warn').mockImplementation(() => undefined),
+      vi.spyOn(console, 'info').mockImplementation(() => undefined),
+      vi.spyOn(console, 'log').mockImplementation(() => undefined),
+      vi.spyOn(console, 'debug').mockImplementation(() => undefined),
+    ];
+    try {
+      renderPlansWithByok(fetcher, credentials); await loaded();
+      await requestPlan();
+
+      expect(await screen.findByText(/The result could not be confirmed/)).toBeVisible();
+      expect(document.body.textContent).not.toContain(apiKey);
+      expect(JSON.stringify({ ...localStorage, ...sessionStorage })).not.toContain(apiKey);
+      expect(JSON.stringify(consoleSpies.map((spy) => spy.mock.calls))).not.toContain(apiKey);
+      expect(fetcher.mock.calls.filter(([path]) => path === '/api/plans/generate/byok')).toHaveLength(1);
+      expect(writes(fetcher).filter(([path]) => /\/(accept|dismiss|edit-and-accept)$/.test(path))).toHaveLength(0);
+    } finally {
+      consoleSpies.forEach((spy) => spy.mockRestore());
+    }
+  });
+  it('shows translated BYOK configuration instruction in Arabic', async () => {
+    const fetcher = serve();
+    renderPlans(fetcher, selected, 'ar'); await screen.findByRole('region', { name: 'الخطة المقبولة النشطة' });
+
+    await userEvent.click(screen.getByRole('button', { name: 'طلب اقتراح خطة' }));
+
+    expect(document.documentElement).toHaveAttribute('dir', 'rtl');
+    expect(screen.getByText('يجب إعداد مزود للذكاء الاصطناعي ومفتاح API في إعدادات الذكاء الاصطناعي قبل إنشاء خطة رعاية.', { exact: true })).toBeVisible();
+    expect(screen.queryByText('You need to configure an AI provider and API key in AI Settings before generating a care plan.', { exact: true })).not.toBeInTheDocument();
+    expect(fetcher.mock.calls.filter(([path]) => path === '/api/plans/generate' || path === '/api/plans/generate/byok')).toHaveLength(0);
   });
   it('handles no recipients and invalid/unknown URL IDs without fetching plans', async () => {
     const fetcher = serve({ override: (url) => url.pathname === '/api/recipients' ? jsonResponse([]) : undefined });

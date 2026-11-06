@@ -1,12 +1,17 @@
 import { describe, expect, it, vi } from 'vitest';
 import { createPlansApi, planErrorMessage, readPlan, type CreateStructuredPlanInput, type PlanAction } from '../api/plans';
-import { ApiError, createApiClient } from '../lib/api';
+import { ApiError, createApiClient, type ApiClient, type ApiRequest } from '../lib/api';
 import { activePlanFixture as active, suggestedPlanFixture as suggestion } from './planFixtures';
 import { protectedSuggestionFixture as protectedSuggestion } from './planFixtures';
 import { recipientFixture } from './recipientFixtures';
 import { jsonResponse } from './authFixtures';
+import type { SummaryRequest } from '../api/summary';
+import type { ByokCredentials } from '../features/ai/ByokContext';
 
 const recipientId = recipientFixture.id;
+const summaryRequest: SummaryRequest = { recipientId, periodEndInclusive: '2026-10-22', periodDays: 7 };
+const byokCredentials: ByokCredentials = { providerId: 'GEMINI', model: 'gemini-3.8-flash', apiKey: 'synthetic-byok-key-123' };
+const generationSafety = { signals: [{ ruleId: 'HIGH_PAIN', severity: 'HIGH', reason: 'Review the reported pain.' }], needsDoctorBanner: true };
 const draftInput: CreateStructuredPlanInput = {
   schemaVersion: 1,
   changes: [{ action: 'SCHEDULE_CHECK_IN', params: { withinDays: '3' }, reason: 'Review the loaded note.', evidenceNoteIds: ['e5555555-5555-4555-8555-555555555555'] }],
@@ -120,5 +125,131 @@ describe('plan contract and scoped transport', () => {
     [429, {}, 'plansRateLimited'], [503, {}, 'plansServiceError'],
   ])('translates HTTP %s without displaying private backend messages', (status, body, expected) => {
     expect(planErrorMessage(new ApiError(status as number, { ...(body as object), message: 'private diagnostic' }))).toBe(expected);
+  });
+  it('posts current BYOK credentials to plan generation endpoint', async () => {
+    const response = { plan: protectedSuggestion, aiUnavailable: false, safety: generationSafety };
+    const { fetcher } = setup(response);
+    const transport = createApiClient({ apiBaseUrl: '' }, fetcher);
+    const authenticatedClient: ApiClient = {
+      baseUrl: transport.baseUrl,
+      request: <TResponse, TBody = unknown>(request: ApiRequest<TBody>) =>
+        transport.request<TResponse, TBody>({ ...request, accessToken: 'synthetic-access-token' }),
+    };
+    const result = await createPlansApi(authenticatedClient).generateByok(summaryRequest, byokCredentials);
+
+    expect(fetcher).toHaveBeenCalledTimes(1);
+    expect(fetcher.mock.calls[0][0]).toBe('/api/plans/generate/byok');
+    expect(fetcher.mock.calls[0][1].method).toBe('POST');
+    expect(new Headers(fetcher.mock.calls[0][1].headers).get('Authorization')).toBe('Bearer synthetic-access-token');
+    expect(JSON.parse(fetcher.mock.calls[0][1].body as string)).toEqual({
+      summary: { recipientId, periodEndInclusive: '2026-10-22', periodDays: 7 },
+      credentials: byokCredentials,
+    });
+    expect(result).toEqual({
+      plan: protectedSuggestion,
+      aiUnavailable: false,
+      safety: { ...generationSafety, incomplete: false },
+      invalidPlan: false,
+    });
+  });
+  it('rejects invalid BYOK credentials before making a request', async () => {
+    const { api, fetcher } = setup({});
+    const invalidCredentials: unknown[] = [
+      {},
+      { providerId: 'UNSUPPORTED', model: 'model', apiKey: 'key' },
+      { providerId: 'GEMINI', model: '', apiKey: 'key' },
+      { providerId: 'GEMINI', model: ' \t ', apiKey: 'key' },
+      { providerId: 'GEMINI', model: 'model', apiKey: '' },
+      { providerId: 'GEMINI', model: 'model', apiKey: ' \n ' },
+    ];
+
+    for (const credentials of invalidCredentials) {
+      await expect(api.generateByok(summaryRequest, credentials as ByokCredentials)).rejects.toBeInstanceOf(ApiError);
+    }
+    expect(fetcher).not.toHaveBeenCalled();
+  });
+  it('rejects invalid BYOK summary request before fetching', async () => {
+    const { api, fetcher } = setup({});
+    const invalidRequests: unknown[] = [
+      { ...summaryRequest, recipientId: '../other' },
+      { ...summaryRequest, periodEndInclusive: '2026-02-30' },
+      { ...summaryRequest, periodDays: 8 },
+    ];
+
+    for (const request of invalidRequests) {
+      await expect(api.generateByok(request as SummaryRequest, byokCredentials)).rejects.toBeInstanceOf(ApiError);
+    }
+    expect(fetcher).not.toHaveBeenCalled();
+  });
+  it('does not return or serialize provider credentials', async () => {
+    const response = {
+      plan: { ...protectedSuggestion, credentials: byokCredentials, apiKey: byokCredentials.apiKey },
+      aiUnavailable: false,
+      safety: generationSafety,
+      credentials: byokCredentials,
+    };
+    const { api } = setup(response);
+    const result = await api.generateByok(summaryRequest, byokCredentials);
+
+    expect(result).not.toHaveProperty('credentials');
+    expect(result.plan).not.toHaveProperty('credentials');
+    expect(JSON.stringify(result)).not.toContain(byokCredentials.apiKey);
+  });
+  it('does not return an API key echoed in generated plan content', async () => {
+    const response = {
+      plan: { ...protectedSuggestion, content: `Unsafe echoed credential: ${byokCredentials.apiKey}` },
+      aiUnavailable: false,
+      safety: generationSafety,
+    };
+    const { api } = setup(response);
+    const result = await api.generateByok(summaryRequest, byokCredentials);
+
+    expect(result.plan).toBeNull();
+    expect(result.invalidPlan).toBe(true);
+    expect(JSON.stringify(result)).not.toContain(byokCredentials.apiKey);
+  });
+  it('does not retain raw provider error details in BYOK request errors', async () => {
+    const { api } = setup({ message: byokCredentials.apiKey, providerResponse: byokCredentials.apiKey }, 503);
+    const error = await api.generateByok(summaryRequest, byokCredentials).then(
+      () => null,
+      (cause: unknown) => cause,
+    );
+
+    expect(error).toBeInstanceOf(ApiError);
+    if (!(error instanceof ApiError)) throw new Error('Expected an API error.');
+    expect(error.status).toBe(503);
+    expect(error.details).toBeNull();
+    expect(error.message).not.toContain(byokCredentials.apiKey);
+  });
+  it('parses unavailable BYOK generation without an actionable plan', async () => {
+    const { api } = setup({ plan: protectedSuggestion, aiUnavailable: true, safety: generationSafety });
+
+    const result = await api.generateByok(summaryRequest, byokCredentials);
+
+    expect(result.aiUnavailable).toBe(true);
+    expect(result.plan).toBeNull();
+    expect(result.invalidPlan).toBe(false);
+    expect(result.safety.needsDoctorBanner).toBe(true);
+  });
+  it('marks invalid BYOK plan response as invalid', async () => {
+    const { api } = setup({
+      plan: { ...protectedSuggestion, version: 0, content: 'unsafe provider response' },
+      aiUnavailable: false,
+      safety: generationSafety,
+    });
+
+    const result = await api.generateByok(summaryRequest, byokCredentials);
+
+    expect(result.invalidPlan).toBe(true);
+    expect(result.plan).toBeNull();
+    expect(JSON.stringify(result)).not.toContain('unsafe provider response');
+  });
+  it('forwards abort signal to BYOK generation request', async () => {
+    const { api, fetcher } = setup({ plan: protectedSuggestion, aiUnavailable: false, safety: generationSafety });
+    const controller = new AbortController();
+
+    await api.generateByok(summaryRequest, byokCredentials, controller.signal);
+
+    expect(fetcher.mock.calls[0][1].signal).toBe(controller.signal);
   });
 });

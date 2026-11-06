@@ -4,8 +4,8 @@ import { summaryPeriods, type SummaryRequest } from '../../api/summary';
 import { Button } from '../../components/Button';
 import { useI18n } from '../../i18n/I18nProvider';
 
-export function PlanGenerationForm({ recipientId, disabled, onGenerate }: {
-  recipientId: string; disabled: boolean; onGenerate: (request: SummaryRequest) => void;
+export function PlanGenerationForm({ recipientId, disabled, credentialsRequired, onGenerate }: {
+  recipientId: string; disabled: boolean; credentialsRequired: boolean; onGenerate: (request: SummaryRequest) => void;
 }) {
   const { t, language } = useI18n();
   const [days, setDays] = useState<SummaryRequest['periodDays']>(7);
@@ -24,6 +24,7 @@ export function PlanGenerationForm({ recipientId, disabled, onGenerate }: {
       </select></div>
     </div>
     {invalid && <p id="plan-generation-error" role="alert" className="note-error">{t('summaryRequiredDate')}</p>}
+    {credentialsRequired && <p role="alert" className="note-error">{t('plansByokCredentialsRequired')}</p>}
     <div className="note-actions"><Button type="submit" disabled={disabled}>{t('plansGenerate')}</Button></div>
   </form>;
 }
