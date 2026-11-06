@@ -342,6 +342,58 @@ class SummaryPlanHttpTest {
     verify(llm, times(1)).complete(any());
   }
 
+  @Test @DisplayName("does not call plan provider or persist after summary is unavailable")
+  void doesNotCallPlanProviderOrPersistAfterSummaryIsUnavailable() throws Exception {
+    summaryMode = "fallback";
+    long rowsBefore = plans.count();
+
+    var response = call("/api/plans/generate", owner, request(7)).andExpect(status().isOk())
+        .andExpect(jsonPath("$.aiUnavailable").value(true))
+        .andExpect(jsonPath("$.plan").isEmpty());
+
+    assertThat(plans.count()).isEqualTo(rowsBefore);
+    assertThat(response.andReturn().getResponse().getContentAsString())
+        .doesNotContain("private provider diagnostic", "Reported observation.");
+    var captured = org.mockito.ArgumentCaptor.forClass(LlmRequest.class);
+    verify(llm, times(1)).complete(captured.capture());
+    assertThat(captured.getValue().dataBlock()).doesNotStartWith("SUMMARY:");
+  }
+
+  @Test @DisplayName("does not call plan provider or persist when summary evidence is invalid")
+  void doesNotCallPlanProviderOrPersistWhenSummaryEvidenceIsInvalid() throws Exception {
+    summaryMode = "quote";
+    long rowsBefore = plans.count();
+
+    call("/api/plans/generate", owner, request(7)).andExpect(status().isOk())
+        .andExpect(jsonPath("$.aiUnavailable").value(true))
+        .andExpect(jsonPath("$.plan").isEmpty());
+
+    assertThat(plans.count()).isEqualTo(rowsBefore);
+    var captured = org.mockito.ArgumentCaptor.forClass(LlmRequest.class);
+    verify(llm, times(1)).complete(captured.capture());
+    assertThat(captured.getValue().dataBlock()).doesNotStartWith("SUMMARY:");
+  }
+
+  @Test @DisplayName("does not call providers or persist when recipient ownership check fails")
+  void doesNotCallProvidersOrPersistWhenRecipientOwnershipCheckFails() throws Exception {
+    String otherCaregiver = register();
+    String foreignRecipientId = json(call("/api/recipients", otherCaregiver,
+        Map.of("name", "Other synthetic recipient")).andExpect(status().isCreated())).get("id").asText();
+    call("/api/notes", otherCaregiver, Map.of(
+        "recipientId", foreignRecipientId, "date", "2026-10-26",
+        "freeText", "Foreign private source note.", "fallReported", false)).andExpect(status().isCreated());
+    reset(llm);
+    long rowsBefore = plans.count();
+
+    var response = call("/api/plans/generate", owner, request(7, foreignRecipientId))
+        .andExpect(status().isNotFound());
+
+    assertThat(response.andReturn().getResponse().getContentAsString())
+        .doesNotContain("Other synthetic recipient", "Foreign private source note.");
+    assertThat(plans.count()).isEqualTo(rowsBefore);
+    verifyNoInteractions(llm);
+  }
+
   @Test void authenticationOwnershipValidationAndEmptyPeriodsNeverInvokeTheProvider() throws Exception {
     String other = register(); reset(llm);
     call("/api/summaries", null, request(7)).andExpect(status().isUnauthorized());

@@ -53,6 +53,10 @@ export function PlanCard({ plan, historyIds }: { plan: CarePlan; historyIds: Rea
     </div> : <><h4>{t('plansContent')}</h4><div className="plan-content" dir="auto">{plan.content}</div></>}
     <section className="plan-provenance" aria-label={t('plansProvenance')}>
       <h4>{t('plansProvenance')}</h4>
+      {plan.sourceType === 'AI_GENERATED' && <>
+        <p><strong>{t('plansAiGenerated')}</strong></p>
+        <p className="note-hint">{t('plansAiDisclaimer')}</p>
+      </>}
       <p className="note-hint">{t(plan.sourceType === 'AI_GENERATED' ? 'plansSourceAi' : plan.sourceType === 'CAREGIVER_EDITED' ? 'plansSourceEdited' : plan.sourceType === 'CAREGIVER_SUBMITTED' ? 'plansSourceSubmitted' : 'plansOriginUnavailable')}</p>
       {plan.sourcePlanId && <p className="note-hint">{t('plansDerived')}</p>}
       {!plan.sourcePlanId && !plan.sourceSummaryId && !evidence.length ? <p>{t('plansNoProvenance')}</p>
