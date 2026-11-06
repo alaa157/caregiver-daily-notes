@@ -13,9 +13,24 @@ import { summaryFixture, summaryOpenApi, summaryTestPath } from './summaryFixtur
 
 const other = { ...recipientFixture, id: 'b2222222-2222-4222-8222-222222222222', name: 'ليلى Smith', active: false, lifecycleStatus: 'ARCHIVED' as const, archivedAt: '2026-10-15T10:00:00Z', archivedBy: 'b1111111-1111-4111-8111-111111111111' };
 const root = '/app/notes/summary';
+const acknowledgementPath = `/api/recipients/${recipientFixture.id}/safety-acknowledgements`;
+const acknowledgementFixture = () => ({
+  id: 'd4444444-4444-4444-8444-444444444444',
+  recipientId: recipientFixture.id,
+  ruleId: 'FALL_DETECTED',
+  periodEndInclusive: '2026-10-24',
+  periodDays: 7,
+  acknowledgedAt: '2026-10-24T12:34:56Z',
+});
 function dataFetcher(override?: (path: string, init: RequestInit) => Response | Promise<Response> | undefined) {
-  return vi.fn().mockImplementation((path: string, init: RequestInit) => Promise.resolve(override?.(path, init)
-    ?? jsonResponse(path === '/api/recipients' ? [recipientFixture, other] : path === '/v3/api-docs' ? summaryOpenApi() : summaryFixture())));
+  return vi.fn().mockImplementation((path: string, init: RequestInit) => {
+    const acknowledgementRequest = path.includes('/safety-acknowledgements');
+    const acknowledgementResponse = acknowledgementRequest
+      ? init.method === 'POST' ? jsonResponse(acknowledgementFixture()) : jsonResponse([])
+      : undefined;
+    return Promise.resolve(override?.(path, init) ?? acknowledgementResponse
+      ?? jsonResponse(path === '/api/recipients' ? [recipientFixture, other] : path === '/v3/api-docs' ? summaryOpenApi() : summaryFixture()));
+  });
 }
 function show(fetcher: ReturnType<typeof vi.fn>, language = 'en', authenticated = true) {
   vi.stubGlobal('fetch', fetcher); localStorage.setItem('caregiver-language', language);
@@ -34,6 +49,81 @@ describe('on-demand summary and safety workflow', () => {
   it('protects the route before fetching private data', () => {
     const fetcher = dataFetcher(); show(fetcher, 'en', false);
     expect(screen.getByRole('heading', { name: 'Caregiver sign in' })).toBeInTheDocument(); expect(fetcher).not.toHaveBeenCalled();
+  });
+  it('marks a safety signal as reviewed without hiding it', async () => {
+    const fetcher = dataFetcher();
+    show(fetcher); await generate();
+    const safety = screen.getByRole('region', { name: 'Safety information' });
+    const reason = 'Fall reported in period / تم الإبلاغ عن سقوط';
+    const reviewButton = await within(safety).findByRole('button', { name: 'Mark as reviewed' });
+    await waitFor(() => expect(reviewButton).toBeEnabled());
+    await userEvent.click(reviewButton);
+    expect(await within(safety).findByText('Reviewed')).toBeVisible();
+    expect(within(safety).getByText('HIGH')).toBeVisible();
+    expect(within(safety).getByText(reason)).toBeVisible();
+    expect(within(safety).queryByRole('button', { name: 'Mark as reviewed' })).not.toBeInTheDocument();
+    const createCall = posts(fetcher).find(([path]) => path === acknowledgementPath);
+    expect(createCall).toBeDefined();
+    expect(JSON.parse(createCall![1].body as string)).toEqual({
+      ruleId: 'FALL_DETECTED',
+      periodEndInclusive: '2026-10-24',
+      periodDays: 7,
+    });
+  });
+  it('keeps an unacknowledged signal visible and retryable when acknowledgement fails', async () => {
+    const fetcher = dataFetcher((path, init) => path === acknowledgementPath && init.method === 'POST'
+      ? jsonResponse({ message: 'private diagnostics' }, 500) : undefined);
+    show(fetcher); await generate();
+    const safety = screen.getByRole('region', { name: 'Safety information' });
+    const reviewButton = await within(safety).findByRole('button', { name: 'Mark as reviewed' });
+    await waitFor(() => expect(reviewButton).toBeEnabled());
+    await userEvent.click(reviewButton);
+    expect(await within(safety).findByRole('alert')).toHaveTextContent('could not be marked as reviewed');
+    expect(within(safety).getByText('Fall reported in period / تم الإبلاغ عن سقوط')).toBeVisible();
+    expect(within(safety).getByText('HIGH')).toBeVisible();
+    expect(within(safety).getByRole('button', { name: 'Mark as reviewed' })).toBeEnabled();
+    await userEvent.click(within(safety).getByRole('button', { name: 'Mark as reviewed' }));
+    await waitFor(() => expect(posts(fetcher).filter(([path]) => path === acknowledgementPath)).toHaveLength(2));
+  });
+  it('loads review state for the active summary recipient and period', async () => {
+    const listPath = `${acknowledgementPath}?periodEndInclusive=2026-10-24&periodDays=7`;
+    const fetcher = dataFetcher((path, init) => path === listPath && init.method === 'GET'
+      ? jsonResponse([acknowledgementFixture()]) : undefined);
+    show(fetcher); await generate();
+    const safety = screen.getByRole('region', { name: 'Safety information' });
+    expect(await within(safety).findByText('Reviewed')).toBeVisible();
+    expect(within(safety).getByText('Fall reported in period / تم الإبلاغ عن سقوط')).toBeVisible();
+    expect(within(safety).getByText('HIGH')).toBeVisible();
+    expect(within(safety).queryByRole('button', { name: 'Mark as reviewed' })).not.toBeInTheDocument();
+    expect(fetcher).toHaveBeenCalledWith(listPath, expect.objectContaining({ method: 'GET' }));
+    expect(posts(fetcher).filter(([path]) => path === acknowledgementPath)).toHaveLength(0);
+  });
+  it('keeps signals visible and retries when review state cannot be loaded', async () => {
+    const listPath = `${acknowledgementPath}?periodEndInclusive=2026-10-24&periodDays=7`;
+    let fail = true;
+    const fetcher = dataFetcher((path, init) => path === listPath && init.method === 'GET'
+      ? fail ? jsonResponse({ message: 'private diagnostics' }, 500) : jsonResponse([])
+      : undefined);
+    show(fetcher); await generate();
+    const safety = screen.getByRole('region', { name: 'Safety information' });
+    expect(await within(safety).findByRole('alert')).toHaveTextContent('Review status could not be loaded');
+    expect(within(safety).getByText('Fall reported in period / تم الإبلاغ عن سقوط')).toBeVisible();
+    expect(within(safety).getByText('HIGH')).toBeVisible();
+    fail = false;
+    await userEvent.click(within(safety).getByRole('button', { name: 'Retry' }));
+    await waitFor(() => expect(within(safety).queryByRole('alert')).not.toBeInTheDocument());
+    expect(within(safety).getByRole('button', { name: 'Mark as reviewed' })).toBeEnabled();
+  });
+  it('provides English and Arabic acknowledgement labels', async () => {
+    const fetcher = dataFetcher();
+    show(fetcher); await generate();
+    const englishButton = await screen.findByRole('button', { name: 'Mark as reviewed' });
+    await waitFor(() => expect(englishButton).toBeEnabled());
+    await userEvent.click(screen.getByRole('button', { name: 'التغيير إلى العربية' }));
+    const arabicButton = await screen.findByRole('button', { name: 'وضع علامة تمت المراجعة' });
+    await waitFor(() => expect(arabicButton).toBeEnabled());
+    await userEvent.click(arabicButton);
+    expect(await screen.findByText('تمت المراجعة')).toBeVisible();
   });
   it('shows a persistent disclaimer and waits for an explicit request', async () => {
     const fetcher = dataFetcher(); show(fetcher); await choose();
@@ -175,7 +265,7 @@ describe('on-demand summary and safety workflow', () => {
     const safety = screen.getByRole('region', { name: 'Safety information' });
     expect(within(safety).getByText('HIGH')).toBeInTheDocument();
     expect(within(safety).getByRole('heading', { name: 'Clinical review requested' })).toBeInTheDocument();
-    expect(within(safety).queryByRole('button')).not.toBeInTheDocument();
+    expect(await within(safety).findByRole('button', { name: 'Mark as reviewed' })).toBeVisible();
     const observation = screen.getByText('Reported appetite varied. ملاحظة غير مؤكدة.').closest('li')!;
     expect(within(observation).getByRole('blockquote').textContent).toBe(summaryFixture().summary.observations[0].quote);
     expect(within(observation).getByRole('link', { name: /Source note:/ })).toHaveAttribute('href', '/app/notes/c3333333-3333-4333-8333-333333333333');

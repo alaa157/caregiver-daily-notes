@@ -27,7 +27,8 @@ export function SummaryResult({ view }: { view: SummaryView }) {
       <p className="summary-recipient"><bdi>{view.recipientName}</bdi></p>
       <p>{t('summaryCoverage')}: <bdi>{from.toISOString().slice(0, 10)}</bdi> – <bdi>{request.periodEndInclusive}</bdi> ({format(request.periodDays)} {t('summaryDays')})</p>
     </header>
-    <SummarySafety safety={response.safety} />
+    <SummarySafety safety={response.safety} recipientId={request.recipientId}
+      periodEndInclusive={request.periodEndInclusive} periodDays={request.periodDays} />
     {response.invalidContent && <p className="summary-notice" role="alert">{t('summaryInvalidContent')}</p>}
     {response.summary?.aiUnavailable && !view.failed && <p className="summary-notice" role="status">{t('summaryFallback')}</p>}
     {canPresentAiSuccess && <section className="summary-surface summary-ai" aria-labelledby="summary-observations-heading">
