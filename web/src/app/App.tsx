@@ -11,6 +11,7 @@ import { ProtectedRoute } from './ProtectedRoute';
 import { RecipientsRoutes } from '../routes/RecipientsRoutes';
 import { NotesRoutes } from '../routes/NotesRoutes';
 import { WorkspaceOverview } from '../features/overview/WorkspaceOverview';
+import { SettingsPage } from '../features/settings/SettingsPage';
 import { ThemeProvider } from './ThemeProvider';
 
 function HomePage() {
@@ -78,6 +79,7 @@ export function App() {
         <Route path="/login" element={<LoginPage />} />
         <Route element={<ProtectedRoute />}>
           <Route path="/app" element={<WorkspaceOverview />} />
+          <Route path="/app/settings" element={<SettingsPage />} />
           <Route path="/app/recipients/*" element={<RecipientsRoutes />} />
           <Route path="/app/notes/*" element={<NotesRoutes />} />
         </Route>

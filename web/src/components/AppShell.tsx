@@ -24,6 +24,7 @@ export function AppShell({ children }: { children: ReactNode }) {
   useEffect(() => {
     const title = pathname === '/' ? t('home') : pathname === '/login' ? t('loginTitle')
       : pathname === '/app' ? t('dashboardTitle')
+      : pathname === '/app/settings' ? t('settingsTitle')
       : pathname === '/app/recipients/new' ? t('recipientCreate')
       : pathname === '/app/notes/new' ? t('notesCreate')
       : pathname === '/app/notes/summary' ? t('summaryTitle')
@@ -83,8 +84,9 @@ export function AppShell({ children }: { children: ReactNode }) {
                     <Icon name="history" size={19} />{t('workspaceHistory')}
                   </Link>
                 </div>
-                <div className="workspace-secondary-links" role="group" aria-label={t('workspaceNotesNavigation')}>
+                <div className="workspace-secondary-links" role="group" aria-label={t('workspaceSecondaryNavigation')}>
                   <NavLink to="/app/notes/plans" className={({ isActive }) => `${navClass({ isActive })} workspace-secondary-link`}><Icon name="shield" size={18} />{t('plansTitle')}</NavLink>
+                  <NavLink end to="/app/settings" className={({ isActive }) => `${navClass({ isActive })} workspace-secondary-link`}><Icon name="info" size={18} />{t('settingsNavigation')}</NavLink>
                 </div>
               </> : <>
                 <NavLink end to="/" className={navClass}>{t('home')}</NavLink>
