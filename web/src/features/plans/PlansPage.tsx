@@ -255,7 +255,7 @@ function PlanWorkspace({ recipientId, onSaving }: { recipientId: string; onSavin
         {!snapshot.history.length ? <EmptyState title={t('plansNoHistory')} description={t('plansNoHistoryHint')} />
           : <ol className="plan-list" role="list">{snapshot.history.map((plan) => <li key={plan.id}>
             <details id={`plan-history-${plan.id}`} className="plan-history-version"><summary>
-              <span>{t('plansVersion')} {new Intl.NumberFormat(language === 'ar' ? 'ar-EG' : 'en').format(plan.version)}</span> <PlanStatus status={plan.status} />
+              <span>{t('plansVersion')} <bdi>{new Intl.NumberFormat(language === 'ar' ? 'ar-EG' : 'en').format(plan.version)}</bdi></span> <PlanStatus status={plan.status} />
               <span>{t('plansCreated')}: <time dateTime={plan.createdAt}><bdi>{new Intl.DateTimeFormat(language === 'ar' ? 'ar-EG' : 'en', { dateStyle: 'medium', timeStyle: 'short' }).format(new Date(plan.createdAt))}</bdi></time></span>
             </summary><PlanCard plan={plan} historyIds={historyIds} /></details>
           </li>)}</ol>}

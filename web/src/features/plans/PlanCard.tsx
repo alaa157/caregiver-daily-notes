@@ -34,7 +34,7 @@ export function PlanCard({ plan, historyIds }: { plan: CarePlan; historyIds: Rea
   const evidence = plan.evidenceNoteIds?.split(',').filter((item) => item.length > 0) ?? [];
   return <article className="plan-card" aria-labelledby={headingId}>
     <header className="plan-card-heading">
-      <h3 id={headingId}>{t('plansVersion')} {number}</h3>
+      <h3 id={headingId}>{t('plansVersion')} <bdi>{number}</bdi></h3>
       <PlanStatus status={plan.status} />
     </header>
     <p className="note-hint">{t('plansCreated')}: <time dateTime={plan.createdAt}><bdi>{new Intl.DateTimeFormat(language === 'ar' ? 'ar-EG' : 'en', { dateStyle: 'medium', timeStyle: 'short' }).format(new Date(plan.createdAt))}</bdi></time></p>
