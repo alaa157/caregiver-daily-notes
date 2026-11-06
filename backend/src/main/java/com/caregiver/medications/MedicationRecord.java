@@ -37,7 +37,10 @@ public class MedicationRecord {
 
   @ManyToOne(fetch = FetchType.LAZY, optional = false)
   @JoinColumn(name = "recipient_id", nullable = false, updatable = false,
-      foreignKey = @ForeignKey(name = "fk_recipient_medications_recipient_owner"))
+      foreignKey = @ForeignKey(
+          name = "fk_recipient_medications_recipient_owner",
+          foreignKeyDefinition = "FOREIGN KEY (recipient_id, caregiver_id) "
+              + "REFERENCES care_recipients (id, caregiver_id) ON DELETE RESTRICT"))
   private CareRecipient recipient;
 
   @Column(name = "display_name", nullable = false, columnDefinition = "text")
@@ -92,4 +95,16 @@ public class MedicationRecord {
   public boolean isActive() { return active; }
   public Instant getCreatedAt() { return createdAt; }
   public Instant getUpdatedAt() { return updatedAt; }
+
+  /** Replaces only caregiver-entered details; ownership and record identity are immutable. */
+  public void updateDetails(String displayName, String doseText, String scheduleText) {
+    this.displayName = Objects.requireNonNull(displayName, "displayName");
+    this.doseText = Objects.requireNonNull(doseText, "doseText");
+    this.scheduleText = Objects.requireNonNull(scheduleText, "scheduleText");
+  }
+
+  /** Archives the record without deleting it or changing its ownership. */
+  public void archive() {
+    this.active = false;
+  }
 }

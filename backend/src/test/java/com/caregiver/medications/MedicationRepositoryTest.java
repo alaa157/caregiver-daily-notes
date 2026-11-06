@@ -149,6 +149,68 @@ class MedicationRepositoryTest {
   }
 
   @Test
+  void updatesMedicationDetailsExactlyWithoutChangingIdentityOwnershipOrCreationTime() {
+    UUID caregiverId = UUID.randomUUID();
+    Caregiver caregiver = caregiver("medication-update-owner@example.com", caregiverId);
+    CareRecipient recipient = recipient(caregiver, "Medication update recipient");
+    MedicationRecord saved = repository.save(new MedicationRecord(
+        caregiver, recipient, "Original name", "Original dose", "Original schedule"));
+    entityManager.flush();
+    UUID medicationId = saved.getId();
+    UUID recipientId = recipient.getId();
+    var createdAt = saved.getCreatedAt();
+    entityManager.clear();
+
+    MedicationRecord found = repository.findByIdAndCaregiver_IdAndRecipient_Id(
+        medicationId, caregiverId, recipientId).orElseThrow();
+    found.updateDetails("  دواء مُحدّث / Updated medicine 💊  ",
+        "  الجرعة كما كُتبت: ١٥ ملغ / 15 mg  ", "  صباحًا — every day at 08:30  ");
+    entityManager.flush();
+    entityManager.clear();
+
+    MedicationRecord reloaded = repository.findByIdAndCaregiver_IdAndRecipient_Id(
+        medicationId, caregiverId, recipientId).orElseThrow();
+    assertThat(reloaded.getDisplayName()).isEqualTo("  دواء مُحدّث / Updated medicine 💊  ");
+    assertThat(reloaded.getDoseText()).isEqualTo("  الجرعة كما كُتبت: ١٥ ملغ / 15 mg  ");
+    assertThat(reloaded.getScheduleText()).isEqualTo("  صباحًا — every day at 08:30  ");
+    assertThat(reloaded.getId()).isEqualTo(medicationId);
+    assertThat(reloaded.getCaregiver().getId()).isEqualTo(caregiverId);
+    assertThat(reloaded.getRecipient().getId()).isEqualTo(recipientId);
+    assertThat(reloaded.getCreatedAt()).isEqualTo(createdAt);
+  }
+
+  @Test
+  void archivesWithoutDeletingAndScopedListIncludesInactiveRecord() {
+    UUID caregiverId = UUID.randomUUID();
+    Caregiver caregiver = caregiver("medication-archive-owner@example.com", caregiverId);
+    CareRecipient recipient = recipient(caregiver, "Medication archive recipient");
+    MedicationRecord saved = repository.save(new MedicationRecord(
+        caregiver, recipient, "Archive me", "  ١ mg  ", "weekly"));
+    entityManager.flush();
+    UUID medicationId = saved.getId();
+    UUID recipientId = recipient.getId();
+    entityManager.clear();
+
+    MedicationRecord found = repository.findByIdAndCaregiver_IdAndRecipient_Id(
+        medicationId, caregiverId, recipientId).orElseThrow();
+    assertThat(found.isActive()).isTrue();
+    found.archive();
+    entityManager.flush();
+    entityManager.clear();
+
+    MedicationRecord archived = repository.findByIdAndCaregiver_IdAndRecipient_Id(
+        medicationId, caregiverId, recipientId).orElseThrow();
+    assertThat(archived.isActive()).isFalse();
+    assertThat(archived.getId()).isEqualTo(medicationId);
+    assertThat(archived.getCaregiver().getId()).isEqualTo(caregiverId);
+    assertThat(archived.getRecipient().getId()).isEqualTo(recipientId);
+    assertThat(repository.findAllByCaregiver_IdAndRecipient_IdOrderByUpdatedAtDescIdAsc(
+        caregiverId, recipientId)).extracting(MedicationRecord::isActive).containsExactly(false);
+    assertThat(jdbc.queryForObject(
+        "select count(*) from recipient_medications where id = ?", Integer.class, medicationId)).isEqualTo(1);
+  }
+
+  @Test
   void medicationTableContainsNoIntakeEventColumns() {
     Set<String> columns = jdbc.queryForList(
             "select column_name from information_schema.columns "
