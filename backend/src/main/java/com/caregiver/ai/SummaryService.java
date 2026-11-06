@@ -30,6 +30,10 @@ public class SummaryService {
   }
 
   public SummaryResult summarize(SummaryRequest request, List<SummaryNote> notes, List<NoteSignals> signals) {
+    return summarize(request, notes, signals, null);
+  }
+  public SummaryResult summarize(SummaryRequest request, List<SummaryNote> notes, List<NoteSignals> signals,
+      ProviderCredentials credentials) {
     if (request == null) {
       throw new IllegalArgumentException("request");
     }
@@ -49,7 +53,7 @@ public class SummaryService {
         inRange(safeSignals, end.minusDays(6), end),
         inRange(safeSignals, end.minusDays(13), end.minusDays(7)));
 
-    LlmResult result = llm.complete(new LlmRequest(SummaryPrompts.SYSTEM_PROMPT, block));
+    LlmResult result = llm.complete(new LlmRequest(SummaryPrompts.SYSTEM_PROMPT, block, credentials));
     if (result.status() == LlmStatus.FALLBACK) {
       return new SummaryResult(
           new GroundedSummary(

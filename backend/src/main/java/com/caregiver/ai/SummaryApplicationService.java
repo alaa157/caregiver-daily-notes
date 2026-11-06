@@ -20,10 +20,18 @@ public class SummaryApplicationService {
   public SummaryResult summarize(SummaryRequest request) { return generate(request).result(); }
   public Generated generate(SummaryRequest request) {
     SummarySourceLoader.Source source = loader.load(request);
+    return summarizeLoaded(request, source, null);
+  }
+  public SummaryResult generate(ByokSummaryRequest request) {
+    SummarySourceLoader.Source source = loader.load(request.summary());
+    return summarizeLoaded(request.summary(), source, request.credentials()).result();
+  }
+  private Generated summarizeLoaded(SummaryRequest request, SummarySourceLoader.Source source,
+      ProviderCredentials credentials) {
     SummaryResult result;
     try {
       result = source.notes().isEmpty() ? unavailable(request, source.signals(), "No notes in the selected period.")
-          : summaries.summarize(request, source.notes(), source.signals());
+          : summaries.summarize(request, source.notes(), source.signals(), credentials);
     } catch (CancellationException cancelled) {
       throw cancelled;
     } catch (RuntimeException providerOrValidationFailure) {
