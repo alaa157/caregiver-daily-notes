@@ -96,6 +96,18 @@ class PlanSuggestionServiceTest {
   }
 
   @Test
+  void rejectsInventedEvidenceNoteIdBeforeStoringPlan() {
+    var store = new InMemorySuggestedPlanStore();
+    var svc = service(store, new LlmResult(LlmStatus.OK,
+        suggestionJson(
+            changeJson("SCHEDULE_CHECK_IN", "\"withinDays\":\"3\"", "check soon", "\"invented-note-id\""), ""), null));
+
+    assertThatThrownBy(() -> svc.suggest(request(Map.of("n1", "ate well"), null, List.of())))
+        .isInstanceOf(InvalidModelOutputException.class);
+    assertThat(store.saves()).isZero();
+  }
+
+  @Test
   void rejectsInvalidActionParametersWithoutStoringAPlan() {
     var store = new InMemorySuggestedPlanStore();
     var svc = service(store, new LlmResult(LlmStatus.OK,

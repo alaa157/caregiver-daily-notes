@@ -1,0 +1,71 @@
+.byok-dialog {
+  width: min(530px, calc(100% - 32px));
+  max-height: calc(100dvh - 32px);
+  padding: clamp(22px, 4vw, 34px);
+  border: 1px solid var(--caregiver-border);
+  border-radius: 24px;
+  color: var(--caregiver-ink);
+  background: var(--caregiver-surface);
+  box-shadow: 0 25px 70px #162a2240;
+}
+
+.byok-dialog::backdrop {
+  background: rgb(9 24 21 / 60%);
+  backdrop-filter: blur(3px);
+}
+
+.byok-dialog h2 {
+  margin-bottom: 16px;
+  font-size: 25px;
+  line-height: 1.5;
+}
+
+.byok-dialog .byok-active {
+  margin-bottom: 20px;
+}
+
+.byok-dialog .byok-active p {
+  margin: 0 0 8px;
+  line-height: 1.7;
+}
+
+.byok-dialog form {
+  display: grid;
+  gap: 18px;
+}
+
+.byok-dialog .auth-field > label {
+  font-size: 14px;
+  font-weight: 650;
+}
+
+.byok-dialog .auth-field select,
+.byok-dialog .auth-field input {
+  width: 100%;
+  min-width: 0;
+  min-height: 49px;
+  padding: 12px 14px;
+  border: 1px solid var(--caregiver-border);
+  border-radius: 9px;
+  color: var(--caregiver-ink);
+  background: var(--caregiver-surface);
+  font: inherit;
+  font-size: 16px;
+}
+
+.byok-dialog .byok-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 12px;
+}
+
+.byok-dialog > [role='alert'],
+.byok-dialog > [role='status'] {
+  margin-top: 16px;
+  line-height: 1.7;
+}
+
+.byok-dialog > [role='alert'] p,
+.byok-dialog > [role='status'] p {
+  margin: 0 0 8px;
+}

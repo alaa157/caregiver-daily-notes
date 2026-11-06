@@ -1,3 +1,4 @@
+import { useState } from 'react';
 import { render, screen, waitFor, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { MemoryRouter, useLocation, useNavigate } from 'react-router-dom';
@@ -11,10 +12,77 @@ import { observationFields } from '../api/notes';
 import { jsonResponse, testToken } from '../tests/authFixtures';
 import { recipientFixture } from '../tests/recipientFixtures';
 import { noteDetailFixture, noteFixture, noteListFixture } from '../tests/noteFixtures';
+import { ByokProvider, useByok } from '../features/ai/ByokContext';
+import { AiSettingsDialog } from '../features/ai/AiSettingsDialog';
+import { AppShell } from '../components/AppShell';
+import { useApiClient } from '../lib/api';
+import { useAuth } from '../features/auth/AuthProvider';
+import { ThemeProvider } from './ThemeProvider';
 
 function renderRoute(path: string) {
   return render(<I18nProvider><ApiProvider config={{ apiBaseUrl: '' }}><AuthProvider><MemoryRouter initialEntries={[path]}><App /></MemoryRouter></AuthProvider></ApiProvider></I18nProvider>);
 }
+function ByokStateProbe() {
+  const { credentials } = useByok();
+  return <>
+    <output data-testid="byok-state">{credentials ? 'configured' : 'empty'}</output>
+    <output data-testid="byok-active">{credentials ? `${credentials.providerId} · ${credentials.model}` : 'none'}</output>
+    <output data-testid="byok-key-preserved">{credentials?.apiKey === 'active-secret' ? 'yes' : 'no'}</output>
+  </>;
+}
+
+function renderByokDialogUnderProvider(fetcher: unknown) {
+  vi.stubGlobal('fetch', fetcher);
+  return render(<I18nProvider><ApiProvider config={{ apiBaseUrl: '' }}><ByokProvider>
+    <AiSettingsDialog open /><ByokStateProbe />
+  </ByokProvider></ApiProvider></I18nProvider>);
+}
+
+function AuthenticatedByokProbe() {
+  const { credentials, setCredentials } = useByok();
+  const api = useApiClient();
+  return <>
+    <output data-testid="shell-byok-state">{credentials ? 'configured' : 'empty'}</output>
+    <button type="button" onClick={() => setCredentials({ providerId: 'OPENAI', model: 'gpt-test', apiKey: 'active-secret' })}>Configure test credentials</button>
+    <button type="button" onClick={() => { void api.request({ path: '/api/authenticated-probe' }).catch(() => {}); }}>Request private data</button>
+  </>;
+}
+
+function ByokLifecycleHarness() {
+  const { status } = useAuth();
+  return status === 'authenticated'
+    ? <AuthenticatedByokProbe />
+    : <output data-testid="shell-byok-state">empty</output>;
+}
+
+function renderByokLifecycle(fetcher: unknown) {
+  vi.stubGlobal('fetch', fetcher);
+  localStorage.clear();
+  sessionStorage.clear();
+  sessionStorage.setItem('caregiver-auth-session-v1', JSON.stringify({ token: testToken(), baseUrl: '' }));
+  return render(<I18nProvider><ApiProvider config={{ apiBaseUrl: '' }}><AuthProvider>
+    <MemoryRouter initialEntries={['/app']}><ThemeProvider><AppShell><ByokLifecycleHarness /></AppShell></ThemeProvider></MemoryRouter>
+  </AuthProvider></ApiProvider></I18nProvider>);
+}
+
+function AppShellMountHarness() {
+  const [mounted, setMounted] = useState(true);
+  return <>
+    <button type="button" onClick={() => setMounted((value) => !value)}>
+      {mounted ? 'Unmount authenticated shell' : 'Mount authenticated shell'}
+    </button>
+    <ThemeProvider>{mounted && <MemoryRouter initialEntries={['/app']}><AppShell><AuthenticatedByokProbe /></AppShell></MemoryRouter>}</ThemeProvider>
+  </>;
+}
+
+function renderByokShellUnmount(fetcher: unknown) {
+  vi.stubGlobal('fetch', fetcher);
+  localStorage.clear();
+  sessionStorage.clear();
+  sessionStorage.setItem('caregiver-auth-session-v1', JSON.stringify({ token: testToken(), baseUrl: '' }));
+  return render(<I18nProvider><ApiProvider config={{ apiBaseUrl: '' }}><AuthProvider><AppShellMountHarness /></AuthProvider></ApiProvider></I18nProvider>);
+}
+
 
 function CurrentPath() {
   return <output data-testid="current-path">{useLocation().pathname}</output>;
@@ -379,6 +447,234 @@ describe('application foundation', () => {
     expect(screen.queryByRole('heading', { name: 'Recipient details' })).not.toBeInTheDocument();
     expect(screen.queryByRole('heading', { name: 'Original note — read only' })).not.toBeInTheDocument();
     expect(fetcher).not.toHaveBeenCalled();
+  });
+
+  it('renders the authenticated application without adding a settings navigation link', () => {
+    localStorage.clear();
+    localStorage.setItem('caregiver-language', 'en');
+    sessionStorage.clear();
+    sessionStorage.setItem('caregiver-auth-session-v1', JSON.stringify({ token: testToken(), baseUrl: '' }));
+    const { unmount } = render(<I18nProvider><ApiProvider config={{ apiBaseUrl: '' }}><AuthProvider>
+      <MemoryRouter initialEntries={['/app']}><App /></MemoryRouter>
+    </AuthProvider></ApiProvider></I18nProvider>);
+
+    expect(screen.getByRole('navigation', { name: 'Main navigation' })).toBeVisible();
+    expect(screen.queryByRole('link', { name: /settings/i })).not.toBeInTheDocument();
+    unmount();
+  });
+
+  it('opens the AI settings dialog under its provider and offers only the supported providers', () => {
+    render(<I18nProvider><ApiProvider config={{ apiBaseUrl: '' }}><ByokProvider>
+      <AiSettingsDialog open />
+      <ByokStateProbe />
+    </ByokProvider></ApiProvider></I18nProvider>);
+    expect(screen.getByRole('dialog', { name: 'AI provider settings' })).toBeVisible();
+    expect(Array.from(screen.getByRole('combobox', { name: 'Provider' }).querySelectorAll('option'), (option) => option.value))
+      .toEqual(['OPENAI', 'GEMINI', 'XAI', 'OPEN_ROUTER']);
+  });
+
+  it('stores credentials only after a successful connection test', async () => {
+    const user = userEvent.setup();
+    const fetcher = vi.fn().mockResolvedValue(jsonResponse({ success: true, providerId: 'GEMINI', model: 'gemini-3.8-flash', errorCode: null }));
+    renderByokDialogUnderProvider(fetcher);
+    await user.selectOptions(screen.getByLabelText('Provider'), 'GEMINI');
+    await user.type(screen.getByLabelText('Model'), 'gemini-3.8-flash');
+    await user.type(screen.getByLabelText('API key'), 'synthetic-secret-123');
+    expect(screen.getByTestId('byok-state')).toHaveTextContent('empty');
+    expect(screen.getByTestId('byok-active')).toHaveTextContent('none');
+    expect(screen.getByText('No verified credentials are active.')).toBeVisible();
+    await user.click(screen.getByRole('button', { name: 'Test connection' }));
+
+    expect(await screen.findByText(/Connection test succeeded/)).toBeVisible();
+    expect(screen.getByTestId('byok-state')).toHaveTextContent('configured');
+    expect(screen.getByTestId('byok-active')).toHaveTextContent('GEMINI · gemini-3.8-flash');
+    expect(fetcher).toHaveBeenCalledWith('/api/ai/byok/connection-test', expect.objectContaining({
+      method: 'POST',
+      body: JSON.stringify({ credentials: { providerId: 'GEMINI', model: 'gemini-3.8-flash', apiKey: 'synthetic-secret-123' } }),
+    }));
+    expect(fetcher).toHaveBeenCalledTimes(1);
+  });
+
+  it('does not store credentials after a failed connection test or expose provider text', async () => {
+    const user = userEvent.setup();
+    const response = jsonResponse({ success: false, errorCode: 'invalid_key', providerMessage: 'provider text', detail: 'synthetic-secret-123' }, 400);
+    const fetcher = vi.fn().mockResolvedValue(response);
+    renderByokDialogUnderProvider(fetcher);
+    await user.type(screen.getByLabelText('Model'), 'bad-model');
+    await user.type(screen.getByLabelText('API key'), 'synthetic-secret-123');
+    await user.click(screen.getByRole('button', { name: 'Test connection' }));
+
+    expect(await screen.findByRole('alert')).toHaveTextContent('The provider rejected this key.');
+    expect(screen.getByRole('alert')).toHaveTextContent('These credentials were not saved or activated.');
+    expect(screen.getByTestId('byok-state')).toHaveTextContent('empty');
+    expect(screen.getByTestId('byok-active')).toHaveTextContent('none');
+    expect(screen.getByRole('alert')).not.toHaveTextContent('synthetic-secret-123');
+    expect(screen.getByRole('alert')).not.toHaveTextContent('provider text');
+    expect(screen.getByRole('dialog')).not.toHaveTextContent('synthetic-secret-123');
+  });
+
+  it('preserves verified provider credentials when a replacement test fails', async () => {
+    const user = userEvent.setup();
+    const fetcher = vi.fn()
+      .mockResolvedValueOnce(jsonResponse({ success: true }))
+      .mockResolvedValueOnce(jsonResponse({ success: false, errorCode: 'invalid_key' }, 400));
+    renderByokDialogUnderProvider(fetcher);
+    await user.selectOptions(screen.getByLabelText('Provider'), 'OPENAI');
+    await user.type(screen.getByLabelText('Model'), 'gpt-4o-mini');
+    await user.type(screen.getByLabelText('API key'), 'active-secret');
+    await user.click(screen.getByRole('button', { name: 'Test connection' }));
+    expect(await screen.findByText(/Connection test succeeded/)).toBeVisible();
+    expect(screen.getByTestId('byok-active')).toHaveTextContent('OPENAI · gpt-4o-mini');
+
+    await user.selectOptions(screen.getByLabelText('Provider'), 'GEMINI');
+    await user.clear(screen.getByLabelText('Model'));
+    await user.type(screen.getByLabelText('Model'), 'gemini-test');
+    await user.clear(screen.getByLabelText('API key'));
+    await user.type(screen.getByLabelText('API key'), 'replacement-secret');
+    expect(screen.getByTestId('byok-active')).toHaveTextContent('OPENAI · gpt-4o-mini');
+    await user.click(screen.getByRole('button', { name: 'Test connection' }));
+
+    expect(await screen.findByRole('alert')).toHaveTextContent('The provider rejected this key.');
+    expect(screen.getByRole('alert')).toHaveTextContent('your previously verified provider remains active');
+    expect(screen.getByTestId('byok-state')).toHaveTextContent('configured');
+    expect(screen.getByTestId('byok-active')).toHaveTextContent('OPENAI · gpt-4o-mini');
+    expect(screen.getByTestId('byok-key-preserved')).toHaveTextContent('yes');
+    expect(screen.getByRole('dialog')).not.toHaveTextContent('active-secret');
+    expect(screen.getByRole('dialog')).not.toHaveTextContent('replacement-secret');
+    expect(screen.getByRole('alert')).not.toHaveTextContent('replacement-secret');
+  });
+
+  it('replaces active credentials only after a replacement test succeeds', async () => {
+    const user = userEvent.setup();
+    const fetcher = vi.fn()
+      .mockResolvedValueOnce(jsonResponse({ success: true }))
+      .mockResolvedValueOnce(jsonResponse({ success: true }));
+    renderByokDialogUnderProvider(fetcher);
+    await user.selectOptions(screen.getByLabelText('Provider'), 'OPENAI');
+    await user.type(screen.getByLabelText('Model'), 'gpt-4o-mini');
+    await user.type(screen.getByLabelText('API key'), 'active-secret');
+    await user.click(screen.getByRole('button', { name: 'Test connection' }));
+    expect(await screen.findByText(/Connection test succeeded/)).toBeVisible();
+
+    await user.selectOptions(screen.getByLabelText('Provider'), 'XAI');
+    await user.clear(screen.getByLabelText('Model'));
+    await user.type(screen.getByLabelText('Model'), 'grok-test');
+    await user.clear(screen.getByLabelText('API key'));
+    await user.type(screen.getByLabelText('API key'), 'replacement-secret');
+    expect(screen.getByTestId('byok-active')).toHaveTextContent('OPENAI · gpt-4o-mini');
+    expect(screen.queryByText(/Connection test succeeded/)).not.toBeInTheDocument();
+    await user.click(screen.getByRole('button', { name: 'Test connection' }));
+
+    expect(await screen.findByText(/Connection test succeeded/)).toBeVisible();
+    expect(screen.getByTestId('byok-active')).toHaveTextContent('XAI · grok-test');
+    expect(screen.getByTestId('byok-key-preserved')).toHaveTextContent('no');
+    expect(screen.getByRole('dialog')).not.toHaveTextContent('replacement-secret');
+  });
+
+  it('shows an in-progress state without replacing active credentials', async () => {
+    const user = userEvent.setup();
+    let resolveResponse!: (response: Response) => void;
+    const fetcher = vi.fn().mockImplementation(() => new Promise<Response>((resolve) => { resolveResponse = resolve; }));
+    renderByokDialogUnderProvider(fetcher);
+    await user.type(screen.getByLabelText('Model'), 'gpt-test');
+    await user.type(screen.getByLabelText('API key'), 'synthetic-secret-123');
+    await user.click(screen.getByRole('button', { name: 'Test connection' }));
+
+    expect(screen.getByRole('button', { name: 'Testing connection…' })).toBeDisabled();
+    expect(screen.getByTestId('byok-active')).toHaveTextContent('none');
+    resolveResponse(jsonResponse({ success: true }));
+    expect(await screen.findByText(/Connection test succeeded/)).toBeVisible();
+  });
+
+  it('uses a generic safe message for unsupported error codes', async () => {
+    const user = userEvent.setup();
+    const fetcher = vi.fn().mockResolvedValue(jsonResponse({
+      success: false, errorCode: 'unexpected_error', providerMessage: 'unsafe provider detail',
+    }, 400));
+    renderByokDialogUnderProvider(fetcher);
+    await user.type(screen.getByLabelText('Model'), 'unknown-model');
+    await user.type(screen.getByLabelText('API key'), 'synthetic-secret-123');
+    await user.click(screen.getByRole('button', { name: 'Test connection' }));
+
+    expect(await screen.findByRole('alert')).toHaveTextContent('The provider is temporarily unavailable.');
+    expect(screen.getByRole('alert')).toHaveTextContent('These credentials were not saved or activated.');
+    expect(screen.getByRole('alert')).not.toHaveTextContent('unsafe provider detail');
+    expect(screen.getByRole('dialog')).not.toHaveTextContent('synthetic-secret-123');
+  });
+
+  it('handles network errors without exposing exception details', async () => {
+    const user = userEvent.setup();
+    const fetcher = vi.fn().mockRejectedValue(new Error('unsafe network details'));
+    renderByokDialogUnderProvider(fetcher);
+    await user.type(screen.getByLabelText('Model'), 'network-model');
+    await user.type(screen.getByLabelText('API key'), 'synthetic-secret-123');
+    await user.click(screen.getByRole('button', { name: 'Test connection' }));
+
+    expect(await screen.findByRole('alert')).toHaveTextContent('The provider is temporarily unavailable.');
+    expect(screen.getByRole('alert')).not.toHaveTextContent('unsafe network details');
+    expect(screen.getByTestId('byok-state')).toHaveTextContent('empty');
+  });
+
+  it('removes the key from memory and clears the password field', async () => {
+    const user = userEvent.setup();
+    const fetcher = vi.fn().mockResolvedValue(jsonResponse({ success: true }));
+    renderByokDialogUnderProvider(fetcher);
+    await user.type(screen.getByLabelText('Model'), 'gpt-test-model');
+    await user.type(screen.getByLabelText('API key'), 'synthetic-secret-123');
+    await user.click(screen.getByRole('button', { name: 'Test connection' }));
+    expect(await screen.findByTestId('byok-state')).toHaveTextContent('configured');
+
+    await user.click(screen.getByRole('button', { name: 'Remove key' }));
+
+    expect(screen.getByLabelText('API key')).toHaveValue('');
+    expect(screen.getByTestId('byok-state')).toHaveTextContent('empty');
+    expect(screen.queryByText(/Connection test succeeded/)).not.toBeInTheDocument();
+    expect(fetcher).toHaveBeenCalledTimes(1);
+  });
+
+  it('does not write BYOK credentials to browser storage', async () => {
+    const user = userEvent.setup();
+    const storage = vi.spyOn(Storage.prototype, 'setItem');
+    renderByokDialogUnderProvider(vi.fn().mockResolvedValue(jsonResponse({ success: true })));
+    await user.type(screen.getByLabelText('Model'), 'gpt-test-model');
+    await user.type(screen.getByLabelText('API key'), 'synthetic-secret-123');
+    await user.click(screen.getByRole('button', { name: 'Test connection' }));
+
+    expect(await screen.findByTestId('byok-state')).toHaveTextContent('configured');
+    expect(storage.mock.calls.flat().join(' ')).not.toContain('synthetic-secret-123');
+    storage.mockRestore();
+  });
+
+  it('clears BYOK credentials from the authenticated shell when signing out', async () => {
+    const user = userEvent.setup();
+    renderByokLifecycle(vi.fn());
+    await user.click(screen.getByRole('button', { name: 'Configure test credentials' }));
+    expect(screen.getByTestId('shell-byok-state')).toHaveTextContent('configured');
+
+    await user.click(screen.getByRole('button', { name: 'Sign out' }));
+
+    expect(screen.getByTestId('shell-byok-state')).toHaveTextContent('empty');
+  });
+
+  it('clears BYOK credentials when authentication is rejected', async () => {
+    const user = userEvent.setup();
+    renderByokLifecycle(vi.fn().mockResolvedValue(jsonResponse({ code: 'UNAUTHORIZED' }, 401)));
+    await user.click(screen.getByRole('button', { name: 'Configure test credentials' }));
+    await user.click(screen.getByRole('button', { name: 'Request private data' }));
+
+    expect(await screen.findByTestId('shell-byok-state')).toHaveTextContent('empty');
+    expect(sessionStorage.getItem('caregiver-auth-session-v1')).toBeNull();
+  });
+
+  it('destroys BYOK credentials when the authenticated shell unmounts', async () => {
+    const user = userEvent.setup();
+    renderByokShellUnmount(vi.fn());
+    await user.click(screen.getByRole('button', { name: 'Configure test credentials' }));
+    expect(screen.getByTestId('shell-byok-state')).toHaveTextContent('configured');
+    await user.click(screen.getByRole('button', { name: 'Unmount authenticated shell' }));
+    await user.click(screen.getByRole('button', { name: 'Mount authenticated shell' }));
+
+    expect(screen.getByTestId('shell-byok-state')).toHaveTextContent('empty');
   });
 
 });

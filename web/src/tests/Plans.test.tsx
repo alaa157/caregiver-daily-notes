@@ -136,6 +136,23 @@ describe('care-plan review and authoritative backend decisions', () => {
     expect(within(suggestions()).getByText(/AI authorship cannot be confirmed/)).toBeInTheDocument();
     expect(screen.getByRole('region', { name: 'Plan history' }).querySelectorAll('details')).toHaveLength(2);
   });
+  it('labels AI-generated plans and shows the educational disclaimer', async () => {
+    renderPlans(serve({ history: [protectedSuggestion, active] }));
+    await loaded();
+
+    expect(within(suggestions()).getByText('AI-generated', { exact: true })).toBeVisible();
+    expect(within(suggestions()).getByText('Educational project. Not medical advice.', { exact: true })).toBeVisible();
+  });
+  it('renders translated AI provenance and disclaimer in the Arabic RTL layout', async () => {
+    renderPlans(serve({ history: [protectedSuggestion, active] }), selected, 'ar');
+    await screen.findByRole('region', { name: 'الخطة المقبولة النشطة' });
+
+    expect(document.documentElement.dir).toBe('rtl');
+    expect(within(screen.getByRole('region', { name: 'الخطط المقترحة' }))
+      .getByText('من إنشاء الذكاء الاصطناعي', { exact: true })).toBeVisible();
+    expect(within(screen.getByRole('region', { name: 'الخطط المقترحة' }))
+      .getByText('مشروع تعليمي. ليس نصيحة طبية.', { exact: true })).toBeVisible();
+  });
   it('rendersOpaqueLegacyPlanContentWithoutStructuredEditing', async () => {
     renderPlans(serve({ history: [legacyPlan, active] }));
     await loaded();
@@ -144,12 +161,23 @@ describe('care-plan review and authoritative backend decisions', () => {
     expect(content.textContent).toBe(legacyContent);
     expect(content.querySelector('script')).toBeNull();
     expect(suggestions().querySelector('.plan-structured')).toBeNull();
+    expect(within(suggestions()).queryByText('AI-generated', { exact: true })).not.toBeInTheDocument();
+    expect(within(suggestions()).queryByText('Educational project. Not medical advice.', { exact: true })).not.toBeInTheDocument();
     expect(within(suggestions()).getByRole('button', { name: 'Accept suggestion' })).toBeEnabled();
     expect(within(suggestions()).getByRole('button', { name: 'Dismiss suggestion' })).toBeEnabled();
     const edit = within(suggestions()).getByRole('button', { name: 'Edit and accept' });
     expect(edit).toBeDisabled();
     await userEvent.click(edit);
     expect(within(suggestions()).queryByRole('textbox')).not.toBeInTheDocument();
+  });
+  it('does not label a legacy plan without source provenance as AI-generated', async () => {
+    const planWithoutProvenance = { ...legacyPlan, sourceType: undefined };
+    renderPlans(serve({ history: [planWithoutProvenance, active] }));
+    await loaded();
+
+    expect(within(suggestions()).getByText(/Source type was not returned/)).toBeVisible();
+    expect(within(suggestions()).queryByText('AI-generated', { exact: true })).not.toBeInTheDocument();
+    expect(within(suggestions()).queryByText('Educational project. Not medical advice.', { exact: true })).not.toBeInTheDocument();
   });
   it('keepsOpaqueLegacyPlanVisibleInHistoryBesideStructuredVersions', async () => {
     const newerStructured: CarePlan = {
@@ -192,6 +220,24 @@ describe('care-plan review and authoritative backend decisions', () => {
     expect(screen.getByRole('button', { name: 'Cancel' })).toHaveFocus(); expect(writes(fetcher)).toHaveLength(0);
     await userEvent.click(screen.getByRole('button', { name: 'Cancel' }));
     expect(within(suggestions()).getByRole('button', { name: 'Accept suggestion' })).toHaveFocus(); expect(writes(fetcher)).toHaveLength(0);
+  });
+  it('requires caregiver confirmation before activating an AI-generated suggestion', async () => {
+    const fetcher = serve({ history: [protectedSuggestion, active] });
+    renderPlans(fetcher); await loaded();
+
+    expect(within(suggestions()).getByText('Suggested — not accepted')).toBeVisible();
+    expect(writes(fetcher)).toHaveLength(0);
+    await userEvent.click(within(suggestions()).getByRole('button', { name: 'Accept suggestion' }));
+    expect(screen.getByRole('group', { name: 'Confirm acceptance' })).toBeVisible();
+    expect(writes(fetcher)).toHaveLength(0);
+    await userEvent.click(screen.getByRole('button', { name: 'Cancel' }));
+    expect(within(suggestions()).getByText('Suggested — not accepted')).toBeVisible();
+    expect(writes(fetcher)).toHaveLength(0);
+
+    await userEvent.click(within(suggestions()).getByRole('button', { name: 'Accept suggestion' }));
+    await userEvent.click(screen.getByRole('button', { name: 'Confirm acceptance' }));
+    expect(await screen.findByText('The server accepted the suggestion. The latest saved plans are shown below.')).toBeVisible();
+    expect(writes(fetcher)).toHaveLength(1);
   });
   it.each(['accept', 'dismiss'])('confirms %s using one bodyless POST then reloads the committed snapshot', async (action) => {
     const fetcher = serve(); renderPlans(fetcher); await loaded();
