@@ -237,10 +237,10 @@ export function NoteForm(props: Props) {
       <legend>{t('notesDetailsGroup')}</legend>
       <div className="note-grid">
         <div className="note-field"><label htmlFor="note-recipientId">{t('notesRecipient')}</label>
-          <select id="note-recipientId" name="recipientId" value={values.recipientId} disabled={locked} required aria-invalid={!!errors.recipientId}
+          <select id="note-recipientId" name="recipientId" dir="auto" value={values.recipientId} disabled={locked} required aria-invalid={!!errors.recipientId}
             aria-describedby={errors.recipientId ? 'note-recipientId-error' : undefined} onChange={(event) => changeMetadata('recipientId', event.target.value)}>
             <option value="">{t('notesChooseRecipient')}</option>
-            {props.recipients.map((record) => <option key={record.id} value={record.id}>{record.name}{record.active ? '' : ` (${t('recipientInactive')})`}</option>)}
+            {props.recipients.map((record) => <option key={record.id} value={record.id} dir="auto">{record.name}{record.active ? '' : ` (${t('recipientInactive')})`}</option>)}
           </select>{errors.recipientId && <FieldError id="note-recipientId-error" message={t(errors.recipientId)} />}
         </div>
         <div className="note-field"><label htmlFor="note-date">{t('notesDate')}</label>

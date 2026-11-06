@@ -136,7 +136,9 @@ describe('history screen, filters and immutable records', () => {
     });
     renderHistory(fetcher, `${range}&page=2&recipientId=${recipientFixture.id}`); await loaded();
     expect(screen.getByLabelText('Care recipient')).toHaveValue(recipientFixture.id);
-    expect(screen.getByText('Page 3 of 4')).toBeInTheDocument();
+    const pagination = document.querySelector('.history-pagination')!;
+    expect(pagination).toHaveTextContent('Page 3 of 4');
+    expect(pagination.querySelectorAll('bdi')).toHaveLength(2);
     await userEvent.click(screen.getByRole('button', { name: 'Previous page' })); await loaded();
     expect(queries(fetcher).at(-1)!.searchParams.get('page')).toBe('1');
     await userEvent.click(screen.getByRole('button', { name: 'Next page' })); await loaded();
@@ -168,7 +170,7 @@ describe('history screen, filters and immutable records', () => {
     expect(new URLSearchParams(screen.getByTestId('location').textContent!.split('?')[1]).get('page')).toBe('1');
     expect(queries(fetcher).at(-1)!.searchParams.get('page')).toBe('1');
     expect(screen.getByRole('button', { name: 'Previous page' })).toBeEnabled();
-    expect(screen.getByText('Page 2 of 2')).toBeInTheDocument();
+    expect(document.querySelector('.history-pagination')).toHaveTextContent('Page 2 of 2');
 
     await userEvent.click(screen.getByRole('button', { name: 'Previous page' }));
     await loaded();
@@ -477,15 +479,62 @@ describe('history screen, filters and immutable records', () => {
     await userEvent.click(screen.getByRole('button', { name: 'Reset filters' })); await loaded();
   });
   it('renders Arabic, RTL, isolated names and untouched mixed text while switching language without refetch', async () => {
-    const fetcher = dataFetcher(); renderHistory(fetcher, range, 'ar');
+    const fetcher = dataFetcher();
+    renderHistory(fetcher, range, 'ar');
     const card = await loaded();
     expect(document.documentElement).toHaveAttribute('dir', 'rtl');
     expect(screen.getByRole('heading', { name: 'سجل الملاحظات' })).toBeInTheDocument();
-    expect(within(card).getByText(recipientFixture.name).tagName).toBe('BDI');
-    expect(within(card).getByText(/غير متأكد من الدواء/)).toHaveAttribute('dir', 'auto');
+    const recipientName = within(card).getByText(recipientFixture.name, { exact: true });
+    expect(recipientName.tagName).toBe('BDI');
+    const sourceId = within(card).getByText(historyNote.id, { exact: true });
+    expect(sourceId.tagName).toBe('BDI');
+    expect(sourceId.textContent).toBe(historyNote.id);
+    const mixedValue = within(card).getByText(/غير متأكد من الدواء/);
+    expect(mixedValue).toHaveAttribute('dir', 'auto');
+    expect(mixedValue.textContent).toBe(noteObservations.freeText);
     await userEvent.click(screen.getByRole('button', { name: 'Switch to English' }));
     expect(document.documentElement).toHaveAttribute('dir', 'ltr');
     expect(queries(fetcher)).toHaveLength(1);
+  });
+  it('isolates Arabic history counts and pagination numbers while preserving accessible controls', async () => {
+    const number = new Intl.NumberFormat('ar-EG');
+    const fetcher = dataFetcher((url) => {
+      if (url.pathname !== '/api/notes') return undefined;
+      const page = Number(url.searchParams.get('page') ?? 0);
+      return jsonResponse(historyPage([historyNote], page, 20, 41));
+    });
+    const location = renderHistory(fetcher, range, 'ar');
+    const card = await loaded();
+    const resultCount = document.querySelector('.history-result-count')!;
+    expect(resultCount.textContent?.replace(/\s+/g, ' ').trim()).toBe(
+      `عرض ${number.format(1)}–${number.format(1)} من ${number.format(41)} ملاحظة`,
+    );
+    expect(Array.from(resultCount.querySelectorAll('bdi'), (element) => element.textContent)).toEqual([
+      `${number.format(1)}–${number.format(1)}`,
+      number.format(41),
+    ]);
+
+    const correctionButton = within(card).getByRole('button', {
+      name: `عرض التصحيحات (${number.format(1)})`,
+    });
+    expect(correctionButton.querySelector('bdi')?.textContent).toBe(number.format(1));
+    expect(correctionButton).toHaveAccessibleName(`عرض التصحيحات (${number.format(1)})`);
+
+    const pagination = () => document.querySelector('.history-pagination');
+    const pageNumbers = () => Array.from(pagination()!.querySelectorAll('span bdi'), (element) => element.textContent);
+    expect(pagination()).toHaveTextContent(`صفحة ${number.format(1)} من ${number.format(3)}`);
+    expect(pageNumbers()).toEqual([number.format(1), number.format(3)]);
+    const previousPage = screen.getByRole('button', { name: 'الصفحة السابقة' });
+    const nextPage = screen.getByRole('button', { name: 'الصفحة التالية' });
+    expect(previousPage).toBeDisabled();
+    expect(nextPage).toBeEnabled();
+
+    await userEvent.click(nextPage);
+    await waitFor(() => expect(pageNumbers()).toEqual([number.format(2), number.format(3)]));
+    expect(screen.getByRole('button', { name: 'الصفحة السابقة' })).toBeEnabled();
+    expect(new URLSearchParams(location.container.querySelector('[data-testid="location"]')!.textContent!.split('?')[1]).get('page')).toBe('1');
+    await userEvent.click(screen.getByRole('button', { name: 'الصفحة السابقة' }));
+    await waitFor(() => expect(pageNumbers()).toEqual([number.format(1), number.format(3)]));
   });
   it('clears a rejected session and redirects to sign in', async () => {
     renderHistory(dataFetcher((url) => url.pathname === '/api/notes' ? jsonResponse({}, 401) : undefined));

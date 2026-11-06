@@ -30,7 +30,7 @@ function Corrections({ noteId }: { noteId: string }) {
           const createdAt = new Intl.DateTimeFormat(language === 'ar' ? 'ar-EG' : 'en', { dateStyle: 'medium', timeStyle: 'short' }).format(new Date(addendum.createdAt));
           return <li key={addendum.id}>
             <NoteTimelineRow
-              entryLabel={`${t('historyCorrection')} ${new Intl.NumberFormat(language === 'ar' ? 'ar-EG' : 'en').format(index + 1)}`}
+              entryLabel={<>{t('historyCorrection')} <bdi>{new Intl.NumberFormat(language === 'ar' ? 'ar-EG' : 'en').format(index + 1)}</bdi></>}
               dateLabel={createdAt}
               dateTime={addendum.createdAt}
               provenance={<><span>{t('notesTimelineSourceId')}:</span> <bdi>{addendum.id}</bdi></>}
@@ -47,6 +47,7 @@ export function HistoryNoteCard({ note, recipient }: { note: DailyNote; recipien
   const { t, language } = useI18n();
   const [open, setOpen] = useState(false);
   const correctionCount = note.addendumCount + (note.correctionCount ?? 0);
+  const formattedCorrectionCount = new Intl.NumberFormat(language === 'ar' ? 'ar-EG' : 'en').format(correctionCount);
   const date = new Intl.DateTimeFormat(language === 'ar' ? 'ar-EG' : 'en', { dateStyle: 'medium' }).format(new Date(`${note.date}T12:00:00`));
   return <article className="history-note" aria-label={recipient?.name ?? note.recipientId}>
     <NoteTimelineRow
@@ -62,8 +63,9 @@ export function HistoryNoteCard({ note, recipient }: { note: DailyNote; recipien
       </details>}
     />
     {correctionCount > 0 ? <div className="history-addenda">
-      <Button variant="secondary" id={`history-toggle-${note.id}`} aria-expanded={open} aria-controls={`history-addenda-${note.id}`} onClick={() => setOpen(!open)}>
-        {t(open ? 'historyHideCorrections' : 'historyShowCorrections')} ({new Intl.NumberFormat(language === 'ar' ? 'ar-EG' : 'en').format(correctionCount)})
+      <Button variant="secondary" id={`history-toggle-${note.id}`} aria-expanded={open} aria-controls={`history-addenda-${note.id}`}
+        aria-label={`${t(open ? 'historyHideCorrections' : 'historyShowCorrections')} (${formattedCorrectionCount})`} onClick={() => setOpen(!open)}>
+        {t(open ? 'historyHideCorrections' : 'historyShowCorrections')} (<bdi>{formattedCorrectionCount}</bdi>)
       </Button>
       <section id={`history-addenda-${note.id}`} aria-labelledby={`history-toggle-${note.id}`} hidden={!open}>
         {open && <Corrections noteId={note.id} />}

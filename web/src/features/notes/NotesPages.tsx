@@ -126,7 +126,7 @@ function NoteChangesTimeline({
       item.kind === 'addendum'
         ? <li key={`addendum:${item.id}`}>
           <NoteTimelineRow
-            entryLabel={`${t('notesAppend')} ${new Intl.NumberFormat(language === 'ar' ? 'ar-EG' : 'en').format(addendumNumber.get(item.id) ?? 0)}`}
+            entryLabel={<>{t('notesAppend')} <bdi>{new Intl.NumberFormat(language === 'ar' ? 'ar-EG' : 'en').format(addendumNumber.get(item.id) ?? 0)}</bdi></>}
             dateLabel={date(item.createdAt, true)}
             dateTime={item.createdAt}
             provenance={<>{t('notesTimelineSourceId')}: <bdi>{item.id}</bdi></>}
@@ -136,7 +136,7 @@ function NoteChangesTimeline({
         </li>
         : <li key={`correction:${item.id}`}>
           <CorrectionEventRow event={item.event} idPrefix={id}
-            entryLabel={`${t('notesCorrectionEvent')} ${new Intl.NumberFormat(language === 'ar' ? 'ar-EG' : 'en').format(item.event.sequenceNo)} · ${t(fieldLabels[item.event.field])}`} />
+            entryLabel={<>{t('notesCorrectionEvent')} <bdi>{new Intl.NumberFormat(language === 'ar' ? 'ar-EG' : 'en').format(item.event.sequenceNo)}</bdi> · {t(fieldLabels[item.event.field])}</>} />
         </li>
     ))}</ol>}
     {timeline.length === 0 && addendaState.status === 'ready' && correctionState.status === 'ready'
@@ -174,7 +174,7 @@ function NoteRecord({ id, append }: { id: string; append: boolean }) {
           dateLabel={date(state.data.note.date)}
           dateTime={state.data.note.date}
           metadata={<Link to={`/app/recipients/${encodeURIComponent(state.data.recipient.id)}`}><bdi>{state.data.recipient.name}</bdi></Link>}
-          provenance={<>{t('notesRecordedAt')}: <time dateTime={state.data.note.createdAt}>{date(state.data.note.createdAt, true)}</time> · {t('notesTimelineSourceId')}: <bdi>{state.data.note.id}</bdi></>}
+          provenance={<>{t('notesRecordedAt')}: <time dateTime={state.data.note.createdAt} dir="auto">{date(state.data.note.createdAt, true)}</time> · {t('notesTimelineSourceId')}: <bdi>{state.data.note.id}</bdi></>}
           body={<ObservationValues values={state.data.note.observations} />}
         />
       </section>
