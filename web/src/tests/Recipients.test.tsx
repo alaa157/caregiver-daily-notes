@@ -1,4 +1,4 @@
-import { fireEvent, render, screen, waitFor, within } from '@testing-library/react';
+import { act, fireEvent, render, screen, waitFor, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { MemoryRouter } from 'react-router-dom';
 import { afterAll, beforeAll, describe, expect, it, vi } from 'vitest';
@@ -408,11 +408,17 @@ describe('care recipients screens', () => {
   it('creates a medication with exact mixed Arabic and English text', async () => {
     const value = medicationFixture(recipient.id, 'Vitamin D');
     const input = { displayName: 'دواء صباحي / Morning 💊', doseText: ' الجرعة ٥ ملغ — 5 mg ', scheduleText: 'كل يوم at 08:30\nبعد الإفطار' };
-    const fetcher = vi.fn()
-      .mockResolvedValueOnce(jsonResponse(recipient))
-      .mockResolvedValueOnce(jsonResponse([]))
-      .mockResolvedValueOnce(jsonResponse({ ...value, ...input }, 201))
-      .mockResolvedValueOnce(jsonResponse([{ ...value, ...input }]));
+    let medicationReads = 0;
+    const fetcher = vi.fn().mockImplementation((path: string, options: RequestInit = {}) => {
+      if (path.endsWith('/intake-events')) return Promise.resolve(jsonResponse([]));
+      if (path === `/api/recipients/${recipient.id}`) return Promise.resolve(jsonResponse(recipient));
+      if (path === `/api/recipients/${recipient.id}/medications` && options.method === 'GET') {
+        medicationReads += 1;
+        return Promise.resolve(jsonResponse(medicationReads === 1 ? [] : [{ ...value, ...input }]));
+      }
+      if (options.method === 'POST') return Promise.resolve(jsonResponse({ ...value, ...input }, 201));
+      throw new Error(`Unexpected request: ${options.method} ${path}`);
+    });
     renderRecipients(detail, fetcher);
     await screen.findByText('No medication records yet');
     await userEvent.click(screen.getByRole('button', { name: 'Add medication' }));
@@ -432,8 +438,17 @@ describe('care recipients screens', () => {
   it('updates medication using PUT and preserves the exact edited text', async () => {
     const initial = medicationFixture(recipient.id, 'Old name');
     const updated = { ...initial, displayName: 'دواء جديد / New 💊', doseText: ' ٢ ملغ (2 mg) ', scheduleText: 'ليلًا — at night' };
-    const fetcher = vi.fn().mockResolvedValueOnce(jsonResponse(recipient)).mockResolvedValueOnce(jsonResponse([initial]))
-      .mockResolvedValueOnce(jsonResponse(updated)).mockResolvedValueOnce(jsonResponse([updated]));
+    let medicationReads = 0;
+    const fetcher = vi.fn().mockImplementation((path: string, options: RequestInit = {}) => {
+      if (path.endsWith('/intake-events')) return Promise.resolve(jsonResponse([]));
+      if (path === `/api/recipients/${recipient.id}`) return Promise.resolve(jsonResponse(recipient));
+      if (path === `/api/recipients/${recipient.id}/medications` && options.method === 'GET') {
+        medicationReads += 1;
+        return Promise.resolve(jsonResponse(medicationReads === 1 ? [initial] : [updated]));
+      }
+      if (options.method === 'PUT') return Promise.resolve(jsonResponse(updated));
+      throw new Error(`Unexpected request: ${options.method} ${path}`);
+    });
     renderRecipients(detail, fetcher);
     await userEvent.click(await screen.findByRole('button', { name: 'Edit' }));
     await userEvent.clear(screen.getByLabelText('Medication name'));
@@ -453,8 +468,17 @@ describe('care recipients screens', () => {
   it('archives medication through PATCH and keeps its historical text visible', async () => {
     const active = medicationFixture(recipient.id, 'Long-term record');
     const archived = { ...active, active: false };
-    const fetcher = vi.fn().mockResolvedValueOnce(jsonResponse(recipient)).mockResolvedValueOnce(jsonResponse([active]))
-      .mockResolvedValueOnce(jsonResponse(archived)).mockResolvedValueOnce(jsonResponse([archived]));
+    let medicationReads = 0;
+    const fetcher = vi.fn().mockImplementation((path: string, options: RequestInit = {}) => {
+      if (path.endsWith('/intake-events')) return Promise.resolve(jsonResponse([]));
+      if (path === `/api/recipients/${recipient.id}`) return Promise.resolve(jsonResponse(recipient));
+      if (path === `/api/recipients/${recipient.id}/medications` && options.method === 'GET') {
+        medicationReads += 1;
+        return Promise.resolve(jsonResponse(medicationReads === 1 ? [active] : [archived]));
+      }
+      if (options.method === 'PATCH') return Promise.resolve(jsonResponse(archived));
+      throw new Error(`Unexpected request: ${options.method} ${path}`);
+    });
     renderRecipients(detail, fetcher);
     expect(await screen.findByText('Long-term record')).toBeInTheDocument();
     await userEvent.click(screen.getByRole('button', { name: 'Archive' }));
@@ -554,8 +578,13 @@ describe('care recipients screens', () => {
 
   it('preserves edited text after an update request fails', async () => {
     const initial = medicationFixture(recipient.id, 'Current medicine');
-    const fetcher = vi.fn().mockResolvedValueOnce(jsonResponse(recipient)).mockResolvedValueOnce(jsonResponse([initial]))
-      .mockRejectedValueOnce(new TypeError('Failed to fetch'));
+    const fetcher = vi.fn().mockImplementation((path: string, options: RequestInit = {}) => {
+      if (path.endsWith('/intake-events')) return Promise.resolve(jsonResponse([]));
+      if (path === `/api/recipients/${recipient.id}`) return Promise.resolve(jsonResponse(recipient));
+      if (path === `/api/recipients/${recipient.id}/medications` && options.method === 'GET') return Promise.resolve(jsonResponse([initial]));
+      if (options.method === 'PUT') return Promise.reject(new TypeError('Failed to fetch'));
+      throw new Error(`Unexpected request: ${options.method} ${path}`);
+    });
     renderRecipients(detail, fetcher);
     await userEvent.click(await screen.findByRole('button', { name: 'Edit' }));
     await userEvent.clear(screen.getByLabelText('Medication name'));
@@ -600,6 +629,7 @@ describe('care recipients screens', () => {
     const archived = { ...active, active: false };
     let medicationReads = 0;
     const fetcher = vi.fn().mockImplementation((path: string, options: RequestInit = {}) => {
+      if (path.endsWith('/intake-events')) return Promise.resolve(jsonResponse([]));
       if (path === `/api/recipients/${recipient.id}`) return Promise.resolve(jsonResponse(recipient));
       if (path === `/api/recipients/${recipient.id}/medications` && options.method === 'GET') {
         medicationReads += 1;
@@ -678,6 +708,185 @@ describe('care recipients screens', () => {
     await waitFor(() => expect(screen.queryByText('First recipient only')).not.toBeInTheDocument());
     expect(fetcher.mock.calls[1][0]).toBe(`/api/recipients/${secondRecipient}/medications`);
   });
+
+  it('shows schedule separately from intake history', async () => {
+    const medication = medicationFixture(recipient.id, 'Schedule medicine');
+    const event = intakeEventFixture(medication, 'TAKEN', 'UNVERIFIED', '2026-10-22T08:30:00Z');
+    const { fetcher } = intakeServe(medication, [event]);
+    renderRecipients(detail, fetcher);
+    const scheduleHeading = await screen.findByRole('heading', { name: 'Schedule' });
+    const scheduleSection = scheduleHeading.closest('section')!;
+    expect(scheduleSection).toHaveTextContent(medication.scheduleText);
+    expect(scheduleSection).not.toHaveTextContent('Taken');
+    const intakeHeading = screen.getByRole('heading', { name: 'Intake history' });
+    const intakeSection = intakeHeading.closest('section')!;
+    await waitFor(() => expect(intakeSection.querySelector('time')).not.toBeNull());
+    expect(intakeSection).toHaveTextContent('Taken');
+    expect(intakeSection).toHaveTextContent('Unverified');
+    expect(intakeSection.querySelector('time')).toHaveAttribute('dateTime', '2026-10-22T08:30:00Z');
+    expect(scheduleSection).not.toBe(intakeSection);
+    expect(screen.getByText(medication.doseText)).toBeInTheDocument();
+  });
+
+  it('shows not recorded when no intake event exists', async () => {
+    const medication = medicationFixture(recipient.id, 'Empty history medicine');
+    const { fetcher } = intakeServe(medication, []);
+    renderRecipients(detail, fetcher);
+    expect(await screen.findByText('Not recorded')).toBeInTheDocument();
+    expect(screen.getByText(medication.scheduleText)).toBeInTheDocument();
+    const intakeSection = screen.getByRole('heading', { name: 'Intake history' }).closest('section')!;
+    // No event row, timestamp, or inferred Missed state is fabricated for empty history.
+    expect(intakeSection.querySelectorAll('li')).toHaveLength(0);
+    expect(intakeSection.querySelector('time')).toBeNull();
+  });
+
+  it('records taken missed and unsure as explicit event values', async () => {
+    const medication = medicationFixture(recipient.id, 'Explicit values medicine');
+    const { fetcher } = intakeServe(medication, []);
+    renderRecipients(detail, fetcher);
+    await screen.findByText('Not recorded');
+    for (const value of ['TAKEN', 'MISSED', 'UNSURE']) {
+      await userEvent.selectOptions(screen.getByLabelText('Intake state'), value);
+      await userEvent.selectOptions(screen.getByLabelText('Verification state'), 'NOT_ASSERTED');
+      await userEvent.click(screen.getByRole('button', { name: 'Save intake event' }));
+      await screen.findByText('Intake event recorded.');
+    }
+    const posts = fetcher.mock.calls.filter(([, options]) => options.method === 'POST'
+      && options.body && String(options.body).includes('intakeState'));
+    expect(posts).toHaveLength(3);
+    expect(posts.map(([, options]) => JSON.parse(options.body as string).intakeState)).toEqual(['TAKEN', 'MISSED', 'UNSURE']);
+    for (const [path, options] of posts) {
+      expect(path).toBe(`/api/recipients/${recipient.id}/medications/${medication.id}/intake-events`);
+      const body = JSON.parse(options.body as string);
+      expect(Object.keys(body).sort()).toEqual(['intakeState', 'occurredAt', 'verificationState']);
+      expect(body.verificationState).toBe('NOT_ASSERTED');
+      expect(Number.isFinite(Date.parse(body.occurredAt))).toBe(true);
+      expect(body).not.toHaveProperty('displayName');
+      expect(body).not.toHaveProperty('doseText');
+      expect(body).not.toHaveProperty('scheduleText');
+    }
+  });
+
+  it('keeps verification separate from intake state', async () => {
+    const medication = medicationFixture(recipient.id, 'Separate verification medicine');
+    const event = intakeEventFixture(medication, 'TAKEN', 'UNVERIFIED', '2026-10-22T08:30:00Z');
+    const { fetcher } = intakeServe(medication, [event]);
+    renderRecipients(detail, fetcher);
+    await waitFor(() => expect(document.querySelector('.medication-intake-list li')).not.toBeNull());
+    const row = document.querySelector('.medication-intake-list li') as HTMLElement;
+    expect(within(row).getByText('Taken')).toBeInTheDocument();
+    expect(within(row).getByText('Unverified')).toBeInTheDocument();
+    expect(row).toHaveTextContent('Intake state');
+    expect(row).toHaveTextContent('Verification state');
+    // TAKEN does not imply VERIFIED: the only verification text is Unverified.
+    expect(row.textContent).not.toContain('Verified');
+    expect(row.textContent?.replace('Unverified', '')).not.toContain('VERIFIED');
+  });
+
+  it('does not modify medication schedule when intake event is recorded', async () => {
+    const medication = { ...medicationFixture(recipient.id, 'Unchanged schedule medicine'), doseText: '2 mg', scheduleText: 'every morning' };
+    const { fetcher } = intakeServe(medication, []);
+    renderRecipients(detail, fetcher);
+    await screen.findByText('Not recorded');
+    await userEvent.selectOptions(screen.getByLabelText('Intake state'), 'TAKEN');
+    await userEvent.selectOptions(screen.getByLabelText('Verification state'), 'VERIFIED');
+    await userEvent.click(screen.getByRole('button', { name: 'Save intake event' }));
+    await screen.findByText('Intake event recorded.');
+    expect(fetcher.mock.calls.some(([, options]) => options.method === 'POST'
+      && String(options.body).includes('intakeState'))).toBe(true);
+    expect(fetcher.mock.calls.some(([, options]) => options.method === 'PUT')).toBe(false);
+    expect(fetcher.mock.calls.some(([, options]) => options.method === 'PATCH')).toBe(false);
+    expect(screen.getByText('2 mg')).toBeInTheDocument();
+    expect(screen.getByText('every morning')).toBeInTheDocument();
+    expect(screen.getByText('Unchanged schedule medicine')).toBeInTheDocument();
+  });
+
+  it('renders event and verification labels in Arabic', async () => {
+    const medication = medicationFixture(recipient.id, 'Arabic intake medicine');
+    const { fetcher } = intakeServe(medication, []);
+    renderRecipients(detail, fetcher, 'ar');
+    expect(await screen.findByText('غير مسجل')).toBeInTheDocument();
+    expect(document.documentElement.dir).toBe('rtl');
+    expect(screen.getByText('سجل تناول الدواء')).toBeInTheDocument();
+    expect(screen.getByText('حالة التناول')).toBeInTheDocument();
+    expect(screen.getByText('حالة التحقق')).toBeInTheDocument();
+    expect(screen.getByLabelText('حالة التناول')).toBeInTheDocument();
+    expect(screen.getByLabelText('حالة التحقق')).toBeInTheDocument();
+    expect(screen.queryByText('Not recorded')).not.toBeInTheDocument();
+    expect(screen.queryByText('Intake history')).not.toBeInTheDocument();
+    expect(screen.queryByText('Taken')).not.toBeInTheDocument();
+  });
+
+  it('shows loading intake history before events arrive', async () => {
+    const medication = medicationFixture(recipient.id, 'Loading intake medicine');
+    let resolveIntake!: (response: Response) => void;
+    const fetcher = vi.fn().mockImplementation((path: string, options: RequestInit = {}) => {
+      if (path.endsWith('/intake-events') && options.method !== 'POST') return new Promise<Response>((done) => { resolveIntake = done; });
+      if (path === `/api/recipients/${recipient.id}/medications`) return Promise.resolve(jsonResponse([medication]));
+      return Promise.resolve(jsonResponse(recipient));
+    });
+    renderRecipients(detail, fetcher);
+    expect(await screen.findByText('Loading intake history…')).toBeInTheDocument();
+    await act(async () => resolveIntake(jsonResponse([])));
+    expect(await screen.findByText('Not recorded')).toBeInTheDocument();
+  });
+
+  it('distinguishes intake history failure from empty history', async () => {
+    const medication = medicationFixture(recipient.id, 'Failing intake medicine');
+    const { fetcher } = intakeServe(medication, [], { intakeGetFails: true });
+    renderRecipients(detail, fetcher);
+    expect(await screen.findByText('Intake history could not be loaded. Please try again.')).toBeInTheDocument();
+    expect(screen.queryByText('Not recorded')).not.toBeInTheDocument();
+    expect(screen.getByText(medication.scheduleText)).toBeInTheDocument();
+  });
+
+  it('does not show false success when recording an intake event fails', async () => {
+    const medication = medicationFixture(recipient.id, 'Failed recording medicine');
+    const { fetcher } = intakeServe(medication, [], { intakePostFails: true });
+    renderRecipients(detail, fetcher);
+    await screen.findByText('Not recorded');
+    await userEvent.selectOptions(screen.getByLabelText('Intake state'), 'TAKEN');
+    await userEvent.selectOptions(screen.getByLabelText('Verification state'), 'UNVERIFIED');
+    await userEvent.click(screen.getByRole('button', { name: 'Save intake event' }));
+    expect(await screen.findByText('This intake event could not be recorded. Please try again.')).toBeInTheDocument();
+    expect(screen.queryByText('Intake event recorded.')).not.toBeInTheDocument();
+    expect(screen.getByLabelText('Intake state')).toHaveValue('TAKEN');
+    expect(screen.getByLabelText('Verification state')).toHaveValue('UNVERIFIED');
+    expect(screen.getByText('Not recorded')).toBeInTheDocument();
+  });
+
+  it('prevents duplicate intake submissions while a post is pending', async () => {
+    const medication = medicationFixture(recipient.id, 'Duplicate intake medicine');
+    let resolvePost!: (response: Response) => void;
+    const created = intakeEventFixture(medication, 'TAKEN', 'VERIFIED', new Date().toISOString());
+    const fetcher = vi.fn().mockImplementation((path: string, options: RequestInit = {}) => {
+      if (path.endsWith('/intake-events') && options.method === 'POST') return new Promise<Response>((done) => { resolvePost = done; });
+      if (path.endsWith('/intake-events')) return Promise.resolve(jsonResponse([]));
+      if (path === `/api/recipients/${recipient.id}/medications`) return Promise.resolve(jsonResponse([medication]));
+      return Promise.resolve(jsonResponse(recipient));
+    });
+    renderRecipients(detail, fetcher);
+    await screen.findByText('Not recorded');
+    await userEvent.selectOptions(screen.getByLabelText('Intake state'), 'TAKEN');
+    await userEvent.selectOptions(screen.getByLabelText('Verification state'), 'VERIFIED');
+    const submit = screen.getByRole('button', { name: 'Save intake event' });
+    fireEvent.click(submit); fireEvent.click(submit);
+    expect(fetcher.mock.calls.filter(([, options]) => options.method === 'POST')).toHaveLength(1);
+    expect(screen.getByRole('button', { name: 'Saving intake event…' })).toBeDisabled();
+    await act(async () => resolvePost(jsonResponse(created, 201)));
+    expect(await screen.findByText('Intake event recorded.')).toBeInTheDocument();
+    expect(fetcher.mock.calls.filter(([, options]) => options.method === 'POST')).toHaveLength(1);
+  });
+
+  it('rejects intake submission without explicit state and verification selections', async () => {
+    const medication = medicationFixture(recipient.id, 'Invalid intake medicine');
+    const { fetcher } = intakeServe(medication, []);
+    renderRecipients(detail, fetcher);
+    await screen.findByText('Not recorded');
+    await userEvent.click(screen.getByRole('button', { name: 'Save intake event' }));
+    expect(await screen.findByText('Choose an intake state and a verification state.')).toBeInTheDocument();
+    expect(fetcher.mock.calls.some(([, options]) => options.method === 'POST')).toBe(false);
+  });
 });
 
 function medicationFixture(recipientId: string, displayName: string) {
@@ -686,4 +895,47 @@ function medicationFixture(recipientId: string, displayName: string) {
     doseText: '1 tablet', scheduleText: 'once daily', active: true,
     createdAt: '2026-10-01T10:00:00Z', updatedAt: '2026-10-01T10:00:00Z',
   };
+}
+
+function intakeEventFixture(
+  medication: ReturnType<typeof medicationFixture>,
+  intakeState: 'TAKEN' | 'MISSED' | 'UNSURE',
+  verificationState: 'VERIFIED' | 'UNVERIFIED' | 'NOT_ASSERTED',
+  occurredAt: string,
+  id = 'e5555555-5555-4555-8555-555555555555',
+) {
+  return {
+    id, medicationId: medication.id, recipientId: medication.recipientId,
+    intakeState, occurredAt, verificationState, createdAt: occurredAt,
+  };
+}
+
+function intakeServe(
+  medication: ReturnType<typeof medicationFixture>,
+  initialEvents: ReturnType<typeof intakeEventFixture>[],
+  options: { intakeGetFails?: boolean; intakePostFails?: boolean } = {},
+) {
+  let events = [...initialEvents];
+  let nextId = 1;
+  const fetcher = vi.fn().mockImplementation((path: string, init: RequestInit = {}) => {
+    if (path.endsWith('/intake-events')) {
+      if (init.method === 'POST') {
+        if (options.intakePostFails) return Promise.resolve(jsonResponse({ code: 'VALIDATION_ERROR' }, 400));
+        const body = JSON.parse(init.body as string) as {
+          intakeState: 'TAKEN' | 'MISSED' | 'UNSURE'; occurredAt: string;
+          verificationState: 'VERIFIED' | 'UNVERIFIED' | 'NOT_ASSERTED';
+        };
+        const created = intakeEventFixture(
+          medication, body.intakeState, body.verificationState, body.occurredAt,
+          `f6666666-6666-4666-8666-66666666600${nextId++}`);
+        events = [...events, created];
+        return Promise.resolve(jsonResponse(created, 201));
+      }
+      if (options.intakeGetFails) return Promise.resolve(jsonResponse({ code: 'SERVICE_ERROR' }, 500));
+      return Promise.resolve(jsonResponse(events));
+    }
+    if (path === `/api/recipients/${recipient.id}/medications`) return Promise.resolve(jsonResponse([medication]));
+    return Promise.resolve(jsonResponse(recipient));
+  });
+  return { fetcher, getEvents: () => events };
 }

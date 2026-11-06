@@ -19,6 +19,28 @@ export interface MedicationInput {
   scheduleText: string;
 }
 
+export type IntakeState = 'TAKEN' | 'MISSED' | 'UNSURE';
+export type VerificationState = 'VERIFIED' | 'UNVERIFIED' | 'NOT_ASSERTED';
+
+export interface IntakeEvent {
+  id: string;
+  medicationId: string;
+  recipientId: string;
+  intakeState: IntakeState;
+  occurredAt: string;
+  verificationState: VerificationState;
+  createdAt: string;
+}
+
+export interface CreateIntakeEventInput {
+  intakeState: IntakeState;
+  occurredAt: string;
+  verificationState: VerificationState;
+}
+
+export const intakeStates: readonly IntakeState[] = ['TAKEN', 'MISSED', 'UNSURE'];
+export const verificationStates: readonly VerificationState[] = ['VERIFIED', 'UNVERIFIED', 'NOT_ASSERTED'];
+
 export type MedicationFieldErrors = Partial<Record<keyof MedicationInput, MessageKey>>;
 
 const isMedicationId = (value: unknown): value is string =>
@@ -55,6 +77,35 @@ function readForRecipient(value: unknown, recipientId: string): MedicationRecord
     throw new Error('Medication response belongs to a different recipient.');
   }
   return record;
+}
+
+export function readIntakeEvent(value: unknown, recipientId: string, medicationId: string): IntakeEvent {
+  if (typeof value !== 'object' || value === null || Array.isArray(value)) {
+    throw new Error('Invalid intake event response.');
+  }
+  const item = value as Record<string, unknown>;
+  if (!isMedicationId(item.id) || !isMedicationId(item.medicationId) || typeof item.recipientId !== 'string'
+    || !isRecipientId(item.recipientId)
+    || !intakeStates.includes(item.intakeState as IntakeState)
+    || !isTimestamp(item.occurredAt)
+    || !verificationStates.includes(item.verificationState as VerificationState)
+    || !isTimestamp(item.createdAt)) {
+    throw new Error('Invalid intake event response.');
+  }
+  const event: IntakeEvent = {
+    id: item.id as string,
+    medicationId: item.medicationId as string,
+    recipientId: item.recipientId,
+    intakeState: item.intakeState as IntakeState,
+    occurredAt: item.occurredAt as string,
+    verificationState: item.verificationState as VerificationState,
+    createdAt: item.createdAt as string,
+  };
+  if (event.medicationId.toLowerCase() !== medicationId.toLowerCase()
+    || event.recipientId.toLowerCase() !== recipientId.toLowerCase()) {
+    throw new Error('Intake event response belongs to a different medication or recipient.');
+  }
+  return event;
 }
 
 export function validateMedication(input: MedicationInput): MedicationFieldErrors {
@@ -113,5 +164,21 @@ export function createMedicationsApi(client: ApiClient) {
       readOne(recipientId, medicationPath(recipientId, medicationId), 'PUT', signal, fields(input), medicationId),
     archive: (recipientId: string, medicationId: string, signal?: AbortSignal) =>
       readOne(recipientId, `${medicationPath(recipientId, medicationId)}/archive`, 'PATCH', signal, undefined, medicationId),
+    async listIntakeEvents(recipientId: string, medicationId: string, signal?: AbortSignal): Promise<IntakeEvent[]> {
+      const response = await client.request<unknown>({
+        path: `${medicationPath(recipientId, medicationId)}/intake-events`, signal });
+      if (!Array.isArray(response)) throw new Error('Invalid intake event list response.');
+      return response.map((item) => readIntakeEvent(item, recipientId, medicationId));
+    },
+    async createIntakeEvent(recipientId: string, medicationId: string,
+      input: CreateIntakeEventInput, signal?: AbortSignal): Promise<IntakeEvent> {
+      if (!intakeStates.includes(input.intakeState) || !verificationStates.includes(input.verificationState)
+        || !isTimestamp(input.occurredAt)) throw new ApiError(400, null);
+      const body: CreateIntakeEventInput = {
+        intakeState: input.intakeState, occurredAt: input.occurredAt, verificationState: input.verificationState };
+      return readIntakeEvent(await client.request<unknown>({
+        path: `${medicationPath(recipientId, medicationId)}/intake-events`, method: 'POST', signal, body }),
+        recipientId, medicationId);
+    },
   };
 }

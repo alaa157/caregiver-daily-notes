@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useRef, useState, type FormEvent } from 'react';
 import { ApiError, useApiClient } from '../../lib/api';
-import { createMedicationsApi, medicationErrorMessage, validateMedication, type MedicationFieldErrors, type MedicationInput, type MedicationRecord } from '../../api/medications';
+import { createMedicationsApi, intakeStates, medicationErrorMessage, validateMedication, verificationStates, type CreateIntakeEventInput, type IntakeEvent, type IntakeState, type MedicationFieldErrors, type MedicationInput, type MedicationRecord, type VerificationState } from '../../api/medications';
 import { Button } from '../../components/Button';
 import { EmptyState, ErrorState, FieldError, LoadingState } from '../../components/Feedback';
 import { useI18n } from '../../i18n/I18nProvider';
@@ -189,8 +189,12 @@ export function MedicationListPanel({ recipientId, canEdit }: { recipientId: str
         </div>
         <dl className="recipient-details medication-details">
           <div><dt>{t('medicationDose')}</dt><dd><bdi dir="auto">{record.doseText}</bdi></dd></div>
-          <div><dt>{t('medicationSchedule')}</dt><dd><bdi dir="auto">{record.scheduleText}</bdi></dd></div>
         </dl>
+        <section className="medication-schedule">
+          <h4>{t('medicationSchedule')}</h4>
+          <p><bdi dir="auto">{record.scheduleText}</bdi></p>
+        </section>
+        <IntakeHistory recipientId={recipientId} medication={record} canRecord={canEdit && record.active} />
         {canEdit && record.active && <div className="recipient-actions">
           <Button type="button" variant="secondary" disabled={!!mutation.current || !!archivingId} onClick={() => openEdit(record)}>{t('medicationEdit')}</Button>
           <Button type="button" variant="secondary" disabled={!!mutation.current || !!archivingId} onClick={() => { void archive(record); }}>
@@ -214,6 +218,127 @@ export function MedicationListPanel({ recipientId, canEdit }: { recipientId: str
         <Button type="button" variant="secondary" disabled={saving} onClick={closeEditor}>{t('recipientCancel')}</Button>
       </div>
       <p role="status" className="recipient-progress">{saving ? t('medicationSaving') : ''}</p>
+    </form>}
+  </section>;
+}
+
+type IntakeHistoryState = { status: 'loading' }
+  | { status: 'error'; error: unknown }
+  | { status: 'ready'; data: IntakeEvent[] };
+
+const intakeLabel: Record<IntakeState, MessageKey> = {
+  TAKEN: 'medicationIntakeTaken', MISSED: 'medicationIntakeMissed', UNSURE: 'medicationIntakeUnsure',
+};
+const verificationLabel: Record<VerificationState, MessageKey> = {
+  VERIFIED: 'medicationVerificationVerified', UNVERIFIED: 'medicationVerificationUnverified',
+  NOT_ASSERTED: 'medicationVerificationNotAsserted',
+};
+
+function IntakeHistory({ recipientId, medication, canRecord }: {
+  recipientId: string; medication: MedicationRecord; canRecord: boolean;
+}) {
+  const { t, language } = useI18n();
+  const client = useApiClient();
+  const api = useMemo(() => createMedicationsApi(client), [client]);
+  const [state, setState] = useState<IntakeHistoryState>({ status: 'loading' });
+  const [revision, setRevision] = useState(0);
+  const [intakeState, setIntakeState] = useState<'' | IntakeState>('');
+  const [verificationState, setVerificationState] = useState<'' | VerificationState>('');
+  const [saving, setSaving] = useState(false);
+  const [formError, setFormError] = useState<MessageKey | null>(null);
+  const [notice, setNotice] = useState<MessageKey | null>(null);
+  const mutation = useRef<AbortController | null>(null);
+
+  useEffect(() => {
+    const controller = new AbortController();
+    setState({ status: 'loading' });
+    void api.listIntakeEvents(recipientId, medication.id, controller.signal).then(
+      (data) => { if (!controller.signal.aborted) setState({ status: 'ready', data }); },
+      (error: unknown) => { if (!controller.signal.aborted) setState({ status: 'error', error }); },
+    );
+    return () => { controller.abort(); mutation.current?.abort(); mutation.current = null; };
+  }, [api, recipientId, medication.id, revision]);
+
+  useEffect(() => {
+    setIntakeState(''); setVerificationState(''); setFormError(null); setNotice(null); setSaving(false);
+  }, [recipientId, medication.id]);
+
+  async function submit(event: FormEvent<HTMLFormElement>) {
+    event.preventDefault();
+    if (saving || mutation.current || !canRecord) return;
+    if (!intakeStates.includes(intakeState as IntakeState)
+      || !verificationStates.includes(verificationState as VerificationState)) {
+      setFormError('medicationIntakeInvalid');
+      return;
+    }
+    const input: CreateIntakeEventInput = {
+      intakeState: intakeState as IntakeState,
+      occurredAt: new Date().toISOString(),
+      verificationState: verificationState as VerificationState,
+    };
+    const controller = new AbortController();
+    mutation.current = controller;
+    setSaving(true);
+    setFormError(null);
+    setNotice(null);
+    try {
+      await api.createIntakeEvent(recipientId, medication.id, input, controller.signal);
+      if (controller.signal.aborted) return;
+      setIntakeState('');
+      setVerificationState('');
+      setNotice('medicationIntakeRecorded');
+      setRevision((value) => value + 1);
+    } catch {
+      if (!controller.signal.aborted) setFormError('medicationIntakeRecordError');
+    } finally {
+      if (!controller.signal.aborted) { mutation.current = null; setSaving(false); }
+    }
+  }
+
+  const formatDate = (value: string) => new Intl.DateTimeFormat(
+    language === 'ar' ? 'ar-EG' : 'en', { dateStyle: 'medium', timeStyle: 'short' }).format(new Date(value));
+  const intakeId = `intake-state-${medication.id}`;
+  const verificationId = `verification-state-${medication.id}`;
+
+  return <section className="medication-intake" aria-label={t('medicationIntakeHistory')}>
+    <h4>{t('medicationIntakeHistory')}</h4>
+    {state.status === 'loading' && <LoadingState label={t('medicationIntakeLoading')} />}
+    {state.status === 'error' && <ErrorState description={t('medicationIntakeError')}
+      onRetry={() => setRevision((value) => value + 1)} />}
+    {state.status === 'ready' && state.data.length === 0 && <p>{t('medicationNotRecorded')}</p>}
+    {state.status === 'ready' && state.data.length > 0 && <ul className="medication-intake-list">
+      {state.data.map((item) => <li key={item.id}>
+        <dl className="recipient-details medication-details">
+          <div><dt>{t('medicationIntakeState')}</dt><dd>{t(intakeLabel[item.intakeState])}</dd></div>
+          <div><dt>{t('medicationIntakeOccurredAt')}</dt>
+            <dd><time dateTime={item.occurredAt}>{formatDate(item.occurredAt)}</time></dd></div>
+          <div><dt>{t('medicationVerificationState')}</dt><dd>{t(verificationLabel[item.verificationState])}</dd></div>
+        </dl>
+      </li>)}
+    </ul>}
+    {canRecord && <form className="medication-intake-form" aria-label={t('medicationRecordIntake')}
+      noValidate onSubmit={(event) => { void submit(event); }}>
+      {formError && <p role="alert" className="recipient-error">{t(formError)}</p>}
+      {notice && <p role="status" className="recipient-success">{t(notice)}</p>}
+      <div className="recipient-field">
+        <label htmlFor={intakeId}>{t('medicationIntakeState')}</label>
+        <select id={intakeId} name="intakeState" required disabled={saving} value={intakeState}
+          onChange={(event) => { setIntakeState(event.target.value as '' | IntakeState); setFormError(null); }}>
+          <option value="">{t('medicationIntakeSelect')}</option>
+          {intakeStates.map((value) => <option key={value} value={value}>{t(intakeLabel[value])}</option>)}
+        </select>
+      </div>
+      <div className="recipient-field">
+        <label htmlFor={verificationId}>{t('medicationVerificationState')}</label>
+        <select id={verificationId} name="verificationState" required disabled={saving} value={verificationState}
+          onChange={(event) => { setVerificationState(event.target.value as '' | VerificationState); setFormError(null); }}>
+          <option value="">{t('medicationIntakeSelect')}</option>
+          {verificationStates.map((value) => <option key={value} value={value}>{t(verificationLabel[value])}</option>)}
+        </select>
+      </div>
+      <div className="recipient-actions">
+        <Button type="submit" disabled={saving}>{saving ? t('medicationIntakeSaving') : t('medicationIntakeSave')}</Button>
+      </div>
     </form>}
   </section>;
 }
