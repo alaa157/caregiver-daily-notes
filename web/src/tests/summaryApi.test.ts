@@ -101,9 +101,14 @@ describe('BYOK summary request', () => {
     expect(JSON.stringify(result)).not.toContain(byokCredentials.apiKey);
   });
 
-  it('does not include credential in thrown error message', async () => {
+  it('redacts credential and raw provider details while preserving safe error safety', async () => {
     const providerText = `provider rejected ${byokCredentials.apiKey}`;
-    const fetcher = vi.fn().mockResolvedValueOnce(jsonResponse({ message: providerText }, 502));
+    const safety = {
+      needsDoctorBanner: true,
+      signals: [{ ruleId: 'FALL_DETECTED', severity: 'HIGH', reason: `Fall reported; diagnostic ${byokCredentials.apiKey}` }],
+    };
+    const rawProviderDetails = { message: providerText, diagnostic: `raw response ${byokCredentials.apiKey}` };
+    const fetcher = vi.fn().mockResolvedValueOnce(jsonResponse({ ...rawProviderDetails, safety }, 504));
     let failure: unknown;
     try {
       await createSummaryApi(createApiClient({ apiBaseUrl: '' }, fetcher), fetcher).generateByok(byokRequest);
@@ -112,9 +117,21 @@ describe('BYOK summary request', () => {
     }
 
     expect(failure).toBeInstanceOf(ApiError);
-    expect((failure as Error).message).not.toContain(byokCredentials.apiKey);
-    expect((failure as Error).message).not.toContain(providerText);
-    expect(summaryErrorMessage(failure)).toBe('summaryServiceError');
+    const error = failure as ApiError;
+    expect(error.status).toBe(504);
+    expect(error.message).not.toContain(byokCredentials.apiKey);
+    expect(error.message).not.toContain(providerText);
+    expect(error.details).toEqual({
+      safety: {
+        needsDoctorBanner: true,
+        signals: [{ ruleId: 'FALL_DETECTED', severity: 'HIGH', reason: 'Fall reported; diagnostic [redacted]' }],
+        incomplete: false,
+      },
+    });
+    expect(JSON.stringify(error)).not.toContain(byokCredentials.apiKey);
+    expect(JSON.stringify(error)).not.toContain(providerText);
+    expect(JSON.stringify(error)).not.toContain('raw response');
+    expect(summaryErrorMessage(error)).toBe('summaryTimeout');
   });
 
   it('rejects invalid summary input before network activity', async () => {
