@@ -41,7 +41,10 @@ async function installFixtures(page: Page, locale: Locale, note = historyNote, t
     if (request.method() === 'GET') {
       if (path === '/api/recipients') return route.fulfill({ json: [recipientFixture] });
       if (path === `/api/recipients/${recipientFixture.id}`) return route.fulfill({ json: recipientFixture });
-      if (path === `/api/notes/${note.id}`) return route.fulfill({ json: note });
+      if (path === `/api/notes/${note.id}`) {
+        const addenda = note.addendumCount > 0 ? [{ ...addendumFixture, noteId: note.id }] : [];
+        return route.fulfill({ json: { ...note, addenda } });
+      }
       if (path === `/api/notes/${note.id}/addenda`) {
         return route.fulfill({ json: [{ ...addendumFixture, noteId: note.id }] });
       }
@@ -65,11 +68,14 @@ async function installFixtures(page: Page, locale: Locale, note = historyNote, t
   });
 }
 
-async function expectNoHorizontalOverflow(page: Page) {
+async function expectNoHorizontalOverflow(page: Page, expectedWidth: number) {
   const layout = await page.evaluate(() => ({
     scrollWidth: document.documentElement.scrollWidth,
     clientWidth: document.documentElement.clientWidth,
-    outside: [...document.querySelectorAll<HTMLElement>('main input, main textarea, main select, main button, main a[href]')]
+    viewportWidth: window.innerWidth,
+    outside: [...document.querySelectorAll<HTMLElement>(
+      'main input, main textarea, main select, main button, main a[href], main article, main h1, main h2, main p, main time, main .note-verbatim, main .history-pagination',
+    )]
       .filter((element) => element.getClientRects().length && getComputedStyle(element).visibility !== 'hidden')
       .filter((element) => {
         const box = element.getBoundingClientRect();
@@ -77,6 +83,7 @@ async function expectNoHorizontalOverflow(page: Page) {
       })
       .map((element) => element.id || element.textContent?.trim() || element.tagName),
   }));
+  expect(layout.viewportWidth).toBe(expectedWidth);
   expect(layout.scrollWidth).toBe(layout.clientWidth);
   expect(layout.outside).toEqual([]);
 }
@@ -124,13 +131,13 @@ test('preserves mixed Arabic and Latin note text order', async ({ page }) => {
   await expect(renderedText).toHaveJSProperty('textContent', mixedText);
   expect(await renderedText.evaluate((element) => getComputedStyle(element).direction)).toBe('rtl');
 
-  const sourceId = page.locator('.note-timeline-row__provenance bdi');
+  const sourceId = page.locator('.note-timeline-row').first().locator('.note-timeline-row__provenance bdi');
   await expect(sourceId).toHaveText(mixedNote.id);
   await expect(sourceId).toHaveJSProperty('textContent', mixedNote.id);
   const recipientName = page.locator('.note-timeline-row__metadata bdi');
   await expect(recipientName).toHaveText(recipientFixture.name);
   await expect(page.getByText('تصحيح مستقل — original stays unchanged.', { exact: true })).toHaveAttribute('dir', 'auto');
-  await expect(page.locator('.note-timeline-row__date')).toHaveAttribute('dir', 'auto');
+  await expect(page.locator('.note-timeline-row').first().locator('.note-timeline-row__date')).toHaveAttribute('dir', 'auto');
 });
 
 test('keeps history date query values unchanged in Arabic', async ({ page }) => {
@@ -155,15 +162,21 @@ test('does not horizontally overflow notes or history at 320 pixels', async ({ p
   await page.goto('/app/notes/new');
   await expect(page.getByLabel(labels.ar.recipient, { exact: true })).toBeVisible();
   await expect(page.getByLabel(labels.ar.date, { exact: true })).toBeVisible();
-  await expect(page.getByRole('textbox', { name: labels.ar.text, exact: true })).toBeVisible();
-  await expectNoHorizontalOverflow(page);
+  await page.getByRole('group', {
+    name: `${labels.ar.text} — حالة الملاحظة`,
+    exact: true,
+  }).getByText(labels.ar.recorded, { exact: true }).click();
+  const text = page.getByRole('textbox', { name: labels.ar.text, exact: true });
+  await expect(text).toBeVisible();
+  await text.fill('ملاحظة عربية ضمن العرض المكتبي');
+  await expectNoHorizontalOverflow(page, 320);
 
   await page.goto('/app/notes?from=2026-10-01&to=2026-10-22');
   await expect(page.getByLabel('من تاريخ', { exact: true })).toBeVisible();
   await expect(page.getByLabel('إلى تاريخ', { exact: true })).toBeVisible();
   const nextPage = page.getByRole('button', { name: 'الصفحة التالية', exact: true });
   await expect(nextPage).toBeVisible();
-  await expectNoHorizontalOverflow(page);
+  await expectNoHorizontalOverflow(page, 320);
   await nextPage.click();
   const url = new URL(page.url());
   expect(url.searchParams.get('from')).toBe('2026-10-01');
@@ -186,4 +199,79 @@ test('restores LTR layout after switching back to English', async ({ page }) => 
   await expect(page.locator('html')).toHaveAttribute('lang', 'en');
   await expect(page.locator('html')).toHaveAttribute('dir', 'ltr');
   expect(await page.locator('.history-filters').evaluate((element) => getComputedStyle(element).direction)).toBe('ltr');
+});
+
+test('renders the Arabic note editor within a 1280px RTL viewport', async ({ page }) => {
+  await page.setViewportSize({ width: 1280, height: 900 });
+  await installFixtures(page, 'ar');
+  await page.goto('/app/notes/new');
+
+  await expect(page.locator('html')).toHaveAttribute('lang', 'ar');
+  await expect(page.locator('html')).toHaveAttribute('dir', 'rtl');
+  expect(await page.locator('.note-form').evaluate((element) => getComputedStyle(element).direction)).toBe('rtl');
+  await expect(page.getByLabel(labels.ar.recipient, { exact: true })).toBeVisible();
+  await expect(page.getByLabel(labels.ar.date, { exact: true })).toBeVisible();
+  await page.getByRole('group', {
+    name: `${labels.ar.text} — حالة الملاحظة`,
+    exact: true,
+  }).getByText(labels.ar.recorded, { exact: true }).click();
+  const text = page.getByRole('textbox', { name: labels.ar.text, exact: true });
+  await expect(text).toBeVisible();
+  await text.fill('ملاحظة عربية ضمن العرض المكتبي');
+  await expect(text).toHaveValue('ملاحظة عربية ضمن العرض المكتبي');
+  await expectNoHorizontalOverflow(page, 1280);
+});
+
+test('renders mixed note detail and history within a 1280px Arabic RTL viewport', async ({ page }) => {
+  await page.setViewportSize({ width: 1280, height: 900 });
+  const mixedText = 'ملاحظة الرعاية — NOTE-123 — English details.';
+  const mixedNote = {
+    ...historyNote,
+    freeText: mixedText,
+    observations: {
+      ...historyNote.observations,
+      freeText: { state: 'RECORDED' as const, value: mixedText },
+    },
+  };
+  await installFixtures(page, 'ar', mixedNote);
+  await page.goto(`/app/notes/${mixedNote.id}`);
+
+  await expect(page.locator('html')).toHaveAttribute('lang', 'ar');
+  await expect(page.locator('html')).toHaveAttribute('dir', 'rtl');
+  const detailText = page.getByText(mixedText, { exact: true });
+  await expect(detailText).toHaveAttribute('dir', 'auto');
+  await expect(detailText).toHaveJSProperty('textContent', mixedText);
+  await expect(page.locator('.note-timeline-row').first().locator('.note-timeline-row__provenance bdi')).toHaveText(mixedNote.id);
+  await expectNoHorizontalOverflow(page, 1280);
+
+  await page.goto('/app/notes?from=2026-10-01&to=2026-10-22');
+  await expect(page.getByRole('heading', { name: labels.ar.history })).toBeVisible();
+  await expect(page.locator('html')).toHaveAttribute('dir', 'rtl');
+  const card = page.getByRole('article', { name: recipientFixture.name });
+  await expect(card).toBeVisible();
+  await card.getByText('عرض المشاهدات والنص الأصلي', { exact: true }).click();
+  const historyText = card.getByText(mixedText, { exact: true });
+  await expect(historyText).toHaveAttribute('dir', 'auto');
+  await expect(historyText).toHaveJSProperty('textContent', mixedText);
+  await expect(card.locator('.note-timeline-row__provenance bdi')).toHaveText(mixedNote.id);
+  await expectNoHorizontalOverflow(page, 1280);
+});
+
+test('restores English LTR note and history layouts at 1280px', async ({ page }) => {
+  await page.setViewportSize({ width: 1280, height: 900 });
+  await installFixtures(page, 'ar');
+  await page.goto('/app/notes/new');
+  await expect(page.locator('html')).toHaveAttribute('dir', 'rtl');
+  await page.getByRole('button', { name: labels.ar.switch, exact: true }).click();
+
+  await expect(page.locator('html')).toHaveAttribute('lang', 'en');
+  await expect(page.locator('html')).toHaveAttribute('dir', 'ltr');
+  expect(await page.locator('.note-form').evaluate((element) => getComputedStyle(element).direction)).toBe('ltr');
+  await expectNoHorizontalOverflow(page, 1280);
+
+  await page.goto('/app/notes?from=2026-10-01&to=2026-10-22');
+  await expect(page.getByRole('heading', { name: labels.en.history })).toBeVisible();
+  await expect(page.locator('html')).toHaveAttribute('dir', 'ltr');
+  expect(await page.locator('.history-filters').evaluate((element) => getComputedStyle(element).direction)).toBe('ltr');
+  await expectNoHorizontalOverflow(page, 1280);
 });
