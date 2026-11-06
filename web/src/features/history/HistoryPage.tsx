@@ -34,7 +34,7 @@ function HistoryResults({ filters: { recipientId, from, to }, page, size, recipi
     {state.status === 'error' && <ErrorState description={t(noteErrorMessage(state.error))} onRetry={reload} />}
     {pageSizeOutOfRange && <LoadingState label={t('historyLoading')} />}
     {state.status === 'ready' && !pageSizeOutOfRange && <>
-      <p className="history-result-count" role="status">{t('historyShowing')} {number(state.data.content.length ? page * size + 1 : 0)}–{number(state.data.content.length ? page * size + state.data.content.length : 0)} {t('historyOf')} {number(state.data.totalElements)} {t('historyNotes')}</p>
+      <p className="history-result-count" role="status">{t('historyShowing')} <bdi>{number(state.data.content.length ? page * size + 1 : 0)}–{number(state.data.content.length ? page * size + state.data.content.length : 0)}</bdi> {t('historyOf')} <bdi>{number(state.data.totalElements)}</bdi> {t('historyNotes')}</p>
       <p className="note-hint history-order">{t('historyNewest')}</p>
       {state.data.content.length === 0 ? <div className="note-surface">
         <EmptyState title={t(state.data.totalElements ? 'historyEmptyPage' : 'historyNoNotes')} description={t(state.data.totalElements ? 'historyEmptyPageDescription' : 'historyNoNotesDescription')} />
@@ -44,7 +44,7 @@ function HistoryResults({ filters: { recipientId, from, to }, page, size, recipi
       </li>)}</ol>}
       {(state.data.totalPages > 1 || page > 0) && <nav className="history-pagination" aria-label={t('historyPagination')}>
         <Button variant="secondary" disabled={state.data.first} onClick={() => onPage(page - 1)}>{t('historyPrevious')}</Button>
-        <span>{t('historyPage')} {number(page + 1)} {t('historyOf')} {number(state.data.totalPages)}</span>
+        <span>{t('historyPage')} <bdi>{number(page + 1)}</bdi> {t('historyOf')} <bdi>{number(state.data.totalPages)}</bdi></span>
         <Button variant="secondary" disabled={state.data.last} onClick={() => onPage(page + 1)}>{t('historyNext')}</Button>
       </nav>}
     </>}

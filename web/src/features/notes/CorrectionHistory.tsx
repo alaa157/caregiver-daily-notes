@@ -33,7 +33,7 @@ export function CorrectionEventRow({ event, idPrefix, entryLabel }: {
   const { t, language } = useI18n();
   const timeLabel = new Intl.DateTimeFormat(language === 'ar' ? 'ar-EG' : 'en', { dateStyle: 'medium', timeStyle: 'short' }).format(new Date(event.createdAt));
   return <NoteTimelineRow
-    entryLabel={entryLabel ?? `${t('notesCorrectionEvent')} ${new Intl.NumberFormat(language === 'ar' ? 'ar-EG' : 'en').format(event.sequenceNo)} · ${t(fieldLabels[event.field])}`}
+    entryLabel={entryLabel ?? <>{t('notesCorrectionEvent')} <bdi>{new Intl.NumberFormat(language === 'ar' ? 'ar-EG' : 'en').format(event.sequenceNo)}</bdi> · {t(fieldLabels[event.field])}</>}
     dateLabel={timeLabel}
     dateTime={event.createdAt}
     metadata={<>{t('notesCorrectionActor')}: <bdi>{event.actorId}</bdi></>}

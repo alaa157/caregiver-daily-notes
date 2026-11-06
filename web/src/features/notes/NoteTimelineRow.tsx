@@ -64,7 +64,7 @@ export function NoteTimelineRow({
         <div className="note-timeline-row__identity">
           <h3 id={headingId} className="note-timeline-row__label">{entryLabel}</h3>
           {metadata && <div className="note-timeline-row__metadata">{metadata}</div>}
-          <time className="note-timeline-row__date" dateTime={dateTime}>{dateLabel}</time>
+          <time className="note-timeline-row__date" dateTime={dateTime} dir="auto">{dateLabel}</time>
           {provenance && <div className="note-timeline-row__provenance">{provenance}</div>}
         </div>
         {actions && <div className="note-timeline-row__actions">{actions}</div>}

@@ -136,7 +136,9 @@ describe('history screen, filters and immutable records', () => {
     });
     renderHistory(fetcher, `${range}&page=2&recipientId=${recipientFixture.id}`); await loaded();
     expect(screen.getByLabelText('Care recipient')).toHaveValue(recipientFixture.id);
-    expect(screen.getByText('Page 3 of 4')).toBeInTheDocument();
+    const pagination = document.querySelector('.history-pagination')!;
+    expect(pagination).toHaveTextContent('Page 3 of 4');
+    expect(pagination.querySelectorAll('bdi')).toHaveLength(2);
     await userEvent.click(screen.getByRole('button', { name: 'Previous page' })); await loaded();
     expect(queries(fetcher).at(-1)!.searchParams.get('page')).toBe('1');
     await userEvent.click(screen.getByRole('button', { name: 'Next page' })); await loaded();
@@ -168,7 +170,7 @@ describe('history screen, filters and immutable records', () => {
     expect(new URLSearchParams(screen.getByTestId('location').textContent!.split('?')[1]).get('page')).toBe('1');
     expect(queries(fetcher).at(-1)!.searchParams.get('page')).toBe('1');
     expect(screen.getByRole('button', { name: 'Previous page' })).toBeEnabled();
-    expect(screen.getByText('Page 2 of 2')).toBeInTheDocument();
+    expect(document.querySelector('.history-pagination')).toHaveTextContent('Page 2 of 2');
 
     await userEvent.click(screen.getByRole('button', { name: 'Previous page' }));
     await loaded();
