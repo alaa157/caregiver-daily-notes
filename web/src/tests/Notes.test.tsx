@@ -564,6 +564,7 @@ describe('daily-note creation and immutable corrections', () => {
       : path.endsWith('/corrections') ? jsonResponse(corrections) : undefined);
     renderNotes(detail, fetcher);
     await waitFor(() => expect(screen.queryByRole('status', { name: 'Loading note data…' })).toBeNull());
+    await screen.findByRole('article', { name: 'Correction event 2 · Pain score (0–10)' });
     const rows = await screen.findAllByRole('article', { name: /^(Add a correction|Correction event)/ });
     expect(rows.map((row) => row.querySelector('.note-timeline-row__label')?.textContent)).toEqual([
       'Correction event 1 · Mood', 'Correction event 2 · Pain score (0–10)', 'Add a correction 1', 'Add a correction 2',
