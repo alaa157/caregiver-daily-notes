@@ -218,7 +218,7 @@ function PlanWorkspace({ recipientId, onSaving }: { recipientId: string; onSavin
     </div>}
     {state.status === 'loading' && <LoadingState label={t('plansLoading')} />}
     {state.status === 'error' && <div ref={status} tabIndex={-1}><ErrorState description={t(state.error instanceof SnapshotChanged ? 'plansInconsistent' : planErrorMessage(state.error))} onRetry={() => reload()} /></div>}
-    {generationSafety && <div className="plan-generation-safety"><p>{t('plansGenerationSafety')}: <bdi>{generationSafety.request.periodEndInclusive}</bdi> · {generationSafety.request.periodDays} {t('summaryDays')}</p><SummarySafety safety={generationSafety.safety} /></div>}
+    {generationSafety && <div className="plan-generation-safety"><p>{t('plansGenerationSafety')}: <bdi>{generationSafety.request.periodEndInclusive}</bdi> · <bdi>{generationSafety.request.periodDays}</bdi> {t('summaryDays')}</p><SummarySafety safety={generationSafety.safety} /></div>}
     {snapshot && <>
       {!snapshot.recipient.active && <p className="note-notice">{t('plansInactive')}</p>}
       <PlanGenerationForm recipientId={recipientId} disabled={disabled || !!confirmation || !!editing}
@@ -256,7 +256,7 @@ function PlanWorkspace({ recipientId, onSaving }: { recipientId: string; onSavin
           : <ol className="plan-list" role="list">{snapshot.history.map((plan) => <li key={plan.id}>
             <details id={`plan-history-${plan.id}`} className="plan-history-version"><summary>
               <span>{t('plansVersion')} {new Intl.NumberFormat(language === 'ar' ? 'ar-EG' : 'en').format(plan.version)}</span> <PlanStatus status={plan.status} />
-              <span>{t('plansCreated')}: <time dateTime={plan.createdAt}>{new Intl.DateTimeFormat(language === 'ar' ? 'ar-EG' : 'en', { dateStyle: 'medium', timeStyle: 'short' }).format(new Date(plan.createdAt))}</time></span>
+              <span>{t('plansCreated')}: <time dateTime={plan.createdAt}><bdi>{new Intl.DateTimeFormat(language === 'ar' ? 'ar-EG' : 'en', { dateStyle: 'medium', timeStyle: 'short' }).format(new Date(plan.createdAt))}</bdi></time></span>
             </summary><PlanCard plan={plan} historyIds={historyIds} /></details>
           </li>)}</ol>}
       </section>
@@ -294,7 +294,7 @@ export function PlansPage() {
       <div className="note-field plan-recipient"><label htmlFor="plans-recipient">{t('plansRecipient')}</label>
         <select id="plans-recipient" value={validRecipient ? recipientId : ''} disabled={saving} aria-invalid={!!recipientId && !validRecipient} aria-describedby={recipientId && !validRecipient ? 'plans-recipient-error' : undefined}
           onChange={(event) => setSearch(event.target.value ? { recipientId: event.target.value } : {})}>
-          <option value="">{t('plansChoose')}</option>{recipients.data.map((recipient) => <option key={recipient.id} value={recipient.id}>{recipient.name}{recipient.lifecycleStatus === 'ARCHIVED' ? ` — ${t('recipientArchived')}` : recipient.lifecycleStatus === 'LEGACY_INACTIVE_REVIEW' ? ` — ${t('recipientNeedsReview')}` : ''}</option>)}
+          <option value="">{t('plansChoose')}</option>{recipients.data.map((recipient) => <option key={recipient.id} value={recipient.id} dir="auto">{recipient.name}{recipient.lifecycleStatus === 'ARCHIVED' ? ` — ${t('recipientArchived')}` : recipient.lifecycleStatus === 'LEGACY_INACTIVE_REVIEW' ? ` — ${t('recipientNeedsReview')}` : ''}</option>)}
         </select>
       </div>
       {recipientId && !validRecipient && <p id="plans-recipient-error" className="note-error" role="alert">{t('plansInvalidRecipient')}</p>}

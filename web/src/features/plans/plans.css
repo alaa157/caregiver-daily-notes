@@ -12,9 +12,11 @@
 .plan-status { display: inline-block; font-size: .87rem; font-weight: 600; color: #315534; background: #f1f6ec; border: 1px solid #a9c29c; border-radius: 6px; padding: .25rem .65rem; overflow-wrap: anywhere; }
 .plan-status--suggested { color: #66502c; background: #fcf7e9; border-color: #d9c492; }
 .plan-content { white-space: pre-wrap; overflow-wrap: anywhere; unicode-bidi: plaintext; line-height: 1.8; }
-.plan-list { list-style: none; padding: 0; margin-block: 1.25rem; }
+.plan-list { min-width: 0; list-style: none; padding: 0; margin-block: 1.25rem; }
+.plan-list > li { min-width: 0; overflow-wrap: anywhere; }
 .plan-references { display: grid; gap: 1rem; }
 .plan-references dt { font-weight: 600; font-size: .88rem; color: #59675d; }
+.plan-references > div, .plan-references dd { min-width: 0; }
 .plan-references dd { margin: .4rem 0 0; overflow-wrap: anywhere; }
 .plan-references ul { padding-inline-start: 1.25rem; }
 .plan-references a { color: #315534; text-decoration: underline; text-underline-offset: .2em; }

@@ -37,7 +37,7 @@ export function PlanCard({ plan, historyIds }: { plan: CarePlan; historyIds: Rea
       <h3 id={headingId}>{t('plansVersion')} {number}</h3>
       <PlanStatus status={plan.status} />
     </header>
-    <p className="note-hint">{t('plansCreated')}: <time dateTime={plan.createdAt}>{new Intl.DateTimeFormat(language === 'ar' ? 'ar-EG' : 'en', { dateStyle: 'medium', timeStyle: 'short' }).format(new Date(plan.createdAt))}</time></p>
+    <p className="note-hint">{t('plansCreated')}: <time dateTime={plan.createdAt}><bdi>{new Intl.DateTimeFormat(language === 'ar' ? 'ar-EG' : 'en', { dateStyle: 'medium', timeStyle: 'short' }).format(new Date(plan.createdAt))}</bdi></time></p>
     {plan.structuredContent ? <div className="plan-structured">
       <h4>{t('plansActions')}</h4><ol>{plan.structuredContent.changes.map((change, index) => <li key={index}>
         <strong>{t(actionLabel(change.action))}</strong><dl className="plan-references">{Object.entries(change.params).map(([key, value]) => <div key={key}><dt>{t(parameterLabel(key))}</dt><dd dir="auto" className="note-verbatim">{value}</dd></div>)}</dl>
