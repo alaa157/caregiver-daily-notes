@@ -10,7 +10,7 @@ import { ApiProvider } from '../lib/api';
 import { observationFields } from '../api/notes';
 import { jsonResponse, testToken } from '../tests/authFixtures';
 import { recipientFixture } from '../tests/recipientFixtures';
-import { noteFixture } from '../tests/noteFixtures';
+import { noteDetailFixture, noteFixture, noteListFixture } from '../tests/noteFixtures';
 
 function renderRoute(path: string) {
   return render(<I18nProvider><ApiProvider config={{ apiBaseUrl: '' }}><AuthProvider><MemoryRouter initialEntries={[path]}><App /></MemoryRouter></AuthProvider></ApiProvider></I18nProvider>);
@@ -56,7 +56,7 @@ function correctionHistoryFixture() {
       updatedAt: noteFixture.createdAt,
     }];
   }));
-  return { originalNote: noteFixture, events: [], effectiveObservations };
+  return { originalNote: noteListFixture, events: [], effectiveObservations };
 }
 
 describe('application foundation', () => {
@@ -270,7 +270,7 @@ describe('application foundation', () => {
       if (path.endsWith('/addenda')) return Promise.resolve(jsonResponse([]));
       if (path.endsWith('/corrections')) return Promise.resolve(jsonResponse(correctionHistory));
       if (path.startsWith('/api/notes?')) return Promise.resolve(jsonResponse({ content: [], number: 0, size: 20, totalElements: 0, totalPages: 0 }));
-      return Promise.resolve(jsonResponse(noteFixture));
+      return Promise.resolve(jsonResponse(noteDetailFixture));
     });
     renderAuthenticatedRoute(`/app/notes/${noteFixture.id}`, fetcher);
 
@@ -286,7 +286,7 @@ describe('application foundation', () => {
       if (path.startsWith('/api/recipients/')) return Promise.resolve(jsonResponse(recipientFixture));
       if (path.endsWith('/addenda')) return Promise.resolve(jsonResponse([]));
       if (path.endsWith('/corrections')) return Promise.resolve(jsonResponse(correctionHistoryFixture()));
-      return Promise.resolve(jsonResponse(noteFixture));
+      return Promise.resolve(jsonResponse(noteDetailFixture));
     });
     renderAuthenticatedRoute(`/app/notes/${noteFixture.id}/addenda/new`, fetcher);
 
@@ -353,7 +353,7 @@ describe('application foundation', () => {
       if (path.endsWith('/addenda')) return Promise.resolve(jsonResponse([]));
       if (path.endsWith('/corrections')) return Promise.resolve(jsonResponse(correctionHistory));
       if (path.startsWith('/api/notes?')) return Promise.resolve(jsonResponse(historyPage));
-      return Promise.resolve(jsonResponse(noteFixture));
+      return Promise.resolve(jsonResponse(noteDetailFixture));
     });
     renderAuthenticatedRoute(`/app/notes/${noteFixture.id}`, fetcher);
     expect(await screen.findByRole('heading', { name: 'Original note — read only' })).toBeInTheDocument();

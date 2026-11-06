@@ -29,8 +29,12 @@ export interface LegacyObservations {
   freeText: string | null;
 }
 export interface DailyNote extends LegacyObservations {
-  id: string; recipientId: string; date: string; addendumCount: number; correctionCount: number; createdAt: string;
+  id: string; recipientId: string; date: string; addendumCount: number; createdAt: string;
   observations: NoteObservations;
+  correctionCount?: number;
+}
+export interface NoteListItem extends DailyNote {
+  correctionCount: number;
 }
 export interface NoteAddendum extends LegacyObservations {
   id: string; noteId: string; createdAt: string; observations: NoteObservations;
@@ -66,7 +70,7 @@ export interface NotesHistoryQuery {
   from: string; to: string; recipientId?: string; page?: number; size?: number;
 }
 export interface NotesHistoryPage {
-  content: DailyNote[]; number: number; size: number;
+  content: NoteListItem[]; number: number; size: number;
   totalElements: number; totalPages: number; first: boolean; last: boolean;
 }
 
@@ -142,16 +146,36 @@ function readIdentity(item: Record<string, unknown>) {
 }
 function readNote(value: unknown): DailyNote {
   const item = object(value);
-  const correctionCount = item.correctionCount;
   if (typeof item.recipientId !== 'string' || !isRecipientId(item.recipientId)
     || typeof item.date !== 'string' || !isNoteDate(item.date)
-    || typeof item.addendumCount !== 'number' || !Number.isSafeInteger(item.addendumCount) || item.addendumCount < 0
-    || typeof correctionCount !== 'number' || !Number.isSafeInteger(correctionCount) || correctionCount < 0) throw new Error('Invalid note response.');
+    || typeof item.addendumCount !== 'number' || !Number.isSafeInteger(item.addendumCount) || item.addendumCount < 0) {
+    throw new Error('Invalid note response.');
+  }
   const legacy = readLegacyObservations(item);
   return {
     ...readIdentity(item), ...legacy, recipientId: item.recipientId, date: item.date,
-    addendumCount: item.addendumCount, correctionCount, observations: readStructuredObservations(item, legacy),
+    addendumCount: item.addendumCount, observations: readStructuredObservations(item, legacy),
   };
+}
+function readNoteListItem(value: unknown): NoteListItem {
+  const item = object(value);
+  const note = readNote(item);
+  if (typeof item.correctionCount !== 'number' || !Number.isSafeInteger(item.correctionCount) || item.correctionCount < 0) {
+    throw new Error('Invalid note response.');
+  }
+  return { ...note, correctionCount: item.correctionCount };
+}
+function readNoteCreated(value: unknown): NoteListItem {
+  return readNoteListItem(value);
+}
+function readNoteDetail(value: unknown): DailyNote {
+  const item = object(value);
+  const note = readNote(item);
+  if (!Array.isArray(item.addenda) || item.addenda.length !== note.addendumCount) {
+    throw new Error('Invalid note detail response.');
+  }
+  item.addenda.forEach((addendum) => readAddendum(addendum, note.id));
+  return note;
 }
 function readAddendum(value: unknown, noteId: string): NoteAddendum {
   const item = object(value);
@@ -255,7 +279,7 @@ function expectedEffective(
 
 function readCorrectionHistory(value: unknown, noteId: string): CorrectionHistory {
   const item = object(value);
-  const originalNote = readNote(item.originalNote);
+  const originalNote = readNoteListItem(item.originalNote);
   if (originalNote.id !== noteId || !Array.isArray(item.events) || !item.effectiveObservations
     || typeof item.effectiveObservations !== 'object' || Array.isArray(item.effectiveObservations)) {
     throw new Error('Invalid correction history response.');
@@ -319,7 +343,7 @@ export function createNotesApi(client: ApiClient) {
         || item.totalPages !== Math.ceil(item.totalElements / size)
         || item.first !== (page === 0) || item.last !== (page >= (item.totalPages as number) - 1)
         || item.content.length > size) throw new Error('Invalid history response.');
-      const content = item.content.map(readNote);
+      const content = item.content.map(readNoteListItem);
       if (new Set(content.map((note) => note.id)).size !== content.length
         || content.some((note) => note.date < from || note.date > to || (recipientId && note.recipientId !== recipientId))
         || (content.length > 0 && page * size + content.length > item.totalElements)) throw new Error('Invalid history response.');
@@ -327,13 +351,13 @@ export function createNotesApi(client: ApiClient) {
         totalPages: item.totalPages as number, first: item.first as boolean, last: item.last as boolean };
     },
     async get(id: string, signal?: AbortSignal) {
-      const result = readNote(await client.request({ path: notePath(id), signal }));
+      const result = readNoteDetail(await client.request({ path: notePath(id), signal }));
       if (result.id !== id) throw new Error('Invalid note response.');
       return result;
     },
     async find(recipientId: string, date: string, signal?: AbortSignal) {
       if (!isRecipientId(recipientId) || !isNoteDate(date)) throw new ApiError(400, null);
-      const result = readNote(await client.request({ path: `/api/notes/by-recipient/${recipientId}?date=${encodeURIComponent(date)}`, signal }));
+      const result = readNoteDetail(await client.request({ path: `/api/notes/by-recipient/${recipientId}?date=${encodeURIComponent(date)}`, signal }));
       if (result.recipientId !== recipientId || result.date !== date) throw new Error('Invalid note response.');
       return result;
     },
@@ -353,7 +377,7 @@ export function createNotesApi(client: ApiClient) {
           value: observation.state === 'RECORDED' ? observation.value : null,
         }];
       })) as ObservationSet;
-      const result = readNote(await client.request({ path: '/api/notes', method: 'POST', signal,
+      const result = readNoteCreated(await client.request({ path: '/api/notes', method: 'POST', signal,
         headers: writeHeaders(key), body: {
           recipientId: input.recipientId, date: input.date, observations,
           medicationVerification: input.medicationVerification,

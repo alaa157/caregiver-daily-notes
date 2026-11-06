@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useRef, useState, type ReactNode } from 'react';
 import { Link, useLocation, useNavigate, useParams } from 'react-router-dom';
-import { noteErrorMessage, isNoteDate, type AddendumInput, type CreateNoteInput, type FieldCorrection } from '../../api/notes';
+import { noteErrorMessage, isNoteDate, type AddendumInput, type CorrectionEvent, type CreateNoteInput, type FieldCorrection, type NoteAddendum } from '../../api/notes';
 import { isRecipientId } from '../../api/recipients';
 import { Button, ButtonLink } from '../../components/Button';
 import { EmptyState, ErrorState, LoadingState } from '../../components/Feedback';
@@ -54,6 +54,27 @@ export function CreateNotePage() {
   </NotesLayout>;
 }
 
+type TimelineEntry =
+  | { kind: 'addendum'; id: string; createdAt: string; entry: NoteAddendum }
+  | { kind: 'correction'; id: string; createdAt: string; sequenceNo: number; event: CorrectionEvent };
+
+function orderTimeline(addenda: NoteAddendum[], events: CorrectionEvent[]): TimelineEntry[] {
+  const orderedAddenda = [...addenda].sort((left, right) => Date.parse(left.createdAt) - Date.parse(right.createdAt)
+    || (left.id < right.id ? -1 : left.id > right.id ? 1 : 0));
+  const timeline: TimelineEntry[] = [
+    ...orderedAddenda.map((entry) => ({ kind: 'addendum' as const, id: entry.id, createdAt: entry.createdAt, entry })),
+    ...events.map((event) => ({
+      kind: 'correction' as const, id: event.id, createdAt: event.createdAt, sequenceNo: event.sequenceNo, event,
+    })),
+  ];
+  return timeline.sort((left, right) => Date.parse(left.createdAt) - Date.parse(right.createdAt)
+    || (left.kind === 'correction' && right.kind === 'correction'
+      ? left.sequenceNo - right.sequenceNo
+      : left.kind !== right.kind ? (left.kind === 'correction' ? -1 : 1)
+        : left.kind === 'addendum' && right.kind === 'addendum'
+          ? (left.id < right.id ? -1 : left.id > right.id ? 1 : 0)
+          : 0));
+}
 function NoteChangesTimeline({
   id, recipientActive, lifecycleStatus, editing, onEdit, onCancel, onSaved, date,
 }: {
@@ -72,18 +93,11 @@ function NoteChangesTimeline({
   const loadCorrections = useCallback((signal: AbortSignal) => api.notes.correctionHistory(id, signal), [api, id]);
   const { state: addendaState, reload: reloadAddenda } = useNoteResource(loadAddenda);
   const { state: correctionState, reload: reloadCorrections } = useNoteResource(loadCorrections);
-  const addenda = addendaState.status === 'ready'
-    ? [...addendaState.data].sort((left, right) => Date.parse(left.createdAt) - Date.parse(right.createdAt)
-      || (left.id < right.id ? -1 : left.id > right.id ? 1 : 0))
-    : [];
+  const addenda = addendaState.status === 'ready' ? addendaState.data : [];
   const events = correctionState.status === 'ready' ? correctionState.data.events : [];
-  const addendumNumber = new Map(addenda.map((entry, index) => [entry.id, index + 1]));
-  const timeline = [
-    ...addenda.map((entry) => ({ kind: 'addendum' as const, id: entry.id, createdAt: entry.createdAt, entry })),
-    ...events.map((event) => ({ kind: 'correction' as const, id: event.id, createdAt: event.createdAt, event })),
-  ].sort((left, right) => Date.parse(left.createdAt) - Date.parse(right.createdAt)
-    || (left.kind === right.kind ? 0 : left.kind === 'correction' ? -1 : 1)
-    || (left.id < right.id ? -1 : left.id > right.id ? 1 : 0));
+  const timeline = orderTimeline(addenda, events);
+  const addendumNumber = new Map(timeline.filter((item): item is Extract<TimelineEntry, { kind: 'addendum' }> => item.kind === 'addendum')
+    .map((item, index) => [item.id, index + 1]));
   const titleId = `note-changes-title-${id}`;
 
   return <section className="note-surface note-structured-corrections" aria-labelledby={titleId}>

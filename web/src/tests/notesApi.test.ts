@@ -5,7 +5,9 @@ import { ApiError, createApiClient } from '../lib/api';
 import { jsonResponse } from './authFixtures';
 import {
   addendumFixture,
+  noteDetailFixture,
   noteFixture,
+  noteListFixture,
   noteObservations,
   structuredObservations,
 } from './noteFixtures';
@@ -38,7 +40,7 @@ function correctionResponse() {
   effectiveObservations.mood = event.effectiveAfter;
   effectiveObservations.painScore = effective('RECORDED', 0);
   effectiveObservations.fallReported = effective('RECORDED', false);
-  const originalNote = { ...noteFixture, correctionCount: 1 };
+  const originalNote = { ...noteListFixture, correctionCount: 1 };
   return { originalNote, events: [event], effectiveObservations };
 }
 function replaceMoodState(
@@ -54,7 +56,7 @@ function setup(body: unknown, status = 200) {
 }
 describe('daily-note API and explicit observation values', () => {
   it('saves the structured observation envelope with an idempotency key and no ownership fields', async () => {
-    const { api, fetcher } = setup({ ...noteFixture, caregiverId: 'private' }, 201);
+    const { api, fetcher } = setup(noteListFixture, 201);
     const input = {
       recipientId: noteFixture.recipientId,
       date: noteFixture.date,
@@ -66,7 +68,7 @@ describe('daily-note API and explicit observation values', () => {
       caregiverId: 'forged',
     };
     const result = await api.create(input, 'save-key');
-    expect(result).toEqual(noteFixture);
+    expect(result).toEqual(noteListFixture);
     const [path, init] = fetcher.mock.calls[0];
     expect(path).toBe('/api/notes');
     expect(init.method).toBe('POST');
@@ -102,15 +104,38 @@ describe('daily-note API and explicit observation values', () => {
     });
     expect(fetcher.mock.calls[0][1].method).toBe('POST');
   });
-  it('reads structured notes/addenda and opens an exact recipient/date using existing endpoints', async () => {
-    const { api, fetcher } = setup(noteFixture);
-    const controller = new AbortController();
-    expect(await api.get(noteFixture.id, controller.signal)).toEqual(noteFixture);
-    expect(fetcher.mock.calls[0][1].signal).toBe(controller.signal);
-    await api.find(noteFixture.recipientId, noteFixture.date);
-    expect(fetcher.mock.calls[1][0]).toBe(`/api/notes/by-recipient/${noteFixture.recipientId}?date=${noteFixture.date}`);
-    fetcher.mockResolvedValue(jsonResponse([addendumFixture]));
-    expect(await api.addenda(noteFixture.id)).toEqual([addendumFixture]);
+  it('parses creation, detail, history, and correction-history contracts separately', async () => {
+    const creation = setup(noteListFixture, 201);
+    expect(await creation.api.create({
+      recipientId: noteFixture.recipientId, date: noteFixture.date, observations: structuredObservations,
+      medicationVerification: 'UNVERIFIED',
+    }, 'create-contract-key')).toEqual(noteListFixture);
+
+    const detail = setup(noteDetailFixture);
+    expect(await detail.api.get(noteFixture.id)).toEqual(noteFixture);
+    expect(detail.fetcher.mock.calls[0][0]).toBe(`/api/notes/${noteFixture.id}`);
+
+    const history = setup({
+      content: [noteListFixture], number: 0, size: 20, totalElements: 1, totalPages: 1, first: true, last: true,
+    });
+    expect((await history.api.history({ from: noteFixture.date, to: noteFixture.date })).content)
+      .toEqual([noteListFixture]);
+
+    const correctionHistory = setup(correctionResponse());
+    expect((await correctionHistory.api.correctionHistory(noteFixture.id)).events).toHaveLength(1);
+  });
+  it('requires correctionCount on creation and history, but not on note detail', async () => {
+    const input = {
+      recipientId: noteFixture.recipientId, date: noteFixture.date, observations: structuredObservations,
+      medicationVerification: 'UNVERIFIED' as const,
+    };
+    await expect(setup(noteFixture, 201).api.create(input, 'missing-create-count')).rejects.toThrow('Invalid note response');
+    await expect(setup({
+      content: [{ ...noteListFixture, correctionCount: undefined }], number: 0, size: 20,
+      totalElements: 1, totalPages: 1, first: true, last: true,
+    }).api.history({ from: noteFixture.date, to: noteFixture.date })).rejects.toThrow('Invalid note response');
+    await expect(setup({ ...noteDetailFixture, correctionCount: undefined }).api.get(noteFixture.id))
+      .resolves.toEqual(noteFixture);
   });
   it('posts typed corrections without encoding omission as null and validates event replay', async () => {
     const response = correctionResponse();
@@ -140,24 +165,26 @@ describe('daily-note API and explicit observation values', () => {
     expect(fetcher).not.toHaveBeenCalled();
   });
   it.each([
-    { ...noteFixture, painScore: 11 },
-    { ...noteFixture, medicationStatus: 'YES' },
-    { ...noteFixture, fallReported: 'false' },
-    { ...noteFixture, date: '2026-02-30' },
-    { ...noteFixture, createdAt: null },
-    { ...noteFixture, addendumCount: -1 },
-    { ...noteFixture, observations: { ...structuredObservations, mood: { state: 'RECORDED' } } },
-    { ...noteFixture, observations: { ...structuredObservations, painScore: { state: 'RECORDED', value: 11 } } },
-    { ...noteFixture, observations: { ...structuredObservations, fallReported: { state: 'UNKNOWN', value: false } } },
-    { ...noteFixture, observations: { ...structuredObservations, medicationVerification: 'MAYBE' } },
+    { ...noteDetailFixture, painScore: 11 },
+    { ...noteDetailFixture, medicationStatus: 'YES' },
+    { ...noteDetailFixture, fallReported: 'false' },
+    { ...noteDetailFixture, date: '2026-02-30' },
+    { ...noteDetailFixture, createdAt: null },
+    { ...noteDetailFixture, addendumCount: -1 },
+    { ...noteDetailFixture, observations: { ...structuredObservations, mood: { state: 'RECORDED' } } },
+    { ...noteDetailFixture, observations: { ...structuredObservations, painScore: { state: 'RECORDED', value: 11 } } },
+    { ...noteDetailFixture, observations: { ...structuredObservations, fallReported: { state: 'UNKNOWN', value: false } } },
+    { ...noteDetailFixture, observations: { ...structuredObservations, medicationVerification: 'MAYBE' } },
+    { ...noteDetailFixture, addenda: [addendumFixture] },
   ])('rejects malformed state or value instead of asserting an observation: %j', async (body) => {
     const { api } = setup(body);
-    await expect(api.get(noteFixture.id)).rejects.toThrow('Invalid note response');
+    await expect(api.get(noteFixture.id)).rejects.toThrow(/Invalid note (detail )?response/);
   });
   it('conservatively classifies a legacy flat response when the state envelope is absent', async () => {
-    const { api } = setup(Object.fromEntries(
-      Object.entries(noteFixture).filter(([key]) => key !== 'observations'),
-    ));
+    const { api } = setup({
+      ...noteDetailFixture,
+      ...Object.fromEntries(Object.entries(noteDetailFixture).filter(([key]) => key !== 'observations')),
+    });
     const result = await api.get(noteFixture.id);
     expect(result.observations.mood.state).toBe('RECORDED');
     expect(result.observations.appetite.state).toBe('RECORDED');
@@ -169,7 +196,7 @@ describe('daily-note API and explicit observation values', () => {
     await expect(api.append(noteFixture.id, { observations: { freeText: { state: 'RECORDED', value: 'x' } } }, 'bad\nkey')).rejects.toThrow('Invalid save key');
     expect(fetcher).not.toHaveBeenCalled();
     fetcher.mockResolvedValue(jsonResponse({ ...noteFixture, id: addendumFixture.id }));
-    await expect(api.get(noteFixture.id)).rejects.toThrow('Invalid note response');
+    await expect(api.get(noteFixture.id)).rejects.toThrow(/Invalid note (detail )?response/);
     fetcher.mockResolvedValue(jsonResponse([{ ...addendumFixture, noteId: addendumFixture.id }]));
     await expect(api.addenda(noteFixture.id)).rejects.toThrow('Invalid note response');
   });
@@ -202,7 +229,7 @@ describe('daily-note API and explicit observation values', () => {
   });
 
   it('serializes every non-recorded selectable state as an explicit null value', async () => {
-    const { api, fetcher } = setup(noteFixture, 201);
+    const { api, fetcher } = setup(noteListFixture, 201);
     await api.create({
       recipientId: noteFixture.recipientId,
       date: noteFixture.date,

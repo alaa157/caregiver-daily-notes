@@ -89,20 +89,24 @@ class NoteControllerTest {
         .andExpect(jsonPath("$.medicationVerified").value(true))
         .andExpect(jsonPath("$.painScore").value(3))
         .andExpect(jsonPath("$.fallReported").value(false))
-        .andExpect(jsonPath("$.addendumCount").value(0))
+        .andExpect(jsonPath("$.correctionCount").value(0))
         .andReturn();
     String id = mapper.readTree(created.getResponse().getContentAsByteArray()).get("id").asText();
 
     mvc.perform(get(NOTES + "/" + id).header("Authorization", bearer(owner.token())))
-        .andExpect(status().isOk())
         .andExpect(jsonPath("$.id").value(id))
-        .andExpect(jsonPath("$.freeText").value("Evening note"));
+        .andExpect(jsonPath("$.freeText").value("Evening note"))
+        .andExpect(jsonPath("$.addenda").isArray())
+        .andExpect(jsonPath("$.addendumCount").value(0))
+        .andExpect(jsonPath("$.correctionCount").doesNotExist());
 
     mvc.perform(get(NOTES + "/by-recipient/" + recipientId)
             .param("date", "2026-10-01")
             .header("Authorization", bearer(owner.token())))
         .andExpect(status().isOk())
-        .andExpect(jsonPath("$.id").value(id));
+        .andExpect(jsonPath("$.id").value(id))
+        .andExpect(jsonPath("$.addenda").isArray())
+        .andExpect(jsonPath("$.correctionCount").doesNotExist());
   }
 
   @Test
@@ -448,9 +452,11 @@ class NoteControllerTest {
     assertThat(content).hasSize(4);
     assertThat(content.get(0).get("date").asText()).isEqualTo("2026-10-10");
     assertThat(content.get(0).get("addendumCount").asInt()).isEqualTo(1);
+    assertThat(content.get(0).get("correctionCount").asLong()).isZero();
     assertThat(content.get(0).has("addenda")).isFalse();
     assertThat(content.get(3).get("date").asText()).isEqualTo("2026-10-01");
     assertThat(content.get(3).get("addendumCount").asInt()).isZero();
+    assertThat(content.get(3).get("correctionCount").asLong()).isZero();
 
     // Recipient filter.
     mvc.perform(get(NOTES)
@@ -593,6 +599,7 @@ class NoteControllerTest {
             .header("Authorization", bearer(owner.token())).header("Idempotency-Key", "typed-correction-1")
             .contentType(MediaType.APPLICATION_JSON).content(body))
         .andExpect(status().isCreated()).andExpect(jsonPath("$.originalNote.id").value(noteId))
+        .andExpect(jsonPath("$.originalNote.correctionCount").value(6))
         .andExpect(jsonPath("$.events.length()").value(6))
         .andExpect(jsonPath("$.events[0].sequenceNo").value(1))
         .andExpect(jsonPath("$.events[0].operation").value("SET"))
@@ -625,7 +632,8 @@ class NoteControllerTest {
     assertThat(jdbcTemplate.queryForObject("select count(*) from note_correction_batches", Integer.class)).isEqualTo(1);
 
     mvc.perform(get(NOTES + "/" + noteId + "/corrections").header("Authorization", bearer(owner.token())))
-        .andExpect(status().isOk()).andExpect(jsonPath("$.events.length()").value(6))
+        .andExpect(status().isOk()).andExpect(jsonPath("$.originalNote.correctionCount").value(6))
+        .andExpect(jsonPath("$.events.length()").value(6))
         .andExpect(jsonPath("$.events[5].sequenceNo").value(6));
     mvc.perform(get(NOTES + "/" + noteId).header("Authorization", bearer(owner.token())))
         .andExpect(status().isOk()).andExpect(jsonPath("$.mood").value("good"))
