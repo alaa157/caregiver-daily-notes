@@ -696,6 +696,58 @@ class PlanControllerTest {
   }
 
   @Test
+  void rejectsAcceptanceOfDismissedAndArchivedVersions() throws Exception {
+    // Test H: terminal versions cannot be accepted; history is unchanged.
+    TestCaregiver owner = register("plan-terminal-accept@example.com");
+    String recipientId = createRecipient(owner.token());
+
+    JsonNode dismissed = suggest(owner.token(), recipientId, "Dismissed terminal plan", null);
+    String dismissedId = dismissed.get("id").asText();
+    mvc.perform(post(path(recipientId, dismissedId, "dismiss"))
+            .header("Authorization", bearer(owner.token())))
+        .andExpect(status().isOk())
+        .andExpect(jsonPath("$.status").value("DISMISSED"));
+
+    JsonNode first = suggest(owner.token(), recipientId, "First archived plan", null);
+    String firstId = first.get("id").asText();
+    mvc.perform(post(path(recipientId, firstId, "accept"))
+            .header("Authorization", bearer(owner.token())))
+        .andExpect(status().isOk());
+    JsonNode second = suggest(owner.token(), recipientId, "Second accepted plan", null);
+    mvc.perform(post(path(recipientId, second.get("id").asText(), "accept"))
+            .header("Authorization", bearer(owner.token())))
+        .andExpect(status().isOk());
+    // first is now ARCHIVED after second was accepted.
+
+    JsonNode before = mapper.readTree(mvc.perform(get(PLANS + recipientId + "/plans/history")
+            .header("Authorization", bearer(owner.token())))
+        .andExpect(status().isOk())
+        .andReturn().getResponse().getContentAsString());
+    assertThat(before.size()).isEqualTo(3);
+    assertThat(before.get(1).get("id").asText()).isEqualTo(firstId);
+    assertThat(before.get(1).get("status").asText()).isEqualTo("ARCHIVED");
+
+    mvc.perform(post(path(recipientId, dismissedId, "accept"))
+            .header("Authorization", bearer(owner.token())))
+        .andExpect(status().isConflict())
+        .andExpect(jsonPath("$.code").value("INVALID_PLAN_TRANSITION"));
+    mvc.perform(post(path(recipientId, firstId, "accept"))
+            .header("Authorization", bearer(owner.token())))
+        .andExpect(status().isConflict())
+        .andExpect(jsonPath("$.code").value("INVALID_PLAN_TRANSITION"));
+
+    JsonNode after = mapper.readTree(mvc.perform(get(PLANS + recipientId + "/plans/history")
+            .header("Authorization", bearer(owner.token())))
+        .andExpect(status().isOk())
+        .andReturn().getResponse().getContentAsString());
+    assertThat(after).isEqualTo(before);
+    assertThat(plans.findById(UUID.fromString(dismissedId)).orElseThrow().getStatus())
+        .isEqualTo(PlanStatus.DISMISSED);
+    assertThat(plans.findById(UUID.fromString(firstId)).orElseThrow().getStatus())
+        .isEqualTo(PlanStatus.ARCHIVED);
+  }
+
+  @Test
   void crossCaregiverCannotReadOrChangeAnotherCaregiversPlans() throws Exception {
     TestCaregiver owner = register("plan-owner2@example.com");
     TestCaregiver other = register("plan-other@example.com");

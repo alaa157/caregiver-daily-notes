@@ -460,4 +460,136 @@ describe('care-plan review and authoritative backend decisions', () => {
     expect(within(suggestions()).getByText('reported-schedule')).toBeInTheDocument();
     expect(screen.getByRole('button', { name: 'Confirm edit and acceptance' })).toBeDisabled();
   });
+
+  it('requires confirmation before accepting a suggested version', async () => {
+    const fetcher = serve(); renderPlans(fetcher); await loaded(); await begin();
+    // Test A: confirmation UI appears before any POST, confirm sends the exact endpoint.
+    expect(screen.getByRole('group', { name: 'Confirm acceptance' })).toBeInTheDocument();
+    expect(writes(fetcher)).toHaveLength(0);
+    await userEvent.click(screen.getByRole('button', { name: 'Confirm acceptance' }));
+    await screen.findByText(/The server accepted the suggestion/);
+    expect(writes(fetcher)).toHaveLength(1);
+    expect(writes(fetcher)[0][0]).toBe(`/api/recipients/${recipient.id}/plans/${suggestion.id}/accept`);
+    expect(writes(fetcher)[0][1].method).toBe('POST');
+    expect(writes(fetcher)[0][1].body).toBeUndefined();
+  });
+
+  it('does not show lifecycle actions on historical versions', async () => {
+    // Test B: ARCHIVED and DISMISSED history entries are strictly read-only.
+    const archived: CarePlan = { ...active, status: 'ARCHIVED' };
+    const dismissed: CarePlan = { ...suggestion, status: 'DISMISSED', editable: false };
+    renderPlans(serve({ active: null, history: [dismissed, archived] })); await loaded();
+    const history = screen.getByRole('region', { name: 'Plan history' });
+    const entries = [...history.querySelectorAll('details.plan-history-version')];
+    expect(entries).toHaveLength(2);
+    for (const entry of entries) {
+      expect(within(entry as HTMLElement).queryByRole('button', { name: 'Accept suggestion' })).not.toBeInTheDocument();
+      expect(within(entry as HTMLElement).queryByRole('button', { name: 'Dismiss suggestion' })).not.toBeInTheDocument();
+      expect(within(entry as HTMLElement).queryByRole('button', { name: 'Edit and accept' })).not.toBeInTheDocument();
+      expect(within(entry as HTMLElement).queryByRole('textbox')).not.toBeInTheDocument();
+    }
+  });
+
+  it('shows version status and created time for every historical plan', async () => {
+    // Test C: every history entry summary carries version, status and created timestamp.
+    const archived: CarePlan = { ...active, status: 'ARCHIVED' };
+    const dismissed: CarePlan = { ...suggestion, status: 'DISMISSED', editable: false };
+    renderPlans(serve({ active: null, history: [dismissed, archived] })); await loaded();
+    const expectations: Array<[CarePlan, string, string]> = [
+      [dismissed, 'Version 2', 'Dismissed'],
+      [archived, 'Version 1', 'Archived'],
+    ];
+    for (const [plan, versionText, statusText] of expectations) {
+      const entry = document.getElementById(`plan-history-${plan.id}`)!;
+      expect(entry).not.toBeNull();
+      const summary = entry.querySelector('summary')!;
+      expect(summary).toHaveTextContent(versionText);
+      expect(summary).toHaveTextContent(statusText);
+      const time = summary.querySelector('time');
+      expect(time).not.toBeNull();
+      expect(time).toHaveAttribute('dateTime', plan.createdAt);
+      expect(time?.textContent).toMatch(/2026/);
+      // The expanded card preserves the same timestamp and provenance rendering.
+      expect(within(entry).getAllByText(/Created:/).length).toBeGreaterThanOrEqual(2);
+    }
+  });
+
+  it('reloads active plan and history after acceptance', async () => {
+    // Test D: after confirm, GET active+history are re-run and backend state is shown.
+    const fetcher = serve(); renderPlans(fetcher); await loaded(); await begin();
+    await userEvent.click(screen.getByRole('button', { name: 'Confirm acceptance' }));
+    await screen.findByText(/The server accepted the suggestion/);
+    const current = screen.getByRole('region', { name: 'Active accepted plan' });
+    expect(within(current).getByText(/مُراجعة notes/)).toBeInTheDocument();
+    expect(fetcher.mock.calls.filter(([path]) => path.endsWith('/history'))).toHaveLength(2);
+    expect(fetcher.mock.calls.filter(([path]) => path.endsWith('/active'))).toHaveLength(2);
+    // The previous active version now appears in history as ARCHIVED.
+    const previous = document.getElementById(`plan-history-${active.id}`)!;
+    expect(previous).toHaveTextContent('Archived');
+    const acceptedEntry = document.getElementById(`plan-history-${suggestion.id}`)!;
+    expect(acceptedEntry).toHaveTextContent('Accepted');
+  });
+
+  it('requires confirmation before dismissing a suggested version', async () => {
+    // Test E: dismiss mirrors accept — no POST before confirm, exact endpoint after.
+    const fetcher = serve(); renderPlans(fetcher); await loaded(); await begin('Dismiss suggestion');
+    expect(screen.getByRole('group', { name: 'Confirm dismissal' })).toBeInTheDocument();
+    expect(writes(fetcher)).toHaveLength(0);
+    await userEvent.click(screen.getByRole('button', { name: 'Confirm dismissal' }));
+    await screen.findByText(/The server dismissed the suggestion/);
+    expect(writes(fetcher)).toHaveLength(1);
+    expect(writes(fetcher)[0][0]).toBe(`/api/recipients/${recipient.id}/plans/${suggestion.id}/dismiss`);
+    expect(writes(fetcher)[0][1].method).toBe('POST');
+    expect(writes(fetcher)[0][1].body).toBeUndefined();
+    expect(within(suggestions()).queryByRole('button', { name: 'Accept suggestion' })).not.toBeInTheDocument();
+    expect(document.getElementById(`plan-history-${suggestion.id}`)).toHaveTextContent('Dismissed');
+  });
+
+  it('shows Edit only as enabled for a suggested editable plan', async () => {
+    // Test F: Edit available only when editable === true and status === SUGGESTED.
+    const archivedPlan: CarePlan = { ...active, id: 'f1111111-1111-4111-8111-111111111111', version: 4, status: 'ARCHIVED' };
+    const dismissedPlan: CarePlan = { ...suggestion, id: 'f2222222-2222-4222-8222-222222222222', version: 5, status: 'DISMISSED', editable: false };
+    const fetcher = serve({
+      active: protectedActive,
+      history: [dismissedPlan, archivedPlan, legacyPlan, protectedSuggestion, protectedActive],
+    });
+    renderPlans(fetcher); await loaded();
+    const editButtons = within(suggestions()).getAllByRole('button', { name: 'Edit and accept' });
+    expect(editButtons).toHaveLength(2);
+    expect(editButtons.filter((button) => !(button as HTMLButtonElement).disabled)).toHaveLength(1);
+    expect(editButtons.filter((button) => (button as HTMLButtonElement).disabled)).toHaveLength(1);
+    // The single enabled Edit belongs to the editable protected suggestion (withinDays = 7).
+    const enabled = editButtons.find((button) => !(button as HTMLButtonElement).disabled)!;
+    expect(enabled.closest('li')).toHaveTextContent('7');
+    // Accepted (active) and every historical entry expose no Edit at all.
+    expect(within(screen.getByRole('region', { name: 'Active accepted plan' })).queryByRole('button', { name: 'Edit and accept' })).not.toBeInTheDocument();
+    const history = screen.getByRole('region', { name: 'Plan history' });
+    for (const entry of history.querySelectorAll('details.plan-history-version')) {
+      expect(within(entry as HTMLElement).queryByRole('button', { name: 'Edit and accept' })).not.toBeInTheDocument();
+      expect(within(entry as HTMLElement).queryByRole('button', { name: 'Accept suggestion' })).not.toBeInTheDocument();
+      expect(within(entry as HTMLElement).queryByRole('button', { name: 'Dismiss suggestion' })).not.toBeInTheDocument();
+    }
+  });
+
+  it('reloads active plan and history after edit-and-accept', async () => {
+    // Test G: edited version becomes active; source version remains in history.
+    const fetcher = serve({ active: protectedActive, history: [protectedSuggestion, protectedActive] });
+    renderPlans(fetcher); await loaded();
+    await userEvent.click(within(suggestions()).getByRole('button', { name: 'Edit and accept' }));
+    await userEvent.clear(within(suggestions()).getByLabelText('Within days'));
+    await userEvent.type(within(suggestions()).getByLabelText('Within days'), '10');
+    await userEvent.click(screen.getByRole('button', { name: 'Review changes' }));
+    expect(writes(fetcher)).toHaveLength(0);
+    await userEvent.click(screen.getByRole('button', { name: 'Confirm edit and acceptance' }));
+    await screen.findByText(/The server saved a new edited/);
+    expect(writes(fetcher)).toHaveLength(1);
+    expect(writes(fetcher)[0][0]).toBe(`/api/recipients/${recipient.id}/plans/${protectedSuggestion.id}/edit-and-accept`);
+    expect(JSON.parse(writes(fetcher)[0][1].body)).toEqual({ expectedVersion: 2, changes: [{ index: 0, params: { withinDays: '10' } }] });
+    const current = screen.getByRole('region', { name: 'Active accepted plan' });
+    expect(within(current).getByText('Caregiver-edited version')).toBeInTheDocument();
+    expect(fetcher.mock.calls.filter(([path]) => path.endsWith('/history'))).toHaveLength(2);
+    // Source version preserved in history as ARCHIVED, new version as EDITED_AND_ACCEPTED.
+    expect(document.getElementById(`plan-history-${protectedSuggestion.id}`)).toHaveTextContent('Archived');
+    expect(document.getElementById('plan-history-f6666666-6666-4666-8666-666666666666')).toHaveTextContent('Edited and accepted');
+  });
 });

@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useRef, useState } from 'react';
+import { useEffect, useId, useMemo, useRef, useState } from 'react';
 import { useSearchParams } from 'react-router-dom';
 import { createPlansApi, planErrorMessage, type CarePlan, type CreateStructuredPlanInput, type PlanAction, type PlanEditRequest } from '../../api/plans';
 import { createNotesApi, noteErrorMessage, type NoteListItem } from '../../api/notes';
@@ -29,9 +29,10 @@ function Confirmation({ action, disabled, onCancel, onConfirm }: {
 }) {
   const { t } = useI18n();
   const cancel = useRef<HTMLButtonElement>(null);
+  const hintId = useId();
   useEffect(() => { cancel.current?.focus(); }, []);
-  return <div className="plan-confirmation" role="group" aria-label={t(action === 'accept' ? 'plansConfirmAccept' : 'plansConfirmDismiss')}>
-    <p>{t(action === 'accept' ? 'plansAcceptHint' : 'plansDismissHint')}</p>
+  return <div className="plan-confirmation" role="group" aria-label={t(action === 'accept' ? 'plansConfirmAccept' : 'plansConfirmDismiss')} aria-describedby={hintId}>
+    <p id={hintId}>{t(action === 'accept' ? 'plansAcceptHint' : 'plansDismissHint')}</p>
     <div className="note-actions">
       <button className="button button--secondary" type="button" ref={cancel} disabled={disabled} onClick={onCancel}>{t('plansCancel')}</button>
       <Button disabled={disabled} onClick={onConfirm}>{t(action === 'accept' ? 'plansConfirmAccept' : 'plansConfirmDismiss')}</Button>
@@ -246,6 +247,7 @@ function PlanWorkspace({ recipientId, onSaving }: { recipientId: string; onSavin
           : <ol className="plan-list" role="list">{snapshot.history.map((plan) => <li key={plan.id}>
             <details id={`plan-history-${plan.id}`} className="plan-history-version"><summary>
               <span>{t('plansVersion')} {new Intl.NumberFormat(language === 'ar' ? 'ar-EG' : 'en').format(plan.version)}</span> <PlanStatus status={plan.status} />
+              <span>{t('plansCreated')}: <time dateTime={plan.createdAt}>{new Intl.DateTimeFormat(language === 'ar' ? 'ar-EG' : 'en', { dateStyle: 'medium', timeStyle: 'short' }).format(new Date(plan.createdAt))}</time></span>
             </summary><PlanCard plan={plan} historyIds={historyIds} /></details>
           </li>)}</ol>}
       </section>
