@@ -20,8 +20,25 @@ export interface CreateSafetyAcknowledgementInput extends SafetyAcknowledgementP
   ruleId: string;
 }
 
+const safetyRuleIds = new Set([
+  'FALL_DETECTED',
+  'HIGH_PAIN',
+  'REPEATED_MISSED_MED',
+  'POOR_APPETITE_DAYS',
+]);
+const instantPattern = /^\d{4}-\d{2}-\d{2}T(?:[01]\d|2[0-3]):[0-5]\d:[0-5]\d(?:\.\d+)?(?:Z|[+-](?:(?:0\d|1[0-3]):[0-5]\d|14:00))$/;
+
 function isPeriodDays(value: unknown): value is SummaryRequest['periodDays'] {
   return typeof value === 'number' && summaryPeriods.some((period) => period === value);
+}
+
+function isSafetyRuleId(value: unknown): value is string {
+  return typeof value === 'string' && safetyRuleIds.has(value);
+}
+
+function isInstant(value: unknown): value is string {
+  return typeof value === 'string' && instantPattern.test(value)
+    && isNoteDate(value.slice(0, 10)) && Number.isFinite(Date.parse(value));
 }
 
 function validPeriod(period: SafetyAcknowledgementPeriod): boolean {
@@ -35,10 +52,10 @@ function object(value: unknown): value is Record<string, unknown> {
 function readAcknowledgement(value: unknown, recipientId: string): SafetyAcknowledgement {
   if (!object(value) || typeof value.id !== 'string' || !isRecipientId(value.id)
     || value.recipientId !== recipientId
-    || typeof value.ruleId !== 'string' || !value.ruleId.trim() || value.ruleId.length > 64
+    || !isSafetyRuleId(value.ruleId)
     || typeof value.periodEndInclusive !== 'string' || !isNoteDate(value.periodEndInclusive)
     || !isPeriodDays(value.periodDays)
-    || typeof value.acknowledgedAt !== 'string' || !Number.isFinite(Date.parse(value.acknowledgedAt))
+    || !isInstant(value.acknowledgedAt)
     || (value.actorCaregiverId !== undefined
       && (typeof value.actorCaregiverId !== 'string' || !isRecipientId(value.actorCaregiverId)))) {
     throw new Error('Invalid safety acknowledgement response.');
@@ -80,7 +97,7 @@ export function createSafetyAcknowledgementsApi(client: ApiClient) {
     },
     async create(recipientId: string, input: CreateSafetyAcknowledgementInput, signal?: AbortSignal): Promise<SafetyAcknowledgement> {
       const endpoint = root(recipientId);
-      if (!input || typeof input.ruleId !== 'string' || !input.ruleId.trim() || input.ruleId.length > 64 || !validPeriod(input)) {
+      if (!input || !isSafetyRuleId(input.ruleId) || !validPeriod(input)) {
         throw new ApiError(400, null);
       }
       const result = readAcknowledgement(await client.request<unknown>({ path: endpoint, method: 'POST', signal,

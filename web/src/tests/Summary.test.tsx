@@ -109,10 +109,44 @@ describe('on-demand summary and safety workflow', () => {
     expect(await within(safety).findByRole('alert')).toHaveTextContent('Review status could not be loaded');
     expect(within(safety).getByText('Fall reported in period / تم الإبلاغ عن سقوط')).toBeVisible();
     expect(within(safety).getByText('HIGH')).toBeVisible();
+    expect(within(safety).queryByRole('button', { name: 'Mark as reviewed' })).not.toBeInTheDocument();
     fail = false;
     await userEvent.click(within(safety).getByRole('button', { name: 'Retry' }));
     await waitFor(() => expect(within(safety).queryByRole('alert')).not.toBeInTheDocument());
     expect(within(safety).getByRole('button', { name: 'Mark as reviewed' })).toBeEnabled();
+  });
+  it.each([
+    ['invalid record ID', { id: 'not-a-uuid' }],
+    ['unknown rule ID', { ruleId: 'UNKNOWN_RULE' }],
+    ['unsupported period length', { periodDays: 8 }],
+    ['invalid period date', { periodEndInclusive: '2026-02-31' }],
+    ['invalid timestamp', { acknowledgedAt: 'not-an-instant' }],
+  ])('does not display malformed acknowledgement responses (%s)', async (_case, changes) => {
+    const listPath = `${acknowledgementPath}?periodEndInclusive=2026-10-24&periodDays=7`;
+    const fetcher = dataFetcher((path, init) => path === listPath && init.method === 'GET'
+      ? jsonResponse([{ ...acknowledgementFixture(), ...changes }]) : undefined);
+    show(fetcher); await generate();
+    const safety = screen.getByRole('region', { name: 'Safety information' });
+    expect(await within(safety).findByRole('alert')).toHaveTextContent('Review status could not be loaded');
+    expect(within(safety).queryByText('Reviewed')).not.toBeInTheDocument();
+    expect(within(safety).queryByRole('button', { name: 'Mark as reviewed' })).not.toBeInTheDocument();
+    expect(within(safety).getByText('Fall reported in period / تم الإبلاغ عن سقوط')).toBeVisible();
+    expect(within(safety).getByText('HIGH')).toBeVisible();
+  });
+  it.each([
+    ['different period', { periodEndInclusive: '2026-10-17' }],
+    ['different recipient', { recipientId: other.id }],
+  ])('rejects acknowledgement records for another %s', async (_case, changes) => {
+    const listPath = `${acknowledgementPath}?periodEndInclusive=2026-10-24&periodDays=7`;
+    const fetcher = dataFetcher((path, init) => path === listPath && init.method === 'GET'
+      ? jsonResponse([{ ...acknowledgementFixture(), ...changes }]) : undefined);
+    show(fetcher); await generate();
+    const safety = screen.getByRole('region', { name: 'Safety information' });
+    expect(await within(safety).findByRole('alert')).toHaveTextContent('Review status could not be loaded');
+    expect(within(safety).queryByText('Reviewed')).not.toBeInTheDocument();
+    expect(within(safety).queryByRole('button', { name: 'Mark as reviewed' })).not.toBeInTheDocument();
+    expect(within(safety).getByText('Fall reported in period / تم الإبلاغ عن سقوط')).toBeVisible();
+    expect(within(safety).getByText('HIGH')).toBeVisible();
   });
   it('provides English and Arabic acknowledgement labels', async () => {
     const fetcher = dataFetcher();

@@ -128,16 +128,15 @@ export function SummarySafety({ safety, recipientId, periodEndInclusive, periodD
         <div><strong className="summary-severity"><bdi>{signal.severity ?? t('summaryUnknownSeverity')}</bdi></strong>{' '}
           <strong><bdi>{ruleId ?? t('summaryUnknownSignal')}</bdi></strong></div>
         <p className="summary-untrusted" dir="auto">{signal.reason ?? t('summaryNoReason')}</p>
-        {context && ruleId && (acknowledgement
-          ? <p className="summary-safety-source" role="status">
-            <strong>{t('summarySafetyAckReviewed')}</strong>{' · '}
-            <time dateTime={acknowledgement.acknowledgedAt}>{formatAcknowledgedAt(acknowledgement.acknowledgedAt)}</time>
-          </p>
-          : <div>
-            <Button variant="secondary" disabled={acknowledgementState.status === 'loading' || pending.has(requestKey)}
-              onClick={() => { void markReviewed(ruleId); }}>{t('summarySafetyMarkReviewed')}</Button>
-            {saveErrors.has(requestKey) && <p className="summary-safety-source" role="alert">{t('summarySafetyAckError')}</p>}
-          </div>)}
+        {context && ruleId && acknowledgement && <p className="summary-safety-source" role="status">
+          <strong>{t('summarySafetyAckReviewed')}</strong>{' · '}
+          <time dateTime={acknowledgement.acknowledgedAt}>{formatAcknowledgedAt(acknowledgement.acknowledgedAt)}</time>
+        </p>}
+        {context && ruleId && !acknowledgement && acknowledgementState.status === 'ready' && <div>
+          <Button variant="secondary" disabled={pending.has(requestKey)}
+            onClick={() => { void markReviewed(ruleId); }}>{t('summarySafetyMarkReviewed')}</Button>
+          {saveErrors.has(requestKey) && <p className="summary-safety-source" role="alert">{t('summarySafetyAckError')}</p>}
+        </div>}
       </li>;
     })}</ul>}
     {!safety.incomplete && !safety.signals.length && !safety.needsDoctorBanner && <p>{t('summaryNoFlags')}</p>}
