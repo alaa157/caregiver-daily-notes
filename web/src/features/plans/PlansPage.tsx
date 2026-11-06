@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { useSearchParams } from 'react-router-dom';
-import { createPlansApi, planErrorMessage, type CarePlan, type CreateStructuredPlanInput, type PlanAction, type PlanEditRequest } from '../../api/plans';
+import { createPlansApi, isValidByokCredentials, planErrorMessage, type CarePlan, type CreateStructuredPlanInput, type PlanAction, type PlanEditRequest } from '../../api/plans';
 import { createNotesApi, noteErrorMessage, type NoteListItem } from '../../api/notes';
 import { createRecipientsApi, isRecipientId, type Recipient } from '../../api/recipients';
 import { ApiError, useApiClient } from '../../lib/api';
@@ -15,6 +15,7 @@ import { PlanEditor } from './PlanEditor';
 import { PlanGenerationForm } from './PlanGenerationForm';
 import { retainSafety, type SummaryRequest, type SummarySafety as Safety } from '../../api/summary';
 import { SummarySafety } from '../safety/SummarySafety';
+import { useByok } from '../ai/ByokContext';
 import '../summary/summary.css';
 import '../notes/notes.css';
 import './plans.css';
@@ -41,6 +42,7 @@ function Confirmation({ action, disabled, onCancel, onConfirm }: {
 
 function PlanWorkspace({ recipientId, onSaving }: { recipientId: string; onSaving: (busy: boolean) => void }) {
   const { t, language } = useI18n();
+  const { credentials } = useByok();
   const client = useApiClient();
   const api = useMemo(() => ({ plans: createPlansApi(client), recipients: createRecipientsApi(client), notes: createNotesApi(client) }), [client]);
   const [state, setState] = useState<Resource<Snapshot>>({ status: 'loading' });
@@ -52,6 +54,7 @@ function PlanWorkspace({ recipientId, onSaving }: { recipientId: string; onSavin
   const [saving, setSaving] = useState(false);
   const [generating, setGenerating] = useState(false);
   const [creatingDraft, setCreatingDraft] = useState(false);
+  const [credentialsRequired, setCredentialsRequired] = useState(false);
   const [generationSafety, setGenerationSafety] = useState<{ request: SummaryRequest; safety: Safety } | null>(null);
   const [blocked, setBlocked] = useState(false);
   const [failure, setFailure] = useState<MessageKey | null>(null);
@@ -153,11 +156,16 @@ function PlanWorkspace({ recipientId, onSaving }: { recipientId: string; onSavin
 
   async function generate(request: SummaryRequest) {
     if (mutation.current || blocked || state.status !== 'ready' || !state.data.recipient.active) return;
+    if (!isValidByokCredentials(credentials)) {
+      setCredentialsRequired(true);
+      return;
+    }
+    setCredentialsRequired(false);
     const controller = new AbortController(); mutation.current = controller;
     const timer = setTimeout(() => controller.abort(), 120_000);
     setSaving(true); setGenerating(true); onSaving(true); setNotice(null); setFailure(null);
     try {
-      const response = await api.plans.generate(request, controller.signal);
+      const response = await api.plans.generateByok(request, credentials, controller.signal);
       if (!mounted.current) return;
       if (controller.signal.aborted) throw new Error('Unconfirmed generation.');
       setGenerationSafety((previous) => ({ request, safety: retainSafety(previous && JSON.stringify(previous.request) === JSON.stringify(request) ? previous.safety : undefined, response.safety, response.invalidPlan) }));
@@ -212,7 +220,8 @@ function PlanWorkspace({ recipientId, onSaving }: { recipientId: string; onSavin
     {generationSafety && <div className="plan-generation-safety"><p>{t('plansGenerationSafety')}: <bdi>{generationSafety.request.periodEndInclusive}</bdi> · {generationSafety.request.periodDays} {t('summaryDays')}</p><SummarySafety safety={generationSafety.safety} /></div>}
     {snapshot && <>
       {!snapshot.recipient.active && <p className="note-notice">{t('plansInactive')}</p>}
-      <PlanGenerationForm recipientId={recipientId} disabled={disabled || !!confirmation || !!editing} onGenerate={(request) => { void generate(request); }} />
+      <PlanGenerationForm recipientId={recipientId} disabled={disabled || !!confirmation || !!editing}
+        credentialsRequired={credentialsRequired && !isValidByokCredentials(credentials)} onGenerate={(request) => { void generate(request); }} />
       <section className="note-surface" aria-label={t('plansCreateDraft')}>
         {evidenceState.status === 'loading' && <LoadingState label={t('plansDraftEvidenceLoading')} />}
         {evidenceState.status === 'error' && <ErrorState description={t(noteErrorMessage(evidenceState.error))} onRetry={() => setEvidenceRevision((value) => value + 1)} />}

@@ -3,6 +3,7 @@ import { isRecipientId } from './recipients';
 import type { MessageKey } from '../i18n/translations';
 import { isNoteDate } from './notes';
 import { readSummarySafety, summaryPeriods, type SummaryRequest, type SummarySafety } from './summary';
+import type { ByokCredentials } from '../features/ai/ByokContext';
 
 /** Exact PlanResponse wire fields. Content is opaque, immutable backend text. */
 export interface CarePlan {
@@ -31,6 +32,24 @@ const catalog: Record<string, readonly string[]> = {
   CAREGIVER_EDUCATION_TOPIC: ['topic'], ESCALATE_TO_DOCTOR: ['reason'],
 };
 const object = (value: unknown): value is Record<string, unknown> => !!value && typeof value === 'object' && !Array.isArray(value);
+function isByokProviderId(value: unknown): value is ByokCredentials['providerId'] {
+  return value === 'OPENAI' || value === 'GEMINI' || value === 'XAI' || value === 'OPEN_ROUTER';
+}
+export function isValidByokCredentials(value: unknown): value is ByokCredentials {
+  return object(value) && isByokProviderId(value.providerId)
+    && typeof value.model === 'string' && value.model.trim().length > 0
+    && typeof value.apiKey === 'string' && value.apiKey.trim().length > 0;
+}
+function isSummaryRequest(value: unknown): value is SummaryRequest {
+  return object(value) && typeof value.recipientId === 'string' && isRecipientId(value.recipientId)
+    && typeof value.periodEndInclusive === 'string' && isNoteDate(value.periodEndInclusive)
+    && summaryPeriods.some((period) => period === value.periodDays);
+}
+function containsSecret(value: unknown, secret: string): boolean {
+  if (typeof value === 'string') return value.includes(secret);
+  if (Array.isArray(value)) return value.some((item) => containsSecret(item, secret));
+  return object(value) && Object.values(value).some((item) => containsSecret(item, secret));
+}
 function readDocument(value: unknown): PlanDocument | null {
   if (value == null) return null;
   if (!object(value) || value.schemaVersion !== 1 || !Array.isArray(value.changes) || !Array.isArray(value.medications)) throw new Error('Invalid protected plan content.');
@@ -91,6 +110,29 @@ export function planErrorMessage(error: unknown): MessageKey {
   return 'plansServiceError';
 }
 
+function readPlanGeneration(result: unknown, input: SummaryRequest, apiKey?: string): PlanGeneration {
+  const item = object(result) ? result : {};
+  const safety = readSummarySafety(item.safety);
+  let plan: CarePlan | null = null;
+  let invalidPlan = typeof item.aiUnavailable !== 'boolean';
+  try { if (item.aiUnavailable !== true) plan = readPlan(item.plan, input.recipientId); }
+  catch { invalidPlan = true; }
+  let generation = { plan, aiUnavailable: item.aiUnavailable === true, safety, invalidPlan };
+  if (!apiKey || !containsSecret(generation, apiKey)) return generation;
+
+  const safeSafety: SummarySafety = {
+    ...safety,
+    signals: safety.signals.map((signal) => ({
+      ruleId: signal.ruleId?.includes(apiKey) ? null : signal.ruleId,
+      severity: signal.severity?.includes(apiKey) ? null : signal.severity,
+      reason: signal.reason?.includes(apiKey) ? null : signal.reason,
+    })),
+    incomplete: true,
+  };
+  generation = { ...generation, plan: null, safety: safeSafety, invalidPlan: true };
+  return generation;
+}
+
 export function createPlansApi(client: ApiClient) {
   const root = (recipientId: string): `/api/recipients/${string}/plans` => {
     if (!isRecipientId(recipientId)) throw new ApiError(404, null);
@@ -98,15 +140,33 @@ export function createPlansApi(client: ApiClient) {
   };
   return {
     async generate(input: SummaryRequest, signal?: AbortSignal): Promise<PlanGeneration> {
-      if (!isRecipientId(input.recipientId) || !isNoteDate(input.periodEndInclusive) || !summaryPeriods.includes(input.periodDays)) throw new ApiError(400, null);
+      if (!isSummaryRequest(input)) throw new ApiError(400, null);
       const result = await client.request<unknown>({ path: '/api/plans/generate', method: 'POST', signal,
         body: { recipientId: input.recipientId, periodDays: input.periodDays, periodEndInclusive: input.periodEndInclusive } });
-      const item = object(result) ? result : {};
-      const safety = readSummarySafety(item.safety);
-      let plan: CarePlan | null = null; let invalidPlan = typeof item.aiUnavailable !== 'boolean';
-      try { if (item.aiUnavailable !== true) plan = readPlan(item.plan, input.recipientId); }
-      catch { invalidPlan = true; }
-      return { plan, aiUnavailable: item.aiUnavailable === true, safety, invalidPlan };
+      return readPlanGeneration(result, input);
+    },
+    async generateByok(input: SummaryRequest, credentials: ByokCredentials, signal?: AbortSignal): Promise<PlanGeneration> {
+      if (!isSummaryRequest(input) || !isValidByokCredentials(credentials)) throw new ApiError(400, null);
+      let result: unknown;
+      try {
+        result = await client.request<unknown>({ path: '/api/plans/generate/byok', method: 'POST', signal,
+          body: {
+            summary: {
+              recipientId: input.recipientId,
+              periodEndInclusive: input.periodEndInclusive,
+              periodDays: input.periodDays,
+            },
+            credentials: {
+              providerId: credentials.providerId,
+              model: credentials.model,
+              apiKey: credentials.apiKey,
+            },
+          } });
+      } catch (error) {
+        if (error instanceof ApiError) throw new ApiError(error.status, null);
+        throw error;
+      }
+      return readPlanGeneration(result, input, credentials.apiKey);
     },
     async active(recipientId: string, signal?: AbortSignal): Promise<CarePlan | null> {
       try {
