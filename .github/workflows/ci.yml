@@ -30,6 +30,7 @@ jobs:
       - name: Check frontend types
         working-directory: web
         run: npm run typecheck
+<<<<<<< HEAD
 
       - name: Build frontend
         working-directory: web
@@ -54,6 +55,8 @@ jobs:
           if-no-files-found: warn
           retention-days: 7
 
+=======
+>>>>>>> f9d5a90 (Fix correction history integrity and timeline)
   backend:
     runs-on: ubuntu-latest
     steps:

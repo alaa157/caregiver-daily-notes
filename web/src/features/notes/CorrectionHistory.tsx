@@ -20,42 +20,66 @@ function valueText(field: ObservationField, observation: EffectiveObservation, t
   const value = observation.value;
   return value === null ? t('notesNotRecorded') : scalarText(field, value, t, language);
 }
-
 function operationText(event: CorrectionEvent, t: ReturnType<typeof useI18n>['t'], language: string) {
   if (event.operation === 'CLEAR') return t('notesCorrectionCleared');
   if (event.operation === 'UNKNOWN') return t('notesCorrectionMarkedUnknown');
-  if (event.operation === 'NOT_RECORDED') return t('notesCorrectionMarkedNotRecorded');
-  return `${t('notesCorrectionSetAs')} ${valueText(event.field, event.effectiveAfter, t, language)}`;
+  if (event.operation === 'SET') return `${t('notesCorrectionSetAs')} ${valueText(event.field, event.effectiveAfter, t, language)}`;
+  return t('notesCorrectionMarkedNotRecorded');
 }
 
-export function CorrectionHistory({ history, idPrefix = 'note' }: { history: CorrectionHistoryData; idPrefix?: string }) {
+export function CorrectionEventRow({ event, idPrefix, entryLabel }: {
+  event: CorrectionEvent; idPrefix: string; entryLabel?: React.ReactNode;
+}) {
   const { t, language } = useI18n();
-  const time = (value: string) => new Intl.DateTimeFormat(language === 'ar' ? 'ar-EG' : 'en', { dateStyle: 'medium', timeStyle: 'short' }).format(new Date(value));
-  const historyTitleId = `structured-correction-history-title-${idPrefix}`;
+  const timeLabel = new Intl.DateTimeFormat(language === 'ar' ? 'ar-EG' : 'en', { dateStyle: 'medium', timeStyle: 'short' }).format(new Date(event.createdAt));
+  return <NoteTimelineRow
+    entryLabel={entryLabel ?? `${t('notesCorrectionEvent')} ${new Intl.NumberFormat(language === 'ar' ? 'ar-EG' : 'en').format(event.sequenceNo)} · ${t(fieldLabels[event.field])}`}
+    dateLabel={timeLabel}
+    dateTime={event.createdAt}
+    metadata={<>{t('notesCorrectionActor')}: <bdi>{event.actorId}</bdi></>}
+    provenance={<>{t('notesTimelineSourceId')}: <bdi>{event.id}</bdi></>}
+    collapsible={false}
+    body={<dl className="correction-event-values structured-correction-event">
+      <div><dt>{t('notesCorrectionPrevious')}</dt><dd dir="auto" className="note-verbatim">{valueText(event.field, event.previousEffective, t, language)}</dd></div>
+      <div><dt>{t('notesCorrectionNew')}</dt><dd dir="auto" className="note-verbatim">{operationText(event, t, language)}</dd></div>
+    </dl>}
+    actions={<span id={`correction-event-${idPrefix}-${event.id}`} tabIndex={-1} className="correction-event-anchor" />}
+  />;
+}
+
+export function CorrectionEffectiveValues({ history, idPrefix = 'note' }: { history: CorrectionHistoryData; idPrefix?: string }) {
+  const { t, language } = useI18n();
   const effectiveTitleId = `effective-values-title-${idPrefix}`;
+  const sourceEventById = new Map(history.events.map((event) => [event.id, event]));
+  return <section aria-labelledby={effectiveTitleId} className="effective-observations" role="region">
+    <h3 id={effectiveTitleId}>{t('notesCorrectionUpdatedValue')}</h3>
+    <dl className="note-values">{observationFields.map((field) => {
+      const observation = history.effectiveObservations[field];
+      const sourceEvent = observation.eventId === null ? undefined : sourceEventById.get(observation.eventId);
+      return <div key={field} className={field === 'freeText' ? 'note-field--wide' : ''}>
+        <dt>{t(fieldLabels[field])}</dt>
+        <dd><span dir="auto" className="note-verbatim">{valueText(field, observation, t, language)}</span>
+          {sourceEvent && <a className="effective-observation-source" href={`#correction-event-${idPrefix}-${sourceEvent.id}`}
+            aria-label={`${t('notesCorrectionSourceEvent')}: ${sourceEvent.id}`}
+          >{t('notesCorrectionSourceEvent')}: <bdi>{sourceEvent.id}</bdi></a>}
+        </dd>
+      </div>;
+    })}</dl>
+  </section>;
+}
+
+export function CorrectionHistory({ history, idPrefix = 'note', showEvents = true }: {
+  history: CorrectionHistoryData; idPrefix?: string; showEvents?: boolean;
+}) {
+  const { t } = useI18n();
+  const historyTitleId = `structured-correction-history-title-${idPrefix}`;
   return <section className="structured-correction-history" aria-labelledby={historyTitleId}>
     <h3 id={historyTitleId}>{t('notesCorrectionHistory')}</h3>
     {history.events.length === 0 ? <p className="note-hint">{t('notesNoStructuredCorrections')}</p> : <>
-      <section aria-labelledby={effectiveTitleId} className="effective-observations">
-        <h3 id={effectiveTitleId}>{t('notesCorrectionUpdatedValue')}</h3>
-        <dl className="note-values">{observationFields.map((field) => <div key={field} className={field === 'freeText' ? 'note-field--wide' : ''}>
-          <dt>{t(fieldLabels[field])}</dt><dd dir="auto" className="note-verbatim">{valueText(field, history.effectiveObservations[field], t, language)}</dd>
-        </div>)}</dl>
-      </section>
-      <ol className="structured-correction-list">{history.events.map((event) => <li key={event.id}>
-        <NoteTimelineRow
-          entryLabel={`${t('notesCorrectionEvent')} ${new Intl.NumberFormat(language === 'ar' ? 'ar-EG' : 'en').format(event.sequenceNo)} · ${t(fieldLabels[event.field])}`}
-          dateLabel={time(event.createdAt)}
-          dateTime={event.createdAt}
-          metadata={<>{t('notesCorrectionActor')}: <bdi>{event.actorId}</bdi></>}
-          provenance={<>{t('notesTimelineSourceId')}: <bdi>{event.id}</bdi></>}
-          collapsible={false}
-          body={<dl className="correction-event-values structured-correction-event">
-            <div><dt>{t('notesCorrectionPrevious')}</dt><dd dir="auto" className="note-verbatim">{valueText(event.field, event.previousEffective, t, language)}</dd></div>
-            <div><dt>{t('notesCorrectionNew')}</dt><dd dir="auto" className="note-verbatim">{operationText(event, t, language)}</dd></div>
-          </dl>}
-        />
-      </li>)}</ol>
+      <CorrectionEffectiveValues history={history} idPrefix={idPrefix} />
+      {showEvents && <ol className="structured-correction-list">{history.events.map((event) => <li key={event.id}>
+        <CorrectionEventRow event={event} idPrefix={idPrefix} />
+      </li>)}</ol>}
     </>}
   </section>;
 }

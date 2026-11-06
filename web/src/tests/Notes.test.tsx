@@ -8,9 +8,9 @@ import { NoteTimelineRow } from '../features/notes/NoteTimelineRow';
 import { I18nProvider } from '../i18n/I18nProvider';
 import { ApiProvider } from '../lib/api';
 import { jsonResponse, testToken } from './authFixtures';
-import { recipientFixture } from './recipientFixtures';
-import { addendumFixture, noteFixture, noteObservations } from './noteFixtures';
+import { addendumFixture, noteDetailFixture, noteFixture, noteListFixture, noteObservations } from './noteFixtures';
 import { observationFields, type FieldCorrection } from '../api/notes';
+import { recipientFixture } from './recipientFixtures';
 
 const root = '/app/notes';
 const detail = `${root}/${noteFixture.id}`;
@@ -27,7 +27,7 @@ function dataFetcher(overrides?: (path: string, init: RequestInit) => Response |
     if (path.startsWith('/api/recipients?')) return Promise.resolve(jsonResponse(path.includes('status=ARCHIVED') ? [] : [recipientFixture]));
     if (path === '/api/recipients') return Promise.resolve(jsonResponse([recipientFixture]));
     if (path.startsWith('/api/recipients/')) return Promise.resolve(jsonResponse(recipientFixture));
-    return Promise.resolve(jsonResponse(path.endsWith('/addenda') ? [] : path.endsWith('/corrections') ? correctionHistoryFixture() : noteFixture));
+    return Promise.resolve(jsonResponse(path.endsWith('/addenda') ? [] : path.endsWith('/corrections') ? correctionHistoryFixture() : path === '/api/notes' ? noteListFixture : path.startsWith('/api/notes/') && !path.endsWith('/addenda') && !path.endsWith('/corrections') ? noteDetailFixture : noteListFixture));
   });
 }
 function correctionHistoryFixture(events: unknown[] = []) {
@@ -36,7 +36,7 @@ function correctionHistoryFixture(events: unknown[] = []) {
     return [field, { state: observation.state, value: observation.value ?? null, rawValue: observation.rawValue ?? null,
       lastOperation: null, eventId: null, actorId: null, updatedAt: noteFixture.createdAt }];
   }));
-  return { originalNote: noteFixture, events, effectiveObservations };
+  return { originalNote: { ...noteListFixture, correctionCount: events.length }, events, effectiveObservations };
 }
 function correctionResponse(corrections: FieldCorrection[] = []) {
   let effectiveObservations = correctionHistoryFixture().effectiveObservations as Record<string, Record<string, unknown>>;
@@ -53,7 +53,7 @@ function correctionResponse(corrections: FieldCorrection[] = []) {
       field: correction.field, operation: correction.operation,
       value: correction.operation === 'SET' ? correction.value : null, previousEffective, effectiveAfter };
   });
-  return { originalNote: noteFixture, events, effectiveObservations };
+  return { originalNote: { ...noteFixture, correctionCount: events.length }, events, effectiveObservations };
 }
 async function metadata() {
   await userEvent.selectOptions(await screen.findByLabelText('Care recipient'), recipientFixture.id);
@@ -159,7 +159,7 @@ describe('daily-note creation and immutable corrections', () => {
     const fetcher = dataFetcher((path, init) => {
       if (path === '/api/notes' && init.method === 'POST') {
         submitted = JSON.parse(init.body as string);
-        return jsonResponse(noteFixture, 201);
+        return jsonResponse(noteListFixture, 201);
       }
     });
     renderNotes(`${root}/new`, fetcher);
@@ -176,7 +176,7 @@ describe('daily-note creation and immutable corrections', () => {
     const fetcher = dataFetcher((path, init) => {
       if (path === '/api/notes' && init.method === 'POST') {
         submitted = JSON.parse(init.body as string);
-        return jsonResponse(noteFixture, 201);
+        return jsonResponse(noteListFixture, 201);
       }
     });
     renderNotes(`${root}/new`, fetcher);
@@ -193,7 +193,7 @@ describe('daily-note creation and immutable corrections', () => {
     const fetcher = dataFetcher((path, init) => {
       if (path === '/api/notes' && init.method === 'POST') {
         submitted = JSON.parse(init.body as string);
-        return jsonResponse(noteFixture, 201);
+        return jsonResponse(noteListFixture, 201);
       }
     });
     renderNotes(`${root}/new`, fetcher);
@@ -214,7 +214,7 @@ describe('daily-note creation and immutable corrections', () => {
     const fetcher = dataFetcher((path, init) => {
       if (path === '/api/notes' && init.method === 'POST') {
         submitted = JSON.parse(init.body as string);
-        return jsonResponse(noteFixture, 201);
+        return jsonResponse(noteListFixture, 201);
       }
     });
     renderNotes(`${root}/new`, fetcher);
@@ -231,7 +231,7 @@ describe('daily-note creation and immutable corrections', () => {
     const fetcher = dataFetcher((path, init) => {
       if (path === '/api/notes' && init.method === 'POST') {
         submitted = JSON.parse(init.body as string);
-        return jsonResponse(noteFixture, 201);
+        return jsonResponse(noteListFixture, 201);
       }
     });
     renderNotes(`${root}/new`, fetcher);
@@ -258,7 +258,7 @@ describe('daily-note creation and immutable corrections', () => {
     fireEvent.submit(form);
     expect(fetcher.mock.calls.filter(([path, init]) => path === '/api/notes' && init.method === 'POST')).toHaveLength(1);
     expect(screen.getByRole('button', { name: 'Saving…' })).toBeDisabled();
-    resolve(jsonResponse(noteFixture, 201));
+    resolve(jsonResponse(noteListFixture, 201));
     expect(await screen.findByText('Original note saved.')).toBeInTheDocument();
   });
 
@@ -270,7 +270,7 @@ describe('daily-note creation and immutable corrections', () => {
 
   it('announces save success and save failure separately', async () => {
     const successView = renderNotes(`${root}/new`, dataFetcher((path, init) =>
-      path === '/api/notes' && init.method === 'POST' ? jsonResponse(noteFixture, 201) : undefined));
+      path === '/api/notes' && init.method === 'POST' ? jsonResponse(noteListFixture, 201) : undefined));
     await metadata();
     await userEvent.click(screen.getByRole('button', { name: 'Save original note' }));
     expect(await screen.findByRole('status')).toHaveTextContent('Original note saved.');
@@ -397,16 +397,22 @@ describe('daily-note creation and immutable corrections', () => {
       { field: 'mood', operation: 'SET', value: 'calm' },
       { field: 'painScore', operation: 'SET', value: 3 },
     ]);
+    corrections.originalNote = { ...corrections.originalNote, observations: longNote.observations };
+    corrections.effectiveObservations.freeText = {
+      ...corrections.effectiveObservations.freeText,
+      value: longText,
+    };
     const fetcher = dataFetcher((path) => {
-      if (path === `/api/notes/${noteFixture.id}`) return jsonResponse(longNote);
+      if (path === `/api/notes/${noteFixture.id}`) return jsonResponse({ ...noteDetailFixture, ...longNote, addenda: [] });
       if (path.endsWith('/addenda')) return jsonResponse([longAddendum]);
       if (path.endsWith('/corrections')) return jsonResponse(corrections);
+      return undefined;
     });
     renderNotes(detail, fetcher);
 
     const addendum = await screen.findByRole('article', { name: 'Add a correction 1' });
     const body = within(addendum).getByTestId('note-timeline-body');
-    mockTimelineDimensions(body, 200);
+    mockTimelineDimensions(body, 81);
     fireEvent(window, new Event('resize'));
     await within(addendum).findByRole('button', { name: 'Show more' });
     expect(body).toHaveAttribute('data-collapsed', 'true');
@@ -429,6 +435,203 @@ describe('daily-note creation and immutable corrections', () => {
     expect(screen.getAllByRole('article', { name: /Correction event/ })
       .map((row) => row.querySelector('.note-timeline-row__label')?.textContent)).toEqual(eventsBefore);
   });
+  it('shows the original note when correction history is unavailable', async () => {
+    const fetcher = dataFetcher((path) => path.endsWith('/corrections') ? jsonResponse({}, 500) : undefined);
+    renderNotes(detail, fetcher);
+
+    const original = await screen.findByRole('article', { name: 'Original note — read only' });
+    expect(within(original).getByText('Unknown')).toBeVisible();
+    expect(await screen.findByText('Could not load this information. Try again.')).toBeVisible();
+    expect(screen.getByRole('button', { name: 'Retry' })).toBeEnabled();
+    expect(screen.queryByText('No structured corrections yet.')).not.toBeInTheDocument();
+  });
+
+  it('retries correction history without hiding the original note', async () => {
+    let failed = true;
+    const fetcher = dataFetcher((path) => {
+      if (path.endsWith('/corrections') && failed) { failed = false; return jsonResponse({}, 500); }
+      return undefined;
+    });
+    renderNotes(detail, fetcher);
+    await screen.findByRole('article', { name: 'Original note — read only' });
+    const errors = await screen.findAllByRole('alert');
+    const correctionError = errors.find((element) => element.textContent?.includes('Could not load this information'));
+    expect(correctionError).toBeDefined();
+    await userEvent.click(within(correctionError as HTMLElement).getByRole('button', { name: 'Retry' }));
+    expect(await screen.findByText('No structured corrections yet.')).toBeVisible();
+    expect(screen.getByRole('article', { name: 'Original note — read only' })).toBeVisible();
+  });
+
+  it('renders correction events in sequence order', async () => {
+    const corrections = correctionResponse([
+      { field: 'mood', operation: 'SET', value: 'calm' },
+      { field: 'painScore', operation: 'SET', value: 3 },
+    ]);
+    const fetcher = dataFetcher((path) => path.endsWith('/corrections') ? jsonResponse(corrections) : undefined);
+    renderNotes(detail, fetcher);
+    const events = await screen.findAllByRole('article', { name: /Correction event/ });
+    expect(events.map((event) => event.querySelector('.note-timeline-row__label')?.textContent))
+      .toEqual(['Correction event 1 · Mood', 'Correction event 2 · Pain score (0–10)']);
+    expect(within(events[0]).getByText(corrections.events[0].id)).toBeVisible();
+    expect(within(events[0]).getByRole('time')).toHaveAttribute('dateTime', corrections.events[0].createdAt);
+  });
+
+  it('links effective values to the source correction event', async () => {
+    const corrections = correctionResponse([{ field: 'mood', operation: 'SET', value: 'calm' }]);
+    const eventId = corrections.events[0].id;
+    corrections.effectiveObservations.mood.eventId = eventId;
+    corrections.effectiveObservations.mood.actorId = corrections.events[0].actorId;
+    corrections.effectiveObservations.mood.lastOperation = 'SET';
+    corrections.effectiveObservations.mood.updatedAt = corrections.events[0].createdAt;
+    const fetcher = dataFetcher((path) => path.endsWith('/corrections') ? jsonResponse(corrections) : undefined);
+    renderNotes(detail, fetcher);
+    const effectiveRegion = await screen.findByRole('region', { name: 'Current effective value' });
+    expect(within(effectiveRegion).getByText('calm')).toBeVisible();
+    expect(screen.getByRole('link', { name: `Correction event: ${eventId}` })).toHaveAttribute(
+      'href', `#correction-event-${noteFixture.id}-${eventId}`,
+    );
+    expect(document.getElementById(`correction-event-${noteFixture.id}-${eventId}`)).toBeInTheDocument();
+  });
+
+  it('renders addenda and correction events in one chronological sequence', async () => {
+    const corrections = correctionResponse([
+      { field: 'mood', operation: 'SET', value: 'calm' },
+      { field: 'painScore', operation: 'SET', value: 3 },
+    ]);
+    corrections.originalNote = { ...corrections.originalNote, createdAt: '2026-10-18T09:00:00Z' };
+    Object.values(corrections.effectiveObservations).forEach((observation) => {
+      if (observation.eventId === null) observation.updatedAt = corrections.originalNote.createdAt;
+    });
+    corrections.events[0].createdAt = '2026-10-18T10:00:00Z';
+    corrections.events[0].previousEffective.updatedAt = corrections.originalNote.createdAt;
+    corrections.events[0].effectiveAfter.updatedAt = '2026-10-18T10:00:00Z';
+    corrections.events[1].createdAt = '2026-10-18T12:00:00Z';
+    corrections.events[1].previousEffective.updatedAt = corrections.originalNote.createdAt;
+    corrections.events[1].effectiveAfter.updatedAt = '2026-10-18T12:00:00Z';
+    const firstAddendum = { ...addendumFixture, id: 'e5555555-5555-4555-8555-555555555551', createdAt: '2026-10-18T11:00:00Z' };
+    const secondAddendum = { ...addendumFixture, id: 'e5555555-5555-4555-8555-555555555552', createdAt: '2026-10-18T13:00:00Z' };
+    const fetcher = dataFetcher((path) => {
+      if (path.endsWith('/addenda')) return jsonResponse([secondAddendum, firstAddendum]);
+      if (path.endsWith('/corrections')) return jsonResponse(corrections);
+      return undefined;
+    });
+    renderNotes(detail, fetcher);
+
+    await screen.findByRole('article', { name: /Correction event 2/ });
+    const changes = screen.getAllByRole('article', { name: /^(Add a correction|Correction event)/ });
+    expect(changes.map((entry) => entry.querySelector('.note-timeline-row__label')?.textContent)).toEqual([
+      'Correction event 1 · Mood',
+      'Add a correction 1',
+      'Correction event 2 · Pain score (0–10)',
+      'Add a correction 2',
+    ]);
+    expect(changes[0].compareDocumentPosition(changes[1]) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
+    expect(changes[1].compareDocumentPosition(changes[2]) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
+    expect(changes[2].compareDocumentPosition(changes[3]) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
+    expect(within(changes[0]).getByText(corrections.events[0].id)).toBeVisible();
+    expect(within(changes[2]).getByText(corrections.events[1].id)).toBeVisible();
+  });
+  it('orders equal timestamps by correction sequence and deterministic addendum ID', async () => {
+    const corrections = correctionResponse([
+      { field: 'mood', operation: 'SET', value: 'calm' },
+      { field: 'painScore', operation: 'SET', value: 3 },
+    ]);
+    const timestamp = addendumFixture.createdAt;
+    corrections.originalNote = { ...corrections.originalNote, createdAt: timestamp };
+    Object.values(corrections.effectiveObservations).forEach((observation) => {
+      if (observation.eventId === null) observation.updatedAt = timestamp;
+    });
+    corrections.events.forEach((event) => {
+      event.createdAt = timestamp;
+      event.previousEffective.updatedAt = timestamp;
+      event.effectiveAfter.updatedAt = timestamp;
+    });
+    const sequenceOne = { ...corrections.events[0], id: 'e5555555-5555-4555-8555-000000000002',
+      effectiveAfter: { ...corrections.events[0].effectiveAfter } };
+    const sequenceTwo = { ...corrections.events[1], id: 'e5555555-5555-4555-8555-000000000001',
+      previousEffective: { ...corrections.events[1].previousEffective },
+      effectiveAfter: { ...corrections.events[1].effectiveAfter } };
+    corrections.events = [sequenceOne, sequenceTwo];
+    sequenceOne.effectiveAfter.eventId = sequenceOne.id;
+    sequenceTwo.previousEffective.eventId = sequenceOne.id;
+    sequenceTwo.effectiveAfter.eventId = sequenceTwo.id;
+    corrections.effectiveObservations.mood = sequenceOne.effectiveAfter;
+    corrections.effectiveObservations.painScore = sequenceTwo.effectiveAfter;
+    corrections.originalNote = {
+      ...corrections.originalNote,
+      createdAt: timestamp,
+      observations: {
+        ...corrections.originalNote.observations,
+        mood: { ...corrections.originalNote.observations.mood, updatedAt: timestamp },
+        painScore: { ...corrections.originalNote.observations.painScore, updatedAt: timestamp },
+      },
+    };
+    const addenda = [
+      { ...addendumFixture, id: 'e5555555-5555-4555-8555-000000000004', createdAt: timestamp },
+      { ...addendumFixture, id: 'e5555555-5555-4555-8555-000000000003', createdAt: timestamp },
+    ];
+    const fetcher = dataFetcher((path) => path.endsWith('/addenda') ? jsonResponse(addenda)
+      : path.endsWith('/corrections') ? jsonResponse(corrections) : undefined);
+    renderNotes(detail, fetcher);
+    await waitFor(() => expect(screen.queryByRole('status', { name: 'Loading note data…' })).toBeNull());
+    const rows = await screen.findAllByRole('article', { name: /^(Add a correction|Correction event)/ });
+    expect(rows.map((row) => row.querySelector('.note-timeline-row__label')?.textContent)).toEqual([
+      'Correction event 1 · Mood', 'Correction event 2 · Pain score (0–10)', 'Add a correction 1', 'Add a correction 2',
+    ]);
+    expect(within(rows[0]).getByText(sequenceOne.id)).toBeVisible();
+    expect(within(rows[1]).getByText(sequenceTwo.id)).toBeVisible();
+    expect(within(rows[2]).getByText(addenda[1].id)).toBeVisible();
+    expect(within(rows[3]).getByText(addenda[0].id)).toBeVisible();
+  });
+  it('opens a note detail using the backend NoteDetailResponse shape', async () => {
+    const fetcher = dataFetcher();
+    renderNotes(detail, fetcher);
+    expect(await screen.findByRole('article', { name: 'Original note — read only' })).toBeVisible();
+    expect(fetcher.mock.calls.some(([path]) => path === `/api/notes/${noteFixture.id}`)).toBe(true);
+  });
+
+  it('keeps structured corrections available when addenda fail', async () => {
+    const corrections = correctionResponse([{ field: 'mood', operation: 'SET', value: 'calm' }]);
+    const fetcher = dataFetcher((path) => {
+      if (path.endsWith('/addenda')) return jsonResponse({}, 500);
+      if (path.endsWith('/corrections')) return jsonResponse(corrections);
+      return undefined;
+    });
+    renderNotes(detail, fetcher);
+
+    expect(await screen.findByRole('article', { name: 'Correction event 1 · Mood' })).toBeVisible();
+    expect(screen.getByRole('article', { name: 'Original note — read only' })).toBeVisible();
+    expect(screen.getByRole('button', { name: 'Retry' })).toBeEnabled();
+  });
+
+  it('keeps addenda available when correction history fails', async () => {
+    const fetcher = dataFetcher((path) => {
+      if (path.endsWith('/addenda')) return jsonResponse([addendumFixture]);
+      if (path.endsWith('/corrections')) return jsonResponse({}, 500);
+      return undefined;
+    });
+    renderNotes(detail, fetcher);
+    expect(await screen.findByRole('article', { name: 'Original note — read only' })).toBeVisible();
+    expect(await screen.findByRole('article', { name: 'Add a correction 1' })).toBeVisible();
+    expect(await screen.findByText('Could not load this information. Try again.')).toBeVisible();
+  });
+
+  it('keeps original and legacy addendum values distinct in chronological order', async () => {
+    const older = { ...addendumFixture, id: 'e5555555-5555-4555-8555-555555555551', createdAt: '2026-10-18T12:00:00Z',
+      providedFields: ['mood', ...addendumFixture.providedFields],
+      observations: { ...addendumFixture.observations, mood: { state: 'LEGACY_AMBIGUOUS' as const, value: null, rawValue: 'legacy mood' } } };
+    const newer = { ...addendumFixture, id: 'e5555555-5555-4555-8555-555555555552', createdAt: '2026-10-19T12:00:00Z' };
+    const fetcher = dataFetcher((path) => path.endsWith('/addenda') ? jsonResponse([newer, older]) : undefined);
+    renderNotes(detail, fetcher);
+    const original = await screen.findByRole('article', { name: 'Original note — read only' });
+    const addenda = await screen.findAllByRole('article', { name: /Add a correction/ });
+    expect(within(original).getByText('6 hours')).toBeVisible();
+    expect(addenda.map((item) => item.querySelector('.note-timeline-row__label')?.textContent))
+      .toEqual(['Add a correction 1', 'Add a correction 2']);
+    expect(within(addenda[0]).getByText('Legacy (ambiguous)')).toBeVisible();
+    expect(addenda[0].compareDocumentPosition(addenda[1]) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
+  });
+
 
   it('protects direct note/addendum URLs before any API request', () => {
     const fetcher = vi.fn();
@@ -471,7 +674,7 @@ describe('daily-note creation and immutable corrections', () => {
   it('submits state/value envelopes and mixed free text unchanged, then shows a read-only original', async () => {
     let saved: Record<string, unknown> | null = null;
     const fetcher = dataFetcher((path, init) => {
-      if (path === '/api/notes' && init.method === 'POST') { saved = JSON.parse(init.body as string); return jsonResponse(noteFixture, 201); }
+      if (path === '/api/notes' && init.method === 'POST') { saved = JSON.parse(init.body as string); return jsonResponse(noteListFixture, 201); }
     });
     renderNotes(`${root}/new`, fetcher);
     await metadata();
@@ -506,7 +709,9 @@ describe('daily-note creation and immutable corrections', () => {
     });
     expect(screen.getByRole('article', { name: 'Original note — read only' })).toBeInTheDocument();
     expect(screen.queryByRole('textbox')).not.toBeInTheDocument();
-    expect(screen.getByText(/غير متأكد من الدواء/).textContent).toBe(noteObservations.freeText);
+    expect(screen.getByText((_, element) => element?.classList.contains('obs-display-value') === true
+      && element.textContent?.includes('غير متأكد من الدواء') === true)?.textContent).toBe(noteObservations.freeText);
+    expect(screen.getByRole('article', { name: 'Original note — read only' })).toBeVisible();
     expect(document.querySelector('script')).not.toBeInTheDocument();
   }, 10000);
   it('blocks duplicate clicks and safely reuses the identical payload/key after a lost response', async () => {
@@ -515,7 +720,7 @@ describe('daily-note creation and immutable corrections', () => {
     const fetcher = dataFetcher((path, init) => {
       if (path === '/api/notes' && init.method === 'POST') {
         posts.push(init);
-        return posts.length === 1 ? new Promise<Response>((_, fail) => { reject = fail; }) : jsonResponse(noteFixture, 201);
+        return posts.length === 1 ? new Promise<Response>((_, fail) => { reject = fail; }) : jsonResponse(noteListFixture, 201);
       }
     });
     renderNotes(`${root}/new`, fetcher);
@@ -611,7 +816,6 @@ describe('daily-note creation and immutable corrections', () => {
       medicationVerification: 'UNVERIFIED',
     });
     const original = screen.getByRole('article', { name: 'Original note — read only' });
-    expect(within(original).getByText(/غير متأكد/).textContent).toBe(noteObservations.freeText);
     expect(within(original).getByText('Unknown')).toBeInTheDocument();
     expect(screen.getByText('Missed')).toBeInTheDocument();
     expect(fetcher.mock.calls.some(([, init]) => init.method === 'PUT' || init.method === 'PATCH' || init.method === 'DELETE')).toBe(false);
@@ -653,7 +857,7 @@ describe('daily-note creation and immutable corrections', () => {
     const original = screen.getByRole('article', { name: 'Original note — read only' });
     expect(within(original).getByText('6 hours')).toBeInTheDocument();
     expect(await screen.findByRole('heading', { name: 'Correction event 1 · Mood' })).toBeInTheDocument();
-    expect(screen.getByText('Set to Recorded as empty')).toBeInTheDocument();
+    expect(await screen.findByText('Set to Recorded as empty')).toBeVisible();
     expect(fetcher.mock.calls.some(([, init]) => ['PUT', 'PATCH', 'DELETE'].includes(init.method ?? 'GET'))).toBe(false);
     expect(fetcher.mock.calls.filter(([, init]) => init.method === 'POST')).toHaveLength(1);
   });
@@ -741,7 +945,7 @@ describe('daily-note creation and immutable corrections', () => {
     fireEvent.submit(screen.getByRole('form', { name: 'Record a daily note' }));
     view.unmount();
     expect(signal.aborted).toBe(true);
-    resolve(jsonResponse(noteFixture, 201));
+    resolve(jsonResponse(noteListFixture, 201));
     await waitFor(() => expect(fetcher.mock.calls.filter(([, init]) => init.method === 'POST')).toHaveLength(1));
   });
   it('creates explicit correction events without changing the canonical original observation states', async () => {
