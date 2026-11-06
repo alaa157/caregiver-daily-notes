@@ -139,6 +139,89 @@ class SummaryPlanHttpTest {
         .doesNotContain("Synthetic مستفيد", "Source note عربي.");
     verifyNoInteractions(llm);
   }
+  @Test @DisplayName("accepts one request scoped credential for summary")
+  void acceptsOneRequestScopedCredentialForSummary() throws Exception {
+    var response = call("/api/summaries/byok", owner, byokRequest(recipientId, "test-key-do-not-use"))
+        .andExpect(status().isOk())
+        .andExpect(jsonPath("$.summary.aiUnavailable").value(false))
+        .andExpect(jsonPath("$.summary.observations[0].noteId").value(noteId))
+        .andExpect(jsonPath("$.safety").exists())
+        .andExpect(jsonPath("$.trends").isArray());
+
+    var captured = org.mockito.ArgumentCaptor.forClass(LlmRequest.class);
+    verify(llm, times(1)).complete(captured.capture());
+    assertThat(captured.getValue().credentials()).isNotNull();
+    assertThat(captured.getValue().credentials().providerId()).isEqualTo("GEMINI");
+    assertThat(captured.getValue().credentials().modelId()).isEqualTo("gemini-3.8-flash");
+    assertThat(captured.getValue().credentials().apiKey()).isEqualTo("test-key-do-not-use");
+    assertThat(response.andReturn().getResponse().getContentAsString()).doesNotContain("test-key-do-not-use");
+  }
+
+  @Test @DisplayName("rejects BYOK summary for foreign recipient before provider call")
+  void rejectsByokSummaryForForeignRecipientBeforeProviderCall() throws Exception {
+    reset(llm);
+    var response = call("/api/summaries/byok", owner, byokRequest(UUID.randomUUID().toString(), "synthetic-byok-key"))
+        .andExpect(status().isNotFound());
+    assertThat(response.andReturn().getResponse().getContentAsString()).doesNotContain("synthetic-byok-key");
+    verifyNoInteractions(llm);
+  }
+  @Test @DisplayName("does not return request credential in summary response")
+  void doesNotReturnRequestCredentialInSummaryResponse() throws Exception {
+    String secret = "byok-test-secret-12345";
+    var response = call("/api/summaries/byok", owner, byokRequest(recipientId, secret))
+        .andExpect(status().isOk());
+    assertThat(response.andReturn().getResponse().getContentAsString()).doesNotContain(secret, "apiKey", "credentials");
+  }
+
+  @Test @DisplayName("keeps evidence validation active for BYOK summary")
+  void keepsEvidenceValidationActiveForByokSummary() throws Exception {
+    summaryMode = "quote";
+    call("/api/summaries/byok", owner, byokRequest(recipientId, "synthetic-invalid-quote-key"))
+        .andExpect(status().isOk())
+        .andExpect(jsonPath("$.summary.aiUnavailable").value(true))
+        .andExpect(jsonPath("$.summary.observations").isEmpty());
+
+    var captured = org.mockito.ArgumentCaptor.forClass(LlmRequest.class);
+    verify(llm, times(1)).complete(captured.capture());
+    assertThat(captured.getValue().credentials()).isNotNull();
+  }
+  @Test @DisplayName("keeps non BYOK summary endpoint behavior unchanged")
+  void keepsNonByokSummaryEndpointBehaviorUnchanged() throws Exception {
+    var response = call("/api/summaries", owner, request(7))
+        .andExpect(status().isOk())
+        .andExpect(jsonPath("$.summary.aiUnavailable").value(false))
+        .andExpect(jsonPath("$.summary.observations[0].noteId").value(noteId))
+        .andExpect(jsonPath("$.safety").exists())
+        .andExpect(jsonPath("$.trends").isArray());
+    assertThat(json(response).fieldNames()).toIterable().containsExactlyInAnyOrder("summary", "safety", "trends");
+    var captured = org.mockito.ArgumentCaptor.forClass(LlmRequest.class);
+    verify(llm, times(1)).complete(captured.capture());
+    assertThat(captured.getValue().credentials()).isNull();
+  }
+  @Test @DisplayName("rejects invalid BYOK request fields without echoing credentials")
+  void rejectsInvalidByokRequestFieldsWithoutEchoingCredentials() throws Exception {
+    String secret = "invalid-byok-secret";
+    call("/api/summaries/byok", owner, Map.of("summary", request(7, recipientId)))
+        .andExpect(status().isBadRequest());
+    call("/api/summaries/byok", owner, Map.of("credentials",
+        Map.of("providerId", "GEMINI", "model", "gemini-3.8-flash", "apiKey", secret)))
+        .andExpect(status().isBadRequest());
+    var invalidCredentials = Map.of("providerId", "GEMINI", "model", "gemini-3.8-flash", "apiKey", " ");
+    var response = call("/api/summaries/byok", owner,
+        Map.of("summary", request(7, recipientId), "credentials", invalidCredentials))
+        .andExpect(status().isBadRequest());
+    assertThat(response.andReturn().getResponse().getContentAsString()).doesNotContain(secret, "apiKey");
+    verifyNoInteractions(llm);
+  }
+
+  private Map<String, Object> byokRequest(String targetRecipientId, String apiKey) {
+    return Map.of("summary", request(7, targetRecipientId), "credentials",
+        Map.of("providerId", "GEMINI", "model", "gemini-3.8-flash", "apiKey", apiKey));
+  }
+
+
+
+
 
   @Test void doesNotGenerateOrPersistAPlanAfterSummaryFailure() throws Exception {
     summaryMode = "throw";
@@ -247,7 +330,10 @@ class SummaryPlanHttpTest {
   private JsonNode generate() throws Exception { return json(call("/api/plans/generate", owner, request(7)).andExpect(status().isOk()).andExpect(jsonPath("$.aiUnavailable").value(false))).get("plan"); }
   private String path(JsonNode plan, String action) { return "/api/recipients/" + recipientId + "/plans/" + plan.path("id").asText() + "/" + action; }
   private Map<String, Object> edit(JsonNode plan, String value) { return Map.of("expectedVersion", plan.path("version").asInt(), "changes", List.of(Map.of("index", 0, "params", Map.of("withinDays", value)))); }
-  private Map<String, Object> request(int days) { return Map.of("recipientId", recipientId, "periodEndInclusive", "2026-10-26", "periodDays", days); }
+  private Map<String, Object> request(int days) { return request(days, recipientId); }
+  private Map<String, Object> request(int days, String targetRecipientId) {
+    return Map.of("recipientId", targetRecipientId, "periodEndInclusive", "2026-10-26", "periodDays", days);
+  }
   private JsonNode history() throws Exception { return json(mvc.perform(get("/api/recipients/" + recipientId + "/plans/history").header("Authorization", "Bearer " + owner)).andExpect(status().isOk())); }
   private String note(String date, String text, boolean fall) throws Exception { return json(call("/api/notes", owner, Map.of("recipientId", recipientId, "date", date, "freeText", text, "fallReported", fall))).get("id").asText(); }
   private String register() throws Exception { return json(call("/api/auth/register", null, Map.of("email", "summary-" + UUID.randomUUID() + "@example.com", "password", "Synthetic-password-123" )).andExpect(status().isCreated())).get("token").asText(); }
