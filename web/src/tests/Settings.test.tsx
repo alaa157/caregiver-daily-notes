@@ -110,15 +110,20 @@ describe('authenticated grouped settings page', () => {
     }
   });
 
-  it('shows the Theme and Colors integration entry without non-functional controls or navigation', () => {
+  it('shows the theme preview controls inside the existing Theme and Colors entry', () => {
     renderSettings();
 
     const row = screen.getByText('Theme and Colors', { exact: true }).closest('li');
     expect(row).toHaveAttribute('data-settings-theme-preview-entry');
-    expect(within(row!).getByText('Not available yet')).toBeVisible();
-    expect(within(row!).queryByRole('button')).not.toBeInTheDocument();
+    expect(within(row!).queryByText('Not available yet')).not.toBeInTheDocument();
+    expect(within(row!).getByRole('group', { name: 'Choose a theme mode' })).toBeVisible();
+    expect(within(row!).getByRole('radio', { name: 'System' })).toBeVisible();
+    expect(within(row!).getByRole('radio', { name: 'Light' })).toBeVisible();
+    expect(within(row!).getByRole('radio', { name: 'Dark' })).toBeVisible();
+    expect(within(row!).getAllByRole('radio')).toHaveLength(3);
+    expect(within(row!).getByRole('button', { name: 'Apply' })).toBeVisible();
+    expect(within(row!).getByRole('button', { name: 'Cancel' })).toBeVisible();
     expect(within(row!).queryByRole('link')).not.toBeInTheDocument();
-    expect(screen.queryByRole('radio')).not.toBeInTheDocument();
     expect(screen.queryByRole('combobox', { name: /theme/i })).not.toBeInTheDocument();
   });
 
@@ -136,7 +141,7 @@ describe('authenticated grouped settings page', () => {
     expect(screen.getByRole('link', { name: 'الإعدادات' })).toHaveAttribute('href', '/app/settings');
     expect(screen.getByRole('button', { name: 'إعدادات الذكاء الاصطناعي' })).toBeVisible();
     expect(screen.getByText('المظهر والألوان')).toBeVisible();
-    expect(screen.getAllByText('غير متاح حتى الآن')).toHaveLength(9);
+    expect(screen.getAllByText('غير متاح حتى الآن')).toHaveLength(8);
     for (const label of labels.ar.unavailable) expect(screen.getByText(label, { exact: true })).toBeVisible();
   });
 
