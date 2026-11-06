@@ -25,7 +25,10 @@ public class SafetyAcknowledgementService {
   @Transactional
   public SafetyAcknowledgementResponse acknowledge(UUID recipientId, SafetyAcknowledgementRequest request) {
     UUID caregiverId = AuthContext.currentCaregiverId();
-    CareRecipient recipient = ownedRecipient(recipientId, caregiverId);
+    ownedRecipient(recipientId, caregiverId);
+    // Serialize the composite-key lookup and insert for this recipient.
+    CareRecipient recipient = recipients.findOwnedForUpdate(recipientId, caregiverId)
+        .orElseThrow(RecipientNotFoundException::new);
     return acknowledgements.findByCaregiver_IdAndRecipient_IdAndRuleIdAndPeriodEndInclusiveAndPeriodDays(
         caregiverId, recipientId, request.ruleId(), request.periodEndInclusive(), request.periodDays())
         .map(this::response)

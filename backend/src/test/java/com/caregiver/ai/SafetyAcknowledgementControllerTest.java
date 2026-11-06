@@ -3,9 +3,14 @@ package com.caregiver.ai;
 import com.caregiver.config.CaregiverApplication;
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
+import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
 import java.util.UUID;
+import java.util.concurrent.CountDownLatch;
+import java.util.concurrent.Executors;
+import java.util.concurrent.TimeUnit;
+import java.util.stream.IntStream;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -122,6 +127,47 @@ class SafetyAcknowledgementControllerTest {
     assertThat(jdbc.queryForObject(
         "select count(*) from safety_acknowledgements where recipient_id = ?",
         Long.class, UUID.fromString(recipientId))).isEqualTo(1L);
+  }
+
+  @Test
+  void concurrentDuplicateRequestsReturnTheSameRecord() throws Exception {
+    int requestCount = 8;
+    var executor = Executors.newFixedThreadPool(requestCount);
+    var ready = new CountDownLatch(requestCount);
+    var start = new CountDownLatch(1);
+    try {
+      List<java.util.concurrent.Future<String>> requests = IntStream.range(0, requestCount)
+          .mapToObj(index -> executor.submit(() -> {
+            ready.countDown();
+            if (!start.await(10, TimeUnit.SECONDS)) {
+              throw new IllegalStateException("Concurrent request start timed out.");
+            }
+            var result = mvc.perform(post(acknowledgementPath(recipientId))
+                    .header("Authorization", "Bearer " + owner)
+                    .contentType(MediaType.APPLICATION_JSON)
+                    .content(mapper.writeValueAsString(request())))
+                .andReturn();
+            assertThat(result.getResponse().getStatus()).isEqualTo(201);
+            return mapper.readTree(result.getResponse().getContentAsString()).path("id").asText();
+          }))
+          .toList();
+
+      assertThat(ready.await(10, TimeUnit.SECONDS)).isTrue();
+      start.countDown();
+      List<String> ids = new ArrayList<>();
+      for (var request : requests) {
+        ids.add(request.get(20, TimeUnit.SECONDS));
+      }
+
+      assertThat(ids).hasSize(requestCount).doesNotContainNull().doesNotContain("");
+      assertThat(ids).containsOnly(ids.getFirst());
+      assertThat(jdbc.queryForObject(
+          "select count(*) from safety_acknowledgements where recipient_id = ?",
+          Long.class, UUID.fromString(recipientId))).isEqualTo(1L);
+    } finally {
+      start.countDown();
+      executor.shutdownNow();
+    }
   }
 
   @Test
