@@ -2,7 +2,7 @@ import { createRequire } from 'node:module';
 import { expect, test, type Page } from '@playwright/test';
 import { testToken } from '../src/tests/authFixtures';
 import { correctionHistoryFixture, historyPage } from '../src/tests/historyFixtures';
-import { noteListFixture } from '../src/tests/noteFixtures';
+import { noteFixture, noteListFixture } from '../src/tests/noteFixtures';
 import { activePlanFixture, suggestedPlanFixture } from '../src/tests/planFixtures';
 import { recipientFixture } from '../src/tests/recipientFixtures';
 import { summaryFixture, summaryOpenApi, summaryTestPath } from '../src/tests/summaryFixtures';
