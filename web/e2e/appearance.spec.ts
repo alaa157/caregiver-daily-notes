@@ -167,3 +167,67 @@ test('system appearance follows live OS changes while explicit themes remain sel
   expect(await page.evaluate(() => localStorage.getItem('caregiver-theme-mode'))).toBe('system');
   expect(consoleErrors).toEqual([]);
 });
+
+for (const language of ['en', 'ar'] as const) {
+  test(`theme preview stays isolated and responsive at 320px (${language})`, async ({ page }, info) => {
+    test.skip(info.project.name !== 'compact-mobile', 'The preview layout check targets the 320px project.');
+
+    const ar = language === 'ar';
+    const labels = {
+      settings: ar ? 'الإعدادات' : 'Settings',
+      themeGroup: ar ? 'اختر نمط المظهر' : 'Choose a theme mode',
+      system: ar ? 'النظام' : 'System',
+      light: ar ? 'فاتح' : 'Light',
+      dark: ar ? 'داكن' : 'Dark',
+      previewTitle: ar ? 'معاينة المظهر' : 'Theme preview',
+      action: ar ? 'إجراء أساسي' : 'Primary action',
+      apply: ar ? 'تطبيق' : 'Apply',
+      cancel: ar ? 'إلغاء' : 'Cancel',
+    };
+
+    await page.addInitScript(({ locale, token }) => {
+      localStorage.setItem('caregiver-language', locale);
+      localStorage.setItem('caregiver-theme-mode', 'dark');
+      sessionStorage.setItem('caregiver-auth-session-v1', JSON.stringify({ token, baseUrl: '' }));
+    }, { locale: language, token: testToken() });
+    await page.route('**/api/**', (route) => route.fulfill({ status: 404, json: { code: 'NOT_FOUND' } }));
+    await page.goto('/app/settings');
+
+    await expect(page.getByRole('heading', { name: labels.settings, level: 1 })).toBeVisible();
+    const modeGroup = page.getByRole('group', { name: labels.themeGroup });
+    const previewFrame = page.frameLocator('[data-settings-theme-preview-entry] iframe');
+    const root = page.locator('html');
+
+    await expect(modeGroup.getByRole('radio')).toHaveCount(3);
+    await expect(modeGroup.getByRole('radio', { name: labels.system })).toBeVisible();
+    await expect(modeGroup.getByRole('radio', { name: labels.light })).toBeVisible();
+    await expect(modeGroup.getByRole('radio', { name: labels.dark })).toBeVisible();
+    await expect(page.getByTitle(labels.previewTitle)).toBeVisible();
+    await expect(previewFrame.locator('html')).toHaveAttribute('data-theme', 'dark');
+
+    const darkBackground = await previewFrame.locator('body').evaluate((element) => getComputedStyle(element).backgroundColor);
+    await modeGroup.getByRole('radio', { name: labels.light }).click();
+    await expect(previewFrame.locator('html')).toHaveAttribute('data-theme', 'light');
+    const lightBackground = await previewFrame.locator('body').evaluate((element) => getComputedStyle(element).backgroundColor);
+
+    expect(lightBackground).not.toBe(darkBackground);
+    await expect(root).toHaveAttribute('data-theme', 'dark');
+    expect(await page.evaluate(() => localStorage.getItem('caregiver-theme-mode'))).toBe('dark');
+
+    const previewButton = previewFrame.getByRole('button', { name: labels.action });
+    await expect(previewButton).toBeVisible();
+    await previewButton.focus();
+    await expect(previewButton).toHaveCSS('outline-style', 'solid');
+
+    await page.getByRole('button', { name: labels.apply }).click();
+    await expect(root).toHaveAttribute('data-theme', 'light');
+    expect(await page.evaluate(() => localStorage.getItem('caregiver-theme-mode'))).toBe('light');
+
+    await modeGroup.getByRole('radio', { name: labels.dark }).click();
+    await page.getByRole('button', { name: labels.cancel }).click();
+    await expect(modeGroup.getByRole('radio', { name: labels.light })).toBeChecked();
+    await expect(root).toHaveAttribute('data-theme', 'light');
+    expect(await page.evaluate(() => localStorage.getItem('caregiver-theme-mode'))).toBe('light');
+    expect(await page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth)).toBe(true);
+  });
+}

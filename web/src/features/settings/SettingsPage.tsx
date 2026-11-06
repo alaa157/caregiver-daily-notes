@@ -3,6 +3,7 @@ import { Icon } from '../../components/Icon';
 import { useI18n } from '../../i18n/I18nProvider';
 import type { MessageKey } from '../../i18n/translations';
 import { AiSettingsDialog } from '../ai/AiSettingsDialog';
+import { ThemeColorsPreview } from './ThemeColorsPreview';
 import './settings.css';
 
 type SettingsRow = { label: MessageKey; icon: 'sun' | 'lock' | 'inbox' | 'info' };
@@ -36,10 +37,12 @@ export function SettingsPage() {
       <section className="note-surface settings-group" aria-labelledby="settings-interface-title">
         <h2 id="settings-interface-title">{t('settingsInterfaceGroup')}</h2>
         <ul className="settings-list">
-          <li className="settings-row" data-settings-theme-preview-entry>
-            <span className="settings-row-icon"><Icon name="sun" size={20} /></span>
-            <span className="settings-row-label">{t('settingsThemeColors')}</span>
-            <span className="settings-unavailable">{t('settingsNotAvailable')}</span>
+          <li className="settings-row settings-theme-entry" data-settings-theme-preview-entry>
+            <div className="settings-row">
+              <span className="settings-row-icon"><Icon name="sun" size={20} /></span>
+              <span className="settings-row-label">{t('settingsThemeColors')}</span>
+            </div>
+            <ThemeColorsPreview />
           </li>
           <li className="settings-row">
             <span className="settings-row-icon"><Icon name="info" size={20} /></span>
