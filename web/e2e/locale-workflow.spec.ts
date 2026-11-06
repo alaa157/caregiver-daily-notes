@@ -194,3 +194,97 @@ for (const initial of ['en', 'ar'] as const) {
     expect(pageErrors).toEqual([]);
   });
 }
+
+async function setupShell(page: Page, locale: Locale) {
+  await page.addInitScript(({ locale: initial, token }) => {
+    localStorage.setItem('caregiver-language', initial);
+    sessionStorage.setItem('caregiver-auth-session-v1', JSON.stringify({ token, baseUrl: '' }));
+  }, { locale, token: testToken() });
+  await page.route('**/api/**', async (route) => {
+    const path = new URL(route.request().url()).pathname;
+    if (route.request().method() === 'GET' && path === '/api/recipients') return route.fulfill({ json: [recipientFixture] });
+    return route.fulfill({ status: 501, json: { code: 'UNEXPECTED_TEST_REQUEST' } });
+  });
+  await page.goto('/app/recipients');
+  await expect(page.getByRole('heading', { name: locale === 'ar' ? 'المستفيدون من الرعاية' : 'Care recipients' })).toBeVisible();
+}
+
+test('sets document language and direction to Arabic', async ({ page }) => {
+  await setupShell(page, 'en');
+  await expect(page.locator('html')).toHaveAttribute('lang', 'en');
+  await expect(page.locator('html')).toHaveAttribute('dir', 'ltr');
+  await page.getByRole('button', { name: 'التغيير إلى العربية', exact: true }).click();
+  expect(await page.evaluate(() => document.documentElement.lang)).toBe('ar');
+  expect(await page.evaluate(() => document.documentElement.dir)).toBe('rtl');
+  await expect(page.locator('html')).toHaveAttribute('lang', 'ar');
+  await expect(page.locator('html')).toHaveAttribute('dir', 'rtl');
+});
+
+test('restores document language and direction to English', async ({ page }) => {
+  await setupShell(page, 'ar');
+  expect(await page.evaluate(() => document.documentElement.lang)).toBe('ar');
+  expect(await page.evaluate(() => document.documentElement.dir)).toBe('rtl');
+  await page.getByRole('button', { name: 'Switch to English', exact: true }).click();
+  expect(await page.evaluate(() => document.documentElement.lang)).toBe('en');
+  expect(await page.evaluate(() => document.documentElement.dir)).toBe('ltr');
+  await expect(page.locator('html')).toHaveAttribute('lang', 'en');
+  await expect(page.locator('html')).toHaveAttribute('dir', 'ltr');
+});
+
+test('mirrors only directional navigation icons in RTL', async ({ page }) => {
+  await setupShell(page, 'en');
+  await page.getByRole('button', { name: 'التغيير إلى العربية', exact: true }).click();
+  await expect(page.locator('html')).toHaveAttribute('dir', 'rtl');
+  const directionalTransform = await page.locator('.directional-icon').first()
+    .evaluate((element) => getComputedStyle(element).transform);
+  expect(directionalTransform).toBe('matrix(-1, 0, 0, 1, 0, 0)');
+  const brand = page.locator('.brand-mark');
+  expect(await brand.evaluate((element) => getComputedStyle(element).transform)).toBe('none');
+  // The brand shape is identical in both directions (no RTL radius mirror).
+  const brandRadius = await brand.evaluate((element) => {
+    const style = getComputedStyle(element);
+    return [style.borderTopLeftRadius, style.borderTopRightRadius,
+      style.borderBottomRightRadius, style.borderBottomLeftRadius].join(' ');
+  });
+  expect(brandRadius).toBe('15px 15px 15px 5px');
+  const leafTransform = await page.locator('.brand-mark .icon')
+    .evaluate((element) => getComputedStyle(element).transform);
+  expect(leafTransform).toBe('none');
+  const globeTransform = await page.locator('.language-toggle .icon')
+    .evaluate((element) => getComputedStyle(element).transform);
+  expect(globeTransform).toBe('none');
+  const navIconTransform = await page.locator('.site-nav .icon').first()
+    .evaluate((element) => getComputedStyle(element).transform);
+  expect(navIconTransform).toBe('none');
+});
+
+test('does not horizontally overflow the shared shell at 320 pixels', async ({ page }) => {
+  await page.setViewportSize({ width: 320, height: 740 });
+  await setupShell(page, 'ar');
+  const overflowAr = await page.evaluate(() => ({
+    scrollWidth: document.documentElement.scrollWidth,
+    clientWidth: document.documentElement.clientWidth,
+  }));
+  expect(overflowAr.scrollWidth).toBeLessThanOrEqual(overflowAr.clientWidth);
+  await expect(page.getByRole('button', { name: 'Switch to English', exact: true })).toBeVisible();
+  await expect(page.getByRole('navigation', { name: 'القائمة الرئيسية' })).toBeVisible();
+  await page.getByRole('button', { name: 'Switch to English', exact: true }).click();
+  await expect(page.locator('html')).toHaveAttribute('dir', 'ltr');
+  const overflowEn = await page.evaluate(() => ({
+    scrollWidth: document.documentElement.scrollWidth,
+    clientWidth: document.documentElement.clientWidth,
+  }));
+  expect(overflowEn.scrollWidth).toBeLessThanOrEqual(overflowEn.clientWidth);
+  await expect(page.getByRole('button', { name: 'التغيير إلى العربية', exact: true })).toBeVisible();
+  await expect(page.getByRole('navigation', { name: 'Main navigation' })).toBeVisible();
+});
+
+test('keeps mixed Latin identifiers isolated in Arabic navigation', async ({ page }) => {
+  await setupShell(page, 'ar');
+  const name = page.getByText(recipientFixture.name, { exact: true });
+  await expect(name).toBeVisible();
+  const text = await name.evaluate((element) => element.textContent);
+  expect(text).toBe('Samir Hassan');
+  expect(await name.evaluate((element) => element.tagName)).toBe('BDI');
+  expect(await name.evaluate((element) => element.closest('a')?.textContent?.includes('Samir Hassan'))).toBe(true);
+});
