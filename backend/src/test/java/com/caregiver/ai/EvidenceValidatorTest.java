@@ -32,6 +32,33 @@ class EvidenceValidatorTest {
   }
 
   @Test
+  void rejectsInventedQuote() {
+    var bad = summary(new SummaryObservation("ate well", "n1", "slept perfectly"));
+
+    assertThatThrownBy(() -> EvidenceValidator.validate(bad, Map.of("n1", "she ate well today")))
+        .isInstanceOf(InvalidModelOutputException.class);
+  }
+
+  @Test
+  void rejectsQuoteFoundOnlyInAnotherNote() {
+    var bad = summary(new SummaryObservation("ate well", "n1", "slept well"));
+
+    assertThatThrownBy(() -> EvidenceValidator.validate(bad, Map.of("n1", "ate well", "n2", "slept well")))
+        .isInstanceOf(InvalidModelOutputException.class);
+  }
+
+  @Test
+  void validArabicQuoteAfterExistingNormalizationPreservesOriginalNoteId() {
+    var good = summary(new SummaryObservation("reported eating", "source-note-1", "يَأْكُلُ جَيِّدًا"));
+
+    var validated = EvidenceValidator.validate(good, Map.of("source-note-1", "المريض ياكل جيدا اليوم"));
+
+    assertThat(validated.observations().getFirst().noteId()).isEqualTo("source-note-1");
+    assertThat(validated.observations().getFirst().quote()).isEqualTo("يَأْكُلُ جَيِّدًا");
+    assertThat(validated).isSameAs(good);
+  }
+
+  @Test
   void validEvidence_passesThroughSameInstance() {
     var good = summary(new SummaryObservation("ate well", "n1", "ate well"));
 
