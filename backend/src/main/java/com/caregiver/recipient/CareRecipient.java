@@ -11,6 +11,7 @@ import jakarta.persistence.Index;
 import jakarta.persistence.JoinColumn;
 import jakarta.persistence.ManyToOne;
 import jakarta.persistence.Table;
+import jakarta.persistence.UniqueConstraint;
 import org.hibernate.annotations.CreationTimestamp;
 import org.hibernate.annotations.UpdateTimestamp;
 import org.hibernate.annotations.UuidGenerator;
@@ -24,7 +25,8 @@ import java.util.UUID;
     @Index(name = "idx_care_recipients_caregiver", columnList = "caregiver_id"),
     @Index(name = "idx_care_recipients_caregiver_active", columnList = "caregiver_id, active"),
     @Index(name = "idx_care_recipients_lifecycle", columnList = "caregiver_id, lifecycle_status, created_at")
-})
+}, uniqueConstraints = @UniqueConstraint(
+    name = "uk_care_recipients_id_caregiver", columnNames = {"id", "caregiver_id"}))
 public class CareRecipient {
   @Id @UuidGenerator
   @Column(name = "id", nullable = false, updatable = false)
