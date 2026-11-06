@@ -1,13 +1,16 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { useSearchParams } from 'react-router-dom';
-import { createPlansApi, planErrorMessage, type CarePlan, type PlanAction, type PlanEditRequest } from '../../api/plans';
+import { createPlansApi, planErrorMessage, type CarePlan, type CreateStructuredPlanInput, type PlanAction, type PlanEditRequest } from '../../api/plans';
+import { createNotesApi, noteErrorMessage, type NoteListItem } from '../../api/notes';
 import { createRecipientsApi, isRecipientId, type Recipient } from '../../api/recipients';
 import { ApiError, useApiClient } from '../../lib/api';
 import { Button, ButtonLink } from '../../components/Button';
 import { EmptyState, ErrorState, LoadingState } from '../../components/Feedback';
 import { useI18n } from '../../i18n/I18nProvider';
 import type { MessageKey } from '../../i18n/translations';
+import { defaultHistoryFilters } from '../history/historyFilters';
 import { PlanCard, PlanStatus } from './PlanCard';
+import { PlanDraftForm } from './PlanDraftForm';
 import { PlanEditor } from './PlanEditor';
 import { PlanGenerationForm } from './PlanGenerationForm';
 import { retainSafety, type SummaryRequest, type SummarySafety as Safety } from '../../api/summary';
@@ -39,13 +42,16 @@ function Confirmation({ action, disabled, onCancel, onConfirm }: {
 function PlanWorkspace({ recipientId, onSaving }: { recipientId: string; onSaving: (busy: boolean) => void }) {
   const { t, language } = useI18n();
   const client = useApiClient();
-  const api = useMemo(() => ({ plans: createPlansApi(client), recipients: createRecipientsApi(client) }), [client]);
+  const api = useMemo(() => ({ plans: createPlansApi(client), recipients: createRecipientsApi(client), notes: createNotesApi(client) }), [client]);
   const [state, setState] = useState<Resource<Snapshot>>({ status: 'loading' });
   const [revision, setRevision] = useState(0);
+  const [evidenceState, setEvidenceState] = useState<Resource<NoteListItem[]>>({ status: 'loading' });
+  const [evidenceRevision, setEvidenceRevision] = useState(0);
   const [confirmation, setConfirmation] = useState<{ plan: CarePlan; action: PlanAction } | null>(null);
   const [editing, setEditing] = useState<string | null>(null);
   const [saving, setSaving] = useState(false);
   const [generating, setGenerating] = useState(false);
+  const [creatingDraft, setCreatingDraft] = useState(false);
   const [generationSafety, setGenerationSafety] = useState<{ request: SummaryRequest; safety: Safety } | null>(null);
   const [blocked, setBlocked] = useState(false);
   const [failure, setFailure] = useState<MessageKey | null>(null);
@@ -77,6 +83,21 @@ function PlanWorkspace({ recipientId, onSaving }: { recipientId: string; onSavin
       .finally(() => clearTimeout(timer));
     return () => { controller.abort(); clearTimeout(timer); };
   }, [api, recipientId, revision]);
+
+  useEffect(() => {
+    const controller = new AbortController();
+    const timer = setTimeout(() => {
+      controller.abort();
+      setEvidenceState({ status: 'error', error: new Error('Read timed out.') });
+    }, readTimeoutMs);
+    const { from, to } = defaultHistoryFilters();
+    setEvidenceState({ status: 'loading' });
+    void api.notes.history({ from, to, recipientId, page: 0, size: 100 }, controller.signal)
+      .then((page) => { if (!controller.signal.aborted) setEvidenceState({ status: 'ready', data: page.content }); })
+      .catch((error: unknown) => { if (!controller.signal.aborted) setEvidenceState({ status: 'error', error }); })
+      .finally(() => clearTimeout(timer));
+    return () => { controller.abort(); clearTimeout(timer); };
+  }, [api, recipientId, evidenceRevision]);
 
   useEffect(() => {
     mounted.current = true;
@@ -152,6 +173,30 @@ function PlanWorkspace({ recipientId, onSaving }: { recipientId: string; onSavin
     }
   }
 
+  async function createDraft(input: CreateStructuredPlanInput) {
+    if (mutation.current || blocked || state.status !== 'ready' || !state.data.recipient.active) return;
+    const controller = new AbortController(); mutation.current = controller;
+    const timer = setTimeout(() => controller.abort(), readTimeoutMs);
+    setSaving(true); setCreatingDraft(true); onSaving(true); setNotice(null); setFailure(null);
+    try {
+      await api.plans.createSuggested(recipientId, input, controller.signal);
+      if (!mounted.current) return;
+      if (controller.signal.aborted) throw new Error('Unconfirmed draft creation.');
+      mutation.current = null;
+      reload('plansDraftSaved');
+    } catch (error) {
+      if (!mounted.current || mutation.current !== controller) return;
+      setBlocked(true);
+      const definiteRejection = error instanceof ApiError && [400, 403, 404, 409, 422, 429].includes(error.status);
+      setFailure(definiteRejection
+        ? error instanceof ApiError && [400, 422].includes(error.status) ? 'plansDraftRejected' : planErrorMessage(error)
+        : 'plansUncertain');
+    } finally {
+      clearTimeout(timer); if (mutation.current === controller) mutation.current = null;
+      if (mounted.current) { setSaving(false); setCreatingDraft(false); onSaving(false); }
+    }
+  }
+
   const snapshot = state.status === 'ready' ? state.data : null;
   const historyIds = new Set(snapshot?.history.map((plan) => plan.id));
   const suggestions = snapshot?.history.filter((plan) => plan.status === 'SUGGESTED') ?? [];
@@ -160,7 +205,7 @@ function PlanWorkspace({ recipientId, onSaving }: { recipientId: string; onSavin
     <div className="plan-results-heading"><h2 id="plans-results" ref={results} tabIndex={-1}>{snapshot ? <bdi>{snapshot.recipient.name}</bdi> : t('plansTitle')}</h2>
       <Button variant="secondary" onClick={() => reload()} disabled={saving || state.status === 'loading'}>{t('plansRefresh')}</Button></div>
     {(saving || failure || notice) && <div className={failure ? 'note-error plan-message' : 'note-success plan-message'} role={failure ? 'alert' : 'status'} ref={status} tabIndex={-1}>
-      <p>{t(saving ? (generating ? 'plansGenerating' : 'plansSaving') : failure ?? notice!)}</p>{failure && <p>{t('plansReloadRequired')}</p>}
+      <p>{t(saving ? (creatingDraft ? 'plansCreatingDraft' : generating ? 'plansGenerating' : 'plansSaving') : failure ?? notice!)}</p>{failure && <p>{t('plansReloadRequired')}</p>}
     </div>}
     {state.status === 'loading' && <LoadingState label={t('plansLoading')} />}
     {state.status === 'error' && <div ref={status} tabIndex={-1}><ErrorState description={t(state.error instanceof SnapshotChanged ? 'plansInconsistent' : planErrorMessage(state.error))} onRetry={() => reload()} /></div>}
@@ -168,6 +213,12 @@ function PlanWorkspace({ recipientId, onSaving }: { recipientId: string; onSavin
     {snapshot && <>
       {!snapshot.recipient.active && <p className="note-notice">{t('plansInactive')}</p>}
       <PlanGenerationForm recipientId={recipientId} disabled={disabled || !!confirmation || !!editing} onGenerate={(request) => { void generate(request); }} />
+      <section className="note-surface" aria-label={t('plansCreateDraft')}>
+        {evidenceState.status === 'loading' && <LoadingState label={t('plansDraftEvidenceLoading')} />}
+        {evidenceState.status === 'error' && <ErrorState description={t(noteErrorMessage(evidenceState.error))} onRetry={() => setEvidenceRevision((value) => value + 1)} />}
+        {evidenceState.status === 'ready' && <PlanDraftForm evidenceNotes={evidenceState.data}
+          disabled={disabled || !!confirmation || !!editing} onSave={(input) => { void createDraft(input); }} />}
+      </section>
       <section className="note-surface" aria-labelledby="plans-active"><h2 id="plans-active">{t('plansActive')}</h2>
         {snapshot.active ? <PlanCard plan={snapshot.active} historyIds={historyIds} /> : <EmptyState title={t('plansNoActive')} description={t('plansNoActiveHint')} />}
       </section>
