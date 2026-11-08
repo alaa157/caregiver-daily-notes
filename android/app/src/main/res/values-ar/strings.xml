@@ -442,7 +442,7 @@
     <string name="ai_recovery_no_source">لا توجد ملاحظات في الفترة المحددة. عدد الأيام: %1$d. أضف ملاحظة أو جرّب 30 يوماً.</string>
     <string name="ai_recovery_no_source_30">لا توجد ملاحظات في آخر 30 يوماً. أضف ملاحظة لهذا اليوم.</string>
     <string name="ai_recovery_malformed">أرسل الذكاء الاصطناعي رداً تعذر قراءته. حاول مرة أخرى.</string>
-    <string name="ai_recovery_invalid_evidence">تعذّر على الذكاء الاصطناعي إنتاج نتائج يمكن التحقق منها بدرجة كافية من ملاحظاتك. حاول مرة أخرى.</string>
+    <string name="ai_recovery_invalid_evidence">أعاد الذكاء الاصطناعي صياغة ملاحظاتك بدلاً من الاقتباس منها، فتعذّر التحقق من نتائجه. حاول مرة أخرى، أو اختر نموذجاً آخر في الإعدادات.</string>
     <string name="ai_recovery_oversized_input">الملاحظات في هذه الفترة كثيرة جداً لإرسالها. اختر فترة زمنية أقصر وحاول مرة أخرى.</string>
     <string name="ai_recovery_invalid_url">تعذر العثور على عنوان مزود الذكاء الاصطناعي أو النموذج. تحقق من الإعدادات.</string>
     <string name="ai_recovery_invalid_model">المزوّد لا يقدّم نموذجًا بهذا المعرّف. تحقق من معرّف النموذج في الإعدادات.</string>
