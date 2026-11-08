@@ -33,6 +33,31 @@ private data class ModelSummary(
     val urgent: Boolean = false,
 )
 
+@Serializable
+private data class RejectedFeedback(
+    val claim: String,
+    val reason: String,
+    val missingWords: List<String> = emptyList(),
+)
+
+@Serializable
+private data class GroundingRetryPayload(
+    val rejected: List<RejectedFeedback>,
+    val instruction: String,
+)
+
+private data class RejectedItem(
+    val claim: String,
+    val noteId: String,
+    val reason: String,
+    val missingWords: List<String> = emptyList(),
+)
+
+private data class ValidationOutcome(
+    val validObservations: List<ModelObs>,
+    val rejected: List<RejectedItem>,
+)
+
 sealed class SummaryAiResult {
     data class Success(
         val summary: SummaryDto,
@@ -147,26 +172,140 @@ class SummaryAiService(
         // field whose name and value match the note itself (STRUCTURED_FIELD).
         // String matching alone is never treated as proof of truth: any
         // observation that survives these checks is still labelled unverified.
+        var finalParsed = parsed
+        var finalOutcome = validateObservations(
+            parsed.observations,
+            notesById,
+            noteTextsById,
+            addendumTextsById,
+            combinedTextsById,
+        )
+        var finalStatus = replyStatus
+        var usedGroundingRetry = false
+        // Single grounding retry: only when the first reply was mostly
+        // rejected (nothing survived, or rejected >= valid). At most one
+        // extra model call, inside the caller's existing deadline.
+        if (finalOutcome.rejected.isNotEmpty() &&
+            (finalOutcome.validObservations.isEmpty() ||
+                finalOutcome.rejected.size >= finalOutcome.validObservations.size)
+        ) {
+            val feedbackItems = finalOutcome.rejected.take(GROUNDING_RETRY_MAX_ITEMS).map { rejected ->
+                RejectedFeedback(
+                    claim = rejected.claim.take(GROUNDING_RETRY_MAX_CLAIM_CHARS),
+                    reason = rejected.reason,
+                    missingWords = rejected.missingWords,
+                )
+            }
+            val feedbackJson = json.encodeToString(
+                GroundingRetryPayload.serializer(),
+                GroundingRetryPayload(feedbackItems, GROUNDING_RETRY_INSTRUCTION),
+            )
+            val retryRequest = request.copy(dataBlock = request.dataBlock + "\n\n" + feedbackJson)
+            val retryReply = LlmJson.decode(client, retryRequest, MAX_REPLY_CHARS) { text ->
+                runCatching { json.decodeFromString(ModelSummary.serializer(), text) }.getOrNull()
+            }
+            when (retryReply) {
+                is LlmJson.Reply.Parsed -> {
+                    val retryOutcome = validateObservations(
+                        retryReply.value.observations,
+                        notesById,
+                        noteTextsById,
+                        addendumTextsById,
+                        combinedTextsById,
+                    )
+                    // Keep the retry only when it yields more grounded findings.
+                    if (retryOutcome.validObservations.size > finalOutcome.validObservations.size) {
+                        finalParsed = retryReply.value
+                        finalOutcome = retryOutcome
+                        usedGroundingRetry = true
+                    }
+                }
+                is LlmJson.Reply.Unavailable,
+                is LlmJson.Reply.Oversized,
+                is LlmJson.Reply.Malformed,
+                -> {
+                    // Retry must never make a previously successful summary fail.
+                    // Fall through with the first-pass outcome.
+                }
+            }
+        }
+        if (usedGroundingRetry) {
+            finalStatus = LlmStatus.REPAIRED
+        }
+        val validObservations = finalOutcome.validObservations
+
+        val evidence = validObservations.map {
+            SummaryDto.EvidenceDto(
+                noteId = it.noteId,
+                quote = it.quote,
+                evidenceType = it.evidenceType.ifBlank { EvidenceType.NOTE_TEXT.name },
+                structuredField = it.structuredField,
+                structuredValue = it.structuredValue,
+            )
+        }
+        val uncertainties = finalParsed.uncertainties.map { SummaryDto.UncertaintyDto(topic = it.topic, detail = it.detail) }.toMutableList()
+        if (finalOutcome.rejected.isNotEmpty()) {
+            uncertainties += SummaryDto.UncertaintyDto("invalid_evidence", "")
+        }
+        if (validObservations.isNotEmpty()) {
+            uncertainties += SummaryDto.UncertaintyDto("unverified_claim", "")
+        }
+        val text = validObservations.joinToString(" ") { observation ->
+            val claim = observation.text.trim()
+            if (claim.isNotEmpty() && claim.last() in SENTENCE_ENDINGS) claim else "$claim."
+        }
+        // A structurally valid response with no surviving observations is a
+        // legitimate empty result, not an AI failure: the model found no
+        // supported observations. Only reject when observations were present
+        // but none survived validation.
+        if (finalParsed.observations.isNotEmpty() && validObservations.isEmpty()) {
+            return SummaryAiResult.Failure(redFlags, "invalid_evidence")
+        }
+
+        // The model may only ADD urgency — deterministic flags are never
+        // removed or reordered; the flag id matches the backend mirror.
+        val mergedFlags = if (finalParsed.urgent) redFlags + "MODEL_URGENT" else redFlags
+        return SummaryAiResult.Success(
+            SummaryDto(
+                id = "",
+                recipientId = recipientId,
+                periodDays = periodDays,
+                text = text,
+                redFlags = mergedFlags,
+                evidence = evidence,
+                uncertainties = uncertainties,
+            ),
+            status = finalStatus,
+        )
+    }
+
+    private fun validateObservations(
+        observations: List<ModelObs>,
+        notesById: Map<String, NoteDto>,
+        noteTextsById: Map<String, String>,
+        addendumTextsById: Map<String, List<String>>,
+        combinedTextsById: Map<String, String>,
+    ): ValidationOutcome {
         val validObservations = mutableListOf<ModelObs>()
-        var hadInvalid = false
+        val rejected = mutableListOf<RejectedItem>()
         // Hard bound so a model that ignores the prompt (or a custom user
         // prompt) cannot turn the Overview and "Important notes" back into a
         // per-note dump. Keep in sync with Prompts.SUMMARY_SYSTEM.
-        for (obs in parsed.observations.take(MAX_OBSERVATIONS)) {
+        for (obs in observations.take(MAX_OBSERVATIONS)) {
             val claim = if (obs.claim.isNotBlank()) obs.claim else obs.text
             val rawQuote = if (obs.quote.isNotBlank()) obs.quote else obs.evidence
             if (claim.isBlank()) {
-                hadInvalid = true
+                rejected += RejectedItem(claim, obs.noteId, "empty_claim")
                 continue
             }
             val note = notesById[obs.noteId]
             if (note == null) {
-                hadInvalid = true
+                rejected += RejectedItem(claim, obs.noteId, "unknown_note")
                 continue
             }
             val evidenceType = StructuredEvidence.typeOf(obs.evidenceType, obs.structuredField)
             if (evidenceType == null) {
-                hadInvalid = true
+                rejected += RejectedItem(claim, obs.noteId, "unknown_evidence_type")
                 continue
             }
             if (evidenceType == EvidenceType.STRUCTURED_FIELD) {
@@ -178,12 +317,12 @@ class SummaryAiService(
                 // never copied from the model.
                 val field = StructuredEvidence.canonicalField(obs.structuredField)
                 if (field == null || !StructuredEvidence.matches(note, field, obs.structuredValue)) {
-                    hadInvalid = true
+                    rejected += RejectedItem(claim, obs.noteId, "structured_mismatch")
                     continue
                 }
                 val actual = StructuredEvidence.actualValue(note, field)
                 if (!StructuredEvidence.claimAligns(claim, field, actual)) {
-                    hadInvalid = true
+                    rejected += RejectedItem(claim, obs.noteId, "structured_mismatch")
                     continue
                 }
                 validObservations += ModelObs(
@@ -207,7 +346,7 @@ class SummaryAiService(
                 else -> noteTextsById[obs.noteId]?.contains(quote) == true
             }
             if (quote.isEmpty() || !quoteContained) {
-                hadInvalid = true
+                rejected += RejectedItem(claim, obs.noteId, "quote_not_in_note")
                 continue
             }
             // The prompt requires the claim to stay in the quote's language
@@ -226,8 +365,9 @@ class SummaryAiService(
             // what ClaimGrounding's contract forbids. The quote itself
             // was verified against the note above, and the observation
             // stays labelled unverified.
-            if (ClaimGrounding.verdict(claim, rawQuote) == ClaimGrounding.Verdict.UNSUPPORTED) {
-                hadInvalid = true
+            val explanation = ClaimGrounding.explain(claim, rawQuote)
+            if (explanation.verdict == ClaimGrounding.Verdict.UNSUPPORTED) {
+                rejected += RejectedItem(claim, obs.noteId, explanation.reason.name, explanation.missingWords)
                 continue
             }
             validObservations += ModelObs(
@@ -237,50 +377,7 @@ class SummaryAiService(
                 evidenceType = evidenceType.name,
             )
         }
-
-        val evidence = validObservations.map {
-            SummaryDto.EvidenceDto(
-                noteId = it.noteId,
-                quote = it.quote,
-                evidenceType = it.evidenceType.ifBlank { EvidenceType.NOTE_TEXT.name },
-                structuredField = it.structuredField,
-                structuredValue = it.structuredValue,
-            )
-        }
-        val uncertainties = parsed.uncertainties.map { SummaryDto.UncertaintyDto(topic = it.topic, detail = it.detail) }.toMutableList()
-        if (hadInvalid) {
-            uncertainties += SummaryDto.UncertaintyDto("invalid_evidence", "")
-        }
-        if (validObservations.isNotEmpty()) {
-            uncertainties += SummaryDto.UncertaintyDto("unverified_claim", "")
-        }
-        val text = validObservations.joinToString(" ") { observation ->
-            val claim = observation.text.trim()
-            if (claim.isNotEmpty() && claim.last() in SENTENCE_ENDINGS) claim else "$claim."
-        }
-        // A structurally valid response with no surviving observations is a
-        // legitimate empty result, not an AI failure: the model found no
-        // supported observations. Only reject when observations were present
-        // but none survived validation.
-        if (parsed.observations.isNotEmpty() && validObservations.isEmpty()) {
-            return SummaryAiResult.Failure(redFlags, "invalid_evidence")
-        }
-
-        // The model may only ADD urgency — deterministic flags are never
-        // removed or reordered; the flag id matches the backend mirror.
-        val mergedFlags = if (parsed.urgent) redFlags + "MODEL_URGENT" else redFlags
-        return SummaryAiResult.Success(
-            SummaryDto(
-                id = "",
-                recipientId = recipientId,
-                periodDays = periodDays,
-                text = text,
-                redFlags = mergedFlags,
-                evidence = evidence,
-                uncertainties = uncertainties,
-            ),
-            status = replyStatus,
-        )
+        return ValidationOutcome(validObservations, rejected)
     }
 
     companion object {
@@ -292,6 +389,14 @@ class SummaryAiService(
          * is the enforcement point when it ignores that instruction.
          */
         const val MAX_OBSERVATIONS = 6
+
+        private const val GROUNDING_RETRY_MAX_ITEMS = 6
+        private const val GROUNDING_RETRY_MAX_CLAIM_CHARS = 200
+        private const val GROUNDING_RETRY_INSTRUCTION =
+            "The following claims were rejected during validation. " +
+                "Rewrite each claim using only words from the cited note, " +
+                "copy quotes verbatim from that note, " +
+                "and drop any finding you cannot support."
     }
 }
 

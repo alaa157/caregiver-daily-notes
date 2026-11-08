@@ -237,4 +237,74 @@ class ClaimGroundingTest {
         assertFalse(ClaimGrounding.isSupported("ألم شديد", "مفيش ألم شديد"))
         assertFalse(ClaimGrounding.isSupported("ماشي", "مش ماشي"))
     }
+
+    @Test
+    fun explainAgreesWithVerdictOnNegationNumberAndLanguageCases() {
+        data class Case(
+            val claim: String,
+            val quote: String,
+            val verdict: ClaimGrounding.Verdict,
+            val reason: ClaimGrounding.Reason,
+        )
+        val cases = listOf(
+            Case("had pain", "had no pain", ClaimGrounding.Verdict.UNSUPPORTED, ClaimGrounding.Reason.NEGATION_MISMATCH),
+            Case("walked", "did not walk", ClaimGrounding.Verdict.UNSUPPORTED, ClaimGrounding.Reason.NEGATION_MISMATCH),
+            Case("did not walk", "walked", ClaimGrounding.Verdict.UNSUPPORTED, ClaimGrounding.Reason.NEGATION_MISMATCH),
+            Case("blood pressure 120 over 80", "blood pressure 130 over 90", ClaimGrounding.Verdict.UNSUPPORTED, ClaimGrounding.Reason.NUMBER_MISMATCH),
+            Case("insulin dose 10 units", "insulin dose 20 units", ClaimGrounding.Verdict.UNSUPPORTED, ClaimGrounding.Reason.NUMBER_MISMATCH),
+            Case("she fell in the kitchen", "سقطت المريضة في المطبخ", ClaimGrounding.Verdict.NOT_COMPARABLE, ClaimGrounding.Reason.NOT_COMPARABLE),
+            Case("سقطت المريضة في المطبخ", "she fell in the kitchen", ClaimGrounding.Verdict.NOT_COMPARABLE, ClaimGrounding.Reason.NOT_COMPARABLE),
+            Case("walked", "walked", ClaimGrounding.Verdict.SUPPORTED, ClaimGrounding.Reason.SUPPORTED),
+            Case("took medication", "walked", ClaimGrounding.Verdict.UNSUPPORTED, ClaimGrounding.Reason.UNSUPPORTED_WORDS),
+            Case("", "walked", ClaimGrounding.Verdict.UNSUPPORTED, ClaimGrounding.Reason.EMPTY),
+            Case("walked", "", ClaimGrounding.Verdict.UNSUPPORTED, ClaimGrounding.Reason.EMPTY),
+            Case("had severe pain", "a", ClaimGrounding.Verdict.UNSUPPORTED, ClaimGrounding.Reason.EMPTY),
+        )
+        for (case in cases) {
+            val explanation = ClaimGrounding.explain(case.claim, case.quote)
+            assertEquals(
+                "verdict for ${case.claim} against ${case.quote}",
+                case.verdict,
+                explanation.verdict,
+            )
+            assertEquals(
+                "verdict() == explain().verdict for ${case.claim}",
+                ClaimGrounding.verdict(case.claim, case.quote),
+                explanation.verdict,
+            )
+            assertEquals(
+                "reason for ${case.claim} against ${case.quote}",
+                case.reason,
+                explanation.reason,
+            )
+        }
+    }
+
+    @Test
+    fun explainReportsMissingWordsForUnsupportedWords() {
+        val explanation = ClaimGrounding.explain("took medication", "walked")
+        assertEquals(ClaimGrounding.Verdict.UNSUPPORTED, explanation.verdict)
+        assertEquals(ClaimGrounding.Reason.UNSUPPORTED_WORDS, explanation.reason)
+        assertTrue(explanation.missingWords.contains("medication"))
+        val supported = ClaimGrounding.explain("walked", "walked")
+        assertEquals(ClaimGrounding.Verdict.SUPPORTED, supported.verdict)
+        assertTrue(supported.missingWords.isEmpty())
+    }
+
+    @Test
+    fun explainCatchesRefusedTookInsulinRegression() {
+        val explanation = ClaimGrounding.explain(
+            "refused her morning insulin dose",
+            "took her morning insulin dose",
+        )
+        assertEquals(ClaimGrounding.Verdict.UNSUPPORTED, explanation.verdict)
+        assertEquals(ClaimGrounding.Reason.NEGATION_MISMATCH, explanation.reason)
+        assertEquals(
+            ClaimGrounding.verdict(
+                "refused her morning insulin dose",
+                "took her morning insulin dose",
+            ),
+            explanation.verdict,
+        )
+    }
 }

@@ -59,6 +59,26 @@ object ClaimGrounding {
         NOT_COMPARABLE,
     }
 
+    /**
+     * Machine-readable reason for [Explanation]; raw codes never reach the UI.
+     */
+    enum class Reason {
+        SUPPORTED,
+        UNSUPPORTED_WORDS,
+        NEGATION_MISMATCH,
+        NUMBER_MISMATCH,
+        EMPTY,
+        NOT_COMPARABLE,
+    }
+
+    /** Read-only diagnostic for one claim/quote pair; same verdict as [verdict]. */
+    data class Explanation(
+        val verdict: Verdict,
+        val reason: Reason,
+        /** Claim content words not found in the quote (only for UNSUPPORTED_WORDS). */
+        val missingWords: List<String> = emptyList(),
+    )
+
     private val wordSplit = Regex("\\s+")
 
     /** Words that make no claim of their own. */
@@ -106,48 +126,68 @@ object ClaimGrounding {
      * [Verdict.NOT_COMPARABLE]: no word of one can be found in the other,
      * so the claim cannot be judged here and must not be rejected for it.
      */
-    fun verdict(claim: String, quote: String): Verdict {
+    fun verdict(claim: String, quote: String): Verdict = explain(claim, quote).verdict
+
+    /**
+     * Read-only diagnostic for [claim] and the [quote] it cites. The verdict
+     * always equals [verdict] for the same inputs; only the reason and (for
+     * UNSUPPORTED_WORDS) the missing claim words are extra.
+     */
+    fun explain(claim: String, quote: String): Explanation {
         val nClaim = ArabicNormalizer.normalizeForEvidence(claim)
         val nQuote = ArabicNormalizer.normalizeForEvidence(quote)
-        if (nClaim.isEmpty() || nQuote.isEmpty()) return Verdict.UNSUPPORTED
+        if (nClaim.isEmpty() || nQuote.isEmpty()) {
+            return Explanation(Verdict.UNSUPPORTED, Reason.EMPTY)
+        }
 
         val claimWords = words(nClaim)
         val quoteWords = words(nQuote)
 
         // A quote has to carry information. "a" or "no" can sit inside
         // almost any note, so it is not evidence for anything.
-        if (quoteWords.none { isQuoteContentWord(it) }) return Verdict.UNSUPPORTED
+        if (quoteWords.none { isQuoteContentWord(it) }) {
+            return Explanation(Verdict.UNSUPPORTED, Reason.EMPTY)
+        }
 
         // Numbers and polarity survive translation. Check them even when the
         // claim and quote are in different scripts, so a translated claim
         // cannot silently change a dose, a date, or "no pain" into "pain".
         val claimNumbers = numbersIn(nClaim)
-        if (claimNumbers.any { it !in numbersIn(nQuote) }) return Verdict.UNSUPPORTED
+        if (claimNumbers.any { it !in numbersIn(nQuote) }) {
+            return Explanation(Verdict.UNSUPPORTED, Reason.NUMBER_MISMATCH)
+        }
         if (isDifferentLanguage(nClaim, nQuote)) {
             if (claimWords.any(::isNegation) != quoteWords.any(::isNegation)) {
-                return Verdict.UNSUPPORTED
+                return Explanation(Verdict.UNSUPPORTED, Reason.NEGATION_MISMATCH)
             }
             // No lexical comparison is possible without a translation: the
             // quote was already verified against the note by the caller.
-            return Verdict.NOT_COMPARABLE
+            return Explanation(Verdict.NOT_COMPARABLE, Reason.NOT_COMPARABLE)
         }
 
         // A negation the claim adds and the quote does not share flips the
         // meaning just as much as one the claim drops: "did not walk" for
         // "walked", and "had pain" for "had no pain".
-        if (claimNegatesQuote(claimWords, quoteWords)) return Verdict.UNSUPPORTED
-        if (quoteNegatesClaim(quoteWords, claimWords)) return Verdict.UNSUPPORTED
+        if (claimNegatesQuote(claimWords, quoteWords)) {
+            return Explanation(Verdict.UNSUPPORTED, Reason.NEGATION_MISMATCH)
+        }
+        if (quoteNegatesClaim(quoteWords, claimWords)) {
+            return Explanation(Verdict.UNSUPPORTED, Reason.NEGATION_MISMATCH)
+        }
 
         // Only the claim's own words are weighed. Negations are judged above,
         // so counting them here would only punish a different wording of the
         // same negation ("didn't" against "did not").
         val claimContent = claimWords.filter { isClaimContentWord(it) }
-        if (claimContent.isEmpty()) return Verdict.SUPPORTED
-        val supported = claimContent.count { word -> quoteWords.any { wordsMatch(word, it) } }
+        if (claimContent.isEmpty()) {
+            return Explanation(Verdict.SUPPORTED, Reason.SUPPORTED)
+        }
+        val missing = claimContent.filter { word -> quoteWords.none { wordsMatch(word, it) } }
+        val supported = claimContent.size - missing.size
         return if (supported * 100 >= claimContent.size * MIN_SUPPORT_PERCENT) {
-            Verdict.SUPPORTED
+            Explanation(Verdict.SUPPORTED, Reason.SUPPORTED)
         } else {
-            Verdict.UNSUPPORTED
+            Explanation(Verdict.UNSUPPORTED, Reason.UNSUPPORTED_WORDS, missing)
         }
     }
 
