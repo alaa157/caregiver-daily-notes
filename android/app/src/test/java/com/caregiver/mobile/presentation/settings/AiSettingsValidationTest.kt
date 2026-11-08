@@ -81,7 +81,7 @@ class AiSettingsValidationTest {
         val credentials = AiSettingsValidation.credentialsFor(
             provider = AiProvider.GEMINI,
             apiKey = "  secret-key  ",
-            model = "gemini-3.1-flash-lite",
+            model = AiProvider.GEMINI.defaultModel,
             baseUrl = "https://proxy.example.com/v1",
         )
         assertEquals(AiProvider.GEMINI, credentials?.provider)
