@@ -1,6 +1,7 @@
 package com.caregiver.mobile.presentation.summary
 
 import android.content.Context
+import android.os.Build
 import android.util.Log
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.Dispatchers
@@ -35,6 +36,7 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.platform.LocalConfiguration
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.res.stringResource
@@ -176,6 +178,9 @@ fun SummaryResultScreen(
                 navController.navigate(AppRoutes.noteEditor(recipientId))
             AiRecoveryAction.ExtendPeriod ->
                 vm.setPeriod(AiRecovery.EXTENDED_PERIOD_DAYS)
+            // Handled by the AiUnavailable branch's local handler, which
+            // knows the provider to switch to; no-op here.
+            AiRecoveryAction.SwitchToProvider -> Unit
         }
     }
     val consentProvider = androidx.compose.runtime.remember {
@@ -219,9 +224,21 @@ fun SummaryResultScreen(
             ) {
                 val flags = ((s.last?.redFlags ?: emptyList()) + s.redFlags).distinct()
                 FlagsBanner(flags)
+                val otherProvider = s.switchToProvider
+                val onAiAction: (AiRecoveryAction) -> Unit = { action ->
+                    if (action == AiRecoveryAction.SwitchToProvider && otherProvider != null) {
+                        vm.switchProvider(otherProvider)
+                    } else {
+                        onRecoveryAction(action)
+                    }
+                }
                 SummaryFailureCard(
-                    copy = AiRecovery.copyFor(s.reasonCode, activePeriodDays),
-                    onAction = onRecoveryAction,
+                    copy = AiRecovery.copyFor(
+                        s.reasonCode,
+                        activePeriodDays,
+                        otherProviderName = otherProvider?.displayName,
+                    ),
+                    onAction = onAiAction,
                 )
             }
             is SummaryState.Rejected -> Column(
@@ -239,8 +256,10 @@ fun SummaryResultScreen(
                 )
             }
             is SummaryState.NeedsConsent -> {
+                val consentStore = AiKeyStore(graph.context)
                 AiConsentDialog(
                     providerName = s.provider.displayName,
+                    modelName = consentStore.model(s.provider) ?: s.provider.defaultModel,
                     onAccept = { vm.grantConsent() },
                     onDismiss = { navController.popBackStack() },
                 )
@@ -278,13 +297,13 @@ private fun SummaryFailureCard(
         AppWarningState(message = copy.resolvedMessage())
         copy.primary?.let { action ->
             PrimaryButton(
-                label = recoveryActionLabel(action),
+                label = recoveryActionLabel(action, copy.switchProviderName),
                 onClick = { onAction(action) },
             )
         }
         copy.secondary?.let { action ->
             SecondaryButton(
-                label = recoveryActionLabel(action),
+                label = recoveryActionLabel(action, copy.switchProviderName),
                 onClick = { onAction(action) },
             )
         }
@@ -292,11 +311,17 @@ private fun SummaryFailureCard(
 }
 
 @Composable
-private fun recoveryActionLabel(action: AiRecoveryAction): String = when (action) {
+private fun recoveryActionLabel(action: AiRecoveryAction, switchProviderName: String? = null): String = when (action) {
     AiRecoveryAction.Retry -> stringResource(R.string.common_retry)
     AiRecoveryAction.OpenAiSettings -> stringResource(R.string.ai_action_open_settings)
     AiRecoveryAction.AddNote -> stringResource(R.string.ai_action_add_note)
     AiRecoveryAction.ExtendPeriod -> stringResource(R.string.ai_action_try_30_days)
+    AiRecoveryAction.SwitchToProvider ->
+        if (switchProviderName != null) {
+            stringResource(R.string.ai_action_switch_provider, switchProviderName)
+        } else {
+            stringResource(R.string.ai_action_switch_provider_generic)
+        }
 }
 
 /**
@@ -446,12 +471,13 @@ private fun SummaryBody(
                 exporting = true
                 exportScope.launch {
                     try {
-                        val uri = CareSummaryPdfExporter.prepareUri(
-                            graph.context,
-                            graph,
-                            summary,
-                            periodDays,
-                            pdfLocaleTag,
+                        val shared = shareSummaryPdf(
+                            context = context,
+                            graph = graph,
+                            summary = summary,
+                            periodDays = periodDays,
+                            languageTag = pdfLocaleTag,
+                            shareText = null,
                         )
                         if (!shared) {
                             exportError = context.getString(R.string.export_failed)
@@ -533,12 +559,13 @@ private fun SummaryBody(
             }
         val arabic = effectiveLocale.language == "ar"
         val appName = stringResource(R.string.app_name)
-        val shareText = remember(summary.text, arabic) {
+        val shareTemplate = stringResource(R.string.share_summary_message)
+        val shareText = remember(summary.text, arabic, appName, shareTemplate) {
             CareSummaryShare.shareText(
                 summaryText = summary.text,
                 dateText = DateFormats.historyDay(LocalDate.now().toString(), arabic),
                 appName = appName,
-                arabic = arabic,
+                template = shareTemplate,
             )
         }
         var showShareConfirm by rememberSaveable { mutableStateOf(false) }
@@ -579,17 +606,17 @@ private fun SummaryBody(
                                 exporting = true
                                 exportScope.launch {
                                     try {
-                                        val uri = CareSummaryPdfExporter.prepareUri(
-                                            context,
-                                            graph,
-                                            summary,
-                                            periodDays,
-                                            pdfLocaleTag,
+                                        val shared = shareSummaryPdf(
+                                            context = context,
+                                            graph = graph,
+                                            summary = summary,
+                                            periodDays = periodDays,
+                                            languageTag = pdfLocaleTag,
+                                            shareText = shareText,
                                         )
                                         if (!shared) {
                                             exportError = context.getString(R.string.export_failed)
                                         }
-                                        context.startActivity(Intent.createChooser(share, null))
                                     } catch (e: kotlinx.coroutines.CancellationException) {
                                         throw e
                                     } catch (e: Exception) {
@@ -654,26 +681,13 @@ private suspend fun shareSummaryPdf(
     languageTag: String,
     shareText: String?,
 ): Boolean {
-    val today = LocalDate.now()
-    val from = SummaryWindow.start(today, periodDays).toString()
-    val to = today.toString()
-    val notes = try {
-        graph.apis.notes().history(summary.recipientId, from, to)
-    } catch (e: CancellationException) {
-        throw e
-    } catch (e: Exception) {
-        emptyList()
-    }
-    val recipientName = try {
-        graph.apis.recipients().get(summary.recipientId).name
-    } catch (e: CancellationException) {
-        throw e
-    } catch (e: Exception) {
-        null
-    }
-    val uri = withContext(Dispatchers.IO) {
-        CareSummaryPdfExporter.export(context, summary, recipientName, languageTag, notes)
-    }
+    val uri = CareSummaryPdfExporter.prepareUri(
+        context,
+        graph,
+        summary,
+        periodDays,
+        languageTag,
+    )
     return CareSummaryShare.launchChooser(
         context,
         CareSummaryShare.pdfShareIntent(uri, shareText),

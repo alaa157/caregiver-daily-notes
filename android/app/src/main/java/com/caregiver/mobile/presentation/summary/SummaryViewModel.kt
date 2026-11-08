@@ -2,6 +2,7 @@ package com.caregiver.mobile.presentation.summary
 
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
+import com.caregiver.mobile.ai.ApiKeyState
 import com.caregiver.mobile.ai.AiKeyStore
 import com.caregiver.mobile.ai.AiProvider
 import com.caregiver.mobile.ai.LlmClientFactory
@@ -44,6 +45,12 @@ sealed interface SummaryState {
         val redFlags: List<String> = emptyList(),
         /** Provider/service code; the UI turns it into recovery copy. */
         val reasonCode: String? = null,
+        /**
+         * Another provider that has a usable key, offered as a recovery
+         * action when the selected provider cannot be used. The switch only
+         * happens on an explicit user tap; it is never applied automatically.
+         */
+        val switchToProvider: AiProvider? = null,
     ) : SummaryState
     data class Rejected(val code: String?, val last: SummaryDto? = null) : SummaryState
 }
@@ -131,6 +138,56 @@ class SummaryViewModel(
         loadJob = exec.launch { load(preserve = false, periodDays = requestedPeriod) }
     }
 
+    /**
+     * Switches the selected provider on an explicit user action (never
+     * automatically) and reloads. Consent is per provider, so the new
+     * provider asks for its own consent before notes flow to it.
+     */
+    fun switchProvider(provider: AiProvider) {
+        val store = aiKeyStore ?: return
+        store.setProvider(provider)
+        cancelledByUser = false
+        _state.value = SummaryState.Loading
+        loadJob?.cancel()
+        val requestedPeriod = _period.value
+        loadJob = exec.launch { load(preserve = false, periodDays = requestedPeriod) }
+    }
+
+    /**
+     * Surfaces why the selected provider cannot be used, keeping the
+     * deterministic safety flags visible. Distinguishes an absent key, a
+     * saved key that can no longer be read, and an unavailable keystore.
+     * Offers (never applies) a switch to another provider that has a key.
+     */
+    private suspend fun keyProblem(store: AiKeyStore, provider: AiProvider, periodDays: Int) {
+        val reasonCode = when (store.apiKeyState(provider)) {
+            is ApiKeyState.Invalidated -> "key_invalidated"
+            ApiKeyState.Unavailable -> "key_unavailable"
+            ApiKeyState.Absent -> "missing_key"
+            is ApiKeyState.Readable -> "missing_key"
+        }
+        val redFlags = try {
+            val today = LocalDate.now()
+            val from = SummaryWindow.start(today, periodDays).toString()
+            val to = today.toString()
+            val signals = repository.authorized { apis.summaries().signals(recipientId, from, to) }
+            SafetySignalEvaluator.evaluate(
+                signals.filter { it.recipientId == recipientId && SummaryWindow.contains(it.date, today, periodDays) },
+            )
+        } catch (_: Exception) {
+            emptyList()
+        }
+        lastRedFlags = redFlags
+        if (waiting()) {
+            _state.value = SummaryState.AiUnavailable(
+                last = null,
+                redFlags = redFlags,
+                reasonCode = reasonCode,
+                switchToProvider = store.otherUsableProvider(provider),
+            )
+        }
+    }
+
     /** True while the screen is waiting for a generation to finish. */
     private fun waiting(): Boolean =
         _state.value is SummaryState.Loading ||
@@ -158,6 +215,17 @@ class SummaryViewModel(
         val store = aiKeyStore
         val provider = store?.selectedProvider()
         var aiRedFlags: List<String> = emptyList()
+        // The selected provider has no usable key. When another provider
+        // does, say so precisely and offer to switch (never silently reuse
+        // that provider's credentials). When none does, keep the backend
+        // fallback so deterministic safety flags and any plan suggestion
+        // still work — there is no key anywhere to switch to.
+        if (store != null && provider != null && !store.hasKey(provider)) {
+            if (store.otherUsableProvider(provider) != null) {
+                keyProblem(store, provider, periodDays)
+                return
+            }
+        }
         if (store != null && provider != null && store.hasKey(provider)) {
             if (!store.consentGiven(provider)) {
                 _state.value = SummaryState.NeedsConsent(provider)

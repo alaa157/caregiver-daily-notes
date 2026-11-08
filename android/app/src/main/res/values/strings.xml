@@ -314,6 +314,7 @@
     <string name="settings_appearance">Appearance</string>
     <string name="ai_consent_title">AI consent</string>
     <string name="ai_consent_body">Care notes are sent to %1$s, the AI provider you selected. This app is not a medical device and is not HIPAA-compliant.</string>
+    <string name="ai_consent_body_model">Care notes are sent to %1$s using the model %2$s. This app is not a medical device and is not HIPAA-compliant.</string>
     <string name="ai_consent_accept">I understand</string>
     <string name="common_cancel">Cancel</string>
     <string name="unsaved_changes_title">Discard unsaved changes?</string>
@@ -442,6 +443,11 @@
     <string name="ai_recovery_incomplete">The AI returned an incomplete response. Try again.</string>
     <string name="ai_recovery_generic">The AI summary couldn\'t be generated. Try again.</string>
     <string name="ai_recovery_missing_key">No AI key is saved. Add one in Settings.</string>
+    <string name="ai_recovery_missing_key_switch">No AI key is saved for this provider. You already have a key for %1$s — switch to use it.</string>
+    <string name="ai_recovery_key_invalidated">The saved AI key can no longer be read. Enter it again in Settings.</string>
+    <string name="ai_recovery_key_unavailable">The secure key storage is unavailable right now. Try again.</string>
+    <string name="ai_action_switch_provider">Switch to %1$s</string>
+    <string name="ai_action_switch_provider_generic">Switch provider</string>
     <string name="ai_recovery_service">The summary service couldn\'t complete the request. Try again.</string>
     <string name="ai_recovery_service_request">The summary service couldn\'t use this request. Try again or check the selected period.</string>
     <string name="ai_recovery_service_down">The summary service is temporarily unavailable. Try again in a minute.</string>
