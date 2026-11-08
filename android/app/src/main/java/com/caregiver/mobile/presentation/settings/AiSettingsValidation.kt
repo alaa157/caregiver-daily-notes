@@ -35,8 +35,12 @@ object AiSettingsValidation {
         val url = raw.trim()
         if (url.isEmpty()) return true
         if (url.any { it.isWhitespace() }) return false
+        // An empty authority ("https:///v1") has no host to talk to; some
+        // parsers are lenient here, so reject it explicitly.
+        val afterScheme = url.substringAfter("://", "")
+        if (afterScheme.isEmpty() || afterScheme.startsWith("/")) return false
         val parsed = url.toHttpUrlOrNull() ?: return false
-        if (parsed.scheme !in listOf("http", "https") || parsed.host.isEmpty()) return false
+        if (parsed.scheme !in listOf("http", "https") || parsed.host.isBlank()) return false
         if (parsed.query != null || parsed.fragment != null ||
             parsed.username.isNotEmpty() || parsed.password.isNotEmpty()) return false
         return parsed.scheme != "http" || ApiClient.isDevHost(parsed.host)
