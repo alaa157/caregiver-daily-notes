@@ -82,10 +82,13 @@ object AiRecovery {
                 primary = AiRecoveryAction.Retry,
             )
         code == "oversized" ->
+            // Oversized is an INPUT limit (too many notes for the period),
+            // not a long reply: retrying the same range fails again, and
+            // Settings cannot shrink the input. The only fix is a
+            // shorter date range.
             AiRecoveryCopy(
-                R.string.ai_recovery_oversized,
+                R.string.ai_recovery_oversized_input,
                 primary = AiRecoveryAction.Retry,
-                secondary = AiRecoveryAction.OpenAiSettings,
             )
         code == "invalid_url" || code == "http_404" ->
             AiRecoveryCopy(
@@ -139,8 +142,22 @@ object AiRecovery {
                 primary = AiRecoveryAction.Retry,
                 secondary = if (otherProviderName != null) AiRecoveryAction.SwitchToProvider else AiRecoveryAction.OpenAiSettings,
             )
-        code == "network" || code == "unavailable" || code == "llm_fallback" ||
-            code == "timeout" || code == "cancelled" ->
+        code == "network" ->
+            AiRecoveryCopy(
+                R.string.ai_recovery_network,
+                primary = AiRecoveryAction.Retry,
+            )
+        code == "timeout" ->
+            // A distinct message from a network failure: the request left
+            // the device but the provider never answered in time, so a
+            // faster model is a real option alongside retrying.
+            AiRecoveryCopy(
+                R.string.ai_recovery_timeout,
+                primary = AiRecoveryAction.Retry,
+                secondary = AiRecoveryAction.OpenAiSettings,
+            )
+        code == "unavailable" || code == "llm_fallback" ||
+            code == "cancelled" ->
             AiRecoveryCopy(
                 R.string.ai_recovery_unavailable,
                 primary = AiRecoveryAction.Retry,
@@ -165,6 +182,17 @@ object AiRecovery {
     private fun serviceCopy(code: String, periodDays: Int): AiRecoveryCopy = when {
         code == "no_source_data" -> noSource(periodDays)
         code == "rate_limit" || code == "rate_limited" || code == "http_429" -> rateLimit()
+        code == "network" ->
+            AiRecoveryCopy(
+                R.string.ai_recovery_network,
+                primary = AiRecoveryAction.Retry,
+            )
+        code == "timeout" ->
+            AiRecoveryCopy(
+                R.string.ai_recovery_timeout,
+                primary = AiRecoveryAction.Retry,
+                secondary = AiRecoveryAction.OpenAiSettings,
+            )
         code.startsWith("http_5") || code == "server_error" ->
             AiRecoveryCopy(
                 R.string.ai_recovery_service_down,

@@ -80,6 +80,74 @@ class AiRecoveryTest {
     }
 
     @Test
+    fun networkAndTimeoutAreDistinctFromGenericUnavailable() {
+        val network = AiRecovery.copyFor("network", 7)
+        assertEquals(R.string.ai_recovery_network, network.message)
+        assertEquals(AiRecoveryAction.Retry, network.primary)
+        assertNull(network.secondary)
+
+        val timeout = AiRecovery.copyFor("timeout", 7)
+        assertEquals(R.string.ai_recovery_timeout, timeout.message)
+        assertEquals(AiRecoveryAction.Retry, timeout.primary)
+        assertEquals(AiRecoveryAction.OpenAiSettings, timeout.secondary)
+
+        // The generic fallback stays for genuinely unknown failures.
+        assertEquals(
+            R.string.ai_recovery_unavailable,
+            AiRecovery.copyFor("unavailable", 7).message,
+        )
+    }
+
+    @Test
+    fun oversizedTellsTheUserToShortenTheDateRange() {
+        val copy = AiRecovery.copyFor("oversized", 30)
+
+        assertEquals(R.string.ai_recovery_oversized_input, copy.message)
+        assertEquals(AiRecoveryAction.Retry, copy.primary)
+        assertNull(copy.secondary)
+    }
+
+    @Test
+    fun tableDrivenFailuresMapToTheirRecoveryCopy() {
+        assertEquals(
+            R.string.ai_recovery_missing_key,
+            AiRecovery.copyFor("no_key", 7).message,
+        )
+        assertEquals(
+            AiRecoveryAction.OpenAiSettings,
+            AiRecovery.copyFor("no_key", 7).primary,
+        )
+        assertEquals(
+            R.string.ai_recovery_invalid_model,
+            AiRecovery.copyFor("invalid_model", 7).message,
+        )
+        assertEquals(
+            AiRecoveryAction.OpenAiSettings,
+            AiRecovery.copyFor("invalid_model", 7).primary,
+        )
+        assertEquals(
+            R.string.ai_recovery_invalid_evidence,
+            AiRecovery.copyFor("invalid_evidence", 7).message,
+        )
+        assertEquals(
+            R.string.ai_recovery_malformed,
+            AiRecovery.copyFor("malformed_output", 7).message,
+        )
+    }
+
+    @Test
+    fun serviceTimeoutAndNetworkUseTheSamePlainCopy() {
+        assertEquals(
+            R.string.ai_recovery_timeout,
+            AiRecovery.copyFor("timeout", 7, AiFailureSource.Service).message,
+        )
+        assertEquals(
+            R.string.ai_recovery_network,
+            AiRecovery.copyFor("network", 7, AiFailureSource.Service).message,
+        )
+    }
+
+    @Test
     fun unknownCodesFallBackToGenericCopyInsteadOfLeakingRawText() {
         val copy = AiRecovery.copyFor("some_new_provider_code", 7)
 
