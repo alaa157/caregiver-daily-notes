@@ -64,6 +64,33 @@ class SummaryResponseFormatTest {
     }
 
     @Test
+    fun structuredObservationNeedsNoQuote() {
+        assertNull(
+            SummaryResponseFormat.validate(
+                """{"observations":[{"text":"mood fair","noteId":"n1","evidenceType":"STRUCTURED_FIELD","structuredField":"mood","structuredValue":"fair"}],"uncertainties":[]}""",
+            ),
+        )
+    }
+
+    @Test
+    fun structuredObservationWithoutValueIsRejected() {
+        assertNotNull(
+            SummaryResponseFormat.validate(
+                """{"observations":[{"text":"mood fair","noteId":"n1","evidenceType":"STRUCTURED_FIELD","structuredField":"mood"}],"uncertainties":[]}""",
+            ),
+        )
+    }
+
+    @Test
+    fun unknownEvidenceTypeIsRejected() {
+        assertNotNull(
+            SummaryResponseFormat.validate(
+                """{"observations":[{"text":"t","noteId":"n1","evidenceType":"GUESS","quote":"q"}],"uncertainties":[]}""",
+            ),
+        )
+    }
+
+    @Test
     fun reasonNamesTheProblem() {
         assertEquals("not a JSON object", SummaryResponseFormat.validate("nope"))
         assertEquals("missing uncertainties array", SummaryResponseFormat.validate("""{"observations":[]}"""))

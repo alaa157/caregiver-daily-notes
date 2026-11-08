@@ -15,6 +15,10 @@ private data class ModelObs(
     val noteId: String = "",
     val quote: String = "",
     val evidence: String = "",
+    // Typed evidence (see StructuredEvidence). Blank on legacy payloads.
+    val evidenceType: String = "",
+    val structuredField: String = "",
+    val structuredValue: String = "",
 )
 
 @Serializable
@@ -125,12 +129,23 @@ class SummaryAiService(
             is LlmJson.Reply.Malformed ->
                 return SummaryAiResult.Failure(redFlags, reply.error ?: "malformed_output")
         }
-        val noteTextsById = windowedNotes.associate { it.id to it.aiSourceText() }
-        val normalizedNotes = noteTextsById.mapValues { ArabicNormalizer.normalizeForEvidence(it.value) }
+        val notesById = windowedNotes.associateBy { it.id }
+        // Normalized source texts per evidence type: the original note text
+        // (NOTE_TEXT), each addendum on its own (ADDENDUM), and the legacy
+        // combined text for payloads that declare no evidence type. The
+        // rendered structured-observations line is deliberately in none of
+        // them: it is model-visible data, never quotable evidence.
+        val noteTextsById = windowedNotes.associate { it.id to ArabicNormalizer.normalizeForEvidence(it.text) }
+        val addendumTextsById = windowedNotes.associate {
+            it.id to it.addenda.map { addendum -> ArabicNormalizer.normalizeForEvidence(addendum.text) }
+        }
+        val combinedTextsById = windowedNotes.associate { it.id to ArabicNormalizer.normalizeForEvidence(it.combinedText()) }
         // Validate and reject unsupported observations; keep only grounded ones.
-        // A claim must be non-empty, cite an existing note, cite a non-empty
-        // quote that occurs in that note, and be lexically supported by that
-        // quote. String matching alone is never treated as proof of truth: any
+        // A claim must be non-empty, cite an existing note, and carry evidence
+        // that checks out for its declared type: a verbatim quote inside the
+        // cited text (NOTE_TEXT / ADDENDUM / legacy combined), or a structured
+        // field whose name and value match the note itself (STRUCTURED_FIELD).
+        // String matching alone is never treated as proof of truth: any
         // observation that survives these checks is still labelled unverified.
         val validObservations = mutableListOf<ModelObs>()
         var hadInvalid = false
@@ -144,13 +159,54 @@ class SummaryAiService(
                 hadInvalid = true
                 continue
             }
-            val noteText = normalizedNotes[obs.noteId]
-            if (noteText == null) {
+            val note = notesById[obs.noteId]
+            if (note == null) {
                 hadInvalid = true
                 continue
             }
+            val evidenceType = StructuredEvidence.typeOf(obs.evidenceType, obs.structuredField)
+            if (evidenceType == null) {
+                hadInvalid = true
+                continue
+            }
+            if (evidenceType == EvidenceType.STRUCTURED_FIELD) {
+                // The model cites a recorded field by name and value, in
+                // its own words in the claim. Both halves are checked
+                // against the note: the value must be the recorded one,
+                // and the claim must actually talk about that field/value.
+                // The stored quote is rebuilt from the note's own values,
+                // never copied from the model.
+                val field = StructuredEvidence.canonicalField(obs.structuredField)
+                if (field == null || !StructuredEvidence.matches(note, field, obs.structuredValue)) {
+                    hadInvalid = true
+                    continue
+                }
+                val actual = StructuredEvidence.actualValue(note, field)
+                if (!StructuredEvidence.claimAligns(claim, field, actual)) {
+                    hadInvalid = true
+                    continue
+                }
+                validObservations += ModelObs(
+                    text = claim,
+                    noteId = obs.noteId,
+                    quote = StructuredEvidence.canonicalQuote(note, field),
+                    evidenceType = EvidenceType.STRUCTURED_FIELD.name,
+                    structuredField = field,
+                    structuredValue = actual,
+                )
+                continue
+            }
+            // Quote-based evidence. A declared type is strict about where
+            // the quote may come from; a legacy payload without a type may
+            // quote the combined text, as before.
             val quote = ArabicNormalizer.normalizeForEvidence(rawQuote)
-            if (quote.isEmpty() || !noteText.contains(quote)) {
+            val quoteContained = when {
+                obs.evidenceType.isBlank() -> combinedTextsById[obs.noteId]?.contains(quote) == true
+                evidenceType == EvidenceType.ADDENDUM ->
+                    addendumTextsById[obs.noteId]?.any { it.contains(quote) } == true
+                else -> noteTextsById[obs.noteId]?.contains(quote) == true
+            }
+            if (quote.isEmpty() || !quoteContained) {
                 hadInvalid = true
                 continue
             }
@@ -162,21 +218,35 @@ class SummaryAiService(
             // numbers and polarity first. The quote itself was verified
             // against the note above, and the observation stays labelled
             // unverified.
-            // Only an UNSUPPORTED verdict rejects the observation. SUPPORTED
-            // is lexically grounded; NOT_COMPARABLE (claim and quote written
-            // in different scripts) is kept because the quote was already
-            // verified against the note above and lexical comparison is
-            // impossible without a translation. Either way the observation
-            // stays labelled unverified by the caller, so lexical
-            // non-comparability is never mistaken for proof of support.
+            // Only an UNSUPPORTED verdict rejects the observation.
+            // NOT_COMPARABLE means the claim and quote are in different
+            // scripts, so the lexical check cannot judge the claim at
+            // all — rejecting it would drop every observation of a
+            // perfectly good cross-language summary, which is exactly
+            // what ClaimGrounding's contract forbids. The quote itself
+            // was verified against the note above, and the observation
+            // stays labelled unverified.
             if (ClaimGrounding.verdict(claim, rawQuote) == ClaimGrounding.Verdict.UNSUPPORTED) {
                 hadInvalid = true
                 continue
             }
-            validObservations += ModelObs(text = claim, noteId = obs.noteId, quote = rawQuote)
+            validObservations += ModelObs(
+                text = claim,
+                noteId = obs.noteId,
+                quote = rawQuote,
+                evidenceType = evidenceType.name,
+            )
         }
 
-        val evidence = validObservations.map { SummaryDto.EvidenceDto(noteId = it.noteId, quote = it.quote) }
+        val evidence = validObservations.map {
+            SummaryDto.EvidenceDto(
+                noteId = it.noteId,
+                quote = it.quote,
+                evidenceType = it.evidenceType.ifBlank { EvidenceType.NOTE_TEXT.name },
+                structuredField = it.structuredField,
+                structuredValue = it.structuredValue,
+            )
+        }
         val uncertainties = parsed.uncertainties.map { SummaryDto.UncertaintyDto(topic = it.topic, detail = it.detail) }.toMutableList()
         if (hadInvalid) {
             uncertainties += SummaryDto.UncertaintyDto("invalid_evidence", "")
@@ -225,7 +295,10 @@ class SummaryAiService(
     }
 }
 
-/** Render structured note fields as explicit, citable source data for the model. */
+/** Render structured note fields as explicit source data for the model. The
+ * rendered line is how the model learns the values; it is never quotable
+ * evidence — structured citations use evidenceType STRUCTURED_FIELD with
+ * the field name and value, validated against the NoteDto itself. */
 private fun NoteDto.aiSourceText(): String = buildString {
     append(combinedText())
     append("\nStructured observations: mood=").append(mood)

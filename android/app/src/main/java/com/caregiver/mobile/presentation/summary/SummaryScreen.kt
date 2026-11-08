@@ -456,15 +456,9 @@ private fun SummaryBody(
                 )
             }
         }
-        val exportScope = rememberCoroutineScope()
-        var exporting by remember { mutableStateOf(false) }
-        var exportError by remember { mutableStateOf<String?>(null) }
-        @Suppress("DEPRECATION")
-        val pdfLocaleTag = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.N) {
-            LocalConfiguration.current.locales[0].toLanguageTag()
-        } else {
-            LocalConfiguration.current.locale.toLanguageTag()
-        }
+        // Export/share entry points share the one prepareUri fetch path;
+        // the effective locale is the one the UI already resolved.
+        val pdfLocaleTag = effectiveLocale.toLanguageTag()
         androidx.compose.material3.Button(
             onClick = {
                 exportError = null
@@ -478,6 +472,10 @@ private fun SummaryBody(
                             periodDays = periodDays,
                             languageTag = pdfLocaleTag,
                             shareText = null,
+                        )
+                        val shared = CareSummaryShare.launchChooser(
+                            context,
+                            CareSummaryShare.pdfShareIntent(uri, null),
                         )
                         if (!shared) {
                             exportError = context.getString(R.string.export_failed)
@@ -581,7 +579,7 @@ private fun SummaryBody(
                 height = 52.dp,
             )
         }
-        if (showShareConfirm && shareText != null) {
+        if (showShareConfirm) {
             DefaultDialog(
                 onDismiss = { showShareConfirm = false },
                 title = {
@@ -613,6 +611,10 @@ private fun SummaryBody(
                                             periodDays = periodDays,
                                             languageTag = pdfLocaleTag,
                                             shareText = shareText,
+                                        )
+                                        val shared = CareSummaryShare.launchChooser(
+                                            context,
+                                            CareSummaryShare.pdfShareIntent(uri, shareText),
                                         )
                                         if (!shared) {
                                             exportError = context.getString(R.string.export_failed)
