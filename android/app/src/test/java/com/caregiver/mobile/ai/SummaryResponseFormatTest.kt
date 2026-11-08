@@ -49,8 +49,12 @@ class SummaryResponseFormatTest {
     @Test
     fun missingTopLevelArraysAreRejected() {
         assertNotNull(SummaryResponseFormat.validate("""{}"""))
-        assertNotNull(SummaryResponseFormat.validate("""{"observations":[]}"""))
+        // `uncertainties` is optional-if-present, mirroring the production
+        // decoder's default: a missing array is tolerated, a wrong-typed
+        // one is rejected.
+        assertNull(SummaryResponseFormat.validate("""{"observations":[]}"""))
         assertNotNull(SummaryResponseFormat.validate("""{"observations":{},"uncertainties":[]}"""))
+        assertNotNull(SummaryResponseFormat.validate("""{"observations":[],"uncertainties":{}}"""))
     }
 
     @Test
@@ -93,6 +97,8 @@ class SummaryResponseFormatTest {
     @Test
     fun reasonNamesTheProblem() {
         assertEquals("not a JSON object", SummaryResponseFormat.validate("nope"))
-        assertEquals("missing uncertainties array", SummaryResponseFormat.validate("""{"observations":[]}"""))
+        assertEquals("missing observations array", SummaryResponseFormat.validate("""{}"""))
+        assertEquals("uncertainties is not an array",
+            SummaryResponseFormat.validate("""{"observations":[],"uncertainties":{}}"""))
     }
 }

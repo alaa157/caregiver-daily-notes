@@ -3,6 +3,7 @@ package com.caregiver.mobile.ai
 import java.util.concurrent.CountDownLatch
 import java.util.concurrent.TimeUnit
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.isActive
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.runBlocking
 import kotlinx.coroutines.withTimeout
@@ -44,7 +45,16 @@ class CallCancellationTest {
                 cancellation.install()
                 try {
                     cancellation.track(call)
-                    call.execute().use { }
+                    try {
+                        call.execute().use { }
+                    } catch (e: java.io.IOException) {
+                        // Expected: OkHttp throws "Canceled" synchronously
+                        // when the coroutine cancels the in-flight call.
+                        // Swallow it; the isCanceled assertion below is the
+                        // real check. Rethrow only if still active (an
+                        // unexpected failure).
+                        if (isActive) throw e
+                    }
                 } finally {
                     cancellation.close()
                 }
