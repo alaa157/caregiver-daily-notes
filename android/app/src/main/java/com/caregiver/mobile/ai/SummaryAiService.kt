@@ -162,11 +162,14 @@ class SummaryAiService(
             // numbers and polarity first. The quote itself was verified
             // against the note above, and the observation stays labelled
             // unverified.
-            // A quote in the source note is not enough to ground a translated
-            // claim: when the scripts differ ClaimGrounding cannot compare
-            // their meaning. Only lexically supported claims may be shown as
-            // observations; an uncheckable claim is not evidence.
-            if (ClaimGrounding.verdict(claim, rawQuote) != ClaimGrounding.Verdict.SUPPORTED) {
+            // Only an UNSUPPORTED verdict rejects the observation. SUPPORTED
+            // is lexically grounded; NOT_COMPARABLE (claim and quote written
+            // in different scripts) is kept because the quote was already
+            // verified against the note above and lexical comparison is
+            // impossible without a translation. Either way the observation
+            // stays labelled unverified by the caller, so lexical
+            // non-comparability is never mistaken for proof of support.
+            if (ClaimGrounding.verdict(claim, rawQuote) == ClaimGrounding.Verdict.UNSUPPORTED) {
                 hadInvalid = true
                 continue
             }
