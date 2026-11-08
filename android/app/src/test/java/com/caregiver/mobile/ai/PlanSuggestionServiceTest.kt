@@ -44,7 +44,7 @@ class PlanSuggestionServiceTest {
         val service = PlanSuggestionService(client)
         val result = service.suggest("summary")
         assertTrue(result is PlanSuggestionResult.Failure)
-        assertEquals("llm_fallback", (result as PlanSuggestionResult.Failure).reasonCode)
+        assertEquals("network", (result as PlanSuggestionResult.Failure).reasonCode)
     }
 
     @Test
@@ -266,13 +266,16 @@ class PlanSuggestionServiceTest {
 
     @Test
     fun aFollowUpCarriesItsDate() = runBlocking {
+        // Follow-up dates must be in the future; use a dynamic date so the
+        // test does not rot when the hard-coded one becomes the past.
+        val date = java.time.LocalDate.now().plusDays(7).toString()
         val client = client(
-            """{"changes":[{"actionId":"schedule_followup","params":{"date":"2026-10-25"},"reason":"review next week","evidenceNoteIds":[]}],"proposedMedications":[]}""",
+            """{"changes":[{"actionId":"schedule_followup","params":{"date":"$date"},"reason":"review next week","evidenceNoteIds":[]}],"proposedMedications":[]}""",
         )
         val result = PlanSuggestionService(client).suggest("summary")
         assertTrue(result is PlanSuggestionResult.Success)
         val change = (result as PlanSuggestionResult.Success).suggestion.changes.single()
-        assertEquals("2026-10-25", change.params["date"])
+        assertEquals(date, change.params["date"])
     }
 
     @Test
@@ -282,7 +285,7 @@ class PlanSuggestionServiceTest {
         for (json in listOf(withoutDate, withBadDate)) {
             val result = PlanSuggestionService(client(json)).suggest("summary")
             assertTrue(result is PlanSuggestionResult.Failure)
-            assertEquals("empty_after_filter", (result as PlanSuggestionResult.Failure).reasonCode)
+            assertEquals("invalid_action", (result as PlanSuggestionResult.Failure).reasonCode)
         }
     }
 

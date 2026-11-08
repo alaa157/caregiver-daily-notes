@@ -8,11 +8,11 @@ import kotlinx.serialization.json.jsonObject
 
 /**
  * Shape check for summary JSON replies, used by the settings screen's
- * feature-level format validation. Deliberately strict (mirroring the
- * backend parser and the summary prompt): both top-level arrays must be
- * present and every observation must carry a claim/text, noteId and
- * quote/evidence string. Optional fields follow the production decoder's
- * defaults. Connection testing stays separate and only proves reachability.
+ * feature-level format validation. `observations` is required; `uncertainties`
+ * is optional-if-present, mirroring the production decoder's default (a wrong
+ * type is still rejected). Every observation must carry a claim/text, noteId
+ * and quote/evidence string. Connection testing stays separate and only
+ * proves reachability.
  */
 object SummaryResponseFormat {
     private val json = Json { ignoreUnknownKeys = true }
