@@ -38,6 +38,7 @@ import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalUriHandler
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.res.stringResource
+import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.text.input.PasswordVisualTransformation
 import androidx.compose.ui.unit.dp
 import androidx.navigation.NavBackStackEntry
@@ -677,8 +678,8 @@ fun AiSettingsScreen(graph: AppGraph, navController: NavController, navEntry: Na
                         value = apiKey,
                         onValueChange = { apiKey = it },
                         visualTransformation = PasswordVisualTransformation(),
-                        keyboardOptions = androidx.compose.ui.text.input.KeyboardOptions(
-                            keyboardType = androidx.compose.ui.text.input.KeyboardType.Password,
+                        keyboardOptions = androidx.compose.foundation.text.KeyboardOptions(
+                            keyboardType = KeyboardType.Password,
                         ),
                         // A key is one line: a pasted newline must not turn
                         // the field into a multi-line box.

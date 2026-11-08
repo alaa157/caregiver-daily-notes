@@ -240,6 +240,9 @@ object CareSummaryPdfExporter {
         "POOR_APPETITE_DAYS" -> context.getString(R.string.flag_poor_appetite)
         "MODEL_URGENT" -> context.getString(R.string.flag_model_urgent)
         else -> context.getString(R.string.flag_unknown)
+    }
+
+    /**
      * Fetches the observations + recipient name needed for a care summary
      * and renders the PDF. Shared by every export/share entry point so
      * behaviour, cancellation and error handling stay identical.

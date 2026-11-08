@@ -1,5 +1,6 @@
 package com.caregiver.mobile.ai
 
+import com.caregiver.mobile.data.api.ApiClient
 import kotlinx.coroutines.CoroutineDispatcher
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.currentCoroutineContext

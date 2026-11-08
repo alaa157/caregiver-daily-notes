@@ -156,6 +156,7 @@ class PlanSuggestionService(
     }
 
     companion object {
+        private val json = Json { ignoreUnknownKeys = true }
         val DEFAULT_ALLOWED_ACTIONS = setOf(
             "monitor",
             "adjust_routine",
