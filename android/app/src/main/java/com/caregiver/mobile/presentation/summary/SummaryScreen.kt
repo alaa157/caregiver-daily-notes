@@ -473,10 +473,6 @@ private fun SummaryBody(
                             languageTag = pdfLocaleTag,
                             shareText = null,
                         )
-                        val shared = CareSummaryShare.launchChooser(
-                            context,
-                            CareSummaryShare.pdfShareIntent(uri, null),
-                        )
                         if (!shared) {
                             exportError = context.getString(R.string.export_failed)
                         }
@@ -611,10 +607,6 @@ private fun SummaryBody(
                                             periodDays = periodDays,
                                             languageTag = pdfLocaleTag,
                                             shareText = shareText,
-                                        )
-                                        val shared = CareSummaryShare.launchChooser(
-                                            context,
-                                            CareSummaryShare.pdfShareIntent(uri, shareText),
                                         )
                                         if (!shared) {
                                             exportError = context.getString(R.string.export_failed)
