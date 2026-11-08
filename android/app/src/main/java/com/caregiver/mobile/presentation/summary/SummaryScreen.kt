@@ -653,6 +653,10 @@ private fun SummaryBody(
             )
         }
         suggestStatus?.let { code ->
+            // Provider failures keep their actual reason (invalid_key,
+            // rate_limit, network, timeout, ...) and reuse the summary
+            // recovery copy; only plan-specific codes use the plan strings.
+            // Unknown codes fall back to the plan generic, never raw text.
             val msg = when (code) {
                 "success" -> stringResource(R.string.plan_suggest_success)
                 "empty_after_filter" -> stringResource(R.string.plan_suggest_empty)
@@ -662,7 +666,16 @@ private fun SummaryBody(
                 "oversized" -> stringResource(R.string.plan_suggest_oversized)
                 "invalid_evidence" -> stringResource(R.string.plan_suggest_invalid_evidence)
                 "invalid_action" -> stringResource(R.string.plan_suggest_invalid_action)
-                else -> stringResource(R.string.plan_suggest_failed)
+                "invalid_key", "invalid_model", "rate_limit", "network", "timeout",
+                "malformed_output", "no_key", "missing_key", "not_configured",
+                "invalid_url", "blocked", "blocked_safety", "invalid_request",
+                "json_mode_unsupported", "empty_output", "truncated", "incomplete",
+                -> AiRecovery.copyFor(code).resolvedMessage()
+                else -> if (code.startsWith("http_")) {
+                    AiRecovery.copyFor(code).resolvedMessage()
+                } else {
+                    stringResource(R.string.plan_suggest_failed)
+                }
             }
             Text(text = msg, color = if (code == "success") CaregiverColors.Success else CaregiverColors.Danger)
         }
