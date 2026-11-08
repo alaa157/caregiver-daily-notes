@@ -95,6 +95,7 @@ class SummaryViewModelModelResolutionTest {
         store.setModel("openai-model", AiProvider.OPENAI)
         store.setApiKey("gemini-key", AiProvider.GEMINI)
         store.setModel("gemini-model", AiProvider.GEMINI)
+        store.setConsentGiven(AiProvider.GEMINI)
         store.setProvider(AiProvider.GEMINI)
 
         val vm = SummaryViewModel("r1", apis(), repository, this, aiKeyStore = store, llmClientFactory = factory)

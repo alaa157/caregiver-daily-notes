@@ -13,6 +13,8 @@ enum class AiRecoveryAction {
     OpenAiSettings,
     AddNote,
     ExtendPeriod,
+    /** Switch the selected provider to one that has a usable key (user action only). */
+    SwitchToProvider,
 }
 
 /** Whether the failure came from the AI provider or the summary service. */
@@ -30,6 +32,10 @@ data class AiRecoveryCopy(
     @StringRes val message: Int,
     /** When set, [message] has a single `%1$d` placeholder for this period. */
     val formatDays: Int? = null,
+    /** When set, [message] has a single `%1$s` placeholder for this provider name. */
+    val formatProvider: String? = null,
+    /** Provider to offer as the primary fix name (shown on the switch button). */
+    val switchProviderName: String? = null,
     val primary: AiRecoveryAction? = null,
     val secondary: AiRecoveryAction? = null,
 )
@@ -46,16 +52,17 @@ object AiRecovery {
         reasonCode: String?,
         periodDays: Int = 7,
         source: AiFailureSource = AiFailureSource.Provider,
+        otherProviderName: String? = null,
     ): AiRecoveryCopy {
         val code = reasonCode?.trim()?.lowercase(Locale.ROOT).orEmpty()
         return if (source == AiFailureSource.Service) {
             serviceCopy(code, periodDays)
         } else {
-            providerCopy(code, periodDays)
+            providerCopy(code, periodDays, otherProviderName)
         }
     }
 
-    private fun providerCopy(code: String, periodDays: Int): AiRecoveryCopy = when {
+    private fun providerCopy(code: String, periodDays: Int, otherProviderName: String? = null): AiRecoveryCopy = when {
         code == "invalid_key" || code == "http_401" || code == "http_403" ->
             AiRecoveryCopy(
                 R.string.ai_recovery_invalid_key,
@@ -117,10 +124,20 @@ object AiRecovery {
                 secondary = AiRecoveryAction.Retry,
             )
         code == "missing_key" || code == "no_key" || code == "not_configured" ->
+            missingKeyCopy(otherProviderName)
+        code == "key_invalidated" ->
             AiRecoveryCopy(
-                R.string.ai_recovery_missing_key,
-                primary = AiRecoveryAction.OpenAiSettings,
-                secondary = AiRecoveryAction.Retry,
+                R.string.ai_recovery_key_invalidated,
+                switchProviderName = otherProviderName,
+                primary = if (otherProviderName != null) AiRecoveryAction.SwitchToProvider else AiRecoveryAction.OpenAiSettings,
+                secondary = if (otherProviderName != null) AiRecoveryAction.OpenAiSettings else AiRecoveryAction.Retry,
+            )
+        code == "key_unavailable" ->
+            AiRecoveryCopy(
+                R.string.ai_recovery_key_unavailable,
+                switchProviderName = otherProviderName,
+                primary = AiRecoveryAction.Retry,
+                secondary = if (otherProviderName != null) AiRecoveryAction.SwitchToProvider else AiRecoveryAction.OpenAiSettings,
             )
         code == "network" || code == "unavailable" || code == "llm_fallback" ||
             code == "timeout" || code == "cancelled" ->
@@ -171,6 +188,29 @@ object AiRecovery {
         primary = AiRecoveryAction.Retry,
     )
 
+    /**
+     * No usable key for the selected provider. When another provider has a
+     * key, offer (never apply) a switch to it; otherwise point at Settings.
+     * The message names that provider so the caregiver sees where notes
+     * would go before deciding.
+     */
+    private fun missingKeyCopy(otherProviderName: String?): AiRecoveryCopy =
+        if (otherProviderName != null) {
+            AiRecoveryCopy(
+                R.string.ai_recovery_missing_key_switch,
+                formatProvider = otherProviderName,
+                switchProviderName = otherProviderName,
+                primary = AiRecoveryAction.SwitchToProvider,
+                secondary = AiRecoveryAction.OpenAiSettings,
+            )
+        } else {
+            AiRecoveryCopy(
+                R.string.ai_recovery_missing_key,
+                primary = AiRecoveryAction.OpenAiSettings,
+                secondary = AiRecoveryAction.Retry,
+            )
+        }
+
     private fun noSource(periodDays: Int): AiRecoveryCopy =
         if (periodDays >= EXTENDED_PERIOD_DAYS) {
             AiRecoveryCopy(
@@ -188,9 +228,15 @@ object AiRecovery {
         }
 }
 
-fun AiRecoveryCopy.resolvedMessage(context: Context): String =
-    formatDays?.let { context.getString(message, it) } ?: context.getString(message)
+fun AiRecoveryCopy.resolvedMessage(context: Context): String = when {
+    formatDays != null -> context.getString(message, formatDays)
+    formatProvider != null -> context.getString(message, formatProvider)
+    else -> context.getString(message)
+}
 
 @Composable
-fun AiRecoveryCopy.resolvedMessage(): String =
-    formatDays?.let { stringResource(message, it) } ?: stringResource(message)
+fun AiRecoveryCopy.resolvedMessage(): String = when {
+    formatDays != null -> stringResource(message, formatDays)
+    formatProvider != null -> stringResource(message, formatProvider)
+    else -> stringResource(message)
+}

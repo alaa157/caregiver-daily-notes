@@ -103,6 +103,16 @@ class AiKeyStore internal constructor(
     fun hasKey(provider: AiProvider = selectedProvider()): Boolean =
         (apiKeyState(provider) as? ApiKeyState.Readable)?.key?.isNotBlank() == true
 
+    /**
+     * The first provider other than [exclude] that has a usable key, or null.
+     * Used only to OFFER a switch when the selected provider cannot be used:
+     * keys are never reused across providers automatically, because sending
+     * notes to a different company than the one the user configured needs
+     * that provider's own consent.
+     */
+    fun otherUsableProvider(exclude: AiProvider): AiProvider? =
+        AiProvider.values().firstOrNull { it != exclude && hasKey(it) }
+
     fun model(provider: AiProvider = selectedProvider()): String? =
         prefs.getString(modelSlot(provider), null)?.takeIf { it.isNotBlank() }
 
