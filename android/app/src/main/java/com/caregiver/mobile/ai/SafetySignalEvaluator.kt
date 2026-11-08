@@ -41,7 +41,7 @@ object SafetySignalEvaluator {
         "(?<!\\p{L})(?:الم|الام|وجع(?:ت|ه|ها|هم|هما|ك|ي)?)(?!\\p{L})",
     )
     private val ARABIC_CHEST: Pattern = Pattern.compile(
-        "(?<!\\p{L})صدر(?:ه|ها|هم|هما|ك|ي)?(?!\\p{L})",
+        "(?<!\\p{L})(?:ال)?صدر(?:ه|ها|هم|هما|ك|ي)?(?!\\p{L})",
     )
     private val BREATHING_TEXT: Pattern = Pattern.compile(
         "\\b(?:trouble|difficulty|problems?) (?:in )?breathing\\b|" +
