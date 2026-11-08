@@ -403,6 +403,11 @@
     <string name="settings_ai_clear_key_message">Remove the API key saved for %1$s? AI features stay off for this provider until a new key is added.</string>
     <string name="settings_ai_validate_format">Validate summary format</string>
     <string name="settings_ai_validating">Validating...</string>
+    <string name="settings_ai_quality_check">Check model quality</string>
+    <string name="settings_ai_quality_checking">Checking model quality...</string>
+    <string name="settings_ai_quality_pass">This model quoted your notes correctly (%1$d of %2$d findings verified)</string>
+    <string name="settings_ai_quality_partial">This model sometimes rewords notes (%1$d of %2$d findings verified). Summaries may miss details.</string>
+    <string name="settings_ai_quality_fail">This model rewrote the notes instead of quoting them, so summaries will likely fail. Try a different model.</string>
     <string name="settings_ai_format_ok">Summary format OK</string>
     <string name="settings_ai_format_probe">Format validation probe: no concerns reported today.</string>
     <string name="settings_ai_format_invalid">Format check failed: %1$s</string>

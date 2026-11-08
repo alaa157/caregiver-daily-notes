@@ -81,6 +81,28 @@ class AiModelCatalogTest {
     }
 
     @Test
+    fun recommendedModelsAreCataloguedAndNeverFree() {
+        for (provider in AiProvider.entries) {
+            val options = AiModelCatalog.options(provider)
+            val summaryModel = AiModelCatalog.recommendedSummaryModel(provider)
+            assertTrue(
+                "${provider.name}'s summary recommendation must not be free",
+                summaryModel == null || !summaryModel.free,
+            )
+            for (recommended in options.filter { it.recommendedForSummaries }) {
+                assertTrue(
+                    "${recommended.id} must exist in ${provider.name}'s catalog",
+                    options.any { it.id == recommended.id },
+                )
+                assertTrue(
+                    "${recommended.id} must not be recommended when it is free",
+                    !recommended.free,
+                )
+            }
+        }
+    }
+
+    @Test
     fun modelIdsAreNotBlank() {
         for (provider in AiProvider.entries) {
             for (option in AiModelCatalog.options(provider)) {

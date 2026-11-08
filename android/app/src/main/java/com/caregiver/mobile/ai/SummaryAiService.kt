@@ -33,6 +33,12 @@ private data class ModelSummary(
     val urgent: Boolean = false,
 )
 
+data class SummaryAiDiagnostics(
+    val totalObservations: Int,
+    val groundedObservations: Int,
+    val providerFailure: Boolean = false,
+)
+
 sealed class SummaryAiResult {
     data class Success(
         val summary: SummaryDto,
@@ -41,9 +47,16 @@ sealed class SummaryAiResult {
          * single repair retry, [LlmStatus.OK] when it was clean.
          */
         val status: LlmStatus = LlmStatus.OK,
+        /** Present only for callers that explicitly request probe diagnostics. */
+        val diagnostics: SummaryAiDiagnostics? = null,
     ) : SummaryAiResult()
 
-    data class Failure(val redFlags: List<String>, val reasonCode: String) : SummaryAiResult()
+    data class Failure(
+        val redFlags: List<String>,
+        val reasonCode: String,
+        /** Present only for callers that explicitly request probe diagnostics. */
+        val diagnostics: SummaryAiDiagnostics? = null,
+    ) : SummaryAiResult()
 }
 
 class SummaryAiService(
@@ -52,6 +65,10 @@ class SummaryAiService(
     private val json: Json = Json { ignoreUnknownKeys = true },
     /** UI language of the generated human-readable summary text ("ar"/"en"). */
     private val language: String = "en",
+    /** Opt-in diagnostics keep the normal summary result unchanged for ordinary callers. */
+    private val includeDiagnostics: Boolean = false,
+    /** Uncommitted settings-screen prompt preference, when the probe is testing edits. */
+    private val promptPreferencesOverride: String? = null,
 ) {
     suspend fun summarize(
         recipientId: String,
@@ -99,7 +116,8 @@ class SummaryAiService(
         if (dataBlock.length > MAX_INPUT_CHARS) {
             return SummaryAiResult.Failure(redFlags, "oversized")
         }
-        val userPref = keyStore?.summarySystemPrompt()?.takeIf { it.isNotBlank() }
+        val userPref = promptPreferencesOverride
+            ?: keyStore?.summarySystemPrompt()?.takeIf { it.isNotBlank() }
             ?: keyStore?.systemPrompt()?.takeIf { it.isNotBlank() }
         // The caregiver's preferences go before the fixed prompt, never after:
         // the last instruction in a system message carries the most weight, so
@@ -123,7 +141,11 @@ class SummaryAiService(
             // http_400, ...) so the UI can explain the fix instead of
             // collapsing every failure into a generic "unavailable".
             is LlmJson.Reply.Unavailable ->
-                return SummaryAiResult.Failure(redFlags, reply.error ?: "unavailable")
+                return SummaryAiResult.Failure(
+                    redFlags,
+                    reply.error ?: "unavailable",
+                    diagnostics = if (includeDiagnostics) SummaryAiDiagnostics(0, 0, providerFailure = true) else null,
+                )
             is LlmJson.Reply.Oversized ->
                 return SummaryAiResult.Failure(redFlags, reply.error ?: "oversized")
             is LlmJson.Reply.Malformed ->
@@ -263,7 +285,15 @@ class SummaryAiService(
         // supported observations. Only reject when observations were present
         // but none survived validation.
         if (parsed.observations.isNotEmpty() && validObservations.isEmpty()) {
-            return SummaryAiResult.Failure(redFlags, "invalid_evidence")
+            return SummaryAiResult.Failure(
+                redFlags,
+                "invalid_evidence",
+                diagnostics = if (includeDiagnostics) {
+                    SummaryAiDiagnostics(parsed.observations.size, validObservations.size)
+                } else {
+                    null
+                },
+            )
         }
 
         // The model may only ADD urgency — deterministic flags are never
@@ -280,6 +310,11 @@ class SummaryAiService(
                 uncertainties = uncertainties,
             ),
             status = replyStatus,
+            diagnostics = if (includeDiagnostics) {
+                SummaryAiDiagnostics(parsed.observations.size, validObservations.size)
+            } else {
+                null
+            },
         )
     }
 
