@@ -25,14 +25,36 @@ object SummaryResponseFormat {
         val root = runCatching { json.parseToJsonElement(payload).jsonObject }.getOrNull()
             ?: return "not a JSON object"
         val observations = root["observations"] as? JsonArray ?: return "missing observations array"
-        root["uncertainties"]?.let { if (it !is JsonArray) return "uncertainties is not an array" }
+        val uncertainties = root["uncertainties"] ?: return "missing uncertainties array"
+        if (uncertainties !is JsonArray) return "uncertainties is not an array"
         observations.forEachIndexed { index, element ->
             val observation = element as? JsonObject ?: return "observation $index is not an object"
             if ((observation["noteId"] as? JsonPrimitive)?.isString != true) return "observation $index has no noteId"
-            if ((observation["quote"] as? JsonPrimitive)?.isString != true &&
-                (observation["evidence"] as? JsonPrimitive)?.isString != true) return "observation $index has no quote"
             if ((observation["text"] as? JsonPrimitive)?.isString != true &&
                 (observation["claim"] as? JsonPrimitive)?.isString != true) return "observation $index has no text"
+            val evidenceType = (observation["evidenceType"] as? JsonPrimitive)
+                ?.takeIf { it.isString }?.content?.trim()?.uppercase()
+            when (evidenceType) {
+                null, "" -> {
+                    if ((observation["quote"] as? JsonPrimitive)?.isString != true &&
+                        (observation["evidence"] as? JsonPrimitive)?.isString != true) return "observation $index has no quote"
+                }
+                "STRUCTURED_FIELD" -> {
+                    // A structured citation carries no verbatim quote; the
+                    // field and value replace it.
+                    if (((observation["structuredField"] as? JsonPrimitive)?.isString != true) ||
+                        (observation["structuredField"] as? JsonPrimitive)?.content?.isBlank() == true) {
+                        return "observation $index has no structuredField"
+                    }
+                    val value = observation["structuredValue"] as? JsonPrimitive
+                    if (value == null || value.content.isBlank()) return "observation $index has no structuredValue"
+                }
+                "NOTE_TEXT", "ADDENDUM" -> {
+                    if ((observation["quote"] as? JsonPrimitive)?.isString != true &&
+                        (observation["evidence"] as? JsonPrimitive)?.isString != true) return "observation $index has no quote"
+                }
+                else -> return "observation $index has unknown evidenceType"
+            }
         }
         return null
     }

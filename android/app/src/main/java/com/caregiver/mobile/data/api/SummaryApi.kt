@@ -47,7 +47,17 @@ data class SummaryDto(
     val uncertainties: List<UncertaintyDto>,
 ) {
     @Serializable
-    data class EvidenceDto(val noteId: String, val quote: String)
+    data class EvidenceDto(
+        val noteId: String,
+        val quote: String,
+        // Typed evidence (NOTE_TEXT / STRUCTURED_FIELD / ADDENDUM). For
+        // STRUCTURED_FIELD the quote is the canonical "field=value" rebuilt
+        // from the note, and structuredField/structuredValue carry the
+        // validated citation. Defaults keep older payloads readable.
+        val evidenceType: String = "NOTE_TEXT",
+        val structuredField: String = "",
+        val structuredValue: String = "",
+    )
 
     @Serializable
     data class UncertaintyDto(val topic: String, val detail: String)

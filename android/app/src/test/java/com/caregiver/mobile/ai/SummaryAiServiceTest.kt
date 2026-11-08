@@ -179,6 +179,103 @@ class SummaryAiServiceTest {
     }
 
     @Test
+    fun structuredFieldParaphraseIsAcceptedWithoutAVerbatimQuote() = runBlocking {
+        // mood=FAIR is recorded; the model paraphrases it instead of
+        // quoting the rendered "mood=fair" line. The field and value are
+        // validated against the note, and stored evidence is rebuilt.
+        val fairNote = note.copy(mood = "fair")
+        val json = """{"observations":[{"text":"The patient's mood was fair.","noteId":"n1","evidenceType":"STRUCTURED_FIELD","structuredField":"mood","structuredValue":"FAIR"}],"uncertainties":[]}"""
+        val svc = service(json)
+        val result = svc.summarize("r1", 7, listOf(fairNote), emptyList(), LocalDate.parse("2026-10-01"))
+        assertTrue(result is SummaryAiResult.Success)
+        val evidence = (result as SummaryAiResult.Success).summary.evidence.single()
+        assertEquals("mood=fair", evidence.quote)
+        assertEquals("STRUCTURED_FIELD", evidence.evidenceType)
+        assertEquals("mood", evidence.structuredField)
+        assertEquals("fair", evidence.structuredValue)
+    }
+
+    @Test
+    fun structuredFieldWithWrongValueIsRejected() = runBlocking {
+        val fairNote = note.copy(mood = "fair")
+        val json = """{"observations":[{"text":"The patient's mood was good.","noteId":"n1","evidenceType":"STRUCTURED_FIELD","structuredField":"mood","structuredValue":"good"}],"uncertainties":[]}"""
+        val svc = service(json)
+        val result = svc.summarize("r1", 7, listOf(fairNote), emptyList(), LocalDate.parse("2026-10-01"))
+        assertTrue(result is SummaryAiResult.Failure)
+        assertEquals("invalid_evidence", (result as SummaryAiResult.Failure).reasonCode)
+    }
+
+    @Test
+    fun structuredFieldClaimAssertingAnotherValueIsRejected() = runBlocking {
+        // The citation names the right field and value, but the claim
+        // asserts a different one: the citation must not lend it support.
+        val fairNote = note.copy(mood = "fair")
+        val json = """{"observations":[{"text":"The patient's mood was good.","noteId":"n1","evidenceType":"STRUCTURED_FIELD","structuredField":"mood","structuredValue":"fair"}],"uncertainties":[]}"""
+        val svc = service(json)
+        val result = svc.summarize("r1", 7, listOf(fairNote), emptyList(), LocalDate.parse("2026-10-01"))
+        assertTrue(result is SummaryAiResult.Failure)
+        assertEquals("invalid_evidence", (result as SummaryAiResult.Failure).reasonCode)
+    }
+
+    @Test
+    fun structuredPainAcceptsScoreOutOfTen() = runBlocking {
+        val painfulNote = note.copy(pain = 7)
+        val json = """{"observations":[{"text":"The patient reported pain 7 out of 10.","noteId":"n1","evidenceType":"STRUCTURED_FIELD","structuredField":"pain","structuredValue":"7/10"}],"uncertainties":[]}"""
+        val svc = service(json)
+        val result = svc.summarize("r1", 7, listOf(painfulNote), emptyList(), LocalDate.parse("2026-10-01"))
+        assertTrue(result is SummaryAiResult.Success)
+        assertEquals("pain=7/10", (result as SummaryAiResult.Success).summary.evidence.single().quote)
+    }
+
+    @Test
+    fun noteTextQuoteFromAddendumIsRejected() = runBlocking {
+        val noteWithAddendum = note.copy(
+            addenda = listOf(
+                AddendumDto(id = "a1", noteId = "n1", createdAt = "2026-10-01T18:00:00", text = "Patient fell in the kitchen"),
+            ),
+        )
+        val json = """{"observations":[{"text":"fell in the kitchen","noteId":"n1","evidenceType":"NOTE_TEXT","quote":"fell in the kitchen"}],"uncertainties":[]}"""
+        val svc = service(json)
+        val result = svc.summarize("r1", 7, listOf(noteWithAddendum), emptyList(), LocalDate.parse("2026-10-01"))
+        assertTrue(result is SummaryAiResult.Failure)
+        assertEquals("invalid_evidence", (result as SummaryAiResult.Failure).reasonCode)
+    }
+
+    @Test
+    fun addendumQuoteIsAcceptedWithAddendumType() = runBlocking {
+        val noteWithAddendum = note.copy(
+            addenda = listOf(
+                AddendumDto(id = "a1", noteId = "n1", createdAt = "2026-10-01T18:00:00", text = "Patient fell in the kitchen"),
+            ),
+        )
+        val json = """{"observations":[{"text":"fell in the kitchen","noteId":"n1","evidenceType":"ADDENDUM","quote":"fell in the kitchen"}],"uncertainties":[]}"""
+        val svc = service(json)
+        val result = svc.summarize("r1", 7, listOf(noteWithAddendum), emptyList(), LocalDate.parse("2026-10-01"))
+        assertTrue(result is SummaryAiResult.Success)
+        assertEquals("ADDENDUM", (result as SummaryAiResult.Success).summary.evidence.single().evidenceType)
+    }
+
+    @Test
+    fun noteTextQuoteFromStructuredLineIsRejected() = runBlocking {
+        // The rendered structured line is model-visible data, never
+        // quotable evidence, even though it appears in the source text.
+        val json = """{"observations":[{"text":"mood fair","noteId":"n1","evidenceType":"NOTE_TEXT","quote":"mood=ok"}],"uncertainties":[]}"""
+        val svc = service(json)
+        val result = svc.summarize("r1", 7, listOf(note), emptyList(), LocalDate.parse("2026-10-01"))
+        assertTrue(result is SummaryAiResult.Failure)
+        assertEquals("invalid_evidence", (result as SummaryAiResult.Failure).reasonCode)
+    }
+
+    @Test
+    fun unknownEvidenceTypeIsRejected() = runBlocking {
+        val json = """{"observations":[{"text":"walked","noteId":"n1","evidenceType":"GUESS","quote":"walked"}],"uncertainties":[]}"""
+        val svc = service(json)
+        val result = svc.summarize("r1", 7, listOf(note), emptyList(), LocalDate.parse("2026-10-01"))
+        assertTrue(result is SummaryAiResult.Failure)
+        assertEquals("invalid_evidence", (result as SummaryAiResult.Failure).reasonCode)
+    }
+
+    @Test
     fun malformedJsonReturnsFailure() = runBlocking {
         val svc = service("not json")
         val result = svc.summarize("r1", 7, listOf(note), emptyList(), LocalDate.parse("2026-10-01"))

@@ -156,6 +156,8 @@ class PlanSuggestionService(
     }
 
     companion object {
+        // decodePayload is a companion helper; it needs its own Json
+        // instance rather than the service instance's field.
         private val json = Json { ignoreUnknownKeys = true }
         val DEFAULT_ALLOWED_ACTIONS = setOf(
             "monitor",
