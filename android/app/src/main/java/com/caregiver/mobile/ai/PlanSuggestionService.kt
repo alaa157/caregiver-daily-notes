@@ -276,8 +276,8 @@ class PlanSuggestionService(
         // boundaries misbehave across scripts, so these are substring stems
         // and the co-occurrence test keeps false positives rare.
         private val MEDICATION_NOUN = Regex(
-            "(?<![\\p{L}])(?:insulin|paracetamol|acetaminophen|doses?|dosage|medications?|medicines?|pills?|tablets?|capsules?" +
-                "|prescriptions?|drugs?|supplements?|نسولين|جرع|اقراص|قرص|حبت|حبوب|حبه|ادويه|دوا|دواء|علاج)(?![\\p{L}])",
+            "(?<![\\p{L}])(?:insulin|paracetamol|acetaminophen|doses?|dosage|medications?|medicines?|pills?|tablets?|capsules?|" +
+                "prescriptions?|drugs?|supplements?|(?:الا?|ا)?نسولين|(?:ال)?جرع|(?:ال)?اقراص|(?:ال)?قرص|(?:ال)?حبت|(?:ال)?حبوب|(?:ال)?حبه|(?:ال)?ادويه|(?:ال)?دوا|(?:ال)?دواء|(?:ال)?علاج)(?![\\p{L}])",
             RegexOption.IGNORE_CASE,
         )
         private val CHANGE_VERB = Regex(
