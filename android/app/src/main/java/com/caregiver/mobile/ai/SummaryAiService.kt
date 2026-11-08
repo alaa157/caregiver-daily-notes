@@ -37,6 +37,7 @@ data class SummaryAiDiagnostics(
     val totalObservations: Int,
     val groundedObservations: Int,
     val providerFailure: Boolean = false,
+    val providerReasonCode: String? = null,
 )
 
 sealed class SummaryAiResult {
@@ -149,7 +150,20 @@ class SummaryAiService(
             is LlmJson.Reply.Oversized ->
                 return SummaryAiResult.Failure(redFlags, reply.error ?: "oversized")
             is LlmJson.Reply.Malformed ->
-                return SummaryAiResult.Failure(redFlags, reply.error ?: "malformed_output")
+                return SummaryAiResult.Failure(
+                    redFlags,
+                    reply.error ?: "malformed_output",
+                    diagnostics = if (includeDiagnostics && reply.providerErrorCode != null) {
+                        SummaryAiDiagnostics(
+                            totalObservations = 0,
+                            groundedObservations = 0,
+                            providerFailure = true,
+                            providerReasonCode = reply.providerErrorCode,
+                        )
+                    } else {
+                        null
+                    },
+                )
         }
         val notesById = windowedNotes.associateBy { it.id }
         // Normalized source texts per evidence type: the original note text

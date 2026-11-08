@@ -54,7 +54,7 @@ internal object GroundingProbe {
                         totalObservations = diagnostics.totalObservations,
                         groundedObservations = diagnostics.groundedObservations,
                         status = GroundingProbeStatus.ERROR,
-                        reasonCode = result.reasonCode,
+                        reasonCode = diagnostics.providerReasonCode ?: result.reasonCode,
                     )
                 } else {
                     GroundingProbeResult(

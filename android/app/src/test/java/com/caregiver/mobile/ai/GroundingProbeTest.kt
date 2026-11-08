@@ -12,12 +12,14 @@ import org.junit.Assert.assertTrue
 import org.junit.Test
 
 class GroundingProbeTest {
-    private class FakeLlmClient(private val result: LlmResult) : LlmClient {
+    private class FakeLlmClient(vararg private val results: LlmResult) : LlmClient {
         val requests = mutableListOf<LlmRequest>()
+        private var responseIndex = 0
 
         override suspend fun complete(request: LlmRequest): LlmResult {
             requests += request
-            return result
+            val index = responseIndex++.coerceAtMost(results.lastIndex)
+            return results[index]
         }
     }
 
@@ -124,6 +126,20 @@ class GroundingProbeTest {
 
         assertEquals(GroundingProbeStatus.ERROR, result.status)
         assertEquals("invalid_key", result.reasonCode)
+    }
+
+    @Test
+    fun providerFailureDuringJsonRepairIsAnErrorWithTheRepairReason() = runBlocking {
+        val client = FakeLlmClient(
+            LlmResult(LlmStatus.OK, "not valid JSON"),
+            LlmResult(LlmStatus.FALLBACK, error = "invalid_key"),
+        )
+
+        val result = GroundingProbe.run(client, "en", endInclusive = today)
+
+        assertEquals(GroundingProbeStatus.ERROR, result.status)
+        assertEquals("invalid_key", result.reasonCode)
+        assertEquals(2, client.requests.size)
     }
 
     @Test
