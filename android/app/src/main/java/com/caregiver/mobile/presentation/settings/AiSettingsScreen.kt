@@ -345,11 +345,28 @@ fun AiSettingsScreen(graph: AppGraph, navController: NavController, navEntry: Na
                         trimmedKey,
                     )
                     // A ping that has not answered in twenty seconds is not
-                    // going to answer.
+                    // going to answer. The probe asks for a tiny JSON object
+                    // in native JSON mode, so a pass proves the exact
+                    // capability summaries rely on (not just reachability),
+                    // and the reply is checked as parseable JSON.
                     val res = client.complete(
-                        LlmRequest("Reply with OK", "ping", timeoutSeconds = TEST_TIMEOUT_SECONDS),
+                        LlmRequest(
+                            "Reply with only this JSON object and nothing else: {\"ok\":true}",
+                            "ping",
+                            jsonMode = true,
+                            timeoutSeconds = TEST_TIMEOUT_SECONDS,
+                        ),
                     )
-                    status = if (res.status == LlmStatus.OK) {
+                    val jsonOk = res.status == LlmStatus.OK && runCatching {
+                        val element = kotlinx.serialization.json.Json.parseToJsonElement(res.text)
+                        element is kotlinx.serialization.json.JsonObject
+                    }.getOrDefault(false)
+                    status = if (res.status == LlmStatus.OK && !jsonOk) {
+                        context.getString(
+                            R.string.settings_ai_failed,
+                            AiRecovery.copyFor("json_mode_unsupported").resolvedMessage(context),
+                        )
+                    } else if (res.status == LlmStatus.OK) {
                         // A test that worked is a setup the caregiver expects
                         // to stick. Without this the key stays in the text
                         // field only, and the summary screen — which reads
@@ -733,7 +750,8 @@ fun AiSettingsScreen(graph: AppGraph, navController: NavController, navEntry: Na
                         modifier = Modifier.fillMaxWidth(),
                     )
                     // What the provider offers for free, so the choice is
-                    // made with the cost in view.
+                    // made with the cost in view. Paid models are billed per
+                    // use; they are never picked silently.
                     provider.freeTier?.let { tier ->
                         Text(
                             text = stringResource(
@@ -746,6 +764,11 @@ fun AiSettingsScreen(graph: AppGraph, navController: NavController, navEntry: Na
                             color = MaterialTheme.colorScheme.onSurfaceVariant,
                         )
                     }
+                    Text(
+                        text = stringResource(R.string.settings_ai_model_paid_note),
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    )
                     Text(stringResource(R.string.settings_ai_suggestions))
                     AiModelCatalog.options(provider).forEach { option ->
                         Row(
@@ -756,6 +779,9 @@ fun AiSettingsScreen(graph: AppGraph, navController: NavController, navEntry: Na
                                 onClick = { model = option.id },
                                 modifier = Modifier.weight(1f),
                             ) { Text(option.id) }
+                            if (option.recommendedSummary) {
+                                RecommendedTag()
+                            }
                             if (option.free) {
                                 FreeTag()
                             }
@@ -850,6 +876,19 @@ private fun FreeTag() {
         modifier = Modifier
             .padding(horizontal = 6.dp, vertical = 2.dp)
             .testTag("model_free_tag"),
+    )
+}
+
+/** The "recommended for summaries" marker on the verified summary model. */
+@Composable
+private fun RecommendedTag() {
+    Text(
+        text = stringResource(R.string.settings_ai_model_recommended),
+        style = MaterialTheme.typography.labelSmall,
+        color = MaterialTheme.colorScheme.primary,
+        modifier = Modifier
+            .padding(horizontal = 6.dp, vertical = 2.dp)
+            .testTag("model_recommended_tag"),
     )
 }
 
