@@ -18,9 +18,11 @@ import org.junit.Test
 class SummaryWindowBoundaryTest {
 
     private class RecordingLlmClient(private val response: String) : LlmClient {
+        val requests = mutableListOf<LlmRequest>()
         var lastRequest: LlmRequest? = null
 
         override suspend fun complete(request: LlmRequest): LlmResult {
+            requests += request
             lastRequest = request
             return LlmResult(LlmStatus.OK, response)
         }
@@ -186,7 +188,12 @@ class SummaryWindowBoundaryTest {
             endInclusive = end,
         )
 
-        assertFalse(client.lastRequest!!.dataBlock.contains("out-before"))
+        // The out-of-window note never reaches the model as source data.
+        // (The grounding repair echoes the rejected reply, which the model
+        // itself fabricated the noteId in, so only the first request —
+        // the one carrying source data — is checked for the leak.)
+        assertFalse(client.requests.first().dataBlock.contains("out-before"))
+        assertFalse(client.requests.first().dataBlock.contains("older fall note"))
         assertTrue(summaryResult is SummaryAiResult.Failure)
         assertEquals("invalid_evidence", (summaryResult as SummaryAiResult.Failure).reasonCode)
     }

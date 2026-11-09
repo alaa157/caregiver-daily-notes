@@ -125,5 +125,13 @@ class StructuredEvidenceTest {
         assertTrue(prompt.contains("structuredField"))
         assertTrue(prompt.contains("structuredValue"))
         assertTrue(prompt.contains("must never be quoted"))
+        assertTrue(prompt.contains("Recorded observations"))
+        assertTrue(prompt.contains("not an inferred conclusion"))
+        assertTrue(prompt.contains("Never invent unavailable values"))
+        assertTrue(prompt.contains("unknown values"))
+        // The canonical structured examples: pain 7 and fall true, given as
+        // structuredField/structuredValue pairs.
+        assertTrue(prompt.contains("\"structuredField\":\"pain\" and \"structuredValue\":\"7\""))
+        assertTrue(prompt.contains("\"structuredField\":\"fall\" and \"structuredValue\":\"true\""))
     }
 }

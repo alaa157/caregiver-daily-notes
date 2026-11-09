@@ -169,11 +169,13 @@ class SummaryRecipientIsolationTest {
         assertFalse(request.dataBlock.contains("Other recipient secret"))
 
         // ...and a model reply that cites the other person is rejected before
-        // it can appear under "Important notes".
+        // it can appear under "Important notes": the grounding repair must
+        // drop the cross-recipient claim, and only the cleaned reply that
+        // cites n1 alone is rendered.
         val content = state as SummaryState.Content
         assertEquals(listOf("n1"), content.summary.evidence.map { it.noteId })
         assertTrue(content.summary.evidence.none { it.quote.contains("secret") })
-        assertTrue(content.summary.uncertainties.any { it.topic == "invalid_evidence" })
+        assertEquals(2, client.requests.size)
     }
 
     @Test
@@ -279,17 +281,23 @@ class SummaryRecipientIsolationTest {
     }
 
     private class RecordingClient : LlmClient {
+        val requests = mutableListOf<LlmRequest>()
         var lastRequest: LlmRequest? = null
 
         override suspend fun complete(request: LlmRequest): LlmResult {
+            requests += request
             lastRequest = request
-            return LlmResult(
-                LlmStatus.OK,
+            // First reply cites both recipients (the n2 claim must fail
+            // grounding); the repair reply cites only the chosen recipient.
+            val reply = if (requests.size == 1) {
                 """{"observations":[""" +
                     """{"text":"walked","noteId":"n1","quote":"walked"},""" +
                     """{"text":"secret","noteId":"n2","quote":"secret"}""" +
-                    """],"uncertainties":[]}""",
-            )
+                    """],"uncertainties":[]}"""
+            } else {
+                """{"observations":[{"text":"walked","noteId":"n1","quote":"walked"}],"uncertainties":[]}"""
+            }
+            return LlmResult(LlmStatus.OK, reply)
         }
     }
 }
