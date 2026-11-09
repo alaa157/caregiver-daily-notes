@@ -5,12 +5,11 @@ import com.caregiver.mobile.data.api.NoteDto
 /**
  * Typed evidence for one AI summary observation.
  *
- * A note reaches the model as free text plus a rendered "Structured
- * observations: mood=...; pain=.../10" line. That line is a display
- * representation, not something the caregiver wrote: requiring the model
- * to quote it verbatim rejects correct paraphrases ("the mood was fair"
- * for mood=FAIR), while the obvious fix — fuzzy-matching the claim
- * against all note text — would let a claim borrow support from words
+ * A note reaches the model as free text plus a rendered "Recorded
+ * observations" section. That section is a display representation, not
+ * something the caregiver wrote: requiring the model to quote it verbatim
+ * rejects correct paraphrases ("the mood was fair"), while the obvious
+ * fix — fuzzy-matching the claim against all note text — would let a claim borrow support from words
  * that happen to sit near each other. Typed evidence avoids both:
  *
  * - [NOTE_TEXT] quotes the original note text verbatim.
@@ -18,7 +17,7 @@ import com.caregiver.mobile.data.api.NoteDto
  *   never part of the original text).
  * - [STRUCTURED_FIELD] cites a recorded field by name and value; the
  *   value is validated against the [NoteDto] itself, so the model never
- *   has to reproduce the artificial "mood=FAIR" text.
+ *   has to quote a rendered observation sentence.
  */
 enum class EvidenceType { NOTE_TEXT, STRUCTURED_FIELD, ADDENDUM }
 
