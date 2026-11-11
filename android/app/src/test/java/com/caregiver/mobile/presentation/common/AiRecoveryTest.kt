@@ -108,6 +108,44 @@ class AiRecoveryTest {
     }
 
     @Test
+    fun invalidEvidencePointsAtSettingsWithRetryAvailable() {
+        val copy = AiRecovery.copyFor("invalid_evidence", 7)
+
+        assertEquals(R.string.ai_recovery_invalid_evidence, copy.message)
+        assertEquals(AiRecoveryAction.OpenAiSettings, copy.primary)
+        assertEquals(AiRecoveryAction.Retry, copy.secondary)
+    }
+
+    @Test
+    fun otherCodesRecoveryActionsAreUnchanged() {
+        // Regression guard: the invalid_evidence change must not alter the
+        // actions of neighbouring reason codes.
+        val invalidKey = AiRecovery.copyFor("invalid_key", 7)
+        assertEquals(AiRecoveryAction.OpenAiSettings, invalidKey.primary)
+        assertEquals(AiRecoveryAction.Retry, invalidKey.secondary)
+
+        val rateLimit = AiRecovery.copyFor("rate_limit", 7)
+        assertEquals(AiRecoveryAction.Retry, rateLimit.primary)
+        assertNull(rateLimit.secondary)
+
+        val malformed = AiRecovery.copyFor("malformed_output", 7)
+        assertEquals(AiRecoveryAction.Retry, malformed.primary)
+        assertNull(malformed.secondary)
+
+        val noSource = AiRecovery.copyFor("no_source_data", 7)
+        assertEquals(AiRecoveryAction.AddNote, noSource.primary)
+        assertEquals(AiRecoveryAction.ExtendPeriod, noSource.secondary)
+
+        val network = AiRecovery.copyFor("network", 7)
+        assertEquals(AiRecoveryAction.Retry, network.primary)
+        assertNull(network.secondary)
+
+        val unknown = AiRecovery.copyFor("some_new_provider_code", 7)
+        assertEquals(AiRecoveryAction.Retry, unknown.primary)
+        assertNull(unknown.secondary)
+    }
+
+    @Test
     fun tableDrivenFailuresMapToTheirRecoveryCopy() {
         assertEquals(
             R.string.ai_recovery_missing_key,
