@@ -55,6 +55,16 @@ describe('read-only summary contract', () => {
     expect(toSummaryState({ status: 'error', error: failure }, selectedDate)).toEqual({ status: 'error', error: failure });
   });
 
+  it('preserves explicit partial data and its page-level history error', () => {
+    const failure = new Error('history page failed');
+    const overview: OverviewState = { status: 'partial', data: [recordedRow], error: failure };
+    expect(toSummaryState(overview, selectedDate)).toEqual({
+      status: 'partial',
+      data: [{ recipientId: recipientFixture.id, noteId: noteFixture.id, observedAt: null, status: 'recorded' }],
+      error: failure,
+    });
+  });
+
   it('rejects inconsistent recorded or missing rows whose note does not match the contract', () => {
     const wrongRecipient = { ...noteFixture, recipientId: 'c3333333-3333-4333-8333-333333333333' };
     const wrongDate = { ...noteFixture, date: '2026-10-17' };
