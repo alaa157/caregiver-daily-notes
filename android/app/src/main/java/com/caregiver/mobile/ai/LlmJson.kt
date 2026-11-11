@@ -37,7 +37,11 @@ object LlmJson {
         data class Unavailable(val error: String?) : Reply<Nothing>()
 
         /** The provider replied, but no usable json could be read from it. */
-        data class Malformed(val error: String?) : Reply<Nothing>()
+        data class Malformed(
+            val error: String?,
+            /** Set only when the provider failed during the repair request. */
+            val providerErrorCode: String? = null,
+        ) : Reply<Nothing>()
 
         /** The reply was longer than the caller allows. */
         data class Oversized(val error: String?) : Reply<Nothing>()
@@ -63,7 +67,12 @@ object LlmJson {
         if (direct != null) return Reply.Parsed(direct, LlmStatus.OK)
 
         val repaired = client.complete(repairRequest(request, first.text))
-        if (repaired.status == LlmStatus.FALLBACK) return Reply.Malformed(first.error)
+        if (repaired.status == LlmStatus.FALLBACK) {
+            return Reply.Malformed(
+                error = first.error,
+                providerErrorCode = repaired.error ?: "unavailable",
+            )
+        }
         if (repaired.text.length > maxChars) return Reply.Oversized(repaired.error)
         val value = parse(repaired.text, decode) ?: return Reply.Malformed(first.error)
         return Reply.Parsed(value, LlmStatus.REPAIRED)

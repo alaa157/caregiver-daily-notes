@@ -50,8 +50,11 @@ import com.caregiver.mobile.ai.AiFreeTier
 import com.caregiver.mobile.ai.AiKeyStore
 import com.caregiver.mobile.ai.AiModelCatalog
 import com.caregiver.mobile.ai.AiProvider
+import com.caregiver.mobile.ai.AiConsentDialog
 import com.caregiver.mobile.ai.AnthropicLlmClient
 import com.caregiver.mobile.ai.GeminiLlmClient
+import com.caregiver.mobile.ai.GroundingProbe
+import com.caregiver.mobile.ai.GroundingProbeStatus
 import com.caregiver.mobile.ai.LlmClient
 import com.caregiver.mobile.ai.LlmRequest
 import com.caregiver.mobile.ai.LlmStatus
@@ -68,7 +71,9 @@ import com.caregiver.mobile.presentation.common.CaregiverSettingsRow
 import com.caregiver.mobile.presentation.common.resolvedMessage
 import java.time.LocalDate
 import kotlinx.coroutines.Job
+import kotlinx.coroutines.TimeoutCancellationException
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.withTimeout
 
 @Composable
 fun AiSettingsScreen(graph: AppGraph, navController: NavController, navEntry: NavBackStackEntry) {
@@ -108,6 +113,7 @@ fun AiSettingsScreen(graph: AppGraph, navController: NavController, navEntry: Na
     // separate: reachability is not the same as a usable response shape.
     var status by remember { mutableStateOf<String?>(null) }
     var formatStatus by remember { mutableStateOf<String?>(null) }
+    var qualityStatus by remember { mutableStateOf<String?>(null) }
     var testing by remember { mutableStateOf(false) }
     var testGeneration by remember { mutableStateOf(0) }
     var validating by remember { mutableStateOf(false) }
@@ -115,6 +121,11 @@ fun AiSettingsScreen(graph: AppGraph, navController: NavController, navEntry: Na
     // that is not going to answer.
     var testJob by remember { mutableStateOf<Job?>(null) }
     var formatJob by remember { mutableStateOf<Job?>(null) }
+    var checkingQuality by remember { mutableStateOf(false) }
+    var qualityGeneration by remember { mutableStateOf(0) }
+    var qualityJob by remember { mutableStateOf<Job?>(null) }
+    var showProbeConsentDialog by remember { mutableStateOf(false) }
+    var pendingProbe by remember { mutableStateOf<PendingSettingsProbe?>(null) }
     // Consent is per provider: switching provider must show that provider's
     // own state, not the previous one's.
     var consentGiven by remember(provider) { mutableStateOf(store.consentGiven(provider)) }
@@ -167,6 +178,7 @@ fun AiSettingsScreen(graph: AppGraph, navController: NavController, navEntry: Na
         keyError = null
         status = null
         formatStatus = null
+        qualityStatus = null
         consentStatus = null
         showRevokeConsentDialog = false
         guideLinkError = false
@@ -215,6 +227,145 @@ fun AiSettingsScreen(graph: AppGraph, navController: NavController, navEntry: Na
             navController.popBackStack()
         } else {
             loadProvider(target)
+        }
+    }
+
+    fun beginFormatValidation() {
+        validating = true
+        formatJob = scope.launch {
+            try {
+                val client = llmClientFor(
+                    graph,
+                    provider,
+                    baseUrl.ifBlank { provider.defaultBaseUrl },
+                    model.ifBlank { provider.defaultModel },
+                    trimmedKey,
+                )
+                val preferences = summaryPrompt.takeIf { it.isNotBlank() }
+                    ?: systemPrompt.takeIf { it.isNotBlank() }
+                val prompt = Prompts.withPreferences(
+                    Prompts.summarySystemPrompt(),
+                    preferences,
+                )
+                val probe = PromptNotes.dataBlock(
+                    listOf(
+                        PromptNote(
+                            id = "probe",
+                            date = LocalDate.now().toString(),
+                            text = context.getString(R.string.settings_ai_format_probe),
+                        ),
+                    ),
+                )
+                // The JSON-shape fixture is only sent after this provider's
+                // consent was accepted through the shared consent dialog.
+                val res = client.complete(
+                    LlmRequest(prompt, probe, jsonMode = true, timeoutSeconds = TEST_TIMEOUT_SECONDS),
+                )
+                val reason = if (res.status == LlmStatus.FALLBACK) {
+                    res.error ?: "unavailable"
+                } else if (SummaryResponseFormat.validate(res.text) != null) {
+                    // Shape-validator details are internal; show localized recovery copy.
+                    "malformed_output"
+                } else {
+                    null
+                }
+                formatStatus = if (reason == null) {
+                    context.getString(R.string.settings_ai_format_ok)
+                } else {
+                    context.getString(
+                        R.string.settings_ai_format_invalid,
+                        AiRecovery.copyFor(reason).resolvedMessage(context),
+                    )
+                }
+            } catch (e: kotlinx.coroutines.CancellationException) {
+                throw e
+            } catch (e: Exception) {
+                formatStatus = context.getString(
+                    R.string.settings_ai_format_invalid,
+                    AiRecovery.copyFor("unavailable").resolvedMessage(context),
+                )
+            } finally {
+                validating = false
+            }
+        }
+    }
+
+    fun beginQualityCheck() {
+        checkingQuality = true
+        qualityStatus = null
+        val generation = ++qualityGeneration
+        qualityJob = scope.launch {
+            try {
+                val client = llmClientFor(
+                    graph,
+                    provider,
+                    baseUrl.ifBlank { provider.defaultBaseUrl },
+                    model.ifBlank { provider.defaultModel },
+                    trimmedKey,
+                )
+                val preferences = summaryPrompt.takeIf { it.isNotBlank() }
+                    ?: systemPrompt.takeIf { it.isNotBlank() }
+                val language = if (context.resources.configuration.locales[0]?.language == "ar") "ar" else "en"
+                val result = withTimeout(TEST_TIMEOUT_SECONDS * 1_000L) {
+                    GroundingProbe.runIfConsented(
+                        client = client,
+                        language = language,
+                        consentGiven = store.consentGiven(provider),
+                        promptPreferences = preferences,
+                    )
+                }
+                if (result == null) {
+                    pendingProbe = PendingSettingsProbe.QUALITY
+                    showProbeConsentDialog = true
+                } else {
+                    qualityStatus = when (result.status) {
+                        GroundingProbeStatus.PASS -> context.getString(
+                            R.string.settings_ai_quality_pass,
+                            result.groundedObservations,
+                            result.totalObservations,
+                        )
+                        GroundingProbeStatus.PARTIAL -> context.getString(
+                            R.string.settings_ai_quality_partial,
+                            result.groundedObservations,
+                            result.totalObservations,
+                        )
+                        GroundingProbeStatus.FAIL -> context.getString(R.string.settings_ai_quality_fail)
+                        GroundingProbeStatus.ERROR -> AiRecovery.copyFor(result.reasonCode).resolvedMessage(context)
+                    }
+                }
+            } catch (_: TimeoutCancellationException) {
+                qualityStatus = AiRecovery.copyFor("timeout").resolvedMessage(context)
+            } catch (e: kotlinx.coroutines.CancellationException) {
+                throw e
+            } catch (_: Exception) {
+                qualityStatus = AiRecovery.copyFor("unavailable").resolvedMessage(context)
+            } finally {
+                if (qualityGeneration == generation) {
+                    checkingQuality = false
+                    qualityJob = null
+                }
+            }
+        }
+    }
+
+    fun requestProbe(probe: PendingSettingsProbe) {
+        if (apiKey.isBlank()) {
+            val copy = AiRecovery.copyFor("missing_key").resolvedMessage(context)
+            if (probe == PendingSettingsProbe.FORMAT) {
+                formatStatus = context.getString(R.string.settings_ai_format_invalid, copy)
+            } else {
+                qualityStatus = copy
+            }
+            return
+        }
+        if (!store.consentGiven(provider)) {
+            pendingProbe = probe
+            showProbeConsentDialog = true
+            return
+        }
+        when (probe) {
+            PendingSettingsProbe.FORMAT -> beginFormatValidation()
+            PendingSettingsProbe.QUALITY -> beginQualityCheck()
         }
     }
 
@@ -476,77 +627,12 @@ fun AiSettingsScreen(graph: AppGraph, navController: NavController, navEntry: Na
             )
         }
 
-        // Feature-level check, kept distinct from connectivity: asks for a real
-        // summary-format reply and validates its shape.
-        Button(onClick = {
-            if (apiKey.isBlank()) {
-                formatStatus = context.getString(
-                    R.string.settings_ai_format_invalid,
-                    AiRecovery.copyFor("missing_key").resolvedMessage(context),
-                )
-                return@Button
-            }
-            validating = true
-            formatJob = scope.launch {
-                try {
-                    val client = llmClientFor(
-                        graph,
-                        provider,
-                        baseUrl.ifBlank { provider.defaultBaseUrl },
-                        model.ifBlank { provider.defaultModel },
-                        trimmedKey,
-                    )
-                    val preferences = summaryPrompt.takeIf { it.isNotBlank() }
-                        ?: systemPrompt.takeIf { it.isNotBlank() }
-                    val prompt = Prompts.withPreferences(
-                        Prompts.summarySystemPrompt(),
-                        preferences,
-                    )
-                    val probe = PromptNotes.dataBlock(
-                        listOf(
-                            PromptNote(
-                                id = "probe",
-                                date = LocalDate.now().toString(),
-                                text = context.getString(R.string.settings_ai_format_probe),
-                            ),
-                        ),
-                    )
-                    // Same path production uses: native json mode, so the
-                    // check proves the provider can answer the real request.
-                    val res = client.complete(
-                        LlmRequest(prompt, probe, jsonMode = true, timeoutSeconds = TEST_TIMEOUT_SECONDS),
-                    )
-                    val reason = if (res.status == LlmStatus.FALLBACK) {
-                        res.error ?: "unavailable"
-                    } else if (SummaryResponseFormat.validate(res.text) != null) {
-                        // The shape validator's English debug strings are not
-                        // user copy; map every shape failure to the localized
-                        // "couldn't read the response" recovery message.
-                        "malformed_output"
-                    } else {
-                        null
-                    }
-                    formatStatus = if (reason == null) {
-                        context.getString(R.string.settings_ai_format_ok)
-                    } else {
-                        context.getString(
-                            R.string.settings_ai_format_invalid,
-                            AiRecovery.copyFor(reason).resolvedMessage(context),
-                        )
-                    }
-                } catch (e: kotlinx.coroutines.CancellationException) {
-                    // The screen went away mid-request: let the scope cancel.
-                    throw e
-                } catch (e: Exception) {
-                    formatStatus = context.getString(
-                        R.string.settings_ai_format_invalid,
-                        AiRecovery.copyFor("unavailable").resolvedMessage(context),
-                    )
-                } finally {
-                    validating = false
-                }
-            }
-        }, enabled = !validating) {
+        // Shape validation remains available, but its fictional input is sent
+        // only after this provider's consent is accepted.
+        Button(
+            onClick = { requestProbe(PendingSettingsProbe.FORMAT) },
+            enabled = !validating,
+        ) {
             Text(if (validating) stringResource(R.string.settings_ai_validating) else stringResource(R.string.settings_ai_validate_format))
         }
         if (validating) {
@@ -558,6 +644,29 @@ fun AiSettingsScreen(graph: AppGraph, navController: NavController, navEntry: Na
             }) { Text(stringResource(R.string.common_cancel)) }
         }
         formatStatus?.let { Text(it) }
+
+        Button(
+            onClick = { requestProbe(PendingSettingsProbe.QUALITY) },
+            enabled = !checkingQuality,
+        ) {
+            Text(
+                if (checkingQuality) {
+                    stringResource(R.string.settings_ai_quality_checking)
+                } else {
+                    stringResource(R.string.settings_ai_quality_check)
+                },
+            )
+        }
+        if (checkingQuality) {
+            TextButton(onClick = {
+                qualityGeneration++
+                qualityJob?.cancel()
+                qualityJob = null
+                checkingQuality = false
+                qualityStatus = context.getString(R.string.settings_ai_test_cancelled)
+            }) { Text(stringResource(R.string.common_cancel)) }
+        }
+        qualityStatus?.let { Text(it) }
 
         val baseUrlInvalid = !AiSettingsValidation.isAcceptableBaseUrl(baseUrl)
         if (baseUrlInvalid) {
@@ -656,6 +765,29 @@ fun AiSettingsScreen(graph: AppGraph, navController: NavController, navEntry: Na
         )
     }
 
+    if (showProbeConsentDialog) {
+        AiConsentDialog(
+            providerName = provider.displayName,
+            modelName = model.ifBlank { provider.defaultModel },
+            onAccept = {
+                store.setConsentGiven(provider)
+                consentGiven = true
+                showProbeConsentDialog = false
+                val requestedProbe = pendingProbe
+                pendingProbe = null
+                when (requestedProbe) {
+                    PendingSettingsProbe.FORMAT -> beginFormatValidation()
+                    PendingSettingsProbe.QUALITY -> beginQualityCheck()
+                    null -> Unit
+                }
+            },
+            onDismiss = {
+                showProbeConsentDialog = false
+                pendingProbe = null
+            },
+        )
+    }
+
     if (showProviderDialog) {
         AlertDialog(
             onDismissRequest = { showProviderDialog = false },
@@ -745,7 +877,10 @@ fun AiSettingsScreen(graph: AppGraph, navController: NavController, navEntry: Na
                 Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
                     OutlinedTextField(
                         value = model,
-                        onValueChange = { model = it },
+                        onValueChange = {
+                            model = it
+                            qualityStatus = null
+                        },
                         label = { Text(stringResource(R.string.settings_ai_custom_model)) },
                         modifier = Modifier.fillMaxWidth(),
                     )
@@ -776,10 +911,14 @@ fun AiSettingsScreen(graph: AppGraph, navController: NavController, navEntry: Na
                             verticalAlignment = Alignment.CenterVertically,
                         ) {
                             TextButton(
-                                onClick = { model = option.id },
+                                onClick = {
+                                    model = option.id
+                                    qualityStatus = null
+                                    formatStatus = null
+                                },
                                 modifier = Modifier.weight(1f),
                             ) { Text(option.id) }
-                            if (option.recommendedSummary) {
+                            if (option.recommendedForSummaries) {
                                 RecommendedTag()
                             }
                             if (option.free) {
@@ -852,7 +991,9 @@ fun AiSettingsScreen(graph: AppGraph, navController: NavController, navEntry: Na
     }
 }
 
-/** Single place the settings screen builds a provider client (test + format validation). */
+private enum class PendingSettingsProbe { FORMAT, QUALITY }
+
+/** Single place the settings screen builds a provider client (test + probes). */
 private fun llmClientFor(
     graph: AppGraph,
     provider: AiProvider,

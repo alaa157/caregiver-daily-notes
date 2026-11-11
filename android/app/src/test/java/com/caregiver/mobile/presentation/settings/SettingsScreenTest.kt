@@ -218,6 +218,7 @@ class SettingsScreenTest {
         compose.onAllNodesWithText(context.getString(R.string.settings_ai_system_prompt)).assertCountEquals(1)
         // The screen carries the same back arrow as every other detail route.
         compose.onNodeWithContentDescription(context.getString(R.string.action_back)).assertExists()
+        compose.onNodeWithText(context.getString(R.string.settings_ai_quality_check)).performScrollTo()
     }
 
     /** Rows carry the title as their test tag. Robolectric does not deliver
