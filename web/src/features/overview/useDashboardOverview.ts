@@ -12,7 +12,8 @@ export type OverviewRow = {
 export type OverviewState =
   | { status: 'loading' }
   | { status: 'error'; error: unknown }
-  | { status: 'ready'; data: OverviewRow[] };
+  | { status: 'ready'; data: OverviewRow[] }
+  | { status: 'partial'; data: OverviewRow[]; error: unknown };
 
 type DateScopedOverview = {
   date: string;
@@ -57,7 +58,7 @@ export function useDashboardOverview(date: string): {
       return { date, state: { status: 'ready', data: rows('missing') } };
     } catch (error) {
       if (signal.aborted) throw error;
-      return { date, state: { status: 'ready', data: rows('error') } };
+      return { date, state: { status: 'partial', data: rows('error'), error } };
     }
   }, [api, date]);
 

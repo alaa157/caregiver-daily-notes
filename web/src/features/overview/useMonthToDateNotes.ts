@@ -2,10 +2,10 @@ import { useCallback } from 'react';
 import { isNoteDate } from '../../api/notes';
 import { useNoteResource, useNotesApis } from '../notes/useNotes';
 
-export type MonthToDateMetric = {
-  total: number | null;
-  state: 'loading' | 'ready' | 'error';
-};
+export type MonthToDateMetric =
+  | { total: null; state: 'loading' }
+  | { total: number; state: 'ready' }
+  | { total: null; state: 'error'; error: unknown };
 
 type ScopedMetric = {
   date: string;
@@ -14,7 +14,7 @@ type ScopedMetric = {
 
 const PAGE_SIZE = 100;
 
-export function useMonthToDateNotes(date: string): MonthToDateMetric {
+export function useMonthToDateNotes(date: string): { metric: MonthToDateMetric; reload: () => void } {
   if (!isNoteDate(date)) throw new Error('Month-to-date date must be a valid YYYY-MM-DD date.');
 
   const api = useNotesApis();
@@ -30,12 +30,12 @@ export function useMonthToDateNotes(date: string): MonthToDateMetric {
       return { date, metric: { total, state: 'ready' } };
     } catch (error) {
       if (signal.aborted) throw error;
-      return { date, metric: { total: null, state: 'error' } };
+      return { date, metric: { total: null, state: 'error', error } };
     }
   }, [api, date]);
 
-  const { state: resource } = useNoteResource(load);
-  if (resource.status === 'error') return { total: null, state: 'error' };
-  if (resource.status !== 'ready' || resource.data.date !== date) return { total: null, state: 'loading' };
-  return resource.data.metric;
+  const { state: resource, reload } = useNoteResource(load);
+  if (resource.status === 'error') return { metric: { total: null, state: 'error', error: resource.error }, reload };
+  if (resource.status !== 'ready' || resource.data.date !== date) return { metric: { total: null, state: 'loading' }, reload };
+  return { metric: resource.data.metric, reload };
 }

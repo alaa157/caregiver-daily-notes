@@ -31,7 +31,8 @@ export function WorkspaceOverview() {
   const rawDate = params.get('date');
   const date = rawDate && isNoteDate(rawDate) ? rawDate : today;
   const { state, reload } = useDashboardOverview(date);
-  const monthToDate = useMonthToDateNotes(date);
+  const { metric: monthToDate, reload: reloadMonthToDate } = useMonthToDateNotes(date);
+  const overviewData = state.status === 'ready' || state.status === 'partial' ? state : null;
   const updateDate = (value: string) => {
     const next = new URLSearchParams(params);
     if (isNoteDate(value)) next.set('date', value);
@@ -55,19 +56,20 @@ export function WorkspaceOverview() {
       <strong aria-live="polite">{monthToDate.state === 'ready'
         ? new Intl.NumberFormat(language === 'ar' ? 'ar-EG' : 'en').format(monthToDate.total!)
         : monthToDate.state === 'loading' ? t('overviewMtdLoading') : t('overviewMtdError')}</strong>
+      {monthToDate.state === 'error' && <button type="button" className="overview-retry" onClick={reloadMonthToDate}>{t('retry')}</button>}
     </section>
     {state.status === 'loading' && <LoadingState label={t('overviewLoading')} />}
     {state.status === 'error' && <ErrorState description={t(recipientErrorMessage(state.error))} onRetry={reload} />}
-    {state.status === 'ready' && (state.data.length === 0
+    {overviewData && (overviewData.data.length === 0
       ? <div className="overview-empty"><EmptyState title={t('recipientsEmpty')} description={t('overviewNoRecipients')} />
         <ButtonLink to="/app/recipients/new">{t('recipientCreate')}</ButtonLink></div>
       : <>
         <h2 className="overview-section-title">{t('overviewRecipientStatus')}</h2>
         <ul className="overview-list">
-          {state.data.map((row) => <RecipientCard key={row.recipient.id} row={row} date={date} onRetry={reload} />)}
+          {overviewData.data.map((row) => <RecipientCard key={row.recipient.id} row={row} date={date} onRetry={reload} />)}
         </ul>
         <p className="overview-footnote">{t('overviewMissingIsNotNegative')}</p>
-        {state.data.some((row) => row.status === 'error') && <p className="overview-partial" role="status">{t('overviewPartialData')}</p>}
+        {overviewData.status === 'partial' && <p className="overview-partial" role="status">{t('overviewPartialData')}</p>}
       </>)}
     <section className="overview-routine" aria-labelledby="routine-title">
       <h2 id="routine-title">{t('overviewQuickActions')}</h2>
