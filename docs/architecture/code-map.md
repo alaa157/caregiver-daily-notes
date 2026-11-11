@@ -146,6 +146,7 @@ This document records names and behavior verified in the `main` tree. A NOT FOUN
 - `POST /api/notes/{id}/corrections` — body `CorrectionRequest`; response `CorrectionHistoryResponse`; optional `Idempotency-Key`.
 - `GET /api/notes/{id}/corrections` — response `CorrectionHistoryResponse`.
 - `GET /api/notes/signals?recipientId=&from=&to=` — response `List<NoteSignals>`.
+- `GET /api/activity?limit=10` — bounded recent note/addendum/correction metadata scoped to the authenticated caregiver.
 
 **Observation invariant verified in `web/src/api/observation.ts`:** the supported states are `RECORDED`, `UNKNOWN`, `NOT_RECORDED`, `NOT_APPLICABLE`, and `LEGACY_AMBIGUOUS`. False, zero, and empty text can be valid recorded values. Verification is independent: `VERIFIED`, `UNVERIFIED`, `NOT_ASSERTED`. Do not coerce missing values to zero, false, or normal.
 

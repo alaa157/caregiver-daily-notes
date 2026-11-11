@@ -10,6 +10,7 @@ import { OverviewKpis } from './OverviewKpis';
 import { useDashboardOverview } from './useDashboardOverview';
 import { RecipientCard } from './RecipientCard';
 import { useMonthToDateNotes } from './useMonthToDateNotes';
+import { useActivityFeed } from './useActivityFeed';
 import './overview.css';
 
 function localToday() {
@@ -32,6 +33,7 @@ export function WorkspaceOverview() {
   const date = rawDate && isNoteDate(rawDate) ? rawDate : today;
   const { state, reload } = useDashboardOverview(date);
   const { metric: monthToDate, reload: reloadMonthToDate } = useMonthToDateNotes(date);
+  const activityFeed = useActivityFeed();
   const overviewData = state.status === 'ready' || state.status === 'partial' ? state : null;
   const updateDate = (value: string) => {
     const next = new URLSearchParams(params);
@@ -61,6 +63,25 @@ export function WorkspaceOverview() {
         aria-labelledby="overview-mtd-label overview-mtd-retry-label" onClick={reloadMonthToDate}>
         <span id="overview-mtd-retry-label">{t('retry')}</span>
       </button>}
+    </section>
+    <section className="overview-activity" aria-labelledby="overview-activity-title" aria-busy={activityFeed.state.status === 'loading'}>
+      <div className="overview-activity-heading"><h2 id="overview-activity-title" className="overview-section-title">{t('activityFeedTitle')}</h2>
+        <button type="button" className="overview-retry" onClick={activityFeed.reload}>{t('activityFeedRefresh')}</button></div>
+      {activityFeed.state.status === 'loading' && <LoadingState label={t('activityFeedLoading')} />}
+      {activityFeed.state.status === 'error' && <ErrorState description={t('activityFeedError')} onRetry={activityFeed.reload} />}
+      {activityFeed.state.status === 'ready' && (activityFeed.state.items.length === 0
+        ? <p className="overview-activity-empty" role="status">{t('activityFeedEmpty')}</p>
+        : <ul className="overview-activity-list">
+          {activityFeed.state.items.map((item) => {
+            const recipient = overviewData?.data.find((row) => row.recipient.id === item.recipientId)?.recipient;
+            const label = item.kind === 'note' ? 'activityKindNote' : item.kind === 'correction' ? 'activityKindCorrection' : 'activityKindAddendum';
+            const createdAt = new Date(item.createdAt);
+            return <li key={`${item.kind}:${item.id}`} className="overview-activity-item">
+              <div><span className="overview-activity-kind">{t(label)}</span><span className="overview-activity-recipient"><bdi>{recipient?.name ?? t('activityFeedRecipientFallback')}</bdi></span></div>
+              <time dateTime={item.createdAt}>{new Intl.DateTimeFormat(language === 'ar' ? 'ar-EG' : 'en', { dateStyle: 'medium', timeStyle: 'short' }).format(createdAt)}</time>
+            </li>;
+          })}
+        </ul>)}
     </section>
     {state.status === 'loading' && <LoadingState label={t('overviewLoading')} />}
     <div className="overview-results" aria-busy={state.status === 'loading'}>
