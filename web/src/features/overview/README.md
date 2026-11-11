@@ -22,6 +22,10 @@ Date-only values are retained as `YYYY-MM-DD`, built from local calendar compone
 
 The summary cards use the same overview rows and count all recipients shown, including archived, inactive, and legacy-inactive recipients. “Notes recorded” counts rows classified as `recorded`; “Not yet recorded” counts rows classified as `missing`. If the recipient list fails, all three values are unavailable. If any note status is unverified, the recipient total remains available, but both note-status counts are unavailable rather than showing partial or zero counts.
 
+## Recent activity feed
+
+The feed is independent of the selected `?date=`; it shows the caregiver's most recent activity across all dates. It uses the read-only `GET /api/activity?limit=10` endpoint through the existing authenticated API client. The backend derives caregiver scope from the authenticated request and reads a bounded maximum of 20 rows per source (notes, addenda, corrections), then merges and sorts by `createdAt` newest-first, with descending ID and kind as deterministic tie-breakers. The UI displays at most 10 items and resolves names only from the already-loaded recipient rows, using a neutral fallback when unavailable. Timestamps use the current EN/AR locale. Any request failure is a feed-level error (never an empty or partial feed); an empty message appears only after a successful empty response. Refresh aborts and supersedes the prior request.
+
 ## Related routes
 
 - `/app/recipients`: search and distinct active/inactive groups.
@@ -30,7 +34,7 @@ The summary cards use the same overview rows and count all recipients shown, inc
 - `/app/notes/:id`: immutable original note, corrections, and recipient context.
 - `/app/notes`: history and filters; `/app/notes/summary`: existing factual summary/trends.
 
-The overview uses the existing React Router shell and API client; it adds no backend endpoint or clinical logic. English/Arabic strings use the shared i18n provider. Recipient names are isolated with `<bdi>`, controls remain labelled, and the list collapses to one column on narrow screens.
+The overview uses the existing React Router shell and API client; the activity endpoint returns metadata only and adds no clinical logic. English/Arabic strings use the shared i18n provider. Recipient names are isolated with `<bdi>`, controls remain labelled, and the list collapses to one column on narrow screens.
 
 ## Verification
 
