@@ -18,6 +18,10 @@ The overview also shows “Notes this month”: the month-to-date window is the 
 
 Date-only values are retained as `YYYY-MM-DD`, built from local calendar components for the default current day, and formatted using a UTC-midday date to avoid display shifts. No timestamp is substituted for the selected date.
 
+## Selected-date summary cards
+
+The summary cards use the same overview rows and count all recipients shown, including archived, inactive, and legacy-inactive recipients. “Notes recorded” counts rows classified as `recorded`; “Not yet recorded” counts rows classified as `missing`. If the recipient list fails, all three values are unavailable. If any note status is unverified, the recipient total remains available, but both note-status counts are unavailable rather than showing partial or zero counts.
+
 ## Related routes
 
 - `/app/recipients`: search and distinct active/inactive groups.

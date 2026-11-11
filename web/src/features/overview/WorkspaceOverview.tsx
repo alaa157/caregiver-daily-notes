@@ -6,6 +6,7 @@ import { ButtonLink } from '../../components/Button';
 import { EmptyState, ErrorState, LoadingState } from '../../components/Feedback';
 import { Icon } from '../../components/Icon';
 import { useI18n } from '../../i18n/I18nProvider';
+import { OverviewKpis } from './OverviewKpis';
 import { useDashboardOverview } from './useDashboardOverview';
 import { useMonthToDateNotes } from './useMonthToDateNotes';
 import './overview.css';
@@ -47,6 +48,7 @@ export function WorkspaceOverview() {
       <input id="overview-date" type="date" dir="ltr" value={date} onChange={(event) => updateDate(event.target.value)} />
       <time dateTime={date}>{formattedDate(date)}</time>
     </div>
+    <OverviewKpis state={state} />
     <section className="overview-mtd" aria-label={t('overviewMtdLabel')}>
       <span>{t('overviewMtdLabel')}</span>
       <strong aria-live="polite">{monthToDate.state === 'ready'
