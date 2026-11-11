@@ -1,24 +1,18 @@
-import { useCallback, useMemo } from 'react';
+import { useMemo } from 'react';
 import { Link, useSearchParams } from 'react-router-dom';
-import { isNoteDate, type DailyNote } from '../../api/notes';
-import { recipientErrorMessage, type Recipient } from '../../api/recipients';
+import { isNoteDate } from '../../api/notes';
+import { recipientErrorMessage } from '../../api/recipients';
 import { ButtonLink } from '../../components/Button';
 import { EmptyState, ErrorState, LoadingState } from '../../components/Feedback';
 import { Icon } from '../../components/Icon';
 import { useI18n } from '../../i18n/I18nProvider';
-import { useNoteResource, useNotesApis } from '../notes/useNotes';
+import { useDashboardOverview } from './useDashboardOverview';
 import './overview.css';
 
 function localToday() {
   const now = new Date();
   return [now.getFullYear(), String(now.getMonth() + 1).padStart(2, '0'), String(now.getDate()).padStart(2, '0')].join('-');
 }
-
-type RecipientOverview = {
-  recipient: Recipient;
-  note: DailyNote | null;
-  status: 'recorded' | 'missing' | 'error';
-};
 
 const workflows = [
   ['people', '/app/recipients', 'recipientsTitle', 'overviewPeopleHint'],
@@ -29,37 +23,11 @@ const workflows = [
 
 export function WorkspaceOverview() {
   const { t, language } = useI18n();
-  const api = useNotesApis();
   const [params, setParams] = useSearchParams();
   const today = useMemo(localToday, []);
   const rawDate = params.get('date');
   const date = rawDate && isNoteDate(rawDate) ? rawDate : today;
-  const load = useCallback(async (signal: AbortSignal) => {
-    const recipients = await api.recipients.list(signal);
-    if (!recipients.length) return [];
-    const notes: DailyNote[] = [];
-    const rows = (unmatchedStatus: 'missing' | 'error') => {
-      const notesByRecipient = new Map<string, DailyNote>();
-      notes.filter((note) => note.date === date).forEach((note) => notesByRecipient.set(note.recipientId, note));
-      return recipients.map((recipient): RecipientOverview => {
-        const note = notesByRecipient.get(recipient.id) ?? null;
-        return { recipient, note, status: note ? 'recorded' : unmatchedStatus };
-      });
-    };
-    try {
-      let page = await api.notes.history({ from: date, to: date, page: 0, size: 100 }, signal);
-      notes.push(...page.content);
-      for (let number = 1; number < page.totalPages; number += 1) {
-        page = await api.notes.history({ from: date, to: date, page: number, size: 100 }, signal);
-        notes.push(...page.content);
-      }
-      return rows('missing');
-    } catch (error) {
-      if (signal.aborted) throw error;
-      return rows('error');
-    }
-  }, [api, date]);
-  const { state, reload } = useNoteResource(load);
+  const { state, reload } = useDashboardOverview(date);
   const updateDate = (value: string) => {
     const next = new URLSearchParams(params);
     if (isNoteDate(value)) next.set('date', value);
