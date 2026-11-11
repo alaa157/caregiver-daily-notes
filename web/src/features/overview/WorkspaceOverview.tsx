@@ -7,6 +7,7 @@ import { EmptyState, ErrorState, LoadingState } from '../../components/Feedback'
 import { Icon } from '../../components/Icon';
 import { useI18n } from '../../i18n/I18nProvider';
 import { useDashboardOverview } from './useDashboardOverview';
+import { RecipientCard } from './RecipientCard';
 import './overview.css';
 
 function localToday() {
@@ -53,20 +54,7 @@ export function WorkspaceOverview() {
       : <>
         <h2 className="overview-section-title">{t('overviewRecipientStatus')}</h2>
         <ul className="overview-list">
-          {state.data.map(({ recipient, note, status }) => <li key={recipient.id} className="overview-row">
-            <div className="overview-person"><span className="person-avatar"><Icon name="people" size={20} /></span><Link to={`/app/recipients/${recipient.id}`}><bdi>{recipient.name}</bdi></Link>
-              <span className="overview-secondary"><bdi>{recipient.relationship || t('recipientRelationshipEmpty')}</bdi></span>
-            </div>
-            <div className="overview-note-status" aria-live="polite">
-              {status === 'recorded' && <><span className="overview-status overview-status--recorded">{t('overviewNoteRecorded')}</span>
-                <Link to={`/app/notes/${note!.id}`}>{t('overviewOpenNote')}</Link></>}
-              {status === 'missing' && <><span className="overview-status">{t('overviewNoNote')}</span>
-                {recipient.active && <Link to={`/app/notes/new?recipientId=${encodeURIComponent(recipient.id)}&date=${encodeURIComponent(date)}`}>{t('overviewRecordNote')}</Link>}</>}
-              {status === 'error' && <><span className="overview-status overview-status--error">{t('overviewNoteStatusUnavailable')}</span>
-                <button type="button" className="overview-retry" onClick={reload}>{t('retry')}</button></>}
-            </div>
-            {!recipient.active && <span className="overview-inactive">{t('recipientInactive')}</span>}
-          </li>)}
+          {state.data.map((row) => <RecipientCard key={row.recipient.id} row={row} date={date} onRetry={reload} />)}
         </ul>
         <p className="overview-footnote">{t('overviewMissingIsNotNegative')}</p>
         {state.data.some((row) => row.status === 'error') && <p className="overview-partial" role="status">{t('overviewPartialData')}</p>}

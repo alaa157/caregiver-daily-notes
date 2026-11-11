@@ -10,10 +10,11 @@
 .overview-date input { min-height: 44px; padding: 8px 12px; border: 1px solid #87957f; border-radius: 8px; color: var(--color-ink); background: #fff; font: inherit; }
 .overview-date time { color: var(--color-muted); }
 .overview-section-title { margin: 0 0 14px; font-size: 1.35rem; }
-.overview-list { list-style: none; margin: 0; padding: 0; border-top: 1px solid var(--color-border); }
-.overview-row { display: grid; grid-template-columns: minmax(0, 1fr) minmax(250px, auto) auto; align-items: center; gap: 18px; padding: 20px 4px; border-bottom: 1px solid var(--color-border); }
+.overview-list { display: grid; grid-template-columns: repeat(auto-fit, minmax(min(100%, 290px), 1fr)); gap: 14px; list-style: none; margin: 0; padding: 0; }
+.overview-card { display: grid; align-content: start; gap: 16px; min-width: 0; padding: 18px; border: 1px solid var(--color-border); border-radius: var(--radius); background: #fffef9; }
 .overview-person { display: grid; gap: 4px; min-width: 0; }
-.overview-person > a { width: fit-content; font-size: 1.08rem; font-weight: 650; overflow-wrap: anywhere; }
+.overview-person h3 { margin: 0; font-size: 1.08rem; line-height: 1.5; }
+.overview-person h3 a { width: fit-content; font-weight: 650; overflow-wrap: anywhere; }
 .overview-secondary { color: var(--color-muted); font-size: .9rem; }
 .overview-note-status { display: flex; align-items: center; flex-wrap: wrap; gap: 12px; }
 .overview-status { display: inline-flex; align-items: center; gap: 7px; color: var(--color-muted); }
@@ -31,8 +32,8 @@
 @media (max-width: 720px) {
   .workspace-overview { padding-block: 32px 46px; }
   .overview-heading { align-items: flex-start; flex-direction: column; }
-  .overview-row { grid-template-columns: minmax(0, 1fr); align-items: start; gap: 10px; }
-  .overview-note-status { justify-content: space-between; }
+  .overview-card { padding: 16px; }
+  .overview-note-status { justify-content: flex-start; }
   .overview-inactive { justify-self: start; }
   .overview-actions { width: 100%; }
   .overview-actions .button { flex: 1 1 10rem; }
@@ -40,6 +41,6 @@
 :lang(ar) .overview-heading h1 { line-height: 1.7; }
 :lang(ar) .overview-date input { text-align: start; }
 @media (forced-colors: active) {
-  .overview-date, .overview-list, .overview-row { border-color: CanvasText; }
+  .overview-date, .overview-card { border-color: CanvasText; }
   .overview-date input { border-color: CanvasText; }
 }

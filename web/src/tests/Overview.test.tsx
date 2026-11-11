@@ -57,6 +57,21 @@ describe('authenticated workspace overview', () => {
     }
   });
 
+  it('renders recipient summary cards with semantic headings and status-specific actions', async () => {
+    const fetcher = serving();
+    renderOverview('/app?date=2026-10-18', fetcher);
+
+    expect(await screen.findByRole('heading', { name: recipientFixture.name, level: 3 })).toBeInTheDocument();
+    const recordedCard = screen.getByRole('heading', { name: recipientFixture.name, level: 3 }).closest('li');
+    const missingCard = screen.getByRole('heading', { name: missing.name, level: 3 }).closest('li');
+    expect(recordedCard).toHaveTextContent('Note recorded');
+    expect(recordedCard?.querySelector(`a[href="/app/notes/${noteFixture.id}"]`)).not.toBeNull();
+    expect(missingCard).toHaveTextContent('No note recorded');
+    expect(missingCard?.querySelector('a[href^="/app/notes/new"]')).not.toBeNull();
+    expect(missingCard).not.toHaveTextContent('Note status unavailable');
+    expect(fetcher).toHaveBeenCalled();
+  });
+
   it('shows factual per-date note status and links to source and relevant workflows', async () => {
     const fetcher = serving();
     renderOverview('/app?date=2026-10-18', fetcher);
