@@ -164,27 +164,40 @@ class SummaryAiService(
         val evaluation = evaluateObservations(
             parsed, notesById, noteTextsById, addendumTextsById, combinedTextsById,
         )
-        if (evaluation.failures.isNotEmpty()) {
-            return groundingRepairAttempt(
-                request, parsed, evaluation.failures, redFlags, recipientId, periodDays,
-                notesById, noteTextsById, addendumTextsById, combinedTextsById,
+        if (evaluation.failures.isEmpty()) {
+            return buildSuccess(parsed, evaluation.validObservations, replyStatus, redFlags, recipientId, periodDays)
+        }
+        // Spend one repair call only when grounding failures are the majority
+        // of the findings (or nothing survived). If most findings are already
+        // grounded, keep that safe subset rather than add latency or risk losing
+        // it to a worse model reply.
+        if (evaluation.validObservations.isNotEmpty() &&
+            evaluation.failures.size < evaluation.validObservations.size
+        ) {
+            return buildSuccess(
+                parsed, evaluation.validObservations, replyStatus, redFlags, recipientId, periodDays,
+                hasGroundingFailures = true,
             )
         }
-        return buildSuccess(parsed, evaluation.validObservations, replyStatus, redFlags, recipientId, periodDays)
+        return groundingRepairAttempt(
+            request, parsed, evaluation, replyStatus, redFlags, recipientId, periodDays,
+            notesById, noteTextsById, addendumTextsById, combinedTextsById,
+        )
     }
 
     /**
      * The single grounding-repair attempt. Exactly one provider call, parsed
      * once, validated through [evaluateObservations] — no format-repair retry
-     * and no second grounding repair inside this attempt. Provider and
-     * parsing failures keep the same reason codes as the initial attempt; a
-     * repair that still fails grounding is `invalid_evidence` and exposes
-     * none of its claims.
+     * and no second grounding repair inside this attempt. The repair wins only
+     * when it produces more grounded findings; otherwise preserve the best
+     * validated subset from the initial response. Unsupported claims are
+     * never included in a summary.
      */
     private suspend fun groundingRepairAttempt(
         request: com.caregiver.mobile.ai.LlmRequest,
         rejected: ModelSummary,
-        failures: List<GroundingFailure>,
+        initialEvaluation: ObservationEvaluation,
+        initialStatus: LlmStatus,
         redFlags: List<String>,
         recipientId: String,
         periodDays: Int,
@@ -196,28 +209,58 @@ class SummaryAiService(
         val repairRequest = GroundingRepair.buildRepairRequest(
             request,
             json.encodeToString(ModelSummary.serializer(), rejected),
-            failures,
+            initialEvaluation.failures,
         )
         val repairedReply = client.complete(repairRequest)
         if (repairedReply.status == LlmStatus.FALLBACK) {
-            return SummaryAiResult.Failure(redFlags, repairedReply.error ?: "unavailable")
+            return keepBestInitialOrFailure(
+                rejected, initialEvaluation, initialStatus, redFlags, recipientId, periodDays,
+                repairedReply.error ?: "unavailable",
+            )
         }
         if (repairedReply.text.length > MAX_REPLY_CHARS) {
-            return SummaryAiResult.Failure(redFlags, repairedReply.error ?: "oversized")
+            return keepBestInitialOrFailure(
+                rejected, initialEvaluation, initialStatus, redFlags, recipientId, periodDays,
+                repairedReply.error ?: "oversized",
+            )
         }
         val candidate = ModelOutputSanitizer.extractJson(repairedReply.text)
         val repairedParsed = candidate?.let { text ->
             runCatching { json.decodeFromString(ModelSummary.serializer(), text) }.getOrNull()
-        } ?: return SummaryAiResult.Failure(redFlags, "malformed_output")
+        } ?: return keepBestInitialOrFailure(
+            rejected, initialEvaluation, initialStatus, redFlags, recipientId, periodDays,
+            "malformed_output",
+        )
         val repairedEvaluation = evaluateObservations(
             repairedParsed, notesById, noteTextsById, addendumTextsById, combinedTextsById,
         )
-        if (repairedEvaluation.failures.isNotEmpty()) {
-            return SummaryAiResult.Failure(redFlags, "invalid_evidence")
+        if (repairedEvaluation.validObservations.size <= initialEvaluation.validObservations.size) {
+            return keepBestInitialOrFailure(
+                rejected, initialEvaluation, initialStatus, redFlags, recipientId, periodDays,
+                "invalid_evidence",
+            )
         }
         return buildSuccess(
             repairedParsed, repairedEvaluation.validObservations, LlmStatus.REPAIRED,
             redFlags, recipientId, periodDays,
+            hasGroundingFailures = repairedEvaluation.failures.isNotEmpty(),
+        )
+    }
+
+    private fun keepBestInitialOrFailure(
+        parsed: ModelSummary,
+        evaluation: ObservationEvaluation,
+        status: LlmStatus,
+        redFlags: List<String>,
+        recipientId: String,
+        periodDays: Int,
+        failureReason: String,
+    ): SummaryAiResult = if (evaluation.validObservations.isEmpty()) {
+        SummaryAiResult.Failure(redFlags, failureReason)
+    } else {
+        buildSuccess(
+            parsed, evaluation.validObservations, status, redFlags, recipientId, periodDays,
+            hasGroundingFailures = evaluation.failures.isNotEmpty(),
         )
     }
 
@@ -229,6 +272,7 @@ class SummaryAiService(
         redFlags: List<String>,
         recipientId: String,
         periodDays: Int,
+        hasGroundingFailures: Boolean = false,
     ): SummaryAiResult.Success {
         val evidence = validObservations.map {
             SummaryDto.EvidenceDto(
@@ -240,6 +284,9 @@ class SummaryAiService(
             )
         }
         val uncertainties = parsed.uncertainties.map { SummaryDto.UncertaintyDto(topic = it.topic, detail = it.detail) }.toMutableList()
+        if (hasGroundingFailures) {
+            uncertainties += SummaryDto.UncertaintyDto("invalid_evidence", "")
+        }
         if (validObservations.isNotEmpty()) {
             uncertainties += SummaryDto.UncertaintyDto("unverified_claim", "")
         }
