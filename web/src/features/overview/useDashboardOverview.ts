@@ -14,6 +14,11 @@ export type OverviewState =
   | { status: 'error'; error: unknown }
   | { status: 'ready'; data: OverviewRow[] };
 
+type DateScopedOverview = {
+  date: string;
+  state: Exclude<OverviewState, { status: 'loading' }>;
+};
+
 export function useDashboardOverview(date: string): {
   state: OverviewState;
   reload: () => void;
@@ -21,9 +26,16 @@ export function useDashboardOverview(date: string): {
   if (!isNoteDate(date)) throw new Error('Dashboard overview date must be a valid YYYY-MM-DD date.');
 
   const api = useNotesApis();
-  const load = useCallback(async (signal: AbortSignal): Promise<OverviewRow[]> => {
-    const recipients = await api.recipients.list(signal);
-    if (!recipients.length) return [];
+  const load = useCallback(async (signal: AbortSignal): Promise<DateScopedOverview> => {
+    let recipients;
+    try {
+      recipients = await api.recipients.list(signal);
+    } catch (error) {
+      if (signal.aborted) throw error;
+      return { date, state: { status: 'error', error } };
+    }
+
+    if (!recipients.length) return { date, state: { status: 'ready', data: [] } };
 
     const notes: DailyNote[] = [];
     const rows = (unmatchedStatus: 'missing' | 'error') => {
@@ -42,13 +54,16 @@ export function useDashboardOverview(date: string): {
         page = await api.notes.history({ from: date, to: date, page: number, size: 100 }, signal);
         notes.push(...page.content);
       }
-      return rows('missing');
+      return { date, state: { status: 'ready', data: rows('missing') } };
     } catch (error) {
       if (signal.aborted) throw error;
-      return rows('error');
+      return { date, state: { status: 'ready', data: rows('error') } };
     }
   }, [api, date]);
 
-  const { state, reload } = useNoteResource(load);
+  const { state: resource, reload } = useNoteResource(load);
+  const state = resource.status === 'ready'
+    ? resource.data.date === date ? resource.data.state : { status: 'loading' as const }
+    : resource;
   return { state, reload };
 }

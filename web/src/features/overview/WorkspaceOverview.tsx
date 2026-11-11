@@ -6,6 +6,7 @@ import { ButtonLink } from '../../components/Button';
 import { EmptyState, ErrorState, LoadingState } from '../../components/Feedback';
 import { Icon } from '../../components/Icon';
 import { useI18n } from '../../i18n/I18nProvider';
+import { OverviewKpis } from './OverviewKpis';
 import { useDashboardOverview } from './useDashboardOverview';
 import './overview.css';
 
@@ -45,6 +46,7 @@ export function WorkspaceOverview() {
       <input id="overview-date" type="date" dir="ltr" value={date} onChange={(event) => updateDate(event.target.value)} />
       <time dateTime={date}>{formattedDate(date)}</time>
     </div>
+    <OverviewKpis state={state} />
     {state.status === 'loading' && <LoadingState label={t('overviewLoading')} />}
     {state.status === 'error' && <ErrorState description={t(recipientErrorMessage(state.error))} onRetry={reload} />}
     {state.status === 'ready' && (state.data.length === 0

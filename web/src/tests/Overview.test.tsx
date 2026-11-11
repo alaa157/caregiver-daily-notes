@@ -4,6 +4,7 @@ import { MemoryRouter, useLocation } from 'react-router-dom';
 import { describe, expect, it, vi } from 'vitest';
 import { App } from '../app/App';
 import { AuthProvider } from '../features/auth/AuthProvider';
+import { OverviewKpis } from '../features/overview/OverviewKpis';
 import { I18nProvider } from '../i18n/I18nProvider';
 import { ApiProvider } from '../lib/api';
 import { jsonResponse, testToken } from './authFixtures';
@@ -40,6 +41,10 @@ function serving() {
   });
 }
 
+function kpiValue(label: string) {
+  return screen.getByRole('heading', { name: label }).parentElement?.querySelector('output')?.textContent;
+}
+
 describe('authenticated workspace overview', () => {
   it('defaults to the caregiver local calendar date', async () => {
     vi.stubEnv('TZ', 'America/Los_Angeles');
@@ -64,6 +69,9 @@ describe('authenticated workspace overview', () => {
     expect(screen.getByLabelText('Calendar date')).toHaveValue('2026-10-18');
     expect(screen.getAllByText('No note recorded')).toHaveLength(2);
     expect(screen.getByText(/A missing note means no note was found/)).toBeInTheDocument();
+    expect(kpiValue('Recipients shown')).toBe('3');
+    expect(kpiValue('Notes recorded')).toBe('1');
+    expect(kpiValue('Not yet recorded')).toBe('2');
     expect(screen.getByRole('link', { name: 'Record a note' })).toHaveAttribute('href', `/app/notes/new?recipientId=${missing.id}&date=2026-10-18`);
     const inactiveRow = screen.getByRole('link', { name: inactive.name }).closest('li');
     expect(inactiveRow).toHaveTextContent('Inactive');
@@ -102,6 +110,9 @@ describe('authenticated workspace overview', () => {
 
     expect(await screen.findByText('We couldn’t complete this request. Please try again.')).toBeInTheDocument();
     expect(screen.queryByText('Note status unavailable')).not.toBeInTheDocument();
+    expect(kpiValue('Recipients shown')).toBe('Unavailable');
+    expect(kpiValue('Notes recorded')).toBe('Unavailable');
+    expect(kpiValue('Not yet recorded')).toBe('Unavailable');
     expect(fetcher).toHaveBeenCalledTimes(1);
     expect(String(fetcher.mock.calls[0][0])).toBe('/api/recipients');
   });
@@ -137,6 +148,9 @@ describe('authenticated workspace overview', () => {
     expect(await screen.findByText('Note status unavailable')).toBeInTheDocument();
     expect(missingRow).not.toHaveTextContent('No note recorded');
     expect(screen.getByText('Some note statuses could not be loaded. Retry those rows to refresh the overview.')).toBeInTheDocument();
+    expect(kpiValue('Recipients shown')).toBe('2');
+    expect(kpiValue('Notes recorded')).toBe('Unavailable');
+    expect(kpiValue('Not yet recorded')).toBe('Unavailable');
   });
 
   it('keeps selected date in the URL', async () => {
@@ -163,10 +177,23 @@ describe('authenticated workspace overview', () => {
     fireEvent.change(screen.getByLabelText('Calendar date'), { target: { value: '2026-10-19' } });
     await waitFor(() => expect(pending.has('2026-10-19')).toBe(true));
     expect(pending.get('2026-10-18')?.signal?.aborted).toBe(true);
+    expect(kpiValue('Recipients shown')).toBe('Loading…');
+    expect(kpiValue('Notes recorded')).toBe('Loading…');
+    expect(kpiValue('Not yet recorded')).toBe('Loading…');
 
-    pending.get('2026-10-18')?.resolve(historyResponse([noteListFixture]));
-    pending.get('2026-10-19')?.resolve(historyResponse([]));
+    await act(async () => {
+      pending.get('2026-10-18')?.resolve(historyResponse([noteListFixture]));
+      await Promise.resolve();
+    });
+    expect(kpiValue('Notes recorded')).toBe('Loading…');
+    await act(async () => {
+      pending.get('2026-10-19')?.resolve(historyResponse([]));
+      await Promise.resolve();
+    });
     expect(await screen.findByText('No note recorded')).toBeInTheDocument();
+    expect(kpiValue('Recipients shown')).toBe('1');
+    expect(kpiValue('Notes recorded')).toBe('0');
+    expect(kpiValue('Not yet recorded')).toBe('1');
     expect(screen.queryByRole('link', { name: 'Open note' })).not.toBeInTheDocument();
 
     view.unmount();
@@ -267,5 +294,20 @@ describe('authenticated workspace overview', () => {
     renderOverview('/app', fetcher);
     await userEvent.click(await screen.findByRole('link', { name: 'Add care recipient' }));
     expect(screen.getByRole('form', { name: 'Add care recipient' })).toBeInTheDocument();
+  });
+
+  it('renders KPI states from overview data without making API requests', () => {
+    const fetcher = vi.fn();
+    vi.stubGlobal('fetch', fetcher);
+    render(<I18nProvider><OverviewKpis state={{ status: 'ready', data: [
+      { recipient: recipientFixture, note: noteListFixture, status: 'recorded' },
+      { recipient: missing, note: null, status: 'missing' },
+      { recipient: inactive, note: null, status: 'error' },
+    ] }} /></I18nProvider>);
+
+    expect(kpiValue('Recipients shown')).toBe('3');
+    expect(kpiValue('Notes recorded')).toBe('Unavailable');
+    expect(kpiValue('Not yet recorded')).toBe('Unavailable');
+    expect(fetcher).not.toHaveBeenCalled();
   });
 });
