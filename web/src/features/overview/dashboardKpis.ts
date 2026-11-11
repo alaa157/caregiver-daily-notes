@@ -18,7 +18,7 @@ export function getDashboardKpis(state: OverviewState, labels: DashboardKpiLabel
     return Object.values(labels).map((label) => ({ label, value: null, state: status }));
   }
 
-  const statusUnavailable = state.data.some((row) => row.status === 'error');
+  const statusUnavailable = state.status === 'partial' || state.data.some((row) => row.status === 'error');
   return [
     { label: labels.recipients, value: state.data.length, state: 'ready' },
     // A partial history result cannot provide a complete recorded-note count.
