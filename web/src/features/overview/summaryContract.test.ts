@@ -30,11 +30,22 @@ describe('read-only summary contract', () => {
     });
   });
 
-  it('keeps per-recipient request failures as errors and does not expose partial note values', () => {
+  it('preserves recipient failures as a partial result with null note values', () => {
     const row: OverviewRow = { recipient: recipientFixture, note: null, status: 'error' };
     expect(toSummaryState({ status: 'ready', data: [row] }, selectedDate)).toEqual({
-      status: 'ready',
+      status: 'partial',
       data: [{ recipientId: recipientFixture.id, noteId: null, observedAt: null, status: 'error' }],
+    });
+  });
+
+  it('preserves confirmed rows alongside failures without presenting the result as fully ready', () => {
+    const failed: OverviewRow = { recipient: { ...recipientFixture, id: 'c3333333-3333-4333-8333-333333333333' }, note: null, status: 'error' };
+    expect(toSummaryState({ status: 'ready', data: [recordedRow, failed] }, selectedDate)).toEqual({
+      status: 'partial',
+      data: [
+        { recipientId: recipientFixture.id, noteId: noteFixture.id, observedAt: null, status: 'recorded' },
+        { recipientId: failed.recipient.id, noteId: null, observedAt: null, status: 'error' },
+      ],
     });
   });
 
@@ -44,15 +55,19 @@ describe('read-only summary contract', () => {
     expect(toSummaryState({ status: 'error', error: failure }, selectedDate)).toEqual({ status: 'error', error: failure });
   });
 
-  it('rejects a recorded row whose note belongs to another recipient or date', () => {
+  it('rejects inconsistent recorded or missing rows whose note does not match the contract', () => {
     const wrongRecipient = { ...noteFixture, recipientId: 'c3333333-3333-4333-8333-333333333333' };
     const wrongDate = { ...noteFixture, date: '2026-10-17' };
     for (const note of [wrongRecipient, wrongDate]) {
       const row: OverviewRow = { recipient: recipientFixture, note, status: 'recorded' };
       expect(toSummaryState({ status: 'ready', data: [row] }, selectedDate)).toMatchObject({
-        data: [{ recipientId: recipientFixture.id, noteId: null, observedAt: null, status: 'error' }],
+        status: 'partial', data: [{ recipientId: recipientFixture.id, noteId: null, observedAt: null, status: 'error' }],
       });
     }
+    const inconsistentMissing: OverviewRow = { recipient: recipientFixture, note: noteFixture, status: 'missing' };
+    expect(toSummaryState({ status: 'ready', data: [inconsistentMissing] }, selectedDate)).toMatchObject({
+      status: 'partial', data: [{ noteId: null, status: 'error' }],
+    });
   });
 
   it('does not mutate or expand the source rows', () => {
