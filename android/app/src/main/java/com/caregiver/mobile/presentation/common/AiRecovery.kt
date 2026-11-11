@@ -77,9 +77,13 @@ object AiRecovery {
                 primary = AiRecoveryAction.Retry,
             )
         code == "invalid_evidence" ->
+            // A model that paraphrases instead of quoting will fail the
+            // grounding check again on retry; the real fix is a different
+            // model, so Settings leads and Retry stays available.
             AiRecoveryCopy(
                 R.string.ai_recovery_invalid_evidence,
-                primary = AiRecoveryAction.Retry,
+                primary = AiRecoveryAction.OpenAiSettings,
+                secondary = AiRecoveryAction.Retry,
             )
         code == "oversized" ->
             // Oversized is an INPUT limit (too many notes for the period),

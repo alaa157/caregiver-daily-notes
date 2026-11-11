@@ -433,7 +433,7 @@
     <string name="ai_recovery_no_source">No notes in the last %1$d days. Add a note or try 30 days.</string>
     <string name="ai_recovery_no_source_30">No notes in the last 30 days. Add a note for today.</string>
     <string name="ai_recovery_malformed">The AI sent a response we couldn\'t read. Try again.</string>
-    <string name="ai_recovery_invalid_evidence">The AI could not produce sufficiently verifiable findings from your notes. Try again.</string>
+    <string name="ai_recovery_invalid_evidence">The AI reworded your notes instead of quoting them, so its findings couldn\'t be checked. Try again, or choose a different model in Settings.</string>
     <string name="ai_recovery_oversized_input">There are too many notes in this period to send. Choose a shorter date range and try again.</string>
     <string name="ai_recovery_invalid_url">The AI provider address or model wasn\'t found. Check it in Settings.</string>
     <string name="ai_recovery_invalid_model">The provider has no model with this id. Check the model id in Settings.</string>
