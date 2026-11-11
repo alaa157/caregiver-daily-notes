@@ -115,6 +115,65 @@ describe('month-to-date notes metric', () => {
     expect(fetcher.mock.calls.some(([path]) => path.includes('from=2026-10-01&to=2026-10-18&page=1&size=100'))).toBe(true);
   });
 
+  it('retries only the failed month-to-date widget and preserves overview data', async () => {
+    let monthRequests = 0;
+    let monthFailure = true;
+    const fetcher = vi.fn().mockImplementation((path: string) => {
+      if (path === '/api/recipients') return Promise.resolve(jsonResponse([recipientFixture]));
+      const query = new URL(path, 'http://localhost').searchParams;
+      if (query.get('from') === '2026-10-01') {
+        monthRequests += 1;
+        return Promise.resolve(monthFailure
+          ? jsonResponse({ message: 'private diagnostics' }, 500)
+          : historyResponse([noteListFixture]));
+      }
+      return Promise.resolve(historyResponse([noteListFixture]));
+    });
+    renderOverview('/app?date=2026-10-18', fetcher);
+
+    expect(await screen.findByText('Unavailable', { selector: '.overview-mtd strong' })).toBeInTheDocument();
+    expect(await screen.findByRole('link', { name: 'Open note' })).toHaveAttribute('href', `/app/notes/${noteFixture.id}`);
+    expect(monthRequests).toBe(1);
+
+    await userEvent.click(screen.getByRole('button', { name: 'Retry' }));
+    expect(await screen.findByText('Unavailable', { selector: '.overview-mtd strong' })).toBeInTheDocument();
+    expect(monthRequests).toBe(2);
+    expect(fetcher.mock.calls.filter(([path]) => String(path).startsWith('/api/notes?from=2026-10-18'))).toHaveLength(1);
+    expect(await screen.findByRole('link', { name: 'Open note' })).toHaveAttribute('href', `/app/notes/${noteFixture.id}`);
+
+    monthFailure = false;
+    await userEvent.click(screen.getByRole('button', { name: 'Retry' }));
+    expect(await screen.findByText('1', { selector: '.overview-mtd strong' })).toBeInTheDocument();
+    expect(monthRequests).toBe(3);
+    expect(fetcher.mock.calls.filter(([path]) => path === '/api/recipients')).toHaveLength(1);
+  });
+
+  it('retries the overview without reloading the successful month-to-date widget', async () => {
+    let overviewFailure = true;
+    const fetcher = vi.fn().mockImplementation((path: string) => {
+      if (path === '/api/recipients') return Promise.resolve(jsonResponse([recipientFixture]));
+      const from = new URL(path, 'http://localhost').searchParams.get('from');
+      if (from === '2026-10-01') return Promise.resolve(historyResponse([noteListFixture]));
+      return Promise.resolve(overviewFailure
+        ? jsonResponse({ message: 'private diagnostics' }, 500)
+        : historyResponse([]));
+    });
+    renderOverview('/app?date=2026-10-18', fetcher);
+
+    expect(await screen.findByText('1', { selector: '.overview-mtd strong' })).toBeInTheDocument();
+    expect(await screen.findByText('Note status unavailable')).toBeInTheDocument();
+    expect(fetcher.mock.calls.filter(([path]) => String(path).startsWith('/api/notes?from=2026-10-01'))).toHaveLength(1);
+
+    overviewFailure = false;
+    const row = screen.getByRole('link', { name: recipientFixture.name }).closest('li');
+    await userEvent.click(row!.querySelector('button')!);
+
+    expect(await screen.findByText('No note recorded')).toBeInTheDocument();
+    expect(screen.getByText('1', { selector: '.overview-mtd strong' })).toBeInTheDocument();
+    expect(fetcher.mock.calls.filter(([path]) => String(path).startsWith('/api/notes?from=2026-10-01'))).toHaveLength(1);
+    expect(fetcher.mock.calls.filter(([path]) => String(path).startsWith('/api/notes?from=2026-10-18'))).toHaveLength(2);
+  });
+
   it('shows zero only when the complete history window is genuinely empty', async () => {
     const fetcher = vi.fn().mockImplementation((path: string) => path === '/api/recipients'
       ? Promise.resolve(jsonResponse([recipientFixture])) : Promise.resolve(historyResponse([])));
@@ -194,6 +253,7 @@ describe('month-to-date notes metric', () => {
 
     expect(await screen.findByText('1', { selector: '.overview-mtd strong' })).toBeInTheDocument();
     expect(await screen.findByText('Note status unavailable')).toBeInTheDocument();
+    expect(await screen.findByText('Some note statuses could not be loaded. Retry those rows to refresh the overview.')).toBeInTheDocument();
   });
 });
 
