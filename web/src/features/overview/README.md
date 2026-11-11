@@ -4,7 +4,7 @@
 
 ## Data and semantics
 
-The overview loads owned recipients from `GET /api/recipients`, then loads same-day notes through the existing caregiver-scoped history API:
+The overview presents each recipient as a compact summary card in its accessible recipient list. Cards are presentational: they receive the hook's `OverviewRow` directly and do not fetch data or own date routing. The overview loads owned recipients from `GET /api/recipients`, then loads same-day notes through the existing caregiver-scoped history API:
 
 ```text
 GET /api/notes?from=YYYY-MM-DD&to=YYYY-MM-DD&page=0&size=100
@@ -34,4 +34,4 @@ The overview uses the existing React Router shell and API client; it adds no bac
 
 ## Verification
 
-Component tests cover date-scoped history calls, stable pagination before missing-note classification, the selected-date MTD window and complete pagination, unavailable states on partial failures, cancellation, persisted note links, inactive-recipient restrictions, partial failures/retry, and query-driven date changes. The full Web check commands are in [`web/README.md`](../../../README.md).
+Component tests cover card rendering for recorded, missing, and unavailable statuses; date-scoped history calls; stable pagination before missing-note classification; selected-date MTD and complete pagination; unavailable states on partial failures; cancellation; persisted note links; inactive-recipient restrictions; retry; and query-driven date changes. The full Web check commands are in [`web/README.md`](../../../README.md).
