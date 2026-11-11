@@ -10,6 +10,7 @@ import { OverviewKpis } from './OverviewKpis';
 import { useDashboardOverview } from './useDashboardOverview';
 import { RecipientCard } from './RecipientCard';
 import { useMonthToDateNotes } from './useMonthToDateNotes';
+import { useActivityFeed } from './useActivityFeed';
 import './overview.css';
 
 function localToday() {
@@ -31,7 +32,9 @@ export function WorkspaceOverview() {
   const rawDate = params.get('date');
   const date = rawDate && isNoteDate(rawDate) ? rawDate : today;
   const { state, reload } = useDashboardOverview(date);
-  const monthToDate = useMonthToDateNotes(date);
+  const { metric: monthToDate, reload: reloadMonthToDate } = useMonthToDateNotes(date);
+  const activityFeed = useActivityFeed();
+  const overviewData = state.status === 'ready' || state.status === 'partial' ? state : null;
   const updateDate = (value: string) => {
     const next = new URLSearchParams(params);
     if (isNoteDate(value)) next.set('date', value);
@@ -55,19 +58,39 @@ export function WorkspaceOverview() {
       <strong aria-live="polite">{monthToDate.state === 'ready'
         ? new Intl.NumberFormat(language === 'ar' ? 'ar-EG' : 'en').format(monthToDate.total!)
         : monthToDate.state === 'loading' ? t('overviewMtdLoading') : t('overviewMtdError')}</strong>
+      {monthToDate.state === 'error' && <button type="button" className="overview-retry" onClick={reloadMonthToDate}>{t('retry')}</button>}
+    </section>
+    <section className="overview-activity" aria-labelledby="overview-activity-title" aria-busy={activityFeed.state.status === 'loading'}>
+      <div className="overview-activity-heading"><h2 id="overview-activity-title" className="overview-section-title">{t('activityFeedTitle')}</h2>
+        <button type="button" className="overview-retry" onClick={activityFeed.reload}>{t('activityFeedRefresh')}</button></div>
+      {activityFeed.state.status === 'loading' && <LoadingState label={t('activityFeedLoading')} />}
+      {activityFeed.state.status === 'error' && <ErrorState description={t('activityFeedError')} onRetry={activityFeed.reload} />}
+      {activityFeed.state.status === 'ready' && (activityFeed.state.items.length === 0
+        ? <p className="overview-activity-empty" role="status">{t('activityFeedEmpty')}</p>
+        : <ul className="overview-activity-list">
+          {activityFeed.state.items.map((item) => {
+            const recipient = overviewData?.data.find((row) => row.recipient.id === item.recipientId)?.recipient;
+            const label = item.kind === 'note' ? 'activityKindNote' : item.kind === 'correction' ? 'activityKindCorrection' : 'activityKindAddendum';
+            const createdAt = new Date(item.createdAt);
+            return <li key={`${item.kind}:${item.id}`} className="overview-activity-item">
+              <div><span className="overview-activity-kind">{t(label)}</span><span className="overview-activity-recipient"><bdi>{recipient?.name ?? t('activityFeedRecipientFallback')}</bdi></span></div>
+              <time dateTime={item.createdAt}>{new Intl.DateTimeFormat(language === 'ar' ? 'ar-EG' : 'en', { dateStyle: 'medium', timeStyle: 'short' }).format(createdAt)}</time>
+            </li>;
+          })}
+        </ul>)}
     </section>
     {state.status === 'loading' && <LoadingState label={t('overviewLoading')} />}
     {state.status === 'error' && <ErrorState description={t(recipientErrorMessage(state.error))} onRetry={reload} />}
-    {state.status === 'ready' && (state.data.length === 0
+    {overviewData && (overviewData.data.length === 0
       ? <div className="overview-empty"><EmptyState title={t('recipientsEmpty')} description={t('overviewNoRecipients')} />
         <ButtonLink to="/app/recipients/new">{t('recipientCreate')}</ButtonLink></div>
       : <>
         <h2 className="overview-section-title">{t('overviewRecipientStatus')}</h2>
         <ul className="overview-list">
-          {state.data.map((row) => <RecipientCard key={row.recipient.id} row={row} date={date} onRetry={reload} />)}
+          {overviewData.data.map((row) => <RecipientCard key={row.recipient.id} row={row} date={date} onRetry={reload} />)}
         </ul>
         <p className="overview-footnote">{t('overviewMissingIsNotNegative')}</p>
-        {state.data.some((row) => row.status === 'error') && <p className="overview-partial" role="status">{t('overviewPartialData')}</p>}
+        {overviewData.status === 'partial' && <p className="overview-partial" role="status">{t('overviewPartialData')}</p>}
       </>)}
     <section className="overview-routine" aria-labelledby="routine-title">
       <h2 id="routine-title">{t('overviewQuickActions')}</h2>

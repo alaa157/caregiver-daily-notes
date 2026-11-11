@@ -41,6 +41,13 @@ export interface NoteAddendum extends LegacyObservations {
   providedFields: StructuredObservationField[];
   medicationVerificationProvided: boolean;
 }
+export type ActivityKind = 'note' | 'correction' | 'addendum';
+export interface RecentActivity {
+  id: string;
+  kind: ActivityKind;
+  recipientId: string;
+  createdAt: string;
+}
 export interface CreateNoteInput {
   recipientId: string;
   date: string;
@@ -331,6 +338,26 @@ function writeHeaders(key: string) {
 }
 export function createNotesApi(client: ApiClient) {
   return {
+    async recentActivity(limit = 10, signal?: AbortSignal): Promise<RecentActivity[]> {
+      if (!Number.isSafeInteger(limit) || limit < 1 || limit > 20) throw new ApiError(400, null);
+      const response = await client.request<unknown>({ path: `/api/activity?limit=${limit}`, signal });
+      if (!Array.isArray(response) || response.length > limit) throw new Error('Invalid activity response.');
+      const items = response.map((value): RecentActivity => {
+        const item = object(value);
+        if (typeof item.id !== 'string' || !isRecipientId(item.id)
+          || typeof item.recipientId !== 'string' || !isRecipientId(item.recipientId)
+          || !(['note', 'correction', 'addendum'] as unknown[]).includes(item.kind)
+          || typeof item.createdAt !== 'string' || !Number.isFinite(Date.parse(item.createdAt))) {
+          throw new Error('Invalid activity response.');
+        }
+        return { id: item.id, kind: item.kind as ActivityKind, recipientId: item.recipientId, createdAt: item.createdAt };
+      });
+      if (new Set(items.map((item) => `${item.kind}:${item.id}`)).size !== items.length
+        || items.some((item, index) => index > 0 && Date.parse(items[index - 1].createdAt) < Date.parse(item.createdAt))) {
+        throw new Error('Invalid activity response.');
+      }
+      return items;
+    },
     async history({ from, to, recipientId, page = 0, size = 20 }: NotesHistoryQuery, signal?: AbortSignal): Promise<NotesHistoryPage> {
       if (!isNoteDate(from) || !isNoteDate(to) || from > to
         || (recipientId !== undefined && !isRecipientId(recipientId))

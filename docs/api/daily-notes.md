@@ -6,6 +6,8 @@ POST /api/notes; optional Idempotency-Key header. JSON requires recipientId and 
 GET /api/notes/{id}; GET /api/notes/by-recipient/{recipientId}?date=YYYY-MM-DD. Detail reads return the immutable original note plus an `addenda` array in chronological order and `addendumCount`. History pages include `addendumCount` and `correctionCount`, not event bodies.
 ## History
 GET /api/notes?from=YYYY-MM-DD&to=YYYY-MM-DD&recipientId=<optional UUID>&page=0&size=20. Inclusive dates; newest first with stable ID tiebreaker; page size max 100; addendum and structured-correction counts included, not bodies. Filtering by a recipient that is not owned returns an empty page (no existence leak).
+
+GET /api/activity?limit=10 returns recent note, addendum, and correction activity metadata as `{id, kind, recipientId, createdAt}`. The authenticated caregiver is resolved server-side; the limit must be 1–20. The server performs bounded caregiver-filtered reads from each event source, merges them, and returns at most `limit` entries sorted by timestamp descending, ID descending, then kind ascending. No content/body fields are returned.
 ## Addenda
 POST /api/notes/{id}/addenda with optional Idempotency-Key; corrections append only and never modify original note. An addendum must correct at least one field (empty `{}` is rejected). GET /api/notes/{id}/addenda returns addenda ordered by creation time, with ID as a stable tiebreaker.
 These existing records remain compatible and are not automatically reclassified as structured events.
