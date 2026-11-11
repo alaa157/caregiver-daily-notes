@@ -1,4 +1,4 @@
-import { fireEvent, render, screen, waitFor } from '@testing-library/react';
+import { act, fireEvent, render, screen, waitFor } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { MemoryRouter, useLocation } from 'react-router-dom';
 import { describe, expect, it, vi } from 'vitest';
@@ -11,6 +11,7 @@ import { recipientFixture } from './recipientFixtures';
 import { noteFixture, noteListFixture } from './noteFixtures';
 
 const inactive = { ...recipientFixture, id: 'b2222222-2222-4222-8222-222222222222', name: 'Mona', active: false, lifecycleStatus: 'ARCHIVED' as const, archivedAt: '2026-10-15T10:00:00Z', archivedBy: 'b1111111-1111-4111-8111-111111111111' };
+const legacyInactive = { ...recipientFixture, id: 'd4444444-4444-4444-8444-444444444444', name: 'Legacy recipient', active: false, lifecycleStatus: 'LEGACY_INACTIVE_REVIEW' as const };
 const missing = { ...recipientFixture, id: 'c3333333-3333-4333-8333-333333333333', name: 'No note recipient' };
 function renderOverview(path: string, fetcher: ReturnType<typeof vi.fn>, language = 'en') {
   vi.stubGlobal('fetch', fetcher);
@@ -83,6 +84,28 @@ describe('authenticated workspace overview', () => {
     expect(row?.querySelector(`a[href="/app/recipients/${inactive.id}"]`)).not.toBeNull();
   });
 
+  it('keeps legacy-inactive recipients visible without offering note creation', async () => {
+    const fetcher = vi.fn().mockImplementation((path: string) => path === '/api/recipients'
+      ? Promise.resolve(jsonResponse([legacyInactive]))
+      : Promise.resolve(historyResponse([])));
+    renderOverview('/app?date=2026-10-18', fetcher);
+
+    const row = (await screen.findByRole('link', { name: legacyInactive.name })).closest('li');
+    expect(row).toHaveTextContent(/Inactive/);
+    expect(row).toHaveTextContent('No note recorded');
+    expect(row?.querySelector('a[href^="/app/notes/new"]')).toBeNull();
+  });
+
+  it('keeps recipient-list failures distinct from note-history failures', async () => {
+    const fetcher = vi.fn().mockResolvedValue(jsonResponse({ message: 'private server diagnostics' }, 500));
+    renderOverview('/app?date=2026-10-18', fetcher);
+
+    expect(await screen.findByText('We couldn’t complete this request. Please try again.')).toBeInTheDocument();
+    expect(screen.queryByText('Note status unavailable')).not.toBeInTheDocument();
+    expect(fetcher).toHaveBeenCalledTimes(1);
+    expect(String(fetcher.mock.calls[0][0])).toBe('/api/recipients');
+  });
+
   it('does not turn a note request failure into a missing observation', async () => {
     let failed = true;
     const fetcher = vi.fn().mockImplementation((path: string) => {
@@ -125,6 +148,50 @@ describe('authenticated workspace overview', () => {
     await waitFor(() => expect(screen.getByTestId('location')).toHaveTextContent('/app?date=2026-10-19'));
     expect(screen.getByLabelText('Calendar date')).toHaveValue('2026-10-19');
     await waitFor(() => expect(fetcher.mock.calls.some(([path]) => path === '/api/notes?from=2026-10-19&to=2026-10-19&page=0&size=100')).toBe(true));
+  });
+
+  it('cancels the previous date request and ignores its late result', async () => {
+    const pending = new Map<string, { signal: AbortSignal | undefined; resolve: (response: Response) => void }>();
+    const fetcher = vi.fn().mockImplementation((path: string, init?: RequestInit) => {
+      if (path === '/api/recipients') return Promise.resolve(jsonResponse([recipientFixture]));
+      const date = new URL(path, 'http://localhost').searchParams.get('from')!;
+      return new Promise<Response>((resolve) => pending.set(date, { signal: init?.signal ?? undefined, resolve }));
+    });
+    const view = renderOverview('/app?date=2026-10-18', fetcher);
+
+    await waitFor(() => expect(pending.has('2026-10-18')).toBe(true));
+    fireEvent.change(screen.getByLabelText('Calendar date'), { target: { value: '2026-10-19' } });
+    await waitFor(() => expect(pending.has('2026-10-19')).toBe(true));
+    expect(pending.get('2026-10-18')?.signal?.aborted).toBe(true);
+
+    pending.get('2026-10-18')?.resolve(historyResponse([noteListFixture]));
+    pending.get('2026-10-19')?.resolve(historyResponse([]));
+    expect(await screen.findByText('No note recorded')).toBeInTheDocument();
+    expect(screen.queryByRole('link', { name: 'Open note' })).not.toBeInTheDocument();
+
+    view.unmount();
+    expect(pending.get('2026-10-19')?.signal?.aborted).toBe(true);
+  });
+
+  it('aborts an in-flight request on unmount and ignores its late result', async () => {
+    let resolveHistory: ((response: Response) => void) | undefined;
+    let historySignal: AbortSignal | undefined;
+    const fetcher = vi.fn().mockImplementation((path: string, init?: RequestInit) => {
+      if (path === '/api/recipients') return Promise.resolve(jsonResponse([recipientFixture]));
+      historySignal = init?.signal ?? undefined;
+      return new Promise<Response>((resolve) => { resolveHistory = resolve; });
+    });
+    const view = renderOverview('/app?date=2026-10-18', fetcher);
+
+    await waitFor(() => expect(resolveHistory).toBeTypeOf('function'));
+    view.unmount();
+    expect(historySignal?.aborted).toBe(true);
+
+    await act(async () => {
+      resolveHistory?.(historyResponse([noteListFixture]));
+      await Promise.resolve();
+    });
+    expect(view.container).toBeEmptyDOMElement();
   });
 
   it('does not send an invalid URL date to the API', async () => {
