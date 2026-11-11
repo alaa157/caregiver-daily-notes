@@ -96,7 +96,8 @@ export function AppShell({ children }: { children: ReactNode }) {
           </nav>
         </div>
       </header>
-      <main id="main-content" ref={mainRef} tabIndex={-1} className="main-content">
+      <main id="main-content" ref={mainRef} tabIndex={-1}
+        className={`main-content${pathname === '/app' ? ' main-content--dashboard' : ''}`}>
         {auth.status === 'authenticated' ? <ByokProvider>{children}</ByokProvider> : children}
       </main>
       <footer className="site-footer">

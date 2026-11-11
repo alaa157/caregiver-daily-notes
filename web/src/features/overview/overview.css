@@ -1,4 +1,5 @@
 .workspace-overview { padding-block: 48px 70px; }
+.site-shell .main-content--dashboard:focus-visible { outline: 3px solid var(--color-outline); outline-offset: -3px; }
 .overview-heading { display: flex; align-items: flex-end; justify-content: space-between; gap: 24px; margin-bottom: 28px; }
 .overview-heading > div:first-child { min-width: 0; max-width: 680px; }
 .overview-heading .eyebrow { margin-bottom: 12px; }

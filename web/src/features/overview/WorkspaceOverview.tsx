@@ -53,12 +53,16 @@ export function WorkspaceOverview() {
       <time dateTime={date}>{formattedDate(date)}</time>
     </div>
     <OverviewKpis state={state} />
-    <section className="overview-mtd" aria-label={t('overviewMtdLabel')}>
-      <span>{t('overviewMtdLabel')}</span>
-      <strong aria-live="polite">{monthToDate.state === 'ready'
+    <section className="overview-mtd" aria-label={t('overviewMtdLabel')} aria-busy={monthToDate.state === 'loading'}>
+      <span id="overview-mtd-label">{t('overviewMtdLabel')}</span>
+      <strong role={monthToDate.state === 'error' ? 'alert' : 'status'}
+        aria-label={t('overviewMtdLabel')} aria-live={monthToDate.state === 'error' ? undefined : 'polite'}>{monthToDate.state === 'ready'
         ? new Intl.NumberFormat(language === 'ar' ? 'ar-EG' : 'en').format(monthToDate.total!)
         : monthToDate.state === 'loading' ? t('overviewMtdLoading') : t('overviewMtdError')}</strong>
-      {monthToDate.state === 'error' && <button type="button" className="overview-retry" onClick={reloadMonthToDate}>{t('retry')}</button>}
+      {monthToDate.state === 'error' && <button type="button" className="overview-retry"
+        aria-labelledby="overview-mtd-label overview-mtd-retry-label" onClick={reloadMonthToDate}>
+        <span id="overview-mtd-retry-label">{t('retry')}</span>
+      </button>}
     </section>
     <section className="overview-activity" aria-labelledby="overview-activity-title" aria-busy={activityFeed.state.status === 'loading'}>
       <div className="overview-activity-heading"><h2 id="overview-activity-title" className="overview-section-title">{t('activityFeedTitle')}</h2>
@@ -80,18 +84,20 @@ export function WorkspaceOverview() {
         </ul>)}
     </section>
     {state.status === 'loading' && <LoadingState label={t('overviewLoading')} />}
-    {state.status === 'error' && <ErrorState description={t(recipientErrorMessage(state.error))} onRetry={reload} />}
-    {overviewData && (overviewData.data.length === 0
-      ? <div className="overview-empty"><EmptyState title={t('recipientsEmpty')} description={t('overviewNoRecipients')} />
-        <ButtonLink to="/app/recipients/new">{t('recipientCreate')}</ButtonLink></div>
-      : <>
-        <h2 className="overview-section-title">{t('overviewRecipientStatus')}</h2>
-        <ul className="overview-list">
-          {overviewData.data.map((row) => <RecipientCard key={row.recipient.id} row={row} date={date} onRetry={reload} />)}
-        </ul>
-        <p className="overview-footnote">{t('overviewMissingIsNotNegative')}</p>
-        {overviewData.status === 'partial' && <p className="overview-partial" role="status">{t('overviewPartialData')}</p>}
-      </>)}
+    <div className="overview-results" aria-busy={state.status === 'loading'}>
+      {state.status === 'error' && <ErrorState description={t(recipientErrorMessage(state.error))} onRetry={reload} />}
+      {overviewData && (overviewData.data.length === 0
+        ? <div className="overview-empty"><EmptyState title={t('recipientsEmpty')} description={t('overviewNoRecipients')} />
+          <ButtonLink to="/app/recipients/new">{t('recipientCreate')}</ButtonLink></div>
+        : <>
+          <h2 className="overview-section-title">{t('overviewRecipientStatus')}</h2>
+          <ul className="overview-list">
+            {overviewData.data.map((row) => <RecipientCard key={row.recipient.id} row={row} date={date} onRetry={reload} />)}
+          </ul>
+          <p className="overview-footnote">{t('overviewMissingIsNotNegative')}</p>
+          {overviewData.status === 'partial' && <p className="overview-partial" role="alert">{t('overviewPartialData')}</p>}
+        </>)}
+    </div>
     <section className="overview-routine" aria-labelledby="routine-title">
       <h2 id="routine-title">{t('overviewQuickActions')}</h2>
       <nav className="routine-grid" aria-label={t('overviewMoreWorkflows')}>

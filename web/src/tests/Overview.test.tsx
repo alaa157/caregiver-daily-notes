@@ -132,17 +132,17 @@ describe('month-to-date notes metric', () => {
     renderOverview('/app?date=2026-10-18', fetcher);
 
     expect(await screen.findByText('Unavailable', { selector: '.overview-mtd strong' })).toBeInTheDocument();
-    expect(await screen.findByRole('link', { name: 'Open note' })).toHaveAttribute('href', `/app/notes/${noteFixture.id}`);
+    expect(await screen.findByRole('link', { name: `${recipientFixture.name} Open note` })).toHaveAttribute('href', `/app/notes/${noteFixture.id}`);
     expect(monthRequests).toBe(1);
 
-    await userEvent.click(screen.getByRole('button', { name: 'Retry' }));
+    await userEvent.click(screen.getByRole('button', { name: 'Notes this month Retry' }));
     expect(await screen.findByText('Unavailable', { selector: '.overview-mtd strong' })).toBeInTheDocument();
     expect(monthRequests).toBe(2);
     expect(fetcher.mock.calls.filter(([path]) => String(path).startsWith('/api/notes?from=2026-10-18'))).toHaveLength(1);
-    expect(await screen.findByRole('link', { name: 'Open note' })).toHaveAttribute('href', `/app/notes/${noteFixture.id}`);
+    expect(await screen.findByRole('link', { name: `${recipientFixture.name} Open note` })).toHaveAttribute('href', `/app/notes/${noteFixture.id}`);
 
     monthFailure = false;
-    await userEvent.click(screen.getByRole('button', { name: 'Retry' }));
+    await userEvent.click(screen.getByRole('button', { name: 'Notes this month Retry' }));
     expect(await screen.findByText('1', { selector: '.overview-mtd strong' })).toBeInTheDocument();
     expect(monthRequests).toBe(3);
     expect(fetcher.mock.calls.filter(([path]) => path === '/api/recipients')).toHaveLength(1);
@@ -238,7 +238,7 @@ describe('month-to-date notes metric', () => {
     renderOverview('/app?date=2026-10-18', fetcher);
 
     expect(await screen.findByText('Unavailable', { selector: '.overview-mtd strong' })).toBeInTheDocument();
-    expect(await screen.findByRole('link', { name: 'Open note' })).toHaveAttribute('href', `/app/notes/${noteFixture.id}`);
+    expect(await screen.findByRole('link', { name: `${recipientFixture.name} Open note` })).toHaveAttribute('href', `/app/notes/${noteFixture.id}`);
     expect(screen.queryByText('Note status unavailable')).not.toBeInTheDocument();
   });
 
@@ -292,14 +292,14 @@ describe('authenticated workspace overview', () => {
   it('shows factual per-date note status and links to source and relevant workflows', async () => {
     const fetcher = serving();
     renderOverview('/app?date=2026-10-18', fetcher);
-    expect(await screen.findByRole('link', { name: 'Open note' })).toHaveAttribute('href', `/app/notes/${noteFixture.id}`);
+    expect(await screen.findByRole('link', { name: `${recipientFixture.name} Open note` })).toHaveAttribute('href', `/app/notes/${noteFixture.id}`);
     expect(screen.getByLabelText('Calendar date')).toHaveValue('2026-10-18');
     expect(screen.getAllByText('No note recorded')).toHaveLength(2);
     expect(screen.getByText(/A missing note means no note was found/)).toBeInTheDocument();
     expect(kpiValue('Recipients shown')).toBe('3');
     expect(kpiValue('Notes recorded')).toBe('1');
     expect(kpiValue('Not yet recorded')).toBe('2');
-    expect(screen.getByRole('link', { name: 'Record a note' })).toHaveAttribute('href', `/app/notes/new?recipientId=${missing.id}&date=2026-10-18`);
+    expect(screen.getByRole('link', { name: `${missing.name} Record a note` })).toHaveAttribute('href', `/app/notes/new?recipientId=${missing.id}&date=2026-10-18`);
     const inactiveRow = screen.getByRole('link', { name: inactive.name }).closest('li');
     expect(inactiveRow).toHaveTextContent('Inactive');
     expect(inactiveRow?.querySelector('a[href^="/app/notes/new"]')).toBeNull();
@@ -371,11 +371,13 @@ describe('authenticated workspace overview', () => {
     });
     renderOverview('/app?date=2026-10-18', fetcher);
 
-    expect(await screen.findByRole('link', { name: 'Open note' })).toHaveAttribute('href', `/app/notes/${noteFixture.id}`);
+    expect(await screen.findByRole('link', { name: `${recipientFixture.name} Open note` })).toHaveAttribute('href', `/app/notes/${noteFixture.id}`);
     const missingRow = screen.getByRole('link', { name: missing.name }).closest('li');
     expect(await screen.findByText('Note status unavailable')).toBeInTheDocument();
+    expect(screen.getAllByRole('status').some((status) => status.textContent?.includes('Note status unavailable'))).toBe(true);
     expect(missingRow).not.toHaveTextContent('No note recorded');
     expect(screen.getByText('Some note statuses could not be loaded. Retry those rows to refresh the overview.')).toBeInTheDocument();
+    expect(screen.getAllByRole('alert').some((alert) => alert.textContent?.includes('Some note statuses could not be loaded'))).toBe(true);
     expect(kpiValue('Recipients shown')).toBe('2');
     expect(kpiValue('Notes recorded')).toBe('Unavailable');
     expect(kpiValue('Not yet recorded')).toBe('Unavailable');
@@ -422,7 +424,7 @@ describe('authenticated workspace overview', () => {
     expect(kpiValue('Recipients shown')).toBe('1');
     expect(kpiValue('Notes recorded')).toBe('0');
     expect(kpiValue('Not yet recorded')).toBe('1');
-    expect(screen.queryByRole('link', { name: 'Open note' })).not.toBeInTheDocument();
+    expect(screen.queryByRole('link', { name: `${recipientFixture.name} Open note` })).not.toBeInTheDocument();
 
     view.unmount();
     expect(pending.get('2026-10-19')?.signal?.aborted).toBe(true);
@@ -500,7 +502,7 @@ describe('authenticated workspace overview', () => {
       return Promise.resolve(jsonResponse({}, 404));
     });
     renderOverview('/app?date=2026-10-18', fetcher);
-    expect(await screen.findByRole('link', { name: 'Open note' })).toHaveAttribute('href', `/app/notes/${laterPageNote.id}`);
+    expect(await screen.findByRole('link', { name: `${missing.name} Open note` })).toHaveAttribute('href', `/app/notes/${laterPageNote.id}`);
     expect(fetcher.mock.calls.some(([path]) => path.includes('page=1&size=100'))).toBe(true);
     expect(screen.getAllByText('No note recorded')).toHaveLength(1);
   });
@@ -541,6 +543,109 @@ describe('authenticated workspace overview', () => {
     expect(kpiValue('Notes recorded')).toBe('Unavailable');
     expect(kpiValue('Not yet recorded')).toBe('Unavailable');
     expect(fetcher).not.toHaveBeenCalled();
+  });
+});
+
+describe('dashboard accessibility', () => {
+  it('keeps dashboard controls keyboard reachable in DOM order', async () => {
+    const user = userEvent.setup();
+    const view = renderOverview('/app?date=2026-10-18', serving());
+    await screen.findByRole('link', { name: `${recipientFixture.name} Open note` });
+
+    const tabStops = Array.from(view.container.querySelectorAll<HTMLElement>(
+      'a[href], button:not([disabled]), input:not([disabled]), select:not([disabled])',
+    ));
+    expect(tabStops.length).toBeGreaterThan(20);
+    expect(Array.from(view.container.querySelectorAll<HTMLElement>('[tabindex]')).every((element) => element.tabIndex <= 0)).toBe(true);
+
+    for (const tabStop of tabStops) {
+      await user.tab();
+      expect(tabStop).toHaveFocus();
+    }
+  });
+
+  it('exposes named regions, contextual links, and unchanged dashboard routes', async () => {
+    renderOverview('/app?date=2026-10-18', serving());
+
+    expect(await screen.findByRole('region', { name: 'Caregiver workspace' })).toBeInTheDocument();
+    expect(screen.getByRole('region', { name: 'Selected date summary' })).toBeInTheDocument();
+    expect(screen.getByRole('region', { name: 'Notes this month' })).toBeInTheDocument();
+    expect(screen.getByRole('navigation', { name: 'More caregiver workflows' })).toBeInTheDocument();
+    expect(screen.getByLabelText('Calendar date')).toHaveValue('2026-10-18');
+
+    expect(screen.getByRole('link', { name: `${recipientFixture.name} Open note` }))
+      .toHaveAttribute('href', `/app/notes/${noteFixture.id}`);
+    expect(screen.getByRole('link', { name: `${missing.name} Record a note` }))
+      .toHaveAttribute('href', `/app/notes/new?recipientId=${missing.id}&date=2026-10-18`);
+    expect(screen.getAllByRole('link', { name: 'Care recipients' }).map((link) => link.getAttribute('href')))
+      .toEqual(['/app/recipients', '/app/recipients']);
+  });
+
+  it('activates a retry with Space and a recipient workflow link with Enter', async () => {
+    const user = userEvent.setup();
+    let overviewRequests = 0;
+    const fetcher = vi.fn().mockImplementation((path: string) => {
+      if (path === '/api/recipients') return Promise.resolve(jsonResponse([recipientFixture, missing]));
+      const from = new URL(path, 'http://localhost').searchParams.get('from');
+      if (from === '2026-10-01') return Promise.resolve(historyResponse([]));
+      overviewRequests += 1;
+      return Promise.resolve(overviewRequests === 1
+        ? jsonResponse({ message: 'private diagnostics' }, 500)
+        : historyResponse([]));
+    });
+    const view = renderOverview('/app?date=2026-10-18', fetcher);
+    const retry = await screen.findByRole('button', { name: `${recipientFixture.name} Retry` });
+    const tabStops = Array.from(view.container.querySelectorAll<HTMLElement>(
+      'a[href], button:not([disabled]), input:not([disabled]), select:not([disabled])',
+    ));
+
+    for (const tabStop of tabStops) {
+      await user.tab();
+      if (tabStop === retry) break;
+    }
+    expect(retry).toHaveFocus();
+    await user.keyboard(' ');
+    expect(await screen.findAllByText('No note recorded', { exact: true })).toHaveLength(2);
+    expect(overviewRequests).toBe(2);
+
+    const recipientLink = screen.getByRole('link', { name: missing.name });
+    const recordLink = screen.getByRole('link', { name: `${missing.name} Record a note` });
+    recipientLink.focus();
+    await user.tab();
+    expect(recordLink).toHaveFocus();
+    await user.keyboard('{Enter}');
+    await waitFor(() => expect(screen.getByTestId('location')).toHaveTextContent(`/app/notes/new?recipientId=${missing.id}&date=2026-10-18`));
+  });
+
+  it('announces loading, ready, and error states without fake values', async () => {
+    const pending = new Promise<Response>(() => {});
+    const pendingFetcher = vi.fn().mockReturnValue(pending);
+    const loadingView = renderOverview('/app?date=2026-10-18', pendingFetcher);
+    expect(screen.getAllByRole('status').some((status) => status.textContent?.includes('Loading recipients and note availability…'))).toBe(true);
+    expect(loadingView.container.querySelector('.overview-results')).toHaveAttribute('aria-busy', 'true');
+    expect(screen.getByRole('region', { name: 'Notes this month' })).toHaveAttribute('aria-busy', 'true');
+    expect(screen.getByRole('status', { name: 'Recipients shown' })).toHaveTextContent('Loading…');
+    expect(screen.getByRole('status', { name: 'Notes this month' })).toHaveTextContent('Loading…');
+    loadingView.unmount();
+
+    const readyFetcher = serving();
+    const readyView = renderOverview('/app?date=2026-10-18', readyFetcher);
+    expect(await screen.findByRole('status', { name: 'Recipients shown' })).toHaveTextContent('3');
+    expect(readyView.container.querySelector('.overview-results')).toHaveAttribute('aria-busy', 'false');
+    expect(screen.getByRole('status', { name: 'Notes recorded' })).toHaveTextContent('1');
+    expect(screen.getByRole('status', { name: 'Notes this month' })).toHaveTextContent('0');
+    readyView.unmount();
+
+    const failedFetcher = vi.fn().mockResolvedValue(jsonResponse({ message: 'private diagnostics' }, 500));
+    renderOverview('/app?date=2026-10-18', failedFetcher);
+    const overviewError = await screen.findByText('We couldn’t complete this request. Please try again.');
+    expect(overviewError.closest('[role="alert"]')).not.toBeNull();
+    expect(screen.getByRole('alert', { name: 'Notes this month' })).toHaveTextContent('Unavailable');
+    expect(screen.getByRole('button', { name: 'Notes this month Retry' })).toBeInTheDocument();
+    expect(screen.getByRole('status', { name: 'Recipients shown' })).toHaveTextContent('Unavailable');
+    expect(screen.getByRole('status', { name: 'Notes recorded' })).toHaveTextContent('Unavailable');
+    expect(screen.getByRole('status', { name: 'Not yet recorded' })).toHaveTextContent('Unavailable');
+    expect(screen.queryByText('0', { selector: '.overview-mtd strong' })).not.toBeInTheDocument();
   });
 });
 
