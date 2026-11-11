@@ -705,6 +705,36 @@ class NoteControllerTest {
     assertThat(jdbcTemplate.queryForObject("select count(*) from note_correction_events", Integer.class)).isZero();
   }
 
+  @Test
+  void recentActivityCombinesKindsWithinCaregiverScopeAndEnforcesBoundedLimit() throws Exception {
+    TestCaregiver owner = register("note-activity-owner@example.com");
+    TestCaregiver other = register("note-activity-other@example.com");
+    String recipientId = createRecipient(owner.token());
+    String noteId = createNote(owner.token(), recipientId, "2026-10-26");
+    mvc.perform(post(NOTES + "/" + noteId + "/addenda")
+            .header("Authorization", bearer(owner.token())).contentType(MediaType.APPLICATION_JSON)
+            .content("{\"freeText\":\"Later note detail\"}"))
+        .andExpect(status().isCreated());
+    mvc.perform(post(NOTES + "/" + noteId + "/corrections")
+            .header("Authorization", bearer(owner.token())).contentType(MediaType.APPLICATION_JSON)
+            .content("{\"corrections\":[{\"field\":\"mood\",\"operation\":\"SET\",\"value\":\"calm\"}]}"))
+        .andExpect(status().isCreated());
+
+    mvc.perform(get("/api/activity").param("limit", "10").header("Authorization", bearer(owner.token())))
+        .andExpect(status().isOk())
+        .andExpect(jsonPath("$.length()").value(3))
+        .andExpect(jsonPath("$[?(@.kind == 'note')].recipientId").value(org.hamcrest.Matchers.hasItem(recipientId)))
+        .andExpect(jsonPath("$[?(@.kind == 'addendum')].recipientId").value(org.hamcrest.Matchers.hasItem(recipientId)))
+        .andExpect(jsonPath("$[?(@.kind == 'correction')].recipientId").value(org.hamcrest.Matchers.hasItem(recipientId)))
+        .andExpect(jsonPath("$[0].createdAt").exists());
+    mvc.perform(get("/api/activity").header("Authorization", bearer(other.token())))
+        .andExpect(status().isOk()).andExpect(jsonPath("$").isEmpty());
+    mvc.perform(get("/api/activity").param("limit", "21").header("Authorization", bearer(owner.token())))
+        .andExpect(status().isBadRequest());
+    mvc.perform(get("/api/activity"))
+        .andExpect(status().isUnauthorized());
+  }
+
   private TestCaregiver register(String email) throws Exception {
     MvcResult result = mvc.perform(post("/api/auth/register")
             .contentType(MediaType.APPLICATION_JSON)

@@ -6,6 +6,7 @@ public interface DailyNoteRepository extends JpaRepository<DailyNote,UUID>{
  Optional<DailyNote> findByRecipient_IdAndCaregiver_IdAndDate(UUID recipientId,UUID caregiverId,LocalDate date);
  Optional<DailyNote> findByCaregiver_IdAndIdempotencyKey(UUID caregiverId,String key);
  Page<DailyNote> findAllByCaregiver_IdAndDateBetween(UUID owner,LocalDate from,LocalDate to,Pageable p);
+ List<DailyNote> findAllByCaregiver_IdOrderByCreatedAtDescIdDesc(UUID owner,Pageable p);
  Page<DailyNote> findAllByCaregiver_IdAndRecipient_IdAndDateBetween(UUID owner,UUID recipient,LocalDate from,LocalDate to,Pageable p);
  List<DailyNote> findAllByCaregiver_IdAndRecipient_IdAndDateBetweenOrderByDateAsc(UUID owner,UUID recipient,LocalDate from,LocalDate to);
  /** Single aggregate query backing history addendum counts; avoids one count query per row. */
