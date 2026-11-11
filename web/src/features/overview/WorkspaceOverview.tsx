@@ -8,6 +8,7 @@ import { Icon } from '../../components/Icon';
 import { useI18n } from '../../i18n/I18nProvider';
 import { OverviewKpis } from './OverviewKpis';
 import { useDashboardOverview } from './useDashboardOverview';
+import { useMonthToDateNotes } from './useMonthToDateNotes';
 import './overview.css';
 
 function localToday() {
@@ -29,6 +30,7 @@ export function WorkspaceOverview() {
   const rawDate = params.get('date');
   const date = rawDate && isNoteDate(rawDate) ? rawDate : today;
   const { state, reload } = useDashboardOverview(date);
+  const monthToDate = useMonthToDateNotes(date);
   const updateDate = (value: string) => {
     const next = new URLSearchParams(params);
     if (isNoteDate(value)) next.set('date', value);
@@ -47,6 +49,12 @@ export function WorkspaceOverview() {
       <time dateTime={date}>{formattedDate(date)}</time>
     </div>
     <OverviewKpis state={state} />
+    <section className="overview-mtd" aria-label={t('overviewMtdLabel')}>
+      <span>{t('overviewMtdLabel')}</span>
+      <strong aria-live="polite">{monthToDate.state === 'ready'
+        ? new Intl.NumberFormat(language === 'ar' ? 'ar-EG' : 'en').format(monthToDate.total!)
+        : monthToDate.state === 'loading' ? t('overviewMtdLoading') : t('overviewMtdError')}</strong>
+    </section>
     {state.status === 'loading' && <LoadingState label={t('overviewLoading')} />}
     {state.status === 'error' && <ErrorState description={t(recipientErrorMessage(state.error))} onRetry={reload} />}
     {state.status === 'ready' && (state.data.length === 0

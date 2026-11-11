@@ -15,6 +15,9 @@
 .overview-kpi-card h3 { margin: 0 0 12px; color: var(--color-muted); font-size: .95rem; font-weight: 600; }
 .overview-kpi-value { display: block; min-height: 1.5em; color: var(--color-ink); font-size: 1.7rem; font-weight: 700; line-height: 1.4; }
 .overview-kpi-value--loading, .overview-kpi-value--error { color: var(--color-muted); font-size: 1rem; font-weight: 500; }
+.overview-mtd { display: grid; gap: 6px; width: fit-content; min-width: 190px; margin: -16px 0 30px; padding: 14px 18px; border: 1px solid var(--color-border); border-radius: var(--radius); background: #fffef9; }
+.overview-mtd > span { color: var(--color-muted); font-size: .9rem; }
+.overview-mtd strong { font-size: 1.35rem; }
 .overview-section-title { margin: 0 0 14px; font-size: 1.35rem; }
 .overview-list { list-style: none; margin: 0; padding: 0; border-top: 1px solid var(--color-border); }
 .overview-row { display: grid; grid-template-columns: minmax(0, 1fr) minmax(250px, auto) auto; align-items: center; gap: 18px; padding: 20px 4px; border-bottom: 1px solid var(--color-border); }
@@ -47,6 +50,6 @@
 :lang(ar) .overview-heading h1 { line-height: 1.7; }
 :lang(ar) .overview-date input { text-align: start; }
 @media (forced-colors: active) {
-  .overview-date, .overview-kpi-card, .overview-list, .overview-row { border-color: CanvasText; }
+  .overview-date, .overview-kpi-card, .overview-mtd, .overview-list, .overview-row { border-color: CanvasText; }
   .overview-date input { border-color: CanvasText; }
 }

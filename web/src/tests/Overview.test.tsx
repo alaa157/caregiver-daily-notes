@@ -30,6 +30,10 @@ function historyResponse(content: unknown[], number = 0, totalElements = content
   return jsonResponse({ content, number, size: 100, totalElements, totalPages, first: number === 0, last: number >= totalPages - 1 });
 }
 
+function mtdValue() {
+  return screen.getByRole('region', { name: 'Notes this month' }).querySelector('strong')?.textContent;
+}
+
 function serving() {
   return vi.fn().mockImplementation((path: string) => {
     if (path === '/api/recipients') return Promise.resolve(jsonResponse([recipientFixture, inactive, missing]));
@@ -44,6 +48,151 @@ function serving() {
 function kpiValue(label: string) {
   return screen.getByRole('heading', { name: label }).parentElement?.querySelector('output')?.textContent;
 }
+describe('month-to-date notes metric', () => {
+  it('counts all returned pages for the selected date window', async () => {
+    const secondNote = { ...noteListFixture, id: 'e5555555-5555-4555-8555-555555555555', date: '2026-10-05' };
+    const thirdNote = { ...noteListFixture, id: 'f6666666-6666-4666-8666-666666666666', date: '2026-10-08' };
+    const fetcher = vi.fn().mockImplementation((path: string) => {
+      if (path === '/api/recipients') return Promise.resolve(jsonResponse([recipientFixture]));
+      const query = new URL(path, 'http://localhost').searchParams;
+      const from = query.get('from');
+      const page = Number(query.get('page'));
+      if (from === '2026-10-01') return Promise.resolve(page === 0
+        ? historyResponse([noteListFixture], 0, 102, 2)
+        : historyResponse([secondNote, thirdNote], 1, 102, 2));
+      return Promise.resolve(historyResponse([]));
+    });
+    renderOverview('/app?date=2026-10-18', fetcher);
+
+    expect(await screen.findByText('3', { selector: '.overview-mtd strong' })).toBeInTheDocument();
+    expect(fetcher.mock.calls.some(([path]) => path === '/api/notes?from=2026-10-01&to=2026-10-18&page=0&size=100')).toBe(true);
+    expect(fetcher.mock.calls.some(([path]) => path === '/api/notes?from=2026-10-01&to=2026-10-18&page=1&size=100')).toBe(true);
+  });
+
+  it.each([
+    ['mid-month', '2026-11-11', '2026-11-01'],
+    ['first of month', '2026-11-01', '2026-11-01'],
+    ['year start', '2026-01-01', '2026-01-01'],
+    ['year end', '2026-12-31', '2026-12-01'],
+    ['leap day', '2028-02-29', '2028-02-01'],
+  ])('uses string date boundaries for %s', async (_label, date, from) => {
+    const fetcher = vi.fn().mockImplementation((path: string) => path === '/api/recipients'
+      ? Promise.resolve(jsonResponse([recipientFixture])) : Promise.resolve(historyResponse([])));
+    renderOverview(`/app?date=${date}`, fetcher);
+
+    expect(await screen.findByText('0', { selector: '.overview-mtd strong' })).toBeInTheDocument();
+    expect(fetcher.mock.calls.some(([path]) => path === `/api/notes?from=${from}&to=${date}&page=0&size=100`)).toBe(true);
+  });
+
+  it('shows unavailable rather than zero after a first-page failure', async () => {
+    const fetcher = vi.fn().mockImplementation((path: string) => {
+      if (path === '/api/recipients') return Promise.resolve(jsonResponse([recipientFixture]));
+      const query = new URL(path, 'http://localhost').searchParams;
+      return Promise.resolve(query.get('from') === '2026-10-01'
+        ? jsonResponse({ message: 'private diagnostics' }, 500) : historyResponse([]));
+    });
+    renderOverview('/app?date=2026-10-18', fetcher);
+
+    expect(await screen.findByText('Unavailable', { selector: '.overview-mtd strong' })).toBeInTheDocument();
+    expect(screen.queryByText('0', { selector: '.overview-mtd strong' })).not.toBeInTheDocument();
+  });
+
+  it('shows unavailable rather than a partial count after a later-page failure', async () => {
+    const fetcher = vi.fn().mockImplementation((path: string) => {
+      if (path === '/api/recipients') return Promise.resolve(jsonResponse([recipientFixture]));
+      const query = new URL(path, 'http://localhost').searchParams;
+      if (query.get('from') === '2026-10-01') return Promise.resolve(query.get('page') === '0'
+        ? historyResponse([noteListFixture], 0, 101, 2) : jsonResponse({ message: 'private diagnostics' }, 500));
+      return Promise.resolve(historyResponse([]));
+    });
+    renderOverview('/app?date=2026-10-18', fetcher);
+
+    expect(await screen.findByText('Unavailable', { selector: '.overview-mtd strong' })).toBeInTheDocument();
+    expect(screen.queryByText('1', { selector: '.overview-mtd strong' })).not.toBeInTheDocument();
+    expect(fetcher.mock.calls.some(([path]) => path.includes('from=2026-10-01&to=2026-10-18&page=1&size=100'))).toBe(true);
+  });
+
+  it('shows zero only when the complete history window is genuinely empty', async () => {
+    const fetcher = vi.fn().mockImplementation((path: string) => path === '/api/recipients'
+      ? Promise.resolve(jsonResponse([recipientFixture])) : Promise.resolve(historyResponse([])));
+    renderOverview('/app?date=2026-10-18', fetcher);
+
+    expect(await screen.findByText('0', { selector: '.overview-mtd strong' })).toBeInTheDocument();
+  });
+
+  it('resets on date change, refetches the new window, and ignores aborted late results', async () => {
+    const pending = new Map<string, { signal: AbortSignal | undefined; resolve: (response: Response) => void }>();
+    const fetcher = vi.fn().mockImplementation((path: string, init?: RequestInit) => {
+      if (path === '/api/recipients') return Promise.resolve(jsonResponse([recipientFixture]));
+      const query = new URL(path, 'http://localhost').searchParams;
+      const from = query.get('from')!;
+      const to = query.get('to')!;
+      if (from !== to) return new Promise<Response>((resolve) => pending.set(`${from}/${to}`, { signal: init?.signal ?? undefined, resolve }));
+      return Promise.resolve(historyResponse([]));
+    });
+    renderOverview('/app?date=2026-10-18', fetcher);
+    await waitFor(() => expect(pending.has('2026-10-01/2026-10-18')).toBe(true));
+    await act(async () => pending.get('2026-10-01/2026-10-18')?.resolve(historyResponse([noteListFixture])));
+    expect(await screen.findByText('1', { selector: '.overview-mtd strong' })).toBeInTheDocument();
+
+    fireEvent.change(screen.getByLabelText('Calendar date'), { target: { value: '2026-11-12' } });
+    expect(mtdValue()).toBe('Loading…');
+    await waitFor(() => expect(pending.has('2026-11-01/2026-11-12')).toBe(true));
+    expect(pending.get('2026-10-01/2026-10-18')?.signal?.aborted).toBe(true);
+    await act(async () => pending.get('2026-10-01/2026-10-18')?.resolve(historyResponse([noteListFixture])));
+    expect(mtdValue()).toBe('Loading…');
+    await act(async () => pending.get('2026-11-01/2026-11-12')?.resolve(historyResponse([{ ...noteListFixture, date: '2026-11-03' }])));
+    expect(await screen.findByText('1', { selector: '.overview-mtd strong' })).toBeInTheDocument();
+    expect(fetcher.mock.calls.some(([path]) => path === '/api/notes?from=2026-11-01&to=2026-11-12&page=0&size=100')).toBe(true);
+  });
+
+  it('aborts the MTD request on unmount without showing an error state', async () => {
+    let signal: AbortSignal | undefined;
+    let resolveHistory: ((response: Response) => void) | undefined;
+    const fetcher = vi.fn().mockImplementation((path: string, init?: RequestInit) => {
+      if (path === '/api/recipients') return Promise.resolve(jsonResponse([recipientFixture]));
+      const query = new URL(path, 'http://localhost').searchParams;
+      if (query.get('from') === '2026-10-01') {
+        signal = init?.signal ?? undefined;
+        return new Promise<Response>((resolve) => { resolveHistory = resolve; });
+      }
+      return Promise.resolve(historyResponse([]));
+    });
+    const view = renderOverview('/app?date=2026-10-18', fetcher);
+    await waitFor(() => expect(resolveHistory).toBeTypeOf('function'));
+    view.unmount();
+    expect(signal?.aborted).toBe(true);
+    await act(async () => { resolveHistory?.(historyResponse([])); await Promise.resolve(); });
+    expect(view.container).toBeEmptyDOMElement();
+  });
+
+  it('keeps MTD and date-scoped overview failures independent', async () => {
+    const fetcher = vi.fn().mockImplementation((path: string) => {
+      if (path === '/api/recipients') return Promise.resolve(jsonResponse([recipientFixture]));
+      const from = new URL(path, 'http://localhost').searchParams.get('from');
+      if (from === '2026-10-01') return Promise.resolve(jsonResponse({ message: 'private diagnostics' }, 500));
+      return Promise.resolve(historyResponse([noteListFixture]));
+    });
+    renderOverview('/app?date=2026-10-18', fetcher);
+
+    expect(await screen.findByText('Unavailable', { selector: '.overview-mtd strong' })).toBeInTheDocument();
+    expect(await screen.findByRole('link', { name: 'Open note' })).toHaveAttribute('href', `/app/notes/${noteFixture.id}`);
+    expect(screen.queryByText('Note status unavailable')).not.toBeInTheDocument();
+  });
+
+  it('does not report an overview history failure as an MTD failure', async () => {
+    const fetcher = vi.fn().mockImplementation((path: string) => {
+      if (path === '/api/recipients') return Promise.resolve(jsonResponse([recipientFixture]));
+      const from = new URL(path, 'http://localhost').searchParams.get('from');
+      if (from === '2026-10-18') return Promise.resolve(jsonResponse({ message: 'private diagnostics' }, 500));
+      return Promise.resolve(historyResponse([noteListFixture]));
+    });
+    renderOverview('/app?date=2026-10-18', fetcher);
+
+    expect(await screen.findByText('1', { selector: '.overview-mtd strong' })).toBeInTheDocument();
+    expect(await screen.findByText('Note status unavailable')).toBeInTheDocument();
+  });
+});
 
 describe('authenticated workspace overview', () => {
   it('defaults to the caregiver local calendar date', async () => {
@@ -113,8 +262,9 @@ describe('authenticated workspace overview', () => {
     expect(kpiValue('Recipients shown')).toBe('Unavailable');
     expect(kpiValue('Notes recorded')).toBe('Unavailable');
     expect(kpiValue('Not yet recorded')).toBe('Unavailable');
-    expect(fetcher).toHaveBeenCalledTimes(1);
+    expect(fetcher).toHaveBeenCalledTimes(2);
     expect(String(fetcher.mock.calls[0][0])).toBe('/api/recipients');
+    expect(fetcher.mock.calls.some(([path]) => String(path).startsWith('/api/notes?'))).toBe(true);
   });
 
   it('does not turn a note request failure into a missing observation', async () => {
@@ -227,7 +377,11 @@ describe('authenticated workspace overview', () => {
     const input = await screen.findByLabelText('Calendar date');
 
     expect(input).not.toHaveValue('2026-02-31');
-    const historyUrl = fetcher.mock.calls.map(([path]) => path).find((path: string) => path.startsWith('/api/notes?'));
+    const historyUrl = fetcher.mock.calls.map(([path]) => path).find((path: string) => {
+      if (!String(path).startsWith('/api/notes?')) return false;
+      const query = new URL(path, 'http://localhost').searchParams;
+      return query.get('from') === query.get('to');
+    });
     expect(historyUrl).toBeDefined();
     expect(new URL(historyUrl!, 'http://localhost').searchParams.get('from')).toBe((input as HTMLInputElement).value);
   });

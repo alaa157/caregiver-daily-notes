@@ -134,12 +134,12 @@ describe('caregiver authentication', () => {
     saveToken();
     const first = renderApp('/app');
     expect(screen.getByRole('heading', { name: 'Caregiver workspace' })).toBeVisible();
-    await waitFor(() => expect(fetcher).toHaveBeenCalledTimes(2));
-    expect(fetcher.mock.calls.every(([path]) => path === '/api/recipients')).toBe(true);
+    await waitFor(() => expect(fetcher.mock.calls.some(([path]) => String(path).startsWith('/api/notes?'))).toBe(true));
+    expect(fetcher.mock.calls.some(([path]) => path === '/api/recipients')).toBe(true);
     first.unmount();
     fetcher.mockClear();
     renderApp('/app');
-    await waitFor(() => expect(fetcher).toHaveBeenCalledTimes(2));
+    await waitFor(() => expect(fetcher.mock.calls.some(([path]) => String(path).startsWith('/api/notes?'))).toBe(true));
     fetcher.mockClear();
     await userEvent.click(screen.getByRole('button', { name: 'Sign out' }));
     expect(await screen.findByRole('heading', { name: 'Caregiver sign in' })).toBeVisible();
