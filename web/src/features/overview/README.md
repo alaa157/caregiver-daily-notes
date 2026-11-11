@@ -4,7 +4,7 @@
 
 ## Data and semantics
 
-The overview presents each recipient as a compact summary card in its accessible recipient list. Cards are presentational: they receive the hook's `OverviewRow` directly and do not fetch data or own date routing. The overview loads owned recipients from `GET /api/recipients`, then loads same-day notes through the existing caregiver-scoped history API:
+The overview presents each recipient as a compact summary card in its accessible recipient list. Cards are presentational: they receive the hook's `OverviewRow` directly and do not fetch data or own date routing. The exported `SummaryRow` contract in `summaryContract.ts` is a separate, read-only projection for future consumers: recorded requires a matching recipient and selected-date note, missing means the successful history request confirmed absence, and error remains distinct from missing. It uses the authenticated overview/API results (the server scopes recipient and note reads to the caregiver); the mapper exposes no extra note fields. The current note API provides `createdAt` (entry time), not an observation timestamp, so `observedAt` remains `null` rather than mislabeling entry time. Page-level loading and recipient-list failures are retained as `SummaryState`. The overview loads owned recipients from `GET /api/recipients`, then loads same-day notes through the existing caregiver-scoped history API:
 
 ```text
 GET /api/notes?from=YYYY-MM-DD&to=YYYY-MM-DD&page=0&size=100
