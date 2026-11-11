@@ -343,6 +343,11 @@
     <string name="settings_ai_model_free">Free</string>
     <string name="settings_ai_model_recommended">Recommended for summaries</string>
     <string name="settings_ai_model_paid_note">Models without a Free tag are billed by the provider per use.</string>
+    <string name="settings_ai_quality_check">Check model quality</string>
+    <string name="settings_ai_quality_checking">Checking model quality...</string>
+    <string name="settings_ai_quality_pass">This model quoted your notes correctly (%1$d of %2$d findings verified)</string>
+    <string name="settings_ai_quality_partial">This model sometimes rewords notes (%1$d of %2$d findings verified). Summaries may miss details.</string>
+    <string name="settings_ai_quality_fail">This model rewrote the notes instead of quoting them, so summaries will likely fail. Try a different model.</string>
     <string name="settings_ai_tier_free_models">This provider serves models that cost nothing to use. Free models may use what they receive to improve the provider\'s products, so choose a paid model for notes you would not share.</string>
     <string name="settings_ai_tier_trial_credits">A new API account gets free credits to try the paid models with.</string>
     <string name="settings_ai_test_cancelled">Test cancelled.</string>

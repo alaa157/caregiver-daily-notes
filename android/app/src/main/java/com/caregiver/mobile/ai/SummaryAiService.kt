@@ -33,6 +33,13 @@ private data class ModelSummary(
     val urgent: Boolean = false,
 )
 
+data class SummaryAiDiagnostics(
+    val totalObservations: Int,
+    val groundedObservations: Int,
+    val providerFailure: Boolean = false,
+    val providerReasonCode: String? = null,
+)
+
 sealed class SummaryAiResult {
     data class Success(
         val summary: SummaryDto,
@@ -42,9 +49,16 @@ sealed class SummaryAiResult {
          * [LlmStatus.OK] when it was clean.
          */
         val status: LlmStatus = LlmStatus.OK,
+        /** Present only for callers that explicitly request probe diagnostics. */
+        val diagnostics: SummaryAiDiagnostics? = null,
     ) : SummaryAiResult()
 
-    data class Failure(val redFlags: List<String>, val reasonCode: String) : SummaryAiResult()
+    data class Failure(
+        val redFlags: List<String>,
+        val reasonCode: String,
+        /** Present only for callers that explicitly request probe diagnostics. */
+        val diagnostics: SummaryAiDiagnostics? = null,
+    ) : SummaryAiResult()
 }
 
 /** Outcome of the one authoritative grounding validation for a parsed reply. */
@@ -59,6 +73,10 @@ class SummaryAiService(
     private val json: Json = Json { ignoreUnknownKeys = true },
     /** UI language of the generated human-readable summary text ("ar"/"en"). */
     private val language: String = "en",
+    /** Opt-in diagnostics keep the normal summary result unchanged for ordinary callers. */
+    private val includeDiagnostics: Boolean = false,
+    /** Uncommitted Settings prompt preference, when a probe is testing edits. */
+    private val promptPreferencesOverride: String? = null,
 ) {
     suspend fun summarize(
         recipientId: String,
@@ -106,7 +124,8 @@ class SummaryAiService(
         if (dataBlock.length > MAX_INPUT_CHARS) {
             return SummaryAiResult.Failure(redFlags, "oversized")
         }
-        val userPref = keyStore?.summarySystemPrompt()?.takeIf { it.isNotBlank() }
+        val userPref = promptPreferencesOverride
+            ?: keyStore?.summarySystemPrompt()?.takeIf { it.isNotBlank() }
             ?: keyStore?.systemPrompt()?.takeIf { it.isNotBlank() }
         // The caregiver's preferences go before the fixed prompt, never after:
         // the last instruction in a system message carries the most weight, so
@@ -130,11 +149,31 @@ class SummaryAiService(
             // http_400, ...) so the UI can explain the fix instead of
             // collapsing every failure into a generic "unavailable".
             is LlmJson.Reply.Unavailable ->
-                return SummaryAiResult.Failure(redFlags, reply.error ?: "unavailable")
+                return SummaryAiResult.Failure(
+                    redFlags,
+                    reply.error ?: "unavailable",
+                    diagnostics = if (includeDiagnostics) SummaryAiDiagnostics(
+                        totalObservations = 0,
+                        groundedObservations = 0,
+                        providerFailure = true,
+                        providerReasonCode = reply.error ?: "unavailable",
+                    ) else null,
+                )
             is LlmJson.Reply.Oversized ->
                 return SummaryAiResult.Failure(redFlags, reply.error ?: "oversized")
             is LlmJson.Reply.Malformed ->
-                return SummaryAiResult.Failure(redFlags, reply.error ?: "malformed_output")
+                return SummaryAiResult.Failure(
+                    redFlags,
+                    reply.error ?: "malformed_output",
+                    diagnostics = if (includeDiagnostics && reply.providerErrorCode != null) {
+                        SummaryAiDiagnostics(
+                            totalObservations = 0,
+                            groundedObservations = 0,
+                            providerFailure = true,
+                            providerReasonCode = reply.providerErrorCode,
+                        )
+                    } else null,
+                )
         }
         val notesById = windowedNotes.associateBy { it.id }
         // Normalized source texts per evidence type: the original note text
@@ -256,7 +295,16 @@ class SummaryAiService(
         periodDays: Int,
         failureReason: String,
     ): SummaryAiResult = if (evaluation.validObservations.isEmpty()) {
-        SummaryAiResult.Failure(redFlags, failureReason)
+        SummaryAiResult.Failure(
+            redFlags,
+            failureReason,
+            diagnostics = if (includeDiagnostics) SummaryAiDiagnostics(
+                totalObservations = minOf(parsed.observations.size, MAX_OBSERVATIONS),
+                groundedObservations = 0,
+                providerFailure = failureReason !in setOf("invalid_evidence", "malformed_output"),
+                providerReasonCode = failureReason.takeIf { it !in setOf("invalid_evidence", "malformed_output") },
+            ) else null,
+        )
     } else {
         buildSuccess(
             parsed, evaluation.validObservations, status, redFlags, recipientId, periodDays,
@@ -308,6 +356,10 @@ class SummaryAiService(
                 uncertainties = uncertainties,
             ),
             status = replyStatus,
+            diagnostics = if (includeDiagnostics) SummaryAiDiagnostics(
+                totalObservations = minOf(parsed.observations.size, MAX_OBSERVATIONS),
+                groundedObservations = validObservations.size,
+            ) else null,
         )
     }
 

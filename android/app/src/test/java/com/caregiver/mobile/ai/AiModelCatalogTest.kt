@@ -81,6 +81,19 @@ class AiModelCatalogTest {
     }
 
     @Test
+    fun recommendationsArePaidAndAvailableForEveryProvider() {
+        for (provider in AiProvider.entries) {
+            val recommendation = AiModelCatalog.recommendedSummaryModel(provider)
+            assertTrue("${provider.name} has no paid summary recommendation", recommendation != null)
+            assertTrue("${provider.name} recommends a free model", recommendation?.free == false)
+            assertTrue(
+                "${provider.name} recommendation is not in its suggestions",
+                AiModelCatalog.options(provider).contains(recommendation),
+            )
+        }
+    }
+
+    @Test
     fun modelIdsAreNotBlank() {
         for (provider in AiProvider.entries) {
             for (option in AiModelCatalog.options(provider)) {
