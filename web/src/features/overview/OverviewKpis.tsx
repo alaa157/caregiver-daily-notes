@@ -1,8 +1,13 @@
 import type { OverviewState } from './useDashboardOverview';
 import { getDashboardKpis } from './dashboardKpis';
 import { useI18n } from '../../i18n/I18nProvider';
+import type { MonthToDateMetric } from './useMonthToDateNotes';
 
-export function OverviewKpis({ state }: { state: OverviewState }) {
+export function OverviewKpis({ state, monthToDate, onRetryMonthToDate }: {
+  state: OverviewState;
+  monthToDate?: MonthToDateMetric;
+  onRetryMonthToDate?: () => void;
+}) {
   const { t, language } = useI18n();
   // Counts are formatted with the active locale so Arabic renders Arabic-Indic digits.
   const number = (value: number) => new Intl.NumberFormat(language === 'ar' ? 'ar-EG' : 'en').format(value);
@@ -21,6 +26,18 @@ export function OverviewKpis({ state }: { state: OverviewState }) {
           {kpi.state === 'ready' && kpi.value !== null ? <bdi>{number(kpi.value)}</bdi> : t(kpi.state === 'loading' ? 'loading' : 'overviewKpiUnavailable')}
         </output>
       </li>)}
+      {monthToDate && <li className="overview-kpi-card overview-mtd" role="region" aria-label={t('overviewMtdLabel')} aria-busy={monthToDate.state === 'loading'}>
+        <h3 id="overview-mtd-label">{t('overviewMtdLabel')}</h3>
+        <strong role={monthToDate.state === 'error' ? 'alert' : 'status'}
+          aria-label={t('overviewMtdLabel')} aria-live={monthToDate.state === 'error' ? undefined : 'polite'}>
+          {monthToDate.state === 'ready' ? number(monthToDate.total)
+            : monthToDate.state === 'loading' ? t('overviewMtdLoading') : t('overviewMtdError')}
+        </strong>
+        {monthToDate.state === 'error' && onRetryMonthToDate && <button type="button" className="overview-retry"
+          aria-labelledby="overview-mtd-label overview-mtd-retry-label" onClick={onRetryMonthToDate}>
+          <span id="overview-mtd-retry-label">{t('retry')}</span>
+        </button>}
+      </li>}
     </ul>
   </section>;
 }

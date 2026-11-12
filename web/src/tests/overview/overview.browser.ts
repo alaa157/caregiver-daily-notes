@@ -1,4 +1,5 @@
 import { createRequire } from 'node:module';
+import { join } from 'node:path';
 import { expect, test, type Page } from '@playwright/test';
 import { noteFixture, noteListFixture } from '../noteFixtures';
 import { recipientFixture } from '../recipientFixtures';
@@ -23,8 +24,12 @@ async function accessibility(page: Page) {
 
 for (const language of ['en', 'ar'] as const) {
   const labels = language === 'ar'
-    ? { date: 'التاريخ الميلادي', missing: 'لم تُسجل ملاحظة', record: 'تسجيل ملاحظة', recipient: 'مستفيد الرعاية', noteDate: 'تاريخ الملاحظة' }
-    : { date: 'Calendar date', missing: 'No note recorded', record: 'Record a note', recipient: 'Care recipient', noteDate: 'Observation date' };
+    ? { date: 'التاريخ الميلادي', missing: 'لم تُسجل ملاحظة', record: 'تسجيل ملاحظة', recipient: 'مستفيد الرعاية', noteDate: 'تاريخ الملاحظة',
+      recipients: 'المستفيدون المعروضون', recorded: 'الملاحظات المسجلة', notRecorded: 'لم تُسجل بعد', monthly: 'ملاحظات هذا الشهر',
+      monthlyTotal: '٠', todayByRecipient: 'اليوم حسب المستفيد', activity: 'النشاط الأخير' }
+    : { date: 'Calendar date', missing: 'No note recorded', record: 'Record a note', recipient: 'Care recipient', noteDate: 'Observation date',
+      recipients: 'Recipients shown', recorded: 'Notes recorded', notRecorded: 'Not yet recorded', monthly: 'Notes this month',
+      monthlyTotal: '0', todayByRecipient: 'Today by recipient', activity: 'Recent activity' };
 
   test(`workspace overview preserves date and recipient context (${language})`, async ({ page }) => {
     const pageErrors: string[] = [];
@@ -47,10 +52,30 @@ for (const language of ['en', 'ar'] as const) {
 
     await page.goto('/app?date=2026-10-18');
     await expect(page.getByLabel(labels.date)).toHaveValue('2026-10-18');
+    await expect(page.getByRole('heading', { name: labels.recipients }).locator('..')).toContainText(language === 'ar' ? '٢' : '2');
+    await expect(page.getByRole('heading', { name: labels.recorded }).locator('..')).toContainText(language === 'ar' ? '١' : '1');
+    await expect(page.getByRole('heading', { name: labels.notRecorded }).locator('..')).toContainText(language === 'ar' ? '١' : '1');
+    await expect(page.getByRole('heading', { name: labels.monthly }).locator('..')).toContainText(labels.monthlyTotal);
+    await expect(page.getByRole('table', { name: labels.todayByRecipient })).toBeVisible();
+    const activity = page.getByRole('complementary', { name: labels.activity });
+    await expect(activity).toContainText(recipientFixture.name);
+    const mainColumn = page.locator('.overview-results');
+    const rowDisplay = await page.locator('.overview-table tbody tr').first().evaluate((row) => getComputedStyle(row).display);
+    if (page.viewportSize()!.width <= 640) expect(rowDisplay).toBe('grid');
+    else expect(rowDisplay).toBe('table-row');
+    const mainBounds = await mainColumn.boundingBox();
+    const activityBounds = await activity.boundingBox();
+    expect(mainBounds).not.toBeNull();
+    expect(activityBounds).not.toBeNull();
+    if (page.viewportSize()!.width <= 960) expect(activityBounds!.y).toBeGreaterThan(mainBounds!.y);
+    else expect(Math.abs(activityBounds!.y - mainBounds!.y)).toBeLessThan(80);
     await expect(page.getByRole('link', { name: language === 'ar' ? 'فتح الملاحظة' : 'Open note' })).toHaveAttribute('href', `/app/notes/${noteFixture.id}`);
     await expect(page.getByText(labels.missing, { exact: true })).toBeVisible();
     await expect(page.locator('html')).toHaveAttribute('dir', language === 'ar' ? 'rtl' : 'ltr');
     await accessibility(page);
+    if (process.env.OVERVIEW_SCREENSHOTS_DIR) {
+      await page.screenshot({ path: join(process.env.OVERVIEW_SCREENSHOTS_DIR, `overview-${language}-${page.viewportSize()!.width}.png`), fullPage: true });
+    }
 
     const originalViewport = page.viewportSize();
     if (!originalViewport) throw new Error('Overview viewport is unavailable.');
@@ -61,9 +86,9 @@ for (const language of ['en', 'ar'] as const) {
         const firstCardTop = cards[0]?.getBoundingClientRect().top ?? 0;
         const routineCards = Array.from(document.querySelectorAll('.overview-routine .routine-link'));
         const firstRoutineCardTop = routineCards[0]?.getBoundingClientRect().top ?? 0;
-        const recipientCards = Array.from(document.querySelectorAll('.overview-card'));
+        const recipientCards = Array.from(document.querySelectorAll('.overview-table-row'));
         const recipientCardText = Array.from(document.querySelectorAll(
-          '.overview-card h3, .overview-card .overview-secondary, .overview-card .overview-status, .overview-card .overview-note-status > a'
+          '.overview-table-row h3, .overview-table-row .overview-secondary, .overview-table-row .overview-status, .overview-table-row .overview-row-action'
         ));
         return {
           columns: cards.filter((card) => Math.abs(card.getBoundingClientRect().top - firstCardTop) < 1).length,
@@ -84,14 +109,14 @@ for (const language of ['en', 'ar'] as const) {
         };
       });
 
-      expect(layout.columns).toBe(width <= 540 ? 1 : width <= 1000 ? 2 : 3);
-      expect(layout.routineColumns).toBe(width <= 540 ? 1 : width <= 1000 ? 2 : 4);
+      expect(layout.columns).toBe(width <= 640 ? 1 : width <= 1024 ? 2 : 4);
+      expect(layout.routineColumns).toBe(width <= 640 ? 1 : width <= 1024 ? 2 : 4);
       expect(layout.hasHorizontalOverflow).toBe(false);
       expect(layout.kpiCardsFitViewport).toBe(true);
       expect(layout.recipientCardsFitList).toBe(true);
       expect(layout.textFits).toBe(true);
       await expect(page.getByLabel(labels.date)).toBeVisible();
-      await expect(page.getByRole('link', { name: labels.record, exact: true })).toBeVisible();
+      await expect(page.getByRole('link', { name: new RegExp(labels.record) })).toBeVisible();
     }
     await page.setViewportSize(originalViewport);
 
@@ -102,7 +127,7 @@ for (const language of ['en', 'ar'] as const) {
     await page.goBack();
     await expect(page.getByLabel(labels.date)).toHaveValue('2026-10-18');
 
-    await page.getByRole('link', { name: labels.record, exact: true }).click();
+    await page.getByRole('link', { name: new RegExp(labels.record) }).click();
     await expect(page).toHaveURL(new RegExp(`/app/notes/new\\?recipientId=${secondRecipient.id}\\&date=2026-10-18`));
     await expect(page.locator('#note-recipientId')).toHaveValue(secondRecipient.id);
     await expect(page.locator('#note-date')).toHaveValue('2026-10-18');
