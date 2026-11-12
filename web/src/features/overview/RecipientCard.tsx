@@ -1,10 +1,11 @@
-import { Link } from 'react-router-dom';
+import { Link, useLocation } from 'react-router-dom';
 import { Icon } from '../../components/Icon';
 import { useI18n } from '../../i18n/I18nProvider';
 import type { OverviewRow } from './useDashboardOverview';
 
 export function RecipientRow({ row, date, onRetry }: { row: OverviewRow; date: string; onRetry: () => void }) {
   const { t } = useI18n();
+  const location = useLocation();
   const { recipient, note, status } = row;
   const recipientNameId = `overview-recipient-name-${recipient.id}`;
   const openNoteLabelId = `overview-open-note-label-${recipient.id}`;
@@ -35,7 +36,8 @@ export function RecipientRow({ row, date, onRetry }: { row: OverviewRow; date: s
       </Link>}
       {status === 'missing' && recipient.active && <Link className="overview-row-action"
         aria-labelledby={`${recipientNameId} ${recordNoteLabelId}`}
-        to={`/app/notes/new?recipientId=${encodeURIComponent(recipient.id)}&date=${encodeURIComponent(date)}`}>
+        to={`/app/notes/new?recipientId=${encodeURIComponent(recipient.id)}&date=${encodeURIComponent(date)}`}
+        state={{ backgroundLocation: location }}>
         <span id={recordNoteLabelId}>{t('overviewRecordNote')}</span>
       </Link>}
       {status === 'error' && <button type="button" className="overview-retry" aria-labelledby={`${recipientNameId} ${retryLabelId}`} onClick={onRetry}>

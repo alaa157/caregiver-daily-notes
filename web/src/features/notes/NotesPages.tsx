@@ -30,6 +30,11 @@ export function CreateNotePage() {
   const api = useNotesApis();
   const navigate = useNavigate();
   const location = useLocation();
+  const dialogRef = useRef<HTMLElement>(null);
+  const dirtyRef = useRef(false);
+  const closeRef = useRef<() => void>(() => undefined);
+  const returnFocusRef = useRef(document.activeElement instanceof HTMLElement ? document.activeElement : null);
+  const backgroundLocation = (location.state as { backgroundLocation?: unknown } | null)?.backgroundLocation;
   const params = new URLSearchParams(location.search);
   const formKeyParams = new URLSearchParams(params);
   formKeyParams.delete('date');
@@ -41,19 +46,70 @@ export function CreateNotePage() {
   const { state, reload } = useNoteResource(load);
   const cancelTo = initialRecipientId && state.status === 'ready' && state.data.some((recipient) => recipient.id === initialRecipientId && recipient.active)
     ? `/app/recipients/${encodeURIComponent(initialRecipientId)}` : '/app';
-  return <NotesLayout title={t('notesCreate')} description={t('notesCreateDescription')}>
+  closeRef.current = () => {
+    if (dirtyRef.current && !window.confirm(t('notesDiscardDraft'))) return;
+    if (backgroundLocation) navigate(-1);
+    else navigate(cancelTo);
+  };
+  const requestClose = () => closeRef.current();
+  useEffect(() => {
+    const dialog = dialogRef.current;
+    const first = dialog?.querySelector<HTMLElement>('button, a[href], input:not([disabled]), select:not([disabled]), textarea:not([disabled])');
+    first?.focus();
+    const onKeyDown = (event: KeyboardEvent) => {
+      if (event.key === 'Escape') { event.preventDefault(); requestClose(); return; }
+      if (event.key !== 'Tab' || !dialog) return;
+      const items = Array.from(dialog.querySelectorAll<HTMLElement>('button:not([disabled]), a[href], input:not([disabled]), select:not([disabled]), textarea:not([disabled]), [tabindex]:not([tabindex="-1"])'));
+      if (!items.length) { event.preventDefault(); return; }
+      if (event.shiftKey && document.activeElement === items[0]) { event.preventDefault(); items.at(-1)?.focus(); }
+      else if (!event.shiftKey && document.activeElement === items.at(-1)) { event.preventDefault(); items[0]?.focus(); }
+    };
+    document.addEventListener('keydown', onKeyDown);
+    const previousOverflow = document.body.style.overflow;
+    const background = backgroundLocation ? document.querySelector<HTMLElement>('.app-layout') : null;
+    const previousInert = background?.inert ?? false;
+    const previousAriaHidden = background?.getAttribute('aria-hidden');
+    if (background && !background.contains(dialog)) {
+      background.inert = true;
+      background.setAttribute('aria-hidden', 'true');
+    }
+    document.body.style.overflow = 'hidden';
+    return () => {
+      document.removeEventListener('keydown', onKeyDown);
+      document.body.style.overflow = previousOverflow;
+      if (background) {
+        background.inert = previousInert;
+        if (previousAriaHidden) background.setAttribute('aria-hidden', previousAriaHidden);
+        else background.removeAttribute('aria-hidden');
+      }
+      if (backgroundLocation) window.setTimeout(() => returnFocusRef.current?.focus(), 0);
+    };
+  }, [Boolean(backgroundLocation)]);
+  return <div className="note-drawer-backdrop" onMouseDown={(event) => {
+    if (event.target === event.currentTarget) requestClose();
+  }}>
+    <section ref={dialogRef} className="note-drawer" role="dialog" aria-modal="true" aria-labelledby="notes-heading" aria-describedby="notes-drawer-description">
+    <header className="notes-heading"><div><p className="eyebrow">{t('dashboardTitle')}</p><h1 id="notes-heading">{t('notesCreate')}</h1><p id="notes-drawer-description">{t('notesCreateDescription')}</p></div>
+      <Button variant="secondary" onClick={requestClose}>{t('notesCancel')}</Button></header>
     {state.status === 'loading' && <LoadingState label={t('notesLoading')} />}
     {state.status === 'error' && <ErrorState description={t(noteErrorMessage(state.error))} onRetry={reload} />}
     {state.status === 'ready' && (state.data.length === 0 ? <div className="note-surface"><EmptyState title={t('notesNoRecipients')} description={t('notesNoRecipientsDescription')} />
       <ButtonLink to="/app/recipients">{t('recipientsTitle')}</ButtonLink></div>
-      : <div className="note-surface"><NoteForm key={formKeyParams.toString()} mode="create" recipients={state.data} initialRecipientId={initialRecipientId} initialDate={initialDate} cancelTo={cancelTo} onSave={async (input, key, signal) => {
+      : <div className="note-surface" onInput={() => { dirtyRef.current = true; }} onChange={() => { dirtyRef.current = true; }} onClick={(event) => {
+        if ((event.target as HTMLElement).closest('a.button--text')) { event.preventDefault(); requestClose(); }
+      }}><NoteForm key={formKeyParams.toString()} mode="create" recipients={state.data} initialRecipientId={initialRecipientId} initialDate={initialDate} cancelTo={cancelTo} onSave={async (input, key, signal) => {
         const note = await api.notes.create(input as CreateNoteInput, key, signal);
-        if (!signal.aborted) navigate(`${notesPath}/${note.id}`, { replace: true, state: { noteNotice: 'created' } });
+        if (!signal.aborted) {
+          window.dispatchEvent(new Event('care-note-created'));
+          navigate(`${notesPath}/${note.id}`, { replace: true, state: { noteNotice: 'created' } });
+        }
       }} onOpen={async (recipientId, date, signal) => {
         const note = await api.notes.find(recipientId, date, signal);
         if (!signal.aborted) navigate(`${notesPath}/${note.id}`);
-      }} /></div>)}
-  </NotesLayout>;
+      }} />
+      </div>)}
+    </section>
+  </div>;
 }
 
 type TimelineEntry =

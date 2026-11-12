@@ -35,6 +35,8 @@
 .app-recipient-error { position: absolute; inset-block-start: calc(100% + 4px); inset-inline-start: 0; z-index: 2; display: flex; align-items: center; gap: 8px; width: max-content; max-width: min(320px, 90vw); padding: 8px 10px; border: var(--dash-border-width) var(--dash-border-style) var(--caregiver-danger); border-radius: var(--dash-radius-card); color: var(--caregiver-danger); background: var(--dash-color-surface); font-size: var(--dash-type-caption-size); box-shadow: var(--dash-elevation-2); }
 .app-recipient-error button { border: 0; color: inherit; background: transparent; text-decoration: underline; cursor: pointer; }
 .app-topbar .app-language-toggle { min-height: 44px; padding-inline: 10px; }
+.app-create-note { display: inline-flex; align-items: center; gap: 8px; min-height: 44px; padding-inline: 12px; text-decoration: none; white-space: nowrap; }
+.app-create-note .icon { flex: 0 0 auto; }
 .app-account { position: relative; margin-inline-start: auto; }
 .app-account > summary { display: flex; align-items: center; gap: 7px; min-height: 44px; padding: 8px 12px; border: var(--dash-border-width) var(--dash-border-style) var(--dash-border-color); border-radius: var(--radius-control); color: var(--caregiver-ink); background: var(--dash-color-surface); font-size: var(--dash-type-label-size); cursor: pointer; list-style: none; }
 .app-account > summary::-webkit-details-marker { display: none; }
@@ -85,6 +87,9 @@
   .app-topbar .app-recipient-control { order: 4; flex-basis: 100%; }
   .app-topbar .app-recipient-control select { width: 100%; }
   .app-topbar .app-language-toggle { margin-inline-start: auto; }
+  .app-topbar .app-create-note { flex: 0 0 auto; font-size: .82rem; padding-inline: 8px; }
+  .app-topbar .app-create-note .icon { width: 18px; height: 18px; }
+  @media (max-width: 380px) { .app-topbar .app-create-note { font-size: 0; gap: 0; } .app-topbar .app-create-note .icon { width: 20px; height: 20px; } }
 }
 
 :lang(ar) .app-nav-link { line-height: var(--dash-type-label-line-height-ar); }

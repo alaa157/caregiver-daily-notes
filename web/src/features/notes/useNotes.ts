@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from 'react';
+import { useCallback, useEffect, useMemo, useState } from 'react';
 import { createNotesApi } from '../../api/notes';
 import { createRecipientsApi } from '../../api/recipients';
 import { useApiClient } from '../../lib/api';
@@ -20,5 +20,6 @@ export function useNoteResource<T>(load: (signal: AbortSignal) => Promise<T>) {
     );
     return () => controller.abort();
   }, [load, version]);
-  return { state, reload: () => setVersion((value) => value + 1) };
+  const reload = useCallback(() => setVersion((value) => value + 1), []);
+  return { state, reload };
 }

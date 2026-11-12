@@ -1,4 +1,4 @@
-import { Route, Routes } from 'react-router-dom';
+import { Route, Routes, useLocation } from 'react-router-dom';
 import { AppLayout, AppShell } from '../components/AppShell';
 import { ButtonLink } from '../components/Button';
 import { CareIllustration } from '../components/CareIllustration';
@@ -10,6 +10,7 @@ import { LoginPage } from '../features/auth/LoginPage';
 import { ProtectedRoute } from './ProtectedRoute';
 import { RecipientsRoutes } from '../routes/RecipientsRoutes';
 import { NotesRoutes } from '../routes/NotesRoutes';
+import { CreateNotePage } from '../features/notes/NotesPages';
 import { WorkspaceOverview } from '../features/overview/WorkspaceOverview';
 import { SettingsPage } from '../features/settings/SettingsPage';
 import { ThemeProvider } from './ThemeProvider';
@@ -72,9 +73,11 @@ function NotFoundPage() {
 }
 
 export function App() {
+  const location = useLocation();
+  const backgroundLocation = (location.state as { backgroundLocation?: typeof location } | null)?.backgroundLocation;
   return (
     <ThemeProvider><AppShell>
-      <Routes>
+      <Routes location={backgroundLocation ?? location}>
         <Route path="/" element={<HomePage />} />
         <Route path="/login" element={<LoginPage />} />
         <Route element={<ProtectedRoute />}>
@@ -87,6 +90,11 @@ export function App() {
         </Route>
         <Route path="*" element={<NotFoundPage />} />
       </Routes>
+      {backgroundLocation && <Routes location={location}>
+        <Route element={<ProtectedRoute />}>
+          <Route path="/app/notes/new" element={<CreateNotePage />} />
+        </Route>
+      </Routes>}
     </AppShell></ThemeProvider>
   );
 }

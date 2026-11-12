@@ -1,5 +1,5 @@
-import { useMemo } from 'react';
-import { Link, useSearchParams } from 'react-router-dom';
+import { useEffect, useMemo } from 'react';
+import { Link, useLocation, useSearchParams } from 'react-router-dom';
 import { isNoteDate } from '../../api/notes';
 import { recipientErrorMessage } from '../../api/recipients';
 import { ButtonLink } from '../../components/Button';
@@ -27,6 +27,7 @@ const workflows = [
 
 export function WorkspaceOverview() {
   const { t, language } = useI18n();
+  const location = useLocation();
   const [params, setParams] = useSearchParams();
   const today = useMemo(localToday, []);
   const rawDate = params.get('date');
@@ -34,6 +35,11 @@ export function WorkspaceOverview() {
   const { state, reload } = useDashboardOverview(date);
   const { metric: monthToDate, reload: reloadMonthToDate } = useMonthToDateNotes(date);
   const activityFeed = useActivityFeed();
+  useEffect(() => {
+    const refresh = () => { reload(); reloadMonthToDate(); activityFeed.reload(); };
+    window.addEventListener('care-note-created', refresh);
+    return () => window.removeEventListener('care-note-created', refresh);
+  }, [reload, reloadMonthToDate, activityFeed.reload]);
   const overviewData = state.status === 'ready' || state.status === 'partial' ? state : null;
   const dashboardActivityItems = activityFeed.state.status === 'ready' ? activityFeed.state.items.map((item) => {
     const kindLabel = item.kind === 'note' ? 'activityKindNote' : item.kind === 'correction' ? 'activityKindCorrection' : 'activityKindAddendum';
@@ -53,7 +59,7 @@ export function WorkspaceOverview() {
   return <section className="workspace-overview container" aria-labelledby="workspace-overview-title">
     <header className="overview-heading">
       <div><p className="eyebrow">{t('dashboard')}</p><h1 id="workspace-overview-title">{t('dashboardTitle')}</h1><p>{t('overviewDescription')}</p></div>
-      <div className="overview-actions"><ButtonLink variant="secondary" to="/app/recipients"><Icon name="people" size={18} />{t('recipientsTitle')}</ButtonLink><ButtonLink to={createNotePath}><Icon name="plus" size={18} />{t('notesCreate')}</ButtonLink></div>
+      <div className="overview-actions"><ButtonLink variant="secondary" to="/app/recipients"><Icon name="people" size={18} />{t('recipientsTitle')}</ButtonLink><ButtonLink to={createNotePath} state={{ backgroundLocation: location }}><Icon name="plus" size={18} />{t('notesCreate')}</ButtonLink></div>
     </header>
     <div className="overview-date"><Icon name="calendar" size={20} />
       <label htmlFor="overview-date-input">{t('overviewDateLabel')}</label>
@@ -113,7 +119,9 @@ export function WorkspaceOverview() {
       <nav className="routine-grid" aria-label={t('overviewMoreWorkflows')}>
         {workflows.map(([icon, to, title, hint]) => <div className="routine-link" key={to}>
           <span className="routine-icon"><Icon name={icon} /></span>
-          <Link to={to === '/app/notes/new' ? createNotePath : to} aria-describedby={`routine-${icon}-hint`}>{t(title)}</Link>
+          <Link to={to === '/app/notes/new' ? createNotePath : to}
+            state={to === '/app/notes/new' ? { backgroundLocation: location } : undefined}
+            aria-describedby={`routine-${icon}-hint`}>{t(title)}</Link>
           <span id={`routine-${icon}-hint`}>{t(hint)}</span>
           <Icon name="arrow-right" size={17} className="directional-icon" />
         </div>)}
