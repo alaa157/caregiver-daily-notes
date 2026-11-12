@@ -115,7 +115,7 @@ function RecipientRecord({ id, edit }: { id: string; edit: boolean }) {
             {state.data.restoredAt && <div><dt>{t('recipientRestoredAt')}</dt><dd><time dateTime={state.data.restoredAt}>{date(state.data.restoredAt)}</time></dd></div>}
           </dl>
           <div className="recipient-actions">
-            <ButtonLink variant="secondary" to={`/app/notes?recipientId=${encodeURIComponent(id)}`}>{t('historyTitle')}</ButtonLink>
+            <ButtonLink variant="secondary" to={`/app/recipients/${encodeURIComponent(id)}/notes`}>{t('historyTitle')}</ButtonLink>
             {state.data.lifecycleStatus === 'ACTIVE' && <ButtonLink variant="secondary" to={`/app/notes/new?recipientId=${encodeURIComponent(id)}`}>{t('notesCreate')}</ButtonLink>}
             {state.data.lifecycleStatus === 'ACTIVE' && <ButtonLink to={`${listPath}/${id}/edit`}>{t('recipientEdit')}</ButtonLink>}
             {state.data.lifecycleStatus === 'ACTIVE' && <Button variant="secondary" onClick={() => { setNotice(null); setConfirming('archive'); }}>{t('recipientArchive')}</Button>}

@@ -56,6 +56,9 @@ export function AppShell({ children }: { children: ReactNode }) {
       : pathname === '/app/notes/summary' ? t('summaryTitle')
       : pathname === '/app/notes/plans' ? t('plansTitle')
       : pathname === '/app/notes' || pathname === '/app/notes/history' ? t('historyTitle')
+      : pathname.endsWith('/summaries') && pathname.startsWith('/app/recipients/') ? t('recipientSummariesTab')
+      : pathname.endsWith('/plans') && pathname.startsWith('/app/recipients/') ? t('recipientPlansTab')
+      : pathname.endsWith('/notes') && pathname.startsWith('/app/recipients/') ? t('recipientNotesTab')
       : pathname.startsWith('/app/notes/') ? t(pathname.endsWith('/addenda/new') ? 'notesAppend' : 'notesDetails')
       : pathname.startsWith('/app/recipients/') ? t(pathname.endsWith('/edit') ? 'recipientEdit' : 'recipientDetails')
       : pathname === '/app/recipients' ? t('recipientsTitle') : t('pageNotFound');
@@ -156,7 +159,7 @@ export function AppLayout() {
   const nextLanguage = language === 'en' ? 'ar' : 'en';
   const rawDate = search.get('date');
   const date = rawDate && isNoteDate(rawDate) ? rawDate : localToday();
-  const recipientRoute = pathname.match(/^\/app\/recipients\/([^/]+)(\/edit)?$/);
+  const recipientRoute = pathname.match(/^\/app\/recipients\/([^/]+)(\/(?:edit|notes|summaries|plans))?$/);
   const routeRecipientId = recipientRoute && isRecipientId(recipientRoute[1]) ? recipientRoute[1] : '';
   const queryRecipientRoutes = ['/app/notes', '/app/notes/history', '/app/notes/summary', '/app/notes/plans'];
   const canChooseRecipient = pathname === '/app/recipients' || !!routeRecipientId || queryRecipientRoutes.includes(pathname);
@@ -234,8 +237,9 @@ export function AppLayout() {
     });
   };
 
-  const notesActive = pathname === '/app/notes' || pathname.startsWith('/app/notes/')
-  && !['/app/notes/summary', '/app/notes/plans'].includes(pathname);
+  const notesActive = pathname === '/app/notes' || (pathname.startsWith('/app/notes/')
+    && !['/app/notes/summary', '/app/notes/plans'].includes(pathname))
+    || /^\/app\/recipients\/[^/]+\/notes$/.test(pathname);
   const closeDrawer = (restoreFocus: boolean) => {
     setDrawerOpen(false);
     if (restoreFocus) menuButtonRef.current?.focus();

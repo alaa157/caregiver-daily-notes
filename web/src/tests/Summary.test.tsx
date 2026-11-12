@@ -583,7 +583,12 @@ describe('on-demand summary and safety workflow', () => {
   it('shows exact summary dates and trend sample counts', async () => {
     show(dataFetcher()); await generate();
     expect(screen.getByText('2026-10-18')).toBeVisible(); expect(screen.getByText('2026-10-24')).toBeVisible();
-    const periods = screen.getByRole('region', { name: 'Recorded observation counts' }).querySelectorAll('dl > div');
+    const trends = screen.getByRole('region', { name: 'Recorded observation counts' }).querySelectorAll('li');
+    const chart = trends[0].querySelector('figure')!;
+    expect(chart).toHaveAttribute('aria-labelledby', trends[0].querySelector('h4')!.id);
+    expect(chart).toHaveAttribute('aria-describedby', trends[0].querySelector('dl')!.id);
+    expect(trends[0].querySelectorAll('.summary-trend-bar-row')).toHaveLength(2);
+    const periods = trends[0].querySelectorAll('dl > div');
     expect(renderedTrendLines(periods[0])).toEqual(['Events: 1', 'Recorded days: 4']);
     expect(renderedTrendLines(periods[1])).toEqual(['Events: 3', 'Recorded days: 6']);
   });

@@ -8,6 +8,7 @@ import { I18nProvider } from '../i18n/I18nProvider';
 import { ApiProvider } from '../lib/api';
 import { jsonResponse, testToken } from './authFixtures';
 import { recipientFixture as recipient } from './recipientFixtures';
+import { historyNote, historyPage } from './historyFixtures';
 import { MedicationListPanel } from '../features/medications/MedicationListPanel';
 
 const root = '/app/recipients';
@@ -35,6 +36,43 @@ function renderRecipients(path: string, fetcher: ReturnType<typeof vi.fn>, langu
 }
 
 describe('care recipients screens', () => {
+  it('keeps recipient tabs on deep-linkable, recipient-scoped routes', async () => {
+    const fetcher = vi.fn().mockImplementation((path: string) => {
+      const url = new URL(path, 'http://localhost');
+      return Promise.resolve(url.pathname === '/api/recipients'
+        ? jsonResponse([recipient])
+        : url.pathname === '/api/notes'
+          ? jsonResponse(historyPage([{ ...historyNote, recipientId: recipient.id }]))
+          : jsonResponse([]));
+    });
+    renderRecipients(`${detail}/notes`, fetcher);
+
+    const tabs = screen.getByRole('navigation', { name: 'Recipient sections' });
+    expect(within(tabs).getByRole('link', { name: 'Notes' })).toHaveAttribute('aria-current', 'page');
+    expect(within(tabs).getByRole('link', { name: 'Overview' })).toHaveAttribute('href', detail);
+    expect(within(tabs).getByRole('link', { name: 'Summaries' })).toHaveAttribute('href', `${detail}/summaries`);
+    expect(within(tabs).getByRole('link', { name: 'Plan' })).toHaveAttribute('href', `${detail}/plans`);
+    expect(await screen.findByRole('table', { name: 'Notes, ordered newest first, with their original observations and corrections.' })).toBeInTheDocument();
+    expect(screen.getByLabelText('Care recipient')).toHaveValue(recipient.id);
+    expect(screen.getByLabelText('Care recipient')).toBeDisabled();
+    expect(fetcher.mock.calls.some(([path]) => {
+      const url = new URL(path, 'http://localhost');
+      return url.pathname === '/api/notes' && url.searchParams.get('recipientId') === recipient.id;
+    })).toBe(true);
+
+    await userEvent.click(within(screen.getByRole('navigation', { name: 'Recipient sections' })).getByRole('link', { name: 'Summaries' }));
+    const summaryRecipient = await screen.findByLabelText('Care recipient', { exact: true });
+    expect(summaryRecipient).toHaveValue(recipient.id);
+    expect(summaryRecipient).toBeDisabled();
+    expect(screen.getByText('For care support only. This summary is not a diagnosis, a prescription, or medical advice. It may be incomplete or incorrect; review the source notes and discuss care decisions with a qualified professional.')).toBeVisible();
+
+    await userEvent.click(within(screen.getByRole('navigation', { name: 'Recipient sections' })).getByRole('link', { name: 'Plan' }));
+    const planRecipient = await screen.findByLabelText('Care recipient', { exact: true });
+    expect(planRecipient).toHaveAttribute('id', 'plans-recipient');
+    expect(planRecipient).toHaveValue(recipient.id);
+    expect(planRecipient).toBeDisabled();
+  });
+
   it('protects direct recipient routes before making any API request', () => {
     const fetcher = vi.fn();
     renderRecipients(`${detail}/edit`, fetcher, 'en', false);
