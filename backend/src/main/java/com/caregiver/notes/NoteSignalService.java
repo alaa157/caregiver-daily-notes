@@ -118,8 +118,9 @@ public class NoteSignalService {
 
     boolean medicationUnverified = medicationVerification == VerificationState.UNVERIFIED;
     Boolean missedMedication = null;
-    if (medicationVerification == VerificationState.VERIFIED
-        && medication.state() == ObservationState.RECORDED) {
+    // The recorded value is an event claim independent of verification.
+    // Only an explicit UNVERIFIED suppresses the event projection.
+    if (!medicationUnverified && medication.state() == ObservationState.RECORDED) {
       if ("MISSED".equals(medication.value())) missedMedication = true;
       else if ("TAKEN".equals(medication.value())) missedMedication = false;
     }
