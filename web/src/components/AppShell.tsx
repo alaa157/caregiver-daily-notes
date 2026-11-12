@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useRef, useState, type KeyboardEvent, type ReactNode } from 'react';
+import { useEffect, useMemo, useRef, useState, type KeyboardEvent, type ReactNode } from 'react';
 import { Link, NavLink, Outlet, useLocation, useNavigate, useSearchParams } from 'react-router-dom';
 import { isNoteDate } from '../api/notes';
 import { createRecipientsApi, isRecipientId, recipientErrorMessage, type Recipient } from '../api/recipients';
@@ -161,6 +161,9 @@ export function AppLayout() {
   const queryRecipientRoutes = ['/app/notes', '/app/notes/history', '/app/notes/summary', '/app/notes/plans'];
   const canChooseRecipient = pathname === '/app/recipients' || !!routeRecipientId || queryRecipientRoutes.includes(pathname);
   const selectedRecipientId = routeRecipientId || search.get('recipientId') || '';
+  const noteCreateTarget = `/app/notes/new?${new URLSearchParams({
+    ...(selectedRecipientId ? { recipientId: selectedRecipientId } : {}), date,
+  }).toString()}`;
 
   useEffect(() => {
     if (!canChooseRecipient) { setRecipients({ status: 'idle' }); return; }
@@ -272,6 +275,10 @@ export function AppLayout() {
             onClick={() => closeDrawer(true)}><Icon name="home" /><span>{t('appOverview')}</span></NavLink>
           <NavLink to="/app/recipients" title={t('appRecipients')} className={({ isActive }) => `app-nav-link${isActive ? ' active' : ''}`}
             onClick={() => closeDrawer(true)}><Icon name="people" /><span>{t('appRecipients')}</span></NavLink>
+          <Link to={noteCreateTarget} state={{ backgroundLocation: location }} title={t('notesCreate')}
+            className="app-nav-link" onClick={() => closeDrawer(true)}>
+            <Icon name="edit" /><span>{t('notesCreate')}</span>
+          </Link>
           <Link to="/app/notes" title={t('appNotes')} aria-current={notesActive ? 'page' : undefined}
             className={`app-nav-link${notesActive ? ' active' : ''}`} onClick={() => closeDrawer(true)}>
             <Icon name="history" /><span>{t('appNotes')}</span>
@@ -298,6 +305,9 @@ export function AppLayout() {
           <Icon name="calendar" />
           <input id="app-date" type="date" dir="ltr" value={date} onChange={(event) => updateDate(event.target.value)} />
         </div>
+        <Link className="button button--secondary app-create-note" to={noteCreateTarget} state={{ backgroundLocation: location }}>
+          <Icon name="edit" />{t('notesCreate')}
+        </Link>
         {canChooseRecipient && <div className="app-recipient-control">
           <label className="app-visually-hidden" htmlFor="app-recipient">{t('appRecipientLabel')}</label>
           <Icon name="people" />

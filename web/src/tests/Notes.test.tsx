@@ -102,6 +102,34 @@ class ControlledResizeObserver implements ResizeObserver {
 }
 
 describe('daily-note creation and immutable corrections', () => {
+  it('opens note creation from the app shell as a prefilled modal drawer and closes accessibly', async () => {
+    renderNotes('/app', dataFetcher());
+    const trigger = document.querySelector<HTMLAnchorElement>('.app-create-note');
+    expect(trigger).not.toBeNull();
+    await userEvent.click(trigger!);
+    const dialog = await screen.findByRole('dialog', { name: 'Record a daily note' });
+    expect(dialog).toBeVisible();
+    expect(document.querySelector('.app-layout')).toHaveAttribute('aria-hidden', 'true');
+    expect(screen.getByLabelText('Observation date')).toHaveValue(new Date().toISOString().slice(0, 10));
+    await setRecorded('Free-text observations');
+    fireEvent.change(within(dialog).getByRole('textbox', { name: 'Free-text observations' }), { target: { value: 'Mixed العربية and English' } });
+    const confirm = vi.spyOn(window, 'confirm').mockReturnValue(false);
+    await userEvent.click(within(dialog).getByRole('button', { name: 'Cancel' }));
+    expect(screen.getByRole('dialog')).toBeInTheDocument();
+    confirm.mockReturnValue(true);
+    await userEvent.click(within(dialog).getByRole('button', { name: 'Cancel' }));
+    await waitFor(() => expect(screen.queryByRole('dialog')).not.toBeInTheDocument());
+    confirm.mockRestore();
+    await waitFor(() => expect(document.querySelector('.app-layout')).not.toHaveAttribute('aria-hidden', 'true'));
+  });
+
+  it('keeps the notes deep link as a dialog and restores the selected prefill', async () => {
+    renderNotes(`/app/notes/new?recipientId=${recipientFixture.id}&date=${noteFixture.date}`, dataFetcher());
+    const dialog = await screen.findByRole('dialog', { name: 'Record a daily note' });
+    expect(within(dialog).getByLabelText('Care recipient')).toHaveValue(recipientFixture.id);
+    expect(within(dialog).getByLabelText('Observation date')).toHaveValue(noteFixture.date);
+  });
+
   it('groups note fields with fieldset legends', async () => {
     renderNotes(`${root}/new`, dataFetcher());
 
@@ -735,8 +763,15 @@ describe('daily-note creation and immutable corrections', () => {
     expect(posts[1].body).toBe(posts[0].body);
     expect(new Headers(posts[1].headers).get('Idempotency-Key')).toBe(new Headers(posts[0].headers).get('Idempotency-Key'));
   });
-  it('keeps values editable after explicit backend validation failure', async () => {
-    renderNotes(`${root}/new`, dataFetcher((path, init) => path === '/api/notes' && init.method === 'POST' ? jsonResponse({ message: 'private validation' }, 400) : undefined));
+  it('keeps values editable after explicit backend validation failure and reuses the key for an unchanged retry', async () => {
+    const posts: RequestInit[] = [];
+    const fetcher = dataFetcher((path, init) => {
+      if (path === '/api/notes' && init.method === 'POST') {
+        posts.push(init);
+        return jsonResponse(posts.length === 1 ? { message: 'private validation' } : noteListFixture, posts.length === 1 ? 400 : 201);
+      }
+    });
+    renderNotes(`${root}/new`, fetcher);
     await metadata();
     await setRecorded('Free-text observations');
     fireEvent.change(screen.getByRole('textbox', { name: 'Free-text observations' }), { target: { value: 'القيمة الأصلية' } });
@@ -746,6 +781,11 @@ describe('daily-note creation and immutable corrections', () => {
     expect(screen.getByRole('textbox', { name: 'Free-text observations' })).toBeEnabled();
     expect(screen.getByRole('textbox', { name: 'Free-text observations' })).toHaveValue('القيمة الأصلية');
     expect(screen.queryByText('private validation')).not.toBeInTheDocument();
+    await userEvent.click(screen.getByRole('button', { name: 'Save original note' }));
+    await screen.findByText('Original note saved.');
+    expect(posts).toHaveLength(2);
+    expect(posts[1].body).toBe(posts[0].body);
+    expect(new Headers(posts[1].headers).get('Idempotency-Key')).toBe(new Headers(posts[0].headers).get('Idempotency-Key'));
   });
   it('opens the existing note after a recipient/date conflict without another POST', async () => {
     const fetcher = dataFetcher((path, init) => path === '/api/notes' && init.method === 'POST' ? jsonResponse({ code: 'NOTE_CONFLICT' }, 409) : undefined);

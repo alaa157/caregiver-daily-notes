@@ -1,4 +1,4 @@
-import { Link } from 'react-router-dom';
+import { Link, useLocation } from 'react-router-dom';
 import { Icon } from '../../components/Icon';
 import type { OverviewRow } from './useDashboardOverview';
 import { useI18n } from '../../i18n/I18nProvider';
@@ -7,6 +7,7 @@ export type RecipientCardRow = OverviewRow;
 
 export function RecipientCard({ row, date, onRetry }: { row: RecipientCardRow; date: string; onRetry: () => void }) {
   const { t } = useI18n();
+  const location = useLocation();
   const { recipient, note, status } = row;
   const recipientNameId = `overview-recipient-name-${recipient.id}`;
   const openNoteLabelId = `overview-open-note-label-${recipient.id}`;
@@ -25,7 +26,8 @@ export function RecipientCard({ row, date, onRetry }: { row: RecipientCardRow; d
           <span id={openNoteLabelId}>{t('overviewOpenNote')}</span>
         </Link>}</>}
       {status === 'missing' && <><span className="overview-status">{t('overviewNoNote')}</span>
-        {recipient.active && <Link aria-labelledby={`${recipientNameId} ${recordNoteLabelId}`} to={`/app/notes/new?recipientId=${encodeURIComponent(recipient.id)}&date=${encodeURIComponent(date)}`}>
+        {recipient.active && <Link aria-labelledby={`${recipientNameId} ${recordNoteLabelId}`} to={`/app/notes/new?recipientId=${encodeURIComponent(recipient.id)}&date=${encodeURIComponent(date)}`}
+          state={{ backgroundLocation: location }}>
           <span id={recordNoteLabelId}>{t('overviewRecordNote')}</span>
         </Link>}</>}
       {status === 'error' && <><span className="overview-status overview-status--error">{t('overviewNoteStatusUnavailable')}</span>

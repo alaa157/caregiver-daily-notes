@@ -104,7 +104,6 @@ export function NoteForm(props: Props) {
         const unknown = uncertainNoteSave(error) || (props.mode === 'append' && error instanceof ApiError && error.status === 409);
         setUncertain(unknown);
         setFailure(unknown ? null : noteErrorMessage(error));
-        if (!unknown) attempt.current = null;
       }
     } finally {
       if (!controller.signal.aborted) { request.current = null; setActivity('idle'); }
@@ -124,11 +123,13 @@ export function NoteForm(props: Props) {
     }
   }
   function changeMetadata(field: 'recipientId' | 'date', value: string) {
+    attempt.current = null;
     setValues((current) => ({ ...current, [field]: value }));
     setErrors((current) => ({ ...current, [field]: undefined }));
     if (!uncertain) setFailure(null);
   }
   function changeObservation(field: ObservationField, observation: Observation<unknown>) {
+    attempt.current = null;
     setValues((current) => ({
       ...current,
       observations: { ...current.observations, [field]: observation } as ObservationSet,
