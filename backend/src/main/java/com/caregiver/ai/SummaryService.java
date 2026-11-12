@@ -49,9 +49,10 @@ public class SummaryService {
 
     List<NoteSignals> safeSignals = signals == null ? List.of() : signals;
     SafetyEvaluation safety = evaluator.evaluate(safeSignals, end, days);
+    TrendWindow trendWindow = trendWindow(end, days);
     List<TrendResult> trendResults = trends.computeTrends(
-        inRange(safeSignals, end.minusDays(6), end),
-        inRange(safeSignals, end.minusDays(13), end.minusDays(7)));
+        inRange(safeSignals, trendWindow.currentStart(), end),
+        inRange(safeSignals, trendWindow.previousStart(), trendWindow.previousEnd()));
 
     LlmResult result = llm.complete(new LlmRequest(SummaryPrompts.SYSTEM_PROMPT, block, credentials));
     if (result.status() == LlmStatus.FALLBACK) {
@@ -88,6 +89,13 @@ public class SummaryService {
     }
     return windowed;
   }
+
+  private static TrendWindow trendWindow(LocalDate end, int days) {
+    LocalDate currentStart = end.minusDays(days - 1L);
+    return new TrendWindow(currentStart, currentStart.minusDays(days), currentStart.minusDays(1));
+  }
+
+  private record TrendWindow(LocalDate currentStart, LocalDate previousStart, LocalDate previousEnd) {}
 
   private static List<NoteSignals> inRange(List<NoteSignals> signals, LocalDate start, LocalDate end) {
     List<NoteSignals> ranged = new ArrayList<>();
