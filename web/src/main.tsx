@@ -12,6 +12,7 @@ import '@fontsource-variable/noto-sans-arabic';
 import '../../docs/design-system/tokens.css';
 import './styles/base.css';
 import './styles/ui.css';
+import './styles/public.css';
 
 type BootstrapStatus =
   | { kind: 'loading' }

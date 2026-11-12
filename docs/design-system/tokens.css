@@ -31,6 +31,24 @@
   --size-top-bar:56px; --size-top-bar-avatar:36px; --size-bottom-nav:64px; --size-bottom-nav-icon:22px;
   --size-fab:56px; --size-avatar:48px; --size-note-avatar:40px;
   --size-icon-small:20px; --size-icon-medium:24px; --size-icon-large:30px;
+  --dash-space-1:var(--space-xs); --dash-space-2:var(--space-sm); --dash-space-3:12px; --dash-space-4:var(--space-md);
+  --dash-space-5:var(--space-lg); --dash-space-6:var(--space-xl); --dash-space-7:40px; --dash-space-8:var(--space-xxl);
+  --dash-sidebar-expanded:256px; --dash-sidebar-rail:72px;
+  --dash-radius-card:var(--radius-card);
+  --dash-border-width:1px; --dash-border-style:solid; --dash-border-color:var(--caregiver-border-soft);
+  --dash-elevation-1:0 1px 2px color-mix(in srgb, var(--caregiver-ink) 8%, transparent);
+  --dash-elevation-2:0 4px 12px color-mix(in srgb, var(--caregiver-ink) 10%, transparent), 0 1px 3px color-mix(in srgb, var(--caregiver-ink) 5%, transparent);
+  --dash-elevation-3:0 12px 32px color-mix(in srgb, var(--caregiver-ink) 12%, transparent), 0 3px 8px color-mix(in srgb, var(--caregiver-ink) 6%, transparent);
+  --dash-color-page:var(--caregiver-background); --dash-color-surface:var(--caregiver-surface); --dash-color-surface-raised:var(--color-surface-container);
+  --dash-chip-neutral-background:var(--caregiver-pill-gray-container); --dash-chip-neutral-foreground:var(--caregiver-pill-gray-content); --dash-chip-neutral-border:var(--caregiver-border-soft);
+  --dash-chip-recorded-background:var(--caregiver-success-container); --dash-chip-recorded-foreground:var(--caregiver-success); --dash-chip-recorded-border:var(--caregiver-border-soft);
+  --dash-chip-missing-background:var(--caregiver-warning-container); --dash-chip-missing-foreground:var(--caregiver-warning); --dash-chip-missing-border:var(--caregiver-warning);
+  --dash-chip-unavailable-background:var(--color-surface-variant); --dash-chip-unavailable-foreground:var(--caregiver-muted); --dash-chip-unavailable-border:var(--caregiver-border);
+  --dash-type-caption-size:12px; --dash-type-caption-line-height:1.65; --dash-type-caption-line-height-ar:1.8; --dash-type-caption-weight:400;
+  --dash-type-label-size:13px; --dash-type-label-line-height:1.5; --dash-type-label-line-height-ar:1.8; --dash-type-label-weight:600;
+  --dash-type-body-size:14px; --dash-type-body-line-height:1.65; --dash-type-body-line-height-ar:1.9; --dash-type-body-weight:400;
+  --dash-type-title-size:16px; --dash-type-title-line-height:1.5; --dash-type-title-line-height-ar:1.65; --dash-type-title-weight:600;
+  --dash-type-section-size:20px; --dash-type-section-line-height:1.4; --dash-type-section-line-height-ar:1.6; --dash-type-section-weight:650;
   /* Web base.css alias tokens — preserve original base.css literal values exactly */
   --web-color-ink:#213b32; --web-color-background:#fafaf6;
   --web-color-muted:#59695f;
