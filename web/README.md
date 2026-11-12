@@ -1,9 +1,11 @@
 # Caregiver Daily Notes — web application
 
-React 18 + TypeScript + Vite, with caregiver authentication, recipient management,
+React 18 + TypeScript + Vite, with a bilingual public landing page at `/`, caregiver authentication, recipient management,
 daily notes/addenda, history, summaries/safety, and care plans. The complete web
 quality gate and [integration handoff](HANDOFF.md) cover Tasks 1–9. Backend and
 clinical logic remain server-owned.
+
+The public `/` route is implemented in `src/routes/LandingRoute.tsx`; its copy and section layout are documented in [`src/features/landing/README.md`](src/features/landing/README.md). `/app/*` remains protected and continues to use the existing SPA fallback.
 
 ## Run and test
 
