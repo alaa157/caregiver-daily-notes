@@ -19,7 +19,7 @@ public class TrendCalculator {
     return List.of(
         compare("FALL_COUNT", countFalls(previousPeriod), countFalls(currentPeriod)),
         compare("HIGH_PAIN_COUNT", countHighPain(previousPeriod), countHighPain(currentPeriod)),
-        compare("MISSED_MED_COUNT", countVerifiedMissed(previousPeriod), countVerifiedMissed(currentPeriod)),
+        compare("MISSED_MED_COUNT", countMissedMedication(previousPeriod), countMissedMedication(currentPeriod)),
         compare("POOR_APPETITE_COUNT", countPoorAppetite(previousPeriod), countPoorAppetite(currentPeriod)));
   }
 
@@ -41,7 +41,7 @@ public class TrendCalculator {
         note -> note.painScore() >= SafetySignalEvaluator.HIGH_PAIN_THRESHOLD);
   }
 
-  private MetricCounts countVerifiedMissed(List<NoteSignals> notes) {
+  private MetricCounts countMissedMedication(List<NoteSignals> notes) {
     return countDistinctDates(
         notes,
         note -> note.missedMedication() != null && !note.medicationUnverified(),
