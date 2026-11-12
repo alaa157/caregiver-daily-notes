@@ -76,7 +76,10 @@ for (const language of ['en', 'ar'] as const) {
     fallback: ar ? 'الذكاء الاصطناعي غير متاح.' : 'AI is unavailable.',
     timeout: ar ? 'انتهت مهلة طلب الملخص.' : 'The summary request timed out.',
     missingCredentials: ar ? 'افتح إعدادات الذكاء الاصطناعي واضبط مفتاحًا لمزوّد قبل إنشاء ملخص.' : 'Open AI Settings and configure a provider key before generating a summary.',
-    aiGenerated: ar ? 'مولّد بالذكاء الاصطناعي' : 'AI-generated',
+    aiGenerated: ar ? 'نص مولّد بواسطة النموذج' : 'Model-generated text',
+    evidenceCaveat: ar
+      ? 'تم التحقق من مطابقة هذا الاقتباس للملاحظة المصدر، لكن لم يُتحقق من صحة الادعاء نفسه بشكل مستقل.'
+      : 'This quote is checked against the source note; the claim itself is not independently verified.',
     educationalDisclaimer: ar ? 'مشروع تعليمي. ليس نصيحة طبية.' : 'Educational project. Not medical advice.',
     cancel: ar ? 'إلغاء الطلب' : 'Cancel request', cancelled: ar ? 'أُلغي الطلب.' : 'Request cancelled.',
   };
@@ -119,6 +122,7 @@ for (const language of ['en', 'ar'] as const) {
         });
         expect(calls.discoveryCalls).toHaveLength(0);
         await expect(page.getByText(text.aiGenerated, { exact: true })).toBeVisible();
+        await expect(page.getByText(text.evidenceCaveat, { exact: true })).toBeVisible();
         await expect(page.getByText(text.educationalDisclaimer, { exact: true })).toBeVisible();
         await expect(page.getByRole('heading', { name: text.clinical })).toBeVisible();
         await expect(page.getByText('HIGH', { exact: true })).toBeVisible();

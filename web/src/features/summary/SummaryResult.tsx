@@ -10,6 +10,7 @@ const sampleSizeKey = (metric: string) => {
   if (metric === 'FALL_COUNT' || metric === 'HIGH_PAIN_COUNT') return 'summarySampleSizeObservations';
   return 'summarySampleSize';
 };
+const summaryTextLanguage = (text: string): 'ar' | 'en' => /[\u0600-\u06FF]/u.test(text) ? 'ar' : 'en';
 export function SummaryResult({ view }: { view: SummaryView }) {
   const { t, language } = useI18n();
   const { response, request } = view;
@@ -38,9 +39,10 @@ export function SummaryResult({ view }: { view: SummaryView }) {
       </div>
       <p className="summary-educational-disclaimer">{t('summaryEducationalDisclaimer')}</p>
       <ol className="summary-observations">{response.summary!.observations.map((observation, index) => <li key={index}>
-        <p className="summary-untrusted" dir="auto">{observation.text}</p>
+        <p className="summary-untrusted" dir="auto"><bdi lang={summaryTextLanguage(observation.text)}>{observation.text}</bdi></p>
         <div className="summary-evidence"><h4>{t('summaryEvidence')}</h4>
-          <blockquote className="summary-untrusted" dir="auto">{observation.quote}</blockquote>
+          <p>{t('summaryEvidenceCaveat')}</p>
+          <blockquote className="summary-untrusted" dir="auto"><bdi lang={summaryTextLanguage(observation.quote)}>{observation.quote}</bdi></blockquote>
           <p>{isRecipientId(observation.noteId)
             ? <Link to={`/app/notes/${encodeURIComponent(observation.noteId)}`}>{t('summarySourceNote')}: <bdi>{observation.noteId}</bdi></Link>
             : <>{t('summaryUnlinkedSource')}: <bdi>{observation.noteId}</bdi></>}</p>
@@ -52,7 +54,8 @@ export function SummaryResult({ view }: { view: SummaryView }) {
     {canPresentUncertainty && <section className="summary-surface summary-uncertainties" aria-labelledby="summary-uncertainty-heading">
       <h3 id="summary-uncertainty-heading">{t('summaryUncertainty')}</h3>
       {response.summary!.uncertainties.length ? <ul>{response.summary!.uncertainties.map((uncertainty, index) => <li key={index}>
-        <strong className="summary-untrusted" dir="auto">{uncertainty.topic}</strong><p className="summary-untrusted" dir="auto">{uncertainty.detail}</p>
+        <strong className="summary-untrusted" dir="auto"><bdi lang={summaryTextLanguage(uncertainty.topic)}>{uncertainty.topic}</bdi></strong>
+        <p className="summary-untrusted" dir="auto"><bdi lang={summaryTextLanguage(uncertainty.detail)}>{uncertainty.detail}</bdi></p>
       </li>)}</ul> : <p>{t('summaryNoUncertainty')}</p>}
     </section>}
     {!view.failed && response.trends.length > 0 && <section className="summary-surface" aria-labelledby="summary-trends-heading">

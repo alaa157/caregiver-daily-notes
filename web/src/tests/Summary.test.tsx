@@ -12,6 +12,7 @@ import { LoginPage } from '../features/auth/LoginPage';
 import { SUMMARY_TIMEOUT_MS, SummaryPage } from '../features/summary/SummaryPage';
 import { ProtectedRoute } from '../app/ProtectedRoute';
 import { I18nProvider } from '../i18n/I18nProvider';
+import { summaryMessages } from '../i18n/summaryTranslations';
 import { ApiProvider } from '../lib/api';
 import { jsonResponse, testToken } from './authFixtures';
 import { recipientFixture } from './recipientFixtures';
@@ -76,6 +77,11 @@ const posts = (fetcher: ReturnType<typeof vi.fn>) => fetcher.mock.calls.filter((
 const renderedTrendLines = (period: Element) => Array.from(period.querySelectorAll('dd > span'), (line) => line.textContent?.trim() ?? '');
 
 describe('on-demand summary and safety workflow', () => {
+  it('keeps summary translation keys in parity and uses neutral attribution', () => {
+    expect(Object.keys(summaryMessages.en).sort()).toEqual(Object.keys(summaryMessages.ar).sort());
+    expect(summaryMessages.en.summaryAiGeneratedLabel).not.toBe('AI-generated');
+    expect(summaryMessages.ar.summaryAiGeneratedLabel).not.toBe('مولّد بالذكاء الاصطناعي');
+  });
   it('protects the route before fetching private data', () => {
     const fetcher = dataFetcher(); showApp(fetcher, 'en', false);
     expect(screen.getByRole('heading', { name: 'Caregiver sign in' })).toBeInTheDocument(); expect(fetcher).not.toHaveBeenCalled();
@@ -268,7 +274,7 @@ describe('on-demand summary and safety workflow', () => {
       credentials: syntheticCredentials,
     });
     expect(fetcher.mock.calls.some(([path]) => path === '/api/summaries' || path === '/v3/api-docs')).toBe(false);
-    expect(screen.getByText('AI-generated')).toBeVisible();
+    expect(screen.getByText('Model-generated text')).toBeVisible();
     expect(screen.getByText('Educational project. Not medical advice.')).toBeVisible();
     expect(screen.getByText('HIGH')).toBeVisible();
     expect(screen.getByRole('region', { name: 'Recorded observation counts' })).toHaveTextContent('POOR_APPETITE_COUNT');
@@ -291,20 +297,46 @@ describe('on-demand summary and safety workflow', () => {
     expect(screen.getByRole('region', { name: 'Safety information' })).toHaveTextContent('HIGH');
     expect(document.body.textContent).not.toContain(key);
     expect(document.body.textContent).not.toContain('raw provider response');
-    expect(screen.queryByText('AI-generated')).not.toBeInTheDocument();
+    expect(screen.queryByText('Model-generated text')).not.toBeInTheDocument();
     expect(fetcher.mock.calls.some(([path]) => path === '/api/summaries')).toBe(false);
   });
   it('labels successful AI content as generated', async () => {
     show(dataFetcher()); await generate();
-    const aiSection = screen.getByRole('region', { name: 'Generated observations' });
+    const aiSection = screen.getByRole('region', { name: 'Summary observations' });
     const safetySection = screen.getByRole('region', { name: 'Safety information' });
     expect(screen.getByRole('heading', { name: 'Requested summary' })).toBeVisible();
-    expect(within(aiSection).getByText('AI-generated')).toBeVisible();
+    expect(within(aiSection).getByText('Model-generated text')).toBeVisible();
     expect(within(aiSection).getByText('Reported appetite varied. ملاحظة غير مؤكدة.')).toBeVisible();
     const observation = within(aiSection).getByText('Reported appetite varied. ملاحظة غير مؤكدة.').closest('li')!;
     expect(within(observation).getByRole('blockquote').textContent).toBe(summaryFixture().summary.observations[0].quote);
     expect(within(observation).getByRole('link', { name: /Source note:/ })).toHaveAttribute('href', '/app/notes/c3333333-3333-4333-8333-333333333333');
-    expect(within(safetySection).queryByText('AI-generated')).not.toBeInTheDocument();
+    expect(within(safetySection).queryByText('Model-generated text')).not.toBeInTheDocument();
+    expect(within(aiSection).queryByText('AI-generated')).not.toBeInTheDocument();
+  });
+  it('renders the grounding caveat in both locales and marks model text by language', async () => {
+    const fixture = summaryFixture();
+    fixture.summary.observations.push({
+      text: 'Appetite improved.',
+      noteId: recipientFixture.id,
+      quote: 'Appetite improved.',
+    });
+    show(dataFetcher((path) => path === byokSummaryPath ? jsonResponse(fixture) : undefined)); await generate();
+    const observations = screen.getByRole('region', { name: summaryMessages.en.summaryObservations });
+    expect(within(observations).getAllByText(summaryMessages.en.summaryEvidenceCaveat)).toHaveLength(2);
+    const observation = within(observations).getByText('Reported appetite varied. ملاحظة غير مؤكدة.', { exact: true });
+    expect(observation.tagName).toBe('BDI');
+    expect(observation).toHaveAttribute('lang', 'ar');
+    expect(observation.parentElement).toHaveAttribute('dir', 'auto');
+    expect(within(observations).getAllByText('Appetite improved.')[0]).toHaveAttribute('lang', 'en');
+    const quote = within(observations).getAllByRole('blockquote')[0];
+    expect(quote).toHaveAttribute('dir', 'auto');
+    expect(quote.querySelector('bdi')).toHaveAttribute('lang', 'ar');
+
+    await userEvent.click(screen.getByRole('button', { name: 'التغيير إلى العربية' }));
+    const arabicObservations = screen.getByRole('region', { name: summaryMessages.ar.summaryObservations });
+    expect(within(arabicObservations).getAllByText(summaryMessages.ar.summaryEvidenceCaveat)).toHaveLength(2);
+    expect(within(arabicObservations).getByText(summaryMessages.ar.summaryAiGeneratedLabel)).toBeVisible();
+    expect(within(arabicObservations).queryByText('AI-generated')).not.toBeInTheDocument();
   });
   it('does not show successful presentation when trends are invalid', async () => {
     const fixture = summaryFixture(); fixture.trends[0].delta = 4;
@@ -313,7 +345,7 @@ describe('on-demand summary and safety workflow', () => {
     expect(await screen.findByRole('alert')).toHaveTextContent('Some summary information could not be verified');
     expect(screen.getByRole('heading', { name: 'Summary information could not be fully verified' })).toBeVisible();
     expect(screen.queryByRole('heading', { name: 'Requested summary' })).not.toBeInTheDocument();
-    expect(screen.queryByText('AI-generated')).not.toBeInTheDocument();
+    expect(screen.queryByText('Model-generated text')).not.toBeInTheDocument();
     expect(screen.queryByText('Educational project. Not medical advice.')).not.toBeInTheDocument();
     expect(screen.getByRole('region', { name: 'Safety information' })).toHaveTextContent('HIGH');
   });
@@ -328,7 +360,7 @@ describe('on-demand summary and safety workflow', () => {
     expect(screen.queryByRole('heading', { name: 'الملخص المطلوب' })).not.toBeInTheDocument();
     expect(screen.getByRole('alert')).toHaveTextContent('تعذّر التحقق من بعض معلومات الملخص');
     expect(screen.getByRole('region', { name: 'معلومات السلامة' })).toHaveTextContent('HIGH');
-    expect(screen.queryByText('مولّد بالذكاء الاصطناعي')).not.toBeInTheDocument();
+    expect(screen.queryByText('نص مولّد بواسطة النموذج')).not.toBeInTheDocument();
     expect(screen.queryByText('مشروع تعليمي. ليس نصيحة طبية.')).not.toBeInTheDocument();
   });
   it('suppresses successful AI presentation after a failed summary request', async () => {
@@ -337,10 +369,10 @@ describe('on-demand summary and safety workflow', () => {
       ? jsonResponse({ safety: { needsDoctorBanner: false, signals: [{ ruleId: 'RETRY_WARNING', severity: 'WATCH', reason: 'Warning returned with failure.' }] } }, 503)
       : undefined);
     show(fetcher); await generate();
-    expect(screen.getByText('AI-generated')).toBeVisible();
+    expect(screen.getByText('Model-generated text')).toBeVisible();
     fail = true; await userEvent.click(screen.getByRole('button', { name: 'Regenerate summary' }));
     expect(await screen.findByRole('heading', { name: 'Safety information returned with the failed request' })).toBeVisible();
-    expect(screen.queryByText('AI-generated')).not.toBeInTheDocument();
+    expect(screen.queryByText('Model-generated text')).not.toBeInTheDocument();
     expect(screen.queryByText('Educational project. Not medical advice.')).not.toBeInTheDocument();
     expect(screen.queryByText('Reported appetite varied. ملاحظة غير مؤكدة.')).not.toBeInTheDocument();
     expect(screen.queryByRole('blockquote')).not.toBeInTheDocument();
@@ -349,14 +381,14 @@ describe('on-demand summary and safety workflow', () => {
   });
   it('shows the educational disclaimer with AI content', async () => {
     show(dataFetcher()); await generate();
-    const aiSection = screen.getByRole('region', { name: 'Generated observations' });
+    const aiSection = screen.getByRole('region', { name: 'Summary observations' });
     expect(within(aiSection).getByText('Educational project. Not medical advice.')).toBeVisible();
     await userEvent.click(screen.getByRole('button', { name: 'التغيير إلى العربية' }));
     expect(await screen.findByText('مشروع تعليمي. ليس نصيحة طبية.')).toBeVisible();
   });
   it('keeps safety signals outside the AI narrative', async () => {
     show(dataFetcher()); await generate();
-    const aiSection = screen.getByRole('region', { name: 'Generated observations' });
+    const aiSection = screen.getByRole('region', { name: 'Summary observations' });
     const safetySection = screen.getByRole('region', { name: 'Safety information' });
     expect(within(aiSection).getByText('Reported appetite varied. ملاحظة غير مؤكدة.')).toBeVisible();
     expect(within(safetySection).getByText('HIGH')).toBeVisible();
@@ -374,7 +406,7 @@ describe('on-demand summary and safety workflow', () => {
     await screen.findByRole('status');
     expect(screen.getByText(/AI is unavailable/)).toBeVisible();
     expect(screen.queryByRole('heading', { name: 'Requested summary' })).not.toBeInTheDocument();
-    expect(screen.queryByText('AI-generated')).not.toBeInTheDocument();
+    expect(screen.queryByText('Model-generated text')).not.toBeInTheDocument();
     expect(screen.queryByText('Educational project. Not medical advice.')).not.toBeInTheDocument();
     expect(screen.queryByText('stray unavailable model text')).not.toBeInTheDocument();
     expect(screen.queryByRole('blockquote')).not.toBeInTheDocument();
@@ -390,7 +422,7 @@ describe('on-demand summary and safety workflow', () => {
     expect(await screen.findByRole('alert')).toHaveTextContent('could not be verified');
     expect(screen.queryByRole('heading', { name: 'Requested summary' })).not.toBeInTheDocument();
     expect(screen.getByRole('heading', { name: 'Summary information could not be fully verified' })).toBeVisible();
-    expect(screen.queryByText('AI-generated')).not.toBeInTheDocument();
+    expect(screen.queryByText('Model-generated text')).not.toBeInTheDocument();
     expect(screen.queryByText('Educational project. Not medical advice.')).not.toBeInTheDocument();
     expect(screen.queryByText('partially parsed model content')).not.toBeInTheDocument();
     expect(screen.getByRole('region', { name: 'Safety information' })).toHaveTextContent('HIGH');
@@ -399,9 +431,9 @@ describe('on-demand summary and safety workflow', () => {
   it('does not label an empty observation collection as generated', async () => {
     const fixture = summaryFixture(); fixture.summary.observations = [];
     show(dataFetcher((path) => path === byokSummaryPath ? jsonResponse(fixture) : undefined)); await generate();
-    expect(screen.queryByText('AI-generated')).not.toBeInTheDocument();
+    expect(screen.queryByText('Model-generated text')).not.toBeInTheDocument();
     expect(screen.queryByText('Educational project. Not medical advice.')).not.toBeInTheDocument();
-    expect(screen.getByText('No generated observations were returned for this period.')).toBeVisible();
+    expect(screen.getByText('No observations were returned for this period.')).toBeVisible();
   });
   it('renders backend warnings, verbatim evidence and uncertainty without executing HTML', async () => {
     const fetcher = dataFetcher(); show(fetcher); await generate();
@@ -444,7 +476,7 @@ describe('on-demand summary and safety workflow', () => {
     await choose(); await userEvent.click(screen.getByRole('button', { name: 'Generate summary' }));
     await screen.findByRole('status');
     expect(screen.getByText(/AI is unavailable/)).toBeInTheDocument(); expect(screen.getByText('HIGH')).toBeVisible();
-    expect(screen.queryByRole('heading', { name: 'Generated observations' })).not.toBeInTheDocument();
+    expect(screen.queryByRole('heading', { name: 'Summary observations' })).not.toBeInTheDocument();
     expect(screen.getByRole('heading', { name: 'Unclear or conflicting information' })).toBeInTheDocument();
   });
   it('retains returned safety even if summary content is malformed', async () => {
@@ -454,7 +486,7 @@ describe('on-demand summary and safety workflow', () => {
     expect(screen.getByRole('heading', { name: 'Summary information could not be fully verified' })).toBeVisible();
     expect(screen.queryByRole('heading', { name: 'Requested summary' })).not.toBeInTheDocument();
     expect(screen.getByText('HIGH')).toBeVisible();
-    expect(screen.queryByText('AI-generated')).not.toBeInTheDocument();
+    expect(screen.queryByText('Model-generated text')).not.toBeInTheDocument();
     expect(screen.queryByText('Educational project. Not medical advice.')).not.toBeInTheDocument();
   });
   it('retains old results while regenerating and on failure, with no automatic retries', async () => {
@@ -627,10 +659,11 @@ describe('on-demand summary and safety workflow', () => {
 
     expect(document.documentElement).toHaveAttribute('lang', 'ar');
     expect(document.documentElement).toHaveAttribute('dir', 'rtl');
-    const generated = screen.getByRole('region', { name: 'المشاهدات المُولّدة' });
+    const generated = screen.getByRole('region', { name: 'مشاهدات الملخص' });
     const observation = within(generated).getByText(observationText, { exact: true });
     expect(observation).toBeVisible(); expect(observation.textContent).toBe(observationText);
-    expect(observation).toHaveAttribute('dir', 'auto');
+    expect(observation).toHaveAttribute('lang', 'ar');
+    expect(observation.parentElement).toHaveAttribute('dir', 'auto');
     const firstCard = observation.closest('li')!;
     const quote = within(firstCard).getByRole('blockquote');
     expect(quote.textContent).toBe(evidenceQuote); expect(quote).toHaveAttribute('dir', 'auto');
@@ -646,7 +679,9 @@ describe('on-demand summary and safety workflow', () => {
     expect(dates.getByText('2026-10-18', { exact: true }).tagName).toBe('BDI');
     expect(dates.getByText('2026-10-24', { exact: true }).tagName).toBe('BDI');
     const uncertainty = screen.getByRole('region', { name: 'معلومات غير واضحة أو متعارضة' });
-    expect(within(uncertainty).getByText('التفاصيل غير مؤكدة؛ review pending for ID ABC-9 at 10:30.', { exact: true })).toHaveAttribute('dir', 'auto');
+    const uncertaintyDetail = within(uncertainty).getByText('التفاصيل غير مؤكدة؛ review pending for ID ABC-9 at 10:30.', { exact: true });
+    expect(uncertaintyDetail).toHaveAttribute('lang', 'ar');
+    expect(uncertaintyDetail.parentElement).toHaveAttribute('dir', 'auto');
     const safety = screen.getByRole('region', { name: 'معلومات السلامة' });
     expect(within(safety).getByText('HIGH', { exact: true }).tagName).toBe('BDI');
     expect(within(safety).getByText('FALL_DETECTED', { exact: true }).tagName).toBe('BDI');

@@ -13,9 +13,16 @@ public final class SummaryPrompts {
           + "{\"observations\":[{\"text\":string,\"noteId\":string,\"quote\":string}],"
           + "\"uncertainties\":[{\"topic\":string,\"detail\":string}]}. "
           + "Every quote must be verbatim from the cited note. "
-          + "Only fields marked RECORDED are established observation values. "
+          + "Synthesize each observation across notes in the requested period; cite one verbatim representative quote "
+          + "from a supporting note. Do not emit one observation per recorded field or restate a single field; prefer "
+          + "fewer observations that describe supported patterns or meaningful changes. If cross-note synthesis is "
+          + "not supported, return no observation instead of echoing a field. "
+          + "Only fields marked RECORDED are established observation values; use them as context, not as one-to-one "
+          + "observations. "
           + "LEGACY_AMBIGUOUS values have been withheld; do not infer their meaning. "
           + "Mark unclear or conflicting information as uncertainty, never guess. "
+          + "Write observations and uncertainties in the language of the note text they describe (English or Arabic); "
+          + "do not translate the note or add a reference translation. "
           + "No diagnoses, no prescriptions.";
 
   /** Delimiters wrapping caregiver notes as untrusted data (ex-client constant, now owned here). */
