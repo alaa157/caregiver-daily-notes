@@ -578,6 +578,11 @@ describe('daily-note creation and immutable corrections', () => {
     const fetcher = dataFetcher();
     renderNotes(detail, fetcher);
     expect(await screen.findByRole('article', { name: 'Original note — read only' })).toBeVisible();
+    expect(screen.getByText('Locked — original note, read-only')).toBeVisible();
+    const originalPane = screen.getByRole('region', { name: 'Original note — read only' });
+    const correctionPane = screen.getByRole('heading', { name: 'Correction timeline' }).closest('.note-surface');
+    expect(originalPane.compareDocumentPosition(correctionPane as HTMLElement) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
+    expect(originalPane.querySelectorAll('input, textarea, select, button')).toHaveLength(0);
     expect(fetcher.mock.calls.some(([path]) => path === `/api/notes/${noteFixture.id}`)).toBe(true);
   });
 
