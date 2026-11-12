@@ -428,12 +428,25 @@ describe('on-demand summary and safety workflow', () => {
     expect(screen.getByRole('region', { name: 'Safety information' })).toHaveTextContent('HIGH');
     expect(screen.getByRole('region', { name: 'Recorded observation counts' })).toHaveTextContent('POOR_APPETITE_COUNT');
   });
-  it('does not label an empty observation collection as generated', async () => {
-    const fixture = summaryFixture(); fixture.summary.observations = [];
-    show(dataFetcher((path) => path === byokSummaryPath ? jsonResponse(fixture) : undefined)); await generate();
+  it('shows the empty-observations state without calling it an AI failure in English and Arabic', async () => {
+    const fixture = summaryFixture();
+    fixture.summary.observations = [];
+    fixture.summary.uncertainties = [];
+    show(dataFetcher((path) => path === byokSummaryPath ? jsonResponse(fixture) : undefined));
+    await generate();
+
+    expect(screen.getByText('No observations were returned for this period.')).toBeVisible();
+    expect(screen.getByText('No uncertainty items were returned. This does not confirm certainty.')).toBeVisible();
+    expect(screen.queryByText(/AI is unavailable/)).not.toBeInTheDocument();
+    expect(screen.queryByText('A summary is unavailable')).not.toBeInTheDocument();
     expect(screen.queryByText('Model-generated text')).not.toBeInTheDocument();
     expect(screen.queryByText('Educational project. Not medical advice.')).not.toBeInTheDocument();
-    expect(screen.getByText('No observations were returned for this period.')).toBeVisible();
+
+    await userEvent.click(screen.getByRole('button', { name: 'التغيير إلى العربية' }));
+    expect(screen.getByText('لم تَرِد مشاهدات لهذه الفترة.')).toBeVisible();
+    expect(screen.getByText('لم تُرجع عناصر لعدم اليقين. هذا لا يؤكد اليقين.')).toBeVisible();
+    expect(screen.queryByText(/الذكاء الاصطناعي غير متاح/)).not.toBeInTheDocument();
+    expect(screen.queryByText('نص مولّد بواسطة النموذج')).not.toBeInTheDocument();
   });
   it('renders backend warnings, verbatim evidence and uncertainty without executing HTML', async () => {
     const fetcher = dataFetcher(); show(fetcher); await generate();

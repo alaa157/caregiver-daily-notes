@@ -402,7 +402,26 @@ class SummaryPlanHttpTest {
     call("/api/summaries", owner, request(9)).andExpect(status().isUnprocessableEntity());
     call("/api/summaries", owner, Map.of("recipientId", "invalid", "periodEndInclusive", "2026-10-26", "periodDays", 7)).andExpect(status().isUnprocessableEntity());
     call("/api/summaries", owner, Map.of("recipientId", recipientId, "periodEndInclusive", "2026-09-01", "periodDays", 7))
-        .andExpect(status().isOk()).andExpect(jsonPath("$.summary.aiUnavailable").value(true));
+        .andExpect(status().isOk())
+        .andExpect(jsonPath("$.summary.aiUnavailable").value(false))
+        .andExpect(jsonPath("$.summary.observations").isEmpty())
+        .andExpect(jsonPath("$.summary.uncertainties").isEmpty())
+        .andExpect(jsonPath("$.safety.signals").isEmpty())
+        .andExpect(jsonPath("$.trends").isArray());
+    verifyNoInteractions(llm);
+  }
+
+  @Test void planGenerationRemainsUnavailableWhenSummaryHasNoNotes() throws Exception {
+    reset(llm);
+    long plansBefore = plans.count();
+    Map<String, Object> emptyPeriod = Map.of(
+        "recipientId", recipientId, "periodEndInclusive", "2026-09-01", "periodDays", 7);
+
+    call("/api/plans/generate", owner, emptyPeriod).andExpect(status().isOk())
+        .andExpect(jsonPath("$.aiUnavailable").value(true))
+        .andExpect(jsonPath("$.plan").doesNotExist());
+
+    assertThat(plans.count()).isEqualTo(plansBefore);
     verifyNoInteractions(llm);
   }
 
