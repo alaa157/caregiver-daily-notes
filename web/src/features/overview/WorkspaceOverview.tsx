@@ -8,7 +8,7 @@ import { Icon } from '../../components/Icon';
 import { useI18n } from '../../i18n/I18nProvider';
 import { OverviewKpis } from './OverviewKpis';
 import { useDashboardOverview } from './useDashboardOverview';
-import { RecipientCard } from './RecipientCard';
+import { RecipientRow } from './RecipientCard';
 import { useMonthToDateNotes } from './useMonthToDateNotes';
 import { mapDashboardActivityItem, useActivityFeed } from './useActivityFeed';
 import './overview.css';
@@ -27,7 +27,7 @@ const workflows = [
 
 export function WorkspaceOverview() {
   const { t, language } = useI18n();
-  const [params] = useSearchParams();
+  const [params, setParams] = useSearchParams();
   const today = useMemo(localToday, []);
   const rawDate = params.get('date');
   const date = rawDate && isNoteDate(rawDate) ? rawDate : today;
@@ -41,57 +41,72 @@ export function WorkspaceOverview() {
   }) : [];
   const createNotePath = `/app/notes/new?date=${encodeURIComponent(date)}`;
   const formattedDate = (value: string) => new Intl.DateTimeFormat(language === 'ar' ? 'ar-EG' : 'en', { dateStyle: 'long', timeZone: 'UTC' }).format(new Date(`${value}T12:00:00Z`));
+  const changeDate = (value: string) => {
+    if (!isNoteDate(value)) return;
+    setParams((current) => {
+      const next = new URLSearchParams(current);
+      next.set('date', value);
+      return next;
+    });
+  };
 
   return <section className="workspace-overview container" aria-labelledby="workspace-overview-title">
     <header className="overview-heading">
       <div><p className="eyebrow">{t('dashboard')}</p><h1 id="workspace-overview-title">{t('dashboardTitle')}</h1><p>{t('overviewDescription')}</p></div>
       <div className="overview-actions"><ButtonLink variant="secondary" to="/app/recipients"><Icon name="people" size={18} />{t('recipientsTitle')}</ButtonLink><ButtonLink to={createNotePath}><Icon name="plus" size={18} />{t('notesCreate')}</ButtonLink></div>
     </header>
-    <div className="overview-date"><Icon name="calendar" size={20} /><time dateTime={date} dir="auto">{formattedDate(date)}</time></div>
-    <OverviewKpis state={state} />
-    <section className="overview-mtd" aria-label={t('overviewMtdLabel')} aria-busy={monthToDate.state === 'loading'}>
-      <span id="overview-mtd-label">{t('overviewMtdLabel')}</span>
-      <strong role={monthToDate.state === 'error' ? 'alert' : 'status'}
-        aria-label={t('overviewMtdLabel')} aria-live={monthToDate.state === 'error' ? undefined : 'polite'}>{monthToDate.state === 'ready'
-        ? new Intl.NumberFormat(language === 'ar' ? 'ar-EG' : 'en').format(monthToDate.total!)
-        : monthToDate.state === 'loading' ? t('overviewMtdLoading') : t('overviewMtdError')}</strong>
-      {monthToDate.state === 'error' && <button type="button" className="overview-retry"
-        aria-labelledby="overview-mtd-label overview-mtd-retry-label" onClick={reloadMonthToDate}>
-        <span id="overview-mtd-retry-label">{t('retry')}</span>
-      </button>}
-    </section>
-    <section className="overview-activity" aria-labelledby="overview-activity-title" aria-busy={activityFeed.state.status === 'loading'}>
-      <div className="overview-activity-heading"><h2 id="overview-activity-title" className="overview-section-title">{t('activityFeedTitle')}</h2>
-        <button type="button" className="overview-retry" onClick={activityFeed.reload}>{t('activityFeedRefresh')}</button></div>
-      {activityFeed.state.status === 'loading' && <LoadingState label={t('activityFeedLoading')} />}
-      {activityFeed.state.status === 'error' && <ErrorState description={t('activityFeedError')} onRetry={activityFeed.reload} />}
-      {activityFeed.state.status === 'ready' && (activityFeed.state.items.length === 0
-        ? <p className="overview-activity-empty" role="status">{t('activityFeedEmpty')}</p>
-        : <ul className="overview-activity-list" aria-label={t('activityFeedTitle')}>
-          {dashboardActivityItems.map((item) => {
-            const recipient = overviewData?.data.find((row) => row.recipient.id === item.recipientId)?.recipient;
-            const createdAt = new Date(item.createdAt);
-            return <li key={`${item.type}:${item.id}`} className="overview-activity-item">
-              <div><span className="overview-activity-kind">{item.summary}</span><span className="overview-activity-recipient"><bdi>{recipient?.name ?? t('activityFeedRecipientFallback')}</bdi></span></div>
-              <time dateTime={item.createdAt} dir="auto">{new Intl.DateTimeFormat(language === 'ar' ? 'ar-EG' : 'en', { dateStyle: 'medium', timeStyle: 'short' }).format(createdAt)}</time>
-            </li>;
-          })}
-        </ul>)}
-    </section>
+    <div className="overview-date"><Icon name="calendar" size={20} />
+      <label htmlFor="overview-date-input">{t('overviewDateLabel')}</label>
+      <input id="overview-date-input" type="date" value={date} onChange={(event) => changeDate(event.currentTarget.value)} />
+      <time dateTime={date} dir="auto">{formattedDate(date)}</time>
+    </div>
+    <OverviewKpis state={state} monthToDate={monthToDate} onRetryMonthToDate={reloadMonthToDate} />
     {state.status === 'loading' && <LoadingState label={t('overviewLoading')} />}
-    <div className="overview-results" aria-busy={state.status === 'loading'}>
-      {state.status === 'error' && <ErrorState description={t(recipientErrorMessage(state.error))} onRetry={reload} />}
-      {overviewData && (overviewData.data.length === 0
-        ? <div className="overview-empty"><EmptyState title={t('recipientsEmpty')} description={t('overviewNoRecipients')} />
-          <ButtonLink to="/app/recipients/new">{t('recipientCreate')}</ButtonLink></div>
-        : <>
-          <h2 className="overview-section-title">{t('overviewRecipientStatus')}</h2>
-          <ul className="overview-list">
-            {overviewData.data.map((row) => <RecipientCard key={row.recipient.id} row={row} date={date} onRetry={reload} />)}
-          </ul>
-          <p className="overview-footnote">{t('overviewMissingIsNotNegative')}</p>
-          {overviewData.status === 'partial' && <p className="overview-partial" role="alert">{t('overviewPartialData')}</p>}
-        </>)}
+    <div className="overview-dashboard-grid">
+      <div className="overview-results" aria-busy={state.status === 'loading'}>
+        {state.status === 'error' && <ErrorState description={t(recipientErrorMessage(state.error))} onRetry={reload} />}
+        {overviewData && (overviewData.data.length === 0
+          ? <div className="overview-empty"><EmptyState title={t('recipientsEmpty')} description={t('overviewNoRecipients')} />
+            <ButtonLink to="/app/recipients/new">{t('recipientCreate')}</ButtonLink></div>
+          : <section className="overview-recipient-section" aria-labelledby="overview-recipient-title">
+            <h2 className="overview-section-title" id="overview-recipient-title">{t('overviewTodayByRecipient')}</h2>
+            <div className="overview-table-wrap">
+              <table className="overview-table">
+                <caption className="visually-hidden">{t('overviewTodayByRecipient')}</caption>
+                <thead><tr>
+                  <th scope="col">{t('overviewRecipientColumn')}</th>
+                  <th scope="col">{t('overviewStatusColumn')}</th>
+                  <th scope="col">{t('overviewActionColumn')}</th>
+                </tr></thead>
+                <tbody>
+                  {overviewData.data.map((row) => <RecipientRow key={row.recipient.id} row={row} date={date} onRetry={reload} />)}
+                </tbody>
+              </table>
+            </div>
+            <p className="overview-footnote">{t('overviewMissingIsNotNegative')}</p>
+            {overviewData.status === 'partial' && <p className="overview-partial" role="alert">{t('overviewPartialData')}</p>}
+          </section>)}
+      </div>
+      <aside className="overview-activity" aria-labelledby="overview-activity-title" aria-busy={activityFeed.state.status === 'loading'}>
+        <section role="region" aria-labelledby="overview-activity-title">
+          <div className="overview-activity-heading"><h2 id="overview-activity-title" className="overview-section-title">{t('activityFeedTitle')}</h2>
+          <button type="button" className="overview-retry" onClick={activityFeed.reload}>{t('activityFeedRefresh')}</button></div>
+        {activityFeed.state.status === 'loading' && <LoadingState label={t('activityFeedLoading')} />}
+        {activityFeed.state.status === 'error' && <ErrorState description={t('activityFeedError')} onRetry={activityFeed.reload} />}
+        {activityFeed.state.status === 'ready' && (activityFeed.state.items.length === 0
+          ? <p className="overview-activity-empty" role="status">{t('activityFeedEmpty')}</p>
+          : <ul className="overview-activity-list" aria-label={t('activityFeedTitle')}>
+            {dashboardActivityItems.map((item) => {
+              const recipient = overviewData?.data.find((row) => row.recipient.id === item.recipientId)?.recipient;
+              const createdAt = new Date(item.createdAt);
+              return <li key={`${item.type}:${item.id}`} className="overview-activity-item">
+                <div><span className="overview-activity-kind">{item.summary}</span><span className="overview-activity-recipient"><bdi>{recipient?.name ?? t('activityFeedRecipientFallback')}</bdi></span></div>
+                <time dateTime={item.createdAt} dir="auto">{new Intl.DateTimeFormat(language === 'ar' ? 'ar-EG' : 'en', { dateStyle: 'medium', timeStyle: 'short' }).format(createdAt)}</time>
+              </li>;
+            })}
+          </ul>)}
+        </section>
+      </aside>
     </div>
     <section className="overview-routine" aria-labelledby="routine-title">
       <h2 id="routine-title">{t('overviewQuickActions')}</h2>
