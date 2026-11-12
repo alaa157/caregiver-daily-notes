@@ -54,7 +54,7 @@ export function WorkspaceOverview() {
     </header>
     <div className="overview-date"><Icon name="calendar" size={20} /><label htmlFor="overview-date">{t('overviewDateLabel')}</label>
       <input id="overview-date" type="date" dir="ltr" value={date} onChange={(event) => updateDate(event.target.value)} />
-      <time dateTime={date}>{formattedDate(date)}</time>
+      <time dateTime={date} dir="auto">{formattedDate(date)}</time>
     </div>
     <OverviewKpis state={state} />
     <section className="overview-mtd" aria-label={t('overviewMtdLabel')} aria-busy={monthToDate.state === 'loading'}>
@@ -81,7 +81,7 @@ export function WorkspaceOverview() {
             const createdAt = new Date(item.createdAt);
             return <li key={`${item.type}:${item.id}`} className="overview-activity-item">
               <div><span className="overview-activity-kind">{item.summary}</span><span className="overview-activity-recipient"><bdi>{recipient?.name ?? t('activityFeedRecipientFallback')}</bdi></span></div>
-              <time dateTime={item.createdAt}>{new Intl.DateTimeFormat(language === 'ar' ? 'ar-EG' : 'en', { dateStyle: 'medium', timeStyle: 'short' }).format(createdAt)}</time>
+              <time dateTime={item.createdAt} dir="auto">{new Intl.DateTimeFormat(language === 'ar' ? 'ar-EG' : 'en', { dateStyle: 'medium', timeStyle: 'short' }).format(createdAt)}</time>
             </li>;
           })}
         </ul>)}

@@ -40,6 +40,14 @@ The presentation-only `DashboardActivityItem` projects the existing `ActivityIte
 
 The overview uses the existing React Router shell and API client; the activity endpoint returns metadata only and adds no clinical logic. English/Arabic strings use the shared i18n provider. Recipient names are isolated with `<bdi>`, controls remain labelled, and the list collapses to one column on narrow screens.
 
+## Localization and direction
+
+Every string on this screen comes from the shared i18n provider, and both locales define the same dashboard key set. Because some dashboard keys are shared with the recipient, notes, history, and summary features (for example `recipientsTitle`, `recipientCreate`, `recipientsEmpty`, `retry`, and the `historyTitle` routine link), they are translated once in their own translation modules rather than duplicated here. The routine tile for the notes workflow links to `notesCreate` ("Record a daily note"), which is the existing notes-create key, not a dashboard-specific one.
+
+Counts are rendered through `Intl.NumberFormat` with the active locale, so Arabic uses Arabic-Indic digits, and they are wrapped in `<bdi>` so a number never reorders the surrounding Arabic sentence. Dates and timestamps use `Intl.DateTimeFormat` with the active locale while the `dateTime` attribute stays the machine-readable ISO value. Locale-formatted date output carries `dir="auto"` so the mixed date/time punctuation isolates correctly in RTL, and the native date input stays `dir="ltr"` because it accepts ISO digits.
+
+Dashboard CSS uses logical properties only (`margin-block-*`, `padding-inline`, `margin-inline-start`, `border-block-*`), so the layout mirrors with the document direction instead of a parallel RTL stylesheet. The routine arrow uses `directional-icon`, which `[dir='rtl']` mirrors in `base.css`. The provider sets `lang` and `dir` on the document element when the locale changes.
+
 ## Verification
 
 Component tests cover card rendering for recorded, missing, and unavailable statuses; date-scoped history calls; stable pagination before missing-note classification; selected-date MTD and complete pagination; unavailable states on partial failures; cancellation; persisted note links; inactive-recipient restrictions; retry; and query-driven date changes. The full Web check commands are in [`web/README.md`](../../../README.md).
