@@ -1,0 +1,91 @@
+name: Android standalone demo release
+
+on:
+  workflow_dispatch:
+    inputs:
+      source_branch:
+        description: Mobile source branch to build (defaults to standalone app branch)
+        required: true
+        default: feat/standalone-byok-ai
+        type: string
+
+permissions:
+  contents: write
+
+concurrency:
+  group: android-standalone-demo-${{ inputs.source_branch }}
+  cancel-in-progress: false
+
+jobs:
+  build-and-publish:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout selected mobile branch
+        id: source
+        uses: actions/checkout@v4
+        with:
+          ref: ${{ inputs.source_branch }}
+          path: source
+
+      - name: Set up JDK 17
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '17'
+          cache: gradle
+          cache-dependency-path: |
+            source/android/gradle/wrapper/gradle-wrapper.properties
+            source/android/**/*.gradle*
+
+      - name: Set up Android SDK
+        uses: android-actions/setup-android@v4
+
+      - name: Install Android SDK packages
+        run: |
+          yes | sdkmanager --licenses > /dev/null
+          sdkmanager --install "platform-tools" "platforms;android-35" "build-tools;35.0.0"
+
+      - name: Build minified standalone demo APK
+        working-directory: source/android
+        env:
+          GIT_COMMIT: ${{ steps.source.outputs.commit }}
+        run: |
+          chmod +x gradlew
+          ./gradlew :app:assembleMinified
+
+      - name: Verify APK version, resources, and shared demo signature
+        run: |
+          bash source/.github/scripts/verify-demo-apk.sh \
+            source/android/app/build/outputs/apk/minified/app-minified.apk \
+            source/android/app/build.gradle.kts
+
+      - name: Publish uniquely tagged GitHub prerelease
+        env:
+          GH_TOKEN: ${{ github.token }}
+          SOURCE_BRANCH: ${{ inputs.source_branch }}
+          SOURCE_COMMIT: ${{ steps.source.outputs.commit }}
+          RUN_NUMBER: ${{ github.run_number }}
+        run: |
+          set -euo pipefail
+          GRADLE_FILE=source/android/app/build.gradle.kts
+          APK=source/android/app/build/outputs/apk/minified/app-minified.apk
+          VERSION_NAME=$(sed -nE 's/^[[:space:]]*versionName[[:space:]]*=[[:space:]]*"([^"]+)".*/\1/p' "$GRADLE_FILE" | head -1)
+          VERSION_CODE=$(sed -nE 's/^[[:space:]]*versionCode[[:space:]]*=[[:space:]]*([0-9]+).*/\1/p' "$GRADLE_FILE" | head -1)
+          APK_SHA256=$(sha256sum "$APK" | cut -d' ' -f1)
+          TAG="android-standalone-v${VERSION_NAME}-run${RUN_NUMBER}"
+          TITLE="Caregiver Daily Notes Android v${VERSION_NAME} (standalone demo run ${RUN_NUMBER})"
+          NOTES=$(printf '%s\n' \
+            'Minified standalone Android demo APK (R8 + resource shrinking). Built by GitHub Actions from the selected mobile branch; no build was performed on a developer machine.' \
+            '' \
+            "- Source branch: ${SOURCE_BRANCH}" \
+            "- Source commit: ${SOURCE_COMMIT}" \
+            "- App version: ${VERSION_NAME} (versionCode ${VERSION_CODE})" \
+            "- APK SHA-256: ${APK_SHA256}" \
+            '- Install this APK on Android. It is a prerelease demo build signed with the shared demo key.')
+          gh release create "$TAG" "$APK#app-minified.apk" \
+            --repo "$GITHUB_REPOSITORY" \
+            --target "$SOURCE_COMMIT" \
+            --prerelease \
+            --title "$TITLE" \
+            --notes "$NOTES"
+          echo "Published release: https://github.com/${GITHUB_REPOSITORY}/releases/tag/${TAG}"
