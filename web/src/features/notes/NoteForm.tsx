@@ -28,6 +28,8 @@ export function NoteForm(props: Props) {
     }
     return initial;
   });
+  const initialDate = props.mode === 'create' && props.initialDate && isNoteDate(props.initialDate)
+    ? props.initialDate : undefined;
   const [corrections, setCorrections] = useState<Corrections>({});
   const [errors, setErrors] = useState<NoteErrors>({});
   const [failure, setFailure] = useState<MessageKey | null>(null);
@@ -41,6 +43,12 @@ export function NoteForm(props: Props) {
   const locked = pending || uncertain;
   const recipient = props.mode === 'create' ? props.recipients.find(({ id }) => id === values.recipientId) : null;
   useEffect(() => () => request.current?.abort(), []);
+  useEffect(() => {
+    if (props.mode !== 'create') return;
+    const nextDate = initialDate ?? emptyNoteValues().date;
+    setValues((current) => current.date === nextDate ? current : { ...current, date: nextDate });
+    setErrors((current) => current.date ? { ...current, date: undefined } : current);
+  }, [initialDate, props.mode]);
   useEffect(() => { if (failure || uncertain) failureRef.current?.focus(); }, [failure, uncertain]);
   useEffect(() => {
     if (activity !== 'saving' && !uncertain) return;

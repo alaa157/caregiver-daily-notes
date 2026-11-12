@@ -1,5 +1,5 @@
 import { Route, Routes } from 'react-router-dom';
-import { AppShell } from '../components/AppShell';
+import { AppLayout, AppShell } from '../components/AppShell';
 import { ButtonLink } from '../components/Button';
 import { CareIllustration } from '../components/CareIllustration';
 import { FeatureCard } from '../components/FeatureCard';
@@ -78,10 +78,12 @@ export function App() {
         <Route path="/" element={<HomePage />} />
         <Route path="/login" element={<LoginPage />} />
         <Route element={<ProtectedRoute />}>
-          <Route path="/app" element={<WorkspaceOverview />} />
-          <Route path="/app/settings" element={<SettingsPage />} />
-          <Route path="/app/recipients/*" element={<RecipientsRoutes />} />
-          <Route path="/app/notes/*" element={<NotesRoutes />} />
+          <Route element={<AppLayout />}>
+            <Route path="/app" element={<WorkspaceOverview />} />
+            <Route path="/app/settings" element={<SettingsPage />} />
+            <Route path="/app/recipients/*" element={<RecipientsRoutes />} />
+            <Route path="/app/notes/*" element={<NotesRoutes />} />
+          </Route>
         </Route>
         <Route path="*" element={<NotFoundPage />} />
       </Routes>

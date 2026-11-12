@@ -64,8 +64,11 @@ export function HistoryPage() {
   const update = useCallback((next: HistoryFilters, nextPage = 0, nextSize = size, isPageSizeChange = false) => {
     setFocusResults(true);
     setPageSizeChanged(isPageSizeChange);
-    setSearch(historySearch(next, nextPage, nextSize));
-  }, [setSearch, size]);
+    const params = new URLSearchParams(historySearch(next, nextPage, nextSize));
+    const date = search.get('date');
+    if (date) params.set('date', date);
+    setSearch(params);
+  }, [search, setSearch, size]);
   const resolvePageSize = useCallback((pageIsValid: boolean) => {
     setPageSizeChanged(false);
     if (!pageIsValid) update(filters, 0, size);

@@ -293,7 +293,12 @@ export function PlansPage() {
     {recipients.status === 'ready' && (recipients.data.length ? <>
       <div className="note-field plan-recipient"><label htmlFor="plans-recipient">{t('plansRecipient')}</label>
         <select id="plans-recipient" value={validRecipient ? recipientId : ''} disabled={saving} aria-invalid={!!recipientId && !validRecipient} aria-describedby={recipientId && !validRecipient ? 'plans-recipient-error' : undefined}
-          onChange={(event) => setSearch(event.target.value ? { recipientId: event.target.value } : {})}>
+          onChange={(event) => {
+            const next = new URLSearchParams(search);
+            if (event.target.value) next.set('recipientId', event.target.value);
+            else next.delete('recipientId');
+            setSearch(next);
+          }}>
           <option value="">{t('plansChoose')}</option>{recipients.data.map((recipient) => <option key={recipient.id} value={recipient.id} dir="auto">{recipient.name}{recipient.lifecycleStatus === 'ARCHIVED' ? ` — ${t('recipientArchived')}` : recipient.lifecycleStatus === 'LEGACY_INACTIVE_REVIEW' ? ` — ${t('recipientNeedsReview')}` : ''}</option>)}
         </select>
       </div>

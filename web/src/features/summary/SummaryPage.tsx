@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useMemo, useRef, useState, type FormEvent } from 'react';
+import { useSearchParams } from 'react-router-dom';
 import { isNoteDate } from '../../api/notes';
 import { createRecipientsApi } from '../../api/recipients';
 import { createSummaryApi, readSummarySafety, retainSafety, summaryErrorMessage, summaryPeriods, type SummaryRequest } from '../../api/summary';
@@ -24,7 +25,8 @@ export function SummaryPage() {
   const recipientsApi = useMemo(() => createRecipientsApi(client), [client]);
   const loadRecipients = useCallback((signal: AbortSignal) => recipientsApi.list(signal, 'ALL'), [recipientsApi]);
   const recipients = useNoteResource(loadRecipients);
-  const [recipientId, setRecipientId] = useState('');
+  const [search, setSearch] = useSearchParams();
+  const recipientId = search.get('recipientId') ?? '';
   const [periodDays, setPeriodDays] = useState<SummaryRequest['periodDays']>(7);
   const [periodEndInclusive, setEnd] = useState(today);
   const [errors, setErrors] = useState<Partial<Record<'recipient' | 'date', MessageKey>>>({});
@@ -108,7 +110,12 @@ export function SummaryPage() {
       <div className="summary-fields">
         <div className="summary-field"><label htmlFor="summary-recipient">{t('summaryRecipient')}</label>
           <select ref={recipientField} id="summary-recipient" value={recipientId} disabled={pending || !available} aria-invalid={!!errors.recipient} aria-describedby={errors.recipient ? 'summary-recipient-error' : undefined}
-            onChange={(event) => { setRecipientId(event.target.value); setErrors({}); }}>
+            onChange={(event) => {
+              const next = new URLSearchParams(search);
+              if (event.target.value) next.set('recipientId', event.target.value);
+              else next.delete('recipientId');
+              setSearch(next); setErrors({});
+            }}>
             <option value="">{t('summaryChooseRecipient')}</option>
             {recipients.state.status === 'ready' && recipients.state.data.map((recipient) => <option key={recipient.id} value={recipient.id} dir="auto">{recipient.name}{recipient.lifecycleStatus === 'ARCHIVED' ? ` — ${t('recipientArchived')}` : recipient.lifecycleStatus === 'LEGACY_INACTIVE_REVIEW' ? ` — ${t('recipientNeedsReview')}` : ''}</option>)}
           </select>
