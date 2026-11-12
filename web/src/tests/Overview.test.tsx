@@ -697,6 +697,23 @@ describe('overview activity feed', () => {
     expect(fetcher.mock.calls.some(([path]) => path === '/api/activity?limit=10')).toBe(true);
   });
 
+  it('keeps each activity kind paired with its authoritative timestamp in newest-first order', async () => {
+    const items = [
+      { id: id(81), kind: 'correction', recipientId: recipientFixture.id, createdAt: '2026-10-18T14:00:00Z' },
+      { id: id(82), kind: 'addendum', recipientId: recipientFixture.id, createdAt: '2026-10-18T13:00:00Z' },
+      { id: id(83), kind: 'note', recipientId: recipientFixture.id, createdAt: '2026-10-18T12:00:00Z' },
+    ];
+    setup(items);
+    const region = screen.getByRole('region', { name: 'Recent activity' });
+    await within(region).findByText('Correction');
+    const rows = Array.from(region.querySelectorAll('li'));
+    expect(rows).toHaveLength(3);
+    expect(rows.map((row) => row.querySelector('time')?.getAttribute('datetime'))).toEqual(items.map((item) => item.createdAt));
+    expect(within(rows[0]).getByText('Correction')).toBeInTheDocument();
+    expect(within(rows[1]).getByText('Addendum')).toBeInTheDocument();
+    expect(within(rows[2]).getByText('Note')).toBeInTheDocument();
+  });
+
   it('shows neutral empty text only after a successful empty request', async () => {
     setup([]);
     expect(await screen.findByText('No recent activity.')).toBeInTheDocument();
@@ -811,5 +828,160 @@ describe('overview activity feed', () => {
     expect(await screen.findByRole('heading', { name: 'Caregiver sign in' })).toBeInTheDocument();
     expect(fetcher).not.toHaveBeenCalled();
     expect(fetcher.mock.calls.some(([path]) => String(path).startsWith('/api/activity?'))).toBe(false);
+  });
+
+  it.each([
+    ['HTTP failure', () => Promise.resolve(jsonResponse({ message: 'private diagnostics' }, 503))],
+    ['malformed response', () => Promise.resolve(jsonResponse([{ id: 'invalid', kind: 'note', recipientId: recipientFixture.id, createdAt: '2026-10-18T12:00:00Z' }]))],
+    ['network failure', () => Promise.reject(new TypeError('network unavailable'))],
+  ])('keeps %s distinct from an empty activity feed', async (_name, fail) => {
+    setup([], () => fail());
+
+    expect(await screen.findByText('Recent activity is unavailable right now.')).toBeInTheDocument();
+    expect(screen.queryByText('No recent activity.')).not.toBeInTheDocument();
+    expect(screen.queryByRole('list', { name: 'Recent activity' })).not.toBeInTheDocument();
+  });
+
+  it('retries a failed activity request and renders only the successful response', async () => {
+    let failed = true;
+    setup([], () => failed
+      ? Promise.reject(new TypeError('network unavailable'))
+      : Promise.resolve(jsonResponse([{ id: id(70), kind: 'correction', recipientId: recipientFixture.id, createdAt: '2026-10-18T13:00:00Z' }])));
+
+    expect(await screen.findByText('Recent activity is unavailable right now.')).toBeInTheDocument();
+    expect(screen.queryByText('No recent activity.')).not.toBeInTheDocument();
+    failed = false;
+    await userEvent.click(screen.getByRole('button', { name: 'Retry' }));
+    expect(await screen.findByText('Correction')).toBeInTheDocument();
+    expect(screen.queryByText('No recent activity.')).not.toBeInTheDocument();
+  });
+
+  it('uses the neutral recipient fallback when overview recipient data is unavailable', async () => {
+    const activityId = id(71);
+    const fetcher = vi.fn().mockImplementation((path: string) => {
+      if (path.startsWith('/api/activity?')) return Promise.resolve(jsonResponse([
+        { id: activityId, kind: 'note', recipientId: recipientFixture.id, createdAt: '2026-10-18T13:00:00Z' },
+      ]));
+      if (path === '/api/recipients') return Promise.resolve(jsonResponse({ message: 'private diagnostics' }, 500));
+      return Promise.resolve(historyResponse([]));
+    });
+    renderOverview('/app?date=2026-10-18', fetcher, 'en', false);
+
+    const activity = screen.getByRole('region', { name: 'Recent activity' });
+    expect(await within(activity).findByText('Note')).toBeInTheDocument();
+    expect(activity.querySelector('bdi')).toHaveTextContent('Recipient');
+    expect(screen.getByText('We couldn’t complete this request. Please try again.')).toBeInTheDocument();
+  });
+
+  it('keeps activity independent of the selected date query parameter', async () => {
+    const fetcher = setup([{ id: id(72), kind: 'note', recipientId: recipientFixture.id, createdAt: '2026-10-18T13:00:00Z' }]);
+    expect(await screen.findByText('Note')).toBeInTheDocument();
+    fireEvent.change(screen.getByLabelText('Calendar date'), { target: { value: '2026-10-19' } });
+
+    await waitFor(() => expect(screen.getByTestId('location')).toHaveTextContent('/app?date=2026-10-19'));
+    expect(await screen.findByText('Note')).toBeInTheDocument();
+    expect(fetcher.mock.calls.filter(([path]) => String(path).startsWith('/api/activity?'))).toHaveLength(1);
+  });
+
+  it('renders the current Arabic failure and activity labels while bidi-isolating recipient names', async () => {
+    const fetcher = vi.fn().mockImplementation((path: string) => {
+      if (path.startsWith('/api/activity?')) return Promise.resolve(jsonResponse([
+        { id: id(73), kind: 'note', recipientId: recipientFixture.id, createdAt: '2026-10-18T13:00:00Z' },
+      ]));
+      if (path === '/api/recipients') return Promise.resolve(jsonResponse([recipientFixture]));
+      if (path.startsWith('/api/notes?')) {
+        const query = new URL(path, 'http://localhost').searchParams;
+        return Promise.resolve(query.get('from') === '2026-10-18'
+          ? jsonResponse({ message: 'private diagnostics' }, 500) : historyResponse([]));
+      }
+      return Promise.resolve(jsonResponse({}, 404));
+    });
+    renderOverview('/app?date=2026-10-18', fetcher, 'ar', false);
+
+    expect(await screen.findByText('تعذر تحميل حالة الملاحظة')).toBeInTheDocument();
+    const activity = screen.getByRole('region', { name: 'النشاط الأخير' });
+    expect(within(activity).getByText('ملاحظة')).toBeInTheDocument();
+    expect(within(activity).getByText(recipientFixture.name).closest('bdi')).toHaveTextContent(recipientFixture.name);
+  });
+});
+
+describe('dashboard regression coverage gaps', () => {
+  it('counts archived and legacy-inactive recipients in selected-date totals', () => {
+    const fetcher = vi.fn();
+    vi.stubGlobal('fetch', fetcher);
+    render(<I18nProvider><OverviewKpis state={{ status: 'ready', data: [
+      { recipient: recipientFixture, note: noteListFixture, status: 'recorded' },
+      { recipient: inactive, note: null, status: 'missing' },
+      { recipient: legacyInactive, note: null, status: 'missing' },
+      { recipient: missing, note: null, status: 'missing' },
+    ] }} /></I18nProvider>);
+
+    expect(kpiValue('Recipients shown')).toBe('4');
+    expect(kpiValue('Notes recorded')).toBe('1');
+    expect(kpiValue('Not yet recorded')).toBe('3');
+    expect(fetcher).not.toHaveBeenCalled();
+  });
+
+  it('keeps a verified recorded card intact when retrying another recipient status', async () => {
+    let retrySucceeded = false;
+    const fetcher = vi.fn().mockImplementation((path: string) => {
+      if (path === '/api/recipients') return Promise.resolve(jsonResponse([recipientFixture, missing]));
+      const query = new URL(path, 'http://localhost').searchParams;
+      if (query.get('page') === '0') {
+        return Promise.resolve(historyResponse([noteListFixture], 0, retrySucceeded ? 1 : 101, retrySucceeded ? 1 : 2));
+      }
+      return Promise.resolve(retrySucceeded ? historyResponse([], 0, 0, 0) : jsonResponse({ message: 'private diagnostics' }, 500));
+    });
+    renderOverview('/app?date=2026-10-18', fetcher);
+
+    const failedCard = await screen.findByRole('heading', { name: missing.name, level: 3 }).then((heading) => heading.closest('li'));
+    expect(await screen.findByRole('link', { name: 'Open note' })).toHaveAttribute('href', `/app/notes/${noteFixture.id}`);
+    expect(failedCard).toHaveTextContent('Note status unavailable');
+    expect(failedCard).not.toHaveTextContent('No note recorded');
+
+    retrySucceeded = true;
+    await userEvent.click(within(failedCard as HTMLElement).getByRole('button', { name: 'Retry' }));
+    expect(await screen.findByText('No note recorded', { exact: true })).toBeInTheDocument();
+    expect(screen.getByRole('link', { name: 'Open note' })).toHaveAttribute('href', `/app/notes/${noteFixture.id}`);
+    expect(screen.getByRole('heading', { name: recipientFixture.name, level: 3 })).toBeInTheDocument();
+  });
+
+  it('aborts in-flight overview, month-to-date, and activity requests on unmount', async () => {
+    const pending = new Map<string, { signal: AbortSignal | null | undefined; resolve: (response: Response) => void }>();
+    const fetcher = vi.fn().mockImplementation((path: string, init?: RequestInit) => {
+      let key: string | null = null;
+      if (path.startsWith('/api/activity?')) key = 'activity';
+      else if (path.startsWith('/api/notes?')) {
+        const query = new URL(path, 'http://localhost').searchParams;
+        key = query.get('from') === '2026-10-01' ? 'month' : 'overview';
+      } else if (path === '/api/recipients') return Promise.resolve(jsonResponse([recipientFixture]));
+      if (key) return new Promise<Response>((resolve) => pending.set(key!, { signal: init?.signal, resolve }));
+      return Promise.resolve(jsonResponse({}, 404));
+    });
+    const view = renderOverview('/app?date=2026-10-18', fetcher, 'en', false);
+
+    await waitFor(() => expect(pending.size).toBe(3));
+    view.unmount();
+    for (const request of pending.values()) expect(request.signal?.aborted).toBe(true);
+    await act(async () => {
+      pending.get('activity')?.resolve(jsonResponse([]));
+      pending.get('month')?.resolve(historyResponse([]));
+      pending.get('overview')?.resolve(historyResponse([]));
+      await Promise.resolve();
+    });
+    expect(view.container).toBeEmptyDOMElement();
+  });
+
+  it('makes no dashboard requests before caregiver authentication', () => {
+    const fetcher = vi.fn();
+    vi.stubGlobal('fetch', fetcher);
+    sessionStorage.removeItem('caregiver-auth-session-v1');
+    localStorage.setItem('caregiver-language', 'en');
+    render(<I18nProvider><ApiProvider config={{ apiBaseUrl: '' }}><AuthProvider>
+      <MemoryRouter initialEntries={['/app?date=2026-10-18']}><App /></MemoryRouter>
+    </AuthProvider></ApiProvider></I18nProvider>);
+
+    expect(screen.getByRole('heading', { name: 'Caregiver sign in' })).toBeVisible();
+    expect(fetcher).not.toHaveBeenCalled();
   });
 });
