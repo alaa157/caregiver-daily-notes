@@ -103,7 +103,7 @@ function NoteChangesTimeline({
   const titleId = `note-changes-title-${id}`;
 
   return <section className="note-surface note-structured-corrections" aria-labelledby={titleId}>
-    <div className="note-actions"><h2 id={titleId}>{t('notesChanges')}</h2>
+    <div className="note-actions"><h2 id={titleId}>{t('notesCorrectionTimeline')}</h2>
       {recipientActive && !editing && <Button onClick={onEdit}>{t('notesAddStructuredCorrection')}</Button>}
       {!recipientActive && <p className="note-hint">{t(lifecycleStatus === 'ARCHIVED' ? 'recipientArchivedReadonly' : 'recipientLegacyReviewDescription')}</p>}
       {recipientActive && <ButtonLink to={`${notesPath}/${id}/addenda/new`}>{t('notesAppend')}</ButtonLink>}
@@ -170,36 +170,47 @@ function NoteRecord({ id, append }: { id: string; append: boolean }) {
     {state.status === 'error' && <ErrorState description={t(noteErrorMessage(state.error))} onRetry={reload} />}
     {state.status === 'ready' && <>
       {!append && noticeKey && <p ref={noticeRef} tabIndex={-1} role="status" className="note-success">{t(noticeKey)}</p>}
-      <section className="note-timeline" aria-label={t('notesImmutable')}>
-        <NoteTimelineRow
-          entryLabel={t('notesImmutable')}
-          dateLabel={date(state.data.note.date)}
-          dateTime={state.data.note.date}
-          metadata={<Link to={`/app/recipients/${encodeURIComponent(state.data.recipient.id)}`}><bdi>{state.data.recipient.name}</bdi></Link>}
-          provenance={<>{t('notesRecordedAt')}: <time dateTime={state.data.note.createdAt} dir="auto">{date(state.data.note.createdAt, true)}</time> · {t('notesTimelineSourceId')}: <bdi>{state.data.note.id}</bdi></>}
-          body={<ObservationValues values={state.data.note.observations} />}
-        />
-      </section>
-      {append && !state.data.recipient.active
-        ? <p className="note-notice" role="status">{t(state.data.recipient.lifecycleStatus === 'ARCHIVED' ? 'recipientArchivedReadonly' : 'recipientLegacyReviewDescription')}</p>
-        : append ? <div className="note-surface"><NoteForm mode="append" cancelTo={`${notesPath}/${id}`} onSave={async (input, key, signal) => {
-          await api.notes.append(id, input as AddendumInput, key, signal);
-          if (!signal.aborted) navigate(`${notesPath}/${id}`, { replace: true, state: { noteNotice: 'appended' } });
-        }} /></div> : <>
-      <NoteChangesTimeline
-        id={id}
-        recipientActive={state.data.recipient.active}
-        lifecycleStatus={state.data.recipient.lifecycleStatus}
-        editing={editingCorrection}
-        onEdit={() => setEditingCorrection(true)}
-        onCancel={() => setEditingCorrection(false)}
-        onSaved={() => {
-          setEditingCorrection(false);
-          navigate(`${notesPath}/${id}`, { replace: true, state: { noteNotice: 'correctionSaved' } });
-        }}
-        date={date}
-      />
-      </>}
+      <div className="note-detail-grid">
+        <section className="note-surface note-detail-original" aria-label={t('notesImmutable')}>
+          <p className="note-readonly-lock">
+            <svg aria-hidden="true" focusable="false" viewBox="0 0 24 24">
+              <rect x="4" y="10" width="16" height="11" rx="2" />
+              <path d="M8 10V7a4 4 0 0 1 8 0v3m-4 5v2" />
+            </svg>
+            <span>{t('notesReadOnlyLock')}</span>
+          </p>
+          <div className="note-timeline">
+            <NoteTimelineRow
+              entryLabel={t('notesImmutable')}
+              dateLabel={date(state.data.note.date)}
+              dateTime={state.data.note.date}
+              metadata={<Link to={`/app/recipients/${encodeURIComponent(state.data.recipient.id)}`}><bdi>{state.data.recipient.name}</bdi></Link>}
+              provenance={<>{t('notesRecordedAt')}: <time dateTime={state.data.note.createdAt} dir="auto">{date(state.data.note.createdAt, true)}</time> · {t('notesTimelineSourceId')}: <bdi>{state.data.note.id}</bdi></>}
+              body={<ObservationValues values={state.data.note.observations} />}
+            />
+          </div>
+        </section>
+        <div className="note-detail-secondary">
+          {append && !state.data.recipient.active
+            ? <p className="note-notice" role="status">{t(state.data.recipient.lifecycleStatus === 'ARCHIVED' ? 'recipientArchivedReadonly' : 'recipientLegacyReviewDescription')}</p>
+            : append ? <div className="note-surface"><NoteForm mode="append" cancelTo={`${notesPath}/${id}`} onSave={async (input, key, signal) => {
+              await api.notes.append(id, input as AddendumInput, key, signal);
+              if (!signal.aborted) navigate(`${notesPath}/${id}`, { replace: true, state: { noteNotice: 'appended' } });
+            }} /></div> : <NoteChangesTimeline
+              id={id}
+              recipientActive={state.data.recipient.active}
+              lifecycleStatus={state.data.recipient.lifecycleStatus}
+              editing={editingCorrection}
+              onEdit={() => setEditingCorrection(true)}
+              onCancel={() => setEditingCorrection(false)}
+              onSaved={() => {
+                setEditingCorrection(false);
+                navigate(`${notesPath}/${id}`, { replace: true, state: { noteNotice: 'correctionSaved' } });
+              }}
+              date={date}
+            />}
+        </div>
+      </div>
     </>}
   </NotesLayout>;
 }
