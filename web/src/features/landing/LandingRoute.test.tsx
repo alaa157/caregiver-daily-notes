@@ -12,10 +12,12 @@ function setup() {
 
 describe('public landing page', () => {
   it('renders the English landing sections, Android download and visible safety notice', () => {
-    setup();
+    const { container } = setup();
+    expect(container.querySelectorAll('main')).toHaveLength(0);
     expect(screen.getByRole('heading', { level: 1, name: /clearer picture/i })).toBeInTheDocument();
     expect(screen.getByRole('heading', { name: 'Safety comes first' })).toBeInTheDocument();
     expect(screen.getByText(/capstone project/i)).toBeInTheDocument();
+    expect(screen.getByText(/structured recipient profile fields.*excluded from AI requests.*free-text notes are sent as written/i)).toBeInTheDocument();
     expect(screen.getAllByRole('link', { name: /download android apk/i })[0]).toHaveAttribute('href', 'https://github.com/alaa157/caregiver-daily-notes/releases/download/v0.1.1/app-minified.apk');
   });
   it('switches language and document direction using the existing i18n provider', () => {
@@ -24,5 +26,6 @@ describe('public landing page', () => {
     expect(screen.getByRole('heading', { level: 1 })).toHaveTextContent('سجّل تفاصيل يومك');
     expect(document.documentElement.lang).toBe('ar');
     expect(document.documentElement.dir).toBe('rtl');
+    expect(screen.getByText(/بيانات الملف الشخصي المنظمة.*الملاحظات المكتوبة بحرية فتُرسل كما كُتبت/)).toBeInTheDocument();
   });
 });
