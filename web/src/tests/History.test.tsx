@@ -63,6 +63,8 @@ describe('history screen, filters and immutable records', () => {
     resolve(jsonResponse(historyPage()));
     const card = await loaded();
     expect(document.title).toContain('Notes history');
+    const table = screen.getByRole('table', { name: 'Notes, ordered newest first, with their original observations and corrections.' });
+    expect(within(table).getAllByRole('columnheader').map((header) => header.textContent)).toEqual(['Date', 'Care recipient', 'Note details']);
     expect(within(card).getByText('Original note')).toBeInTheDocument();
     await userEvent.click(within(card).getByText('View original observations and text'));
     expect(within(card).getByText('Unknown')).toBeInTheDocument();
@@ -445,8 +447,9 @@ describe('history screen, filters and immutable records', () => {
 
     const card = await loaded();
     const original = within(card).getByRole('article', { name: 'Original note' });
-    expect(within(original).getByText(recipientFixture.name)).toBeVisible();
-    expect(within(original).getByRole('time')).toHaveAttribute('dateTime', historyNote.date);
+    const row = original.closest('tr')!;
+    expect(within(row).getByText(recipientFixture.name)).toBeVisible();
+    expect(within(row).getByRole('time')).toHaveAttribute('dateTime', historyNote.date);
     expect(within(original).getByRole('link', { name: 'Open full note' })).toHaveAttribute('href', `/app/notes/${historyNote.id}`);
     await userEvent.click(within(original).getByText('View original observations and text'));
     expect(within(original).getByText('Unknown')).toBeVisible();

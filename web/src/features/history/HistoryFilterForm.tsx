@@ -5,8 +5,8 @@ import { FieldError } from '../../components/Feedback';
 import { useI18n } from '../../i18n/I18nProvider';
 import { validateHistoryFilters, type HistoryErrors, type HistoryFilters } from './historyFilters';
 
-export function HistoryFilterForm({ filters, defaults, recipients, recipientsLoading, onApply, onReset }: {
-  filters: HistoryFilters; defaults: HistoryFilters; recipients: Recipient[]; recipientsLoading: boolean;
+export function HistoryFilterForm({ filters, defaults, recipients, recipientsLoading, recipientLocked = false, onApply, onReset }: {
+  filters: HistoryFilters; defaults: HistoryFilters; recipients: Recipient[]; recipientsLoading: boolean; recipientLocked?: boolean;
   onApply: (filters: HistoryFilters) => void; onReset: () => void;
 }) {
   const { t } = useI18n();
@@ -43,7 +43,7 @@ export function HistoryFilterForm({ filters, defaults, recipients, recipientsLoa
     <p className="note-hint">{t('historyDefaultRange')}</p>
     <div className="note-field history-recipient-filter">
       <label htmlFor="history-recipient">{t('notesRecipient')}</label>
-      <select id="history-recipient" name="recipientId" dir="auto" value={draft.recipientId} disabled={recipientsLoading}
+      <select id="history-recipient" name="recipientId" dir="auto" value={draft.recipientId} disabled={recipientsLoading || recipientLocked}
         aria-invalid={!!errors.recipientId} aria-describedby={errors.recipientId ? 'history-recipient-error' : undefined}
         onChange={(event) => { setDraft({ ...draft, recipientId: event.target.value }); setErrors({}); }}>
         <option value="">{t('historyAllRecipients')}</option>

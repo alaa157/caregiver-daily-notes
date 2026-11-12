@@ -229,7 +229,7 @@ function PlanWorkspace({ recipientId, onSaving }: { recipientId: string; onSavin
         {evidenceState.status === 'ready' && <PlanDraftForm evidenceNotes={evidenceState.data}
           disabled={disabled || !!confirmation || !!editing} onSave={(input) => { void createDraft(input); }} />}
       </section>
-      <section className="note-surface" aria-labelledby="plans-active"><h2 id="plans-active">{t('plansActive')}</h2>
+      <section className="note-surface plan-active-card" aria-labelledby="plans-active"><h2 id="plans-active">{t('plansActive')}</h2>
         {snapshot.active ? <PlanCard plan={snapshot.active} historyIds={historyIds} /> : <EmptyState title={t('plansNoActive')} description={t('plansNoActiveHint')} />}
       </section>
       <section className="plan-suggestions" aria-labelledby="plans-suggested"><h2 id="plans-suggested">{t('plansSuggested')}</h2>
@@ -253,7 +253,7 @@ function PlanWorkspace({ recipientId, onSaving }: { recipientId: string; onSavin
       <section className="note-surface" aria-labelledby="plans-history"><h2 id="plans-history">{t('plansHistory')}</h2>
         <p>{t('plansHistoryHint')}</p>
         {!snapshot.history.length ? <EmptyState title={t('plansNoHistory')} description={t('plansNoHistoryHint')} />
-          : <ol className="plan-list" role="list">{snapshot.history.map((plan) => <li key={plan.id}>
+          : <ol className="plan-list" role="list">{snapshot.history.map((plan) => <li className="plan-history-entry" key={plan.id}>
             <details id={`plan-history-${plan.id}`} className="plan-history-version"><summary>
               <span>{t('plansVersion')} <bdi>{new Intl.NumberFormat(language === 'ar' ? 'ar-EG' : 'en').format(plan.version)}</bdi></span> <PlanStatus status={plan.status} />
               <span>{t('plansCreated')}: <time dateTime={plan.createdAt}><bdi>{new Intl.DateTimeFormat(language === 'ar' ? 'ar-EG' : 'en', { dateStyle: 'medium', timeStyle: 'short' }).format(new Date(plan.createdAt))}</bdi></time></span>
@@ -264,14 +264,14 @@ function PlanWorkspace({ recipientId, onSaving }: { recipientId: string; onSavin
   </section>;
 }
 
-export function PlansPage() {
+export function PlansPage({ scopedRecipientId }: { scopedRecipientId?: string }) {
   const { t } = useI18n();
   const client = useApiClient();
   const recipientsApi = useMemo(() => createRecipientsApi(client), [client]);
   const [recipients, setRecipients] = useState<Resource<Recipient[]>>({ status: 'loading' });
   const [revision, setRevision] = useState(0);
   const [search, setSearch] = useSearchParams();
-  const recipientId = search.get('recipientId') ?? '';
+  const recipientId = scopedRecipientId ?? search.get('recipientId') ?? '';
   const [saving, setSaving] = useState(false);
   useEffect(() => {
     const controller = new AbortController();
@@ -286,13 +286,13 @@ export function PlansPage() {
   const validRecipient = recipients.status === 'ready' && isRecipientId(recipientId) && recipients.data.some((recipient) => recipient.id === recipientId);
   return <section className="notes-page plans-page container" aria-labelledby="plans-heading">
     <header className="notes-heading"><div><p className="eyebrow">{t('dashboardTitle')}</p><h1 id="plans-heading">{t('plansTitle')}</h1><p>{t('plansDescription')}</p></div>
-      <ButtonLink to="/app/notes" variant="secondary">{t('historyTitle')}</ButtonLink></header>
+      <ButtonLink to={scopedRecipientId ? `/app/recipients/${encodeURIComponent(scopedRecipientId)}/notes` : '/app/notes'} variant="secondary">{t('historyTitle')}</ButtonLink></header>
     <div className="note-notice plan-lock"><p>{t('plansMedicationLock')}</p><p id="plans-edit-help">{t('plansEditUnavailable')}</p></div>
     {recipients.status === 'loading' && <LoadingState />}
     {recipients.status === 'error' && <ErrorState description={t(planErrorMessage(recipients.error))} onRetry={() => setRevision((value) => value + 1)} />}
     {recipients.status === 'ready' && (recipients.data.length ? <>
       <div className="note-field plan-recipient"><label htmlFor="plans-recipient">{t('plansRecipient')}</label>
-        <select id="plans-recipient" value={validRecipient ? recipientId : ''} disabled={saving} aria-invalid={!!recipientId && !validRecipient} aria-describedby={recipientId && !validRecipient ? 'plans-recipient-error' : undefined}
+        <select id="plans-recipient" value={validRecipient ? recipientId : ''} disabled={saving || !!scopedRecipientId} aria-invalid={!!recipientId && !validRecipient} aria-describedby={recipientId && !validRecipient ? 'plans-recipient-error' : undefined}
           onChange={(event) => {
             const next = new URLSearchParams(search);
             if (event.target.value) next.set('recipientId', event.target.value);

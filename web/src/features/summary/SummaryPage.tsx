@@ -17,7 +17,7 @@ export const SUMMARY_TIMEOUT_MS = 120_000;
 function today() { const now = new Date(); return `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}-${String(now.getDate()).padStart(2, '0')}`; }
 const sameRequest = (a: SummaryRequest, b: SummaryRequest) => a.recipientId === b.recipientId && a.periodDays === b.periodDays && a.periodEndInclusive === b.periodEndInclusive;
 
-export function SummaryPage() {
+export function SummaryPage({ scopedRecipientId }: { scopedRecipientId?: string }) {
   const { t, language } = useI18n();
   const client = useApiClient();
   const { credentials } = useByok();
@@ -26,7 +26,7 @@ export function SummaryPage() {
   const loadRecipients = useCallback((signal: AbortSignal) => recipientsApi.list(signal, 'ALL'), [recipientsApi]);
   const recipients = useNoteResource(loadRecipients);
   const [search, setSearch] = useSearchParams();
-  const recipientId = search.get('recipientId') ?? '';
+  const recipientId = scopedRecipientId ?? search.get('recipientId') ?? '';
   const [periodDays, setPeriodDays] = useState<SummaryRequest['periodDays']>(7);
   const [periodEndInclusive, setEnd] = useState(today);
   const [errors, setErrors] = useState<Partial<Record<'recipient' | 'date', MessageKey>>>({});
@@ -100,7 +100,7 @@ export function SummaryPage() {
   const format = (value: number) => new Intl.NumberFormat(language === 'ar' ? 'ar-EG' : 'en').format(value);
   return <section className="summary-page container" aria-labelledby="summary-heading">
     <header className="summary-heading"><div><p className="eyebrow">{t('dashboardTitle')}</p><h1 id="summary-heading">{t('summaryTitle')}</h1><p>{t('summaryDescription')}</p></div>
-      <ButtonLink variant="secondary" to="/app/notes">{t('historyTitle')}</ButtonLink>
+      <ButtonLink variant="secondary" to={scopedRecipientId ? `/app/recipients/${encodeURIComponent(scopedRecipientId)}/notes` : '/app/notes'}>{t('historyTitle')}</ButtonLink>
     </header>
     <aside id="summary-disclaimer" className="summary-disclaimer" aria-label={t('note')}>{t('summaryDisclaimer')}</aside>
     {recipients.state.status === 'loading' && <LoadingState label={t('summaryRecipientsLoading')} />}
@@ -109,7 +109,7 @@ export function SummaryPage() {
     <form className="summary-surface summary-controls" onSubmit={(event) => void submit(event)} noValidate aria-describedby="summary-disclaimer">
       <div className="summary-fields">
         <div className="summary-field"><label htmlFor="summary-recipient">{t('summaryRecipient')}</label>
-          <select ref={recipientField} id="summary-recipient" value={recipientId} disabled={pending || !available} aria-invalid={!!errors.recipient} aria-describedby={errors.recipient ? 'summary-recipient-error' : undefined}
+          <select ref={recipientField} id="summary-recipient" value={recipientId} disabled={pending || !available || !!scopedRecipientId} aria-invalid={!!errors.recipient} aria-describedby={errors.recipient ? 'summary-recipient-error' : undefined}
             onChange={(event) => {
               const next = new URLSearchParams(search);
               if (event.target.value) next.set('recipientId', event.target.value);
@@ -127,7 +127,7 @@ export function SummaryPage() {
         </div>
       </div>
       <fieldset className="summary-periods" disabled={pending}><legend>{t('summaryPeriod')}</legend>
-        {summaryPeriods.map((period) => <label key={period}><input type="radio" name="summary-period" value={period} checked={periodDays === period} onChange={() => setPeriodDays(period)} />{format(period)} {t('summaryDays')}</label>)}
+        {summaryPeriods.map((period) => <label key={period} data-selected={periodDays === period}><input type="radio" name="summary-period" value={period} checked={periodDays === period} onChange={() => setPeriodDays(period)} />{format(period)} {t('summaryDays')}</label>)}
       </fieldset>
       <div className="summary-actions"><Button type="submit" disabled={pending || !available}>{t(view ? 'summaryRegenerate' : 'summaryGenerate')}</Button>
         {pending && <Button variant="secondary" onClick={cancel}>{t('summaryCancel')}</Button>}</div>

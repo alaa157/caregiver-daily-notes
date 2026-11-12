@@ -23,8 +23,10 @@
 .plan-references li { padding-block: .35rem; }
 .plan-confirmation { padding: 1.25rem; margin-block-start: 1rem; background: #fcf7e9; border: 1px solid #d9c492; border-radius: 12px; }
 .plan-confirmation p { margin: 0; }
-.plan-history-version { border-block-start: 1px solid var(--color-border); padding-block: .5rem; scroll-margin-block-start: 1.5rem; }
-.plan-history-version summary { cursor: pointer; font-weight: 600; padding-block: .8rem; }
+.plan-history-version { border: 0; padding-block: .5rem; scroll-margin-block-start: 1.5rem; }
+.plan-history-entry { padding: .75rem; border: 1px solid var(--caregiver-border-soft); border-radius: var(--radius-card); background: var(--caregiver-surface); margin-block: .75rem; }
+.plan-active-card { border-inline-start: 4px solid var(--color-primary); }
+.plan-history-version summary { cursor: pointer; font-weight: 600; padding: .8rem; border: 1px solid var(--caregiver-border-soft); border-radius: var(--radius-control); background: var(--color-surface-container); }
 .plan-history-version summary .plan-status { margin-inline-start: .5rem; }
 .plan-history-version > .plan-card { padding-block: 1rem; }
 .plan-suggestions { margin-block: 2rem; }

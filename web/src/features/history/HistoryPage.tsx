@@ -39,9 +39,23 @@ function HistoryResults({ filters: { recipientId, from, to }, page, size, recipi
       {state.data.content.length === 0 ? <div className="note-surface">
         <EmptyState title={t(state.data.totalElements ? 'historyEmptyPage' : 'historyNoNotes')} description={t(state.data.totalElements ? 'historyEmptyPageDescription' : 'historyNoNotesDescription')} />
         {page > 0 && <Button variant="secondary" onClick={() => onPage(0)}>{t('historyFirstPage')}</Button>}
-      </div> : <ol className="history-list" role="list">{state.data.content.map((note) => <li key={note.id}>
-        <HistoryNoteCard note={note} recipient={recipients.find((recipient) => recipient.id === note.recipientId)} />
-      </li>)}</ol>}
+      </div> : <table className="history-table">
+        <caption className="history-visually-hidden">{t('historyTableCaption')}</caption>
+        <thead><tr>
+          <th scope="col">{t('historyDate')}</th>
+          <th scope="col">{t('notesRecipient')}</th>
+          <th scope="col">{t('historyRecordColumn')}</th>
+        </tr></thead>
+        <tbody>{state.data.content.map((note) => {
+          const recipient = recipients.find((item) => item.id === note.recipientId);
+          const date = new Intl.DateTimeFormat(language === 'ar' ? 'ar-EG' : 'en', { dateStyle: 'medium' }).format(new Date(`${note.date}T12:00:00`));
+          return <tr key={note.id}>
+            <td data-label={t('historyDate')}><time dateTime={note.date}><bdi>{date}</bdi></time></td>
+            <td data-label={t('notesRecipient')}><bdi>{recipient?.name ?? note.recipientId}</bdi>{recipient?.active === false && <> · {t('historyInactive')}</>}</td>
+            <td data-label={t('historyRecordColumn')}><HistoryNoteCard note={note} recipient={recipient} /></td>
+          </tr>;
+        })}</tbody>
+      </table>}
       {(state.data.totalPages > 1 || page > 0) && <nav className="history-pagination" aria-label={t('historyPagination')}>
         <Button variant="secondary" disabled={state.data.first} onClick={() => onPage(page - 1)}>{t('historyPrevious')}</Button>
         <span>{t('historyPage')} <bdi>{number(page + 1)}</bdi> {t('historyOf')} <bdi>{number(state.data.totalPages)}</bdi></span>
@@ -51,12 +65,15 @@ function HistoryResults({ filters: { recipientId, from, to }, page, size, recipi
   </section>;
 }
 
-export function HistoryPage() {
+export function HistoryPage({ scopedRecipientId }: { scopedRecipientId?: string }) {
   const { t, language } = useI18n();
   const api = useNotesApis();
   const [defaults] = useState(defaultHistoryFilters);
   const [search, setSearch] = useSearchParams();
-  const { filters, page, size, paginationValid } = useMemo(() => readHistorySearch(search, defaults), [search, defaults]);
+  const scopedDefaults = useMemo(() => scopedRecipientId ? { ...defaults, recipientId: scopedRecipientId } : defaults, [defaults, scopedRecipientId]);
+  const parsed = useMemo(() => readHistorySearch(search, defaults), [search, defaults]);
+  const filters = scopedRecipientId ? { ...parsed.filters, recipientId: scopedRecipientId } : parsed.filters;
+  const { page, size, paginationValid } = parsed;
   const [focusResults, setFocusResults] = useState(false);
   const [pageSizeChanged, setPageSizeChanged] = useState(false);
   const loadRecipients = useCallback((signal: AbortSignal) => api.recipients.list(signal, 'ALL'), [api]);
@@ -75,14 +92,18 @@ export function HistoryPage() {
   }, [filters, size, update]);
   return <section className="notes-page container" aria-labelledby="history-heading">
     <header className="notes-heading"><div><p className="eyebrow">{t('dashboardTitle')}</p><h1 id="history-heading">{t('historyTitle')}</h1><p>{t('historyDescription')}</p></div>
-      <ButtonLink to="/app/notes/new">{t('notesCreate')}</ButtonLink>
+      <ButtonLink to={scopedRecipientId ? `/app/notes/new?recipientId=${encodeURIComponent(scopedRecipientId)}` : '/app/notes/new'}>{t('notesCreate')}</ButtonLink>
     </header>
     {recipients.state.status === 'error' && <ErrorState description={t('historyRecipientsError')} onRetry={recipients.reload} />}
-    <HistoryFilterForm filters={filters} defaults={defaults} recipients={recipients.state.status === 'ready' ? recipients.state.data : []} recipientsLoading={recipients.state.status === 'loading'} onApply={(next) => update(next)} onReset={() => update(defaults, 0, 20)} />
-    <div className="note-field history-page-size"><label htmlFor="history-page-size">{t('historyPageSize')}</label>
-      <select id="history-page-size" value={size} onChange={(event) => update(filters, page, Number(event.target.value), true)}>
-        {historyPageSizes.map((value) => <option key={value} value={value}>{new Intl.NumberFormat(language === 'ar' ? 'ar-EG' : 'en').format(value)}</option>)}
-      </select>
+    <div className="history-toolbar" role="group" aria-label={t('historyFiltersToolbar')}>
+      <HistoryFilterForm filters={filters} defaults={scopedDefaults} recipients={recipients.state.status === 'ready' ? recipients.state.data : []}
+        recipientsLoading={recipients.state.status === 'loading'} recipientLocked={!!scopedRecipientId}
+        onApply={(next) => update(next)} onReset={() => update(scopedDefaults, 0, 20)} />
+      <div className="note-field history-page-size"><label htmlFor="history-page-size">{t('historyPageSize')}</label>
+        <select id="history-page-size" value={size} onChange={(event) => update(filters, page, Number(event.target.value), true)}>
+          {historyPageSizes.map((value) => <option key={value} value={value}>{new Intl.NumberFormat(language === 'ar' ? 'ar-EG' : 'en').format(value)}</option>)}
+        </select>
+      </div>
     </div>
     {!paginationValid || Object.keys(validateHistoryFilters(filters)).length ? <ErrorState description={t('historyFixFilters')} />
       : <HistoryResults key={`${filters.recipientId}:${filters.from}:${filters.to}:${page}:${size}`} filters={filters} page={page} size={size}
