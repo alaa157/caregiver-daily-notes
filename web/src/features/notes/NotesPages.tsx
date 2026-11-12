@@ -31,6 +31,8 @@ export function CreateNotePage() {
   const navigate = useNavigate();
   const location = useLocation();
   const params = new URLSearchParams(location.search);
+  const formKeyParams = new URLSearchParams(params);
+  formKeyParams.delete('date');
   const requestedRecipient = params.get('recipientId');
   const initialRecipientId = requestedRecipient && isRecipientId(requestedRecipient) ? requestedRecipient : undefined;
   const requestedDate = params.get('date');
@@ -44,7 +46,7 @@ export function CreateNotePage() {
     {state.status === 'error' && <ErrorState description={t(noteErrorMessage(state.error))} onRetry={reload} />}
     {state.status === 'ready' && (state.data.length === 0 ? <div className="note-surface"><EmptyState title={t('notesNoRecipients')} description={t('notesNoRecipientsDescription')} />
       <ButtonLink to="/app/recipients">{t('recipientsTitle')}</ButtonLink></div>
-      : <div className="note-surface"><NoteForm key={location.search} mode="create" recipients={state.data} initialRecipientId={initialRecipientId} initialDate={initialDate} cancelTo={cancelTo} onSave={async (input, key, signal) => {
+      : <div className="note-surface"><NoteForm key={formKeyParams.toString()} mode="create" recipients={state.data} initialRecipientId={initialRecipientId} initialDate={initialDate} cancelTo={cancelTo} onSave={async (input, key, signal) => {
         const note = await api.notes.create(input as CreateNoteInput, key, signal);
         if (!signal.aborted) navigate(`${notesPath}/${note.id}`, { replace: true, state: { noteNotice: 'created' } });
       }} onOpen={async (recipientId, date, signal) => {

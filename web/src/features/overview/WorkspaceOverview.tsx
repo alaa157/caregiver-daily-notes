@@ -27,7 +27,7 @@ const workflows = [
 
 export function WorkspaceOverview() {
   const { t, language } = useI18n();
-  const [params, setParams] = useSearchParams();
+  const [params] = useSearchParams();
   const today = useMemo(localToday, []);
   const rawDate = params.get('date');
   const date = rawDate && isNoteDate(rawDate) ? rawDate : today;
@@ -39,23 +39,15 @@ export function WorkspaceOverview() {
     const kindLabel = item.kind === 'note' ? 'activityKindNote' : item.kind === 'correction' ? 'activityKindCorrection' : 'activityKindAddendum';
     return mapDashboardActivityItem(item, t(kindLabel));
   }) : [];
-  const updateDate = (value: string) => {
-    const next = new URLSearchParams(params);
-    if (isNoteDate(value)) next.set('date', value);
-    else next.delete('date');
-    setParams(next);
-  };
+  const createNotePath = `/app/notes/new?date=${encodeURIComponent(date)}`;
   const formattedDate = (value: string) => new Intl.DateTimeFormat(language === 'ar' ? 'ar-EG' : 'en', { dateStyle: 'long', timeZone: 'UTC' }).format(new Date(`${value}T12:00:00Z`));
 
   return <section className="workspace-overview container" aria-labelledby="workspace-overview-title">
     <header className="overview-heading">
       <div><p className="eyebrow">{t('dashboard')}</p><h1 id="workspace-overview-title">{t('dashboardTitle')}</h1><p>{t('overviewDescription')}</p></div>
-      <div className="overview-actions"><ButtonLink variant="secondary" to="/app/recipients"><Icon name="people" size={18} />{t('recipientsTitle')}</ButtonLink><ButtonLink to="/app/notes/new"><Icon name="plus" size={18} />{t('notesCreate')}</ButtonLink></div>
+      <div className="overview-actions"><ButtonLink variant="secondary" to="/app/recipients"><Icon name="people" size={18} />{t('recipientsTitle')}</ButtonLink><ButtonLink to={createNotePath}><Icon name="plus" size={18} />{t('notesCreate')}</ButtonLink></div>
     </header>
-    <div className="overview-date"><Icon name="calendar" size={20} /><label htmlFor="overview-date">{t('overviewDateLabel')}</label>
-      <input id="overview-date" type="date" dir="ltr" value={date} onChange={(event) => updateDate(event.target.value)} />
-      <time dateTime={date} dir="auto">{formattedDate(date)}</time>
-    </div>
+    <div className="overview-date"><Icon name="calendar" size={20} /><time dateTime={date} dir="auto">{formattedDate(date)}</time></div>
     <OverviewKpis state={state} />
     <section className="overview-mtd" aria-label={t('overviewMtdLabel')} aria-busy={monthToDate.state === 'loading'}>
       <span id="overview-mtd-label">{t('overviewMtdLabel')}</span>
@@ -106,7 +98,7 @@ export function WorkspaceOverview() {
       <nav className="routine-grid" aria-label={t('overviewMoreWorkflows')}>
         {workflows.map(([icon, to, title, hint]) => <div className="routine-link" key={to}>
           <span className="routine-icon"><Icon name={icon} /></span>
-          <Link to={to} aria-describedby={`routine-${icon}-hint`}>{t(title)}</Link>
+          <Link to={to === '/app/notes/new' ? createNotePath : to} aria-describedby={`routine-${icon}-hint`}>{t(title)}</Link>
           <span id={`routine-${icon}-hint`}>{t(hint)}</span>
           <Icon name="arrow-right" size={17} className="directional-icon" />
         </div>)}
