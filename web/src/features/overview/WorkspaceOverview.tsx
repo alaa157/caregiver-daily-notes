@@ -10,7 +10,7 @@ import { OverviewKpis } from './OverviewKpis';
 import { useDashboardOverview } from './useDashboardOverview';
 import { RecipientCard } from './RecipientCard';
 import { useMonthToDateNotes } from './useMonthToDateNotes';
-import { useActivityFeed } from './useActivityFeed';
+import { mapDashboardActivityItem, useActivityFeed } from './useActivityFeed';
 import './overview.css';
 
 function localToday() {
@@ -35,6 +35,10 @@ export function WorkspaceOverview() {
   const { metric: monthToDate, reload: reloadMonthToDate } = useMonthToDateNotes(date);
   const activityFeed = useActivityFeed();
   const overviewData = state.status === 'ready' || state.status === 'partial' ? state : null;
+  const dashboardActivityItems = activityFeed.state.status === 'ready' ? activityFeed.state.items.map((item) => {
+    const kindLabel = item.kind === 'note' ? 'activityKindNote' : item.kind === 'correction' ? 'activityKindCorrection' : 'activityKindAddendum';
+    return mapDashboardActivityItem(item, t(kindLabel));
+  }) : [];
   const updateDate = (value: string) => {
     const next = new URLSearchParams(params);
     if (isNoteDate(value)) next.set('date', value);
@@ -71,13 +75,12 @@ export function WorkspaceOverview() {
       {activityFeed.state.status === 'error' && <ErrorState description={t('activityFeedError')} onRetry={activityFeed.reload} />}
       {activityFeed.state.status === 'ready' && (activityFeed.state.items.length === 0
         ? <p className="overview-activity-empty" role="status">{t('activityFeedEmpty')}</p>
-        : <ul className="overview-activity-list">
-          {activityFeed.state.items.map((item) => {
+        : <ul className="overview-activity-list" aria-label={t('activityFeedTitle')}>
+          {dashboardActivityItems.map((item) => {
             const recipient = overviewData?.data.find((row) => row.recipient.id === item.recipientId)?.recipient;
-            const label = item.kind === 'note' ? 'activityKindNote' : item.kind === 'correction' ? 'activityKindCorrection' : 'activityKindAddendum';
             const createdAt = new Date(item.createdAt);
-            return <li key={`${item.kind}:${item.id}`} className="overview-activity-item">
-              <div><span className="overview-activity-kind">{t(label)}</span><span className="overview-activity-recipient"><bdi>{recipient?.name ?? t('activityFeedRecipientFallback')}</bdi></span></div>
+            return <li key={`${item.type}:${item.id}`} className="overview-activity-item">
+              <div><span className="overview-activity-kind">{item.summary}</span><span className="overview-activity-recipient"><bdi>{recipient?.name ?? t('activityFeedRecipientFallback')}</bdi></span></div>
               <time dateTime={item.createdAt}>{new Intl.DateTimeFormat(language === 'ar' ? 'ar-EG' : 'en', { dateStyle: 'medium', timeStyle: 'short' }).format(createdAt)}</time>
             </li>;
           })}

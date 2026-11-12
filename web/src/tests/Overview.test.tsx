@@ -1,10 +1,11 @@
-import { act, fireEvent, render, screen, waitFor } from '@testing-library/react';
+import { act, fireEvent, render, screen, waitFor, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { MemoryRouter, useLocation } from 'react-router-dom';
 import { describe, expect, it, vi } from 'vitest';
 import { App } from '../app/App';
 import { AuthProvider } from '../features/auth/AuthProvider';
 import { OverviewKpis } from '../features/overview/OverviewKpis';
+import { mapDashboardActivityItem, type ActivityItem } from '../features/overview/useActivityFeed';
 import { I18nProvider } from '../i18n/I18nProvider';
 import { ApiProvider } from '../lib/api';
 import { jsonResponse, testToken } from './authFixtures';
@@ -662,19 +663,36 @@ describe('overview activity feed', () => {
     return fetcher;
   };
 
+  it.each([
+    ['note', 'Note'], ['correction', 'Correction'], ['addendum', 'Addendum'],
+  ] as const)('maps the %s kind to the localized dashboard presentation contract', (kind, label) => {
+    const activity: ActivityItem = {
+      id: id(90), kind, recipientId: recipientFixture.id, createdAt: '2026-10-18T14:00:00Z', state: 'ready',
+    };
+    expect(mapDashboardActivityItem(activity, label)).toEqual({
+      id: activity.id, type: kind, recipientId: activity.recipientId,
+      createdAt: activity.createdAt, summary: label, state: 'ready',
+    });
+  });
+
   it('renders supported kinds newest first, with recipient names and the configured cap', async () => {
     const items = Array.from({ length: 10 }, (_, index) => ({
       id: id(index + 1), kind: (['note', 'correction', 'addendum'] as const)[index % 3],
-      recipientId: recipientFixture.id, createdAt: `2026-10-18T${String(10 - Math.floor(index / 3)).padStart(2, '0')}:00:00Z`,
+      recipientId: recipientFixture.id, createdAt: `2026-10-18T${String(14 - index).padStart(2, '0')}:00:00Z`,
     }));
     const fetcher = setup(items);
     const section = screen.getByRole('region', { name: 'Recent activity' });
     await screen.findAllByText('Note');
     const list = section.querySelector('ul')!;
     expect(list.children).toHaveLength(10);
-    expect(list.querySelector('li')).toHaveTextContent('Note');
-    expect(list.querySelector('li')).toHaveTextContent(recipientFixture.name);
-    expect(list.querySelector('time')).toHaveAttribute('datetime', '2026-10-18T10:00:00Z');
+    expect(list).toHaveAttribute('aria-label', 'Recent activity');
+    const firstThree = Array.from(list.querySelectorAll('li')).slice(0, 3);
+    expect(firstThree.map((item) => item.querySelector('.overview-activity-kind')?.textContent))
+      .toEqual(['Note', 'Correction', 'Addendum']);
+    expect(firstThree.every((item) => item.querySelector('bdi')?.textContent === recipientFixture.name)).toBe(true);
+    expect(firstThree.map((item) => item.querySelector('time')?.getAttribute('datetime'))).toEqual([
+      '2026-10-18T14:00:00Z', '2026-10-18T13:00:00Z', '2026-10-18T12:00:00Z',
+    ]);
     expect(screen.getAllByText(/^(Note|Correction|Addendum)$/)).toHaveLength(10);
     expect(fetcher.mock.calls.some(([path]) => path === '/api/activity?limit=10')).toBe(true);
   });
@@ -682,6 +700,7 @@ describe('overview activity feed', () => {
   it('shows neutral empty text only after a successful empty request', async () => {
     setup([]);
     expect(await screen.findByText('No recent activity.')).toBeInTheDocument();
+    expect(within(screen.getByRole('region', { name: 'Recent activity' })).getByRole('status')).toHaveTextContent('No recent activity.');
     expect(screen.queryByRole('alert')).not.toBeInTheDocument();
   });
 
@@ -691,7 +710,37 @@ describe('overview activity feed', () => {
     expect(screen.getByRole('alert')).toBeInTheDocument();
     expect(screen.queryByText('No recent activity.')).not.toBeInTheDocument();
     expect(screen.queryByRole('list', { name: 'Recent activity' })).not.toBeInTheDocument();
+    expect(screen.getByRole('button', { name: 'Retry' })).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: 'Refresh activity' })).toBeInTheDocument();
     expect(fetcher.mock.calls.some(([path]) => String(path).startsWith('/api/activity?'))).toBe(true);
+  });
+
+  it.each([
+    ['malformed response', () => Promise.resolve(jsonResponse([{ id: id(1), kind: 'unknown', recipientId: recipientFixture.id, createdAt: '2026-10-18T12:00:00Z' }]))],
+    ['network error', () => Promise.reject(new TypeError('offline'))],
+  ])('keeps a %s as an error instead of empty activity', async (_failure, response) => {
+    setup([], response);
+    expect(await screen.findByText('Recent activity is unavailable right now.')).toBeInTheDocument();
+    expect(screen.getByRole('alert')).toBeInTheDocument();
+    expect(screen.queryByText('No recent activity.')).not.toBeInTheDocument();
+    expect(screen.queryByRole('list', { name: 'Recent activity' })).not.toBeInTheDocument();
+  });
+
+  it('keeps the successful feed visible with fallback names when recipient loading fails', async () => {
+    const fetcher = vi.fn().mockImplementation((path: string) => {
+      if (path === '/api/recipients') return Promise.resolve(jsonResponse({ message: 'private failure' }, 500));
+      if (path.startsWith('/api/activity?')) return Promise.resolve(jsonResponse([
+        { id: id(11), kind: 'addendum', recipientId: recipientFixture.id, createdAt: '2026-10-18T12:00:00Z' },
+      ]));
+      return Promise.resolve(historyResponse([]));
+    });
+    renderOverview('/app?date=2026-10-18', fetcher, 'en', false);
+
+    const section = screen.getByRole('region', { name: 'Recent activity' });
+    expect(await within(section).findByText('Addendum')).toBeInTheDocument();
+    expect(within(section).getByRole('list', { name: 'Recent activity' })).toBeInTheDocument();
+    expect(section.querySelector('bdi')).toHaveTextContent('Recipient');
+    expect(within(section).queryByText('No recent activity.')).not.toBeInTheDocument();
   });
 
   it('exposes loading before the feed response resolves and aborts on unmount', async () => {
@@ -707,6 +756,7 @@ describe('overview activity feed', () => {
     });
     const view = renderOverview('/app?date=2026-10-18', fetcher, 'en', false);
     expect(await screen.findByText('Loading recent activity…')).toBeInTheDocument();
+    expect(screen.getByRole('region', { name: 'Recent activity' })).toHaveAttribute('aria-busy', 'true');
     view.unmount();
     expect(signal?.aborted).toBe(true);
     await act(async () => { resolve?.(jsonResponse([])); await Promise.resolve(); });
@@ -718,7 +768,7 @@ describe('overview activity feed', () => {
     const fetcher = setup([{ id: id(42), kind: 'correction', recipientId: recipientFixture.id, createdAt: '2026-10-18T12:00:00Z' }]);
     expect(await screen.findByText('Correction')).toBeInTheDocument();
     expect(fetcher.mock.calls.some(([path]) => path === '/api/activity?limit=10')).toBe(true);
-    expect(fetcher.mock.calls.some(([, init]) => init?.method && init.method !== 'GET')).toBe(false);
+    expect(fetcher.mock.calls.every(([, init]) => (init?.method ?? 'GET') === 'GET')).toBe(true);
     const section = screen.getByRole('region', { name: 'Recent activity' });
     expect(section.querySelectorAll('button')).toHaveLength(1);
     expect(section.querySelector('input, select, textarea')).toBeNull();
@@ -736,6 +786,9 @@ describe('overview activity feed', () => {
     });
     renderOverview('/app?date=2026-10-18', fetcher, 'en', false);
     await waitFor(() => expect(requests).toHaveLength(1));
+    await waitFor(() => expect(document.querySelector('.overview-list')).not.toBeNull());
+    const selectedDateLocation = screen.getByTestId('location').textContent;
+    const overviewRows = document.querySelector('.overview-list')?.textContent;
     fireEvent.click(screen.getByRole('button', { name: 'Refresh activity' }));
     await waitFor(() => expect(requests).toHaveLength(2));
     expect(requests[0].signal?.aborted).toBe(true);
@@ -744,5 +797,19 @@ describe('overview activity feed', () => {
     await act(async () => requests[0].resolve(jsonResponse([{ id: olderId, kind: 'addendum', recipientId: recipientFixture.id, createdAt: '2026-10-18T13:00:00Z' }])));
     expect(screen.getByRole('region', { name: 'Recent activity' }).querySelector('ul')).toHaveTextContent('Note');
     expect(screen.queryByText('Addendum')).not.toBeInTheDocument();
+    expect(screen.getByTestId('location')).toHaveTextContent(selectedDateLocation!);
+    expect(document.querySelector('.overview-list')?.textContent).toBe(overviewRows);
+  });
+
+  it('does not request activity on the protected route without an authenticated session', async () => {
+    localStorage.clear();
+    sessionStorage.clear();
+    const fetcher = vi.fn();
+    vi.stubGlobal('fetch', fetcher);
+    render(<I18nProvider><ApiProvider config={{ apiBaseUrl: '' }}><AuthProvider><MemoryRouter initialEntries={['/app']}><App /></MemoryRouter></AuthProvider></ApiProvider></I18nProvider>);
+
+    expect(await screen.findByRole('heading', { name: 'Caregiver sign in' })).toBeInTheDocument();
+    expect(fetcher).not.toHaveBeenCalled();
+    expect(fetcher.mock.calls.some(([path]) => String(path).startsWith('/api/activity?'))).toBe(false);
   });
 });

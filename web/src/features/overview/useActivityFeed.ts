@@ -17,6 +17,27 @@ export type ActivityFeedState =
   | { status: 'error'; error: unknown }
   | { status: 'ready'; items: ActivityItem[] };
 
+export type DashboardActivityItem = {
+  id: string;
+  type: ActivityKind;
+  recipientId: string;
+  createdAt: string;
+  summary: string;
+  state: 'loading' | 'ready' | 'error';
+};
+
+/** Projects API activity metadata into the localized, presentation-only dashboard contract. */
+export function mapDashboardActivityItem(item: ActivityItem, localizedKindLabel: string): DashboardActivityItem {
+  return {
+    id: item.id,
+    type: item.kind,
+    recipientId: item.recipientId,
+    createdAt: item.createdAt,
+    summary: localizedKindLabel,
+    state: 'ready',
+  };
+}
+
 export function useActivityFeed(): { state: ActivityFeedState; reload: () => void } {
   const api = useNotesApis();
   const load = useCallback(async (signal: AbortSignal): Promise<ActivityItem[]> => {
