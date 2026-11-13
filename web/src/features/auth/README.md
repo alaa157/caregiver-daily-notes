@@ -10,8 +10,20 @@ JwtService and SecurityConfig at commit cff5ecd3945c98cdf4ca3a991513811e38c27c40
   Email is trimmed and lowercased; the password is preserved exactly. Validation
   follows the 320-character email and 72-byte UTF-8 password limits, without
   inventing a password length minimum.
+- POST /api/auth/register with the same JSON body. Success is 201 with the same
+  `{ "token": "..." }` shape as login, so both paths share one post-success
+  handler in AuthProvider (`completeSignIn`). Validation is identical: 320-char
+  email, 72-byte UTF-8 password, no minimum length.
+- Registration has two distinct 422 responses and they must not be conflated:
+  `{ "code": "DUPLICATE_EMAIL" }` for a taken email, and
+  `{ "code": "VALIDATION_ERROR" }` for anything else. Both are 422 — the UI
+  branches on `code`, read from `ApiError.details`, never on the status alone.
+  There is no 409 in this contract.
+- The signup page is public and lives outside ProtectedRoute, like /login.
 - Invalid credentials return 401; validation returns 422. The UI maps statuses
-  to fixed translated messages and never renders backend diagnostic text.
+  to fixed translated messages and never renders backend diagnostic text. The
+  one exception to status-only mapping is registration's duplicate email, which
+  shares 422 with validation errors and is distinguished by its `code` field.
 - Protected requests use Authorization: Bearer <token>.
 - There is no refresh, current-user or logout endpoint. Logout clears this tab's
   session; an issued token remains backend-valid until expiry. No endpoint is
@@ -49,8 +61,12 @@ same-origin proxy unless the owner provisions cross-origin access.
 ## Integration
 
 The existing app/AuthContext and app/ProtectedRoute import paths re-export the
-feature and routes/ProtectedRoute. App imports LoginPage; AppShell selects the
-dashboard/logout navigation. The main.tsx provider order is unchanged.
+feature and routes/ProtectedRoute. App imports LoginPage and SignupPage; both
+are public routes rendered inside AppShell. AppShell selects the
+dashboard/logout navigation. Entry points to /signup exist on /login (a text
+link below the form) and on the landing page (a secondary hero CTA, shown only
+when the visitor is not authenticated). The main.tsx provider order is
+unchanged.
 
 Protected features use the existing useApiClient hook under AuthProvider.
 That boundary adds the current bearer token and shared rejection handling.
@@ -69,7 +85,10 @@ storage failures, protected redirects, logout, expiry, central 401/403 handling,
 cancellation, stale-response races, Arabic and RTL. Browser tests cover keyboard
 navigation, validation/error focus, tab reload, logout/history, expiry, responsive
 layout and axe WCAG 2.1 A/AA scans in both languages at desktop, tablet, mobile
-and 320px widths.
+and 320px widths. Signup adds its own component suite (success, 422 validation,
+duplicate email, local field validation including the 72-byte limit) and a
+browser spec covering form submission, duplicate-email messaging, keyboard
+reachability from /login, and axe scans in both languages.
 
 The contract tests intercept responses with synthetic JWTs. The opt-in
 [real-backend suite](../../tests/integration/README.md) also exercises real
