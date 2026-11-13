@@ -79,4 +79,18 @@ describe('caregiver signup', () => {
     expect(screen.getByText('Your password must be at most 72 UTF-8 bytes.')).toBeVisible();
     expect(fetcher).not.toHaveBeenCalled();
   });
+
+  it('shows the duplicate-email message for a 422 with DUPLICATE_EMAIL', async () => {
+    fetcher.mockResolvedValue(jsonResponse({ code: 'DUPLICATE_EMAIL', message: 'Email is already registered.' }, 422));
+    const user = userEvent.setup();
+    renderSignup();
+    await user.type(await screen.findByLabelText('Email address'), 'taken@example.com');
+    await user.type(screen.getByLabelText('Password'), 'a strong passphrase');
+    await user.click(screen.getByRole('button', { name: 'Create account' }));
+
+    const alert = await screen.findByRole('alert');
+    expect(alert).toHaveTextContent('An account with this email already exists. Try signing in instead.');
+    expect(alert).not.toHaveTextContent('Check your email and password');
+    expect(alert).not.toHaveTextContent('Email is already registered.');
+  });
 });

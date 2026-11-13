@@ -14,8 +14,17 @@ import './auth.css';
 
 type FieldErrors = { email?: MessageKey; password?: MessageKey };
 
+function errorCode(error: unknown): string | null {
+  if (!(error instanceof ApiError)) return null;
+  const details = error.details;
+  if (typeof details !== 'object' || details === null || !('code' in details)) return null;
+  const code = (details as { code: unknown }).code;
+  return typeof code === 'string' ? code : null;
+}
+
 function errorMessage(error: unknown): MessageKey {
   if (error instanceof ApiError) {
+    if (error.status === 422 && errorCode(error) === 'DUPLICATE_EMAIL') return 'signupDuplicateEmail';
     if (error.status === 422 || error.status === 400) return 'signupValidationError';
     if (error.status === 429) return 'authRateLimited';
     if (error.status === 403) return 'authAccessDenied';
