@@ -104,6 +104,7 @@ class ControlledResizeObserver implements ResizeObserver {
 describe('daily-note creation and immutable corrections', () => {
   it('opens note creation from the app shell as a prefilled modal drawer and closes accessibly', async () => {
     renderNotes('/app', dataFetcher());
+    await waitFor(() => expect(document.querySelector('.app-create-note')).not.toBeNull());
     const trigger = document.querySelector<HTMLAnchorElement>('.app-create-note');
     expect(trigger).not.toBeNull();
     await userEvent.click(trigger!);
@@ -657,10 +658,10 @@ describe('daily-note creation and immutable corrections', () => {
   });
 
 
-  it('protects direct note/addendum URLs before any API request', () => {
+  it('protects direct note/addendum URLs before any API request', async () => {
     const fetcher = vi.fn();
     renderNotes(`${detail}/addenda/new`, fetcher, 'en', false);
-    expect(screen.getByRole('heading', { name: 'Caregiver sign in' })).toBeInTheDocument();
+    expect(await screen.findByRole('heading', { name: 'Caregiver sign in' })).toBeInTheDocument();
     expect(fetcher).not.toHaveBeenCalled();
   });
   it('handles loading and the empty-recipient state', async () => {

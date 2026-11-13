@@ -541,7 +541,7 @@ describe('authenticated workspace overview', () => {
     renderOverview('/app', fetcher);
     expect(await screen.findByRole('complementary', { name: 'Recent activity' })).toHaveTextContent('No recent activity.');
     await userEvent.click(await screen.findByRole('link', { name: 'Add care recipient' }));
-    expect(screen.getByRole('form', { name: 'Add care recipient' })).toBeInTheDocument();
+    expect(await screen.findByRole('form', { name: 'Add care recipient' })).toBeInTheDocument();
   });
 
   it('renders KPI states from overview data without making API requests', () => {

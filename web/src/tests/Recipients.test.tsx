@@ -47,7 +47,7 @@ describe('care recipients screens', () => {
     });
     renderRecipients(`${detail}/notes`, fetcher);
 
-    const tabs = screen.getByRole('navigation', { name: 'Recipient sections' });
+    const tabs = await screen.findByRole('navigation', { name: 'Recipient sections' }, { timeout: 5000 });
     expect(within(tabs).getByRole('link', { name: 'Notes' })).toHaveAttribute('aria-current', 'page');
     expect(within(tabs).getByRole('link', { name: 'Overview' })).toHaveAttribute('href', detail);
     expect(within(tabs).getByRole('link', { name: 'Summaries' })).toHaveAttribute('href', `${detail}/summaries`);
@@ -73,10 +73,10 @@ describe('care recipients screens', () => {
     expect(planRecipient).toBeDisabled();
   });
 
-  it('protects direct recipient routes before making any API request', () => {
+  it('protects direct recipient routes before making any API request', async () => {
     const fetcher = vi.fn();
     renderRecipients(`${detail}/edit`, fetcher, 'en', false);
-    expect(screen.getByRole('heading', { name: 'Caregiver sign in' })).toBeInTheDocument();
+    expect(await screen.findByRole('heading', { name: 'Caregiver sign in' })).toBeInTheDocument();
     expect(fetcher).not.toHaveBeenCalled();
   });
 

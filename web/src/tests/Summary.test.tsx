@@ -82,9 +82,9 @@ describe('on-demand summary and safety workflow', () => {
     expect(summaryMessages.en.summaryAiGeneratedLabel).not.toBe('AI-generated');
     expect(summaryMessages.ar.summaryAiGeneratedLabel).not.toBe('مولّد بالذكاء الاصطناعي');
   });
-  it('protects the route before fetching private data', () => {
+  it('protects the route before fetching private data', async () => {
     const fetcher = dataFetcher(); showApp(fetcher, 'en', false);
-    expect(screen.getByRole('heading', { name: 'Caregiver sign in' })).toBeInTheDocument(); expect(fetcher).not.toHaveBeenCalled();
+    expect(await screen.findByRole('heading', { name: 'Caregiver sign in' })).toBeInTheDocument(); expect(fetcher).not.toHaveBeenCalled();
   });
   it('marks a safety signal as reviewed without hiding it', async () => {
     const fetcher = dataFetcher();
