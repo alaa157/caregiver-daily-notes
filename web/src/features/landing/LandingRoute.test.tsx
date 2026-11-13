@@ -22,8 +22,12 @@ describe('public landing page', () => {
   });
   it('switches language and document direction using the existing i18n provider', () => {
     setup();
-    fireEvent.click(screen.getByRole('button', { name: 'التبديل إلى العربية' }));
+    const languageToggle = screen.getByRole('button', { name: /التبديل إلى العربية/ });
+    expect(languageToggle).toHaveAttribute('aria-label', 'AR — التبديل إلى العربية');
+    expect(languageToggle).toHaveTextContent('AR');
+    fireEvent.click(languageToggle);
     expect(screen.getByRole('heading', { level: 1 })).toHaveTextContent('سجّل تفاصيل يومك');
+    expect(screen.getByRole('button', { name: 'EN — Switch to English' })).toHaveTextContent('EN');
     expect(document.documentElement.lang).toBe('ar');
     expect(document.documentElement.dir).toBe('rtl');
     expect(screen.getByText(/بيانات الملف الشخصي المنظمة.*الملاحظات المكتوبة بحرية فتُرسل كما كُتبت/)).toBeInTheDocument();
