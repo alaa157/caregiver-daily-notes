@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 import { Link } from 'react-router-dom';
 import { useI18n } from '../i18n/I18nProvider';
 import { useAuthStatus } from '../features/auth/AuthProvider';
@@ -35,18 +35,30 @@ export function LandingRoute() {
   const c = copy[language];
   const { t } = useI18n();
   const [menuOpen, setMenuOpen] = useState(false);
+  const menuButtonRef = useRef<HTMLButtonElement>(null);
+  const menuRef = useRef<HTMLElement>(null);
+  const closeMenu = useCallback(() => {
+    setMenuOpen(false);
+    // Defer: in-page anchor activation moves focus to <body> after the click
+    // handler runs, so focus the trigger on the next task instead.
+    setTimeout(() => menuButtonRef.current?.focus());
+  }, []);
+  useEffect(() => {
+    if (!menuOpen) return;
+    menuRef.current?.querySelector<HTMLElement>('a, button')?.focus();
+  }, [menuOpen]);
   useEffect(() => {
     if (!menuOpen) return;
     const onKeyDown = (event: KeyboardEvent) => {
-      if (event.key === 'Escape') setMenuOpen(false);
+      if (event.key === 'Escape') closeMenu();
     };
     document.addEventListener('keydown', onKeyDown);
     return () => document.removeEventListener('keydown', onKeyDown);
-  }, [menuOpen]);
+  }, [menuOpen, closeMenu]);
   const cta = authStatus === 'authenticated' ? c.open : c.sign;
   const target = authStatus === 'authenticated' ? '/app' : '/login';
   return <div className="landing-page">
-    <header className="landing-header"><Link className="landing-brand" to="/">Caregiver Daily Notes</Link><button className="landing-menu" aria-expanded={menuOpen} aria-controls="landing-nav" onClick={() => setMenuOpen(!menuOpen)}>{menuOpen ? '×' : '☰'}<span className="visually-hidden">{language === 'ar' ? 'القائمة' : 'Menu'}</span></button><nav id="landing-nav" aria-label={language === 'ar' ? 'التنقل الرئيسي' : 'Main navigation'} className={menuOpen ? 'is-open' : ''}>{c.nav.map((label, i) => <a key={label} href={['#how-it-works', '#safety', '#languages', '#reviewers'][i]} onClick={() => setMenuOpen(false)}>{label}</a>)}<button
+    <header className="landing-header"><Link className="landing-brand" to="/">Caregiver Daily Notes</Link><button ref={menuButtonRef} className="landing-menu" aria-expanded={menuOpen} aria-controls="landing-nav" onClick={() => setMenuOpen(!menuOpen)}>{menuOpen ? '×' : '☰'}<span className="visually-hidden">{language === 'ar' ? 'القائمة' : 'Menu'}</span></button><nav ref={menuRef} id="landing-nav" aria-label={language === 'ar' ? 'التنقل الرئيسي' : 'Main navigation'} className={menuOpen ? 'is-open' : ''}>{c.nav.map((label, i) => <a key={label} href={['#how-it-works', '#safety', '#languages', '#reviewers'][i]} onClick={closeMenu}>{label}</a>)}<button
       className="language-toggle"
       aria-label={language === 'ar' ? 'EN — Switch to English' : 'AR — التبديل إلى العربية'}
       onClick={() => setLanguage(language === 'ar' ? 'en' : 'ar')}
