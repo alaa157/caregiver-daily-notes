@@ -44,6 +44,9 @@ export function LandingRoute() {
     setTimeout(() => menuButtonRef.current?.focus());
   }, []);
   useEffect(() => {
+    document.title = `${t('home')} · ${t('brand')}`;
+  }, [t]);
+  useEffect(() => {
     if (!menuOpen) return;
     menuRef.current?.querySelector<HTMLElement>('a, button')?.focus();
   }, [menuOpen]);
@@ -58,12 +61,13 @@ export function LandingRoute() {
   const cta = authStatus === 'authenticated' ? c.open : c.sign;
   const target = authStatus === 'authenticated' ? '/app' : '/login';
   return <div className="landing-page">
+    <a className="skip-link" href="#main-content" onClick={(event) => { event.preventDefault(); document.getElementById('main-content')?.focus(); }}>{t('skipToContent')}</a>
     <header className="landing-header"><Link className="landing-brand" to="/">Caregiver Daily Notes</Link><button ref={menuButtonRef} className="landing-menu" aria-expanded={menuOpen} aria-controls="landing-nav" onClick={() => setMenuOpen(!menuOpen)}>{menuOpen ? '×' : '☰'}<span className="visually-hidden">{language === 'ar' ? 'القائمة' : 'Menu'}</span></button><nav ref={menuRef} id="landing-nav" aria-label={language === 'ar' ? 'التنقل الرئيسي' : 'Main navigation'} className={menuOpen ? 'is-open' : ''}>{c.nav.map((label, i) => <a key={label} href={['#how-it-works', '#safety', '#languages', '#reviewers'][i]} onClick={closeMenu}>{label}</a>)}<button
       className="language-toggle"
       aria-label={language === 'ar' ? 'EN — Switch to English' : 'AR — التبديل إلى العربية'}
       onClick={() => setLanguage(language === 'ar' ? 'en' : 'ar')}
     >{language === 'ar' ? 'EN' : 'AR'}</button><Link className="button button--primary" to={target}>{cta}</Link></nav></header>
-    <div className="landing-content">
+    <main id="main-content" tabIndex={-1} className="landing-content">
       <section className="landing-hero"><div><p className="eyebrow">Caregiver Daily Notes</p><h1>{c.hero}</h1><p>{c.sub}</p><div className="landing-ctas"><Link className="button button--primary" to={target}>{cta}</Link><a className="button button--secondary" href={APK}>{c.apk}</a></div><p className="landing-disclaimer">{c.disclaimer}</p></div><MockScreen rtl={language === 'ar'} /></section>
       <section id="how-it-works" className="landing-section"><h2>{c.how}</h2><div className="landing-grid">{c.steps.map(([title, text], i) => <article className="landing-card" key={title}><span className="step-number">{i + 1}</span><h3>{title}</h3><p>{text}</p></article>)}</div><article className="landing-card"><h3>{c.record}</h3><p>{c.recordBody}</p></article></section>
       <section id="safety" className="landing-section landing-safety"><h2>{c.safety}</h2><ul>{c.safetyItems.map(text => <li key={text}><Icon name="shield" />{text}</li>)}</ul></section>
@@ -71,6 +75,6 @@ export function LandingRoute() {
       <section className="landing-section"><h2>{c.apps}</h2><div className="landing-grid"><article className="landing-card"><h3>{c.web}</h3><Link className="button button--primary" to={target}>{cta}</Link></article><article className="landing-card"><h3>{c.android}</h3><a className="button button--secondary" href={APK}>{c.apk}</a><p>{c.same}</p></article></div></section>
       <aside className="landing-notice"><Icon name="info" />{c.notice}</aside>
       <section id="reviewers" className="landing-section"><h2>{c.reviewers}</h2><div className="landing-badges">{c.stack.map(item => <span key={item}>{item}</span>)}</div><h3>{c.test}</h3><p>{c.testing}</p><p>{c.backend}</p><div className="landing-links"><a href={repo}>{c.repo}</a><a href={`${repo}/blob/main/ARCHITECTURE.md`}>{c.architecture}</a><a href={`${repo}/releases`}>{c.releases}</a></div></section>
-    </div><footer className="landing-footer"><span>Caregiver Daily Notes · {t('note')}</span><a href={repo}>{c.repo}</a><button className="language-toggle" aria-label={language === 'ar' ? 'EN — Switch to English' : 'AR — التبديل إلى العربية'} onClick={() => setLanguage(language === 'ar' ? 'en' : 'ar')}>{language === 'ar' ? 'EN' : 'AR'}</button></footer>
+    </main><footer className="landing-footer"><span>Caregiver Daily Notes · {t('note')}</span><a href={repo}>{c.repo}</a><button className="language-toggle" aria-label={language === 'ar' ? 'EN — Switch to English' : 'AR — التبديل إلى العربية'} onClick={() => setLanguage(language === 'ar' ? 'en' : 'ar')}>{language === 'ar' ? 'EN' : 'AR'}</button></footer>
   </div>;
 }

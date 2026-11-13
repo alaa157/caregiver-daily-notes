@@ -46,6 +46,7 @@ export function AppShell({ children }: { children: ReactNode }) {
   const pathname = normalizePathname(location.pathname);
   const mainRef = useRef<HTMLElement>(null);
   const previousPath = useRef(pathname);
+  const mounted = useRef(false);
 
   useEffect(() => {
     const title = pathname === '/' ? t('home') : pathname === '/login' ? t('loginTitle')
@@ -66,6 +67,18 @@ export function AppShell({ children }: { children: ReactNode }) {
   }, [pathname, t]);
 
   useEffect(() => {
+    if (!mounted.current) {
+      mounted.current = true;
+      // The shell no longer wraps the landing route, so it can mount as a result
+      // of client-side navigation (e.g. leaving "/"). history.state.idx > 0
+      // marks that case; a fresh page load keeps idx === 0 and is left alone.
+      const idx = (window.history.state as { idx?: number } | null)?.idx;
+      if (typeof idx === 'number' && idx > 0) {
+        mainRef.current?.focus();
+        window.scrollTo({ top: 0, behavior: 'instant' });
+      }
+      return;
+    }
     if (previousPath.current !== pathname) {
       mainRef.current?.focus();
       window.scrollTo({ top: 0, behavior: 'instant' });
