@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { Link } from 'react-router-dom';
 import { useI18n } from '../i18n/I18nProvider';
 import { useAuthStatus } from '../features/auth/AuthProvider';
@@ -35,6 +35,14 @@ export function LandingRoute() {
   const c = copy[language];
   const { t } = useI18n();
   const [menuOpen, setMenuOpen] = useState(false);
+  useEffect(() => {
+    if (!menuOpen) return;
+    const onKeyDown = (event: KeyboardEvent) => {
+      if (event.key === 'Escape') setMenuOpen(false);
+    };
+    document.addEventListener('keydown', onKeyDown);
+    return () => document.removeEventListener('keydown', onKeyDown);
+  }, [menuOpen]);
   const cta = authStatus === 'authenticated' ? c.open : c.sign;
   const target = authStatus === 'authenticated' ? '/app' : '/login';
   return <div className="landing-page">
