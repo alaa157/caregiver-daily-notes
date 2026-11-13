@@ -26,7 +26,7 @@ const APK = 'https://github.com/alaa157/caregiver-daily-notes/releases/download/
 const repo = 'https://github.com/alaa157/caregiver-daily-notes';
 
 function MockScreen({ rtl = false }: { rtl?: boolean }) {
-  return <div className="landing-screen" dir={rtl ? 'rtl' : 'ltr'} aria-hidden="true"><div className="screen-top"><span /><span /><span /></div><strong>{rtl ? 'ملاحظات اليوم' : 'Today’s notes'}</strong><small>{rtl ? 'الثلاثاء، ١٢ نوفمبر' : 'Tuesday, 12 November'}</small><div className="screen-field">{rtl ? 'المزاج' : 'Mood'}<b>{rtl ? 'هادئ' : 'Calm'}</b></div><div className="screen-field">{rtl ? 'النوم' : 'Sleep'}<b>{rtl ? 'جيد' : 'Good'}</b></div><div className="screen-field">{rtl ? 'ملاحظات' : 'Notes'}<i /></div><span className="screen-save">{rtl ? 'حفظ الملاحظة' : 'Save note'}</span></div>;
+  return <div className="landing-screen" dir={rtl ? 'rtl' : 'ltr'} lang={rtl ? 'ar' : 'en'} aria-hidden="true"><div className="screen-top"><span /><span /><span /></div><strong>{rtl ? 'ملاحظات اليوم' : 'Today’s notes'}</strong><small>{rtl ? 'الثلاثاء، ١٢ نوفمبر' : 'Tuesday, 12 November'}</small><div className="screen-field">{rtl ? 'المزاج' : 'Mood'}<b>{rtl ? 'هادئ' : 'Calm'}</b></div><div className="screen-field">{rtl ? 'النوم' : 'Sleep'}<b>{rtl ? 'جيد' : 'Good'}</b></div><div className="screen-field">{rtl ? 'ملاحظات' : 'Notes'}<i /></div><span className="screen-save">{rtl ? 'حفظ الملاحظة' : 'Save note'}</span></div>;
 }
 
 export function LandingRoute() {
