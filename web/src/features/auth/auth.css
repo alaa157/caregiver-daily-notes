@@ -14,6 +14,7 @@
 .auth-progress { font-size: 13px; color: var(--color-muted); }
 .auth-session-note { display: flex; align-items: flex-start; gap: 8px; margin: -4px 0 0; color: var(--color-muted); font-size: 12px; line-height: 1.8; }
 .auth-session-note .icon { margin-top: 3px; flex-shrink: 0; }
+.auth-switch { display: flex; flex-wrap: wrap; align-items: center; gap: 6px; margin: 0; color: var(--color-muted); font-size: 14px; }
 .auth-error { display: flex; align-items: flex-start; gap: 10px; padding: 15px; color: #8b2929; background: #fff1eb; border: 1px solid #c1796f; border-radius: 9px; }
 .auth-error p { margin: 0; font-size: 14px; line-height: 1.8; }
 .auth-error .icon { flex-shrink: 0; margin-top: 3px; }
