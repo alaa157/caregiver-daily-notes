@@ -1,30 +1,9 @@
-import { createRequire } from 'node:module';
 import { expect, test, type Page } from '@playwright/test';
-
-const require = createRequire(import.meta.url);
-
-async function settlePage(page: Page) {
-  await page.getByRole('heading', { level: 1 }).waitFor();
-  await page.evaluate(async () => {
-    await document.fonts.ready;
-    await Promise.all(document.getAnimations().map((animation) => animation.finished.catch(() => {})));
-  });
-}
+import { expectNoAxeViolations, settlePage } from './accessibility';
 
 async function checkAccessibility(page: Page) {
   await settlePage(page);
-  await page.addScriptTag({ path: require.resolve('axe-core/axe.min.js') });
-  const violations = await page.evaluate(async () => {
-    const axe = (window as unknown as Window & { axe: typeof import('axe-core') }).axe;
-    const results = await axe.run(document, {
-      runOnly: { type: 'tag', values: ['wcag2a', 'wcag2aa', 'wcag21a', 'wcag21aa'] },
-    });
-    return results.violations.map(({ id, nodes }) => ({
-      id,
-      nodes: nodes.map(({ target, failureSummary }) => ({ target, failureSummary })),
-    }));
-  });
-  expect(violations).toEqual([]);
+  await expectNoAxeViolations(page, page.url());
   const overflow = await page.evaluate(() => document.documentElement.scrollWidth > window.innerWidth);
   expect(overflow, 'The page should fit the viewport without horizontal scrolling').toBe(false);
 }
