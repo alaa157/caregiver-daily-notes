@@ -4,7 +4,8 @@
   --color-surface: var(--caregiver-surface);
   --color-surface-subtle: var(--caregiver-primary-soft);
   --color-border: var(--caregiver-border-soft);
-  --color-primary-hover: var(--color-primary);
+  --color-primary-hover: var(--color-primary-text);
+  --color-primary-text: color-mix(in srgb, var(--color-primary) 70%, var(--color-on-surface));
   --color-focus: var(--color-outline);
   --color-success: var(--caregiver-success);
   --color-success-border: var(--caregiver-border-soft);
@@ -59,7 +60,7 @@
 
 .overview-heading .eyebrow {
   margin: 0 0 var(--space-1);
-  color: var(--color-primary);
+  color: var(--color-primary-text);
   font-size: 0.8rem;
   font-weight: 700;
 }
@@ -172,6 +173,11 @@
   margin: 0;
 }
 
+.overview-mtd-region {
+  display: grid;
+  gap: var(--space-3);
+}
+
 .overview-mtd strong {
   display: block;
 }
@@ -181,7 +187,7 @@
   padding: 0;
   border: 0;
   background: transparent;
-  color: var(--color-primary);
+  color: var(--color-primary-text);
   font: inherit;
   font-weight: 600;
   text-decoration: underline;
@@ -346,7 +352,7 @@
   display: inline-flex;
   align-items: center;
   min-height: 2.5rem;
-  color: var(--color-primary);
+  color: var(--color-primary-text);
   font-weight: 600;
   text-decoration: none;
 }

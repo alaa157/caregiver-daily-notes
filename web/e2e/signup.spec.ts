@@ -67,6 +67,7 @@ for (const language of ['en', 'ar'] as const) {
       await expect(page.getByRole('heading', { level: 1 })).toHaveText(labels.workspace);
       expect(await page.evaluate(() => localStorage.getItem('caregiver-auth-session-v1'))).toBeNull();
       expect(await page.evaluate(() => sessionStorage.getItem('caregiver-auth-session-v1'))).toContain(jwt);
+      await checkAccessibility(page);
     });
 
     test('shows the duplicate-email message without leaking server text', async ({ page }) => {
