@@ -11,6 +11,7 @@ import { ProtectedRoute } from './ProtectedRoute';
 import { ThemeProvider } from './ThemeProvider';
 
 const LoginPage = lazy(() => import('../features/auth/LoginPage').then(m => ({ default: m.LoginPage })));
+const SignupPage = lazy(() => import('../features/auth/SignupPage').then(m => ({ default: m.SignupPage })));
 const RecipientsRoutes = lazy(() => import('../routes/RecipientsRoutes').then(m => ({ default: m.RecipientsRoutes })));
 const NotesRoutes = lazy(() => import('../routes/NotesRoutes').then(m => ({ default: m.NotesRoutes })));
 const CreateNotePage = lazy(() => import('../features/notes/NotesPages').then(m => ({ default: m.CreateNotePage })));
@@ -35,6 +36,7 @@ export function App() {
       {isLanding ? <LandingRoute /> : <AppShell>
         <Routes location={backgroundLocation ?? location}>
           <Route path="/login" element={<LoginPage />} />
+          <Route path="/signup" element={<SignupPage />} />
           <Route element={<ProtectedRoute />}>
             <Route element={<AppLayout />}>
               <Route path="/app" element={<WorkspaceOverview />} />
