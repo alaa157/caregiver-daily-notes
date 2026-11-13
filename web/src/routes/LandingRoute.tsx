@@ -47,6 +47,6 @@ export function LandingRoute() {
       <section className="landing-section"><h2>{c.apps}</h2><div className="landing-grid"><article className="landing-card"><h3>{c.web}</h3><Link className="button button--primary" to={target}>{cta}</Link></article><article className="landing-card"><h3>{c.android}</h3><a className="button button--secondary" href={APK}>{c.apk}</a><p>{c.same}</p></article></div></section>
       <aside className="landing-notice"><Icon name="info" />{c.notice}</aside>
       <section id="reviewers" className="landing-section"><h2>{c.reviewers}</h2><div className="landing-badges">{c.stack.map(item => <span key={item}>{item}</span>)}</div><h3>{c.test}</h3><p>{c.testing}</p><p>{c.backend}</p><div className="landing-links"><a href={repo}>{c.repo}</a><a href={`${repo}/blob/main/ARCHITECTURE.md`}>{c.architecture}</a><a href={`${repo}/releases`}>{c.releases}</a></div></section>
-    </div><footer className="landing-footer"><span>Caregiver Daily Notes · {t('note')}</span><a href={repo}>{c.repo}</a><button className="language-toggle" onClick={() => setLanguage(language === 'ar' ? 'en' : 'ar')}>{language === 'ar' ? 'EN' : 'AR'}</button></footer>
+    </div><footer className="landing-footer"><span>Caregiver Daily Notes · {t('note')}</span><a href={repo}>{c.repo}</a><button className="language-toggle" aria-label={language === 'ar' ? 'EN — Switch to English' : 'AR — التبديل إلى العربية'} onClick={() => setLanguage(language === 'ar' ? 'en' : 'ar')}>{language === 'ar' ? 'EN' : 'AR'}</button></footer>
   </div>;
 }
