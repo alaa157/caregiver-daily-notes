@@ -33,24 +33,25 @@ function renderSettings(path = '/app/settings', language = 'en', authenticated =
 }
 
 describe('authenticated grouped settings page', () => {
-  it('renders settings route only for authenticated caregiver', () => {
+  it('renders settings route only for authenticated caregiver', async () => {
     renderSettings();
 
-    expect(screen.getByRole('heading', { level: 1, name: 'Settings' })).toBeVisible();
+    expect(await screen.findByRole('heading', { level: 1, name: 'Settings' })).toBeVisible();
     for (const heading of labels.en.groups) expect(screen.getByRole('heading', { name: heading, level: 2 })).toBeVisible();
   });
 
-  it('redirects unauthenticated users away from settings', () => {
+  it('redirects unauthenticated users away from settings', async () => {
     renderSettings('/app/settings', 'en', false);
 
-    expect(screen.getByRole('heading', { name: 'Caregiver sign in' })).toBeVisible();
+    expect(await screen.findByRole('heading', { name: 'Caregiver sign in' })).toBeVisible();
     expect(screen.queryByRole('heading', { name: 'Settings' })).not.toBeInTheDocument();
     expect(screen.queryByText('Privacy and security')).not.toBeInTheDocument();
   });
 
-  it('shows all four settings groups', () => {
+  it('shows all four settings groups', async () => {
     renderSettings();
 
+    await screen.findByRole('heading', { level: 1, name: 'Settings' });
     expect(labels.en.groups.map((heading) => screen.getByRole('heading', { name: heading, level: 2 }).textContent)).toEqual(labels.en.groups);
     for (const heading of labels.en.groups) {
       expect(screen.getByRole('region', { name: heading })).toHaveClass('note-surface');
@@ -61,7 +62,7 @@ describe('authenticated grouped settings page', () => {
     const user = userEvent.setup();
     renderSettings();
 
-    await user.click(screen.getByRole('button', { name: 'AI Settings' }));
+    await user.click(await screen.findByRole('button', { name: 'AI Settings' }));
     const dialog = screen.getByRole('dialog', { name: 'AI provider settings' });
     expect(dialog).toBeVisible();
     expect(within(dialog).getByLabelText('Provider')).toBeVisible();
@@ -77,7 +78,7 @@ describe('authenticated grouped settings page', () => {
     const fetcher = vi.fn().mockResolvedValue(jsonResponse({ success: true }));
     renderSettings('/app/settings', 'en', true, fetcher);
 
-    await user.click(screen.getByRole('button', { name: 'AI Settings' }));
+    await user.click(await screen.findByRole('button', { name: 'AI Settings' }));
     const dialog = screen.getByRole('dialog', { name: 'AI provider settings' });
     await user.selectOptions(within(dialog).getByLabelText('Provider'), 'OPENAI');
     await user.type(within(dialog).getByLabelText('Model'), 'gpt-test');
@@ -100,9 +101,10 @@ describe('authenticated grouped settings page', () => {
     expect(fetcher).toHaveBeenCalledWith('/api/ai/byok/connection-test', expect.objectContaining({ method: 'POST' }));
   });
 
-  it('marks unimplemented settings as unavailable and keeps them non-interactive', () => {
+  it('marks unimplemented settings as unavailable and keeps them non-interactive', async () => {
     renderSettings();
 
+    await screen.findByRole('heading', { level: 1, name: 'Settings' });
     for (const label of labels.en.unavailable) {
       const row = screen.getByText(label, { exact: true }).closest('li');
       expect(row).not.toBeNull();
@@ -112,9 +114,10 @@ describe('authenticated grouped settings page', () => {
     }
   });
 
-  it('shows the theme preview controls inside the existing Theme and Colors entry', () => {
+  it('shows the theme preview controls inside the existing Theme and Colors entry', async () => {
     renderSettings();
 
+    await screen.findByRole('heading', { level: 1, name: 'Settings' });
     const row = screen.getByText('Theme and Colors', { exact: true }).closest('li');
     expect(row).toHaveAttribute('data-settings-theme-preview-entry');
     expect(within(row!).queryByText('Not available yet')).not.toBeInTheDocument();
@@ -133,6 +136,7 @@ describe('authenticated grouped settings page', () => {
     const user = userEvent.setup();
     renderSettings('/app/settings', 'en');
 
+    await screen.findByRole('heading', { level: 1, name: 'Settings' });
     await user.click(screen.getByRole('button', { name: 'التغيير إلى العربية' }));
     await waitFor(() => {
       expect(document.documentElement.lang).toBe('ar');

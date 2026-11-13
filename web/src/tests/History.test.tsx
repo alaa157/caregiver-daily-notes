@@ -49,17 +49,17 @@ describe('history screen, filters and immutable records', () => {
     vi.useFakeTimers({ toFake: ['Date'] });
     vi.setSystemTime(new Date('2026-10-27T12:00:00Z'));
   });
-  it('protects history and its alias before making API requests', () => {
+  it('protects history and its alias before making API requests', async () => {
     const fetcher = vi.fn();
     renderHistory(fetcher, `${root}/history`, 'en', false);
-    expect(screen.getByRole('heading', { name: 'Caregiver sign in' })).toBeInTheDocument();
+    expect(await screen.findByRole('heading', { name: 'Caregiver sign in' })).toBeInTheDocument();
     expect(fetcher).not.toHaveBeenCalled();
   });
   it('announces loading, then shows structured values and verbatim mixed text without fetching addenda', async () => {
     let resolve!: (value: Response) => void;
     const fetcher = dataFetcher((url) => url.pathname === '/api/notes' ? new Promise<Response>((done) => { resolve = done; }) : undefined);
     renderHistory(fetcher);
-    expect(screen.getByText('Loading notes history…')).toBeInTheDocument();
+    expect(await screen.findByText('Loading notes history…')).toBeInTheDocument();
     resolve(jsonResponse(historyPage()));
     const card = await loaded();
     expect(document.title).toContain('Notes history');
