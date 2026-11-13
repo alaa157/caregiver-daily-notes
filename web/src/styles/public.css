@@ -164,5 +164,8 @@
   :lang(ar) .hero h1 { font-size: 35px; }
 }
 
+/* Arabic glyphs used by the landing page copy; subset so the Arabic page does not download the full Arabic face. Chars outside this range fall through to the full face. */
+@font-face{font-family:'Noto Sans Arabic Variable';font-style:normal;font-weight:100 900;font-display:swap;src:url('../features/landing/noto-sans-arabic-landing.woff2') format('woff2-variations');unicode-range:U+060C,U+061B,U+061F,U+0621-063A,U+0641-064B,U+064D-0651,U+0660-0668,U+066C}
+
 /* Arabic glyphs used only by the landing mock screens; kept tiny so the English page does not download the full Arabic face. */
 @font-face{font-family:'Noto Sans Arabic Variable';font-style:normal;font-weight:100 900;font-display:swap;src:url('../features/landing/noto-sans-arabic-mock.woff2') format('woff2-variations');unicode-range:U+0020,U+060C,U+0621,U+0626-062D,U+062F,U+0631-0632,U+0638,U+0641,U+0644-0648,U+064A,U+0661-0662}
