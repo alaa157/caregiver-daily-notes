@@ -104,6 +104,7 @@ export function LoginPage() {
         <span className="auth-progress" role="status" aria-live="polite">{pending ? t('authSigningIn') : ''}</span>
         <p id="auth-session-note" className="auth-session-note"><Icon name="shield" size={16} />{t('authSessionNote')}</p>
       </form>
+      <p className="auth-switch">{t('loginNoAccount')} <ButtonLink variant="text" to="/signup">{t('signupCta')}</ButtonLink></p>
       <ButtonLink variant="text" to="/"><Icon name="arrow-left" className="directional-icon" />{t('returnHome')}</ButtonLink>
     </PagePanel>
   );
