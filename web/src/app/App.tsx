@@ -29,11 +29,11 @@ function NotFoundPage() {
 export function App() {
   const location = useLocation();
   const backgroundLocation = (location.state as { backgroundLocation?: typeof location } | null)?.backgroundLocation;
+  const isLanding = (backgroundLocation ?? location).pathname === '/';
   return (
-    <ThemeProvider><AppShell>
-      <Suspense fallback={<LoadingState />}>
+    <ThemeProvider><Suspense fallback={<LoadingState />}>
+      {isLanding ? <LandingRoute /> : <AppShell>
         <Routes location={backgroundLocation ?? location}>
-          <Route path="/" element={<LandingRoute />} />
           <Route path="/login" element={<LoginPage />} />
           <Route element={<ProtectedRoute />}>
             <Route element={<AppLayout />}>
@@ -50,7 +50,7 @@ export function App() {
             <Route path="/app/notes/new" element={<CreateNotePage />} />
           </Route>
         </Routes>}
-      </Suspense>
-    </AppShell></ThemeProvider>
+      </AppShell>}
+    </Suspense></ThemeProvider>
   );
 }

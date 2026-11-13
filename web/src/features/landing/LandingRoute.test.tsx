@@ -13,7 +13,8 @@ function setup() {
 describe('public landing page', () => {
   it('renders the English landing sections, Android download and visible safety notice', () => {
     const { container } = setup();
-    expect(container.querySelectorAll('main')).toHaveLength(0);
+    expect(container.querySelectorAll('main')).toHaveLength(1);
+    expect(container.querySelector('main')).toHaveAttribute('id', 'main-content');
     expect(screen.getByRole('heading', { level: 1, name: /clearer picture/i })).toBeInTheDocument();
     expect(screen.getByRole('heading', { name: 'Safety comes first' })).toBeInTheDocument();
     expect(screen.getByText(/capstone project/i)).toBeInTheDocument();
