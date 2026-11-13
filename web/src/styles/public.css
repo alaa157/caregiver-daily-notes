@@ -163,3 +163,6 @@
   .invitation-icon { width: 54px; height: 54px; border-radius: 17px; }
   :lang(ar) .hero h1 { font-size: 35px; }
 }
+
+/* Arabic glyphs used only by the landing mock screens; kept tiny so the English page does not download the full Arabic face. */
+@font-face{font-family:'Noto Sans Arabic Variable';font-style:normal;font-weight:100 900;font-display:swap;src:url('../features/landing/noto-sans-arabic-mock.woff2') format('woff2-variations');unicode-range:U+0020,U+060C,U+0621,U+0626-062D,U+062F,U+0631-0632,U+0638,U+0641,U+0644-0648,U+064A,U+0661-0662}
