@@ -10,6 +10,11 @@ import { useI18n } from '../../i18n/I18nProvider';
 import type { MessageKey } from '../../i18n/translations';
 import { createInput, emptyNoteValues, fieldLabels, observationInput, validateNoteValues, type Corrections, type NoteErrors, type NoteValues } from './noteForm';
 import { ObservationStateField } from './ObservationStateField';
+import { ChipGroup } from './ChipGroup';
+import { chipFieldOptions, type ChipField } from './chipOptions';
+import { chipKeyFor, observationForChip } from './chipState';
+
+const chipFields = new Set<ObservationField>(['medicationStatus']);
 
 interface SharedProps {
   cancelTo: string;
@@ -141,6 +146,28 @@ export function NoteForm(props: Props) {
     const observation = values.observations[field];
     const hint = field === 'freeText' ? 'notesFreeTextHint'
       : field === 'medicationStatus' ? 'notesMedicationHint' : undefined;
+    if (props.mode === 'create' && chipFields.has(field)) {
+      const options = chipFieldOptions[field as ChipField];
+      const hintId = hint ? `note-${field}-hint` : undefined;
+      const errorId = errors[field] ? `note-${field}-error` : undefined;
+      const describedBy = [hintId, errorId].filter(Boolean).join(' ') || undefined;
+      return (
+        <div id={`note-${field}-state`}>
+          <ChipGroup
+            id={`note-${field}`}
+            label={t(fieldLabels[field])}
+            options={options.map((option) => ({ key: option.key, label: t(option.labelKey) }))}
+            selectedKey={chipKeyFor(observation as Observation<unknown>, options)}
+            onSelect={(key) => changeObservation(field, observationForChip(key, options))}
+            disabled={locked}
+            invalid={Boolean(errors[field])}
+            describedBy={describedBy}
+          />
+          {hint && <p id={hintId} className="note-hint">{t(hint)}</p>}
+          {errors[field] && <FieldError id={errorId!} message={t(errors[field]!)} />}
+        </div>
+      );
+    }
     return <ObservationStateField<unknown>
       id={`note-${field}`}
       label={t(fieldLabels[field])}
