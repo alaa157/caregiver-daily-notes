@@ -118,8 +118,9 @@ public class NoteSignalService {
 
     boolean medicationUnverified = medicationVerification == VerificationState.UNVERIFIED;
     Boolean missedMedication = null;
-    if (medicationVerification == VerificationState.VERIFIED
-        && medication.state() == ObservationState.RECORDED) {
+    // The recorded value is an event claim independent of verification.
+    // Only an explicit UNVERIFIED suppresses the event projection.
+    if (!medicationUnverified && medication.state() == ObservationState.RECORDED) {
       if ("MISSED".equals(medication.value())) missedMedication = true;
       else if ("TAKEN".equals(medication.value())) missedMedication = false;
     }
@@ -157,7 +158,7 @@ public class NoteSignalService {
   private Boolean poor(String value) {
     if (value == null) return null;
     return switch (value.trim().toUpperCase(Locale.ROOT)) {
-      case "POOR", "LOW", "POOR_APPETITE" -> true;
+      case "POOR", "LOW", "POOR_APPETITE", "REFUSED" -> true;
       case "GOOD", "NORMAL", "FAIR" -> false;
       default -> null;
     };

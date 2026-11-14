@@ -1,10 +1,11 @@
-import { act, fireEvent, render, screen, waitFor } from '@testing-library/react';
+import { act, fireEvent, render, screen, waitFor, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { MemoryRouter, useLocation } from 'react-router-dom';
 import { describe, expect, it, vi } from 'vitest';
 import { App } from '../app/App';
 import { AuthProvider } from '../features/auth/AuthProvider';
 import { OverviewKpis } from '../features/overview/OverviewKpis';
+import { mapDashboardActivityItem, type ActivityItem } from '../features/overview/useActivityFeed';
 import { I18nProvider } from '../i18n/I18nProvider';
 import { ApiProvider } from '../lib/api';
 import { jsonResponse, testToken } from './authFixtures';
@@ -14,8 +15,11 @@ import { noteFixture, noteListFixture } from './noteFixtures';
 const inactive = { ...recipientFixture, id: 'b2222222-2222-4222-8222-222222222222', name: 'Mona', active: false, lifecycleStatus: 'ARCHIVED' as const, archivedAt: '2026-10-15T10:00:00Z', archivedBy: 'b1111111-1111-4111-8111-111111111111' };
 const legacyInactive = { ...recipientFixture, id: 'd4444444-4444-4444-8444-444444444444', name: 'Legacy recipient', active: false, lifecycleStatus: 'LEGACY_INACTIVE_REVIEW' as const };
 const missing = { ...recipientFixture, id: 'c3333333-3333-4333-8333-333333333333', name: 'No note recipient' };
-function renderOverview(path: string, fetcher: ReturnType<typeof vi.fn>, language = 'en') {
-  vi.stubGlobal('fetch', fetcher);
+function renderOverview(path: string, fetcher: ReturnType<typeof vi.fn>, language = 'en', interceptActivity = true) {
+  vi.stubGlobal('fetch', interceptActivity
+    ? (input: RequestInfo | URL, init?: RequestInit) => String(input).startsWith('/api/activity?')
+      ? Promise.resolve(jsonResponse([])) : fetcher(input, init)
+    : fetcher);
   localStorage.setItem('caregiver-language', language);
   sessionStorage.setItem('caregiver-auth-session-v1', JSON.stringify({ token: testToken(), baseUrl: '' }));
   return render(<I18nProvider><ApiProvider config={{ apiBaseUrl: '' }}><AuthProvider><MemoryRouter initialEntries={[path]}><Location /><App /></MemoryRouter></AuthProvider></ApiProvider></I18nProvider>);
@@ -129,17 +133,17 @@ describe('month-to-date notes metric', () => {
     renderOverview('/app?date=2026-10-18', fetcher);
 
     expect(await screen.findByText('Unavailable', { selector: '.overview-mtd strong' })).toBeInTheDocument();
-    expect(await screen.findByRole('link', { name: 'Open note' })).toHaveAttribute('href', `/app/notes/${noteFixture.id}`);
+    expect(await screen.findByRole('link', { name: `${recipientFixture.name} Open note` })).toHaveAttribute('href', `/app/notes/${noteFixture.id}`);
     expect(monthRequests).toBe(1);
 
-    await userEvent.click(screen.getByRole('button', { name: 'Retry' }));
+    await userEvent.click(screen.getByRole('button', { name: 'Notes this month Retry' }));
     expect(await screen.findByText('Unavailable', { selector: '.overview-mtd strong' })).toBeInTheDocument();
     expect(monthRequests).toBe(2);
     expect(fetcher.mock.calls.filter(([path]) => String(path).startsWith('/api/notes?from=2026-10-18'))).toHaveLength(1);
-    expect(await screen.findByRole('link', { name: 'Open note' })).toHaveAttribute('href', `/app/notes/${noteFixture.id}`);
+    expect(await screen.findByRole('link', { name: `${recipientFixture.name} Open note` })).toHaveAttribute('href', `/app/notes/${noteFixture.id}`);
 
     monthFailure = false;
-    await userEvent.click(screen.getByRole('button', { name: 'Retry' }));
+    await userEvent.click(screen.getByRole('button', { name: 'Notes this month Retry' }));
     expect(await screen.findByText('1', { selector: '.overview-mtd strong' })).toBeInTheDocument();
     expect(monthRequests).toBe(3);
     expect(fetcher.mock.calls.filter(([path]) => path === '/api/recipients')).toHaveLength(1);
@@ -162,7 +166,7 @@ describe('month-to-date notes metric', () => {
     expect(fetcher.mock.calls.filter(([path]) => String(path).startsWith('/api/notes?from=2026-10-01'))).toHaveLength(1);
 
     overviewFailure = false;
-    const row = screen.getByRole('link', { name: recipientFixture.name }).closest('li');
+    const row = screen.getByRole('link', { name: recipientFixture.name }).closest('tr');
     await userEvent.click(row!.querySelector('button')!);
 
     expect(await screen.findByText('No note recorded')).toBeInTheDocument();
@@ -235,7 +239,7 @@ describe('month-to-date notes metric', () => {
     renderOverview('/app?date=2026-10-18', fetcher);
 
     expect(await screen.findByText('Unavailable', { selector: '.overview-mtd strong' })).toBeInTheDocument();
-    expect(await screen.findByRole('link', { name: 'Open note' })).toHaveAttribute('href', `/app/notes/${noteFixture.id}`);
+    expect(await screen.findByRole('link', { name: `${recipientFixture.name} Open note` })).toHaveAttribute('href', `/app/notes/${noteFixture.id}`);
     expect(screen.queryByText('Note status unavailable')).not.toBeInTheDocument();
   });
 
@@ -255,6 +259,18 @@ describe('month-to-date notes metric', () => {
 });
 
 describe('authenticated workspace overview', () => {
+  it('renders dashboard metrics, recipient table, and activity from the selected-date response', async () => {
+    renderOverview('/app?date=2026-10-18', serving());
+    const recipientsMetric = await screen.findByRole('heading', { name: 'Recipients shown' });
+    expect(recipientsMetric.parentElement).toHaveTextContent('3');
+    expect(screen.getByRole('heading', { name: 'Notes recorded' }).parentElement).toHaveTextContent('1');
+    expect(screen.getByRole('heading', { name: 'Not yet recorded' }).parentElement).toHaveTextContent('2');
+    expect(await screen.findByText('0', { selector: '.overview-mtd strong' })).toBeInTheDocument();
+    expect(screen.getByRole('table', { name: 'Today by recipient' })).toBeInTheDocument();
+    expect(screen.getByRole('complementary', { name: 'Recent activity' })).toHaveTextContent(recipientFixture.name);
+    expect(screen.getByRole('complementary', { name: 'Recent activity' })).toHaveTextContent('Note recorded');
+  });
+
   it('defaults to the caregiver local calendar date', async () => {
     vi.stubEnv('TZ', 'America/Los_Angeles');
     vi.useFakeTimers({ toFake: ['Date'] });
@@ -271,13 +287,13 @@ describe('authenticated workspace overview', () => {
     }
   });
 
-  it('renders recipient summary cards with semantic headings and status-specific actions', async () => {
+  it('renders recipient table rows with semantic headings and status-specific actions', async () => {
     const fetcher = serving();
     renderOverview('/app?date=2026-10-18', fetcher);
 
     expect(await screen.findByRole('heading', { name: recipientFixture.name, level: 3 })).toBeInTheDocument();
-    const recordedCard = screen.getByRole('heading', { name: recipientFixture.name, level: 3 }).closest('li');
-    const missingCard = screen.getByRole('heading', { name: missing.name, level: 3 }).closest('li');
+    const recordedCard = screen.getByRole('heading', { name: recipientFixture.name, level: 3 }).closest('tr');
+    const missingCard = screen.getByRole('heading', { name: missing.name, level: 3 }).closest('tr');
     expect(recordedCard).toHaveTextContent('Note recorded');
     expect(recordedCard?.querySelector(`a[href="/app/notes/${noteFixture.id}"]`)).not.toBeNull();
     expect(missingCard).toHaveTextContent('No note recorded');
@@ -289,15 +305,15 @@ describe('authenticated workspace overview', () => {
   it('shows factual per-date note status and links to source and relevant workflows', async () => {
     const fetcher = serving();
     renderOverview('/app?date=2026-10-18', fetcher);
-    expect(await screen.findByRole('link', { name: 'Open note' })).toHaveAttribute('href', `/app/notes/${noteFixture.id}`);
+    expect(await screen.findByRole('link', { name: `${recipientFixture.name} Open note` })).toHaveAttribute('href', `/app/notes/${noteFixture.id}`);
     expect(screen.getByLabelText('Calendar date')).toHaveValue('2026-10-18');
     expect(screen.getAllByText('No note recorded')).toHaveLength(2);
     expect(screen.getByText(/A missing note means no note was found/)).toBeInTheDocument();
     expect(kpiValue('Recipients shown')).toBe('3');
     expect(kpiValue('Notes recorded')).toBe('1');
     expect(kpiValue('Not yet recorded')).toBe('2');
-    expect(screen.getByRole('link', { name: 'Record a note' })).toHaveAttribute('href', `/app/notes/new?recipientId=${missing.id}&date=2026-10-18`);
-    const inactiveRow = screen.getByRole('link', { name: inactive.name }).closest('li');
+    expect(screen.getByRole('link', { name: `${missing.name} Record a note` })).toHaveAttribute('href', `/app/notes/new?recipientId=${missing.id}&date=2026-10-18`);
+    const inactiveRow = screen.getByRole('link', { name: inactive.name }).closest('tr');
     expect(inactiveRow).toHaveTextContent('Inactive');
     expect(inactiveRow?.querySelector('a[href^="/app/notes/new"]')).toBeNull();
     expect(fetcher.mock.calls.some(([path]) => path === '/api/notes?from=2026-10-18&to=2026-10-18&page=0&size=100')).toBe(true);
@@ -309,7 +325,7 @@ describe('authenticated workspace overview', () => {
       : Promise.resolve(historyResponse([])));
     renderOverview('/app?date=2026-10-18', fetcher);
 
-    const row = (await screen.findByRole('link', { name: inactive.name })).closest('li');
+    const row = (await screen.findByRole('link', { name: inactive.name })).closest('tr');
     expect(row).toHaveTextContent(/Inactive/);
     expect(row).toHaveTextContent('No note recorded');
     expect(row?.querySelector('a[href^="/app/notes/new"]')).toBeNull();
@@ -322,7 +338,7 @@ describe('authenticated workspace overview', () => {
       : Promise.resolve(historyResponse([])));
     renderOverview('/app?date=2026-10-18', fetcher);
 
-    const row = (await screen.findByRole('link', { name: legacyInactive.name })).closest('li');
+    const row = (await screen.findByRole('link', { name: legacyInactive.name })).closest('tr');
     expect(row).toHaveTextContent(/Inactive/);
     expect(row).toHaveTextContent('No note recorded');
     expect(row?.querySelector('a[href^="/app/notes/new"]')).toBeNull();
@@ -350,7 +366,7 @@ describe('authenticated workspace overview', () => {
     });
     renderOverview('/app?date=2026-10-18', fetcher);
 
-    const row = await screen.findByRole('link', { name: recipientFixture.name }).then((link) => link.closest('li'));
+    const row = await screen.findByRole('link', { name: recipientFixture.name }).then((link) => link.closest('tr'));
     expect(await screen.findByText('Note status unavailable')).toBeInTheDocument();
     expect(row).not.toHaveTextContent('No note recorded');
     expect(screen.queryByText('private server diagnostics')).not.toBeInTheDocument();
@@ -368,11 +384,13 @@ describe('authenticated workspace overview', () => {
     });
     renderOverview('/app?date=2026-10-18', fetcher);
 
-    expect(await screen.findByRole('link', { name: 'Open note' })).toHaveAttribute('href', `/app/notes/${noteFixture.id}`);
-    const missingRow = screen.getByRole('link', { name: missing.name }).closest('li');
+    expect(await screen.findByRole('link', { name: `${recipientFixture.name} Open note` })).toHaveAttribute('href', `/app/notes/${noteFixture.id}`);
+    const missingRow = screen.getByRole('link', { name: missing.name }).closest('tr');
     expect(await screen.findByText('Note status unavailable')).toBeInTheDocument();
+    expect(screen.getAllByRole('status').some((status) => status.textContent?.includes('Note status unavailable'))).toBe(true);
     expect(missingRow).not.toHaveTextContent('No note recorded');
     expect(screen.getByText('Some note statuses could not be loaded. Retry those rows to refresh the overview.')).toBeInTheDocument();
+    expect(screen.getAllByRole('alert').some((alert) => alert.textContent?.includes('Some note statuses could not be loaded'))).toBe(true);
     expect(kpiValue('Recipients shown')).toBe('2');
     expect(kpiValue('Notes recorded')).toBe('Unavailable');
     expect(kpiValue('Not yet recorded')).toBe('Unavailable');
@@ -419,7 +437,7 @@ describe('authenticated workspace overview', () => {
     expect(kpiValue('Recipients shown')).toBe('1');
     expect(kpiValue('Notes recorded')).toBe('0');
     expect(kpiValue('Not yet recorded')).toBe('1');
-    expect(screen.queryByRole('link', { name: 'Open note' })).not.toBeInTheDocument();
+    expect(screen.queryByRole('link', { name: `${recipientFixture.name} Open note` })).not.toBeInTheDocument();
 
     view.unmount();
     expect(pending.get('2026-10-19')?.signal?.aborted).toBe(true);
@@ -467,8 +485,8 @@ describe('authenticated workspace overview', () => {
       ? Promise.resolve(jsonResponse([recipientFixture, missing]))
       : Promise.resolve(historyResponse([otherRecipientNote])));
     const view = renderOverview('/app?date=2026-10-18', fetcher);
-    const recipientRow = await screen.findByRole('link', { name: recipientFixture.name }).then((link) => link.closest('li'));
-    const otherRow = screen.getByRole('link', { name: missing.name }).closest('li');
+    const recipientRow = await screen.findByRole('link', { name: recipientFixture.name }).then((link) => link.closest('tr'));
+    const otherRow = screen.getByRole('table').querySelector(`a[href="/app/recipients/${missing.id}"]`)?.closest('tr');
     expect(recipientRow).toHaveTextContent('No note recorded');
     expect(recipientRow?.querySelector(`a[href="/app/notes/${noteFixture.id}"]`)).toBeNull();
     expect(otherRow).toHaveTextContent('Note recorded');
@@ -478,7 +496,7 @@ describe('authenticated workspace overview', () => {
       ? Promise.resolve(jsonResponse([recipientFixture]))
       : Promise.resolve(historyResponse([{ ...noteListFixture, date: '2026-10-17' }])));
     renderOverview('/app?date=2026-10-18', wrongDateFetcher);
-    const wrongDateRow = await screen.findByRole('link', { name: recipientFixture.name }).then((link) => link.closest('li'));
+    const wrongDateRow = await screen.findByRole('link', { name: recipientFixture.name }).then((link) => link.closest('tr'));
     expect(wrongDateRow).not.toHaveTextContent('Note recorded');
     expect(wrongDateRow).not.toHaveTextContent('No note recorded');
     expect(wrongDateRow).toHaveTextContent('Note status unavailable');
@@ -497,7 +515,7 @@ describe('authenticated workspace overview', () => {
       return Promise.resolve(jsonResponse({}, 404));
     });
     renderOverview('/app?date=2026-10-18', fetcher);
-    expect(await screen.findByRole('link', { name: 'Open note' })).toHaveAttribute('href', `/app/notes/${laterPageNote.id}`);
+    expect(await screen.findByRole('link', { name: `${missing.name} Open note` })).toHaveAttribute('href', `/app/notes/${laterPageNote.id}`);
     expect(fetcher.mock.calls.some(([path]) => path.includes('page=1&size=100'))).toBe(true);
     expect(screen.getAllByText('No note recorded')).toHaveLength(1);
   });
@@ -521,8 +539,9 @@ describe('authenticated workspace overview', () => {
   it('offers recipient creation from the factual empty state', async () => {
     const fetcher = vi.fn().mockResolvedValue(jsonResponse([]));
     renderOverview('/app', fetcher);
+    expect(await screen.findByRole('complementary', { name: 'Recent activity' })).toHaveTextContent('No recent activity.');
     await userEvent.click(await screen.findByRole('link', { name: 'Add care recipient' }));
-    expect(screen.getByRole('form', { name: 'Add care recipient' })).toBeInTheDocument();
+    expect(await screen.findByRole('form', { name: 'Add care recipient' })).toBeInTheDocument();
   });
 
   it('renders KPI states from overview data without making API requests', () => {
@@ -537,6 +556,445 @@ describe('authenticated workspace overview', () => {
     expect(kpiValue('Recipients shown')).toBe('3');
     expect(kpiValue('Notes recorded')).toBe('Unavailable');
     expect(kpiValue('Not yet recorded')).toBe('Unavailable');
+    expect(fetcher).not.toHaveBeenCalled();
+  });
+});
+
+describe('dashboard accessibility', () => {
+  it('keeps dashboard controls keyboard reachable in DOM order', async () => {
+    const user = userEvent.setup();
+    const view = renderOverview('/app?date=2026-10-18', serving());
+    await screen.findByRole('link', { name: `${recipientFixture.name} Open note` });
+
+    const tabStops = Array.from(view.container.querySelectorAll<HTMLElement>(
+      'a[href], button:not([disabled]), input:not([disabled]), select:not([disabled])',
+    ));
+    expect(tabStops.length).toBeGreaterThan(20);
+    expect(Array.from(view.container.querySelectorAll<HTMLElement>('[tabindex]')).every((element) => element.tabIndex <= 0)).toBe(true);
+
+    for (const tabStop of tabStops) {
+      await user.tab();
+      expect(tabStop).toHaveFocus();
+    }
+  });
+
+  it('exposes named regions, contextual links, and unchanged dashboard routes', async () => {
+    renderOverview('/app?date=2026-10-18', serving());
+
+    expect(await screen.findByRole('region', { name: 'Caregiver workspace' })).toBeInTheDocument();
+    expect(screen.getByRole('region', { name: 'Selected date summary' })).toBeInTheDocument();
+    expect(screen.getByRole('region', { name: 'Notes this month' })).toBeInTheDocument();
+    expect(screen.getByRole('navigation', { name: 'More caregiver workflows' })).toBeInTheDocument();
+    expect(screen.getByLabelText('Calendar date')).toHaveValue('2026-10-18');
+
+    expect(screen.getByRole('link', { name: `${recipientFixture.name} Open note` }))
+      .toHaveAttribute('href', `/app/notes/${noteFixture.id}`);
+    expect(screen.getByRole('link', { name: `${missing.name} Record a note` }))
+      .toHaveAttribute('href', `/app/notes/new?recipientId=${missing.id}&date=2026-10-18`);
+    expect(screen.getAllByRole('link', { name: 'Care recipients' }).map((link) => link.getAttribute('href')))
+      .toEqual(['/app/recipients', '/app/recipients']);
+  });
+
+  it('activates a retry with Space and a recipient workflow link with Enter', async () => {
+    const user = userEvent.setup();
+    let overviewRequests = 0;
+    const fetcher = vi.fn().mockImplementation((path: string) => {
+      if (path === '/api/recipients') return Promise.resolve(jsonResponse([recipientFixture, missing]));
+      const from = new URL(path, 'http://localhost').searchParams.get('from');
+      if (from === '2026-10-01') return Promise.resolve(historyResponse([]));
+      overviewRequests += 1;
+      return Promise.resolve(overviewRequests === 1
+        ? jsonResponse({ message: 'private diagnostics' }, 500)
+        : historyResponse([]));
+    });
+    const view = renderOverview('/app?date=2026-10-18', fetcher);
+    const retry = await screen.findByRole('button', { name: `${recipientFixture.name} Retry` });
+    const tabStops = Array.from(view.container.querySelectorAll<HTMLElement>(
+      'a[href], button:not([disabled]), input:not([disabled]), select:not([disabled])',
+    ));
+
+    for (const tabStop of tabStops) {
+      await user.tab();
+      if (tabStop === retry) break;
+    }
+    expect(retry).toHaveFocus();
+    await user.keyboard(' ');
+    expect(await screen.findAllByText('No note recorded', { exact: true })).toHaveLength(2);
+    expect(overviewRequests).toBe(2);
+
+    const recipientLink = screen.getByRole('link', { name: missing.name });
+    const recordLink = screen.getByRole('link', { name: `${missing.name} Record a note` });
+    recipientLink.focus();
+    await user.tab();
+    expect(recordLink).toHaveFocus();
+    await user.keyboard('{Enter}');
+    await waitFor(() => expect(screen.getByTestId('location')).toHaveTextContent(`/app/notes/new?recipientId=${missing.id}&date=2026-10-18`));
+  });
+
+  it('announces loading, ready, and error states without fake values', async () => {
+    const pending = new Promise<Response>(() => {});
+    const pendingFetcher = vi.fn().mockReturnValue(pending);
+    const loadingView = renderOverview('/app?date=2026-10-18', pendingFetcher);
+    expect(screen.getAllByRole('status').some((status) => status.textContent?.includes('Loading recipients and note availability…'))).toBe(true);
+    expect(loadingView.container.querySelector('.overview-results')).toHaveAttribute('aria-busy', 'true');
+    expect(screen.getByRole('region', { name: 'Notes this month' })).toHaveAttribute('aria-busy', 'true');
+    expect(screen.getByRole('status', { name: 'Recipients shown' })).toHaveTextContent('Loading…');
+    expect(screen.getByRole('status', { name: 'Notes this month' })).toHaveTextContent('Loading…');
+    loadingView.unmount();
+
+    const readyFetcher = serving();
+    const readyView = renderOverview('/app?date=2026-10-18', readyFetcher);
+    expect(await screen.findByRole('status', { name: 'Recipients shown' })).toHaveTextContent('3');
+    expect(readyView.container.querySelector('.overview-results')).toHaveAttribute('aria-busy', 'false');
+    expect(screen.getByRole('status', { name: 'Notes recorded' })).toHaveTextContent('1');
+    expect(screen.getByRole('status', { name: 'Notes this month' })).toHaveTextContent('0');
+    readyView.unmount();
+
+    const failedFetcher = vi.fn().mockResolvedValue(jsonResponse({ message: 'private diagnostics' }, 500));
+    renderOverview('/app?date=2026-10-18', failedFetcher);
+    const overviewError = await screen.findByText('We couldn’t complete this request. Please try again.');
+    expect(overviewError.closest('[role="alert"]')).not.toBeNull();
+    expect(screen.getByRole('alert', { name: 'Notes this month' })).toHaveTextContent('Unavailable');
+    expect(screen.getByRole('button', { name: 'Notes this month Retry' })).toBeInTheDocument();
+    expect(screen.getByRole('status', { name: 'Recipients shown' })).toHaveTextContent('Unavailable');
+    expect(screen.getByRole('status', { name: 'Notes recorded' })).toHaveTextContent('Unavailable');
+    expect(screen.getByRole('status', { name: 'Not yet recorded' })).toHaveTextContent('Unavailable');
+    expect(screen.queryByText('0', { selector: '.overview-mtd strong' })).not.toBeInTheDocument();
+  });
+});
+
+describe('overview activity feed', () => {
+  const id = (number: number) => `00000000-0000-4000-8000-${String(number).padStart(12, '0')}`;
+  const setup = (activity: unknown, interceptor?: (path: string, init?: RequestInit) => Promise<Response>) => {
+    const fetcher = vi.fn().mockImplementation((path: string, init?: RequestInit) => {
+      if (interceptor && path.startsWith('/api/activity?')) return interceptor(path, init);
+      if (path.startsWith('/api/activity?')) return Promise.resolve(jsonResponse(activity));
+      if (path === '/api/recipients') return Promise.resolve(jsonResponse([recipientFixture]));
+      return Promise.resolve(historyResponse([]));
+    });
+    renderOverview('/app?date=2026-10-18', fetcher, 'en', false);
+    return fetcher;
+  };
+
+  it.each([
+    ['note', 'Note'], ['correction', 'Correction'], ['addendum', 'Addendum'],
+  ] as const)('maps the %s kind to the localized dashboard presentation contract', (kind, label) => {
+    const activity: ActivityItem = {
+      id: id(90), kind, recipientId: recipientFixture.id, createdAt: '2026-10-18T14:00:00Z', state: 'ready',
+    };
+    expect(mapDashboardActivityItem(activity, label)).toEqual({
+      id: activity.id, type: kind, recipientId: activity.recipientId,
+      createdAt: activity.createdAt, summary: label, state: 'ready',
+    });
+  });
+
+  it('renders supported kinds newest first, with recipient names and the configured cap', async () => {
+    const items = Array.from({ length: 10 }, (_, index) => ({
+      id: id(index + 1), kind: (['note', 'correction', 'addendum'] as const)[index % 3],
+      recipientId: recipientFixture.id, createdAt: `2026-10-18T${String(14 - index).padStart(2, '0')}:00:00Z`,
+    }));
+    const fetcher = setup(items);
+    const section = screen.getByRole('region', { name: 'Recent activity' });
+    await screen.findAllByText('Note');
+    const list = section.querySelector('ul')!;
+    expect(list.children).toHaveLength(10);
+    expect(list).toHaveAttribute('aria-label', 'Recent activity');
+    const firstThree = Array.from(list.querySelectorAll('li')).slice(0, 3);
+    expect(firstThree.map((item) => item.querySelector('.overview-activity-kind')?.textContent))
+      .toEqual(['Note', 'Correction', 'Addendum']);
+    expect(firstThree.every((item) => item.querySelector('bdi')?.textContent === recipientFixture.name)).toBe(true);
+    expect(firstThree.map((item) => item.querySelector('time')?.getAttribute('datetime'))).toEqual([
+      '2026-10-18T14:00:00Z', '2026-10-18T13:00:00Z', '2026-10-18T12:00:00Z',
+    ]);
+    expect(screen.getAllByText(/^(Note|Correction|Addendum)$/)).toHaveLength(10);
+    expect(fetcher.mock.calls.some(([path]) => path === '/api/activity?limit=10')).toBe(true);
+  });
+
+  it('keeps each activity kind paired with its authoritative timestamp in newest-first order', async () => {
+    const items = [
+      { id: id(81), kind: 'correction', recipientId: recipientFixture.id, createdAt: '2026-10-18T14:00:00Z' },
+      { id: id(82), kind: 'addendum', recipientId: recipientFixture.id, createdAt: '2026-10-18T13:00:00Z' },
+      { id: id(83), kind: 'note', recipientId: recipientFixture.id, createdAt: '2026-10-18T12:00:00Z' },
+    ];
+    setup(items);
+    const region = screen.getByRole('region', { name: 'Recent activity' });
+    await within(region).findByText('Correction');
+    const rows = Array.from(region.querySelectorAll('li'));
+    expect(rows).toHaveLength(3);
+    expect(rows.map((row) => row.querySelector('time')?.getAttribute('datetime'))).toEqual(items.map((item) => item.createdAt));
+    expect(within(rows[0]).getByText('Correction')).toBeInTheDocument();
+    expect(within(rows[1]).getByText('Addendum')).toBeInTheDocument();
+    expect(within(rows[2]).getByText('Note')).toBeInTheDocument();
+  });
+
+  it('shows neutral empty text only after a successful empty request', async () => {
+    setup([]);
+    expect(await screen.findByText('No recent activity.')).toBeInTheDocument();
+    expect(within(screen.getByRole('region', { name: 'Recent activity' })).getByRole('status')).toHaveTextContent('No recent activity.');
+    expect(screen.queryByRole('alert')).not.toBeInTheDocument();
+  });
+
+  it('shows an explicit error rather than empty activity on request failure', async () => {
+    const fetcher = setup([], () => Promise.resolve(jsonResponse({ message: 'private diagnostics' }, 500)));
+    expect(await screen.findByText('Recent activity is unavailable right now.')).toBeInTheDocument();
+    expect(screen.getByRole('alert')).toBeInTheDocument();
+    expect(screen.queryByText('No recent activity.')).not.toBeInTheDocument();
+    expect(screen.queryByRole('list', { name: 'Recent activity' })).not.toBeInTheDocument();
+    expect(screen.getByRole('button', { name: 'Retry' })).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: 'Refresh activity' })).toBeInTheDocument();
+    expect(fetcher.mock.calls.some(([path]) => String(path).startsWith('/api/activity?'))).toBe(true);
+  });
+
+  it.each([
+    ['malformed response', () => Promise.resolve(jsonResponse([{ id: id(1), kind: 'unknown', recipientId: recipientFixture.id, createdAt: '2026-10-18T12:00:00Z' }]))],
+    ['network error', () => Promise.reject(new TypeError('offline'))],
+  ])('keeps a %s as an error instead of empty activity', async (_failure, response) => {
+    setup([], response);
+    expect(await screen.findByText('Recent activity is unavailable right now.')).toBeInTheDocument();
+    expect(screen.getByRole('alert')).toBeInTheDocument();
+    expect(screen.queryByText('No recent activity.')).not.toBeInTheDocument();
+    expect(screen.queryByRole('list', { name: 'Recent activity' })).not.toBeInTheDocument();
+  });
+
+  it('keeps the successful feed visible with fallback names when recipient loading fails', async () => {
+    const fetcher = vi.fn().mockImplementation((path: string) => {
+      if (path === '/api/recipients') return Promise.resolve(jsonResponse({ message: 'private failure' }, 500));
+      if (path.startsWith('/api/activity?')) return Promise.resolve(jsonResponse([
+        { id: id(11), kind: 'addendum', recipientId: recipientFixture.id, createdAt: '2026-10-18T12:00:00Z' },
+      ]));
+      return Promise.resolve(historyResponse([]));
+    });
+    renderOverview('/app?date=2026-10-18', fetcher, 'en', false);
+
+    const section = screen.getByRole('region', { name: 'Recent activity' });
+    expect(await within(section).findByText('Addendum')).toBeInTheDocument();
+    expect(within(section).getByRole('list', { name: 'Recent activity' })).toBeInTheDocument();
+    expect(section.querySelector('bdi')).toHaveTextContent('Recipient');
+    expect(within(section).queryByText('No recent activity.')).not.toBeInTheDocument();
+  });
+
+  it('exposes loading before the feed response resolves and aborts on unmount', async () => {
+    let signal: AbortSignal | null | undefined;
+    let resolve: ((response: Response) => void) | undefined;
+    const fetcher = vi.fn().mockImplementation((path: string, init?: RequestInit) => {
+      if (path.startsWith('/api/activity?')) {
+        signal = init?.signal;
+        return new Promise<Response>((done) => { resolve = done; });
+      }
+      if (path === '/api/recipients') return Promise.resolve(jsonResponse([recipientFixture]));
+      return Promise.resolve(historyResponse([]));
+    });
+    const view = renderOverview('/app?date=2026-10-18', fetcher, 'en', false);
+    expect(await screen.findByText('Loading recent activity…')).toBeInTheDocument();
+    expect(screen.getByRole('region', { name: 'Recent activity' })).toHaveAttribute('aria-busy', 'true');
+    view.unmount();
+    expect(signal?.aborted).toBe(true);
+    await act(async () => { resolve?.(jsonResponse([])); await Promise.resolve(); });
+    expect(view.container).toBeEmptyDOMElement();
+    expect(screen.queryByText('Recent activity is unavailable right now.')).not.toBeInTheDocument();
+  });
+
+  it('uses only the scoped read endpoint and renders no write controls', async () => {
+    const fetcher = setup([{ id: id(42), kind: 'correction', recipientId: recipientFixture.id, createdAt: '2026-10-18T12:00:00Z' }]);
+    expect(await screen.findByText('Correction')).toBeInTheDocument();
+    expect(fetcher.mock.calls.some(([path]) => path === '/api/activity?limit=10')).toBe(true);
+    expect(fetcher.mock.calls.every(([, init]) => (init?.method ?? 'GET') === 'GET')).toBe(true);
+    const section = screen.getByRole('region', { name: 'Recent activity' });
+    expect(section.querySelectorAll('button')).toHaveLength(1);
+    expect(section.querySelector('input, select, textarea')).toBeNull();
+    expect(screen.getByRole('button', { name: 'Refresh activity' })).toBeInTheDocument();
+  });
+
+  it('refresh aborts the old request and ignores its stale response', async () => {
+    const requests: Array<{ signal?: AbortSignal | null; resolve: (response: Response) => void }> = [];
+    const newerId = id(60);
+    const olderId = id(61);
+    const fetcher = vi.fn().mockImplementation((path: string, init?: RequestInit) => {
+      if (path.startsWith('/api/activity?')) return new Promise<Response>((resolve) => requests.push({ signal: init?.signal, resolve }));
+      if (path === '/api/recipients') return Promise.resolve(jsonResponse([recipientFixture]));
+      return Promise.resolve(historyResponse([]));
+    });
+    renderOverview('/app?date=2026-10-18', fetcher, 'en', false);
+    await waitFor(() => expect(requests).toHaveLength(1));
+    await waitFor(() => expect(document.querySelector('.overview-table tbody')).not.toBeNull());
+    const selectedDateLocation = screen.getByTestId('location').textContent;
+    const overviewRows = document.querySelector('.overview-table tbody')?.textContent;
+    fireEvent.click(screen.getByRole('button', { name: 'Refresh activity' }));
+    await waitFor(() => expect(requests).toHaveLength(2));
+    expect(requests[0].signal?.aborted).toBe(true);
+    await act(async () => requests[1].resolve(jsonResponse([{ id: newerId, kind: 'note', recipientId: recipientFixture.id, createdAt: '2026-10-18T14:00:00Z' }])));
+    expect(await screen.findByText('Note')).toBeInTheDocument();
+    await act(async () => requests[0].resolve(jsonResponse([{ id: olderId, kind: 'addendum', recipientId: recipientFixture.id, createdAt: '2026-10-18T13:00:00Z' }])));
+    expect(screen.getByRole('region', { name: 'Recent activity' }).querySelector('ul')).toHaveTextContent('Note');
+    expect(screen.queryByText('Addendum')).not.toBeInTheDocument();
+    expect(screen.getByTestId('location')).toHaveTextContent(selectedDateLocation!);
+    expect(document.querySelector('.overview-table tbody')?.textContent).toBe(overviewRows);
+  });
+
+  it('does not request activity on the protected route without an authenticated session', async () => {
+    localStorage.clear();
+    sessionStorage.clear();
+    const fetcher = vi.fn();
+    vi.stubGlobal('fetch', fetcher);
+    render(<I18nProvider><ApiProvider config={{ apiBaseUrl: '' }}><AuthProvider><MemoryRouter initialEntries={['/app']}><App /></MemoryRouter></AuthProvider></ApiProvider></I18nProvider>);
+
+    expect(await screen.findByRole('heading', { name: 'Caregiver sign in' })).toBeInTheDocument();
+    expect(fetcher).not.toHaveBeenCalled();
+    expect(fetcher.mock.calls.some(([path]) => String(path).startsWith('/api/activity?'))).toBe(false);
+  });
+
+  it.each([
+    ['HTTP failure', () => Promise.resolve(jsonResponse({ message: 'private diagnostics' }, 503))],
+    ['malformed response', () => Promise.resolve(jsonResponse([{ id: 'invalid', kind: 'note', recipientId: recipientFixture.id, createdAt: '2026-10-18T12:00:00Z' }]))],
+    ['network failure', () => Promise.reject(new TypeError('network unavailable'))],
+  ])('keeps %s distinct from an empty activity feed', async (_name, fail) => {
+    setup([], () => fail());
+
+    expect(await screen.findByText('Recent activity is unavailable right now.')).toBeInTheDocument();
+    expect(screen.queryByText('No recent activity.')).not.toBeInTheDocument();
+    expect(screen.queryByRole('list', { name: 'Recent activity' })).not.toBeInTheDocument();
+  });
+
+  it('retries a failed activity request and renders only the successful response', async () => {
+    let failed = true;
+    setup([], () => failed
+      ? Promise.reject(new TypeError('network unavailable'))
+      : Promise.resolve(jsonResponse([{ id: id(70), kind: 'correction', recipientId: recipientFixture.id, createdAt: '2026-10-18T13:00:00Z' }])));
+
+    expect(await screen.findByText('Recent activity is unavailable right now.')).toBeInTheDocument();
+    expect(screen.queryByText('No recent activity.')).not.toBeInTheDocument();
+    failed = false;
+    await userEvent.click(screen.getByRole('button', { name: 'Retry' }));
+    expect(await screen.findByText('Correction')).toBeInTheDocument();
+    expect(screen.queryByText('No recent activity.')).not.toBeInTheDocument();
+  });
+
+  it('uses the neutral recipient fallback when overview recipient data is unavailable', async () => {
+    const activityId = id(71);
+    const fetcher = vi.fn().mockImplementation((path: string) => {
+      if (path.startsWith('/api/activity?')) return Promise.resolve(jsonResponse([
+        { id: activityId, kind: 'note', recipientId: recipientFixture.id, createdAt: '2026-10-18T13:00:00Z' },
+      ]));
+      if (path === '/api/recipients') return Promise.resolve(jsonResponse({ message: 'private diagnostics' }, 500));
+      return Promise.resolve(historyResponse([]));
+    });
+    renderOverview('/app?date=2026-10-18', fetcher, 'en', false);
+
+    const activity = screen.getByRole('region', { name: 'Recent activity' });
+    expect(await within(activity).findByText('Note')).toBeInTheDocument();
+    expect(activity.querySelector('bdi')).toHaveTextContent('Recipient');
+    expect(screen.getByText('We couldn’t complete this request. Please try again.')).toBeInTheDocument();
+  });
+
+  it('keeps activity independent of the selected date query parameter', async () => {
+    const fetcher = setup([{ id: id(72), kind: 'note', recipientId: recipientFixture.id, createdAt: '2026-10-18T13:00:00Z' }]);
+    expect(await screen.findByText('Note')).toBeInTheDocument();
+    fireEvent.change(screen.getByLabelText('Calendar date'), { target: { value: '2026-10-19' } });
+
+    await waitFor(() => expect(screen.getByTestId('location')).toHaveTextContent('/app?date=2026-10-19'));
+    expect(await screen.findByText('Note')).toBeInTheDocument();
+    expect(fetcher.mock.calls.filter(([path]) => String(path).startsWith('/api/activity?'))).toHaveLength(1);
+  });
+
+  it('renders the current Arabic failure and activity labels while bidi-isolating recipient names', async () => {
+    const fetcher = vi.fn().mockImplementation((path: string) => {
+      if (path.startsWith('/api/activity?')) return Promise.resolve(jsonResponse([
+        { id: id(73), kind: 'note', recipientId: recipientFixture.id, createdAt: '2026-10-18T13:00:00Z' },
+      ]));
+      if (path === '/api/recipients') return Promise.resolve(jsonResponse([recipientFixture]));
+      if (path.startsWith('/api/notes?')) {
+        const query = new URL(path, 'http://localhost').searchParams;
+        return Promise.resolve(query.get('from') === '2026-10-18'
+          ? jsonResponse({ message: 'private diagnostics' }, 500) : historyResponse([]));
+      }
+      return Promise.resolve(jsonResponse({}, 404));
+    });
+    renderOverview('/app?date=2026-10-18', fetcher, 'ar', false);
+
+    expect(await screen.findByText('تعذر تحميل حالة الملاحظة')).toBeInTheDocument();
+    const activity = screen.getByRole('region', { name: 'النشاط الأخير' });
+    expect(within(activity).getByText('ملاحظة')).toBeInTheDocument();
+    expect(within(activity).getByText(recipientFixture.name).closest('bdi')).toHaveTextContent(recipientFixture.name);
+  });
+});
+
+describe('dashboard regression coverage gaps', () => {
+  it('counts archived and legacy-inactive recipients in selected-date totals', () => {
+    const fetcher = vi.fn();
+    vi.stubGlobal('fetch', fetcher);
+    render(<I18nProvider><OverviewKpis state={{ status: 'ready', data: [
+      { recipient: recipientFixture, note: noteListFixture, status: 'recorded' },
+      { recipient: inactive, note: null, status: 'missing' },
+      { recipient: legacyInactive, note: null, status: 'missing' },
+      { recipient: missing, note: null, status: 'missing' },
+    ] }} /></I18nProvider>);
+
+    expect(kpiValue('Recipients shown')).toBe('4');
+    expect(kpiValue('Notes recorded')).toBe('1');
+    expect(kpiValue('Not yet recorded')).toBe('3');
+    expect(fetcher).not.toHaveBeenCalled();
+  });
+
+  it('keeps a verified recorded card intact when retrying another recipient status', async () => {
+    let retrySucceeded = false;
+    const fetcher = vi.fn().mockImplementation((path: string) => {
+      if (path === '/api/recipients') return Promise.resolve(jsonResponse([recipientFixture, missing]));
+      const query = new URL(path, 'http://localhost').searchParams;
+      if (query.get('page') === '0') {
+        return Promise.resolve(historyResponse([noteListFixture], 0, retrySucceeded ? 1 : 101, retrySucceeded ? 1 : 2));
+      }
+      return Promise.resolve(retrySucceeded ? historyResponse([], 0, 0, 0) : jsonResponse({ message: 'private diagnostics' }, 500));
+    });
+    renderOverview('/app?date=2026-10-18', fetcher);
+
+    const failedCard = await screen.findByRole('heading', { name: missing.name, level: 3 }).then((heading) => heading.closest('tr'));
+    expect(await screen.findByRole('link', { name: `${recipientFixture.name} Open note` })).toHaveAttribute('href', `/app/notes/${noteFixture.id}`);
+    expect(failedCard).toHaveTextContent('Note status unavailable');
+    expect(failedCard).not.toHaveTextContent('No note recorded');
+
+    retrySucceeded = true;
+    await userEvent.click(within(failedCard as HTMLElement).getByRole('button', { name: `${missing.name} Retry` }));
+    expect(await screen.findByText('No note recorded', { exact: true })).toBeInTheDocument();
+    expect(screen.getByRole('link', { name: `${recipientFixture.name} Open note` })).toHaveAttribute('href', `/app/notes/${noteFixture.id}`);
+    expect(screen.getByRole('heading', { name: recipientFixture.name, level: 3 })).toBeInTheDocument();
+  });
+
+  it('aborts in-flight overview, month-to-date, and activity requests on unmount', async () => {
+    const pending = new Map<string, { signal: AbortSignal | null | undefined; resolve: (response: Response) => void }>();
+    const fetcher = vi.fn().mockImplementation((path: string, init?: RequestInit) => {
+      let key: string | null = null;
+      if (path.startsWith('/api/activity?')) key = 'activity';
+      else if (path.startsWith('/api/notes?')) {
+        const query = new URL(path, 'http://localhost').searchParams;
+        key = query.get('from') === '2026-10-01' ? 'month' : 'overview';
+      } else if (path === '/api/recipients') return Promise.resolve(jsonResponse([recipientFixture]));
+      if (key) return new Promise<Response>((resolve) => pending.set(key!, { signal: init?.signal, resolve }));
+      return Promise.resolve(jsonResponse({}, 404));
+    });
+    const view = renderOverview('/app?date=2026-10-18', fetcher, 'en', false);
+
+    await waitFor(() => expect(pending.size).toBe(3));
+    view.unmount();
+    for (const request of pending.values()) expect(request.signal?.aborted).toBe(true);
+    await act(async () => {
+      pending.get('activity')?.resolve(jsonResponse([]));
+      pending.get('month')?.resolve(historyResponse([]));
+      pending.get('overview')?.resolve(historyResponse([]));
+      await Promise.resolve();
+    });
+    expect(view.container).toBeEmptyDOMElement();
+  });
+
+  it('makes no dashboard requests before caregiver authentication', () => {
+    const fetcher = vi.fn();
+    vi.stubGlobal('fetch', fetcher);
+    sessionStorage.removeItem('caregiver-auth-session-v1');
+    localStorage.setItem('caregiver-language', 'en');
+    render(<I18nProvider><ApiProvider config={{ apiBaseUrl: '' }}><AuthProvider>
+      <MemoryRouter initialEntries={['/app?date=2026-10-18']}><App /></MemoryRouter>
+    </AuthProvider></ApiProvider></I18nProvider>);
+
+    expect(screen.getByRole('heading', { name: 'Caregiver sign in' })).toBeVisible();
     expect(fetcher).not.toHaveBeenCalled();
   });
 });

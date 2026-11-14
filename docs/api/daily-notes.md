@@ -6,6 +6,8 @@ POST /api/notes; optional Idempotency-Key header. JSON requires recipientId and 
 GET /api/notes/{id}; GET /api/notes/by-recipient/{recipientId}?date=YYYY-MM-DD. Detail reads return the immutable original note plus an `addenda` array in chronological order and `addendumCount`. History pages include `addendumCount` and `correctionCount`, not event bodies.
 ## History
 GET /api/notes?from=YYYY-MM-DD&to=YYYY-MM-DD&recipientId=<optional UUID>&page=0&size=20. Inclusive dates; newest first with stable ID tiebreaker; page size max 100; addendum and structured-correction counts included, not bodies. Filtering by a recipient that is not owned returns an empty page (no existence leak).
+
+GET /api/activity?limit=10 returns recent note, addendum, and correction activity metadata as `{id, kind, recipientId, createdAt}`. The authenticated caregiver is resolved server-side; the limit must be 1–20. The server performs bounded caregiver-filtered reads from each event source, merges them, and returns at most `limit` entries sorted by timestamp descending, ID descending, then kind ascending. No content/body fields are returned.
 ## Addenda
 POST /api/notes/{id}/addenda with optional Idempotency-Key; corrections append only and never modify original note. An addendum must correct at least one field (empty `{}` is rejected). GET /api/notes/{id}/addenda returns addenda ordered by creation time, with ID as a stable tiebreaker.
 These existing records remain compatible and are not automatically reclassified as structured events.
@@ -59,5 +61,19 @@ GET /api/notes/signals?recipientId=<UUID>&from=YYYY-MM-DD&to=YYYY-MM-DD. Chronol
 History is never rewritten: the original note and every addendum stay persisted. The interpreted signal, however, must not present uncertain information as a confirmed fact. When the combined same-day history contains both TAKEN and MISSED, the signal collapses to `missedMedication=null` with `medicationUnverified=true`, symmetrically in both directions (MISSED→TAKEN and TAKEN→MISSED corrections). A bare UNKNOWN report only leaves the state unverified. Downstream safety rules must treat `medicationUnverified=true` as "do not assert".
 ## Auditing
 Successful writes record audit events in the same transaction: NOTE_CREATED (target DAILY_NOTE), NOTE_ADDENDUM_CREATED (target NOTE_ADDENDUM), and NOTE_CORRECTION_CREATED (target NOTE_CORRECTION_BATCH). Metadata carries identifiers and event count only; observation values and free-text contents are never written to audit logs.
+## Recommended observation values
+
+| Field | Codes |
+|---|---|
+| `mood` | `CALM`, `HAPPY`, `ANXIOUS`, `AGITATED`, `SAD`, `CONFUSED` |
+| `appetite` | `GOOD`, `FAIR`, `POOR`, `REFUSED` |
+| `sleep` | `SLEPT_WELL`, `RESTLESS`, `POOR`, `DID_NOT_SLEEP` |
+| `mobility` | `INDEPENDENT`, `NEEDS_ASSISTANCE`, `BEDRIDDEN` |
+| `medicationStatus` | `TAKEN`, `MISSED` |
+| `fallReported` | `true` or `false` |
+| `painScore` | integers `0` to `10` |
+
+These are recommended values, not an enforced enum. The backend still accepts any string up to 40 characters for the string fields, and values outside this table are stored verbatim. `UNKNOWN` is an observation state, never a value. A value of `UNKNOWN` is not the same as the `UNKNOWN` state. The web app sends an explicit `NOT_RECORDED` for untouched fields when creating a note, and the backend stores `NOT_RECORDED` the same as an omitted field. A `painScore` must be a whole number from `0` to `10` inclusive; `0` is a real recorded value, not a blank. A `fallReported` uses real booleans; `false` is a real recorded value, not a blank. `POOR`, `LOW`, `POOR_APPETITE`, and `REFUSED` count as poor appetite. `GOOD`, `FAIR`, and `NORMAL` count as not poor. Any other appetite value is treated as unknown and is not counted either way.
+
 ## Errors
 All error bodies use `{timestamp, status, code, message}` (plus `fields` for body validation). Validation errors: 400 VALIDATION_ERROR with field details. Invalid requests: 400 INVALID_REQUEST. Missing query parameters: 400 MISSING_PARAMETER. Malformed UUIDs/dates: 400 INVALID_PARAMETER. Inaccessible resources: 404 NOT_FOUND. Duplicate recipient/date: 409 NOTE_CONFLICT. Key reuse with a different payload: 409 IDEMPOTENCY_CONFLICT. Authentication failures: 401 UNAUTHORIZED (never folded into validation errors). Unexpected failures: 500 SERVER_ERROR without stack traces. Never expose other caregivers' data.

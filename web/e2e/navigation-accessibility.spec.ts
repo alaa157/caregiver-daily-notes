@@ -1,5 +1,6 @@
 import { expect, test } from '@playwright/test';
 import { testToken } from '../src/tests/authFixtures';
+import { expectNoAxeViolations, settlePage } from './accessibility';
 
 for (const language of ['en', 'ar'] as const) {
   const ar = language === 'ar';
@@ -21,6 +22,20 @@ for (const language of ['en', 'ar'] as const) {
     { name: labels.notes, href: '/app/notes/new' },
     { name: labels.history, href: '/app/notes' },
   ];
+
+  test(`landing route axe scan covers all widths (${language})`, async ({ page }) => {
+    await page.addInitScript((locale) => localStorage.setItem('caregiver-language', locale), language);
+    for (const width of [1280, 1000, 768, 540, 390, 320]) {
+      await page.setViewportSize({ width, height: 900 });
+      await page.goto('/');
+      await expect(page.locator('html')).toHaveAttribute('lang', language);
+      await expect(page.locator('html')).toHaveAttribute('dir', ar ? 'rtl' : 'ltr');
+      await settlePage(page);
+      await expectNoAxeViolations(page, `landing at ${width}px (${language})`);
+      const hasHorizontalOverflow = await page.evaluate(() => document.documentElement.scrollWidth > window.innerWidth);
+      expect(hasHorizontalOverflow, `horizontal overflow at ${width}px (${language})`).toBe(false);
+    }
+  });
 
   test(`authenticated navigation remains semantic, keyboard usable, and responsive (${language})`, async ({ page }) => {
     await page.addInitScript(({ locale, jwt }) => {

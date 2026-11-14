@@ -1,4 +1,18 @@
 .notes-page { padding-block: clamp(2rem, 5vw, 4rem); max-width: 1040px; }
+.note-drawer-backdrop { position: fixed; inset: 0; z-index: 1000; display: grid; justify-items: end; background: rgb(17 29 22 / 55%); }
+.note-drawer { inline-size: min(100%, 760px); block-size: 100%; overflow-y: auto; overscroll-behavior: contain; box-sizing: border-box; padding: clamp(1rem, 4vw, 2.5rem); background: var(--color-background, #fff); box-shadow: 0 0 2rem rgb(0 0 0 / 20%); }
+.note-drawer .notes-heading h1 { font-size: clamp(1.5rem, 4vw, 2.25rem); }
+.note-drawer .note-surface { margin-block-end: 0; }
+.note-drawer :focus-visible { outline: 3px solid var(--color-outline); outline-offset: 3px; }
+[dir='rtl'] .note-drawer-backdrop { justify-items: start; }
+@media (prefers-reduced-motion: no-preference) {
+  .note-drawer { animation: note-drawer-enter .18s ease-out; }
+  [dir='rtl'] .note-drawer { animation-name: note-drawer-enter-rtl; }
+}
+@keyframes note-drawer-enter { from { transform: translateX(1rem); opacity: .7; } to { transform: translateX(0); opacity: 1; } }
+@keyframes note-drawer-enter-rtl { from { transform: translateX(-1rem); opacity: .7; } to { transform: translateX(0); opacity: 1; } }
+@media (max-width: 600px) { .note-drawer { padding: 1rem; } .note-drawer .notes-heading { gap: .75rem; } }
+@media (forced-colors: active) { .note-drawer { border-inline-start: 1px solid CanvasText; } .note-drawer-backdrop { background: Canvas; } }
 .notes-heading { display: flex; flex-wrap: wrap; align-items: start; justify-content: space-between; gap: 1.25rem; margin-block-end: 2rem; }
 .notes-heading > div { flex: 1 1 28rem; min-width: 0; }
 .notes-heading h1 { font-size: clamp(1.9rem, 4vw, 3rem); line-height: 1.2; margin-block: .5rem 1rem; }
@@ -61,6 +75,12 @@
 .effective-observation-source { display: block; inline-size: fit-content; margin-block-start: .35rem; overflow-wrap: anywhere; }
 .correction-event-anchor { display: block; inline-size: 0; block-size: 0; }
 .note-timeline { min-width: 0; }
+.note-detail-grid { display: grid; grid-template-columns: minmax(0, .9fr) minmax(0, 1.1fr); align-items: start; gap: 1.5rem; min-width: 0; }
+.note-detail-original, .note-detail-secondary { min-width: 0; }
+.note-detail-original { margin-block-end: 0; }
+.note-detail-secondary > .note-surface { margin-block-end: 0; }
+.note-readonly-lock { display: flex; align-items: center; gap: .55rem; margin: 0; padding-block-end: .85rem; border-block-end: 1px solid var(--caregiver-border); color: var(--caregiver-primary); font-weight: 650; line-height: 1.5; }
+.note-readonly-lock svg { inline-size: 1.2rem; block-size: 1.2rem; flex: 0 0 auto; fill: none; stroke: currentColor; stroke-width: 1.8; stroke-linecap: round; stroke-linejoin: round; }
 .note-timeline-row { min-width: 0; padding-block: var(--space-md); border-block-end: 1px solid var(--caregiver-border); overflow-wrap: anywhere; }
 .note-timeline-row__header { display: flex; align-items: start; justify-content: space-between; gap: var(--space-sm) var(--space-md); flex-wrap: wrap; margin-block-end: var(--space-sm); }
 .note-timeline-row__identity { display: grid; gap: var(--space-xs); min-width: 0; }
@@ -80,6 +100,7 @@
 .history-original summary { cursor: pointer; min-height: var(--size-touch-target); display: flex; align-items: center; color: var(--caregiver-primary); font-weight: 600; }
 @media (max-width: 600px) { .correction-editor-fields, .correction-event-values { grid-template-columns: minmax(0, 1fr); } }
 @media (max-width: 600px) { .note-grid, .note-values { grid-template-columns: minmax(0, 1fr); } .note-surface { border-radius: 12px; } .note-actions .button { flex: 1 1 12rem; } }
+@media (max-width: 900px) { .note-detail-grid { grid-template-columns: minmax(0, 1fr); gap: 0; } .note-detail-original { margin-block-end: 1.5rem; } }
 
 /* Observation state editor & display (Issue #67) */
 .obs-field {

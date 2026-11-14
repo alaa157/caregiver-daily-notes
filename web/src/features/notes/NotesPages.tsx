@@ -30,7 +30,14 @@ export function CreateNotePage() {
   const api = useNotesApis();
   const navigate = useNavigate();
   const location = useLocation();
+  const dialogRef = useRef<HTMLElement>(null);
+  const dirtyRef = useRef(false);
+  const closeRef = useRef<() => void>(() => undefined);
+  const returnFocusRef = useRef(document.activeElement instanceof HTMLElement ? document.activeElement : null);
+  const backgroundLocation = (location.state as { backgroundLocation?: unknown } | null)?.backgroundLocation;
   const params = new URLSearchParams(location.search);
+  const formKeyParams = new URLSearchParams(params);
+  formKeyParams.delete('date');
   const requestedRecipient = params.get('recipientId');
   const initialRecipientId = requestedRecipient && isRecipientId(requestedRecipient) ? requestedRecipient : undefined;
   const requestedDate = params.get('date');
@@ -39,19 +46,70 @@ export function CreateNotePage() {
   const { state, reload } = useNoteResource(load);
   const cancelTo = initialRecipientId && state.status === 'ready' && state.data.some((recipient) => recipient.id === initialRecipientId && recipient.active)
     ? `/app/recipients/${encodeURIComponent(initialRecipientId)}` : '/app';
-  return <NotesLayout title={t('notesCreate')} description={t('notesCreateDescription')}>
+  closeRef.current = () => {
+    if (dirtyRef.current && !window.confirm(t('notesDiscardDraft'))) return;
+    if (backgroundLocation) navigate(-1);
+    else navigate(cancelTo);
+  };
+  const requestClose = () => closeRef.current();
+  useEffect(() => {
+    const dialog = dialogRef.current;
+    const first = dialog?.querySelector<HTMLElement>('button, a[href], input:not([disabled]), select:not([disabled]), textarea:not([disabled])');
+    first?.focus();
+    const onKeyDown = (event: KeyboardEvent) => {
+      if (event.key === 'Escape') { event.preventDefault(); requestClose(); return; }
+      if (event.key !== 'Tab' || !dialog) return;
+      const items = Array.from(dialog.querySelectorAll<HTMLElement>('button:not([disabled]), a[href], input:not([disabled]), select:not([disabled]), textarea:not([disabled]), [tabindex]:not([tabindex="-1"])'));
+      if (!items.length) { event.preventDefault(); return; }
+      if (event.shiftKey && document.activeElement === items[0]) { event.preventDefault(); items.at(-1)?.focus(); }
+      else if (!event.shiftKey && document.activeElement === items.at(-1)) { event.preventDefault(); items[0]?.focus(); }
+    };
+    document.addEventListener('keydown', onKeyDown);
+    const previousOverflow = document.body.style.overflow;
+    const background = backgroundLocation ? document.querySelector<HTMLElement>('.app-layout') : null;
+    const previousInert = background?.inert ?? false;
+    const previousAriaHidden = background?.getAttribute('aria-hidden');
+    if (background && !background.contains(dialog)) {
+      background.inert = true;
+      background.setAttribute('aria-hidden', 'true');
+    }
+    document.body.style.overflow = 'hidden';
+    return () => {
+      document.removeEventListener('keydown', onKeyDown);
+      document.body.style.overflow = previousOverflow;
+      if (background) {
+        background.inert = previousInert;
+        if (previousAriaHidden) background.setAttribute('aria-hidden', previousAriaHidden);
+        else background.removeAttribute('aria-hidden');
+      }
+      if (backgroundLocation) window.setTimeout(() => returnFocusRef.current?.focus(), 0);
+    };
+  }, [Boolean(backgroundLocation)]);
+  return <div className="note-drawer-backdrop" onMouseDown={(event) => {
+    if (event.target === event.currentTarget) requestClose();
+  }}>
+    <section ref={dialogRef} className="note-drawer" role="dialog" aria-modal="true" aria-labelledby="notes-heading" aria-describedby="notes-drawer-description">
+    <header className="notes-heading"><div><p className="eyebrow">{t('dashboardTitle')}</p><h1 id="notes-heading">{t('notesCreate')}</h1><p id="notes-drawer-description">{t('notesCreateDescription')}</p></div>
+      <Button variant="secondary" onClick={requestClose}>{t('notesCancel')}</Button></header>
     {state.status === 'loading' && <LoadingState label={t('notesLoading')} />}
     {state.status === 'error' && <ErrorState description={t(noteErrorMessage(state.error))} onRetry={reload} />}
     {state.status === 'ready' && (state.data.length === 0 ? <div className="note-surface"><EmptyState title={t('notesNoRecipients')} description={t('notesNoRecipientsDescription')} />
       <ButtonLink to="/app/recipients">{t('recipientsTitle')}</ButtonLink></div>
-      : <div className="note-surface"><NoteForm key={location.search} mode="create" recipients={state.data} initialRecipientId={initialRecipientId} initialDate={initialDate} cancelTo={cancelTo} onSave={async (input, key, signal) => {
+      : <div className="note-surface" onInput={() => { dirtyRef.current = true; }} onChange={() => { dirtyRef.current = true; }} onClick={(event) => {
+        if ((event.target as HTMLElement).closest('a.button--text')) { event.preventDefault(); requestClose(); }
+      }}><NoteForm key={formKeyParams.toString()} mode="create" recipients={state.data} initialRecipientId={initialRecipientId} initialDate={initialDate} cancelTo={cancelTo} onSave={async (input, key, signal) => {
         const note = await api.notes.create(input as CreateNoteInput, key, signal);
-        if (!signal.aborted) navigate(`${notesPath}/${note.id}`, { replace: true, state: { noteNotice: 'created' } });
+        if (!signal.aborted) {
+          window.dispatchEvent(new Event('care-note-created'));
+          navigate(`${notesPath}/${note.id}`, { replace: true, state: { noteNotice: 'created' } });
+        }
       }} onOpen={async (recipientId, date, signal) => {
         const note = await api.notes.find(recipientId, date, signal);
         if (!signal.aborted) navigate(`${notesPath}/${note.id}`);
-      }} /></div>)}
-  </NotesLayout>;
+      }} />
+      </div>)}
+    </section>
+  </div>;
 }
 
 type TimelineEntry =
@@ -101,7 +159,7 @@ function NoteChangesTimeline({
   const titleId = `note-changes-title-${id}`;
 
   return <section className="note-surface note-structured-corrections" aria-labelledby={titleId}>
-    <div className="note-actions"><h2 id={titleId}>{t('notesChanges')}</h2>
+    <div className="note-actions"><h2 id={titleId}>{t('notesCorrectionTimeline')}</h2>
       {recipientActive && !editing && <Button onClick={onEdit}>{t('notesAddStructuredCorrection')}</Button>}
       {!recipientActive && <p className="note-hint">{t(lifecycleStatus === 'ARCHIVED' ? 'recipientArchivedReadonly' : 'recipientLegacyReviewDescription')}</p>}
       {recipientActive && <ButtonLink to={`${notesPath}/${id}/addenda/new`}>{t('notesAppend')}</ButtonLink>}
@@ -168,36 +226,47 @@ function NoteRecord({ id, append }: { id: string; append: boolean }) {
     {state.status === 'error' && <ErrorState description={t(noteErrorMessage(state.error))} onRetry={reload} />}
     {state.status === 'ready' && <>
       {!append && noticeKey && <p ref={noticeRef} tabIndex={-1} role="status" className="note-success">{t(noticeKey)}</p>}
-      <section className="note-timeline" aria-label={t('notesImmutable')}>
-        <NoteTimelineRow
-          entryLabel={t('notesImmutable')}
-          dateLabel={date(state.data.note.date)}
-          dateTime={state.data.note.date}
-          metadata={<Link to={`/app/recipients/${encodeURIComponent(state.data.recipient.id)}`}><bdi>{state.data.recipient.name}</bdi></Link>}
-          provenance={<>{t('notesRecordedAt')}: <time dateTime={state.data.note.createdAt} dir="auto">{date(state.data.note.createdAt, true)}</time> · {t('notesTimelineSourceId')}: <bdi>{state.data.note.id}</bdi></>}
-          body={<ObservationValues values={state.data.note.observations} />}
-        />
-      </section>
-      {append && !state.data.recipient.active
-        ? <p className="note-notice" role="status">{t(state.data.recipient.lifecycleStatus === 'ARCHIVED' ? 'recipientArchivedReadonly' : 'recipientLegacyReviewDescription')}</p>
-        : append ? <div className="note-surface"><NoteForm mode="append" cancelTo={`${notesPath}/${id}`} onSave={async (input, key, signal) => {
-          await api.notes.append(id, input as AddendumInput, key, signal);
-          if (!signal.aborted) navigate(`${notesPath}/${id}`, { replace: true, state: { noteNotice: 'appended' } });
-        }} /></div> : <>
-      <NoteChangesTimeline
-        id={id}
-        recipientActive={state.data.recipient.active}
-        lifecycleStatus={state.data.recipient.lifecycleStatus}
-        editing={editingCorrection}
-        onEdit={() => setEditingCorrection(true)}
-        onCancel={() => setEditingCorrection(false)}
-        onSaved={() => {
-          setEditingCorrection(false);
-          navigate(`${notesPath}/${id}`, { replace: true, state: { noteNotice: 'correctionSaved' } });
-        }}
-        date={date}
-      />
-      </>}
+      <div className="note-detail-grid">
+        <section className="note-surface note-detail-original" aria-label={t('notesImmutable')}>
+          <p className="note-readonly-lock">
+            <svg aria-hidden="true" focusable="false" viewBox="0 0 24 24">
+              <rect x="4" y="10" width="16" height="11" rx="2" />
+              <path d="M8 10V7a4 4 0 0 1 8 0v3m-4 5v2" />
+            </svg>
+            <span>{t('notesReadOnlyLock')}</span>
+          </p>
+          <div className="note-timeline">
+            <NoteTimelineRow
+              entryLabel={t('notesImmutable')}
+              dateLabel={date(state.data.note.date)}
+              dateTime={state.data.note.date}
+              metadata={<Link to={`/app/recipients/${encodeURIComponent(state.data.recipient.id)}`}><bdi>{state.data.recipient.name}</bdi></Link>}
+              provenance={<>{t('notesRecordedAt')}: <time dateTime={state.data.note.createdAt} dir="auto">{date(state.data.note.createdAt, true)}</time> · {t('notesTimelineSourceId')}: <bdi>{state.data.note.id}</bdi></>}
+              body={<ObservationValues values={state.data.note.observations} />}
+            />
+          </div>
+        </section>
+        <div className="note-detail-secondary">
+          {append && !state.data.recipient.active
+            ? <p className="note-notice" role="status">{t(state.data.recipient.lifecycleStatus === 'ARCHIVED' ? 'recipientArchivedReadonly' : 'recipientLegacyReviewDescription')}</p>
+            : append ? <div className="note-surface"><NoteForm mode="append" cancelTo={`${notesPath}/${id}`} onSave={async (input, key, signal) => {
+              await api.notes.append(id, input as AddendumInput, key, signal);
+              if (!signal.aborted) navigate(`${notesPath}/${id}`, { replace: true, state: { noteNotice: 'appended' } });
+            }} /></div> : <NoteChangesTimeline
+              id={id}
+              recipientActive={state.data.recipient.active}
+              lifecycleStatus={state.data.recipient.lifecycleStatus}
+              editing={editingCorrection}
+              onEdit={() => setEditingCorrection(true)}
+              onCancel={() => setEditingCorrection(false)}
+              onSaved={() => {
+                setEditingCorrection(false);
+                navigate(`${notesPath}/${id}`, { replace: true, state: { noteNotice: 'correctionSaved' } });
+              }}
+              date={date}
+            />}
+        </div>
+      </div>
     </>}
   </NotesLayout>;
 }

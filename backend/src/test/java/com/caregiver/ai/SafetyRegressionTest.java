@@ -6,6 +6,7 @@ import com.caregiver.common.NoteObservations;
 import com.caregiver.common.NoteSignals;
 import com.caregiver.common.Observation;
 import com.caregiver.common.ObservationState;
+import com.caregiver.common.Severity;
 import com.caregiver.common.VerificationState;
 import com.caregiver.notes.DailyNote;
 import com.caregiver.notes.DailyNoteRepository;
@@ -165,6 +166,66 @@ class SafetyRegressionTest {
     }
   }
 
+  @Test
+  void notAssertedMissedMedicationFiresSafetySignalAndTrend() {
+    var signals = signalsThroughProductionConversion(
+        medicationObservations("MISSED", VerificationState.NOT_ASSERTED), 2);
+
+    var evaluation = safetyEvaluator.evaluate(signals, END, 7);
+    assertThat(evaluation.signals()).singleElement().satisfies(signal -> {
+      assertThat(signal.ruleId()).isEqualTo(SafetyRuleId.REPEATED_MISSED_MED);
+      assertThat(signal.severity()).isEqualTo(Severity.HIGH);
+    });
+
+    var missedTrend = new TrendCalculator().computeTrends(signals, List.of()).stream()
+        .filter(trend -> trend.metric().equals("MISSED_MED_COUNT"))
+        .findFirst().orElseThrow();
+    assertThat(missedTrend.currentCount()).isEqualTo(2);
+    assertThat(missedTrend.currentSampleSize()).isEqualTo(2);
+  }
+
+  @Test
+  void notAssertedMissedAndTakenMedicationCountAsTwoSamplesAndOneMiss() {
+    var signals = signalsThroughProductionConversion(List.of(
+        medicationObservations("MISSED", VerificationState.NOT_ASSERTED),
+        medicationObservations("TAKEN", VerificationState.NOT_ASSERTED)));
+
+    var missedTrend = new TrendCalculator().computeTrends(signals, List.of()).stream()
+        .filter(trend -> trend.metric().equals("MISSED_MED_COUNT"))
+        .findFirst().orElseThrow();
+    assertThat(missedTrend.currentCount()).isEqualTo(1);
+    assertThat(missedTrend.currentSampleSize()).isEqualTo(2);
+  }
+
+  @Test
+  void unverifiedMissedMedicationDoesNotFireOrEnterTrendSample() {
+    var signals = signalsThroughProductionConversion(
+        medicationObservations("MISSED", VerificationState.UNVERIFIED), 2);
+
+    assertThat(signals).allSatisfy(note -> assertThat(note.missedMedication()).isNull());
+    assertThat(safetyEvaluator.evaluate(signals, END, 7).signals())
+        .extracting(SafetySignal::ruleId).doesNotContain(SafetyRuleId.REPEATED_MISSED_MED);
+
+    var missedTrend = new TrendCalculator().computeTrends(signals, List.of()).stream()
+        .filter(trend -> trend.metric().equals("MISSED_MED_COUNT"))
+        .findFirst().orElseThrow();
+    assertThat(missedTrend.currentCount()).isZero();
+    assertThat(missedTrend.currentSampleSize()).isZero();
+  }
+
+  private static NoteObservations medicationObservations(String status, VerificationState verification) {
+    return new NoteObservations(
+        Observation.state(ObservationState.NOT_RECORDED),
+        Observation.state(ObservationState.NOT_RECORDED),
+        Observation.state(ObservationState.NOT_RECORDED),
+        Observation.state(ObservationState.NOT_RECORDED),
+        Observation.recorded(status),
+        Observation.state(ObservationState.NOT_RECORDED),
+        Observation.state(ObservationState.NOT_RECORDED),
+        Observation.state(ObservationState.NOT_RECORDED),
+        verification);
+  }
+
   private static NoteObservations recordedObservations(boolean fall, int pain) {
     return new NoteObservations(
         Observation.state(ObservationState.NOT_RECORDED),
@@ -208,15 +269,20 @@ class SafetyRegressionTest {
 
   private static List<NoteSignals> signalsThroughProductionConversion(
       NoteObservations first, int noteCount) {
+    return signalsThroughProductionConversion(
+        java.util.stream.IntStream.range(0, noteCount).mapToObj(index -> first).toList());
+  }
+
+  private static List<NoteSignals> signalsThroughProductionConversion(List<NoteObservations> observations) {
     UUID caregiverId = UUID.randomUUID();
     UUID recipientId = UUID.randomUUID();
     var recipient = mock(CareRecipient.class);
     when(recipient.getId()).thenReturn(recipientId);
 
-    List<DailyNote> dailyNotes = java.util.stream.IntStream.range(0, noteCount)
+    List<DailyNote> dailyNotes = java.util.stream.IntStream.range(0, observations.size())
         .mapToObj(index -> {
           var note = new DailyNote(
-              mock(Caregiver.class), recipient, END.minusDays(index), first, true, null);
+              mock(Caregiver.class), recipient, END.minusDays(index), observations.get(index), true, null);
           ReflectionTestUtils.setField(note, "id", UUID.randomUUID());
           return note;
         })

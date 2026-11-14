@@ -133,9 +133,9 @@ describe('application foundation', () => {
     expect(screen.getByRole('heading', { level: 1, name: 'Better records. More thoughtful care.' })).toBeInTheDocument();
     expect(screen.getByRole('link', { name: 'Continue to sign in' })).toHaveAttribute('href', '/login');
   });
-  it('protects the dashboard without an authenticated session', () => {
+  it('protects the dashboard without an authenticated session', async () => {
     renderRoute('/app');
-    expect(screen.getByRole('heading', { name: 'Caregiver sign in' })).toBeInTheDocument();
+    expect(await screen.findByRole('heading', { name: 'Caregiver sign in' })).toBeInTheDocument();
     expect(screen.queryByRole('heading', { name: 'Caregiver workspace' })).not.toBeInTheDocument();
   });
   it('switches language and document direction to Arabic and back', async () => {
@@ -155,10 +155,10 @@ describe('application foundation', () => {
     expect(screen.getByText('No items yet')).toBeInTheDocument();
     expect(screen.getByText('This field is required.')).toHaveAttribute('id', 'field-error');
   });
-  it('renders the sign-in form and a return link', () => {
+  it('renders the sign-in form and a return link', async () => {
     renderRoute('/login');
 
-    expect(screen.getByRole('heading', { level: 1, name: 'Caregiver sign in' })).toBeInTheDocument();
+    expect(await screen.findByRole('heading', { level: 1, name: 'Caregiver sign in' })).toBeInTheDocument();
     expect(screen.getByRole('textbox', { name: 'Email address' })).toBeInTheDocument();
     expect(screen.getByLabelText('Password')).toHaveAttribute('autocomplete', 'current-password');
     expect(screen.getByRole('link', { name: 'Return home' })).toHaveAttribute('href', '/');

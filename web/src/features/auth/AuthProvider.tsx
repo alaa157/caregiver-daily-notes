@@ -7,6 +7,7 @@ interface AuthValue {
   status: AuthStatus;
   reason: SessionReason;
   login: (email: string, password: string, signal?: AbortSignal) => Promise<void>;
+  register: (email: string, password: string, signal?: AbortSignal) => Promise<void>;
   logout: () => void;
 }
 const AuthContext = createContext<AuthValue | null>(null);
@@ -60,6 +61,13 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     };
   }, [state.session, clearSession]);
 
+  const completeSignIn = useCallback((token: string) => {
+    const session = parseSession(token);
+    sessionRef.current = session;
+    storeSession(session, publicApi.baseUrl);
+    setState({ session, reason: null });
+  }, [publicApi]);
+
   const login = useCallback(async (email: string, password: string, signal?: AbortSignal) => {
     pendingLogin.current?.abort();
     const controller = new AbortController();
@@ -74,15 +82,33 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       });
       if (controller.signal.aborted || generation.current !== attempt || !mounted.current) throw cancelled();
       if (typeof response !== 'object' || response === null || !('token' in response)) throw new Error('Invalid authentication response.');
-      const session = parseSession(response.token);
-      sessionRef.current = session;
-      storeSession(session, publicApi.baseUrl);
-      setState({ session, reason: null });
+      completeSignIn(response.token as string);
     } finally {
       signal?.removeEventListener('abort', abort);
       if (pendingLogin.current === controller) pendingLogin.current = null;
     }
-  }, [publicApi]);
+  }, [publicApi, completeSignIn]);
+
+  const register = useCallback(async (email: string, password: string, signal?: AbortSignal) => {
+    pendingLogin.current?.abort();
+    const controller = new AbortController();
+    pendingLogin.current = controller;
+    const attempt = ++generation.current;
+    const abort = () => controller.abort();
+    signal?.addEventListener('abort', abort, { once: true });
+    if (signal?.aborted) controller.abort();
+    try {
+      const response = await publicApi.request<unknown, { email: string; password: string }>({
+        path: '/api/auth/register', method: 'POST', body: { email: email.trim().toLowerCase(), password }, signal: controller.signal,
+      });
+      if (controller.signal.aborted || generation.current !== attempt || !mounted.current) throw cancelled();
+      if (typeof response !== 'object' || response === null || !('token' in response)) throw new Error('Invalid authentication response.');
+      completeSignIn(response.token as string);
+    } finally {
+      signal?.removeEventListener('abort', abort);
+      if (pendingLogin.current === controller) pendingLogin.current = null;
+    }
+  }, [publicApi, completeSignIn]);
 
   const authenticatedApi = useMemo<ApiClient>(() => ({
     baseUrl: publicApi.baseUrl,
@@ -113,6 +139,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     status: state.session ? 'authenticated' : 'anonymous',
     reason: state.reason,
     login,
+    register,
     logout: () => clearSession('signedOut'),
   };
   return <AuthContext.Provider value={value}><ApiClientProvider client={authenticatedApi}>{children}</ApiClientProvider></AuthContext.Provider>;

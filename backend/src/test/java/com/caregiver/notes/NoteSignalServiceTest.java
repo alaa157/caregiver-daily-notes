@@ -181,13 +181,13 @@ class NoteSignalServiceTest {
   }
 
   @Test
-  void unverifiedMedicationIsNeverAPositiveFact() throws Exception {
+  void notAssertedMedicationValuesRemainRecordedButUnverifiedValuesAreSuppressed() throws Exception {
     TestCaregiver owner = register("signal-unverified@example.com");
     String recipientId = createRecipient(owner.token());
     // TAKEN but explicitly unverified.
     createNote(owner.token(), recipientId, "2026-10-01",
         "{\"medicationStatus\":\"TAKEN\",\"medicationVerified\":false}");
-    // MISSED with no verification flag at all.
+    // NOT_ASSERTED does not negate a recorded value.
     createNote(owner.token(), recipientId, "2026-10-02", "{\"medicationStatus\":\"MISSED\"}");
     // Verification remains independent even when the observation is UNKNOWN.
     createNote(owner.token(), recipientId, "2026-10-03",
@@ -195,9 +195,9 @@ class NoteSignalServiceTest {
 
     JsonNode days = signals(owner.token(), recipientId, "2026-10-01", "2026-10-03");
     assertThat(days).hasSize(3);
-    for (JsonNode day : days) {
-      assertThat(day.get("missedMedication").isNull()).isTrue();
-    }
+    assertThat(days.get(0).get("missedMedication").isNull()).isTrue();
+    assertThat(days.get(1).get("missedMedication").asBoolean()).isTrue();
+    assertThat(days.get(2).get("missedMedication").isNull()).isTrue();
     assertThat(days.get(0).get("observations").get("medicationVerification").asText())
         .isEqualTo("UNVERIFIED");
     assertThat(days.get(0).get("medicationUnverified").asBoolean()).isTrue();
@@ -210,16 +210,20 @@ class NoteSignalServiceTest {
         .isEqualTo("UNKNOWN");
     assertThat(days.get(2).get("medicationUnverified").asBoolean()).isFalse();
 
-    // Verified MISSED is a positive fact; verified TAKEN is a negative one.
+    // NOT_ASSERTED TAKEN is the symmetric non-event; verified values remain unchanged.
     createNote(owner.token(), recipientId, "2026-10-04",
-        "{\"medicationStatus\":\"MISSED\",\"medicationVerified\":true}");
+        "{\"medicationStatus\":\"TAKEN\"}");
     createNote(owner.token(), recipientId, "2026-10-05",
+        "{\"medicationStatus\":\"MISSED\",\"medicationVerified\":true}");
+    createNote(owner.token(), recipientId, "2026-10-06",
         "{\"medicationStatus\":\"TAKEN\",\"medicationVerified\":true}");
-    JsonNode facts = signals(owner.token(), recipientId, "2026-10-04", "2026-10-05");
-    assertThat(facts.get(0).get("missedMedication").asBoolean()).isTrue();
+    JsonNode facts = signals(owner.token(), recipientId, "2026-10-04", "2026-10-06");
+    assertThat(facts.get(0).get("missedMedication").asBoolean()).isFalse();
     assertThat(facts.get(0).get("medicationUnverified").asBoolean()).isFalse();
-    assertThat(facts.get(1).get("missedMedication").asBoolean()).isFalse();
+    assertThat(facts.get(1).get("missedMedication").asBoolean()).isTrue();
     assertThat(facts.get(1).get("medicationUnverified").asBoolean()).isFalse();
+    assertThat(facts.get(2).get("missedMedication").asBoolean()).isFalse();
+    assertThat(facts.get(2).get("medicationUnverified").asBoolean()).isFalse();
   }
 
   @Test
@@ -327,6 +331,29 @@ class NoteSignalServiceTest {
     assertThat(days.get(1).get("painScore").asInt()).isEqualTo(10);
     assertThat(days.get(1).get("fallReported").asBoolean()).isTrue();
     assertThat(days.get(1).get("poorAppetite").asBoolean()).isTrue();
+  }
+
+  @Test
+  void refusedAppetiteCountsAsPoorAppetite() throws Exception {
+    TestCaregiver owner = register("signal-refused@example.com");
+    String recipientId = createRecipient(owner.token());
+    createNote(owner.token(), recipientId, "2026-10-13", "{\"appetite\":\"REFUSED\"}");
+    createNote(owner.token(), recipientId, "2026-10-14", "{\"appetite\":\"refused\"}");
+    createNote(owner.token(), recipientId, "2026-10-15", "{\"appetite\":\"GOOD\"}");
+    createNote(owner.token(), recipientId, "2026-10-16", "{\"appetite\":\"FAIR\"}");
+    createNote(owner.token(), recipientId, "2026-10-17", "{\"appetite\":\"NORMAL\"}");
+    createNote(owner.token(), recipientId, "2026-10-18", "{\"appetite\":\"MAYBE\"}");
+    createNote(owner.token(), recipientId, "2026-10-19", "{\"mood\":\"good\"}");
+
+    JsonNode days = signals(owner.token(), recipientId, "2026-10-13", "2026-10-19");
+    assertThat(days).hasSize(7);
+    assertThat(days.get(0).get("poorAppetite").asBoolean()).isTrue();
+    assertThat(days.get(1).get("poorAppetite").asBoolean()).isTrue();
+    assertThat(days.get(2).get("poorAppetite").asBoolean()).isFalse();
+    assertThat(days.get(3).get("poorAppetite").asBoolean()).isFalse();
+    assertThat(days.get(4).get("poorAppetite").asBoolean()).isFalse();
+    assertThat(days.get(5).get("poorAppetite").isNull()).isTrue();
+    assertThat(days.get(6).get("poorAppetite").isNull()).isTrue();
   }
 
   @Test

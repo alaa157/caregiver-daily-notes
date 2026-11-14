@@ -23,6 +23,11 @@
 .recipient-status--inactive { color: #596358; background: #f0f0e9; border-color: #d5d8cd; }
 .recipient-status--inactive .status-dot { background: #687064; }
 .recipient-surface { max-width: 760px; padding: clamp(22px, 4vw, 38px); }
+.recipient-tab-nav { display: flex; flex-wrap: wrap; gap: .5rem; padding-block: 1rem 0; border-block-end: 1px solid var(--color-border); }
+.recipient-tab { display: inline-flex; min-block-size: 44px; align-items: center; justify-content: center; padding: .6rem 1rem; border: 1px solid transparent; border-block-end-width: 3px; border-radius: 10px 10px 0 0; color: var(--color-muted); font-weight: 600; text-decoration: none; }
+.recipient-tab:hover { color: var(--color-ink); background: var(--color-surface); }
+.recipient-tab:focus-visible { outline: 3px solid var(--color-green); outline-offset: 2px; }
+.recipient-tab--active { color: var(--color-ink); border-color: var(--color-border); border-block-end-color: var(--color-green); background: var(--color-surface); }
 .recipient-record-heading { display: flex; align-items: flex-start; justify-content: space-between; gap: 18px; }
 .recipient-record-heading h2 { font-size: 28px; line-height: 1.5; overflow-wrap: anywhere; min-width: 0; }
 .recipient-details { display: grid; gap: 22px; margin-block: 28px 35px; }

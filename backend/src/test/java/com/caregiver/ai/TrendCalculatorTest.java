@@ -85,8 +85,8 @@ class TrendCalculatorTest {
   }
 
   @Test
-  @DisplayName("excludes unknown and unverified medication values from sample size")
-  void excludesUnknownAndUnverifiedMedicationValuesFromSampleSize() {
+  @DisplayName("excludes unknown and explicitly unverified medication values from sample size")
+  void excludesUnknownAndExplicitlyUnverifiedMedicationValuesFromSampleSize() {
     var trends = calculator.computeTrends(
         List.of(
             note(LocalDate.of(2026, 10, 1), null, null, true, false, null),
@@ -94,6 +94,19 @@ class TrendCalculatorTest {
             note(LocalDate.of(2026, 10, 3), null, null, true, true, null),
             note(LocalDate.of(2026, 10, 4), null, null, false, true, null),
             note(LocalDate.of(2026, 10, 5), null, null, null, false, null)),
+        List.of());
+
+    assertThat(trend(trends, "MISSED_MED_COUNT").currentCount()).isEqualTo(1);
+    assertThat(trend(trends, "MISSED_MED_COUNT").currentSampleSize()).isEqualTo(2);
+  }
+
+  @Test
+  @DisplayName("counts NOT_ASSERTED missed and taken values as distinct-day samples")
+  void countsNotAssertedMissedAndTakenValuesAsDistinctDaySamples() {
+    var trends = calculator.computeTrends(
+        List.of(
+            note(LocalDate.of(2026, 10, 1), null, null, true, false, null),
+            note(LocalDate.of(2026, 10, 2), null, null, false, false, null)),
         List.of());
 
     assertThat(trend(trends, "MISSED_MED_COUNT").currentCount()).isEqualTo(1);

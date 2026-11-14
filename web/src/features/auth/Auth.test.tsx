@@ -31,7 +31,7 @@ function renderApp(path = '/login', baseUrl = '', state?: unknown) {
 
 async function fillAndSubmit(email = 'caregiver@example.com', password = 'valid password') {
   const user = userEvent.setup();
-  await user.type(screen.getByLabelText('Email address'), email);
+  await user.type(await screen.findByLabelText('Email address'), email);
   await user.type(screen.getByLabelText('Password'), password);
   await user.click(screen.getByRole('button', { name: 'Sign in' }));
   return user;
@@ -48,7 +48,7 @@ describe('caregiver authentication', () => {
 
   it('validates required fields, focuses the first error, and makes no request', async () => {
     renderApp();
-    await userEvent.click(screen.getByRole('button', { name: 'Sign in' }));
+    await userEvent.click(await screen.findByRole('button', { name: 'Sign in' }));
     expect(screen.getByLabelText('Email address')).toHaveFocus();
     expect(screen.getByLabelText('Email address')).toHaveAccessibleDescription('Enter your email address.');
     expect(screen.getByLabelText('Password')).toHaveAccessibleDescription('Enter your password.');
@@ -133,7 +133,7 @@ describe('caregiver authentication', () => {
   it('restores a valid tab session, loads protected overview data, and protects the dashboard after logout', async () => {
     saveToken();
     const first = renderApp('/app');
-    expect(screen.getByRole('heading', { name: 'Caregiver workspace' })).toBeVisible();
+    expect(await screen.findByRole('heading', { name: 'Caregiver workspace' })).toBeVisible();
     await waitFor(() => expect(fetcher.mock.calls.some(([path]) => String(path).startsWith('/api/notes?'))).toBe(true));
     expect(fetcher.mock.calls.some(([path]) => path === '/api/recipients')).toBe(true);
     first.unmount();
@@ -151,7 +151,7 @@ describe('caregiver authentication', () => {
   it.each([testToken(-10), 'invalid-token'])('clears expired or malformed stored sessions under StrictMode', async (token) => {
     saveToken(token);
     renderApp('/app');
-    expect(screen.getByRole('heading', { name: 'Caregiver sign in' })).toBeVisible();
+    expect(await screen.findByRole('heading', { name: 'Caregiver sign in' })).toBeVisible();
     expect(screen.getByRole('alert')).toHaveTextContent('Your session has expired or is no longer valid.');
     expect(sessionStorage.getItem(SESSION_STORAGE_KEY)).toBeNull();
     expect(fetcher).not.toHaveBeenCalled();
@@ -160,7 +160,7 @@ describe('caregiver authentication', () => {
   it('does not send a stored token to a changed backend', async () => {
     saveToken(testToken(), 'https://previous.example');
     renderApp('/app', 'https://new.example');
-    expect(screen.getByRole('heading', { name: 'Caregiver sign in' })).toBeVisible();
+    expect(await screen.findByRole('heading', { name: 'Caregiver sign in' })).toBeVisible();
     expect(fetcher).not.toHaveBeenCalled();
     expect(sessionStorage.getItem(SESSION_STORAGE_KEY)).toBeNull();
   });
@@ -169,8 +169,12 @@ describe('caregiver authentication', () => {
     vi.useFakeTimers();
     saveToken(testToken(5));
     renderApp('/app');
+    await import('../overview/WorkspaceOverview');
+    await act(async () => { await Promise.resolve(); });
     expect(screen.getByRole('heading', { name: 'Caregiver workspace' })).toBeVisible();
     await act(async () => { vi.advanceTimersByTime(6000); });
+    await import('./LoginPage');
+    await act(async () => { await Promise.resolve(); });
     expect(screen.getByRole('heading', { name: 'Caregiver sign in' })).toBeVisible();
     expect(screen.getByRole('alert')).toHaveTextContent('Your session has expired');
     expect(sessionStorage.getItem(SESSION_STORAGE_KEY)).toBeNull();
@@ -191,7 +195,7 @@ describe('caregiver authentication', () => {
     saveToken();
     fetcher.mockResolvedValue(jsonResponse({ code: 'FORBIDDEN' }, 403));
     renderApp('/app');
-    await userEvent.click(screen.getByRole('button', { name: 'Load private data' }));
+    await userEvent.click(await screen.findByRole('button', { name: 'Load private data' }));
     await waitFor(() => expect(screen.getByTestId('result')).toHaveTextContent('request denied'));
     expect(screen.getByRole('heading', { name: 'Caregiver workspace' })).toBeVisible();
     expect(sessionStorage.getItem(SESSION_STORAGE_KEY)).not.toBeNull();
@@ -209,7 +213,7 @@ describe('caregiver authentication', () => {
     expect(fetcher.mock.calls[0][1].signal.aborted).toBe(true);
     await act(async () => { resolve(jsonResponse({ token: testToken() })); });
     expect(sessionStorage.getItem(SESSION_STORAGE_KEY)).toBeNull();
-    expect(screen.getByRole('heading', { name: 'Better records. More thoughtful care.' })).toBeVisible();
+    expect(await screen.findByRole('heading', { name: 'Better records. More thoughtful care.' })).toBeVisible();
   });
 
   it('does not let a stale 401 clear a newly signed-in session', async () => {

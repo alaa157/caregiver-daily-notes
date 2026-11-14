@@ -49,9 +49,7 @@ public class SummaryService {
 
     List<NoteSignals> safeSignals = signals == null ? List.of() : signals;
     SafetyEvaluation safety = evaluator.evaluate(safeSignals, end, days);
-    List<TrendResult> trendResults = trends.computeTrends(
-        inRange(safeSignals, end.minusDays(6), end),
-        inRange(safeSignals, end.minusDays(13), end.minusDays(7)));
+    List<TrendResult> trendResults = TrendWindows.compute(trends, safeSignals, end, days);
 
     LlmResult result = llm.complete(new LlmRequest(SummaryPrompts.SYSTEM_PROMPT, block, credentials));
     if (result.status() == LlmStatus.FALLBACK) {
@@ -89,15 +87,4 @@ public class SummaryService {
     return windowed;
   }
 
-  private static List<NoteSignals> inRange(List<NoteSignals> signals, LocalDate start, LocalDate end) {
-    List<NoteSignals> ranged = new ArrayList<>();
-    for (NoteSignals signal : signals) {
-      if (signal != null && signal.date() != null
-          && !signal.date().isBefore(start)
-          && !signal.date().isAfter(end)) {
-        ranged.add(signal);
-      }
-    }
-    return ranged;
-  }
 }

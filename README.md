@@ -1,5 +1,9 @@
 # Caregiver Daily Notes
 
+![Caregiver Daily Notes preview](web/public/caregiver-notes-preview.svg)
+
+**Live demo:** hosted web address is not confirmed; the demo backend is started on request. · [Download the Android APK](https://github.com/alaa157/caregiver-daily-notes/releases/download/v0.1.1/app-minified.apk)
+
 A cloud-hosted care-support system consisting of a separate web application and Android mobile application backed by a Spring Boot REST API.
 
 The system allows a caregiver to manage their own care recipients, record structured daily observations and free-text notes, generate AI summaries, review AI-suggested care plans, and maintain a complete history of notes and plans.

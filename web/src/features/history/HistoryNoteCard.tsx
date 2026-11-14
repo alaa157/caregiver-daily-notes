@@ -48,13 +48,9 @@ export function HistoryNoteCard({ note, recipient }: { note: DailyNote; recipien
   const [open, setOpen] = useState(false);
   const correctionCount = note.addendumCount + (note.correctionCount ?? 0);
   const formattedCorrectionCount = new Intl.NumberFormat(language === 'ar' ? 'ar-EG' : 'en').format(correctionCount);
-  const date = new Intl.DateTimeFormat(language === 'ar' ? 'ar-EG' : 'en', { dateStyle: 'medium' }).format(new Date(`${note.date}T12:00:00`));
   return <article className="history-note" aria-label={recipient?.name ?? note.recipientId}>
     <NoteTimelineRow
       entryLabel={t('historyOriginal')}
-      dateLabel={date}
-      dateTime={note.date}
-      metadata={<><bdi>{recipient?.name ?? note.recipientId}</bdi>{recipient?.active === false && <> · {t('historyInactive')}</>}</>}
       provenance={<><span>{t('notesTimelineSourceId')}:</span> <bdi>{note.id}</bdi></>}
       actions={<ButtonLink variant="text" to={`/app/notes/${note.id}`}>{t('historyOpenNote')}</ButtonLink>}
       body={<details className="history-original">

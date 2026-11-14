@@ -1,7 +1,6 @@
 package com.caregiver.ai;
 
 import com.caregiver.common.NoteSignals;
-import java.time.LocalDate;
 import java.util.List;
 import java.util.concurrent.CancellationException;
 import org.springframework.stereotype.Service;
@@ -33,7 +32,7 @@ public class SummaryApplicationService {
       ProviderCredentials credentials) {
     SummaryResult result;
     try {
-      result = source.notes().isEmpty() ? unavailable(request, source.signals(), "No notes in the selected period.")
+      result = source.notes().isEmpty() ? noNotes(request, source.signals())
           : summaries.summarize(request, source.notes(), source.signals(), credentials);
     } catch (CancellationException cancelled) {
       throw cancelled;
@@ -44,17 +43,19 @@ public class SummaryApplicationService {
       }
       // Ownership/data reads happen outside this catch. Invalid model output
       // and provider failures erase model content, never authoritative safety.
-      result = unavailable(request, source.signals(), "AI unavailable");
+      result = unavailable(request, source.signals());
     }
     return new Generated(result, source.notes());
   }
-  private SummaryResult unavailable(SummaryRequest request, List<NoteSignals> signals, String detail) {
-    LocalDate end = request.periodEndInclusive();
-    return new SummaryResult(new GroundedSummary(List.of(), List.of(new SummaryUncertainty("availability", detail)), true),
-        evaluator.evaluate(signals, end, request.periodDays()),
-        trends.computeTrends(range(signals, end.minusDays(6), end), range(signals, end.minusDays(13), end.minusDays(7))));
+  private SummaryResult noNotes(SummaryRequest request, List<NoteSignals> signals) {
+    return result(request, signals, new GroundedSummary(List.of(), List.of(), false));
   }
-  private List<NoteSignals> range(List<NoteSignals> signals, LocalDate from, LocalDate to) {
-    return signals.stream().filter(item -> !item.date().isBefore(from) && !item.date().isAfter(to)).toList();
+  private SummaryResult unavailable(SummaryRequest request, List<NoteSignals> signals) {
+    return result(request, signals,
+        new GroundedSummary(List.of(), List.of(new SummaryUncertainty("availability", "AI unavailable")), true));
+  }
+  private SummaryResult result(SummaryRequest request, List<NoteSignals> signals, GroundedSummary summary) {
+    return new SummaryResult(summary, evaluator.evaluate(signals, request.periodEndInclusive(), request.periodDays()),
+        TrendWindows.compute(trends, signals, request.periodEndInclusive(), request.periodDays()));
   }
 }

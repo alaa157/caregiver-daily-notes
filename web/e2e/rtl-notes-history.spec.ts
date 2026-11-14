@@ -1,6 +1,6 @@
 import { expect, test, type Page } from '@playwright/test';
 import { testToken } from '../src/tests/authFixtures';
-import { historyNote, historyPage } from '../src/tests/historyFixtures';
+import { correctionHistoryFixture, historyNote, historyPage } from '../src/tests/historyFixtures';
 import { addendumFixture, noteFixture } from '../src/tests/noteFixtures';
 import { recipientFixture } from '../src/tests/recipientFixtures';
 
@@ -49,13 +49,7 @@ async function installFixtures(page: Page, locale: Locale, note = historyNote, t
         return route.fulfill({ json: [{ ...addendumFixture, noteId: note.id }] });
       }
       if (path === `/api/notes/${note.id}/corrections`) {
-        return route.fulfill({
-          json: {
-            originalNote: note,
-            events: [],
-            effectiveObservations: {},
-          },
-        });
+        return route.fulfill({ json: { ...correctionHistoryFixture(), originalNote: { ...note, correctionCount: 0 } } });
       }
       if (path === '/api/notes') {
         const pageNumber = Number(url.searchParams.get('page') ?? 0);
@@ -255,6 +249,49 @@ test('renders mixed note detail and history within a 1280px Arabic RTL viewport'
   await expect(historyText).toHaveJSProperty('textContent', mixedText);
   await expect(card.locator('.note-timeline-row__provenance bdi')).toHaveText(mixedNote.id);
   await expectNoHorizontalOverflow(page, 1280);
+});
+
+test('shows locked original before corrections across viewport widths', async ({ page }) => {
+  const mixedNote = historyNote;
+  await installFixtures(page, 'ar', mixedNote);
+  await page.setViewportSize({ width: 1280, height: 900 });
+  await page.goto(`/app/notes/${mixedNote.id}`);
+
+  const original = page.locator('.note-detail-original');
+  const corrections = page.locator('.note-detail-secondary');
+  await expect(original.getByText('مقفل — الملاحظة الأصلية للقراءة فقط')).toBeVisible();
+  await expect(corrections.getByText('لا توجد تصحيحات منظّمة بعد.')).toBeVisible();
+  const desktopBoxes = await Promise.all([
+    original.boundingBox(),
+    corrections.boundingBox(),
+  ]);
+  expect(desktopBoxes[0]).not.toBeNull();
+  expect(desktopBoxes[1]).not.toBeNull();
+  expect(Math.abs((desktopBoxes[0]?.y ?? 0) - (desktopBoxes[1]?.y ?? 0))).toBeLessThan(2);
+  expect(
+    (desktopBoxes[0]?.x ?? 0) + (desktopBoxes[0]?.width ?? 0) <= (desktopBoxes[1]?.x ?? 0)
+      || (desktopBoxes[1]?.x ?? 0) + (desktopBoxes[1]?.width ?? 0) <= (desktopBoxes[0]?.x ?? 0),
+  ).toBe(true);
+
+  for (const width of [768, 390, 320]) {
+    await page.setViewportSize({ width, height: 900 });
+    const mobileBoxes = await Promise.all([
+      original.boundingBox(),
+      corrections.boundingBox(),
+    ]);
+    expect(mobileBoxes[0]).not.toBeNull();
+    expect(mobileBoxes[1]).not.toBeNull();
+    expect((mobileBoxes[0]?.y ?? 0) + (mobileBoxes[0]?.height ?? 0)).toBeLessThanOrEqual(mobileBoxes[1]?.y ?? 0);
+    const documentWidth = await page.evaluate(() => ({
+      scroll: document.documentElement.scrollWidth,
+      client: document.documentElement.clientWidth,
+    }));
+    expect(documentWidth.scroll).toBe(documentWidth.client);
+    for (const box of mobileBoxes) {
+      expect(box?.x).toBeGreaterThanOrEqual(0);
+      expect((box?.x ?? 0) + (box?.width ?? 0)).toBeLessThanOrEqual(width);
+    }
+  }
 });
 
 test('restores English LTR note and history layouts at 1280px', async ({ page }) => {

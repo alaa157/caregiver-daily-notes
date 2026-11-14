@@ -197,7 +197,7 @@ class SummarySourceLoaderTest {
     verify(addenda).findAllByNote_IdInAndCaregiver_IdOrderByCreatedAtAscIdAsc(List.of(note.getId()), OWNER_ID);
     verify(correctionEvents).findAllByNote_IdInAndCaregiver_IdOrderByNote_IdAscSequenceNoAsc(
         List.of(note.getId()), OWNER_ID);
-    verify(signals).forRange(RECIPIENT_ID, END.minusDays(13), END);
+    verify(signals).forRange(RECIPIENT_ID, END.minusDays(27), END);
   }
 
   @Test
@@ -267,7 +267,7 @@ class SummarySourceLoaderTest {
 
     assertThat(source.notes()).isEmpty();
     verifyNoInteractions(addenda, correctionEvents);
-    verify(signals).forRange(RECIPIENT_ID, END.minusDays(29), END);
+    verify(signals).forRange(RECIPIENT_ID, END.minusDays(59), END);
   }
 
   private SummaryRequest request(int days) {

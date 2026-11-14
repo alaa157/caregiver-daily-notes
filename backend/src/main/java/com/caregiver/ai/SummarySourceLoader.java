@@ -68,8 +68,9 @@ public class SummarySourceLoader {
     List<SummaryNote> texts = selected.stream().map(note -> new SummaryNote(note.getId().toString(), note.getDate(),
         transcript(note, addendaByNote.getOrDefault(note.getId(), List.of()),
             eventsByNote.getOrDefault(note.getId(), List.of())))).toList();
-    // Trends compare the latest two seven-day windows, including for a seven-day summary.
-    return new Source(texts, signals.forRange(recipientId, end.minusDays(Math.max(14, request.periodDays()) - 1L), end));
+    // Fetch both adjacent trend windows; note transcripts remain limited to the requested period.
+    long trendDays = 2L * request.periodDays();
+    return new Source(texts, signals.forRange(recipientId, end.minusDays(trendDays - 1), end));
   }
   private String transcript(DailyNote note, List<NoteAddendum> addenda, List<NoteCorrectionEvent> events) {
     StringBuilder text = new StringBuilder("ORIGINAL OBSERVATIONS\n");

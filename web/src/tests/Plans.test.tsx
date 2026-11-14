@@ -153,9 +153,9 @@ async function requestPlan(periodDays = 7) {
 }
 
 describe('care-plan review and authoritative backend decisions', () => {
-  it('protects the deep link before any plan/recipient requests', () => {
+  it('protects the deep link before any plan/recipient requests', async () => {
     const fetcher = vi.fn(); renderPlans(fetcher, selected, 'en', false);
-    expect(screen.getByRole('heading', { name: 'Caregiver sign in' })).toBeInTheDocument(); expect(fetcher).not.toHaveBeenCalled();
+    expect(await screen.findByRole('heading', { name: 'Caregiver sign in' })).toBeInTheDocument(); expect(fetcher).not.toHaveBeenCalled();
   });
   it('waits for explicit recipient selection, then loads only that recipient', async () => {
     const fetcher = serve(); renderPlans(fetcher, root);
@@ -560,8 +560,10 @@ describe('care-plan review and authoritative backend decisions', () => {
     let resolve!: (response: Response) => void; let oldSignal!: AbortSignal;
     const fetcher = serve({ override: (_url, init) => init.method === 'POST' ? new Promise<Response>((done) => { resolve = done; oldSignal = init.signal!; }) : undefined });
     renderPlans(fetcher); await loaded(); await begin(); await userEvent.click(screen.getByRole('button', { name: 'Confirm acceptance' }));
-    await userEvent.click(screen.getByRole('link', { name: 'Leave plans' })); expect(oldSignal.aborted).toBe(true);
-    await act(async () => resolve(jsonResponse({}))); expect(screen.getByRole('heading', { name: 'Caregiver workspace' })).toBeInTheDocument(); expect(writes(fetcher)).toHaveLength(1);
+    await userEvent.click(screen.getByRole('link', { name: 'Leave plans' }));
+    await screen.findByRole('heading', { name: 'Caregiver workspace' });
+    expect(oldSignal.aborted).toBe(true);
+    await act(async () => resolve(jsonResponse({}))); expect(await screen.findByRole('heading', { name: 'Caregiver workspace' })).toBeInTheDocument(); expect(writes(fetcher)).toHaveLength(1);
   });
   it('times out a stalled read and ignores its later data', async () => {
     let resolve!: (response: Response) => void;

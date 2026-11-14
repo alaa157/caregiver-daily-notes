@@ -4,7 +4,7 @@ import { useI18n } from '../../i18n/I18nProvider';
 
 export interface NoteTimelineRowProps {
   entryLabel: ReactNode;
-  dateLabel: string;
+  dateLabel?: string;
   dateTime?: string;
   body: ReactNode;
   metadata?: ReactNode;
@@ -64,7 +64,7 @@ export function NoteTimelineRow({
         <div className="note-timeline-row__identity">
           <h3 id={headingId} className="note-timeline-row__label">{entryLabel}</h3>
           {metadata && <div className="note-timeline-row__metadata">{metadata}</div>}
-          <time className="note-timeline-row__date" dateTime={dateTime} dir="auto">{dateLabel}</time>
+          {dateLabel && <time className="note-timeline-row__date" dateTime={dateTime} dir="auto">{dateLabel}</time>}
           {provenance && <div className="note-timeline-row__provenance">{provenance}</div>}
         </div>
         {actions && <div className="note-timeline-row__actions">{actions}</div>}

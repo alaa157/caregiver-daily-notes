@@ -1,3 +1,4 @@
+import { useId } from 'react';
 import { Link } from 'react-router-dom';
 import { isRecipientId } from '../../api/recipients';
 import type { SummaryRequest, SummaryResponse } from '../../api/summary';
@@ -10,6 +11,42 @@ const sampleSizeKey = (metric: string) => {
   if (metric === 'FALL_COUNT' || metric === 'HIGH_PAIN_COUNT') return 'summarySampleSizeObservations';
   return 'summarySampleSize';
 };
+const summaryTextLanguage = (text: string): 'ar' | 'en' => /[\u0600-\u06FF]/u.test(text) ? 'ar' : 'en';
+
+function SummaryTrend({ trend, format }: { trend: SummaryResponse['trends'][number]; format: (value: number) => string }) {
+  const { t } = useI18n();
+  const id = useId();
+  const dataId = `${id}-data`;
+  const maxCount = Math.max(trend.previousCount, trend.currentCount, 1);
+  const previousWidth = trend.previousSampleSize ? Math.round((trend.previousCount / maxCount) * 100) : 0;
+  const currentWidth = trend.currentSampleSize ? Math.round((trend.currentCount / maxCount) * 100) : 0;
+  return <li>
+    <h4 id={`${id}-heading`} className="summary-untrusted" dir="auto">{trend.metric}</h4>
+    <figure className="summary-trend-chart" aria-labelledby={`${id}-heading`} aria-describedby={dataId}>
+      <figcaption className="summary-visually-hidden">{t('summaryTrendChart')}</figcaption>
+      <div className="summary-trend-bars" aria-hidden="true">
+        <div className="summary-trend-bar-row">
+          <span>{t('summaryPreviousPeriod')}</span>
+          <span className="summary-trend-bar-track"><span className="summary-trend-bar-fill summary-trend-bar-fill--previous" style={{ inlineSize: `${previousWidth}%` }} /></span>
+        </div>
+        <div className="summary-trend-bar-row">
+          <span>{t('summaryRequestedPeriod')}</span>
+          <span className="summary-trend-bar-track"><span className="summary-trend-bar-fill summary-trend-bar-fill--current" style={{ inlineSize: `${currentWidth}%` }} /></span>
+        </div>
+      </div>
+    </figure>
+    <dl id={dataId}>
+      <div><dt>{t('summaryPreviousPeriod')}</dt><dd>{trend.previousSampleSize === 0 ? <span role="status">{t('summaryNoRecordedData')}</span> : <>
+        <span>{t('summaryEventCount')}: <bdi>{format(trend.previousCount)}</bdi></span><br />
+        <span>{t(sampleSizeKey(trend.metric))}: <bdi>{format(trend.previousSampleSize)}</bdi></span></>}</dd></div>
+      <div><dt>{t('summaryRequestedPeriod')}</dt><dd>{trend.currentSampleSize === 0 ? <span role="status">{t('summaryNoRecordedData')}</span> : <>
+        <span>{t('summaryEventCount')}: <bdi>{format(trend.currentCount)}</bdi></span><br />
+        <span>{t(sampleSizeKey(trend.metric))}: <bdi>{format(trend.currentSampleSize)}</bdi></span></>}</dd></div>
+      {trend.previousSampleSize > 0 && trend.currentSampleSize > 0 && <div><dt>{t('summaryDelta')}</dt><dd><bdi>{format(trend.delta)}</bdi></dd></div>}
+    </dl>
+  </li>;
+}
+
 export function SummaryResult({ view }: { view: SummaryView }) {
   const { t, language } = useI18n();
   const { response, request } = view;
@@ -38,9 +75,10 @@ export function SummaryResult({ view }: { view: SummaryView }) {
       </div>
       <p className="summary-educational-disclaimer">{t('summaryEducationalDisclaimer')}</p>
       <ol className="summary-observations">{response.summary!.observations.map((observation, index) => <li key={index}>
-        <p className="summary-untrusted" dir="auto">{observation.text}</p>
+        <p className="summary-untrusted" dir="auto"><bdi lang={summaryTextLanguage(observation.text)}>{observation.text}</bdi></p>
         <div className="summary-evidence"><h4>{t('summaryEvidence')}</h4>
-          <blockquote className="summary-untrusted" dir="auto">{observation.quote}</blockquote>
+          <p>{t('summaryEvidenceCaveat')}</p>
+          <blockquote className="summary-untrusted" dir="auto"><bdi lang={summaryTextLanguage(observation.quote)}>{observation.quote}</bdi></blockquote>
           <p>{isRecipientId(observation.noteId)
             ? <Link to={`/app/notes/${encodeURIComponent(observation.noteId)}`}>{t('summarySourceNote')}: <bdi>{observation.noteId}</bdi></Link>
             : <>{t('summaryUnlinkedSource')}: <bdi>{observation.noteId}</bdi></>}</p>
@@ -52,23 +90,13 @@ export function SummaryResult({ view }: { view: SummaryView }) {
     {canPresentUncertainty && <section className="summary-surface summary-uncertainties" aria-labelledby="summary-uncertainty-heading">
       <h3 id="summary-uncertainty-heading">{t('summaryUncertainty')}</h3>
       {response.summary!.uncertainties.length ? <ul>{response.summary!.uncertainties.map((uncertainty, index) => <li key={index}>
-        <strong className="summary-untrusted" dir="auto">{uncertainty.topic}</strong><p className="summary-untrusted" dir="auto">{uncertainty.detail}</p>
+        <strong className="summary-untrusted" dir="auto"><bdi lang={summaryTextLanguage(uncertainty.topic)}>{uncertainty.topic}</bdi></strong>
+        <p className="summary-untrusted" dir="auto"><bdi lang={summaryTextLanguage(uncertainty.detail)}>{uncertainty.detail}</bdi></p>
       </li>)}</ul> : <p>{t('summaryNoUncertainty')}</p>}
     </section>}
     {!view.failed && response.trends.length > 0 && <section className="summary-surface" aria-labelledby="summary-trends-heading">
       <h3 id="summary-trends-heading">{t('summaryTrends')}</h3>
-      <ul className="summary-trends">{response.trends.map((trend, index) => <li key={index}>
-        <h4 className="summary-untrusted" dir="auto">{trend.metric}</h4>
-        <dl>
-          <div><dt>{t('summaryPreviousPeriod')}</dt><dd>{trend.previousSampleSize === 0 ? <span role="status">{t('summaryNoRecordedData')}</span> : <>
-            <span>{t('summaryEventCount')}: <bdi>{format(trend.previousCount)}</bdi></span><br />
-            <span>{t(sampleSizeKey(trend.metric))}: <bdi>{format(trend.previousSampleSize)}</bdi></span></>}</dd></div>
-          <div><dt>{t('summaryRequestedPeriod')}</dt><dd>{trend.currentSampleSize === 0 ? <span role="status">{t('summaryNoRecordedData')}</span> : <>
-            <span>{t('summaryEventCount')}: <bdi>{format(trend.currentCount)}</bdi></span><br />
-            <span>{t(sampleSizeKey(trend.metric))}: <bdi>{format(trend.currentSampleSize)}</bdi></span></>}</dd></div>
-          {trend.previousSampleSize > 0 && trend.currentSampleSize > 0 && <div><dt>{t('summaryDelta')}</dt><dd><bdi>{format(trend.delta)}</bdi></dd></div>}
-        </dl>
-      </li>)}</ul>
+      <ul className="summary-trends">{response.trends.map((trend, index) => <SummaryTrend key={index} trend={trend} format={format} />)}</ul>
     </section>}
   </section>;
 }

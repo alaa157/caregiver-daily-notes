@@ -161,7 +161,7 @@ test('restores summary LTR layout in English', async ({ page }, info) => {
   await expect(page.locator('html')).toHaveAttribute('lang', 'en');
   await expect(page.locator('html')).toHaveAttribute('dir', 'ltr');
   await expect(page.locator('.summary-result')).toHaveCSS('direction', 'ltr');
-  await expect(page.getByRole('region', { name: 'Generated observations' })).toBeVisible();
+  await expect(page.getByRole('region', { name: 'Summary observations' })).toBeVisible();
   await expect(page.getByText(observationText, { exact: true })).toBeVisible();
   await expectFitsViewport(page);
   expect(unexpectedRequests).toEqual([]);
