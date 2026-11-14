@@ -335,6 +335,9 @@ export function NoteForm(props: Props) {
     </fieldset>
   );
 
+  const answeredCount = (['mood', 'appetite', 'sleep', 'mobility', 'medicationStatus', 'fallReported', 'painScore', 'freeText'] as ObservationField[])
+    .filter((field) => ['RECORDED', 'UNKNOWN'].includes(values.observations[field].state)).length;
+
   return <form ref={formRef} className="note-form" aria-label={t(props.mode === 'create' ? 'notesCreate' : 'notesAppend')} noValidate onSubmit={(event) => { void submit(event); }}>
     {(failure || uncertain) && <div ref={failureRef} className="note-error" role="alert" tabIndex={-1}>
       <p>{t(uncertain ? 'notesUncertain' : failure!)}</p>
@@ -369,6 +372,11 @@ export function NoteForm(props: Props) {
         {observationGroup('notesAdditionalGroup', ['freeText'])}
       </div>
     </fieldset>
+    {props.mode === 'create' && <p role="status" className="note-answered-count">
+      {t('notesAnsweredCount')
+        .replace('{answered}', String(answeredCount))
+        .replace('{total}', '8')}
+    </p>}
     <div className="note-actions">
       <Button type="submit" disabled={pending || (props.mode === 'create' && !!recipient && !recipient.active)}>
         {t(activity === 'saving' ? 'notesSaving' : uncertain ? 'notesRetrySave' : props.mode === 'create' ? 'notesSave' : 'notesSaveAppend')}

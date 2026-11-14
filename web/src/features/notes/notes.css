@@ -57,6 +57,7 @@
 .note-addenda h3 { margin-block: 0 .5rem; }
 .note-progress:empty { display: none; }
 .note-progress { margin-block-start: 1rem; color: #455b46; }
+.note-answered-count { font-size: .9rem; color: var(--color-muted); margin-block: .5rem 0; margin-inline: 0; }
 .note-structured-corrections { margin-block-start: 1.5rem; }
 .correction-editor-fields { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 1rem; }
 .correction-editor-field { min-width: 0; margin: 0; padding: .8rem 0; border: 0; border-block-start: 1px solid #d8ded6; }
