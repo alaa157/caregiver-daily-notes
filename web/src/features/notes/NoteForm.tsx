@@ -14,7 +14,7 @@ import { ChipGroup } from './ChipGroup';
 import { chipFieldOptions, type ChipField } from './chipOptions';
 import { chipKeyFor, observationForChip } from './chipState';
 
-const chipFields = new Set<ObservationField>(['medicationStatus', 'fallReported', 'mood', 'appetite', 'sleep', 'mobility']);
+const chipFields = new Set<ObservationField>(['medicationStatus', 'fallReported', 'mood', 'appetite', 'sleep', 'mobility', 'painScore']);
 
 interface SharedProps {
   cancelTo: string;
@@ -24,7 +24,7 @@ type Props = SharedProps & ({ mode: 'create'; recipients: Recipient[]; onOpen: (
   | { mode: 'append' });
 
 export function NoteForm(props: Props) {
-  const { t } = useI18n();
+  const { t, language } = useI18n();
   const [values, setValues] = useState<NoteValues>(() => {
     const initial = emptyNoteValues();
     if (props.mode === 'create') {
@@ -156,7 +156,12 @@ export function NoteForm(props: Props) {
           <ChipGroup
             id={`note-${field}`}
             label={t(fieldLabels[field])}
-            options={options.map((option) => ({ key: option.key, label: t(option.labelKey) }))}
+            options={options.map((option) => ({
+              key: option.key,
+              label: field === 'painScore' && typeof option.value === 'number'
+                ? new Intl.NumberFormat(language === 'ar' ? 'ar-EG' : 'en').format(option.value)
+                : t(option.labelKey),
+            }))}
             selectedKey={chipKeyFor(observation as Observation<unknown>, options)}
             onSelect={(key) => changeObservation(field, observationForChip(key, options))}
             disabled={locked}

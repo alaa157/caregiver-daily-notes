@@ -80,6 +80,22 @@ for (const language of ['en', 'ar'] as const) {
       expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBe(true);
       await expect(page.getByRole('button', { name: label.save, exact: true })).toBeVisible();
     });
+    test('keeps the pain score chips within the viewport and reachable at 320px', async ({ page }) => {
+      test.skip(page.viewportSize()?.width !== 320, 'This assertion specifically exercises the 320px viewport.');
+      await page.route('**/api/**', async (route) => {
+        const path = new URL(route.request().url()).pathname;
+        return route.fulfill({ json: path === '/api/recipients' ? [recipientFixture] : path.startsWith('/api/recipients/') ? recipientFixture : [] });
+      });
+      await page.goto(`${root}/new`);
+      const group = page.getByRole('radiogroup', { name: label.pain, exact: true });
+      await expect(group).toBeVisible();
+      await expect(group.getByRole('radio')).toHaveCount(12);
+      const unknown = group.getByRole('radio', { name: label.stateUnknown, exact: true });
+      await unknown.scrollIntoViewIfNeeded();
+      await unknown.click();
+      await expect(unknown).toHaveAttribute('aria-checked', 'true');
+      expect(await page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth)).toBe(true);
+    });
     test('creates all observations, preserves mixed text, and appends a correction without changing the original', async ({ page }, info) => {
       let original = { ...noteFixture };
       const addenda: typeof addendumFixture[] = [];
