@@ -94,6 +94,10 @@ async function selectAppetiteChip(name: string) {
   const group = screen.getByRole('radiogroup', { name: 'Appetite' });
   await userEvent.click(within(group).getByRole('radio', { name }));
 }
+async function selectSleepChip(name: string) {
+  const group = screen.getByRole('radiogroup', { name: 'Sleep' });
+  await userEvent.click(within(group).getByRole('radio', { name }));
+}
 function mockTimelineDimensions(body: HTMLElement, initialHeight = 0) {
   let scrollHeight = initialHeight;
   let clientHeight = initialHeight;
@@ -165,7 +169,7 @@ describe('daily-note creation and immutable corrections', () => {
     }
     expect(within(details).getByLabelText('Care recipient')).toBeInTheDocument();
     expect(within(details).getByLabelText('Observation date')).toBeInTheDocument();
-    expect(within(screen.getByRole('group', { name: 'Daily wellbeing' })).getByRole('radio', { name: 'Sleep — Recorded' })).toBeInTheDocument();
+    expect(within(screen.getByRole('group', { name: 'Daily wellbeing' })).getByRole('radio', { name: 'Mobility — Recorded' })).toBeInTheDocument();
     expect(within(screen.getByRole('group', { name: 'Medication' })).getByRole('radiogroup', { name: 'Medication report verified' })).toBeInTheDocument();
     expect(within(screen.getByRole('group', { name: 'Pain and safety' })).getByRole('radiogroup', { name: 'Fall reported' })).toBeInTheDocument();
     expect(within(screen.getByRole('group', { name: 'Additional notes' }))
@@ -174,14 +178,14 @@ describe('daily-note creation and immutable corrections', () => {
 
   it('keeps state choices keyboard accessible and exposes the selected state', async () => {
     renderNotes(`${root}/new`, dataFetcher());
-    await screen.findByRole('group', { name: 'Sleep — Observation status' });
-    const group = screen.getByRole('group', { name: 'Sleep — Observation status' });
+    await screen.findByRole('group', { name: 'Mobility — Observation status' });
+    const group = screen.getByRole('group', { name: 'Mobility — Observation status' });
     await userEvent.click(within(group).getByText('Recorded', { exact: true }));
-    const recorded = within(group).getByRole('radio', { name: 'Sleep — Recorded' });
+    const recorded = within(group).getByRole('radio', { name: 'Mobility — Recorded' });
     recorded.focus();
     expect(recorded).toBeChecked();
     await userEvent.keyboard('{ArrowDown}');
-    expect(within(group).getByRole('radio', { name: 'Sleep — Unknown' })).toBeChecked();
+    expect(within(group).getByRole('radio', { name: 'Mobility — Unknown' })).toBeChecked();
     expect(recorded).not.toBeChecked();
     expect(within(group).getByText('Unknown', { exact: true })).toBeVisible();
   });
@@ -312,8 +316,8 @@ describe('daily-note creation and immutable corrections', () => {
 
   it('does not offer legacy ambiguous as a state when creating a note', async () => {
     renderNotes(`${root}/new`, dataFetcher());
-    const group = await screen.findByRole('group', { name: 'Sleep — Observation status' });
-    expect(within(group).queryByRole('radio', { name: 'Sleep — Legacy ambiguous' })).not.toBeInTheDocument();
+    const group = await screen.findByRole('group', { name: 'Mobility — Observation status' });
+    expect(within(group).queryByRole('radio', { name: 'Mobility — Legacy ambiguous' })).not.toBeInTheDocument();
   });
 
   it('announces save success and save failure separately', async () => {
@@ -724,7 +728,8 @@ describe('daily-note creation and immutable corrections', () => {
     await metadata();
     await selectMoodChip('Calm');
     await selectAppetiteChip('Poor');
-    for (const [label, value] of [['Sleep', noteObservations.sleep], ['Mobility', noteObservations.mobility]] as const) {
+    await selectSleepChip('Did not sleep');
+    for (const [label, value] of [['Mobility', noteObservations.mobility]] as const) {
       await setRecorded(label);
       fireEvent.change(screen.getByRole('textbox', { name: label }), { target: { value } });
     }
@@ -743,7 +748,7 @@ describe('daily-note creation and immutable corrections', () => {
       observations: {
         mood: { state: 'RECORDED', value: 'CALM' },
         appetite: { state: 'RECORDED', value: 'POOR' },
-        sleep: { state: 'RECORDED', value: noteObservations.sleep },
+        sleep: { state: 'RECORDED', value: 'DID_NOT_SLEEP' },
         mobility: { state: 'RECORDED', value: noteObservations.mobility },
         medicationStatus: { state: 'UNKNOWN', value: null },
         painScore: { state: 'RECORDED', value: 0 },
@@ -1222,8 +1227,8 @@ describe('medication status chips on the create form', () => {
 
   it('keeps ObservationStateField for every other field in create mode', async () => {
     renderNotes(`${root}/new`, dataFetcher());
-    await screen.findByRole('group', { name: 'Sleep — Observation status' });
-    for (const label of ['Sleep', 'Mobility', 'Pain score (0–10)', 'Free-text observations']) {
+    await screen.findByRole('group', { name: 'Mobility — Observation status' });
+    for (const label of ['Mobility', 'Pain score (0–10)', 'Free-text observations']) {
       expect(screen.getByRole('group', { name: `${label} — Observation status` })).toBeInTheDocument();
       expect(screen.queryByRole('radiogroup', { name: label })).not.toBeInTheDocument();
     }
@@ -1465,5 +1470,63 @@ describe('appetite chips on the create form', () => {
     await setRecorded('Appetite');
     expect(screen.getByRole('textbox', { name: 'Appetite' })).toBeInTheDocument();
     expect(screen.queryByRole('radiogroup', { name: 'Appetite' })).not.toBeInTheDocument();
+  });
+});
+
+describe('sleep chips on the create form', () => {
+  async function createWithSleep(chip?: string, deselect = false) {
+    let submitted: Record<string, unknown> | null = null;
+    const fetcher = dataFetcher((path, init) => {
+      if (path === '/api/notes' && init.method === 'POST') {
+        submitted = JSON.parse(init.body as string);
+        return jsonResponse(noteListFixture, 201);
+      }
+    });
+    renderNotes(`${root}/new`, fetcher);
+    await metadata();
+    if (chip) {
+      await selectSleepChip(chip);
+      if (deselect) await selectSleepChip(chip);
+    }
+    await userEvent.click(screen.getByRole('button', { name: 'Save original note' }));
+    await screen.findByText('Original note saved.');
+    return submitted as { observations: { sleep: { state: string; value?: unknown } } };
+  }
+
+  it('renders five sleep chips in order in create mode', async () => {
+    renderNotes(`${root}/new`, dataFetcher());
+    const group = await screen.findByRole('radiogroup', { name: 'Sleep' });
+    expect(within(group).getAllByRole('radio').map((chip) => chip.textContent))
+      .toEqual(['Slept well', 'Restless', 'Poor sleep', 'Did not sleep', 'Unknown']);
+  });
+
+  it('submits RECORDED SLEPT_WELL for the Slept well chip', async () => {
+    const submitted = await createWithSleep('Slept well');
+    expect(submitted.observations.sleep).toEqual({ state: 'RECORDED', value: 'SLEPT_WELL' });
+  });
+
+  it('submits RECORDED DID_NOT_SLEEP when the Did not sleep chip is selected', async () => {
+    const submitted = await createWithSleep('Did not sleep');
+    expect(submitted.observations.sleep).toEqual({ state: 'RECORDED', value: 'DID_NOT_SLEEP' });
+  });
+
+  it('submits UNKNOWN with a null value when the Unknown chip is selected', async () => {
+    const submitted = await createWithSleep('Unknown');
+    expect(submitted.observations.sleep).toEqual({ state: 'UNKNOWN', value: null });
+  });
+
+  it('returns to NOT_RECORDED when the selected chip is clicked again', async () => {
+    const submitted = await createWithSleep('Restless', true);
+    expect(submitted.observations.sleep).toEqual({ state: 'NOT_RECORDED', value: null });
+  });
+
+  it('keeps the state radio group and text input for sleep in append mode', async () => {
+    renderNotes(`${detail}/addenda/new`, dataFetcher());
+    await screen.findByRole('form', { name: 'Add a correction' });
+    await userEvent.click(screen.getByRole('checkbox', { name: 'Correct this field: Sleep' }));
+    expect(screen.getByRole('group', { name: 'Sleep — Observation status' })).toBeVisible();
+    await setRecorded('Sleep');
+    expect(screen.getByRole('textbox', { name: 'Sleep' })).toBeInTheDocument();
+    expect(screen.queryByRole('radiogroup', { name: 'Sleep' })).not.toBeInTheDocument();
   });
 });
