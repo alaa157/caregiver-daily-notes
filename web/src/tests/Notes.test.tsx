@@ -78,6 +78,10 @@ async function selectMedicationChip(name: 'Taken' | 'Missed' | 'Unknown') {
   const group = screen.getByRole('radiogroup', { name: 'Medication taken' });
   await userEvent.click(within(group).getByRole('radio', { name }));
 }
+async function selectVerificationChip(name: 'Verified' | 'Unverified') {
+  const group = screen.getByRole('radiogroup', { name: 'Medication report verified' });
+  await userEvent.click(within(group).getByRole('radio', { name }));
+}
 function mockTimelineDimensions(body: HTMLElement, initialHeight = 0) {
   let scrollHeight = initialHeight;
   let clientHeight = initialHeight;
@@ -150,7 +154,7 @@ describe('daily-note creation and immutable corrections', () => {
     expect(within(details).getByLabelText('Care recipient')).toBeInTheDocument();
     expect(within(details).getByLabelText('Observation date')).toBeInTheDocument();
     expect(within(screen.getByRole('group', { name: 'Daily wellbeing' })).getByRole('radio', { name: 'Mood — Recorded' })).toBeInTheDocument();
-    expect(within(screen.getByRole('group', { name: 'Medication' })).getByLabelText('Medication report verified')).toBeInTheDocument();
+    expect(within(screen.getByRole('group', { name: 'Medication' })).getByRole('radiogroup', { name: 'Medication report verified' })).toBeInTheDocument();
     expect(within(screen.getByRole('group', { name: 'Pain and safety' })).getByLabelText('Fall reported')).toBeInTheDocument();
     expect(within(screen.getByRole('group', { name: 'Additional notes' }))
       .getByRole('group', { name: 'Free-text observations — Observation status' })).toBeInTheDocument();
@@ -234,7 +238,7 @@ describe('daily-note creation and immutable corrections', () => {
     renderNotes(`${root}/new`, fetcher);
     await metadata();
     await selectMedicationChip('Unknown');
-    await userEvent.selectOptions(screen.getByLabelText('Medication report verified'), 'VERIFIED');
+    await selectVerificationChip('Verified');
     await userEvent.click(screen.getByRole('button', { name: 'Save original note' }));
     await screen.findByText('Original note saved.');
 
@@ -714,7 +718,7 @@ describe('daily-note creation and immutable corrections', () => {
       fireEvent.change(screen.getByRole('textbox', { name: label }), { target: { value } });
     }
     await selectMedicationChip('Unknown');
-    await userEvent.selectOptions(screen.getByLabelText('Medication report verified'), 'UNVERIFIED');
+    await selectVerificationChip('Unverified');
     await setRecorded('Pain score (0–10)');
     fireEvent.change(screen.getByRole('spinbutton', { name: 'Pain score (0–10)' }), { target: { value: '0' } });
     await setRecorded('Fall reported');
@@ -1213,5 +1217,70 @@ describe('medication status chips on the create form', () => {
       expect(screen.getByRole('group', { name: `${label} — Observation status` })).toBeInTheDocument();
       expect(screen.queryByRole('radiogroup', { name: label })).not.toBeInTheDocument();
     }
+  });
+});
+
+describe('medication verification chips on the create form', () => {
+  async function createWithVerification(chip?: 'Verified' | 'Unverified', deselect = false) {
+    let submitted: Record<string, unknown> | null = null;
+    const fetcher = dataFetcher((path, init) => {
+      if (path === '/api/notes' && init.method === 'POST') {
+        submitted = JSON.parse(init.body as string);
+        return jsonResponse(noteListFixture, 201);
+      }
+    });
+    renderNotes(`${root}/new`, fetcher);
+    await metadata();
+    if (chip) {
+      await selectVerificationChip(chip);
+      if (deselect) await selectVerificationChip(chip);
+    }
+    await userEvent.click(screen.getByRole('button', { name: 'Save original note' }));
+    await screen.findByText('Original note saved.');
+    return submitted as { medicationVerification: string };
+  }
+
+  it('renders Verified and Unverified chips in create mode', async () => {
+    renderNotes(`${root}/new`, dataFetcher());
+    const group = await screen.findByRole('radiogroup', { name: 'Medication report verified' });
+    expect(within(group).getAllByRole('radio').map((chip) => chip.textContent))
+      .toEqual(['Verified', 'Unverified']);
+  });
+
+  it('sends NOT_ASSERTED when nothing is chosen', async () => {
+    const submitted = await createWithVerification();
+    expect(submitted.medicationVerification).toBe('NOT_ASSERTED');
+  });
+
+  it('sends VERIFIED when the Verified chip is selected', async () => {
+    const submitted = await createWithVerification('Verified');
+    expect(submitted.medicationVerification).toBe('VERIFIED');
+  });
+
+  it('sends UNVERIFIED when the Unverified chip is selected', async () => {
+    const submitted = await createWithVerification('Unverified');
+    expect(submitted.medicationVerification).toBe('UNVERIFIED');
+  });
+
+  it('returns to NOT_ASSERTED when the selected chip is clicked again', async () => {
+    const submitted = await createWithVerification('Verified', true);
+    expect(submitted.medicationVerification).toBe('NOT_ASSERTED');
+  });
+
+  it('keeps the three-option select in append mode', async () => {
+    renderNotes(`${detail}/addenda/new`, dataFetcher());
+    await screen.findByRole('form', { name: 'Add a correction' });
+    await userEvent.click(screen.getByRole('checkbox', { name: 'Correct this field: Medication report verified' }));
+    const select = screen.getByRole('combobox', { name: 'Medication report verified' });
+    expect(within(select).getAllByRole('option').map((option) => option.textContent))
+      .toEqual(['Not asserted', 'Verified', 'Unverified']);
+    expect(screen.queryByRole('radiogroup', { name: 'Medication report verified' })).not.toBeInTheDocument();
+  });
+
+  it('keeps the note-medicationVerification element id in create mode', async () => {
+    renderNotes(`${root}/new`, dataFetcher());
+    await screen.findByRole('radiogroup', { name: 'Medication report verified' });
+    expect(document.getElementById('note-medicationVerification')).not.toBeNull();
+    expect(document.getElementById('note-medicationVerification-hint')).not.toBeNull();
   });
 });
