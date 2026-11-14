@@ -7,11 +7,14 @@ import type {
   VerificationValue,
 } from '../../api/observation';
 import { useI18n } from '../../i18n/I18nProvider';
+import { chipFieldOptions, type ChipField } from './chipOptions';
 import { fieldLabels } from './noteForm';
 import {
   observationStateLabel,
   verificationLabel,
 } from './ObservationStateField';
+
+const chipLabelFields = new Set<StructuredObservationField>(['mood', 'appetite', 'sleep', 'mobility']);
 
 export function ObservationValues({
   values,
@@ -36,6 +39,12 @@ export function ObservationValues({
     }
     if (typeof value === 'number') {
       return new Intl.NumberFormat(language === 'ar' ? 'ar-EG' : 'en').format(value);
+    }
+    if (chipLabelFields.has(field)) {
+      const option = chipFieldOptions[field as ChipField].find(
+        (entry) => entry.state === 'RECORDED' && Object.is(entry.value, value),
+      );
+      if (option) return t(option.labelKey);
     }
     return String(value ?? '');
   }

@@ -2010,3 +2010,71 @@ describe('chips in correction mode', () => {
     expect(ctx.submitted?.observations.painScore).toEqual({ state: 'NOT_RECORDED', value: null });
   });
 });
+
+describe('chip labels for saved values', () => {
+  async function renderSavedWith(patch: Partial<NoteObservations>, language = 'en') {
+    const observations = { ...structuredObservations, ...patch };
+    const fetcher = dataFetcher((path) =>
+      path === `/api/notes/${noteFixture.id}`
+        ? jsonResponse({ ...noteDetailFixture, observations })
+        : undefined);
+    renderNotes(detail, fetcher, language);
+    return screen.findByRole('article', {}, { timeout: 5000 });
+  }
+  function rowFor(article: HTMLElement, label: string) {
+    return within(article).getByText(label).closest('.note-field-row') as HTMLElement;
+  }
+
+  it('renders SLEPT_WELL as Slept well', async () => {
+    const article = await renderSavedWith({ sleep: { state: 'RECORDED', value: 'SLEPT_WELL' } });
+    expect(within(rowFor(article, 'Sleep')).getByText('Slept well')).toBeVisible();
+  });
+
+  it('renders REFUSED appetite as Refused food', async () => {
+    const article = await renderSavedWith({ appetite: { state: 'RECORDED', value: 'REFUSED' } });
+    expect(within(rowFor(article, 'Appetite')).getByText('Refused food')).toBeVisible();
+  });
+
+  it('renders NEEDS_ASSISTANCE mobility as Needs assistance', async () => {
+    const article = await renderSavedWith({ mobility: { state: 'RECORDED', value: 'NEEDS_ASSISTANCE' } });
+    expect(within(rowFor(article, 'Mobility')).getByText('Needs assistance')).toBeVisible();
+  });
+
+  it('renders CALM mood as Calm', async () => {
+    const article = await renderSavedWith({ mood: { state: 'RECORDED', value: 'CALM' } });
+    expect(within(rowFor(article, 'Mood')).getByText('Calm')).toBeVisible();
+  });
+
+  it('renders a lowercase non-code mood value verbatim', async () => {
+    const article = await renderSavedWith({ mood: { state: 'RECORDED', value: 'good' } });
+    const row = rowFor(article, 'Mood');
+    expect(within(row).getByText('good')).toBeVisible();
+    expect(within(row).queryByText('Good')).not.toBeInTheDocument();
+  });
+
+  it('renders free-text mood verbatim', async () => {
+    const article = await renderSavedWith({ mood: { state: 'RECORDED', value: 'some free text' } });
+    expect(within(rowFor(article, 'Mood')).getByText('some free text')).toBeVisible();
+  });
+
+  it('keeps the existing TAKEN label for medication status', async () => {
+    const article = await renderSavedWith({ medicationStatus: { state: 'RECORDED', value: 'TAKEN' } });
+    expect(within(rowFor(article, 'Medication taken')).getByText('Taken')).toBeVisible();
+  });
+
+  it('keeps the boolean No label for fall reported', async () => {
+    const article = await renderSavedWith({ fallReported: { state: 'RECORDED', value: false } });
+    expect(within(rowFor(article, 'Fall reported')).getByText('No')).toBeVisible();
+  });
+
+  it('keeps the number formatting for pain score', async () => {
+    const article = await renderSavedWith({ painScore: { state: 'RECORDED', value: 0 } });
+    const row = rowFor(article, 'Pain score (0–10)');
+    expect(within(row).getByText('0')).toBeVisible();
+  });
+
+  it('renders the Arabic sleep label in Arabic', async () => {
+    const article = await renderSavedWith({ sleep: { state: 'RECORDED', value: 'SLEPT_WELL' } }, 'ar');
+    expect(within(article).getByText('نام جيدًا')).toBeVisible();
+  });
+});
