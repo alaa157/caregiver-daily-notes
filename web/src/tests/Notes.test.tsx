@@ -8,8 +8,10 @@ import { NoteTimelineRow } from '../features/notes/NoteTimelineRow';
 import { I18nProvider } from '../i18n/I18nProvider';
 import { ApiProvider } from '../lib/api';
 import { jsonResponse, testToken } from './authFixtures';
-import { addendumFixture, noteDetailFixture, noteFixture, noteListFixture, noteObservations } from './noteFixtures';
+import { addendumFixture, noteDetailFixture, noteFixture, noteListFixture, noteObservations, structuredObservations } from './noteFixtures';
 import { observationFields, type FieldCorrection } from '../api/notes';
+import type { NoteObservations } from '../api/observation';
+import { ObservationValues } from '../features/notes/ObservationValues';
 import { recipientFixture } from './recipientFixtures';
 
 const root = '/app/notes';
@@ -1060,5 +1062,89 @@ describe('daily-note creation and immutable corrections', () => {
     expect(posts).toHaveLength(2);
     expect(posts[1].body).toBe(posts[0].body);
     expect(new Headers(posts[1].headers).get('Idempotency-Key')).toBe(new Headers(posts[0].headers).get('Idempotency-Key'));
+  });
+});
+
+describe('not-recorded rows in the saved note view', () => {
+  const notRecorded = { state: 'NOT_RECORDED' as const };
+
+  function observationsWith(patch: Partial<NoteObservations>): NoteObservations {
+    return { ...structuredObservations, ...patch };
+  }
+
+  async function renderOriginalWith(observations: NoteObservations) {
+    const fetcher = dataFetcher((path) =>
+      path === `/api/notes/${noteFixture.id}`
+        ? jsonResponse({ ...noteDetailFixture, observations })
+        : undefined);
+    renderNotes(detail, fetcher);
+    return screen.findByRole('article', { name: 'Original note — read only' });
+  }
+
+  it('hides a NOT_RECORDED row but keeps RECORDED rows', async () => {
+    const original = await renderOriginalWith(observationsWith({
+      appetite: notRecorded,
+    }));
+    expect(within(original).getByText('Mood')).toBeVisible();
+    expect(within(original).queryByText('Appetite')).not.toBeInTheDocument();
+  });
+
+  it('keeps an UNKNOWN row with the Unknown label', async () => {
+    const original = await renderOriginalWith(observationsWith({
+      mood: { state: 'UNKNOWN' },
+      medicationStatus: { state: 'RECORDED', value: 'TAKEN' },
+    }));
+    const row = within(original).getByText('Mood').closest('.note-field-row') as HTMLElement;
+    expect(within(row).getByText('Unknown')).toBeVisible();
+    expect(row.querySelector('.obs-display-state')).toHaveAttribute('data-state', 'UNKNOWN');
+  });
+
+  it('shows notesNothingRecorded when every field is NOT_RECORDED', async () => {
+    const allHidden = Object.fromEntries(
+      observationFields.map((field) => [field, notRecorded]),
+    ) as unknown as NoteObservations;
+    const original = await renderOriginalWith({
+      ...allHidden,
+      medicationVerification: 'NOT_ASSERTED',
+    });
+    expect(await within(original).findByText('Nothing recorded for this note.')).toBeVisible();
+    expect(original.querySelectorAll('dt')).toHaveLength(0);
+    expect(within(original).queryByText('Mood')).not.toBeInTheDocument();
+    expect(within(original).queryByText('Medication report verified')).not.toBeInTheDocument();
+  });
+
+  it('keeps a LEGACY_AMBIGUOUS row', async () => {
+    const original = await renderOriginalWith(observationsWith({
+      sleep: { state: 'LEGACY_AMBIGUOUS', value: null, rawValue: 'old sleep value' },
+    }));
+    expect(within(original).getByText('Legacy (ambiguous)')).toBeVisible();
+    expect(within(original).getByText('old sleep value')).toBeVisible();
+  });
+
+  it('renders NOT_RECORDED rows in correction mode', () => {
+    render(
+      <I18nProvider>
+        <ObservationValues
+          correction
+          providedFields={['appetite']}
+          values={observationsWith({ appetite: notRecorded })}
+        />
+      </I18nProvider>,
+    );
+    expect(screen.getByText('Appetite')).toBeVisible();
+    expect(screen.getByText('Not recorded')).toBeVisible();
+  });
+
+  it('still shows an explicit NOT_RECORDED correction event in the timeline', async () => {
+    const corrections = correctionResponse([
+      { field: 'mood', operation: 'NOT_RECORDED' },
+    ]);
+    const fetcher = dataFetcher((path) => path.endsWith('/corrections') ? jsonResponse(corrections) : undefined);
+    renderNotes(detail, fetcher);
+    const events = await screen.findAllByRole('article', { name: /Correction event/ });
+    expect(events).toHaveLength(1);
+    expect(events[0].querySelector('.note-timeline-row__label')?.textContent)
+      .toBe('Correction event 1 · Mood');
+    expect(within(events[0]).getByText(corrections.events[0].id)).toBeVisible();
   });
 });

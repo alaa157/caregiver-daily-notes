@@ -76,31 +76,42 @@ export function ObservationValues({
     );
   }
 
-  const fieldsToShow = observationFields.filter(
-    (field) => !correction || providedFields?.includes(field),
+  const fieldsToShow = observationFields.filter((field) =>
+    correction
+      ? providedFields?.includes(field)
+      : values[field].state !== 'NOT_RECORDED',
   );
+  const nothingRecorded = !correction && fieldsToShow.length === 0;
   const verification: VerificationValue = values.medicationVerification;
 
   return (
     <dl className="note-values">
-      {fieldsToShow.map((field) => (
-        <div
-          key={field}
-          className={'note-field-row' + (field === 'freeText' ? ' note-field--wide' : '')}
-        >
-          <dt>{t(fieldLabels[field])}</dt>
-          <dd className="obs-display">{renderObservation(field, values[field])}</dd>
+      {nothingRecorded ? (
+        <div className="note-field-row note-field--wide">
+          <dd className="obs-display">{t('notesNothingRecorded')}</dd>
         </div>
-      ))}
-      {(!correction || verificationProvided) && (
-        <div key="medicationVerification" className="note-field-row">
-          <dt>{t('notesMedicationVerified')}</dt>
-          <dd className="obs-display">
-            <span className="obs-display-state" data-state={verification}>
-              {t(verificationLabel(verification))}
-            </span>
-          </dd>
-        </div>
+      ) : (
+        <>
+          {fieldsToShow.map((field) => (
+            <div
+              key={field}
+              className={'note-field-row' + (field === 'freeText' ? ' note-field--wide' : '')}
+            >
+              <dt>{t(fieldLabels[field])}</dt>
+              <dd className="obs-display">{renderObservation(field, values[field])}</dd>
+            </div>
+          ))}
+          {(!correction || verificationProvided) && (
+            <div key="medicationVerification" className="note-field-row">
+              <dt>{t('notesMedicationVerified')}</dt>
+              <dd className="obs-display">
+                <span className="obs-display-state" data-state={verification}>
+                  {t(verificationLabel(verification))}
+                </span>
+              </dd>
+            </div>
+          )}
+        </>
       )}
     </dl>
   );
