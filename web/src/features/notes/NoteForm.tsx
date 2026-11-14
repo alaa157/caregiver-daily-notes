@@ -165,6 +165,7 @@ export function NoteForm(props: Props) {
       : field === 'medicationStatus' ? 'notesMedicationHint' : undefined;
     if (props.mode === 'append' && chipFields.has(field)) {
       const options = chipFieldOptions[field as ChipField];
+      const groupOptions = [...chipOptions(field), { key: 'clear', label: t('notesChipClear') }];
       const hintId = hint ? `note-${field}-hint` : undefined;
       const errorId = errors[field] ? `note-${field}-error` : undefined;
       const describedBy = [hintId, errorId].filter(Boolean).join(' ') || undefined;
@@ -173,7 +174,7 @@ export function NoteForm(props: Props) {
           <ChipGroup
             id={`note-${field}`}
             label={t(fieldLabels[field])}
-            options={chipOptions(field)}
+            options={groupOptions}
             selectedKey={correctionChipKeys[field] ?? null}
             onSelect={(key) => {
               setCorrectionChipKeys((current) => ({ ...current, [field]: key }));
