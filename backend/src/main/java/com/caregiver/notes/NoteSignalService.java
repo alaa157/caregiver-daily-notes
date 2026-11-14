@@ -158,7 +158,7 @@ public class NoteSignalService {
   private Boolean poor(String value) {
     if (value == null) return null;
     return switch (value.trim().toUpperCase(Locale.ROOT)) {
-      case "POOR", "LOW", "POOR_APPETITE" -> true;
+      case "POOR", "LOW", "POOR_APPETITE", "REFUSED" -> true;
       case "GOOD", "NORMAL", "FAIR" -> false;
       default -> null;
     };
