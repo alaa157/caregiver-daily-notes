@@ -61,5 +61,19 @@ GET /api/notes/signals?recipientId=<UUID>&from=YYYY-MM-DD&to=YYYY-MM-DD. Chronol
 History is never rewritten: the original note and every addendum stay persisted. The interpreted signal, however, must not present uncertain information as a confirmed fact. When the combined same-day history contains both TAKEN and MISSED, the signal collapses to `missedMedication=null` with `medicationUnverified=true`, symmetrically in both directions (MISSED→TAKEN and TAKEN→MISSED corrections). A bare UNKNOWN report only leaves the state unverified. Downstream safety rules must treat `medicationUnverified=true` as "do not assert".
 ## Auditing
 Successful writes record audit events in the same transaction: NOTE_CREATED (target DAILY_NOTE), NOTE_ADDENDUM_CREATED (target NOTE_ADDENDUM), and NOTE_CORRECTION_CREATED (target NOTE_CORRECTION_BATCH). Metadata carries identifiers and event count only; observation values and free-text contents are never written to audit logs.
+## Recommended observation values
+
+| Field | Codes |
+|---|---|
+| `mood` | `CALM`, `HAPPY`, `ANXIOUS`, `AGITATED`, `SAD`, `CONFUSED` |
+| `appetite` | `GOOD`, `FAIR`, `POOR`, `REFUSED` |
+| `sleep` | `SLEPT_WELL`, `RESTLESS`, `POOR`, `DID_NOT_SLEEP` |
+| `mobility` | `INDEPENDENT`, `NEEDS_ASSISTANCE`, `BEDRIDDEN` |
+| `medicationStatus` | `TAKEN`, `MISSED` |
+| `fallReported` | `true` or `false` |
+| `painScore` | integers `0` to `10` |
+
+These are recommended values, not an enforced enum. The backend still accepts any string up to 40 characters for the string fields, and values outside this table are stored verbatim. `UNKNOWN` is an observation state, never a value. A value of `UNKNOWN` is not the same as the `UNKNOWN` state. The web app sends an explicit `NOT_RECORDED` for untouched fields when creating a note, and the backend stores `NOT_RECORDED` the same as an omitted field. A `painScore` must be a whole number from `0` to `10` inclusive; `0` is a real recorded value, not a blank. A `fallReported` uses real booleans; `false` is a real recorded value, not a blank. `POOR`, `LOW`, `POOR_APPETITE`, and `REFUSED` count as poor appetite. `GOOD`, `FAIR`, and `NORMAL` count as not poor. Any other appetite value is treated as unknown and is not counted either way.
+
 ## Errors
 All error bodies use `{timestamp, status, code, message}` (plus `fields` for body validation). Validation errors: 400 VALIDATION_ERROR with field details. Invalid requests: 400 INVALID_REQUEST. Missing query parameters: 400 MISSING_PARAMETER. Malformed UUIDs/dates: 400 INVALID_PARAMETER. Inaccessible resources: 404 NOT_FOUND. Duplicate recipient/date: 409 NOTE_CONFLICT. Key reuse with a different payload: 409 IDEMPOTENCY_CONFLICT. Authentication failures: 401 UNAUTHORIZED (never folded into validation errors). Unexpected failures: 500 SERVER_ERROR without stack traces. Never expose other caregivers' data.
