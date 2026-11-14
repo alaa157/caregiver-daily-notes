@@ -146,7 +146,7 @@ describe('daily-note creation and immutable corrections', () => {
     expect(dialog).toBeVisible();
     expect(document.querySelector('.app-layout')).toHaveAttribute('aria-hidden', 'true');
     expect(screen.getByLabelText('Observation date')).toHaveValue(new Date().toISOString().slice(0, 10));
-    await setRecorded('Free-text observations');
+    await userEvent.click(within(dialog).getByRole('button', { name: 'Add details' }));
     fireEvent.change(within(dialog).getByRole('textbox', { name: 'Free-text observations' }), { target: { value: 'Mixed العربية and English' } });
     const confirm = vi.spyOn(window, 'confirm').mockReturnValue(false);
     await userEvent.click(within(dialog).getByRole('button', { name: 'Cancel' }));
@@ -181,13 +181,14 @@ describe('daily-note creation and immutable corrections', () => {
     expect(within(screen.getByRole('group', { name: 'Medication' })).getByRole('radiogroup', { name: 'Medication report verified' })).toBeInTheDocument();
     expect(within(screen.getByRole('group', { name: 'Pain and safety' })).getByRole('radiogroup', { name: 'Fall reported' })).toBeInTheDocument();
     expect(within(screen.getByRole('group', { name: 'Additional notes' }))
-      .getByRole('group', { name: 'Free-text observations — Observation status' })).toBeInTheDocument();
+      .getByRole('button', { name: 'Add details' })).toBeInTheDocument();
   });
 
   it('keeps state choices keyboard accessible and exposes the selected state', async () => {
-    renderNotes(`${root}/new`, dataFetcher());
-    await screen.findByRole('group', { name: 'Free-text observations — Observation status' });
-    const group = screen.getByRole('group', { name: 'Free-text observations — Observation status' });
+    renderNotes(`${detail}/addenda/new`, dataFetcher());
+    await screen.findByRole('form', { name: 'Add a correction' });
+    await userEvent.click(screen.getByRole('checkbox', { name: 'Correct this field: Free-text observations' }));
+    const group = await screen.findByRole('group', { name: 'Free-text observations — Observation status' });
     await userEvent.click(within(group).getByText('Recorded', { exact: true }));
     const recorded = within(group).getByRole('radio', { name: 'Free-text observations — Recorded' });
     recorded.focus();
@@ -269,7 +270,7 @@ describe('daily-note creation and immutable corrections', () => {
     });
   });
 
-  it('preserves recorded empty text', async () => {
+  it('maps cleared free text back to not recorded', async () => {
     let submitted: Record<string, unknown> | null = null;
     const fetcher = dataFetcher((path, init) => {
       if (path === '/api/notes' && init.method === 'POST') {
@@ -279,12 +280,13 @@ describe('daily-note creation and immutable corrections', () => {
     });
     renderNotes(`${root}/new`, fetcher);
     await metadata();
-    await setRecorded('Free-text observations');
-    await userEvent.type(screen.getByRole('textbox', { name: 'Free-text observations' }), 'x');
-    await userEvent.clear(screen.getByRole('textbox', { name: 'Free-text observations' }));
+    await userEvent.click(screen.getByRole('button', { name: 'Add details' }));
+    const textarea = screen.getByRole('textbox', { name: 'Free-text observations' });
+    await userEvent.type(textarea, 'x');
+    await userEvent.clear(textarea);
     await userEvent.click(screen.getByRole('button', { name: 'Save original note' }));
 
-    expect(submitted).toMatchObject({ observations: { freeText: { state: 'RECORDED', value: '' } } });
+    expect(submitted).toMatchObject({ observations: { freeText: { state: 'NOT_RECORDED', value: null } } });
   });
   it('submits a stale typed value as null after selecting unknown', async () => {
     let submitted: Record<string, unknown> | null = null;
@@ -322,7 +324,9 @@ describe('daily-note creation and immutable corrections', () => {
   });
 
   it('does not offer legacy ambiguous as a state when creating a note', async () => {
-    renderNotes(`${root}/new`, dataFetcher());
+    renderNotes(`${detail}/addenda/new`, dataFetcher());
+    await screen.findByRole('form', { name: 'Add a correction' });
+    await userEvent.click(screen.getByRole('checkbox', { name: 'Correct this field: Free-text observations' }));
     const group = await screen.findByRole('group', { name: 'Free-text observations — Observation status' });
     expect(within(group).queryByRole('radio', { name: 'Free-text observations — Legacy ambiguous' })).not.toBeInTheDocument();
   });
@@ -338,7 +342,7 @@ describe('daily-note creation and immutable corrections', () => {
     renderNotes(`${root}/new`, dataFetcher((path, init) =>
       path === '/api/notes' && init.method === 'POST' ? jsonResponse({ message: 'private server detail' }, 500) : undefined));
     await metadata();
-    await setRecorded('Free-text observations');
+    await userEvent.click(screen.getByRole('button', { name: 'Add details' }));
     const text = screen.getByRole('textbox', { name: 'Free-text observations' });
     fireEvent.change(text, { target: { value: 'Keep this entry for a retry.' } });
     await userEvent.click(screen.getByRole('button', { name: 'Save original note' }));
@@ -741,7 +745,7 @@ describe('daily-note creation and immutable corrections', () => {
     await selectVerificationChip('Unverified');
     await selectPainScoreChip('0');
     await selectFallChip('No');
-    await setRecorded('Free-text observations');
+    await userEvent.click(screen.getByRole('button', { name: 'Add details' }));
     fireEvent.change(screen.getByRole('textbox', { name: 'Free-text observations' }), { target: { value: noteObservations.freeText } });
     await userEvent.click(screen.getByRole('button', { name: 'Save original note' }));
     expect(await screen.findByText('Original note saved.')).toHaveFocus();
@@ -785,7 +789,7 @@ describe('daily-note creation and immutable corrections', () => {
     expect(screen.getByRole('button', { name: 'Saving…' })).toBeDisabled();
     reject(new TypeError('response lost'));
     expect(await screen.findByRole('alert')).toHaveTextContent(/could not confirm/i);
-    expect(within(screen.getByRole('group', { name: 'Free-text observations — Observation status' })).getAllByRole('radio')[0]).toBeDisabled();
+    expect(screen.getByRole('button', { name: 'Add details' })).toBeDisabled();
     await userEvent.click(screen.getByRole('button', { name: 'Retry the same save' }));
     await screen.findByText('Original note saved.');
     expect(posts).toHaveLength(2);
@@ -802,7 +806,7 @@ describe('daily-note creation and immutable corrections', () => {
     });
     renderNotes(`${root}/new`, fetcher);
     await metadata();
-    await setRecorded('Free-text observations');
+    await userEvent.click(screen.getByRole('button', { name: 'Add details' }));
     fireEvent.change(screen.getByRole('textbox', { name: 'Free-text observations' }), { target: { value: 'القيمة الأصلية' } });
     await userEvent.click(screen.getByRole('button', { name: 'Save original note' }));
     expect(await screen.findByRole('alert')).toHaveTextContent('Review the entered values');
@@ -1228,11 +1232,10 @@ describe('medication status chips on the create form', () => {
     expect(screen.queryByRole('radiogroup', { name: 'Medication taken' })).not.toBeInTheDocument();
   });
 
-  it('keeps ObservationStateField for every other field in create mode', async () => {
+  it('keeps ObservationStateField out of the create form', async () => {
     renderNotes(`${root}/new`, dataFetcher());
-    await screen.findByRole('group', { name: 'Free-text observations — Observation status' });
-    expect(screen.getByRole('group', { name: 'Free-text observations — Observation status' })).toBeInTheDocument();
-    expect(screen.queryByRole('radiogroup', { name: 'Free-text observations' })).not.toBeInTheDocument();
+    await screen.findByRole('button', { name: 'Add details' });
+    expect(screen.queryByRole('group', { name: /Observation status/ })).not.toBeInTheDocument();
   });
 });
 
@@ -1658,5 +1661,113 @@ describe('pain score chips on the create form', () => {
     await setRecorded('Pain score (0–10)');
     expect(screen.getByRole('spinbutton', { name: 'Pain score (0–10)' })).toBeInTheDocument();
     expect(screen.queryByRole('radiogroup', { name: 'Pain score (0–10)' })).not.toBeInTheDocument();
+  });
+});
+
+describe('collapsible free text on the create form', () => {
+  async function submitCreate() {
+    let submitted: Record<string, unknown> | null = null;
+    const fetcher = dataFetcher((path, init) => {
+      if (path === '/api/notes' && init.method === 'POST') {
+        submitted = JSON.parse(init.body as string);
+        return jsonResponse(noteListFixture, 201);
+      }
+    });
+    renderNotes(`${root}/new`, fetcher);
+    await metadata();
+    await userEvent.click(screen.getByRole('button', { name: 'Save original note' }));
+    await screen.findByText('Original note saved.');
+    return submitted as unknown as { observations: { freeText: { state: string; value?: unknown } } };
+  }
+
+  it('renders an Add details chip instead of the textarea when collapsed', async () => {
+    renderNotes(`${root}/new`, dataFetcher());
+    await screen.findByRole('button', { name: 'Add details' });
+    expect(screen.queryByRole('textbox', { name: 'Free-text observations' })).not.toBeInTheDocument();
+  });
+
+  it('expands the textarea and sets aria-expanded when Add details is clicked', async () => {
+    renderNotes(`${root}/new`, dataFetcher());
+    const toggle = await screen.findByRole('button', { name: 'Add details' });
+    expect(toggle).toHaveAttribute('aria-expanded', 'false');
+    await userEvent.click(toggle);
+    expect(screen.getByRole('textbox', { name: 'Free-text observations' })).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: 'Show less' })).toHaveAttribute('aria-expanded', 'true');
+  });
+
+  it('collapses again via the collapse control while the textarea is empty', async () => {
+    renderNotes(`${root}/new`, dataFetcher());
+    await userEvent.click(await screen.findByRole('button', { name: 'Add details' }));
+    await userEvent.click(screen.getByRole('button', { name: 'Show less' }));
+    expect(screen.queryByRole('textbox', { name: 'Free-text observations' })).not.toBeInTheDocument();
+    expect(screen.getByRole('button', { name: 'Add details' })).toHaveAttribute('aria-expanded', 'false');
+  });
+
+  it('removes the collapse control once the textarea has text', async () => {
+    renderNotes(`${root}/new`, dataFetcher());
+    await userEvent.click(await screen.findByRole('button', { name: 'Add details' }));
+    fireEvent.change(screen.getByRole('textbox', { name: 'Free-text observations' }), { target: { value: 'Details' } });
+    expect(screen.queryByRole('button', { name: 'Show less' })).not.toBeInTheDocument();
+    expect(screen.getByRole('textbox', { name: 'Free-text observations' })).toBeInTheDocument();
+  });
+
+  it('submits NOT_RECORDED when the textarea stays collapsed', async () => {
+    const submitted = await submitCreate();
+    expect(submitted.observations.freeText).toEqual({ state: 'NOT_RECORDED', value: null });
+  });
+
+  it('submits RECORDED with the entered text', async () => {
+    let submitted: Record<string, unknown> | null = null;
+    const fetcher = dataFetcher((path, init) => {
+      if (path === '/api/notes' && init.method === 'POST') {
+        submitted = JSON.parse(init.body as string);
+        return jsonResponse(noteListFixture, 201);
+      }
+    });
+    renderNotes(`${root}/new`, fetcher);
+    await metadata();
+    await userEvent.click(screen.getByRole('button', { name: 'Add details' }));
+    fireEvent.change(screen.getByRole('textbox', { name: 'Free-text observations' }), { target: { value: 'Walked to the garden' } });
+    await userEvent.click(screen.getByRole('button', { name: 'Save original note' }));
+    await screen.findByText('Original note saved.');
+    expect(submitted).toMatchObject({ observations: { freeText: { state: 'RECORDED', value: 'Walked to the garden' } } });
+  });
+
+  it('keeps maxLength 20000 and dir auto on the textarea', async () => {
+    renderNotes(`${root}/new`, dataFetcher());
+    await userEvent.click(await screen.findByRole('button', { name: 'Add details' }));
+    const textarea = screen.getByRole('textbox', { name: 'Free-text observations' });
+    expect(textarea).toHaveAttribute('maxlength', '20000');
+    expect(textarea).toHaveAttribute('dir', 'auto');
+  });
+
+  it('does not change other field values when expanding', async () => {
+    let submitted: Record<string, unknown> | null = null;
+    const fetcher = dataFetcher((path, init) => {
+      if (path === '/api/notes' && init.method === 'POST') {
+        submitted = JSON.parse(init.body as string);
+        return jsonResponse(noteListFixture, 201);
+      }
+    });
+    renderNotes(`${root}/new`, fetcher);
+    await metadata();
+    await selectMoodChip('Calm');
+    await selectPainScoreChip('3');
+    await userEvent.click(screen.getByRole('button', { name: 'Add details' }));
+    await userEvent.click(screen.getByRole('button', { name: 'Save original note' }));
+    await screen.findByText('Original note saved.');
+    const observations = (submitted as unknown as { observations: Record<string, { state: string; value?: unknown }> }).observations;
+    expect(observations.mood).toEqual({ state: 'RECORDED', value: 'CALM' });
+    expect(observations.painScore).toEqual({ state: 'RECORDED', value: 3 });
+    expect(observations.freeText).toEqual({ state: 'NOT_RECORDED', value: null });
+  });
+
+  it('keeps the free-text field visible in append mode without an Add details chip', async () => {
+    renderNotes(`${detail}/addenda/new`, dataFetcher());
+    await screen.findByRole('form', { name: 'Add a correction' });
+    await userEvent.click(screen.getByRole('checkbox', { name: 'Correct this field: Free-text observations' }));
+    await setRecorded('Free-text observations');
+    expect(screen.getByRole('textbox', { name: 'Free-text observations' })).toBeInTheDocument();
+    expect(screen.queryByRole('button', { name: 'Add details' })).not.toBeInTheDocument();
   });
 });

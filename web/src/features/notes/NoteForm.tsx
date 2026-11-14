@@ -40,6 +40,7 @@ export function NoteForm(props: Props) {
   const [failure, setFailure] = useState<MessageKey | null>(null);
   const [activity, setActivity] = useState<'idle' | 'saving' | 'opening'>('idle');
   const [uncertain, setUncertain] = useState(false);
+  const [freeTextExpanded, setFreeTextExpanded] = useState(false);
   const request = useRef<AbortController | null>(null);
   const attempt = useRef<{ key: string; input: CreateNoteInput | AddendumInput } | null>(null);
   const formRef = useRef<HTMLFormElement>(null);
@@ -170,6 +171,42 @@ export function NoteForm(props: Props) {
           />
           {hint && <p id={hintId} className="note-hint">{t(hint)}</p>}
           {errors[field] && <FieldError id={errorId!} message={t(errors[field]!)} />}
+        </div>
+      );
+    }
+    if (props.mode === 'create' && field === 'freeText') {
+      const text = typeof observation.value === 'string' ? observation.value : '';
+      const hintId = 'note-freeText-hint';
+      const errorId = errors.freeText ? 'note-freeText-error' : undefined;
+      const describedBy = [hintId, errorId].filter(Boolean).join(' ') || undefined;
+      const showToggle = !freeTextExpanded || text === '';
+      return (
+        <div id="note-freeText-state">
+          <div id="note-freeText-details">
+            {freeTextExpanded && <>
+              <label className="obs-field-label" htmlFor="note-freeText-value">{t(fieldLabels.freeText)}</label>
+              <textarea id="note-freeText-value" dir="auto" rows={6} maxLength={20000}
+                autoCapitalize="none" autoCorrect="off" spellCheck={false}
+                value={text} disabled={locked}
+                aria-invalid={errors.freeText ? true : undefined}
+                aria-describedby={describedBy}
+                onChange={(event) => {
+                  const next = event.target.value;
+                  changeObservation('freeText', next === ''
+                    ? { state: 'NOT_RECORDED', value: null }
+                    : { state: 'RECORDED', value: next });
+                }} />
+              <p id={hintId} className="note-hint">{t('notesFreeTextHint')}</p>
+              {errors.freeText && <FieldError id={errorId!} message={t(errors.freeText)} />}
+            </>}
+          </div>
+          {showToggle && <button type="button" className="chip"
+            aria-expanded={freeTextExpanded}
+            aria-controls="note-freeText-details"
+            disabled={locked}
+            onClick={() => setFreeTextExpanded((current) => !current)}>
+            {freeTextExpanded ? t('notesTimelineShowLess') : t('notesChipAddDetails')}
+          </button>}
         </div>
       );
     }
