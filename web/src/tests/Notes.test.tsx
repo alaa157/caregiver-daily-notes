@@ -82,6 +82,10 @@ async function selectVerificationChip(name: 'Verified' | 'Unverified') {
   const group = screen.getByRole('radiogroup', { name: 'Medication report verified' });
   await userEvent.click(within(group).getByRole('radio', { name }));
 }
+async function selectFallChip(name: 'Yes' | 'No' | 'Unknown') {
+  const group = screen.getByRole('radiogroup', { name: 'Fall reported' });
+  await userEvent.click(within(group).getByRole('radio', { name }));
+}
 function mockTimelineDimensions(body: HTMLElement, initialHeight = 0) {
   let scrollHeight = initialHeight;
   let clientHeight = initialHeight;
@@ -155,7 +159,7 @@ describe('daily-note creation and immutable corrections', () => {
     expect(within(details).getByLabelText('Observation date')).toBeInTheDocument();
     expect(within(screen.getByRole('group', { name: 'Daily wellbeing' })).getByRole('radio', { name: 'Mood — Recorded' })).toBeInTheDocument();
     expect(within(screen.getByRole('group', { name: 'Medication' })).getByRole('radiogroup', { name: 'Medication report verified' })).toBeInTheDocument();
-    expect(within(screen.getByRole('group', { name: 'Pain and safety' })).getByLabelText('Fall reported')).toBeInTheDocument();
+    expect(within(screen.getByRole('group', { name: 'Pain and safety' })).getByRole('radiogroup', { name: 'Fall reported' })).toBeInTheDocument();
     expect(within(screen.getByRole('group', { name: 'Additional notes' }))
       .getByRole('group', { name: 'Free-text observations — Observation status' })).toBeInTheDocument();
   });
@@ -180,8 +184,7 @@ describe('daily-note creation and immutable corrections', () => {
     await metadata();
     await setRecorded('Pain score (0–10)');
     fireEvent.change(screen.getByRole('spinbutton', { name: 'Pain score (0–10)' }), { target: { value: '0' } });
-    await setRecorded('Fall reported');
-    await userEvent.selectOptions(screen.getByRole('combobox', { name: 'Fall reported' }), 'false');
+    await selectFallChip('No');
     await userEvent.click(screen.getByRole('button', { name: 'Save original note' }));
     await screen.findByText('Original note saved.');
 
@@ -220,7 +223,6 @@ describe('daily-note creation and immutable corrections', () => {
     });
     renderNotes(`${root}/new`, fetcher);
     await metadata();
-    await setObservationState('Fall reported', 'NOT_RECORDED');
     await userEvent.click(screen.getByRole('button', { name: 'Save original note' }));
     await screen.findByText('Original note saved.');
 
@@ -721,8 +723,7 @@ describe('daily-note creation and immutable corrections', () => {
     await selectVerificationChip('Unverified');
     await setRecorded('Pain score (0–10)');
     fireEvent.change(screen.getByRole('spinbutton', { name: 'Pain score (0–10)' }), { target: { value: '0' } });
-    await setRecorded('Fall reported');
-    await userEvent.selectOptions(screen.getByRole('combobox', { name: 'Fall reported' }), 'false');
+    await selectFallChip('No');
     await setRecorded('Free-text observations');
     fireEvent.change(screen.getByRole('textbox', { name: 'Free-text observations' }), { target: { value: noteObservations.freeText } });
     await userEvent.click(screen.getByRole('button', { name: 'Save original note' }));
@@ -1213,7 +1214,7 @@ describe('medication status chips on the create form', () => {
   it('keeps ObservationStateField for every other field in create mode', async () => {
     renderNotes(`${root}/new`, dataFetcher());
     await screen.findByRole('group', { name: 'Mood — Observation status' });
-    for (const label of ['Mood', 'Appetite', 'Sleep', 'Mobility', 'Pain score (0–10)', 'Fall reported', 'Free-text observations']) {
+    for (const label of ['Mood', 'Appetite', 'Sleep', 'Mobility', 'Pain score (0–10)', 'Free-text observations']) {
       expect(screen.getByRole('group', { name: `${label} — Observation status` })).toBeInTheDocument();
       expect(screen.queryByRole('radiogroup', { name: label })).not.toBeInTheDocument();
     }
@@ -1282,5 +1283,62 @@ describe('medication verification chips on the create form', () => {
     await screen.findByRole('radiogroup', { name: 'Medication report verified' });
     expect(document.getElementById('note-medicationVerification')).not.toBeNull();
     expect(document.getElementById('note-medicationVerification-hint')).not.toBeNull();
+  });
+});
+
+describe('fall reported chips on the create form', () => {
+  async function createWithFall(chip?: 'Yes' | 'No' | 'Unknown', deselect = false) {
+    let submitted: Record<string, unknown> | null = null;
+    const fetcher = dataFetcher((path, init) => {
+      if (path === '/api/notes' && init.method === 'POST') {
+        submitted = JSON.parse(init.body as string);
+        return jsonResponse(noteListFixture, 201);
+      }
+    });
+    renderNotes(`${root}/new`, fetcher);
+    await metadata();
+    if (chip) {
+      await selectFallChip(chip);
+      if (deselect) await selectFallChip(chip);
+    }
+    await userEvent.click(screen.getByRole('button', { name: 'Save original note' }));
+    await screen.findByText('Original note saved.');
+    return submitted as { observations: { fallReported: { state: string; value?: unknown } } };
+  }
+
+  it('renders Yes, No and Unknown chips in create mode', async () => {
+    renderNotes(`${root}/new`, dataFetcher());
+    const group = await screen.findByRole('radiogroup', { name: 'Fall reported' });
+    expect(within(group).getAllByRole('radio').map((chip) => chip.textContent))
+      .toEqual(['Yes', 'No', 'Unknown']);
+  });
+
+  it('submits RECORDED false when the No chip is selected', async () => {
+    const submitted = await createWithFall('No');
+    expect(submitted.observations.fallReported.state).toBe('RECORDED');
+    expect(submitted.observations.fallReported.value).toBe(false);
+  });
+
+  it('submits RECORDED true when the Yes chip is selected', async () => {
+    const submitted = await createWithFall('Yes');
+    expect(submitted.observations.fallReported).toEqual({ state: 'RECORDED', value: true });
+  });
+
+  it('submits UNKNOWN with a null value when the Unknown chip is selected', async () => {
+    const submitted = await createWithFall('Unknown');
+    expect(submitted.observations.fallReported).toEqual({ state: 'UNKNOWN', value: null });
+  });
+
+  it('returns to NOT_RECORDED when the selected chip is clicked again', async () => {
+    const submitted = await createWithFall('No', true);
+    expect(submitted.observations.fallReported).toEqual({ state: 'NOT_RECORDED', value: null });
+  });
+
+  it('keeps the state radio group for fall reported in append mode', async () => {
+    renderNotes(`${detail}/addenda/new`, dataFetcher());
+    await screen.findByRole('form', { name: 'Add a correction' });
+    await userEvent.click(screen.getByRole('checkbox', { name: 'Correct this field: Fall reported' }));
+    expect(screen.getByRole('group', { name: 'Fall reported — Observation status' })).toBeVisible();
+    expect(screen.queryByRole('radiogroup', { name: 'Fall reported' })).not.toBeInTheDocument();
   });
 });
