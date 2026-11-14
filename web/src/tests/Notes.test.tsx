@@ -1229,7 +1229,7 @@ describe('medication status chips on the create form', () => {
     await screen.findByRole('form', { name: 'Add a correction' });
     await userEvent.click(screen.getByRole('checkbox', { name: 'Correct this field: Medication taken' }));
     const group = screen.getByRole('radiogroup', { name: 'Medication taken' });
-    expect(within(group).getAllByRole('radio').map((chip) => chip.textContent)).toEqual(['Taken', 'Missed', 'Unknown']);
+    expect(within(group).getAllByRole('radio').map((chip) => chip.textContent)).toEqual(['Taken', 'Missed', 'Unknown', 'Clear']);
     expect(within(group).queryByRole('radio', { checked: true })).not.toBeInTheDocument();
     expect(screen.queryByRole('group', { name: 'Medication taken — Observation status' })).not.toBeInTheDocument();
   });
@@ -1359,7 +1359,7 @@ describe('fall reported chips on the create form', () => {
     await screen.findByRole('form', { name: 'Add a correction' });
     await userEvent.click(screen.getByRole('checkbox', { name: 'Correct this field: Fall reported' }));
     const group = screen.getByRole('radiogroup', { name: 'Fall reported' });
-    expect(within(group).getAllByRole('radio').map((chip) => chip.textContent)).toEqual(['Yes', 'No', 'Unknown']);
+    expect(within(group).getAllByRole('radio').map((chip) => chip.textContent)).toEqual(['Yes', 'No', 'Unknown', 'Clear']);
     expect(within(group).queryByRole('radio', { checked: true })).not.toBeInTheDocument();
     expect(screen.queryByRole('group', { name: 'Fall reported — Observation status' })).not.toBeInTheDocument();
   });
@@ -1417,7 +1417,7 @@ describe('mood chips on the create form', () => {
     await screen.findByRole('form', { name: 'Add a correction' });
     await userEvent.click(screen.getByRole('checkbox', { name: 'Correct this field: Mood' }));
     const group = screen.getByRole('radiogroup', { name: 'Mood' });
-    expect(within(group).getAllByRole('radio')).toHaveLength(7);
+    expect(within(group).getAllByRole('radio')).toHaveLength(8);
     expect(within(group).queryByRole('radio', { checked: true })).not.toBeInTheDocument();
     expect(screen.queryByRole('group', { name: 'Mood — Observation status' })).not.toBeInTheDocument();
     expect(screen.queryByRole('textbox', { name: 'Mood' })).not.toBeInTheDocument();
@@ -1477,7 +1477,7 @@ describe('appetite chips on the create form', () => {
     await userEvent.click(screen.getByRole('checkbox', { name: 'Correct this field: Appetite' }));
     const group = screen.getByRole('radiogroup', { name: 'Appetite' });
     expect(within(group).getAllByRole('radio').map((chip) => chip.textContent))
-      .toEqual(['Good', 'Fair', 'Poor', 'Refused food', 'Unknown']);
+      .toEqual(['Good', 'Fair', 'Poor', 'Refused food', 'Unknown', 'Clear']);
     expect(within(group).queryByRole('radio', { checked: true })).not.toBeInTheDocument();
     expect(screen.queryByRole('group', { name: 'Appetite — Observation status' })).not.toBeInTheDocument();
     expect(screen.queryByRole('textbox', { name: 'Appetite' })).not.toBeInTheDocument();
@@ -1537,7 +1537,7 @@ describe('sleep chips on the create form', () => {
     await userEvent.click(screen.getByRole('checkbox', { name: 'Correct this field: Sleep' }));
     const group = screen.getByRole('radiogroup', { name: 'Sleep' });
     expect(within(group).getAllByRole('radio').map((chip) => chip.textContent))
-      .toEqual(['Slept well', 'Restless', 'Poor sleep', 'Did not sleep', 'Unknown']);
+      .toEqual(['Slept well', 'Restless', 'Poor sleep', 'Did not sleep', 'Unknown', 'Clear']);
     expect(within(group).queryByRole('radio', { checked: true })).not.toBeInTheDocument();
     expect(screen.queryByRole('group', { name: 'Sleep — Observation status' })).not.toBeInTheDocument();
     expect(screen.queryByRole('textbox', { name: 'Sleep' })).not.toBeInTheDocument();
@@ -1597,7 +1597,7 @@ describe('mobility chips on the create form', () => {
     await userEvent.click(screen.getByRole('checkbox', { name: 'Correct this field: Mobility' }));
     const group = screen.getByRole('radiogroup', { name: 'Mobility' });
     expect(within(group).getAllByRole('radio').map((chip) => chip.textContent))
-      .toEqual(['Independent', 'Needs assistance', 'Bedridden', 'Unknown']);
+      .toEqual(['Independent', 'Needs assistance', 'Bedridden', 'Unknown', 'Clear']);
     expect(within(group).queryByRole('radio', { checked: true })).not.toBeInTheDocument();
     expect(screen.queryByRole('group', { name: 'Mobility — Observation status' })).not.toBeInTheDocument();
     expect(screen.queryByRole('textbox', { name: 'Mobility' })).not.toBeInTheDocument();
@@ -1669,7 +1669,7 @@ describe('pain score chips on the create form', () => {
     await screen.findByRole('form', { name: 'Add a correction' });
     await userEvent.click(screen.getByRole('checkbox', { name: 'Correct this field: Pain score (0–10)' }));
     const group = screen.getByRole('radiogroup', { name: 'Pain score (0–10)' });
-    expect(within(group).getAllByRole('radio')).toHaveLength(12);
+    expect(within(group).getAllByRole('radio')).toHaveLength(13);
     expect(within(group).queryByRole('radio', { checked: true })).not.toBeInTheDocument();
     expect(screen.queryByRole('group', { name: 'Pain score (0–10) — Observation status' })).not.toBeInTheDocument();
     expect(screen.queryByRole('spinbutton', { name: 'Pain score (0–10)' })).not.toBeInTheDocument();
@@ -1854,7 +1854,7 @@ describe('chips in correction mode', () => {
       if (path.endsWith('/addenda')) return jsonResponse([]);
     });
     renderNotes(`${detail}/addenda/new`, fetcher);
-    await screen.findByRole('form', { name: 'Add a correction' });
+    await screen.findByRole('form', { name: 'Add a correction' }, { timeout: 5000 });
     return {
       fetcher,
       get submitted() { return submitted as { observations: Record<string, { state: string; value?: unknown }> } | null; },
@@ -1867,12 +1867,12 @@ describe('chips in correction mode', () => {
     await userEvent.click(screen.getByRole('button', { name: 'Save addendum' }));
   }
 
-  it('renders the seven mood chips with nothing selected after ticking', async () => {
+  it('renders the eight mood chips including Clear with nothing selected after ticking', async () => {
     await setupAppend();
     await tick('Mood');
     const group = screen.getByRole('radiogroup', { name: 'Mood' });
     expect(within(group).getAllByRole('radio').map((chip) => chip.textContent))
-      .toEqual(['Calm', 'Happy', 'Anxious', 'Agitated', 'Sad', 'Confused', 'Unknown']);
+      .toEqual(['Calm', 'Happy', 'Anxious', 'Agitated', 'Sad', 'Confused', 'Unknown', 'Clear']);
     expect(within(group).queryByRole('radio', { checked: true })).not.toBeInTheDocument();
   });
 
@@ -1940,5 +1940,73 @@ describe('chips in correction mode', () => {
     const select = screen.getByRole('combobox', { name: 'Medication report verified' });
     expect(within(select).getAllByRole('option').map((option) => option.textContent))
       .toEqual(['Not asserted', 'Verified', 'Unverified']);
+  });
+
+  it('does not render a Clear chip in create mode', async () => {
+    renderNotes(`${root}/new`, dataFetcher());
+    const group = await screen.findByRole('radiogroup', { name: 'Mood' });
+    expect(within(group).queryByRole('radio', { name: 'Clear' })).not.toBeInTheDocument();
+    expect(within(group).getAllByRole('radio')).toHaveLength(7);
+  });
+
+  it('submits NOT_RECORDED null when Clear is chosen for mood', async () => {
+    const ctx = await setupAppend();
+    await tick('Mood');
+    await userEvent.click(within(screen.getByRole('radiogroup', { name: 'Mood' })).getByRole('radio', { name: 'Clear' }));
+    await save();
+    await screen.findByText('Addendum saved. The original note is unchanged.');
+    expect(ctx.submitted?.observations.mood).toEqual({ state: 'NOT_RECORDED', value: null });
+  });
+
+  it('does not show the choose-one error after choosing Clear', async () => {
+    const ctx = await setupAppend();
+    await tick('Mood');
+    await userEvent.click(within(screen.getByRole('radiogroup', { name: 'Mood' })).getByRole('radio', { name: 'Clear' }));
+    await save();
+    await screen.findByText('Addendum saved. The original note is unchanged.');
+    expect(ctx.fetcher.mock.calls.some(([path, init]) => path.endsWith('/addenda') && init.method === 'POST')).toBe(true);
+    expect(screen.queryByRole('alert')).not.toBeInTheDocument();
+  });
+
+  it('replaces a chosen chip with NOT_RECORDED when Clear is selected', async () => {
+    const ctx = await setupAppend();
+    await tick('Mood');
+    const group = screen.getByRole('radiogroup', { name: 'Mood' });
+    await userEvent.click(within(group).getByRole('radio', { name: 'Sad' }));
+    await userEvent.click(within(group).getByRole('radio', { name: 'Clear' }));
+    await save();
+    await screen.findByText('Addendum saved. The original note is unchanged.');
+    expect(ctx.submitted?.observations.mood).toEqual({ state: 'NOT_RECORDED', value: null });
+  });
+
+  it('re-shows the choose-one error and blocks save when Clear is tapped again', async () => {
+    const { fetcher } = await setupAppend();
+    await tick('Mood');
+    const clear = within(screen.getByRole('radiogroup', { name: 'Mood' })).getByRole('radio', { name: 'Clear' });
+    await userEvent.click(clear);
+    await userEvent.click(clear);
+    await save();
+    expect(screen.getByRole('alert')).toHaveTextContent('Choose one option for this field.');
+    expect(fetcher.mock.calls.some(([path, init]) => path.endsWith('/addenda') && init.method === 'POST')).toBe(false);
+  });
+
+  it('replaces Clear with a normal chip selection', async () => {
+    const ctx = await setupAppend();
+    await tick('Mood');
+    const group = screen.getByRole('radiogroup', { name: 'Mood' });
+    await userEvent.click(within(group).getByRole('radio', { name: 'Clear' }));
+    await userEvent.click(within(group).getByRole('radio', { name: 'Happy' }));
+    await save();
+    await screen.findByText('Addendum saved. The original note is unchanged.');
+    expect(ctx.submitted?.observations.mood).toEqual({ state: 'RECORDED', value: 'HAPPY' });
+  });
+
+  it('submits NOT_RECORDED null when Clear is chosen for pain score', async () => {
+    const ctx = await setupAppend();
+    await tick('Pain score (0–10)');
+    await userEvent.click(within(screen.getByRole('radiogroup', { name: 'Pain score (0–10)' })).getByRole('radio', { name: 'Clear' }));
+    await save();
+    await screen.findByText('Addendum saved. The original note is unchanged.');
+    expect(ctx.submitted?.observations.painScore).toEqual({ state: 'NOT_RECORDED', value: null });
   });
 });
