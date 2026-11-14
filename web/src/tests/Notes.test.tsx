@@ -86,6 +86,10 @@ async function selectFallChip(name: 'Yes' | 'No' | 'Unknown') {
   const group = screen.getByRole('radiogroup', { name: 'Fall reported' });
   await userEvent.click(within(group).getByRole('radio', { name }));
 }
+async function selectMoodChip(name: string) {
+  const group = screen.getByRole('radiogroup', { name: 'Mood' });
+  await userEvent.click(within(group).getByRole('radio', { name }));
+}
 function mockTimelineDimensions(body: HTMLElement, initialHeight = 0) {
   let scrollHeight = initialHeight;
   let clientHeight = initialHeight;
@@ -157,7 +161,7 @@ describe('daily-note creation and immutable corrections', () => {
     }
     expect(within(details).getByLabelText('Care recipient')).toBeInTheDocument();
     expect(within(details).getByLabelText('Observation date')).toBeInTheDocument();
-    expect(within(screen.getByRole('group', { name: 'Daily wellbeing' })).getByRole('radio', { name: 'Mood — Recorded' })).toBeInTheDocument();
+    expect(within(screen.getByRole('group', { name: 'Daily wellbeing' })).getByRole('radio', { name: 'Appetite — Recorded' })).toBeInTheDocument();
     expect(within(screen.getByRole('group', { name: 'Medication' })).getByRole('radiogroup', { name: 'Medication report verified' })).toBeInTheDocument();
     expect(within(screen.getByRole('group', { name: 'Pain and safety' })).getByRole('radiogroup', { name: 'Fall reported' })).toBeInTheDocument();
     expect(within(screen.getByRole('group', { name: 'Additional notes' }))
@@ -166,14 +170,14 @@ describe('daily-note creation and immutable corrections', () => {
 
   it('keeps state choices keyboard accessible and exposes the selected state', async () => {
     renderNotes(`${root}/new`, dataFetcher());
-    await screen.findByRole('group', { name: 'Mood — Observation status' });
-    const group = screen.getByRole('group', { name: 'Mood — Observation status' });
+    await screen.findByRole('group', { name: 'Appetite — Observation status' });
+    const group = screen.getByRole('group', { name: 'Appetite — Observation status' });
     await userEvent.click(within(group).getByText('Recorded', { exact: true }));
-    const recorded = within(group).getByRole('radio', { name: 'Mood — Recorded' });
+    const recorded = within(group).getByRole('radio', { name: 'Appetite — Recorded' });
     recorded.focus();
     expect(recorded).toBeChecked();
     await userEvent.keyboard('{ArrowDown}');
-    expect(within(group).getByRole('radio', { name: 'Mood — Unknown' })).toBeChecked();
+    expect(within(group).getByRole('radio', { name: 'Appetite — Unknown' })).toBeChecked();
     expect(recorded).not.toBeChecked();
     expect(within(group).getByText('Unknown', { exact: true })).toBeVisible();
   });
@@ -277,9 +281,8 @@ describe('daily-note creation and immutable corrections', () => {
     });
     renderNotes(`${root}/new`, fetcher);
     await metadata();
-    await setRecorded('Mood');
-    fireEvent.change(screen.getByRole('textbox', { name: 'Mood' }), { target: { value: 'Calm' } });
-    await setObservationState('Mood', 'UNKNOWN');
+    await selectMoodChip('Calm');
+    await selectMoodChip('Unknown');
     await userEvent.click(screen.getByRole('button', { name: 'Save original note' }));
     await screen.findByText('Original note saved.');
     expect(submitted).toMatchObject({ observations: { mood: { state: 'UNKNOWN', value: null } } });
@@ -305,8 +308,8 @@ describe('daily-note creation and immutable corrections', () => {
 
   it('does not offer legacy ambiguous as a state when creating a note', async () => {
     renderNotes(`${root}/new`, dataFetcher());
-    const group = await screen.findByRole('group', { name: 'Mood — Observation status' });
-    expect(within(group).queryByRole('radio', { name: 'Mood — Legacy ambiguous' })).not.toBeInTheDocument();
+    const group = await screen.findByRole('group', { name: 'Appetite — Observation status' });
+    expect(within(group).queryByRole('radio', { name: 'Appetite — Legacy ambiguous' })).not.toBeInTheDocument();
   });
 
   it('announces save success and save failure separately', async () => {
@@ -715,7 +718,8 @@ describe('daily-note creation and immutable corrections', () => {
     });
     renderNotes(`${root}/new`, fetcher);
     await metadata();
-    for (const [label, value] of [['Mood', noteObservations.mood], ['Appetite', noteObservations.appetite], ['Sleep', noteObservations.sleep], ['Mobility', noteObservations.mobility]] as const) {
+    await selectMoodChip('Calm');
+    for (const [label, value] of [['Appetite', noteObservations.appetite], ['Sleep', noteObservations.sleep], ['Mobility', noteObservations.mobility]] as const) {
       await setRecorded(label);
       fireEvent.change(screen.getByRole('textbox', { name: label }), { target: { value } });
     }
@@ -732,7 +736,7 @@ describe('daily-note creation and immutable corrections', () => {
       recipientId: recipientFixture.id,
       date: noteFixture.date,
       observations: {
-        mood: { state: 'RECORDED', value: noteObservations.mood },
+        mood: { state: 'RECORDED', value: 'CALM' },
         appetite: { state: 'RECORDED', value: noteObservations.appetite },
         sleep: { state: 'RECORDED', value: noteObservations.sleep },
         mobility: { state: 'RECORDED', value: noteObservations.mobility },
@@ -1213,8 +1217,8 @@ describe('medication status chips on the create form', () => {
 
   it('keeps ObservationStateField for every other field in create mode', async () => {
     renderNotes(`${root}/new`, dataFetcher());
-    await screen.findByRole('group', { name: 'Mood — Observation status' });
-    for (const label of ['Mood', 'Appetite', 'Sleep', 'Mobility', 'Pain score (0–10)', 'Free-text observations']) {
+    await screen.findByRole('group', { name: 'Appetite — Observation status' });
+    for (const label of ['Appetite', 'Sleep', 'Mobility', 'Pain score (0–10)', 'Free-text observations']) {
       expect(screen.getByRole('group', { name: `${label} — Observation status` })).toBeInTheDocument();
       expect(screen.queryByRole('radiogroup', { name: label })).not.toBeInTheDocument();
     }
@@ -1340,5 +1344,63 @@ describe('fall reported chips on the create form', () => {
     await userEvent.click(screen.getByRole('checkbox', { name: 'Correct this field: Fall reported' }));
     expect(screen.getByRole('group', { name: 'Fall reported — Observation status' })).toBeVisible();
     expect(screen.queryByRole('radiogroup', { name: 'Fall reported' })).not.toBeInTheDocument();
+  });
+});
+
+describe('mood chips on the create form', () => {
+  async function createWithMood(chip?: string, deselect = false) {
+    let submitted: Record<string, unknown> | null = null;
+    const fetcher = dataFetcher((path, init) => {
+      if (path === '/api/notes' && init.method === 'POST') {
+        submitted = JSON.parse(init.body as string);
+        return jsonResponse(noteListFixture, 201);
+      }
+    });
+    renderNotes(`${root}/new`, fetcher);
+    await metadata();
+    if (chip) {
+      await selectMoodChip(chip);
+      if (deselect) await selectMoodChip(chip);
+    }
+    await userEvent.click(screen.getByRole('button', { name: 'Save original note' }));
+    await screen.findByText('Original note saved.');
+    return submitted as { observations: { mood: { state: string; value?: unknown } } };
+  }
+
+  it('renders seven mood chips in order in create mode', async () => {
+    renderNotes(`${root}/new`, dataFetcher());
+    const group = await screen.findByRole('radiogroup', { name: 'Mood' });
+    expect(within(group).getAllByRole('radio').map((chip) => chip.textContent))
+      .toEqual(['Calm', 'Happy', 'Anxious', 'Agitated', 'Sad', 'Confused', 'Unknown']);
+  });
+
+  it('submits RECORDED CALM when the Calm chip is selected', async () => {
+    const submitted = await createWithMood('Calm');
+    expect(submitted.observations.mood).toEqual({ state: 'RECORDED', value: 'CALM' });
+  });
+
+  it('submits RECORDED CONFUSED when the Confused chip is selected', async () => {
+    const submitted = await createWithMood('Confused');
+    expect(submitted.observations.mood).toEqual({ state: 'RECORDED', value: 'CONFUSED' });
+  });
+
+  it('submits UNKNOWN with a null value when the Unknown chip is selected', async () => {
+    const submitted = await createWithMood('Unknown');
+    expect(submitted.observations.mood).toEqual({ state: 'UNKNOWN', value: null });
+  });
+
+  it('returns to NOT_RECORDED when the selected chip is clicked again', async () => {
+    const submitted = await createWithMood('Sad', true);
+    expect(submitted.observations.mood).toEqual({ state: 'NOT_RECORDED', value: null });
+  });
+
+  it('keeps the state radio group and text input for mood in append mode', async () => {
+    renderNotes(`${detail}/addenda/new`, dataFetcher());
+    await screen.findByRole('form', { name: 'Add a correction' });
+    await userEvent.click(screen.getByRole('checkbox', { name: 'Correct this field: Mood' }));
+    expect(screen.getByRole('group', { name: 'Mood — Observation status' })).toBeVisible();
+    await setRecorded('Mood');
+    expect(screen.getByRole('textbox', { name: 'Mood' })).toBeInTheDocument();
+    expect(screen.queryByRole('radiogroup', { name: 'Mood' })).not.toBeInTheDocument();
   });
 });
