@@ -334,6 +334,29 @@ class NoteSignalServiceTest {
   }
 
   @Test
+  void refusedAppetiteCountsAsPoorAppetite() throws Exception {
+    TestCaregiver owner = register("signal-refused@example.com");
+    String recipientId = createRecipient(owner.token());
+    createNote(owner.token(), recipientId, "2026-10-13", "{\"appetite\":\"REFUSED\"}");
+    createNote(owner.token(), recipientId, "2026-10-14", "{\"appetite\":\"refused\"}");
+    createNote(owner.token(), recipientId, "2026-10-15", "{\"appetite\":\"GOOD\"}");
+    createNote(owner.token(), recipientId, "2026-10-16", "{\"appetite\":\"FAIR\"}");
+    createNote(owner.token(), recipientId, "2026-10-17", "{\"appetite\":\"NORMAL\"}");
+    createNote(owner.token(), recipientId, "2026-10-18", "{\"appetite\":\"MAYBE\"}");
+    createNote(owner.token(), recipientId, "2026-10-19", "{\"mood\":\"good\"}");
+
+    JsonNode days = signals(owner.token(), recipientId, "2026-10-13", "2026-10-19");
+    assertThat(days).hasSize(7);
+    assertThat(days.get(0).get("poorAppetite").asBoolean()).isTrue();
+    assertThat(days.get(1).get("poorAppetite").asBoolean()).isTrue();
+    assertThat(days.get(2).get("poorAppetite").asBoolean()).isFalse();
+    assertThat(days.get(3).get("poorAppetite").asBoolean()).isFalse();
+    assertThat(days.get(4).get("poorAppetite").asBoolean()).isFalse();
+    assertThat(days.get(5).get("poorAppetite").isNull()).isTrue();
+    assertThat(days.get(6).get("poorAppetite").isNull()).isTrue();
+  }
+
+  @Test
   void signalsAreChronologicalAndScoped() throws Exception {
     TestCaregiver owner = register("signal-order@example.com");
     TestCaregiver other = register("signal-order-other@example.com");
