@@ -868,8 +868,7 @@ describe('daily-note creation and immutable corrections', () => {
     expect(screen.getByRole('checkbox', { name: 'Correct this field: Mood' })).toHaveFocus();
     expect(writes).toHaveLength(0);
     await userEvent.click(screen.getByRole('checkbox', { name: 'Correct this field: Medication taken' }));
-    await setRecorded('Medication taken');
-    await userEvent.selectOptions(screen.getByRole('combobox', { name: 'Medication taken' }), 'MISSED');
+    await userEvent.click(within(screen.getByRole('radiogroup', { name: 'Medication taken' })).getByRole('radio', { name: 'Missed' }));
     await userEvent.click(screen.getByRole('checkbox', { name: 'Correct this field: Medication report verified' }));
     await userEvent.selectOptions(screen.getByLabelText('Medication report verified', { exact: true }), 'UNVERIFIED');
     await userEvent.click(screen.getByRole('checkbox', { name: 'Correct this field: Free-text observations' }));
@@ -980,14 +979,15 @@ describe('daily-note creation and immutable corrections', () => {
     expect(posts[1].body).toBe(posts[0].body);
     expect(new Headers(posts[1].headers).get('Idempotency-Key')).toBe(new Headers(posts[0].headers).get('Idempotency-Key'));
   });
-  it('validates a recorded correction without its typed value', async () => {
-    renderNotes(`${detail}/addenda/new`, dataFetcher());
+  it('requires a chip choice for a ticked chip field', async () => {
+    const fetcher = dataFetcher();
+    renderNotes(`${detail}/addenda/new`, fetcher);
     await screen.findByRole('form', { name: 'Add a correction' });
     await userEvent.click(screen.getByRole('checkbox', { name: 'Correct this field: Medication taken' }));
-    await setRecorded('Medication taken');
     await userEvent.click(screen.getByRole('button', { name: 'Save addendum' }));
-    expect(within(screen.getByRole('group', { name: 'Medication taken — Observation status' })).getAllByRole('radio')[0]).toHaveFocus();
-    expect(screen.getByRole('alert')).toHaveTextContent('Enter a value when status is Recorded');
+    expect(screen.getByRole('alert')).toHaveTextContent('Choose one option for this field.');
+    expect(document.getElementById('note-medicationStatus-state')).toHaveFocus();
+    expect(fetcher.mock.calls.some(([path, init]) => path.endsWith('/addenda') && init.method === 'POST')).toBe(false);
   });
   it('renders Arabic/RTL and mixed text safely without altering its content', async () => {
     renderNotes(detail, dataFetcher(), 'ar');
@@ -1224,12 +1224,14 @@ describe('medication status chips on the create form', () => {
     expect(submitted.observations.medicationStatus).toEqual({ state: 'UNKNOWN', value: null });
   });
 
-  it('keeps the state radio group for medication status in append mode', async () => {
+  it('renders medication status chips with nothing selected in append mode', async () => {
     renderNotes(`${detail}/addenda/new`, dataFetcher());
     await screen.findByRole('form', { name: 'Add a correction' });
     await userEvent.click(screen.getByRole('checkbox', { name: 'Correct this field: Medication taken' }));
-    expect(screen.getByRole('group', { name: 'Medication taken — Observation status' })).toBeVisible();
-    expect(screen.queryByRole('radiogroup', { name: 'Medication taken' })).not.toBeInTheDocument();
+    const group = screen.getByRole('radiogroup', { name: 'Medication taken' });
+    expect(within(group).getAllByRole('radio').map((chip) => chip.textContent)).toEqual(['Taken', 'Missed', 'Unknown']);
+    expect(within(group).queryByRole('radio', { checked: true })).not.toBeInTheDocument();
+    expect(screen.queryByRole('group', { name: 'Medication taken — Observation status' })).not.toBeInTheDocument();
   });
 
   it('keeps ObservationStateField out of the create form', async () => {
@@ -1352,12 +1354,14 @@ describe('fall reported chips on the create form', () => {
     expect(submitted.observations.fallReported).toEqual({ state: 'NOT_RECORDED', value: null });
   });
 
-  it('keeps the state radio group for fall reported in append mode', async () => {
+  it('renders fall reported chips with nothing selected in append mode', async () => {
     renderNotes(`${detail}/addenda/new`, dataFetcher());
     await screen.findByRole('form', { name: 'Add a correction' });
     await userEvent.click(screen.getByRole('checkbox', { name: 'Correct this field: Fall reported' }));
-    expect(screen.getByRole('group', { name: 'Fall reported — Observation status' })).toBeVisible();
-    expect(screen.queryByRole('radiogroup', { name: 'Fall reported' })).not.toBeInTheDocument();
+    const group = screen.getByRole('radiogroup', { name: 'Fall reported' });
+    expect(within(group).getAllByRole('radio').map((chip) => chip.textContent)).toEqual(['Yes', 'No', 'Unknown']);
+    expect(within(group).queryByRole('radio', { checked: true })).not.toBeInTheDocument();
+    expect(screen.queryByRole('group', { name: 'Fall reported — Observation status' })).not.toBeInTheDocument();
   });
 });
 
@@ -1408,14 +1412,15 @@ describe('mood chips on the create form', () => {
     expect(submitted.observations.mood).toEqual({ state: 'NOT_RECORDED', value: null });
   });
 
-  it('keeps the state radio group and text input for mood in append mode', async () => {
+  it('renders mood chips with nothing selected in append mode', async () => {
     renderNotes(`${detail}/addenda/new`, dataFetcher());
     await screen.findByRole('form', { name: 'Add a correction' });
     await userEvent.click(screen.getByRole('checkbox', { name: 'Correct this field: Mood' }));
-    expect(screen.getByRole('group', { name: 'Mood — Observation status' })).toBeVisible();
-    await setRecorded('Mood');
-    expect(screen.getByRole('textbox', { name: 'Mood' })).toBeInTheDocument();
-    expect(screen.queryByRole('radiogroup', { name: 'Mood' })).not.toBeInTheDocument();
+    const group = screen.getByRole('radiogroup', { name: 'Mood' });
+    expect(within(group).getAllByRole('radio')).toHaveLength(7);
+    expect(within(group).queryByRole('radio', { checked: true })).not.toBeInTheDocument();
+    expect(screen.queryByRole('group', { name: 'Mood — Observation status' })).not.toBeInTheDocument();
+    expect(screen.queryByRole('textbox', { name: 'Mood' })).not.toBeInTheDocument();
   });
 });
 
@@ -1466,14 +1471,16 @@ describe('appetite chips on the create form', () => {
     expect(submitted.observations.appetite).toEqual({ state: 'NOT_RECORDED', value: null });
   });
 
-  it('keeps the state radio group and text input for appetite in append mode', async () => {
+  it('renders appetite chips with nothing selected in append mode', async () => {
     renderNotes(`${detail}/addenda/new`, dataFetcher());
     await screen.findByRole('form', { name: 'Add a correction' });
     await userEvent.click(screen.getByRole('checkbox', { name: 'Correct this field: Appetite' }));
-    expect(screen.getByRole('group', { name: 'Appetite — Observation status' })).toBeVisible();
-    await setRecorded('Appetite');
-    expect(screen.getByRole('textbox', { name: 'Appetite' })).toBeInTheDocument();
-    expect(screen.queryByRole('radiogroup', { name: 'Appetite' })).not.toBeInTheDocument();
+    const group = screen.getByRole('radiogroup', { name: 'Appetite' });
+    expect(within(group).getAllByRole('radio').map((chip) => chip.textContent))
+      .toEqual(['Good', 'Fair', 'Poor', 'Refused food', 'Unknown']);
+    expect(within(group).queryByRole('radio', { checked: true })).not.toBeInTheDocument();
+    expect(screen.queryByRole('group', { name: 'Appetite — Observation status' })).not.toBeInTheDocument();
+    expect(screen.queryByRole('textbox', { name: 'Appetite' })).not.toBeInTheDocument();
   });
 });
 
@@ -1524,14 +1531,16 @@ describe('sleep chips on the create form', () => {
     expect(submitted.observations.sleep).toEqual({ state: 'NOT_RECORDED', value: null });
   });
 
-  it('keeps the state radio group and text input for sleep in append mode', async () => {
+  it('renders sleep chips with nothing selected in append mode', async () => {
     renderNotes(`${detail}/addenda/new`, dataFetcher());
     await screen.findByRole('form', { name: 'Add a correction' });
     await userEvent.click(screen.getByRole('checkbox', { name: 'Correct this field: Sleep' }));
-    expect(screen.getByRole('group', { name: 'Sleep — Observation status' })).toBeVisible();
-    await setRecorded('Sleep');
-    expect(screen.getByRole('textbox', { name: 'Sleep' })).toBeInTheDocument();
-    expect(screen.queryByRole('radiogroup', { name: 'Sleep' })).not.toBeInTheDocument();
+    const group = screen.getByRole('radiogroup', { name: 'Sleep' });
+    expect(within(group).getAllByRole('radio').map((chip) => chip.textContent))
+      .toEqual(['Slept well', 'Restless', 'Poor sleep', 'Did not sleep', 'Unknown']);
+    expect(within(group).queryByRole('radio', { checked: true })).not.toBeInTheDocument();
+    expect(screen.queryByRole('group', { name: 'Sleep — Observation status' })).not.toBeInTheDocument();
+    expect(screen.queryByRole('textbox', { name: 'Sleep' })).not.toBeInTheDocument();
   });
 });
 
@@ -1582,14 +1591,16 @@ describe('mobility chips on the create form', () => {
     expect(submitted.observations.mobility).toEqual({ state: 'NOT_RECORDED', value: null });
   });
 
-  it('keeps the state radio group and text input for mobility in append mode', async () => {
+  it('renders mobility chips with nothing selected in append mode', async () => {
     renderNotes(`${detail}/addenda/new`, dataFetcher());
     await screen.findByRole('form', { name: 'Add a correction' });
     await userEvent.click(screen.getByRole('checkbox', { name: 'Correct this field: Mobility' }));
-    expect(screen.getByRole('group', { name: 'Mobility — Observation status' })).toBeVisible();
-    await setRecorded('Mobility');
-    expect(screen.getByRole('textbox', { name: 'Mobility' })).toBeInTheDocument();
-    expect(screen.queryByRole('radiogroup', { name: 'Mobility' })).not.toBeInTheDocument();
+    const group = screen.getByRole('radiogroup', { name: 'Mobility' });
+    expect(within(group).getAllByRole('radio').map((chip) => chip.textContent))
+      .toEqual(['Independent', 'Needs assistance', 'Bedridden', 'Unknown']);
+    expect(within(group).queryByRole('radio', { checked: true })).not.toBeInTheDocument();
+    expect(screen.queryByRole('group', { name: 'Mobility — Observation status' })).not.toBeInTheDocument();
+    expect(screen.queryByRole('textbox', { name: 'Mobility' })).not.toBeInTheDocument();
   });
 });
 
@@ -1653,14 +1664,15 @@ describe('pain score chips on the create form', () => {
     expect(labels).toEqual(['٠', '١', '٢', '٣', '٤', '٥', '٦', '٧', '٨', '٩', '١٠', 'غير معروف']);
   });
 
-  it('keeps the state radio group and number input for pain score in append mode', async () => {
+  it('renders pain score chips with nothing selected in append mode', async () => {
     renderNotes(`${detail}/addenda/new`, dataFetcher());
     await screen.findByRole('form', { name: 'Add a correction' });
     await userEvent.click(screen.getByRole('checkbox', { name: 'Correct this field: Pain score (0–10)' }));
-    expect(screen.getByRole('group', { name: 'Pain score (0–10) — Observation status' })).toBeVisible();
-    await setRecorded('Pain score (0–10)');
-    expect(screen.getByRole('spinbutton', { name: 'Pain score (0–10)' })).toBeInTheDocument();
-    expect(screen.queryByRole('radiogroup', { name: 'Pain score (0–10)' })).not.toBeInTheDocument();
+    const group = screen.getByRole('radiogroup', { name: 'Pain score (0–10)' });
+    expect(within(group).getAllByRole('radio')).toHaveLength(12);
+    expect(within(group).queryByRole('radio', { checked: true })).not.toBeInTheDocument();
+    expect(screen.queryByRole('group', { name: 'Pain score (0–10) — Observation status' })).not.toBeInTheDocument();
+    expect(screen.queryByRole('spinbutton', { name: 'Pain score (0–10)' })).not.toBeInTheDocument();
   });
 });
 
@@ -1828,5 +1840,105 @@ describe('answered count progress line on the create form', () => {
     await screen.findByRole('form', { name: 'Add a correction' });
     expect(screen.queryByText(/of 8 answered/)).not.toBeInTheDocument();
     expect(screen.queryByText(/من 8 مكتملة/)).not.toBeInTheDocument();
+  });
+});
+
+describe('chips in correction mode', () => {
+  async function setupAppend() {
+    let submitted: Record<string, unknown> | null = null;
+    const fetcher = dataFetcher((path, init) => {
+      if (path.endsWith('/addenda') && init.method === 'POST') {
+        submitted = JSON.parse(init.body as string);
+        return jsonResponse(addendumFixture, 201);
+      }
+      if (path.endsWith('/addenda')) return jsonResponse([]);
+    });
+    renderNotes(`${detail}/addenda/new`, fetcher);
+    await screen.findByRole('form', { name: 'Add a correction' });
+    return {
+      fetcher,
+      get submitted() { return submitted as { observations: Record<string, { state: string; value?: unknown }> } | null; },
+    };
+  }
+  async function tick(label: string) {
+    await userEvent.click(screen.getByRole('checkbox', { name: `Correct this field: ${label}` }));
+  }
+  async function save() {
+    await userEvent.click(screen.getByRole('button', { name: 'Save addendum' }));
+  }
+
+  it('renders the seven mood chips with nothing selected after ticking', async () => {
+    await setupAppend();
+    await tick('Mood');
+    const group = screen.getByRole('radiogroup', { name: 'Mood' });
+    expect(within(group).getAllByRole('radio').map((chip) => chip.textContent))
+      .toEqual(['Calm', 'Happy', 'Anxious', 'Agitated', 'Sad', 'Confused', 'Unknown']);
+    expect(within(group).queryByRole('radio', { checked: true })).not.toBeInTheDocument();
+  });
+
+  it('shows Choose one option and blocks the save when no chip is chosen', async () => {
+    const { fetcher } = await setupAppend();
+    await tick('Mood');
+    await save();
+    expect(screen.getByRole('alert')).toHaveTextContent('Choose one option for this field.');
+    expect(fetcher.mock.calls.some(([path, init]) => path.endsWith('/addenda') && init.method === 'POST')).toBe(false);
+  });
+
+  it('submits RECORDED SAD for a chosen mood chip', async () => {
+    const ctx = await setupAppend();
+    await tick('Mood');
+    await userEvent.click(within(screen.getByRole('radiogroup', { name: 'Mood' })).getByRole('radio', { name: 'Sad' }));
+    await save();
+    await screen.findByText('Addendum saved. The original note is unchanged.');
+    expect(ctx.submitted?.observations.mood).toEqual({ state: 'RECORDED', value: 'SAD' });
+  });
+
+  it('submits numeric 0 for the pain score 0 chip', async () => {
+    const ctx = await setupAppend();
+    await tick('Pain score (0–10)');
+    await userEvent.click(within(screen.getByRole('radiogroup', { name: 'Pain score (0–10)' })).getByRole('radio', { name: '0' }));
+    await save();
+    await screen.findByText('Addendum saved. The original note is unchanged.');
+    expect(ctx.submitted?.observations.painScore).toEqual({ state: 'RECORDED', value: 0 });
+  });
+
+  it('deselecting the chosen chip blocks the save again', async () => {
+    const { fetcher } = await setupAppend();
+    await tick('Mood');
+    const sad = within(screen.getByRole('radiogroup', { name: 'Mood' })).getByRole('radio', { name: 'Sad' });
+    await userEvent.click(sad);
+    await userEvent.click(sad);
+    await save();
+    expect(screen.getByRole('alert')).toHaveTextContent('Choose one option for this field.');
+    expect(fetcher.mock.calls.some(([path, init]) => path.endsWith('/addenda') && init.method === 'POST')).toBe(false);
+  });
+
+  it('clears the selection and error when the correction is unticked', async () => {
+    await setupAppend();
+    await tick('Mood');
+    await save();
+    expect(screen.getByRole('alert')).toHaveTextContent('Choose one option for this field.');
+    await userEvent.click(screen.getByRole('checkbox', { name: 'Correct this field: Mood' }));
+    expect(screen.queryByRole('alert')).not.toBeInTheDocument();
+    await tick('Mood');
+    const group = screen.getByRole('radiogroup', { name: 'Mood' });
+    expect(within(group).queryByRole('radio', { checked: true })).not.toBeInTheDocument();
+  });
+
+  it('keeps the ObservationStateField textarea editor for free text', async () => {
+    await setupAppend();
+    await tick('Free-text observations');
+    expect(screen.getByRole('group', { name: 'Free-text observations — Observation status' })).toBeVisible();
+    await setRecorded('Free-text observations');
+    expect(screen.getByRole('textbox', { name: 'Free-text observations' })).toBeInTheDocument();
+    expect(screen.queryByRole('radiogroup', { name: 'Free-text observations' })).not.toBeInTheDocument();
+  });
+
+  it('keeps the three-option verification select in append mode', async () => {
+    await setupAppend();
+    await tick('Medication report verified');
+    const select = screen.getByRole('combobox', { name: 'Medication report verified' });
+    expect(within(select).getAllByRole('option').map((option) => option.textContent))
+      .toEqual(['Not asserted', 'Verified', 'Unverified']);
   });
 });
