@@ -336,7 +336,7 @@ describe('daily-note creation and immutable corrections', () => {
       path === '/api/notes' && init.method === 'POST' ? jsonResponse(noteListFixture, 201) : undefined));
     await metadata();
     await userEvent.click(screen.getByRole('button', { name: 'Save original note' }));
-    expect(await screen.findByRole('status')).toHaveTextContent('Original note saved.');
+    expect((await screen.findAllByRole('status')).some((el) => el.textContent === 'Original note saved.')).toBe(true);
     successView.unmount();
 
     renderNotes(`${root}/new`, dataFetcher((path, init) =>
@@ -1769,5 +1769,64 @@ describe('collapsible free text on the create form', () => {
     await setRecorded('Free-text observations');
     expect(screen.getByRole('textbox', { name: 'Free-text observations' })).toBeInTheDocument();
     expect(screen.queryByRole('button', { name: 'Add details' })).not.toBeInTheDocument();
+  });
+});
+
+describe('answered count progress line on the create form', () => {
+  it('reads 0 of 8 answered on an empty create form', async () => {
+    renderNotes(`${root}/new`, dataFetcher());
+    expect(await screen.findByText('0 of 8 answered')).toBeInTheDocument();
+  });
+
+  it('reads 1 of 8 answered after selecting one recorded chip', async () => {
+    renderNotes(`${root}/new`, dataFetcher());
+    await screen.findByText('0 of 8 answered');
+    await selectMoodChip('Calm');
+    expect(screen.getByText('1 of 8 answered')).toBeInTheDocument();
+  });
+
+  it('counts an Unknown chip as answered', async () => {
+    renderNotes(`${root}/new`, dataFetcher());
+    await screen.findByText('0 of 8 answered');
+    await selectMoodChip('Calm');
+    await selectAppetiteChip('Unknown');
+    expect(screen.getByText('2 of 8 answered')).toBeInTheDocument();
+  });
+
+  it('decrements when a selected chip is tapped again', async () => {
+    renderNotes(`${root}/new`, dataFetcher());
+    await screen.findByText('0 of 8 answered');
+    await selectMoodChip('Calm');
+    await selectMoodChip('Calm');
+    expect(screen.getByText('0 of 8 answered')).toBeInTheDocument();
+  });
+
+  it('counts entered free text as answered', async () => {
+    renderNotes(`${root}/new`, dataFetcher());
+    await screen.findByText('0 of 8 answered');
+    await userEvent.click(screen.getByRole('button', { name: 'Add details' }));
+    fireEvent.change(screen.getByRole('textbox', { name: 'Free-text observations' }), { target: { value: 'A note' } });
+    expect(screen.getByText('1 of 8 answered')).toBeInTheDocument();
+  });
+
+  it('never disables saving or shows an error at zero', async () => {
+    renderNotes(`${root}/new`, dataFetcher());
+    await screen.findByText('0 of 8 answered');
+    expect(screen.getByRole('button', { name: 'Save original note' })).toBeEnabled();
+    expect(screen.queryByRole('alert')).not.toBeInTheDocument();
+  });
+
+  it('renders the Arabic count in Arabic', async () => {
+    renderNotes(`${root}/new`, dataFetcher(), 'ar');
+    expect(await screen.findByText('0 من 8 مكتملة')).toBeInTheDocument();
+    await userEvent.click(within(screen.getByRole('radiogroup', { name: 'المزاج' })).getByRole('radio', { name: 'هادئ' }));
+    expect(screen.getByText('1 من 8 مكتملة')).toBeInTheDocument();
+  });
+
+  it('is not rendered in append mode', async () => {
+    renderNotes(`${detail}/addenda/new`, dataFetcher());
+    await screen.findByRole('form', { name: 'Add a correction' });
+    expect(screen.queryByText(/of 8 answered/)).not.toBeInTheDocument();
+    expect(screen.queryByText(/من 8 مكتملة/)).not.toBeInTheDocument();
   });
 });
