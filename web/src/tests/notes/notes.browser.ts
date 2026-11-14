@@ -37,6 +37,7 @@ for (const language of ['en', 'ar'] as const) {
     additionalGroup: ar ? 'ملاحظات إضافية' : 'Additional notes',
     append: ar ? 'إضافة تصحيح' : 'Add a correction', saveAppend: ar ? 'حفظ الإضافة' : 'Save addendum',     appended: ar ? 'تم حفظ الإضافة. الملاحظة الأصلية لم تتغير.' : 'Addendum saved. The original note is unchanged.',
     retry: ar ? 'إعادة محاولة الحفظ نفسه' : 'Retry the same save', open: ar ? 'فتح ملاحظة لهذا التاريخ' : 'Open note for this date', new: ar ? 'تسجيل ملاحظة أخرى' : 'Record another note', reload: ar ? 'إعادة المحاولة' : 'Retry',
+    addDetails: ar ? 'إضافة تفاصيل' : 'Add details',
   };
   test.describe(`daily notes ${language}`, () => {
     test.beforeEach(async ({ page }) => {
@@ -94,6 +95,53 @@ for (const language of ['en', 'ar'] as const) {
       await unknown.scrollIntoViewIfNeeded();
       await unknown.click();
       await expect(unknown).toHaveAttribute('aria-checked', 'true');
+      expect(await page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth)).toBe(true);
+    });
+    test('keeps the save bar sticky at 320px without covering fields', async ({ page }) => {
+      test.skip(page.viewportSize()?.width !== 320, 'This assertion specifically exercises the 320px viewport.');
+      await page.route('**/api/**', async (route) => {
+        const path = new URL(route.request().url()).pathname;
+        return route.fulfill({ json: path === '/api/recipients' ? [recipientFixture] : path.startsWith('/api/recipients/') ? recipientFixture : [] });
+      });
+      await page.goto(`${root}/new`);
+      const actions = page.locator('.note-actions');
+      await expect(actions).toBeVisible();
+      expect(await actions.evaluate((el) => getComputedStyle(el).position)).toBe('sticky');
+      expect(await page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth)).toBe(true);
+      const drawer = page.locator('.note-drawer');
+      await drawer.evaluate((el) => { el.scrollTop = el.scrollHeight; });
+      await expect(page.getByRole('button', { name: label.save, exact: true })).toBeInViewport();
+      await page.getByRole('button', { name: label.addDetails, exact: true }).click();
+      const field = page.getByRole('textbox', { name: label.text, exact: true });
+      await field.focus();
+      await field.evaluate((el) => el.scrollIntoView({ block: 'end' }));
+      const fieldBox = await field.boundingBox();
+      const barBox = await actions.boundingBox();
+      expect(fieldBox).not.toBeNull();
+      expect(barBox).not.toBeNull();
+      expect(fieldBox!.y + fieldBox!.height).toBeLessThanOrEqual(barBox!.y + 1);
+    });
+    test('does not stick the save bar at 1280px', async ({ page }) => {
+      test.skip(page.viewportSize()?.width !== 1280, 'This assertion specifically exercises the desktop viewport.');
+      await page.route('**/api/**', async (route) => {
+        const path = new URL(route.request().url()).pathname;
+        return route.fulfill({ json: path === '/api/recipients' ? [recipientFixture] : path.startsWith('/api/recipients/') ? recipientFixture : [] });
+      });
+      await page.goto(`${root}/new`);
+      const actions = page.locator('.note-actions');
+      await expect(actions).toBeVisible();
+      expect(await actions.evaluate((el) => getComputedStyle(el).position)).not.toBe('sticky');
+    });
+    test('keeps the save bar sticky in Arabic at 320px', async ({ page }) => {
+      test.skip(!ar || page.viewportSize()?.width !== 320, 'This assertion specifically exercises Arabic at 320px.');
+      await page.route('**/api/**', async (route) => {
+        const path = new URL(route.request().url()).pathname;
+        return route.fulfill({ json: path === '/api/recipients' ? [recipientFixture] : path.startsWith('/api/recipients/') ? recipientFixture : [] });
+      });
+      await page.goto(`${root}/new`);
+      const actions = page.locator('.note-actions');
+      await expect(actions).toBeVisible();
+      expect(await actions.evaluate((el) => getComputedStyle(el).position)).toBe('sticky');
       expect(await page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth)).toBe(true);
     });
     test('creates all observations, preserves mixed text, and appends a correction without changing the original', async ({ page }, info) => {

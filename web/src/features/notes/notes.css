@@ -273,3 +273,20 @@
     max-width: none;
   }
 }
+
+@media (max-width: 640px) {
+  .note-actions {
+    position: sticky;
+    inset-block-end: 0;
+    z-index: 10;
+    background: var(--color-surface, #fffef9);
+    padding-block: .8rem;
+    padding-block-end: calc(.8rem + env(safe-area-inset-bottom, 0px));
+    padding-inline: 1rem;
+    border-block-start: 1px solid var(--color-border, #d8ded6);
+  }
+  .note-drawer,
+  html {
+    scroll-padding-block-end: 14rem;
+  }
+}
