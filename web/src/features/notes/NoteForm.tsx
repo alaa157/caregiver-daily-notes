@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState, type FormEvent } from 'react';
 import { Link } from 'react-router-dom';
-import { isNoteDate, noteErrorMessage, uncertainNoteSave, type AddendumInput, type CreateNoteInput, type ObservationField } from '../../api/notes';
+import { isNoteDate, noteErrorMessage, observationFields, uncertainNoteSave, type AddendumInput, type CreateNoteInput, type ObservationField } from '../../api/notes';
 import { ApiError } from '../../lib/api';
 import type { Observation, ObservationSet } from '../../api/observation';
 import type { Recipient } from '../../api/recipients';
@@ -41,6 +41,7 @@ export function NoteForm(props: Props) {
   const [activity, setActivity] = useState<'idle' | 'saving' | 'opening'>('idle');
   const [uncertain, setUncertain] = useState(false);
   const [freeTextExpanded, setFreeTextExpanded] = useState(false);
+  const [correctionChipKeys, setCorrectionChipKeys] = useState<Record<string, string | null>>({});
   const request = useRef<AbortController | null>(null);
   const attempt = useRef<{ key: string; input: CreateNoteInput | AddendumInput } | null>(null);
   const formRef = useRef<HTMLFormElement>(null);
@@ -92,6 +93,13 @@ export function NoteForm(props: Props) {
     if (request.current) return;
     if (!attempt.current) {
       const next = validateNoteValues(values, props.mode === 'append' ? corrections : undefined);
+      if (props.mode === 'append') {
+        for (const field of observationFields) {
+          if (corrections[field] && chipFields.has(field) && correctionChipKeys[field] == null) {
+            next[field] = 'notesChipChooseOne';
+          }
+        }
+      }
       if (props.mode === 'create' && !recipient?.active) next.recipientId = 'notesRequiredRecipient';
       if (showErrors(next)) return;
       const bytes = crypto.getRandomValues(new Uint8Array(16));
@@ -143,10 +151,43 @@ export function NoteForm(props: Props) {
     setErrors((current) => ({ ...current, [field]: undefined }));
     if (!uncertain) setFailure(null);
   }
+  function chipOptions(field: ObservationField) {
+    return chipFieldOptions[field as ChipField].map((option) => ({
+      key: option.key,
+      label: field === 'painScore' && typeof option.value === 'number'
+        ? new Intl.NumberFormat(language === 'ar' ? 'ar-EG' : 'en').format(option.value)
+        : t(option.labelKey),
+    }));
+  }
   function observationField(field: ObservationField) {
     const observation = values.observations[field];
     const hint = field === 'freeText' ? 'notesFreeTextHint'
       : field === 'medicationStatus' ? 'notesMedicationHint' : undefined;
+    if (props.mode === 'append' && chipFields.has(field)) {
+      const options = chipFieldOptions[field as ChipField];
+      const hintId = hint ? `note-${field}-hint` : undefined;
+      const errorId = errors[field] ? `note-${field}-error` : undefined;
+      const describedBy = [hintId, errorId].filter(Boolean).join(' ') || undefined;
+      return (
+        <div id={`note-${field}-state`} tabIndex={-1}>
+          <ChipGroup
+            id={`note-${field}`}
+            label={t(fieldLabels[field])}
+            options={chipOptions(field)}
+            selectedKey={correctionChipKeys[field] ?? null}
+            onSelect={(key) => {
+              setCorrectionChipKeys((current) => ({ ...current, [field]: key }));
+              changeObservation(field, observationForChip(key, options));
+            }}
+            disabled={locked}
+            invalid={Boolean(errors[field])}
+            describedBy={describedBy}
+          />
+          {hint && <p id={hintId} className="note-hint">{t(hint)}</p>}
+          {errors[field] && <FieldError id={errorId!} message={t(errors[field]!)} />}
+        </div>
+      );
+    }
     if (props.mode === 'create' && chipFields.has(field)) {
       const options = chipFieldOptions[field as ChipField];
       const hintId = hint ? `note-${field}-hint` : undefined;
@@ -157,12 +198,7 @@ export function NoteForm(props: Props) {
           <ChipGroup
             id={`note-${field}`}
             label={t(fieldLabels[field])}
-            options={options.map((option) => ({
-              key: option.key,
-              label: field === 'painScore' && typeof option.value === 'number'
-                ? new Intl.NumberFormat(language === 'ar' ? 'ar-EG' : 'en').format(option.value)
-                : t(option.labelKey),
-            }))}
+            options={chipOptions(field)}
             selectedKey={chipKeyFor(observation as Observation<unknown>, options)}
             onSelect={(key) => changeObservation(field, observationForChip(key, options))}
             disabled={locked}
@@ -326,7 +362,16 @@ export function NoteForm(props: Props) {
       <div className="note-grid">
         {fields.map((field) => <div key={field} className={'note-field' + (field === 'freeText' ? ' note-field--wide' : '')}>
           {props.mode === 'append' && <label className="note-correction"><input type="checkbox" data-correction disabled={locked} checked={!!corrections[field]}
-            aria-describedby={errors.form ? 'note-corrections-error' : undefined} onChange={(event) => { setCorrections((current) => ({ ...current, [field]: event.target.checked })); setErrors({}); }} />
+            aria-describedby={errors.form ? 'note-corrections-error' : undefined} onChange={(event) => {
+              const checked = event.target.checked;
+              setCorrections((current) => ({ ...current, [field]: checked }));
+              if (!checked) {
+                setCorrectionChipKeys((current) => ({ ...current, [field]: null }));
+                setErrors((current) => ({ ...current, [field]: undefined }));
+              } else {
+                setErrors({});
+              }
+            }} />
             {t('notesCorrect')}: {t(fieldLabels[field])}</label>}
           {(props.mode === 'create' || corrections[field]) && observationField(field)}
         </div>)}
