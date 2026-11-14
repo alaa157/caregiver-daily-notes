@@ -228,9 +228,38 @@ export function NoteForm(props: Props) {
         }} />
       {t('notesCorrect')}: {t('notesMedicationVerified')}
     </label>}
-    {(!includeCheckbox || corrections.medicationVerification) && <div className="note-field note-verification-field">
-      <label htmlFor="note-medicationVerification">{t('notesMedicationVerified')}</label>
-      <select id="note-medicationVerification" value={values.medicationVerification} disabled={locked}
+    {(!includeCheckbox || corrections.medicationVerification) && props.mode === 'create' && (
+      <div className="note-field note-verification-field">
+        <div id="note-medicationVerification">
+          <ChipGroup
+            id="note-medicationVerification-chips"
+            label={t('notesMedicationVerified')}
+            options={[
+              { key: 'VERIFIED', label: t('obsVerificationVerified') },
+              { key: 'UNVERIFIED', label: t('obsVerificationUnverified') },
+            ]}
+            selectedKey={values.medicationVerification === 'VERIFIED' || values.medicationVerification === 'UNVERIFIED'
+              ? values.medicationVerification : null}
+            onSelect={(key) => {
+              const next = key === 'VERIFIED' ? 'VERIFIED' : key === 'UNVERIFIED' ? 'UNVERIFIED' : 'NOT_ASSERTED';
+              setValues((current) => ({ ...current, medicationVerification: next }));
+              setErrors((current) => ({ ...current, medicationVerification: undefined }));
+            }}
+            disabled={locked}
+            invalid={Boolean(errors.medicationVerification)}
+            describedBy={['note-medicationVerification-hint',
+              errors.medicationVerification ? 'note-medicationVerification-error' : undefined]
+              .filter(Boolean).join(' ')}
+          />
+        </div>
+        <p id="note-medicationVerification-hint" className="note-hint">{t('obsVerificationHint')}</p>
+        {errors.medicationVerification && <FieldError id="note-medicationVerification-error" message={t(errors.medicationVerification)} />}
+      </div>
+    )}
+    {(!includeCheckbox || corrections.medicationVerification) && props.mode === 'append' && (
+      <div className="note-field note-verification-field">
+        <label htmlFor="note-medicationVerification">{t('notesMedicationVerified')}</label>
+        <select id="note-medicationVerification" value={values.medicationVerification} disabled={locked}
         aria-invalid={!!errors.medicationVerification}
         aria-describedby={errors.medicationVerification ? 'note-medicationVerification-error' : 'note-medicationVerification-hint'}
         onChange={(event) => {
@@ -246,7 +275,8 @@ export function NoteForm(props: Props) {
       </select>
       <p id="note-medicationVerification-hint" className="note-hint">{t('obsVerificationHint')}</p>
       {errors.medicationVerification && <FieldError id="note-medicationVerification-error" message={t(errors.medicationVerification)} />}
-    </div>}
+      </div>
+    )}
   </>;
   const observationGroup = (legend: MessageKey, fields: ObservationField[], medication = false) => (
     <fieldset key={legend} className="note-field-group">
