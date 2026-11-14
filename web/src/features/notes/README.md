@@ -54,6 +54,14 @@ invented in React.
 
 ## Field handling
 
+The seven structured observation fields are entered with single-select chips
+in create mode. Each chip field offers its recorded values plus an `Unknown`
+chip; tapping the selected chip again returns the field to `NOT_RECORDED`.
+Free text is entered through an `Add details` control and has no `Unknown`
+chip. In correction mode the same chips appear with nothing preselected, plus
+a `Clear` chip that records an explicit `NOT_RECORDED`. The saved-note view
+hides `NOT_RECORDED` rows but keeps `Unknown` visible.
+
 Observation fields retain their established text, numeric, boolean, and
 medication types. Pain remains an integer from 0 through 10; false and zero
 are valid recorded values. Free text is rendered as text with preserved
