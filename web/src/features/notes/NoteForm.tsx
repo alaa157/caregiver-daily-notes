@@ -14,7 +14,7 @@ import { ChipGroup } from './ChipGroup';
 import { chipFieldOptions, type ChipField } from './chipOptions';
 import { chipKeyFor, observationForChip } from './chipState';
 
-const chipFields = new Set<ObservationField>(['medicationStatus', 'fallReported', 'mood', 'appetite', 'sleep']);
+const chipFields = new Set<ObservationField>(['medicationStatus', 'fallReported', 'mood', 'appetite', 'sleep', 'mobility']);
 
 interface SharedProps {
   cancelTo: string;
