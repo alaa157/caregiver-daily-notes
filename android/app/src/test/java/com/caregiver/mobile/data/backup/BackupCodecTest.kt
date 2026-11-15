@@ -109,9 +109,9 @@ class BackupCodecTest {
 
     @Test
     fun aFutureFormatVersionIsRejectedWithItsNumber() {
-        val failure = decodeFailure(futureVersionDocument(version = 4))
+        val failure = decodeFailure(futureVersionDocument(version = CareBackupCodec.FORMAT_VERSION + 1))
         assertEquals(BackupFailureReason.UNSUPPORTED_VERSION, failure.reason)
-        assertEquals("4", failure.detail)
+        assertEquals((CareBackupCodec.FORMAT_VERSION + 1).toString(), failure.detail)
     }
 
     @Test
@@ -129,6 +129,57 @@ class BackupCodecTest {
         assertEquals(CareBackupCodec.FORMAT_VERSION, decoded.formatVersion)
         assertEquals(1_700_000_000_000, decoded.data.recipients.first().archivedAt)
         assertNull(decoded.data.recipients.last().archivedAt)
+    }
+
+    @Test
+    fun aV4RoundTripPreservesTheRecordedFlags() {
+        val data = backupData(
+            notes = listOf(
+                backupNote("n1", pain = 0, painRecorded = false, fallRecorded = false),
+                backupNote("n2", date = "2026-10-02", pain = 7, fall = true),
+            ),
+        )
+
+        val decoded = (CareBackupCodec.decode(encodeBackup(data)) as BackupDecodeResult.Success).backup
+
+        assertEquals(data, decoded.data)
+        assertEquals(4, decoded.formatVersion)
+        assertFalse(decoded.data.notes.first().painRecorded)
+        assertFalse(decoded.data.notes.first().fallRecorded)
+        assertTrue(decoded.data.notes.last().painRecorded)
+        assertTrue(decoded.data.notes.last().fallRecorded)
+    }
+
+    @Test
+    fun aV3BackupRestoresWithBothFlagsRecorded() {
+        val data = backupData(
+            notes = listOf(backupNote("n1", pain = 9, fall = true)),
+            medications = listOf(backupMedication()),
+        )
+        // The v3 digest covers the flag-less note shape plus medications.
+        val canonical = v3CanonicalJson(data)
+        val document = versionedDocument(version = 3, dataJson = canonical, digest = sha256(canonical))
+
+        val decoded = CareBackupCodec.decode(document) as BackupDecodeResult.Success
+
+        assertEquals(3, decoded.backup.formatVersion)
+        assertTrue(decoded.backup.data.notes.all { it.painRecorded && it.fallRecorded })
+        assertEquals(1, decoded.backup.data.medications.size)
+    }
+
+    @Test
+    fun aV3BackupWithHandAddedFlagsStillVerifiesAndRestoresRecorded() {
+        val data = backupData(notes = listOf(backupNote("n1", pain = 9, painRecorded = false)))
+        // A hand-edited v3 file may carry flag fields; the digest still
+        // covers the v3 shape and normalization restores the flags to true.
+        val canonical = Json { encodeDefaults = true; explicitNulls = false }.encodeToString(data)
+        val digest = sha256(v3CanonicalJson(data))
+        val document = versionedDocument(version = 3, dataJson = canonical, digest = digest)
+
+        val decoded = CareBackupCodec.decode(document) as BackupDecodeResult.Success
+
+        assertTrue(decoded.backup.data.notes.single().painRecorded)
+        assertTrue(decoded.backup.data.notes.single().fallRecorded)
     }
 
     @Test
