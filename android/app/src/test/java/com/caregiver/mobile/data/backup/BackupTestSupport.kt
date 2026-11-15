@@ -10,11 +10,23 @@ fun backupRecipient(
     name: String = "Mona",
     active: Boolean = true,
     archivedAt: Long? = null,
+    relationship: String? = null,
+    dateOfBirth: String? = null,
+    allergies: String? = null,
+    conditions: String? = null,
+    emergencyContactName: String? = null,
+    emergencyContactPhone: String? = null,
 ): BackupRecipient = BackupRecipient(
     serverId = serverId,
     name = name,
     active = active,
     archivedAt = archivedAt,
+    relationship = relationship,
+    dateOfBirth = dateOfBirth,
+    allergies = allergies,
+    conditions = conditions,
+    emergencyContactName = emergencyContactName,
+    emergencyContactPhone = emergencyContactPhone,
 )
 
 /** A note fixture with valid defaults. */
@@ -166,8 +178,23 @@ private fun BackupNote.toLegacyNote(): LegacyBackupNote = LegacyBackupNote(
  * current codec still verifies.
  */
 @Serializable
+private data class LegacyBackupRecipient(
+    val serverId: String,
+    val name: String,
+    val active: Boolean,
+    val archivedAt: Long? = null,
+)
+
+private fun BackupRecipient.toLegacyRecipient(): LegacyBackupRecipient = LegacyBackupRecipient(
+    serverId = serverId,
+    name = name,
+    active = active,
+    archivedAt = archivedAt,
+)
+
+@Serializable
 private data class LegacyPayload(
-    val recipients: List<BackupRecipient>,
+    val recipients: List<LegacyBackupRecipient>,
     val notes: List<LegacyBackupNote>,
     val addenda: List<BackupAddendum>,
     val plans: List<BackupPlan>,
@@ -176,7 +203,7 @@ private data class LegacyPayload(
 fun legacyCanonicalJson(data: BackupData): String =
     Json { encodeDefaults = true; explicitNulls = false }.encodeToString(
         LegacyPayload(
-            recipients = data.recipients,
+            recipients = data.recipients.map { it.toLegacyRecipient() },
             notes = data.notes.map { it.toLegacyNote() },
             addenda = data.addenda,
             plans = data.plans,
@@ -189,7 +216,7 @@ fun legacyCanonicalJson(data: BackupData): String =
  */
 @Serializable
 private data class V3Payload(
-    val recipients: List<BackupRecipient>,
+    val recipients: List<LegacyBackupRecipient>,
     val notes: List<LegacyBackupNote>,
     val addenda: List<BackupAddendum>,
     val plans: List<BackupPlan>,
@@ -200,8 +227,31 @@ private data class V3Payload(
 fun v3CanonicalJson(data: BackupData): String =
     Json { encodeDefaults = true; explicitNulls = false }.encodeToString(
         V3Payload(
-            recipients = data.recipients,
+            recipients = data.recipients.map { it.toLegacyRecipient() },
             notes = data.notes.map { it.toLegacyNote() },
+            addenda = data.addenda,
+            plans = data.plans,
+            medications = data.medications,
+            medicationIntakes = data.medicationIntakes,
+        ),
+    )
+
+/** The canonical payload v4 writers produced, before recipient care details. */
+@Serializable
+private data class V4Payload(
+    val recipients: List<LegacyBackupRecipient>,
+    val notes: List<BackupNote>,
+    val addenda: List<BackupAddendum>,
+    val plans: List<BackupPlan>,
+    val medications: List<BackupMedication> = emptyList(),
+    val medicationIntakes: List<BackupMedicationIntake> = emptyList(),
+)
+
+fun v4CanonicalJson(data: BackupData): String =
+    Json { encodeDefaults = true; explicitNulls = false }.encodeToString(
+        V4Payload(
+            recipients = data.recipients.map { it.toLegacyRecipient() },
+            notes = data.notes,
             addenda = data.addenda,
             plans = data.plans,
             medications = data.medications,
