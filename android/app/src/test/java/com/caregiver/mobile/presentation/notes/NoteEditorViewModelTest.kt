@@ -24,7 +24,7 @@ import org.junit.Test
 
 /**
  * Note editor logic (board 5): single-select chip groups, pain clamping,
- * mood/text requirements, exact DTO submission, and failure mapping.
+ * optional answers, exact DTO submission, and failure mapping.
  */
 @OptIn(ExperimentalCoroutinesApi::class)
 class NoteEditorViewModelTest {
@@ -72,6 +72,14 @@ class NoteEditorViewModelTest {
     }
 
     @Test
+    fun editorStartsWithNothingSelected() = runTest {
+        val vm = vm(this)
+
+        assertNull(vm.state.value.pain)
+        assertNull(vm.state.value.fall)
+    }
+
+    @Test
     fun painClampsToZeroToTen() = runTest {
         val vm = vm(this)
 
@@ -84,26 +92,80 @@ class NoteEditorViewModelTest {
     }
 
     @Test
-    fun missingMoodBlocksSubmit() = runTest {
+    fun tappingCurrentPainClearsIt() = runTest {
         val vm = vm(this)
-        vm.onText("some text")
+
+        vm.setPain(0)
+        assertEquals(0, vm.state.value.pain)
+        vm.setPain(0)
+        assertNull(vm.state.value.pain)
+    }
+
+    @Test
+    fun tappingCurrentFallClearsIt() = runTest {
+        val vm = vm(this)
+
+        vm.setFall(false)
+        assertEquals(false, vm.state.value.fall)
+        vm.setFall(false)
+        assertNull(vm.state.value.fall)
+    }
+
+    @Test
+    fun nothingAnsweredBlocksSubmit() = runTest {
+        val vm = vm(this)
+        vm.onText("   ")
 
         vm.submit()
 
-        assertEquals(EditorError.MoodRequired, vm.state.value.moodError)
+        assertEquals(EditorError.NothingAnswered, vm.state.value.formError)
         assertNull(notes.lastCreate)
     }
 
     @Test
-    fun blankTextBlocksSubmit() = runTest {
+    fun onlyPainZeroSubmitsRecorded() = runTest {
+        notes.createHandler = { testNote() }
         val vm = vm(this)
-        vm.select(OptionGroup.Mood, "good")
-        vm.onText("  ")
+        vm.setPain(0)
 
         vm.submit()
+        vm.state.first { it.savedId != null }
 
-        assertTrue(vm.state.value.textError != null)
-        assertNull(notes.lastCreate)
+        val sent = notes.lastCreate!!
+        assertEquals(0, sent.pain)
+        assertEquals(true, sent.painRecorded)
+        assertEquals(false, sent.fallRecorded)
+        assertEquals("", sent.mood)
+    }
+
+    @Test
+    fun onlyTextSubmitsWithEmptyMood() = runTest {
+        notes.createHandler = { testNote() }
+        val vm = vm(this)
+        vm.onText("just a note")
+
+        vm.submit()
+        vm.state.first { it.savedId != null }
+
+        val sent = notes.lastCreate!!
+        assertEquals("", sent.mood)
+        assertEquals("just a note", sent.text)
+        assertEquals(false, sent.painRecorded)
+        assertEquals(false, sent.fallRecorded)
+    }
+
+    @Test
+    fun fallNoSubmitsAsRecordedFalse() = runTest {
+        notes.createHandler = { testNote() }
+        val vm = vm(this)
+        vm.setFall(false)
+
+        vm.submit()
+        vm.state.first { it.savedId != null }
+
+        val sent = notes.lastCreate!!
+        assertEquals(false, sent.fall)
+        assertEquals(true, sent.fallRecorded)
     }
 
     @Test
