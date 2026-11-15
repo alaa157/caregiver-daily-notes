@@ -410,6 +410,10 @@
     <string name="settings_ai_stage_running">Checking…</string>
     <string name="settings_ai_stage_skipped">Skipped</string>
     <string name="settings_ai_base_url">Base URL</string>
+    <string name="settings_ai_advanced">Advanced</string>
+    <string name="settings_ai_advanced_hint">Custom address and custom instructions. Most people don’t need these.</string>
+    <string name="settings_ai_advanced_open">Expanded</string>
+    <string name="settings_ai_advanced_closed">Collapsed</string>
     <string name="settings_ai_system_prompt">System prompt</string>
     <string name="settings_ai_save">Save</string>
     <string name="settings_ai_unsaved_title">Discard unsaved changes?</string>
