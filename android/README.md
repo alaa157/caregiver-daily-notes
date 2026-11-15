@@ -27,7 +27,7 @@ your own API key.
 1. Download the latest `app-release.apk` from the GitHub Releases page.
 2. Install it (allow installing from unknown sources).
 3. Open Settings > AI, pick a provider (OpenAI, Anthropic, Gemini, xAI, or
-   OpenRouter), paste your API key and model id, then tap "Test connection".
+   OpenRouter), paste your API key and model id, then tap **Check setup**.
 4. On first use you will see a consent dialog: care notes are sent to the
    chosen provider; the app is not a medical device and is not HIPAA-compliant.
 
@@ -119,6 +119,48 @@ too). Start/end layouts only — no left/right paddings.
   loading/error/AI-unavailable states. No close control by construction.
 - API gaps the client must not invent around: `docs/api/android-gaps.md`.
 
+## AI settings and summaries
+
+- **Models and data use:** choose a provider, then select a catalog model or
+  **Other** to enter a model id. Paid models are listed first; free models are
+  explicit choices, not defaults or recommendations. A custom id must match
+  `^[A-Za-z0-9][A-Za-z0-9._:/-]{0,127}$`.
+  - Gemini data use depends on the API key's billing tier, not the model: a
+    free-tier key may allow Google to use sent content to improve its products;
+    a key from a project with billing enabled is not used this way.
+  - An OpenRouter model ending in `:free` follows its host's data policy, and
+    some hosts train on what they receive.
+  - The app requires provider-specific consent before sending care notes.
+    Acknowledgement of the data-use notice is required for Gemini and free-host
+    cases; the notice appears with the selected model.
+  - A custom address warning explains that the API key and care notes go to
+    that address instead of the provider's default. Use only an address you
+    trust.
+- **Check setup** runs three checks in order: provider connection, summary
+  format, and accuracy/grounding. The checks use a ping or fictional examples;
+  they do not send your care notes. The format and accuracy checks wait for
+  provider consent before sending their examples.
+- **Advanced** contains the custom provider address and optional system,
+  summary, and plan instructions. Most people do not need to change these.
+- **Summary window:** choose 7, 14, or 30 days and optionally set an end date.
+  The date picker does not allow a future date.
+- **Observations and trends:** supported observation cards show a claim,
+  source quote, and a link to open the source note. The trends compare falls,
+  high-pain days (pain 7 or higher), days with missed medication, and days
+  with poor appetite across the requested and immediately previous windows.
+  Previous-window data is used on the device for this comparison and is not
+  sent to the provider.
+- If refreshing a summary fails, the app shows recovery guidance and retains
+  the last result for PDF export; the result cards are not shown in the failure
+  view.
+- **Saved summaries** are stored on the device, with at most 20 per person.
+  They are included in backups and removed when the person is deleted.
+  Reopening a saved result does not call the provider. If you explicitly ask
+  for an AI plan suggestion while viewing it, the displayed summary text is
+  sent to the selected provider.
+- Recipient and saved-summary data use Room v10; current backups use format
+  v6. Saved summaries were added in Room v10 and backup format v6.
+
 ## Device walkthrough (do in both العربية and English)
 
 1. Login footer → server URL → save → back (once Settings UI lands; today the
@@ -133,8 +175,9 @@ too). Start/end layouts only — no left/right paddings.
    - **Add details** opens the text box.
    - A second note on the same day offers **View today’s note** and **Add correction**.
 5. History → person/date filters narrow; rotation keeps the banner.
-6. Summary → 7/14/30 → result shows body + evidence (`#<8-char uuid>`) +
-   uncertainties + disclaimer; airplane mode → offline error, draft kept, retry works.
+6. Summary → choose 7/14/30 and an end date → result shows observations with
+   source links, trends, uncertainties, and a disclaimer; airplane mode →
+   recovery guidance, with the last result still available for PDF export.
 
 ## Note fields
 
