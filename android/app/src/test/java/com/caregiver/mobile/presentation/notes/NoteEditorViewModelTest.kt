@@ -266,6 +266,26 @@ class NoteEditorViewModelTest {
     }
 
     @Test
+    fun toggleDetailsExpandsAndCollapsesWhenEmpty() = runTest {
+        val vm = vm(this)
+
+        vm.toggleDetails()
+        assertEquals(true, vm.state.value.detailsExpanded)
+        vm.toggleDetails()
+        assertEquals(false, vm.state.value.detailsExpanded)
+    }
+
+    @Test
+    fun toggleDetailsDoesNothingWhileTextIsPresent() = runTest {
+        val vm = vm(this)
+        vm.onText("typed details")
+
+        vm.toggleDetails()
+
+        assertEquals(false, vm.state.value.detailsExpanded)
+    }
+
+    @Test
     fun answeredCountStartsAtZero() {
         assertEquals(0, EditorState().answeredCount())
     }
