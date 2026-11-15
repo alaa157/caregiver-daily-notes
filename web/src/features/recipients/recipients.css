@@ -46,6 +46,11 @@
 .recipient-error { padding: 16px; color: #8b2929; background: #fff1eb; border: 1px solid #c1796f; border-radius: 9px; line-height: 1.8; }
 .recipient-error p { margin: 0; }
 .recipient-error .button { margin-top: 14px; }
+.recipient-duplicate { display: grid; gap: 12px; padding: 18px; border: 1px solid #d9bd8e; border-radius: 9px; color: var(--color-ink); background: #fbf1df; line-height: 1.8; }
+.recipient-duplicate h2 { margin: 0; font-size: 1.1rem; line-height: 1.6; overflow-wrap: anywhere; }
+.recipient-duplicate p { margin: 0; overflow-wrap: anywhere; }
+.recipient-duplicate-match { font-weight: 600; }
+.recipient-duplicate .recipient-actions { margin-top: 4px; }
 .recipient-success, .recipient-inactive-notice { max-width: 760px; margin-block: 0 24px; padding: 16px 20px; color: #315a3d; background: #edf4e8; border: 1px solid #c7d7bf; border-radius: 9px; line-height: 1.9; }
 .recipient-inactive-notice { color: #596358; background: #f0f0e9; border-color: #d5d8cd; margin-block: 24px 0; }
 .recipient-dialog { width: min(530px, calc(100% - 32px)); max-height: calc(100dvh - 32px); padding: clamp(22px, 4vw, 34px); border: 1px solid #cad4c3; border-radius: var(--radius); color: var(--color-ink); background: #fffef9; box-shadow: 0 25px 70px #162a2240; }
@@ -93,7 +98,7 @@
   .site-nav--authenticated .nav-links { width: 100%; justify-content: space-between; gap: 2px; }
 }
 @media (forced-colors: active) {
-  .recipient-status, .recipient-error, .recipient-success, .recipient-field input, .medication-form textarea, .recipient-dialog, .recipient-inactive-notice { border-color: ButtonText; }
+  .recipient-status, .recipient-error, .recipient-duplicate, .recipient-success, .recipient-field input, .medication-form textarea, .recipient-dialog, .recipient-inactive-notice { border-color: ButtonText; }
 }
 
 .recipient-filters { display: flex; flex-wrap: wrap; gap: 8px; margin: 0 0 22px; }
