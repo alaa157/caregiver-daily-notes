@@ -1,6 +1,6 @@
 import { describe, expect, it, vi } from 'vitest';
 import { createApiClient, ApiError } from '../lib/api';
-import { createRecipientsApi, recipientErrorMessage, validateRecipient } from '../api/recipients';
+import { createRecipientsApi, recipientErrorMessage, validateCareDetails, validateRecipient } from '../api/recipients';
 import { jsonResponse } from './authFixtures';
 import { recipientFixture as recipient } from './recipientFixtures';
 
@@ -15,6 +15,69 @@ describe('recipient API contract', () => {
     const { api, fetcher } = apiWithResponse([{ ...recipient, caregiverId: 'must-not-be-exposed' }]);
     expect(await api.list()).toEqual([recipient]);
     expect(fetcher).toHaveBeenCalledWith('/api/recipients', expect.objectContaining({ method: 'GET', cache: 'no-store', body: undefined }));
+  });
+
+  it('parses all recipient care details', async () => {
+    const careDetails = {
+      dateOfBirth: '1950-04-12',
+      allergies: 'Penicillin',
+      conditions: 'Type 2 diabetes',
+      emergencyContactName: 'Layla Hassan',
+      emergencyContactPhone: '+20 100 123 4567',
+    };
+    const { api } = apiWithResponse({ ...recipient, ...careDetails });
+
+    expect(await api.get(recipient.id)).toEqual({ ...recipient, ...careDetails });
+  });
+
+  it('accepts responses without care details for older backends', async () => {
+    const { api } = apiWithResponse(recipient);
+
+    expect(await api.get(recipient.id)).toEqual(recipient);
+  });
+
+  it('preserves explicit null care details', async () => {
+    const careDetails = {
+      dateOfBirth: null,
+      allergies: null,
+      conditions: null,
+      emergencyContactName: null,
+      emergencyContactPhone: null,
+    };
+    const { api } = apiWithResponse({ ...recipient, ...careDetails });
+
+    expect(await api.get(recipient.id)).toEqual({ ...recipient, ...careDetails });
+  });
+
+  it('updates care details with blank values cleared to null', async () => {
+    const careDetails = {
+      dateOfBirth: '  ',
+      allergies: ' Penicillin ',
+      conditions: ' ',
+      emergencyContactName: ' Layla Hassan ',
+      emergencyContactPhone: '',
+    };
+    const { api, fetcher } = apiWithResponse({
+      ...recipient,
+      dateOfBirth: null,
+      allergies: 'Penicillin',
+      conditions: null,
+      emergencyContactName: 'Layla Hassan',
+      emergencyContactPhone: null,
+    });
+
+    await api.updateCareDetails(recipient.id, careDetails);
+
+    expect(fetcher).toHaveBeenCalledWith(`/api/recipients/${recipient.id}/care-details`, expect.objectContaining({
+      method: 'PATCH',
+      body: JSON.stringify({
+        dateOfBirth: null,
+        allergies: 'Penicillin',
+        conditions: null,
+        emergencyContactName: 'Layla Hassan',
+        emergencyContactPhone: null,
+      }),
+    }));
   });
 
   it('creates with only the editable fields even when passed extra properties', async () => {
@@ -131,6 +194,27 @@ describe('recipient API contract', () => {
     expect(validateRecipient({ name: 'x'.repeat(120), relationship: 'y'.repeat(80) })).toEqual({});
     expect(validateRecipient({ name: 'x'.repeat(121), relationship: 'y'.repeat(81) })).toEqual({ name: 'recipientNameTooLong', relationship: 'recipientRelationshipTooLong' });
     expect(validateRecipient({ name: ' سمير ', relationship: '   ' })).toEqual({});
+  });
+
+  it('validates care detail dates, name length, and phone format', () => {
+    const valid = {
+      dateOfBirth: '1980-02-29',
+      allergies: null,
+      conditions: null,
+      emergencyContactName: 'Layla Hassan',
+      emergencyContactPhone: '+20 100 123 4567',
+    };
+
+    expect(validateCareDetails({ ...valid, dateOfBirth: '1980-02-30' })).toMatchObject({
+      dateOfBirth: 'historyInvalidDate',
+    });
+    expect(validateCareDetails({ ...valid, emergencyContactName: 'x'.repeat(121) })).toMatchObject({
+      emergencyContactName: 'recipientNameTooLong',
+    });
+    expect(validateCareDetails(valid)).toEqual({});
+    expect(validateCareDetails({ ...valid, emergencyContactPhone: 'not a phone' })).toMatchObject({
+      emergencyContactPhone: 'recipientValidationError',
+    });
   });
 
   it.each([
