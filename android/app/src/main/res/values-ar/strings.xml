@@ -418,6 +418,10 @@
     <string name="settings_ai_stage_running">جارٍ الفحص…</string>
     <string name="settings_ai_stage_skipped">تم التخطي</string>
     <string name="settings_ai_base_url">عنوان URL الأساسي</string>
+    <string name="settings_ai_advanced">إعدادات متقدمة</string>
+    <string name="settings_ai_advanced_hint">عنوان مخصص وتعليمات مخصصة. لا يحتاجها معظم الناس.</string>
+    <string name="settings_ai_advanced_open">مفتوح</string>
+    <string name="settings_ai_advanced_closed">مغلق</string>
     <string name="settings_ai_system_prompt">موجه النظام</string>
     <string name="settings_ai_save">حفظ</string>
     <string name="settings_ai_unsaved_title">تجاهل التغييرات غير المحفوظة؟</string>

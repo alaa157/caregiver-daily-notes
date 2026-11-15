@@ -14,6 +14,31 @@ import org.junit.Test
 class AiSettingsValidationTest {
 
     @Test
+    fun advancedSectionStartsClosedWhenEverythingIsBlank() {
+        assertFalse(initialAdvancedOpen(false, "", "", ""))
+    }
+
+    @Test
+    fun advancedSectionStartsOpenForCustomBaseUrl() {
+        assertTrue(initialAdvancedOpen(true, "", "", ""))
+    }
+
+    @Test
+    fun advancedSectionStartsOpenForCustomSystemPrompt() {
+        assertTrue(initialAdvancedOpen(false, "custom", "", ""))
+    }
+
+    @Test
+    fun advancedSectionStartsOpenForCustomSummaryPrompt() {
+        assertTrue(initialAdvancedOpen(false, "", "custom", ""))
+    }
+
+    @Test
+    fun advancedSectionStartsOpenForCustomPlanPrompt() {
+        assertTrue(initialAdvancedOpen(false, "", "", "custom"))
+    }
+
+    @Test
     fun blankBaseUrlMeansProviderDefault() {
         assertTrue(AiSettingsValidation.isAcceptableBaseUrl(""))
         assertTrue(AiSettingsValidation.isAcceptableBaseUrl("   "))
