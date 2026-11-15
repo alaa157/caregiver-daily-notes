@@ -41,7 +41,7 @@ public class ProviderDeadline implements AutoCloseable {
       return unavailable();
     } catch (TimeoutException providerTimeout) {
       if (Thread.currentThread().isInterrupted()) throw new CancellationException("Provider call interrupted");
-      return unavailable();
+      throw new ProviderDeadlineExceededException("Provider deadline exceeded");
     } catch (RuntimeException providerFailure) {
       if (Thread.currentThread().isInterrupted()) throw new CancellationException("Provider call interrupted");
       return unavailable();

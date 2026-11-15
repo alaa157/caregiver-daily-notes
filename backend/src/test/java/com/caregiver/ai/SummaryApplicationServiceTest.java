@@ -43,6 +43,7 @@ class SummaryApplicationServiceTest {
     SummaryResult result = run(request(14), List.of(), FALLS, "no-notes");
 
     assertThat(result.summary().aiUnavailable()).isFalse();
+    assertThat(result.summary().unavailableReason()).isNull();
     assertThat(result.summary().observations()).isEmpty();
     assertThat(result.summary().uncertainties()).isEmpty();
     assertThat(result.safety().signals()).extracting(SafetySignal::ruleId)
@@ -55,9 +56,34 @@ class SummaryApplicationServiceTest {
     SummaryResult result = run(request(14), List.of(new SummaryNote("note", END, "routine")), FALLS, "failure");
 
     assertThat(result.summary().aiUnavailable()).isTrue();
+    assertThat(result.summary().unavailableReason()).isEqualTo("PROVIDER_UNAVAILABLE");
     assertThat(result.summary().observations()).isEmpty();
     assertThat(result.summary().uncertainties()).extracting(SummaryUncertainty::detail)
         .containsExactly("AI unavailable");
+    assertThat(result.safety().signals()).extracting(SafetySignal::ruleId)
+        .containsExactly(SafetyRuleId.FALL_DETECTED);
+    assertThat(trend(result, "FALL_COUNT").currentCount()).isEqualTo(2);
+  }
+
+  @Test
+  void invalidModelOutputReturnsInvalidOutputReason() {
+    SummaryResult result = run(request(14), List.of(new SummaryNote("note", END, "routine")), FALLS, "invalid");
+
+    assertThat(result.summary().aiUnavailable()).isTrue();
+    assertThat(result.summary().unavailableReason()).isEqualTo("INVALID_OUTPUT");
+    assertThat(result.summary().observations()).isEmpty();
+    assertThat(result.safety().signals()).extracting(SafetySignal::ruleId)
+        .containsExactly(SafetyRuleId.FALL_DETECTED);
+    assertThat(trend(result, "FALL_COUNT").currentCount()).isEqualTo(2);
+  }
+
+  @Test
+  void providerDeadlineExceededReturnsTimeoutReason() {
+    SummaryResult result = run(request(14), List.of(new SummaryNote("note", END, "routine")), FALLS, "deadline");
+
+    assertThat(result.summary().aiUnavailable()).isTrue();
+    assertThat(result.summary().unavailableReason()).isEqualTo("TIMEOUT");
+    assertThat(result.summary().observations()).isEmpty();
     assertThat(result.safety().signals()).extracting(SafetySignal::ruleId)
         .containsExactly(SafetyRuleId.FALL_DETECTED);
     assertThat(trend(result, "FALL_COUNT").currentCount()).isEqualTo(2);
@@ -103,6 +129,10 @@ class SummaryApplicationServiceTest {
     when(loader.load(request)).thenReturn(new SummarySourceLoader.Source(notes, signals));
     if (mode.equals("failure")) {
       doThrow(new IllegalStateException("synthetic provider failure")).when(provider).complete(any());
+    } else if (mode.equals("invalid")) {
+      when(provider.complete(any())).thenReturn(new LlmResult(LlmStatus.OK, "not-json", null));
+    } else if (mode.equals("deadline")) {
+      doThrow(new ProviderDeadlineExceededException("deadline")).when(provider).complete(any());
     } else if (mode.equals("success")) {
       when(provider.complete(any())).thenReturn(new LlmResult(LlmStatus.OK,
           "{\"observations\":[{\"text\":\"routine\",\"noteId\":\"note\",\"quote\":\"routine\"}],\"uncertainties\":[]}", null));

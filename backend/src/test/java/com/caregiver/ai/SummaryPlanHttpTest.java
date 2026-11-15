@@ -13,6 +13,7 @@ import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.params.ParameterizedTest;
+import org.junit.jupiter.params.provider.EnumSource;
 import org.junit.jupiter.params.provider.ValueSource;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.autoconfigure.web.servlet.AutoConfigureMockMvc;
@@ -44,13 +45,14 @@ class SummaryPlanHttpTest {
   private String owner, recipientId, noteId, outOfWindowNoteId;
   private List<MedicationEntry> medications = List.of();
   private String summaryMode, planMode;
+  private FailureReason unavailableReason;
 
   @BeforeEach void setup() throws Exception {
     for (String table : List.of("care_plan_versions", "note_addenda", "daily_notes", "audit_events", "care_recipients", "caregivers")) jdbc.update("delete from " + table);
     owner = register();
     recipientId = json(call("/api/recipients", owner, Map.of("name", "Synthetic مستفيد")).andExpect(status().isCreated())).get("id").asText();
     noteId = note("2026-10-26", "Source note عربي.", true);
-    summaryMode = "ok"; planMode = "ok"; medications = List.of();
+    summaryMode = "ok"; planMode = "ok"; medications = List.of(); unavailableReason = null;
     when(llm.complete(any())).thenAnswer(invocation -> {
       LlmRequest request = invocation.getArgument(0);
       if (request.dataBlock().startsWith("SUMMARY:")) {
@@ -63,6 +65,7 @@ class SummaryPlanHttpTest {
         return ok(Map.of("changes", List.of(Map.of("actionId", "SCHEDULE_CHECK_IN", "params", Map.of("withinDays", "7"), "reason", "Review logged observations.", "evidenceNoteIds", List.of(noteId))), "proposedMedications", proposed));
       }
       if (summaryMode.equals("throw")) throw new IllegalStateException("private provider diagnostic");
+      if (summaryMode.equals("fallback-reason")) return new LlmResult(LlmStatus.FALLBACK, "", "AI_UNAVAILABLE: synthetic", unavailableReason);
       if (summaryMode.equals("fallback")) return new LlmResult(LlmStatus.FALLBACK, "", "private provider diagnostic");
       if (summaryMode.equals("malformed")) return new LlmResult(LlmStatus.OK, "not-json", "");
       if (summaryMode.equals("empty")) return ok(Map.of("observations", List.of(), "uncertainties", List.of()));
@@ -100,7 +103,42 @@ class SummaryPlanHttpTest {
   @Test void advertisesTheConcreteSummaryRequestAndResultAsJson() throws Exception {
     mvc.perform(get("/v3/api-docs")).andExpect(status().isOk())
         .andExpect(jsonPath("$.paths['/api/summaries'].post.requestBody.content['application/json'].schema['$ref']").value("#/components/schemas/SummaryRequest"))
-        .andExpect(jsonPath("$.paths['/api/summaries'].post.responses['200'].content['application/json'].schema['$ref']").value("#/components/schemas/SummaryResult"));
+        .andExpect(jsonPath("$.paths['/api/summaries'].post.responses['200'].content['application/json'].schema['$ref']").value("#/components/schemas/SummaryResult"))
+        .andExpect(jsonPath("$.components.schemas.GroundedSummary.properties.unavailableReason.enum")
+            .value(org.hamcrest.Matchers.containsInAnyOrder("INVALID_KEY", "INVALID_MODEL", "RATE_LIMIT",
+                "TIMEOUT", "PROVIDER_UNAVAILABLE", "INVALID_OUTPUT")));
+  }
+
+  @ParameterizedTest @EnumSource(FailureReason.class)
+  void unavailableSummaryReturnsReasonAndKeepsSafetyAndTrends(FailureReason reason) throws Exception {
+    summaryMode = "fallback-reason";
+    unavailableReason = reason;
+
+    call("/api/summaries", owner, request(7)).andExpect(status().isOk())
+        .andExpect(jsonPath("$.summary.aiUnavailable").value(true))
+        .andExpect(jsonPath("$.summary.unavailableReason").value(reason.name()))
+        .andExpect(jsonPath("$.summary.observations").isEmpty())
+        .andExpect(jsonPath("$.summary.uncertainties[0].topic").value("availability"))
+        .andExpect(jsonPath("$.safety.needsDoctorBanner").value(true))
+        .andExpect(jsonPath("$.trends").isArray());
+  }
+
+  @Test void successfulAndEmptySummariesOmitUnavailableReason() throws Exception {
+    call("/api/summaries", owner, request(7)).andExpect(status().isOk())
+        .andExpect(jsonPath("$.summary.aiUnavailable").value(false))
+        .andExpect(jsonPath("$.summary.unavailableReason").doesNotExist())
+        .andExpect(jsonPath("$.safety").exists())
+        .andExpect(jsonPath("$.trends").isArray());
+
+    call("/api/summaries", owner, Map.of("recipientId", recipientId,
+        "periodEndInclusive", "2026-09-01", "periodDays", 7))
+        .andExpect(status().isOk())
+        .andExpect(jsonPath("$.summary.aiUnavailable").value(false))
+        .andExpect(jsonPath("$.summary.unavailableReason").doesNotExist())
+        .andExpect(jsonPath("$.summary.observations").isEmpty())
+        .andExpect(jsonPath("$.summary.uncertainties").isEmpty())
+        .andExpect(jsonPath("$.safety").exists())
+        .andExpect(jsonPath("$.trends").isArray());
   }
 
   @ParameterizedTest @ValueSource(strings = {"fallback", "throw", "malformed", "quote"})
