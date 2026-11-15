@@ -140,6 +140,7 @@
     <string name="summary_days_14">14 يومًا</string>
     <string name="summary_days_30">30 يومًا</string>
     <string name="summary_generate">إنشاء الملخص</string>
+    <string name="summary_end_date">آخر يوم مشمول: %1$s</string>
     <string name="summary_evidence">الأدلة</string>
     <string name="summary_uncertain">غير مؤكد</string>
     <string name="summary_disclaimer">هذا الملخص استرشادي ولا يغني عن الاستشارة الطبية</string>

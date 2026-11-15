@@ -490,6 +490,11 @@ fun MainScaffold(graph: AppGraph) {
                     arguments = listOf(
                         navArgument("recipientId") { type = NavType.StringType },
                         navArgument("periodDays") { type = NavType.IntType },
+                        navArgument("end") {
+                            type = NavType.StringType
+                            nullable = true
+                            defaultValue = null
+                        },
                     ),
                 ) { entry ->
                     SummaryResultScreen(
@@ -497,6 +502,7 @@ fun MainScaffold(graph: AppGraph) {
                         AppRoutes.argInt(entry, "periodDays"),
                         graph,
                         navController,
+                        end = entry.arguments?.getString("end"),
                     )
                 }
                 // Task 7 wired the plan and settings destinations; no placeholders remain.

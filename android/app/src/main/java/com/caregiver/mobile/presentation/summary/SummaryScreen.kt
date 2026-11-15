@@ -19,10 +19,15 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.Button
+import androidx.compose.material3.DatePicker
+import androidx.compose.material3.DatePickerDialog
+import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.LocalTextStyle
 import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.SelectableDates
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
+import androidx.compose.material3.rememberDatePickerState
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
@@ -67,6 +72,7 @@ import com.caregiver.mobile.core.time.DateFormats
 import com.caregiver.mobile.core.util.appLocale
 import com.caregiver.mobile.data.api.SummaryDto
 import com.caregiver.mobile.data.export.CareSummaryPdfExporter
+import com.caregiver.mobile.presentation.history.HistoryDates
 import com.caregiver.mobile.presentation.common.AppCard
 import com.caregiver.mobile.presentation.common.AppTopBar
 import com.caregiver.mobile.presentation.common.AppWarningState
@@ -93,8 +99,13 @@ import java.time.LocalDate
  * primary 56dp generate. Local chip state, no VM until generate.
  */
 @Composable
+@OptIn(ExperimentalMaterial3Api::class)
 fun SummaryPeriodScreen(recipientId: String, graph: AppGraph, navController: NavController) {
     var period by rememberSaveable { mutableIntStateOf(14) }
+    var endDate by rememberSaveable { mutableStateOf(LocalDate.now().toString()) }
+    var showDatePicker by rememberSaveable { mutableStateOf(false) }
+    val today = LocalDate.now()
+    val arabic = appLocale().language == "ar"
     Column(Modifier.fillMaxSize()) {
         Column(
             modifier = Modifier.weight(1f).verticalScroll(rememberScrollState())
@@ -131,14 +142,59 @@ fun SummaryPeriodScreen(recipientId: String, graph: AppGraph, navController: Nav
                 selectedContainerColor = CaregiverColors.PrimarySoft,
                 selectedLabelColor = CaregiverColors.Primary,
             )
+            SecondaryButton(
+                label = stringResource(
+                    R.string.summary_end_date,
+                    Bidi.isolate(DateFormats.historyDay(endDate, arabic)),
+                ),
+                onClick = { showDatePicker = true },
+                modifier = Modifier.testTag("summary_end_date_button"),
+            )
         }
         BottomActionBar {
             PrimaryButton(
                 label = stringResource(R.string.summary_generate),
-                onClick = { navController.navigate("summary-result/$recipientId/$period") },
+                onClick = {
+                    navController.navigate("summary-result/$recipientId/$period?end=$endDate")
+                },
                 height = 56.dp,
                 large = true,
             )
+        }
+    }
+    if (showDatePicker) {
+        val picker = rememberDatePickerState(
+            initialSelectedDateMillis = HistoryDates.toPickerMillis(LocalDate.parse(endDate)),
+            selectableDates = remember(today) {
+                object : SelectableDates {
+                    override fun isSelectableDate(utcTimeMillis: Long): Boolean =
+                        !HistoryDates.fromPickerMillis(utcTimeMillis).isAfter(today)
+
+                    override fun isSelectableYear(year: Int): Boolean = year <= today.year
+                }
+            },
+        )
+        DatePickerDialog(
+            onDismissRequest = { showDatePicker = false },
+            confirmButton = {
+                TextButton(
+                    onClick = {
+                        picker.selectedDateMillis?.let { selected ->
+                            endDate = HistoryDates.fromPickerMillis(selected).toString()
+                        }
+                        showDatePicker = false
+                    },
+                ) {
+                    Text(stringResource(R.string.common_ok), fontFamily = PlexArabic)
+                }
+            },
+            dismissButton = {
+                TextButton(onClick = { showDatePicker = false }) {
+                    Text(stringResource(R.string.common_cancel), fontFamily = PlexArabic)
+                }
+            },
+        ) {
+            DatePicker(picker)
         }
     }
 }
@@ -154,7 +210,9 @@ fun SummaryResultScreen(
     periodDays: Int,
     graph: AppGraph,
     navController: NavController,
+    end: String? = null,
 ) {
+    val initialEnd = parseEndArg(end, LocalDate.now())
     // No key is not an error state. [SummaryViewModel] falls back to the
     // backend (or the local deterministic summary) and still returns the
     // safety flags; short-circuiting here hid those flags behind a setup
@@ -166,7 +224,17 @@ fun SummaryResultScreen(
     val effectiveLocale = appLocale()
     val language = effectiveLocale.language
     val vm: SummaryViewModel = assistedViewModel("summary-$recipientId") {
-        SummaryViewModel(recipientId, graph.apis, graph.auth, null, periodDays, AiKeyStore(graph.context), graph.llmClientFactory, language = language)
+        SummaryViewModel(
+            recipientId,
+            graph.apis,
+            graph.auth,
+            null,
+            periodDays,
+            AiKeyStore(graph.context),
+            graph.llmClientFactory,
+            language = language,
+            initialEnd = initialEnd,
+        )
     }
     val state by vm.state.collectAsStateWithLifecycle()
     val activePeriodDays by vm.period.collectAsStateWithLifecycle()
@@ -307,6 +375,11 @@ fun SummaryResultScreen(
         }
     }
 }
+
+internal fun parseEndArg(raw: String?, today: LocalDate): LocalDate =
+    raw?.let { runCatching { LocalDate.parse(it) }.getOrNull() }
+        ?.takeUnless { it.isAfter(today) }
+        ?: today
 
 /**
  * One recovery step per failure: plain-language cause first, then the
