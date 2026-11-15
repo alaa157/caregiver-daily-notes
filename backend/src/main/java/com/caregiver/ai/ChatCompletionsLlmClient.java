@@ -4,10 +4,7 @@ import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 
 import java.io.IOException;
-import java.net.URI;
-import java.net.http.HttpClient;
-import java.net.http.HttpRequest;
-import java.net.http.HttpResponse;
+import java.net.http.HttpTimeoutException;
 import java.time.Duration;
 import java.util.ArrayList;
 import java.util.LinkedHashMap;
@@ -122,7 +119,8 @@ public class ChatCompletionsLlmClient implements LlmClient {
     String url = trimmedBaseUrl(effectiveBaseUrl) + "/chat/completions";
     Map<String, String> headers = headers(effectiveApiKey);
 
-    String lastError = "no attempts made";
+    String lastError = "transport failure";
+    FailureReason lastFailureReason = FailureReason.PROVIDER_UNAVAILABLE;
     int repairs = 0;
     String body;
     String repairBody;
@@ -132,7 +130,7 @@ public class ChatCompletionsLlmClient implements LlmClient {
           effectiveModel, request.systemPrompt(), delimitedData(request.dataBlock()) + REPAIR_SUFFIX);
     } catch (IOException e) {
       if (Thread.currentThread().isInterrupted()) throw interruptedCancellation();
-      return fallback("request build failed");
+      return fallback("request build failed", FailureReason.PROVIDER_UNAVAILABLE);
     }
     for (int attempt = 1; attempt <= attempts; attempt++) {
       if (Thread.currentThread().isInterrupted()) throw interruptedCancellation();
@@ -147,14 +145,19 @@ public class ChatCompletionsLlmClient implements LlmClient {
       } catch (IOException | RuntimeException e) {
         // Transport exception messages may contain request details; never
         // expose them through the result returned to callers.
-        lastError = "transport failure";
+        lastFailureReason = failureReason(e);
+        lastError = failureMessage(lastFailureReason);
+        if (isPermanentHttpFailure(e)) {
+          return fallback(lastError, lastFailureReason);
+        }
         backoff(attempt, attempts, backoffBase);
         continue;
       }
       if (Thread.currentThread().isInterrupted()) throw interruptedCancellation();
       String text = extractText(raw);
       if (text == null || text.isBlank()) {
-        lastError = "empty model output";
+        lastFailureReason = FailureReason.INVALID_OUTPUT;
+        lastError = failureMessage(lastFailureReason);
         backoff(attempt, attempts, backoffBase);
         continue;
       }
@@ -166,35 +169,48 @@ public class ChatCompletionsLlmClient implements LlmClient {
       if (repairs < REPAIR_ATTEMPTS) {
         repairs++;
         String repaired;
+        boolean repairFailedWithException = false;
         try {
           repaired = tryRepair(url, headers, repairBody, effectiveTimeout);
         } catch (InterruptedException e) {
           Thread.currentThread().interrupt();
           throw interruptedCancellation(e);
+        } catch (CancellationException cancelled) {
+          throw cancelled;
+        } catch (IOException | RuntimeException e) {
+          lastFailureReason = failureReason(e);
+          lastError = failureMessage(lastFailureReason);
+          repairFailedWithException = true;
+          if (isPermanentHttpFailure(e)) {
+            return fallback(lastError, lastFailureReason);
+          }
+          repaired = null;
         }
         if (repaired != null) {
           if (Thread.currentThread().isInterrupted()) throw interruptedCancellation();
           return new LlmResult(LlmStatus.REPAIRED, repaired, null);
         }
-        lastError = "repair attempt failed";
+        if (!repairFailedWithException) {
+          lastFailureReason = FailureReason.INVALID_OUTPUT;
+          lastError = failureMessage(lastFailureReason);
+        }
       } else {
-        lastError = "invalid model output";
+        lastFailureReason = FailureReason.INVALID_OUTPUT;
+        lastError = failureMessage(lastFailureReason);
       }
       backoff(attempt, attempts, backoffBase);
     }
     if (Thread.currentThread().isInterrupted()) throw interruptedCancellation();
-    return fallback(lastError);
+    return fallback(lastError, lastFailureReason);
   }
 
   private String tryRepair(String url, Map<String, String> headers, String repairBody, Duration timeout)
-      throws InterruptedException {
+      throws IOException, InterruptedException {
     String raw;
     try {
       raw = exchange.post(url, headers, repairBody, timeout);
     } catch (CancellationException cancelled) {
       throw cancelled;
-    } catch (IOException | RuntimeException e) {
-      return null;
     }
     if (Thread.currentThread().isInterrupted()) throw interruptedCancellation();
     String text = extractText(raw);
@@ -307,23 +323,48 @@ public class ChatCompletionsLlmClient implements LlmClient {
     }
   }
 
-  private LlmResult fallback(String reason) {
-    return new LlmResult(LlmStatus.FALLBACK, "", FALLBACK_MARKER + ": " + reason);
+  private static FailureReason failureReason(Throwable failure) {
+    if (failure instanceof HttpTimeoutException) {
+      return FailureReason.TIMEOUT;
+    }
+    if (failure instanceof ProviderHttpException httpFailure) {
+      return switch (httpFailure.statusCode()) {
+        case 401, 403 -> FailureReason.INVALID_KEY;
+        case 404 -> FailureReason.INVALID_MODEL;
+        case 429 -> FailureReason.RATE_LIMIT;
+        default -> FailureReason.PROVIDER_UNAVAILABLE;
+      };
+    }
+    return FailureReason.PROVIDER_UNAVAILABLE;
+  }
+
+  private static boolean isPermanentHttpFailure(Throwable failure) {
+    if (!(failure instanceof ProviderHttpException httpFailure)) {
+      return false;
+    }
+    return switch (httpFailure.statusCode()) {
+      case 400, 401, 403, 404 -> true;
+      default -> false;
+    };
+  }
+
+  private static String failureMessage(FailureReason reason) {
+    return switch (reason) {
+      case INVALID_KEY -> "invalid provider credentials";
+      case INVALID_MODEL -> "provider model not found";
+      case RATE_LIMIT -> "provider rate limit";
+      case TIMEOUT -> "provider timeout";
+      case PROVIDER_UNAVAILABLE -> "transport failure";
+      case INVALID_OUTPUT -> "invalid model output";
+    };
+  }
+
+  private LlmResult fallback(String reason, FailureReason failureReason) {
+    return new LlmResult(LlmStatus.FALLBACK, "", FALLBACK_MARKER + ": " + reason, failureReason);
   }
 
   /** Real HTTP exchange for production composition roots. */
   public static HttpExchange defaultExchange() {
-    HttpClient client = HttpClient.newHttpClient();
-    return (url, headers, body, timeout) -> {
-      HttpRequest.Builder builder = HttpRequest.newBuilder(URI.create(url))
-          .timeout(timeout)
-          .POST(HttpRequest.BodyPublishers.ofString(body));
-      headers.forEach(builder::header);
-      HttpResponse<String> response = client.send(builder.build(), HttpResponse.BodyHandlers.ofString());
-      if (response.statusCode() < 200 || response.statusCode() >= 300) {
-        throw new IOException("HTTP " + response.statusCode());
-      }
-      return response.body();
-    };
+    return HttpExchange.defaultExchange();
   }
 }

@@ -28,6 +28,8 @@ class ChatCompletionsLlmClientTest {
       "{\"choices\":[{\"message\":{\"content\":\"{\\\"mood\\\":\\\"good\\\"}\"},\"finish_reason\":\"stop\"}]}";
   static final String LENGTH_BODY =
       "{\"choices\":[{\"message\":{\"content\":\"{\\\"mood\\\":\\\"good\\\"}\"},\"finish_reason\":\"length\"}]}";
+  static final String INVALID_OUTPUT_BODY =
+      "{\"choices\":[{\"message\":{\"content\":\"not-json\"},\"finish_reason\":\"stop\"}]}";
 
   interface ExchangeOutcome {
     String run() throws IOException, InterruptedException;
@@ -85,6 +87,7 @@ class ChatCompletionsLlmClientTest {
     var result = client.complete(request());
 
     assertThat(result.status()).isEqualTo(LlmStatus.OK);
+    assertThat(result.failureReason()).isNull();
     assertThat(result.text()).contains("\"mood\"");
     assertThat(exchange.calls).hasSize(1);
     assertThat(exchange.calls.get(0).url())
@@ -142,6 +145,7 @@ class ChatCompletionsLlmClientTest {
     assertThat(result.status()).isEqualTo(LlmStatus.FALLBACK);
     assertThat(result.text()).isEmpty();
     assertThat(result.error()).startsWith("AI_UNAVAILABLE");
+    assertThat(result.failureReason()).isEqualTo(FailureReason.PROVIDER_UNAVAILABLE);
     assertThat(result.error()).doesNotContain("Bearer");
     assertThat(exchange.calls).hasSize(3);
     assertThat(delays).containsExactly(200L, 400L);
@@ -175,7 +179,75 @@ class ChatCompletionsLlmClientTest {
     var result = client.complete(request());
 
     assertThat(result.status()).isEqualTo(LlmStatus.FALLBACK);
+    assertThat(result.failureReason()).isEqualTo(FailureReason.INVALID_OUTPUT);
     assertThat(exchange.calls).hasSize(3);
+  }
+
+  @Test
+  void permanentHttpFailures_failFastWithoutSleeping() {
+    Map<Integer, FailureReason> failures = Map.of(
+        400, FailureReason.PROVIDER_UNAVAILABLE,
+        401, FailureReason.INVALID_KEY,
+        403, FailureReason.INVALID_KEY,
+        404, FailureReason.INVALID_MODEL);
+
+    failures.forEach((status, expectedReason) -> {
+      var exchange = new FakeExchange();
+      exchange.addFailure(new ProviderHttpException(status));
+      var delays = new ArrayList<Long>();
+      var result = client("synthetic-key", null, exchange, delays::add).complete(request());
+
+      assertThat(result.status()).isEqualTo(LlmStatus.FALLBACK);
+      assertThat(result.failureReason()).isEqualTo(expectedReason);
+      assertThat(result.error()).doesNotContain("synthetic-key");
+      assertThat(exchange.calls).hasSize(1);
+      assertThat(delays).isEmpty();
+    });
+  }
+
+  @Test
+  void rateLimitAndServerErrors_retryThreeTimesWithBackoff() {
+    for (int status : List.of(429, 500)) {
+      var exchange = new FakeExchange();
+      exchange.addFailure(new ProviderHttpException(status));
+      exchange.addFailure(new ProviderHttpException(status));
+      exchange.addFailure(new ProviderHttpException(status));
+      var delays = new ArrayList<Long>();
+      var result = client("", null, exchange, delays::add).complete(request());
+
+      assertThat(result.status()).isEqualTo(LlmStatus.FALLBACK);
+      assertThat(result.failureReason()).isEqualTo(
+          status == 429 ? FailureReason.RATE_LIMIT : FailureReason.PROVIDER_UNAVAILABLE);
+      assertThat(exchange.calls).hasSize(3);
+      assertThat(delays).containsExactly(200L, 400L);
+    }
+  }
+
+  @Test
+  void timeout_isRetriedAndClassified() {
+    var exchange = new FakeExchange();
+    exchange.addTimeout();
+    exchange.addTimeout();
+    exchange.addTimeout();
+    var result = client("", null, exchange, ms -> { }).complete(request());
+
+    assertThat(result.status()).isEqualTo(LlmStatus.FALLBACK);
+    assertThat(result.failureReason()).isEqualTo(FailureReason.TIMEOUT);
+    assertThat(exchange.calls).hasSize(3);
+  }
+
+  @Test
+  void invalidModelOutputAfterRepair_isClassified() {
+    var exchange = new FakeExchange();
+    exchange.addBody(INVALID_OUTPUT_BODY);
+    exchange.addBody(INVALID_OUTPUT_BODY);
+    exchange.addBody(INVALID_OUTPUT_BODY);
+    exchange.addBody(INVALID_OUTPUT_BODY);
+    var result = client("", null, exchange, ms -> { }).complete(request());
+
+    assertThat(result.status()).isEqualTo(LlmStatus.FALLBACK);
+    assertThat(result.failureReason()).isEqualTo(FailureReason.INVALID_OUTPUT);
+    assertThat(exchange.calls).hasSize(4);
   }
 
   @Test
@@ -276,6 +348,8 @@ class ChatCompletionsLlmClientTest {
     assertThat(result.status()).isEqualTo(LlmStatus.FALLBACK);
     assertThat(result.error()).isEqualTo("AI_UNAVAILABLE: transport failure")
         .doesNotContain("synthetic-sensitive-key", "provider echoed", "configured-synthetic-key");
+    assertThat(result.toString())
+        .doesNotContain("synthetic-sensitive-key", "configured-synthetic-key");
     assertThat(exchange.calls).hasSize(3);
     assertThat(exchange.calls).allSatisfy(call ->
         assertThat(call.headers()).containsEntry("Authorization", "Bearer synthetic-sensitive-key"));
