@@ -113,14 +113,19 @@ describe('care recipients screens', () => {
 
   it('renders loading, owned recipients and active status without ownership internals', async () => {
     let resolve!: (response: Response) => void;
-    const fetcher = vi.fn().mockImplementation(() => new Promise<Response>((done) => { resolve = done; }));
+    const fetcher = vi.fn().mockImplementation((path: string) => {
+      const url = new URL(path, 'http://localhost');
+      if (url.pathname === '/api/notes') return Promise.resolve(jsonResponse(historyPage([], 0, 100)));
+      return new Promise<Response>((done) => { resolve = done; });
+    });
     renderRecipients(root, fetcher);
     expect(screen.getByText('Loading your care recipients…')).toBeInTheDocument();
     resolve(jsonResponse([recipient]));
     expect(await screen.findByRole('link', { name: recipient.name })).toHaveAttribute('href', detail);
     expect(within(screen.getByRole('group', { name: 'Filter recipients by lifecycle status' })).getByRole('button', { name: 'Active' })).toHaveAttribute('aria-pressed', 'true');
     expect(screen.queryByText('secret-owner')).not.toBeInTheDocument();
-    expect(new Headers(fetcher.mock.calls[0][1].headers).get('Authorization')).toMatch(/^Bearer /);
+    const recipientsCall = fetcher.mock.calls.find(([path]) => new URL(path, 'http://localhost').pathname === '/api/recipients');
+    expect(new Headers(recipientsCall![1].headers).get('Authorization')).toMatch(/^Bearer /);
     expect(screen.getByRole('navigation').querySelector('[aria-current="page"]')).toHaveTextContent('People');
   });
 
@@ -140,7 +145,7 @@ describe('care recipients screens', () => {
     expect(screen.queryByRole('link', { name: recipient.name })).not.toBeInTheDocument();
     await userEvent.click(screen.getByRole('button', { name: 'Clear' }));
     expect(screen.getByRole('link', { name: recipient.name })).toBeInTheDocument();
-    expect(fetcher).toHaveBeenCalledTimes(1);
+    expect(fetcher).toHaveBeenCalledTimes(2);
   });
 
   it('filters recipients by case-insensitive name and relationship', async () => {
@@ -198,7 +203,13 @@ describe('care recipients screens', () => {
   });
 
   it('retries a list error and does not display raw server messages', async () => {
-    const fetcher = vi.fn().mockResolvedValueOnce(jsonResponse({ message: 'private diagnostics' }, 500)).mockResolvedValueOnce(jsonResponse([recipient]));
+    let recipientCalls = 0;
+    const fetcher = vi.fn().mockImplementation((path: string) => {
+      const url = new URL(path, 'http://localhost');
+      if (url.pathname === '/api/notes') return Promise.resolve(jsonResponse(historyPage([], 0, 100)));
+      recipientCalls += 1;
+      return Promise.resolve(recipientCalls === 1 ? jsonResponse({ message: 'private diagnostics' }, 500) : jsonResponse([recipient]));
+    });
     renderRecipients(root, fetcher);
     expect(await screen.findByRole('alert')).toHaveTextContent('We couldn’t complete this request.');
     expect(screen.queryByText('private diagnostics')).not.toBeInTheDocument();
@@ -677,6 +688,68 @@ describe('care recipients screens', () => {
       expect(document.documentElement).toHaveAttribute('dir', 'rtl');
       expect(within(section).getByText('حساسية البنسلين')).toHaveAttribute('dir', 'auto');
       expect(within(section).getByText('ليلى حسن')).toHaveAttribute('dir', 'auto');
+    });
+  });
+
+  describe('today note status', () => {
+    const localToday = () => {
+      const now = new Date();
+      return [now.getFullYear(), String(now.getMonth() + 1).padStart(2, '0'), String(now.getDate()).padStart(2, '0')].join('-');
+    };
+    const statusFetcher = (recipients: (typeof recipient)[], notes: 'error' | (typeof historyNote)[] = []) => vi.fn().mockImplementation((path: string) => {
+      const url = new URL(path, 'http://localhost');
+      if (url.pathname === '/api/recipients') return Promise.resolve(jsonResponse(recipients));
+      if (url.pathname === '/api/notes') {
+        if (notes === 'error') return Promise.reject(new Error('notes unavailable'));
+        return Promise.resolve(jsonResponse(historyPage(notes, 0, 100)));
+      }
+      return Promise.resolve(jsonResponse([]));
+    });
+
+    it('shows Open note for a recipient with today\'s note', async () => {
+      const note = { ...historyNote, date: localToday() };
+      renderRecipients(root, statusFetcher([recipient], [note]));
+      expect(await screen.findByText('Note recorded')).toBeInTheDocument();
+      expect(screen.getByRole('link', { name: /Open note/ })).toHaveAttribute('href', `/app/notes/${note.id}`);
+    });
+
+    it('shows Record note for a recipient without today\'s note', async () => {
+      const today = localToday();
+      renderRecipients(root, statusFetcher([recipient]));
+      expect(await screen.findByText('No note recorded')).toBeInTheDocument();
+      expect(screen.getByRole('link', { name: /Record a note/ }))
+        .toHaveAttribute('href', `/app/notes/new?recipientId=${recipient.id}&date=${today}`);
+    });
+
+    it('shows the unavailable status when today\'s notes fail to load', async () => {
+      renderRecipients(root, statusFetcher([recipient], 'error'));
+      expect(await screen.findByRole('link', { name: recipient.name })).toBeInTheDocument();
+      expect(screen.getByText('Note status unavailable')).toBeInTheDocument();
+    });
+
+    it('leaves archived cards without today status', async () => {
+      const archived = { ...recipient, active: false, lifecycleStatus: 'ARCHIVED' as const,
+        archivedAt: '2026-10-15T10:00:00Z', archivedBy: 'b1111111-1111-4111-8111-111111111111' };
+      renderRecipients(root, statusFetcher([archived], [{ ...historyNote, date: localToday() }]));
+      await userEvent.click(await screen.findByRole('button', { name: 'Archived' }));
+      expect(await screen.findByRole('link', { name: recipient.name })).toBeInTheDocument();
+      expect(screen.queryByText('Note recorded')).not.toBeInTheDocument();
+      expect(screen.queryByText('No note recorded')).not.toBeInTheDocument();
+      expect(screen.queryByRole('link', { name: /Record a note/ })).not.toBeInTheDocument();
+    });
+
+    it('renders today status in Arabic RTL at 320px without overflow', async () => {
+      const originalWidth = window.innerWidth;
+      Object.defineProperty(window, 'innerWidth', { writable: true, configurable: true, value: 320 });
+      try {
+        renderRecipients(root, statusFetcher([recipient], [{ ...historyNote, date: localToday() }]), 'ar');
+        expect(document.documentElement).toHaveAttribute('dir', 'rtl');
+        expect(await screen.findByText('تم تسجيل ملاحظة')).toBeInTheDocument();
+        expect(screen.getByRole('link', { name: /فتح الملاحظة/ })).toBeInTheDocument();
+        expect(document.documentElement.scrollWidth).toBeLessThanOrEqual(320);
+      } finally {
+        Object.defineProperty(window, 'innerWidth', { writable: true, configurable: true, value: originalWidth });
+      }
     });
   });
 

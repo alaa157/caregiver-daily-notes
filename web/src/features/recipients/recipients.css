@@ -120,3 +120,10 @@
 .recipient-status--legacy-inactive-review { color: #704d20; background: #fbf1df; border-color: #d9bd8e; }
 .recipient-status--legacy-inactive-review .status-dot { background: #9a6b26; }
 .recipient-review-notice { max-width: 760px; margin-block: 24px 0; padding: 16px 20px; color: #704d20; background: #fbf1df; border: 1px solid #d9bd8e; border-radius: 9px; line-height: 1.9; }
+.recipient-note-status { display: flex; align-items: center; flex-wrap: wrap; gap: 8px; margin-block: 14px 4px; }
+.recipient-note-status-label { display: inline-flex; align-items: center; min-height: 1.7rem; padding: 0.15rem 0.6rem; border: 1px solid #d5d8cd; border-radius: 999px; background: #f0f0e9; color: #596358; font-size: 12px; font-weight: 600; white-space: nowrap; }
+.recipient-note-status-label--recorded { border-color: #c7d7bf; background: #edf4e8; color: #315a3d; }
+.recipient-note-status-label--error { border-color: #c1796f; background: #fff1eb; color: #8b2929; }
+.recipient-note-action { display: inline-flex; align-items: center; min-height: 2.5rem; margin-block-start: 6px; color: #315a3d; font-weight: 600; text-decoration: none; overflow-wrap: anywhere; }
+.recipient-note-action:hover { text-decoration: underline; text-underline-offset: 0.15em; }
+.recipient-note-action:focus-visible { outline: 3px solid #436f4f; outline-offset: 2px; }
