@@ -97,6 +97,33 @@ class BackupValidatorTest {
     }
 
     @Test
+    fun anUnrecordedPainCarryingAnAnswerIsReported() {
+        val data = backupData(
+            notes = listOf(backupNote(pain = 5, painRecorded = false)),
+        )
+        assertEquals(BackupEntity.NOTE, kinds(data, BackupIssueKind.INVALID_PAIN).single().entity)
+    }
+
+    @Test
+    fun anUnrecordedFallCarryingAnAnswerIsReported() {
+        val data = backupData(
+            notes = listOf(backupNote(fall = true, fallRecorded = false)),
+        )
+        assertEquals(BackupEntity.NOTE, kinds(data, BackupIssueKind.INVALID_FALL).single().entity)
+    }
+
+    @Test
+    fun recordedFlagsWithConsistentValuesAreValid() {
+        val data = backupData(
+            notes = listOf(
+                backupNote("n1", pain = 0, painRecorded = false, fallRecorded = false),
+                backupNote("n2", date = "2026-10-02", pain = 4, fall = true),
+            ),
+        )
+        assertTrue(issues(data).isEmpty())
+    }
+
+    @Test
     fun aBlankMoodIsReportedAsMissingValue() {
         val data = backupData(notes = listOf(backupNote(mood = " ")))
         assertEquals(BackupEntity.NOTE, kinds(data, BackupIssueKind.MISSING_VALUE).single().entity)
