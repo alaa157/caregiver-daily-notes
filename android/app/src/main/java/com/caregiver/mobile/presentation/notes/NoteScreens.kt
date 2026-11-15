@@ -125,7 +125,7 @@ fun NoteEditorScreen(recipientId: String, graph: AppGraph, navController: NavCon
                             else -> false
                         }
                         HtmlChip(
-                            label = OptionLabels.label(group, value, arabic),
+                            label = optionLabel(group, value),
                             selected = selected,
                             onClick = { vm.select(group, value) },
                         )
@@ -138,7 +138,7 @@ fun NoteEditorScreen(recipientId: String, graph: AppGraph, navController: NavCon
             ChipWrap {
                 NoteOptions.values(OptionGroup.Medication).forEach { value ->
                     HtmlChip(
-                        label = OptionLabels.label(OptionGroup.Medication, value, arabic),
+                        label = optionLabel(OptionGroup.Medication, value),
                         selected = state.medication == value,
                         onClick = { vm.select(OptionGroup.Medication, value) },
                     )
@@ -437,34 +437,25 @@ fun NoteDetailScreen(noteId: String, graph: AppGraph, navController: NavControll
                                 when (field) {
                                     StatField.Mood -> StatMini(
                                         stringResource(R.string.editor_mood),
-                                        OptionLabels.label(
-                                            OptionGroup.Mood, s.content.note.mood, arabic,
-                                        ),
+                                        optionLabel(OptionGroup.Mood, s.content.note.mood),
                                     )
                                     StatField.Appetite -> StatMini(
                                         stringResource(R.string.editor_appetite),
-                                        OptionLabels.label(
-                                            OptionGroup.Appetite, s.content.note.appetite, arabic,
-                                        ),
+                                        optionLabel(OptionGroup.Appetite, s.content.note.appetite),
                                     )
                                     StatField.Sleep -> StatMini(
                                         stringResource(R.string.editor_sleep),
-                                        OptionLabels.label(
-                                            OptionGroup.Sleep, s.content.note.sleep, arabic,
-                                        ),
+                                        optionLabel(OptionGroup.Sleep, s.content.note.sleep),
                                     )
                                     StatField.Mobility -> StatMini(
                                         stringResource(R.string.editor_mobility),
-                                        OptionLabels.label(
-                                            OptionGroup.Mobility, s.content.note.mobility, arabic,
-                                        ),
+                                        optionLabel(OptionGroup.Mobility, s.content.note.mobility),
                                     )
                                     StatField.Medication -> StatMini(
                                         stringResource(R.string.editor_medication),
-                                        OptionLabels.label(
+                                        optionLabel(
                                             OptionGroup.Medication,
                                             s.content.note.medicationTaken,
-                                            arabic,
                                         ),
                                     )
                                     StatField.Pain -> StatMini(

@@ -18,7 +18,7 @@ import com.caregiver.mobile.ai.SummaryWindow
 import com.caregiver.mobile.data.api.NoteDto
 import com.caregiver.mobile.data.api.SummaryDto
 import com.caregiver.mobile.presentation.notes.OptionGroup
-import com.caregiver.mobile.presentation.notes.OptionLabels
+import com.caregiver.mobile.presentation.notes.optionLabel
 import java.io.File
 import java.io.FileOutputStream
 import java.time.LocalDate
@@ -164,13 +164,13 @@ object CareSummaryPdfExporter {
             if (n.sleep.isNotBlank()) {
                 parts += context.getString(
                     R.string.pdf_sleep,
-                    OptionLabels.label(OptionGroup.Sleep, n.sleep, ar),
+                    context.optionLabel(OptionGroup.Sleep, n.sleep),
                 )
             }
             if (n.mood.isNotBlank()) {
                 parts += context.getString(
                     R.string.pdf_mood,
-                    OptionLabels.label(OptionGroup.Mood, n.mood, ar),
+                    context.optionLabel(OptionGroup.Mood, n.mood),
                 )
             }
             if (parts.isNotEmpty()) {
