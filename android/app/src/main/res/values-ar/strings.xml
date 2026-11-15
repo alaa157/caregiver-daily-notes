@@ -47,6 +47,12 @@
     <string name="add_name">الاسم</string>
     <string name="add_save">حفظ</string>
     <string name="add_error_name">الاسم مطلوب</string>
+    <string name="add_error_name_long">يجب ألا يتجاوز الاسم 120 حرفًا.</string>
+    <string name="add_error_save_failed">تعذّر الحفظ. حاول مرة أخرى.</string>
+    <string name="add_duplicate_title">يوجد بالفعل شخص بهذا الاسم</string>
+    <string name="add_duplicate_body">لديك بالفعل شخص بهذا الاسم. قد تجعل إضافة شخص آخر من الصعب التمييز بينهما.</string>
+    <string name="add_duplicate_open">فتح الشخص الحالي</string>
+    <string name="add_duplicate_create_anyway">إضافة رغم ذلك</string>
     <string name="common_retry">إعادة المحاولة</string>
     <string name="common_ok">موافق</string>
     <string name="common_loading_failed">تعذر التحميل</string>
