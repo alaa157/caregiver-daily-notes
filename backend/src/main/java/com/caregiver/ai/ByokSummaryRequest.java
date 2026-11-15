@@ -35,7 +35,19 @@ public final class ByokSummaryRequest {
     if (apiKey == null || apiKey.isBlank()) {
       throw new IllegalArgumentException("apiKey is required");
     }
+    if (model == null || !ProviderCredentials.MODEL_ID_PATTERN.matcher(model).matches()) {
+      throw new InvalidModelIdException();
+    }
     return new ProviderCredentials(providerId, approvedBaseUrl(providerId), model, apiKey);
+  }
+
+  /** Signals a malformed model ID so the HTTP boundary can answer 400, not 422. */
+  public static final class InvalidModelIdException extends IllegalArgumentException {
+    private static final long serialVersionUID = 1L;
+
+    public InvalidModelIdException() {
+      super("modelId is invalid");
+    }
   }
 
   public SummaryRequest summary() {

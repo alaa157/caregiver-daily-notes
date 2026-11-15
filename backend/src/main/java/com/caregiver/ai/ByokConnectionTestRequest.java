@@ -26,7 +26,7 @@ public final class ByokConnectionTestRequest {
         validationError = "invalid_provider";
       } else {
         acceptedProviderId = input.providerId;
-        if (input.model == null || input.model.isBlank()) {
+        if (input.model == null || !ProviderCredentials.MODEL_ID_PATTERN.matcher(input.model).matches()) {
           validationError = "invalid_model";
         } else {
           acceptedModel = input.model;
