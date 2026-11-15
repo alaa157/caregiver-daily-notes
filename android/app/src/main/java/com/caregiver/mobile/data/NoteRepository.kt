@@ -150,6 +150,8 @@ class NoteRepository(
                 text = body.text,
                 date = LocalDate.now(clock).toString(),
                 createdAt = clock.millis(),
+                painRecorded = body.painRecorded,
+                fallRecorded = body.fallRecorded,
             )
             outbox.insert(row)
             // Drain as soon as connectivity returns (Task 8c).
