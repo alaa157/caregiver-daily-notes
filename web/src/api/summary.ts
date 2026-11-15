@@ -10,8 +10,10 @@ export interface SummaryRequest { recipientId: string; periodEndInclusive: strin
 export interface ByokSummaryRequest { summary: SummaryRequest; credentials: ByokCredentials }
 export interface SummaryObservation { text: string; noteId: string; quote: string }
 export interface SummaryUncertainty { topic: string; detail: string }
+export type SummaryUnavailableReason = 'INVALID_KEY' | 'INVALID_MODEL' | 'RATE_LIMIT' | 'TIMEOUT' | 'PROVIDER_UNAVAILABLE' | 'INVALID_OUTPUT';
 export interface SummaryContent {
   observations: SummaryObservation[]; uncertainties: SummaryUncertainty[]; aiUnavailable: boolean;
+  unavailableReason?: SummaryUnavailableReason;
 }
 export interface SafetySignal { ruleId: string | null; severity: string | null; reason: string | null }
 export interface SummarySafety { signals: SafetySignal[]; needsDoctorBanner: boolean; incomplete: boolean }
@@ -21,6 +23,11 @@ export interface SummaryResponse { safety: SummarySafety; summary: SummaryConten
 const object = (value: unknown): Record<string, unknown> | null => value !== null && typeof value === 'object' && !Array.isArray(value)
   ? value as Record<string, unknown> : null;
 const nonempty = (value: unknown): value is string => typeof value === 'string' && value.trim().length > 0;
+const unavailableReasons: ReadonlySet<string> = new Set([
+  'INVALID_KEY', 'INVALID_MODEL', 'RATE_LIMIT', 'TIMEOUT', 'PROVIDER_UNAVAILABLE', 'INVALID_OUTPUT',
+]);
+const isSummaryUnavailableReason = (value: unknown): value is SummaryUnavailableReason =>
+  typeof value === 'string' && unavailableReasons.has(value);
 
 /** Parse safety independently: malformed model content must never erase a valid banner. */
 export function readSummarySafety(value: unknown): SummarySafety {
@@ -57,7 +64,13 @@ export function readSummaryResponse(value: unknown): SummaryResponse {
       if (!observation || !nonempty(observation.text) || !nonempty(observation.noteId) || !nonempty(observation.quote)) throw new Error();
       return { text: observation.text, noteId: observation.noteId, quote: observation.quote };
     });
-    summary = { observations, uncertainties, aiUnavailable: raw.aiUnavailable };
+    const unavailableReason = raw.unavailableReason;
+    summary = {
+      observations,
+      uncertainties,
+      aiUnavailable: raw.aiUnavailable,
+      ...(isSummaryUnavailableReason(unavailableReason) ? { unavailableReason } : {}),
+    };
   } catch { invalidContent = true; }
   try {
     if (!Array.isArray(item?.trends)) throw new Error();
