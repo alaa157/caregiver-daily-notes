@@ -82,6 +82,7 @@ private fun tabOwnership(): Map<String, List<String>> = mapOf(
     MainTab.People.route to listOf(
         AppDestinations.RecipientDetail.base,
         AppDestinations.AddRecipient.base,
+        AppDestinations.EditRecipient.base,
         AppDestinations.Summary.base,
         AppDestinations.SummaryResult.base,
         AppDestinations.Plans.base,

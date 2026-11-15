@@ -53,6 +53,10 @@
     <string name="add_duplicate_body">لديك بالفعل شخص بهذا الاسم. قد تجعل إضافة شخص آخر من الصعب التمييز بينهما.</string>
     <string name="add_duplicate_open">فتح الشخص الحالي</string>
     <string name="add_duplicate_create_anyway">إضافة رغم ذلك</string>
+    <string name="edit_title">تعديل البيانات</string>
+    <string name="edit_save">حفظ التغييرات</string>
+    <string name="edit_duplicate_save_anyway">احفظ رغم ذلك</string>
+    <string name="edit_unavailable">هذا الشخص لم يعد متاحًا.</string>
     <string name="common_retry">إعادة المحاولة</string>
     <string name="common_ok">موافق</string>
     <string name="common_loading_failed">تعذر التحميل</string>
