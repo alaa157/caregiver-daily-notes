@@ -368,6 +368,7 @@
     <string name="settings_ai_cost_note">API usage may incur charges. Costs depend on model and usage.</string>
     <string name="settings_ai_model">Model</string>
     <string name="settings_ai_custom_model">Custom model</string>
+    <string name="settings_ai_model_other">Other model</string>
     <string name="settings_ai_suggestions">Suggestions:</string>
     <string name="settings_ai_model_free">Free</string>
     <string name="settings_ai_model_recommended">Recommended for summaries</string>
