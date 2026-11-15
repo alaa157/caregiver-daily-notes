@@ -51,6 +51,7 @@ data class EditorState(
     val formError: EditorError? = null,
     val busy: Boolean = false,
     val savedId: String? = null,
+    val detailsExpanded: Boolean = false,
 )
 
 /** How many of the seven questions have an answer; free text does not count. */
@@ -97,6 +98,13 @@ class NoteEditorViewModel(
 
     fun onText(value: String) {
         _state.value = _state.value.copy(text = value, formError = null)
+    }
+
+    /** The details field cannot collapse while it holds text. */
+    fun toggleDetails() {
+        val current = _state.value
+        if (current.text.isNotBlank()) return
+        _state.value = current.copy(detailsExpanded = !current.detailsExpanded)
     }
 
     fun submit() {

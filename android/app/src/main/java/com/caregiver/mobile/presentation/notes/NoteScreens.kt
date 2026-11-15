@@ -181,22 +181,31 @@ fun NoteEditorScreen(recipientId: String, graph: AppGraph, navController: NavCon
                 }
             }
             HelperCaption(stringResource(R.string.editor_pain_caption))
-            // Section 4: ملاحظات إضافية — textarea 130dp.
-            SectionTitle(stringResource(R.string.editor_section_extra))
-            OutlinedTextField(
-                value = state.text,
-                onValueChange = vm::onText,
-                placeholder = { Text(stringResource(R.string.editor_hint_extra), fontFamily = PlexArabic) },
-                minLines = 5,
-                shape = RoundedCornerShape(AppDimens.ControlRadius),
-                colors = OutlinedTextFieldDefaults.colors(
-                    focusedBorderColor = CaregiverColors.Primary,
-                    unfocusedBorderColor = CaregiverColors.Border,
-                    focusedContainerColor = CaregiverColors.Surface,
-                    unfocusedContainerColor = CaregiverColors.Surface,
-                ),
-                modifier = Modifier.fillMaxWidth().height(130.dp),
+            // Section 4: ملاحظات إضافية — hidden behind a chip until opened;
+            // once it holds text it cannot collapse.
+            val detailsOpen = state.detailsExpanded || state.text.isNotBlank()
+            HtmlChip(
+                label = stringResource(R.string.editor_add_details),
+                selected = detailsOpen,
+                onClick = vm::toggleDetails,
             )
+            if (detailsOpen) {
+                SectionTitle(stringResource(R.string.editor_section_extra))
+                OutlinedTextField(
+                    value = state.text,
+                    onValueChange = vm::onText,
+                    placeholder = { Text(stringResource(R.string.editor_hint_extra), fontFamily = PlexArabic) },
+                    minLines = 5,
+                    shape = RoundedCornerShape(AppDimens.ControlRadius),
+                    colors = OutlinedTextFieldDefaults.colors(
+                        focusedBorderColor = CaregiverColors.Primary,
+                        unfocusedBorderColor = CaregiverColors.Border,
+                        focusedContainerColor = CaregiverColors.Surface,
+                        unfocusedContainerColor = CaregiverColors.Surface,
+                    ),
+                    modifier = Modifier.fillMaxWidth().height(130.dp),
+                )
+            }
             state.formError?.let {
                 FieldError(
                     when (it) {

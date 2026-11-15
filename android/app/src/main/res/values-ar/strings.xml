@@ -708,4 +708,5 @@
     <string name="note_option_medication_unsure">غير متأكد</string>
     <string name="note_nothing_recorded">لم تُسجَّل أي إجابات لهذه الملاحظة.</string>
     <string name="editor_progress">%1$d من 7 تمت الإجابة عنها</string>
+    <string name="editor_add_details">إضافة تفاصيل</string>
 </resources>
