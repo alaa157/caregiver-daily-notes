@@ -15,6 +15,7 @@ import com.caregiver.mobile.data.local.RecipientDeletionCounts
 import androidx.datastore.preferences.core.PreferenceDataStoreFactory
 import java.io.File
 import java.io.IOException
+import java.time.LocalDate
 import kotlinx.coroutines.CompletableDeferred
 import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.flow.first
@@ -64,7 +65,11 @@ class RecipientDetailViewModelTest {
         file.delete()
     }
 
-    private fun vm(scope: TestScope, admin: RecipientAdmin? = null) = RecipientDetailViewModel(
+    private fun vm(
+        scope: TestScope,
+        admin: RecipientAdmin? = null,
+        today: () -> LocalDate = LocalDate::now,
+    ) = RecipientDetailViewModel(
         "r1",
         FakeBackendApis(FakeAuthApi()).also {
             it.recipientApi = recipients
@@ -73,6 +78,21 @@ class RecipientDetailViewModelTest {
         repository,
         scope,
         admin,
+        today,
+    )
+
+    private fun note(id: String, date: String) = NoteDto(
+        id = id,
+        recipientId = "r1",
+        date = date,
+        mood = "good",
+        appetite = "good",
+        sleep = "good",
+        mobility = "walks",
+        medicationTaken = "taken",
+        pain = 0,
+        fall = false,
+        text = "test note",
     )
 
     private fun adminVm(scope: TestScope, admin: FakeRecipientAdmin): RecipientDetailViewModel {
@@ -101,6 +121,50 @@ class RecipientDetailViewModelTest {
             listOf(DetailAction.AddNote, DetailAction.History, DetailAction.CarePlan, DetailAction.Summary),
             content.actions,
         )
+    }
+
+    @Test
+    fun noteDatedTodaySetsTodayNoteId() = runTest {
+        val fixedToday = LocalDate.of(2026, 10, 7)
+        recipients.listHandler = { listOf(RecipientDto("r1", "Aisha", true)) }
+        notes.historyHandler = { _, _, _ -> listOf(note("today", fixedToday.toString())) }
+        val vm = vm(this, today = { fixedToday })
+
+        val detail = (vm.state.first { it is DetailState.Content } as DetailState.Content).detail
+
+        assertEquals("today", detail.todayNoteId)
+    }
+
+    @Test
+    fun onlyOlderNotesLeaveTodayNoteIdNull() = runTest {
+        val fixedToday = LocalDate.of(2026, 10, 7)
+        recipients.listHandler = { listOf(RecipientDto("r1", "Aisha", true)) }
+        notes.historyHandler = { _, _, _ ->
+            listOf(note("old", fixedToday.minusDays(1).toString()))
+        }
+        val vm = vm(this, today = { fixedToday })
+
+        val detail = (vm.state.first { it is DetailState.Content } as DetailState.Content).detail
+
+        assertNull(detail.todayNoteId)
+    }
+
+    @Test
+    fun severalNotesSelectTheIdDatedToday() = runTest {
+        val fixedToday = LocalDate.of(2026, 10, 7)
+        recipients.listHandler = { listOf(RecipientDto("r1", "Aisha", true)) }
+        notes.historyHandler = { _, _, _ ->
+            listOf(
+                note("older", fixedToday.minusDays(2).toString()),
+                note("today", fixedToday.toString()),
+                note("yesterday", fixedToday.minusDays(1).toString()),
+            )
+        }
+        val vm = vm(this, today = { fixedToday })
+
+        val detail = (vm.state.first { it is DetailState.Content } as DetailState.Content).detail
+
+        assertEquals("today", detail.todayNoteId)
     }
 
     @Test

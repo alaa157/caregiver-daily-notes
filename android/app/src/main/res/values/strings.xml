@@ -35,6 +35,8 @@
     <string name="people_add">Add person</string>
     <string name="person_last_note">Last note</string>
     <string name="chip_done">Done today</string>
+    <string name="detail_today_done">Today’s note is recorded</string>
+    <string name="detail_today_missing">No note today</string>
     <string name="chip_missed">No note today</string>
     <string name="chip_high_pain">High pain</string>
     <string name="chip_fall">Fall</string>
