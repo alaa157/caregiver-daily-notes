@@ -120,9 +120,6 @@ fun NoteEditorScreen(recipientId: String, graph: AppGraph, navController: NavCon
                         )
                     }
                 }
-                if (group == OptionGroup.Mood && state.moodError != null) {
-                    FieldError(stringResource(R.string.editor_error_mood))
-                }
             }
             // Section 2: الأدوية والسقوط.
             SectionTitle(stringResource(R.string.editor_section_meds_fall))
@@ -140,12 +137,12 @@ fun NoteEditorScreen(recipientId: String, graph: AppGraph, navController: NavCon
             ChipWrap {
                 HtmlChip(
                     label = stringResource(R.string.editor_no),
-                    selected = !state.fall,
+                    selected = state.fall == false,
                     onClick = { vm.setFall(false) },
                 )
                 HtmlChip(
                     label = stringResource(R.string.editor_yes),
-                    selected = state.fall,
+                    selected = state.fall == true,
                     onClick = { vm.setFall(true) },
                 )
             }
@@ -179,16 +176,6 @@ fun NoteEditorScreen(recipientId: String, graph: AppGraph, navController: NavCon
                 value = state.text,
                 onValueChange = vm::onText,
                 placeholder = { Text(stringResource(R.string.editor_hint_extra), fontFamily = PlexArabic) },
-                isError = state.textError != null,
-                supportingText = {
-                    if (state.textError != null) {
-                        Text(
-                            stringResource(R.string.editor_error_text),
-                            fontFamily = PlexArabic,
-                            color = CaregiverColors.Danger,
-                        )
-                    }
-                },
                 minLines = 5,
                 shape = RoundedCornerShape(AppDimens.ControlRadius),
                 colors = OutlinedTextFieldDefaults.colors(
@@ -206,6 +193,8 @@ fun NoteEditorScreen(recipientId: String, graph: AppGraph, navController: NavCon
                         EditorError.Unreachable -> stringResource(R.string.auth_error_unreachable)
                         EditorError.ArchivedRecipient ->
                             stringResource(R.string.people_archived_recipient_unavailable)
+                        EditorError.NothingAnswered ->
+                            stringResource(R.string.editor_error_nothing_answered)
                         else -> ""
                     },
                 )
