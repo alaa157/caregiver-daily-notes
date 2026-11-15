@@ -73,7 +73,7 @@ class EditRecipientViewModelTest {
 
         assertEquals("r1", vm.state.value.savedId)
         assertEquals(0, recipientApi.listCalls)
-        assertTrue(admin.renameCalls.isEmpty())
+        assertTrue(admin.profileCalls.isEmpty())
     }
 
     @Test
@@ -91,13 +91,13 @@ class EditRecipientViewModelTest {
         vm.state.first { it.duplicate != null }
 
         assertEquals(DuplicateMatch("r2", "New Name", archived = true), vm.state.value.duplicate)
-        assertTrue(admin.renameCalls.isEmpty())
+        assertTrue(admin.profileCalls.isEmpty())
 
         vm.saveAnyway()
         vm.state.first { it.savedId != null }
 
         assertNull(vm.state.value.duplicate)
-        assertEquals(listOf("New Name"), admin.renameCalls.map { it.second })
+        assertEquals(listOf("New Name"), admin.profileCalls.map { it.second })
     }
 
     @Test
@@ -114,7 +114,7 @@ class EditRecipientViewModelTest {
         vm.state.first { it.savedId != null }
 
         assertNull(vm.state.value.duplicate)
-        assertEquals(listOf("New Name"), admin.renameCalls.map { it.second })
+        assertEquals(listOf("New Name"), admin.profileCalls.map { it.second })
     }
 
     @Test
@@ -129,7 +129,7 @@ class EditRecipientViewModelTest {
 
         assertEquals(NameError.TooLong, vm.state.value.nameError)
         assertEquals(0, recipientApi.listCalls)
-        assertTrue(admin.renameCalls.isEmpty())
+        assertTrue(admin.profileCalls.isEmpty())
         assertFalse(vm.state.value.busy)
     }
 
@@ -137,7 +137,7 @@ class EditRecipientViewModelTest {
     fun busyGuardAllowsOnlyOneRenameWhileFirstCallIsSuspended() = runTest {
         val gate = CompletableDeferred<RecipientDto>()
         val admin = TestRecipientAdmin().also {
-            it.renameHandler = { _, _ -> gate.await() }
+            it.profileHandler = { _, _, _ -> gate.await() }
         }
         val recipientApi = TestRecipientApi(recipient).also {
             it.listHandler = { emptyList() }
@@ -151,17 +151,17 @@ class EditRecipientViewModelTest {
         runCurrent()
 
         assertTrue(vm.state.value.busy)
-        assertEquals(1, admin.renameCalls.size)
+        assertEquals(1, admin.profileCalls.size)
 
         gate.complete(recipient.copy(name = "New Name"))
         vm.state.first { it.savedId != null }
-        assertEquals(1, admin.renameCalls.size)
+        assertEquals(1, admin.profileCalls.size)
     }
 
     @Test
     fun archivedRecipientExceptionMarksStateArchived() = runTest {
         val admin = TestRecipientAdmin().also {
-            it.renameHandler = { _, _ -> throw ArchivedRecipientException("r1") }
+            it.profileHandler = { _, _, _ -> throw ArchivedRecipientException("r1") }
         }
         val recipientApi = TestRecipientApi(recipient).also { it.listHandler = { emptyList() } }
         val vm = viewModel(this, recipientApi, admin)
@@ -178,7 +178,7 @@ class EditRecipientViewModelTest {
     @Test
     fun missingRecipientExceptionMarksStateMissing() = runTest {
         val admin = TestRecipientAdmin().also {
-            it.renameHandler = { _, _ -> throw NoSuchElementException("recipient") }
+            it.profileHandler = { _, _, _ -> throw NoSuchElementException("recipient") }
         }
         val recipientApi = TestRecipientApi(recipient).also { it.listHandler = { emptyList() } }
         val vm = viewModel(this, recipientApi, admin)
@@ -195,7 +195,7 @@ class EditRecipientViewModelTest {
     @Test
     fun failingRenameSetsFailed() = runTest {
         val admin = TestRecipientAdmin().also {
-            it.renameHandler = { _, _ -> throw IOException("save failed") }
+            it.profileHandler = { _, _, _ -> throw IOException("save failed") }
         }
         val recipientApi = TestRecipientApi(recipient).also { it.listHandler = { emptyList() } }
         val vm = viewModel(this, recipientApi, admin)
@@ -207,6 +207,55 @@ class EditRecipientViewModelTest {
 
         assertFalse(vm.state.value.busy)
         assertTrue(vm.state.value.failed)
+    }
+
+    @Test
+    fun knownRelationshipCodePreselectsItsChip() = runTest {
+        val recipientApi = TestRecipientApi(recipient.copy(relationship = "MOTHER"))
+        val vm = viewModel(this, recipientApi)
+        vm.state.first { it.loaded }
+
+        assertEquals("MOTHER", vm.state.value.relationship)
+        assertEquals("", vm.state.value.relationshipOther)
+    }
+
+    @Test
+    fun freeTextRelationshipSelectsOtherWithTheText() = runTest {
+        val recipientApi = TestRecipientApi(recipient.copy(relationship = "Aunt"))
+        val vm = viewModel(this, recipientApi)
+        vm.state.first { it.loaded }
+
+        assertEquals("OTHER", vm.state.value.relationship)
+        assertEquals("Aunt", vm.state.value.relationshipOther)
+    }
+
+    @Test
+    fun clearingTheChipStoresNullRelationship() = runTest {
+        val recipientApi = TestRecipientApi(recipient.copy(relationship = "SPOUSE"))
+        val admin = TestRecipientAdmin()
+        val vm = viewModel(this, recipientApi, admin)
+        vm.state.first { it.loaded }
+
+        vm.setRelationship("SPOUSE")
+        assertNull(vm.state.value.relationship)
+
+        vm.save()
+        vm.state.first { it.savedId != null }
+
+        assertEquals(listOf(Triple("r1", "Aisha", null)), admin.profileCalls)
+    }
+
+    @Test
+    fun changingOnlyTheRelationshipStillSaves() = runTest {
+        val admin = TestRecipientAdmin()
+        val vm = viewModel(this, TestRecipientApi(recipient), admin)
+        vm.state.first { it.loaded }
+
+        vm.setRelationship("FRIEND")
+        vm.save()
+        vm.state.first { it.savedId != null }
+
+        assertEquals(listOf(Triple("r1", "Aisha", "FRIEND")), admin.profileCalls)
     }
 }
 
@@ -233,6 +282,9 @@ private class TestRecipientAdmin : RecipientAdmin {
     var renameHandler: suspend (String, String) -> RecipientDto = { id, name ->
         RecipientDto(id, name, true)
     }
+    val profileCalls = mutableListOf<Triple<String, String, String?>>()
+    var profileHandler: suspend (String, String, String?) -> RecipientDto =
+        { id, name, relationship -> RecipientDto(id, name, true, relationship = relationship) }
 
     override suspend fun rename(id: String, name: String): RecipientDto {
         renameCalls += id to name
@@ -243,7 +295,10 @@ private class TestRecipientAdmin : RecipientAdmin {
         id: String,
         name: String,
         relationship: String?,
-    ): RecipientDto = error("unused")
+    ): RecipientDto {
+        profileCalls += Triple(id, name, relationship)
+        return profileHandler(id, name, relationship)
+    }
 
     override suspend fun updateCareDetails(
         id: String,
