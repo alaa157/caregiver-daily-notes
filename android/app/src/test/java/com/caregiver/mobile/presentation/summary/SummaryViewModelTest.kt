@@ -633,6 +633,94 @@ class SummaryViewModelTest {
         advanceUntilIdle()
     }
 
+    @Test
+    fun openingSavedIdMakesNoProviderCall() = runTest {
+        val store = savedStore()
+        store.save(
+            "r1",
+            SummaryResultData(
+                summary = summary().copy(text = "Saved text"),
+                periodStart = "2026-10-04",
+                periodEnd = "2026-10-10",
+                generatedAt = 1_000L,
+            ),
+        )
+        val client = RecordingClient()
+        val keyStore = AiKeyStore(ApplicationProvider.getApplicationContext(), TestApiKeyCipher())
+        keyStore.setProvider(AiProvider.OPENAI)
+        keyStore.setConsentGiven(AiProvider.OPENAI)
+        keyStore.setApiKey("test-key")
+        val vm = SummaryViewModel(
+            "r1", apis(), repository, this,
+            aiKeyStore = keyStore,
+            llmClientFactory = FixedFactory(client),
+            savedStore = store,
+            initialSavedId = "saved-1",
+        )
+
+        val state = vm.state.first {
+            it is SummaryState.Content && !it.refreshing
+        } as SummaryState.Content
+
+        assertEquals("Saved text", state.data.summary.text)
+        assertTrue(vm.showingSaved.value)
+        assertTrue(client.requests.isEmpty())
+        assertNull(summaries.lastSummarize)
+        assertEquals(0, summaries.signalsCalls)
+    }
+
+    @Test
+    fun missingSavedIdFallsBackToNormalLoad() = runTest {
+        summaries.summarizeHandler = { summary() }
+        summaries.signalsHandler = { _, _, _ -> emptyList() }
+        val store = savedStore()
+        val vm = SummaryViewModel(
+            "r1", apis(), repository, this,
+            savedStore = store,
+            initialSavedId = "does-not-exist",
+        )
+
+        content(vm)
+        advanceUntilIdle()
+
+        assertEquals("Reviewed 3 day(s) of notes.", (vm.state.value as SummaryState.Content).data.summary.text)
+        assertFalse(vm.showingSaved.value)
+        assertTrue(summaries.lastSummarize != null)
+    }
+
+    @Test
+    fun refreshAfterOpeningSavedGeneratesNew() = runTest {
+        var idCounter = 0
+        val store = savedStore(newId = { "saved-${++idCounter}" })
+        store.save(
+            "r1",
+            SummaryResultData(
+                summary = summary().copy(text = "Saved text"),
+                periodStart = "2026-10-04",
+                periodEnd = "2026-10-10",
+                generatedAt = 1_000L,
+            ),
+        )
+        summaries.summarizeHandler = { summary().copy(text = "Fresh text") }
+        summaries.signalsHandler = { _, _, _ -> emptyList() }
+        val vm = SummaryViewModel(
+            "r1", apis(), repository, this,
+            savedStore = store,
+            initialSavedId = "saved-1",
+        )
+        vm.state.first { it is SummaryState.Content && !it.refreshing }
+        assertTrue(vm.showingSaved.value)
+
+        vm.refresh()
+
+        val state = vm.state.first {
+            it is SummaryState.Content && !it.refreshing &&
+                it.data.summary.text == "Fresh text"
+        } as SummaryState.Content
+        assertFalse(vm.showingSaved.value)
+        assertTrue(summaries.lastSummarize != null)
+    }
+
     private fun signal(
         noteId: String,
         date: String,

@@ -101,6 +101,12 @@ class SummaryViewModel(
     private val nowMillis: () -> Long = System::currentTimeMillis,
     /** On-device store for generated summaries; null disables saving. */
     private val savedStore: SavedSummaryStore? = null,
+    /**
+     * When set, the result screen reopens this saved summary instead of
+     * generating — no key, consent or provider call is made. A missing or
+     * unreadable id falls back to the normal load.
+     */
+    initialSavedId: String? = null,
 ) : ViewModel() {
     private val exec: CoroutineScope = scope ?: viewModelScope
 
@@ -135,8 +141,27 @@ class SummaryViewModel(
     /** Id of the row the latest successful result was saved under, if any. */
     val savedId: StateFlow<String?> = _savedId.asStateFlow()
 
+    private val _showingSaved = MutableStateFlow(false)
+
+    /** True while the content on screen is a reopened saved summary. */
+    val showingSaved: StateFlow<Boolean> = _showingSaved.asStateFlow()
+
     init {
-        loadJob = exec.launch { load(preserve = false, periodDays = _period.value) }
+        loadJob = exec.launch {
+            val saved = initialSavedId?.let { id ->
+                savedStore?.let { store -> runCatching { store.get(id) }.getOrNull() }
+            }
+            if (saved != null) {
+                _savedId.value = saved.savedId
+                _showingSaved.value = true
+                _state.value = SummaryState.Content(
+                    saved,
+                    aiGenerated = saved.provider != null,
+                )
+            } else {
+                load(preserve = false, periodDays = _period.value)
+            }
+        }
     }
 
     fun setPeriod(days: Int) {
@@ -163,6 +188,7 @@ class SummaryViewModel(
         _suggestedForCurrent.value = false
         _suggestStatus.value = null
         _savedId.value = null
+        _showingSaved.value = false
         _state.value = if (current != null) {
             SummaryState.Content(current, refreshing = true)
         } else {
