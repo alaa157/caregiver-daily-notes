@@ -65,6 +65,8 @@ fun OutboxEntity.toNoteDto(): NoteDto = NoteDto(
     fall = fall,
     text = text,
     pending = true,
+    painRecorded = painRecorded,
+    fallRecorded = fallRecorded,
 )
 
 /** Detail for a not-yet-synced note: the local fields, and no addenda (yet). */
@@ -95,6 +97,8 @@ fun OutboxEntity.toCreateRequest(): CreateNoteRequest = CreateNoteRequest(
     fall = fall,
     text = text,
     idempotencyKey = localId,
+    painRecorded = painRecorded,
+    fallRecorded = fallRecorded,
 )
 
 /**

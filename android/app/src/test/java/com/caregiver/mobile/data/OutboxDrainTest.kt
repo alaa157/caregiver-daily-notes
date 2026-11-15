@@ -7,6 +7,8 @@ import com.caregiver.mobile.data.api.CreateNoteRequest
 import com.caregiver.mobile.data.local.AppDatabase
 import com.caregiver.mobile.data.local.OutboxEntity
 import com.caregiver.mobile.data.local.OutboxStatus
+import com.caregiver.mobile.data.local.toCreateRequest
+import com.caregiver.mobile.data.local.toNoteDto
 import java.io.IOException
 import java.time.Clock
 import java.time.Instant
@@ -256,6 +258,31 @@ class OutboxDrainTest {
         repo.history(null, null, null)
 
         assertEquals("srv-first", db.noteDao().byLocalId("l1")?.serverId)
+    }
+
+    @Test
+    fun offlineCreateKeepsTheRecordedFlagsThroughTheOutbox() = runTest {
+        noteApi.createHandler = { throw IOException("offline") }
+        val repo = newRepo()
+
+        val pending = repo.create(
+            createRequest().copy(painRecorded = false, fallRecorded = false),
+        )
+
+        val stored = db.outboxDao().query(null, null, null).single()
+        assertFalse(stored.painRecorded)
+        assertFalse(stored.fallRecorded)
+        // The pending copy shown in the UI carries the same flags.
+        assertFalse(pending.painRecorded)
+        assertFalse(pending.fallRecorded)
+
+        val replay = stored.toCreateRequest()
+        assertFalse(replay.painRecorded)
+        assertFalse(replay.fallRecorded)
+
+        val dto = stored.toNoteDto()
+        assertFalse(dto.painRecorded)
+        assertFalse(dto.fallRecorded)
     }
 
     @Test
