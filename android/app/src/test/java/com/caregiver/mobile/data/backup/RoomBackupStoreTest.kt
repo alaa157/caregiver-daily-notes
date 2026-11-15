@@ -11,6 +11,7 @@ import com.caregiver.mobile.data.local.OutboxEntity
 import com.caregiver.mobile.data.local.OutboxStatus
 import com.caregiver.mobile.data.local.PlanEntity
 import com.caregiver.mobile.data.local.RecipientEntity
+import com.caregiver.mobile.data.local.SavedSummaryEntity
 import kotlinx.coroutines.test.runTest
 import org.junit.After
 import org.junit.Assert.assertEquals
@@ -137,6 +138,23 @@ class RoomBackupStoreTest {
         medicationId = medicationId,
         date = date,
         times = times,
+    )
+
+    private fun summaryRow(
+        id: String = "s1",
+        recipientId: String = "r1",
+        payload: String = """{"summary":{"text":"ok"},"trends":[]}""",
+    ) = SavedSummaryEntity(
+        id = id,
+        recipientId = recipientId,
+        periodDays = 7,
+        periodStart = "2026-09-24",
+        periodEnd = "2026-09-30",
+        createdAt = 1_700_000_000_000,
+        aiGenerated = true,
+        provider = "openrouter",
+        model = "openai/gpt-4o-mini",
+        payload = payload,
     )
 
     @Test
@@ -353,6 +371,61 @@ class RoomBackupStoreTest {
 
         assertEquals(before.counts, after.counts)
         assertTrue(before.token != after.token)
+    }
+
+    @Test
+    fun snapshotAndRestoreCarrySavedSummaries() = runTest {
+        db.recipientDao().insertAll(listOf(recipientRow("r1")))
+        db.savedSummaryDao().insert(summaryRow())
+        val store = RoomBackupStore(db)
+
+        val snapshot = store.snapshot()
+        assertEquals(listOf("s1"), snapshot.savedSummaries.map { it.id })
+        assertEquals(1, snapshot.counts.summaries)
+        assertEquals("openrouter", snapshot.savedSummaries.single().provider)
+
+        db.savedSummaryDao().deleteById("s1")
+        assertEquals(BackupReplaceResult.Replaced, store.replaceAll(snapshot, store.state()))
+        val restored = db.savedSummaryDao().byId("s1")!!
+        assertEquals("r1", restored.recipientId)
+        assertEquals(7, restored.periodDays)
+        assertEquals("2026-09-24", restored.periodStart)
+        assertEquals("2026-09-30", restored.periodEnd)
+        assertEquals("openai/gpt-4o-mini", restored.model)
+        assertTrue(restored.aiGenerated)
+    }
+
+    @Test
+    fun theStateTokenChangesWhenASavedSummaryIsSavedOrDeleted() = runTest {
+        db.recipientDao().insertAll(listOf(recipientRow("r1")))
+        val store = RoomBackupStore(db)
+        val before = store.state()
+
+        db.savedSummaryDao().insert(summaryRow())
+        val afterSave = store.state()
+        assertEquals(before.counts.summaries + 1, afterSave.counts.summaries)
+        assertTrue(before.token != afterSave.token)
+
+        db.savedSummaryDao().deleteById("s1")
+        val afterDelete = store.state()
+        assertEquals(before.counts, afterDelete.counts)
+        assertTrue(afterSave.token != afterDelete.token)
+    }
+
+    @Test
+    fun replaceAllClearsSummariesThatAreNotInTheBackup() = runTest {
+        db.recipientDao().insertAll(listOf(recipientRow("r1")))
+        db.savedSummaryDao().insert(summaryRow())
+        val store = RoomBackupStore(db)
+
+        val backup = backupData(
+            recipients = listOf(backupRecipient("r1")),
+            notes = emptyList(),
+            addenda = emptyList(),
+            plans = emptyList(),
+        )
+        assertEquals(BackupReplaceResult.Replaced, store.replaceAll(backup, store.state()))
+        assertTrue(db.savedSummaryDao().allRows().isEmpty())
     }
 
     @Test

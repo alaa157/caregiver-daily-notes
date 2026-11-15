@@ -8,6 +8,7 @@ import com.caregiver.mobile.data.local.MedicationIntakeEntity
 import com.caregiver.mobile.data.local.NoteEntity
 import com.caregiver.mobile.data.local.PlanEntity
 import com.caregiver.mobile.data.local.RecipientEntity
+import com.caregiver.mobile.data.local.SavedSummaryEntity
 
 /** Outcome of an atomic replace; [Conflict] means nothing was written. */
 sealed interface BackupReplaceResult {
@@ -82,6 +83,8 @@ class RoomBackupStore(private val db: AppDatabase) : BackupStore {
             db.planDao().insertImported(data.plans.map { it.toEntity() })
             db.medicationDao().insertImported(data.medications.map { it.toEntity() })
             db.medicationDao().insertImportedIntakes(data.medicationIntakes.map { it.toEntity() })
+            db.savedSummaryDao().allRows().forEach { db.savedSummaryDao().deleteById(it.id) }
+            data.savedSummaries.forEach { db.savedSummaryDao().insert(it.toEntity()) }
             BackupReplaceResult.Replaced
         }
 
@@ -105,6 +108,9 @@ class RoomBackupStore(private val db: AppDatabase) : BackupStore {
         plans = db.planDao().all().sortedBy { it.id }.map { it.toBackup() },
         medications = db.medicationDao().all().map { it.toBackup() },
         medicationIntakes = db.medicationDao().allIntakes().map { it.toBackup() },
+        savedSummaries = db.savedSummaryDao().allRows()
+            .sortedBy { it.id }
+            .map { it.toBackup() },
     )
 }
 
@@ -214,3 +220,29 @@ fun MedicationIntakeEntity.toBackup(): BackupMedicationIntake =
 
 fun BackupMedicationIntake.toEntity(): MedicationIntakeEntity =
     MedicationIntakeEntity(id = id, medicationId = medicationId, date = date, times = times)
+
+fun SavedSummaryEntity.toBackup(): BackupSavedSummary = BackupSavedSummary(
+    id = id,
+    recipientId = recipientId,
+    periodDays = periodDays,
+    periodStart = periodStart,
+    periodEnd = periodEnd,
+    createdAt = createdAt,
+    aiGenerated = aiGenerated,
+    provider = provider,
+    model = model,
+    payload = payload,
+)
+
+fun BackupSavedSummary.toEntity(): SavedSummaryEntity = SavedSummaryEntity(
+    id = id,
+    recipientId = recipientId,
+    periodDays = periodDays,
+    periodStart = periodStart,
+    periodEnd = periodEnd,
+    createdAt = createdAt,
+    aiGenerated = aiGenerated,
+    provider = provider,
+    model = model,
+    payload = payload,
+)

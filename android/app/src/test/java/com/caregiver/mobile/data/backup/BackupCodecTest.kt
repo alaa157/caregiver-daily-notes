@@ -149,7 +149,7 @@ class BackupCodecTest {
         val decoded = (CareBackupCodec.decode(encodeBackup(data)) as BackupDecodeResult.Success).backup
 
         assertEquals(data, decoded.data)
-        assertEquals(5, decoded.formatVersion)
+        assertEquals(CareBackupCodec.FORMAT_VERSION, decoded.formatVersion)
     }
 
     @Test
@@ -199,11 +199,67 @@ class BackupCodecTest {
         val decoded = (CareBackupCodec.decode(encodeBackup(data)) as BackupDecodeResult.Success).backup
 
         assertEquals(data, decoded.data)
-        assertEquals(5, decoded.formatVersion)
+        assertEquals(CareBackupCodec.FORMAT_VERSION, decoded.formatVersion)
         assertFalse(decoded.data.notes.first().painRecorded)
         assertFalse(decoded.data.notes.first().fallRecorded)
         assertTrue(decoded.data.notes.last().painRecorded)
         assertTrue(decoded.data.notes.last().fallRecorded)
+    }
+
+    @Test
+    fun aV6RoundTripPreservesSavedSummariesExactly() {
+        val data = backupData(
+            savedSummaries = listOf(
+                backupSavedSummary("s1"),
+                backupSavedSummary(
+                    id = "s2",
+                    recipientId = "r1",
+                    periodDays = 30,
+                    periodStart = "2026-09-01",
+                    periodEnd = "2026-09-30",
+                    aiGenerated = false,
+                    provider = null,
+                    model = null,
+                    payload = """{"summary":{"text":"-rule based"},"trends":[{"metric":"mood"}]}""",
+                ),
+            ),
+        )
+
+        val decoded = (CareBackupCodec.decode(encodeBackup(data)) as BackupDecodeResult.Success).backup
+
+        assertEquals(data, decoded.data)
+        assertEquals(CareBackupCodec.FORMAT_VERSION, decoded.formatVersion)
+        assertEquals(2, decoded.data.savedSummaries.size)
+        assertEquals(6, decoded.data.counts.total)
+    }
+
+    @Test
+    fun aV5BackupRestoresWithNoSavedSummaries() {
+        val data = backupData(
+            recipients = listOf(backupRecipient(relationship = "MOTHER", allergies = "Peanuts")),
+        )
+        // The v5 digest covers the pre-v6 shape: no savedSummaries field.
+        val canonical = Json { encodeDefaults = true; explicitNulls = false }.encodeToString(data)
+        val document = versionedDocument(version = 5, dataJson = canonical, digest = sha256(v5CanonicalJson(data)))
+
+        val decoded = (CareBackupCodec.decode(document) as BackupDecodeResult.Success).backup
+
+        assertEquals(5, decoded.formatVersion)
+        assertTrue(decoded.data.savedSummaries.isEmpty())
+        assertEquals("MOTHER", decoded.data.recipients.single().relationship)
+    }
+
+    @Test
+    fun aV5BackupIgnoresSavedSummariesThatDidNotExistYet() {
+        val data = backupData(savedSummaries = listOf(backupSavedSummary()))
+        // A hand-edited v5 file may carry summary fields; the digest still
+        // covers the v5 shape and normalization drops them.
+        val canonical = Json { encodeDefaults = true; explicitNulls = false }.encodeToString(data)
+        val document = versionedDocument(version = 5, dataJson = canonical, digest = sha256(v5CanonicalJson(data)))
+
+        val decoded = (CareBackupCodec.decode(document) as BackupDecodeResult.Success).backup
+
+        assertTrue(decoded.data.savedSummaries.isEmpty())
     }
 
     @Test
