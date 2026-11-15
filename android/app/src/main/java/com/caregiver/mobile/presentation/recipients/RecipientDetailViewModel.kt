@@ -84,6 +84,10 @@ class RecipientDetailViewModel(
         execScope.launch { load() }
     }
 
+    fun reload() {
+        execScope.launch { load() }
+    }
+
     fun archive() {
         val admin = admin ?: return
         mutate(DetailActionError.ArchiveFailed) {

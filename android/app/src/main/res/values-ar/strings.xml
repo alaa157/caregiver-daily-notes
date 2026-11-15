@@ -43,6 +43,7 @@
     <string name="detail_history">عرض السجل</string>
     <string name="detail_plan">خطة الرعاية</string>
     <string name="detail_summary">ملخص ذكي</string>
+    <string name="detail_edit_person">تعديل البيانات</string>
     <string name="add_title">إضافة شخص تحت الرعاية</string>
     <string name="add_name">الاسم</string>
     <string name="add_save">حفظ</string>
