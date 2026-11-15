@@ -106,6 +106,18 @@ class ApiContractTest {
     }
 
     @Test
+    fun signalDtoDefaultsRecordedFlagsWhenFieldsAreMissing() {
+        val parsed = ApiClient.json.decodeFromString<SignalDto>(
+            SignalDto.serializer(),
+            """{"noteId":"n1","recipientId":"r1","date":"2026-10-07","fallReported":false,"pain":null,"medication":"taken","medicationUnverified":false,"poorAppetite":false,"text":""}""",
+        )
+
+        assertTrue(parsed.fallRecorded)
+        assertTrue(parsed.painRecorded)
+        assertTrue(parsed.appetiteRecorded)
+    }
+
+    @Test
     fun summaryDtoNestedParses() {
         val parsed = ApiClient.json.decodeFromString<SummaryDto>(
             SummaryDto.serializer(),
