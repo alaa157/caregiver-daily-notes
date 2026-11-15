@@ -53,6 +53,10 @@
     <string name="add_duplicate_body">You already have someone with this name. Adding another may make it hard to tell them apart.</string>
     <string name="add_duplicate_open">Open existing</string>
     <string name="add_duplicate_create_anyway">Create anyway</string>
+    <string name="edit_title">Edit details</string>
+    <string name="edit_save">Save changes</string>
+    <string name="edit_duplicate_save_anyway">Save anyway</string>
+    <string name="edit_unavailable">This person is no longer available.</string>
     <string name="common_retry">Retry</string>
     <string name="common_ok">OK</string>
     <string name="common_loading_failed">Could not load</string>
