@@ -48,6 +48,7 @@ object AppDestinations {
 
     val Summary = Destination("summary/{recipientId}")
     val SummaryResult = Destination("summary-result/{recipientId}/{periodDays}")
+    val SavedSummaries = Destination("saved-summaries/{recipientId}")
 
     val Plans = Destination("plans")
     val PlanProposal = Destination("plan-proposal/{planId}")
@@ -63,7 +64,7 @@ object AppDestinations {
         Login, Register, ServerUrl,
         Home, People, Notes, History,
         RecipientDetail, AddRecipient, EditRecipient, CareDetails, NoteEditor, NoteSaved, NoteDetail, Addendum,
-        Summary, SummaryResult,
+        Summary, SummaryResult, SavedSummaries,
         Plans, PlanProposal, PlanEdit, PlanVersions,
         Settings, AiSettings, About, ThemeColors,
     )
@@ -86,6 +87,7 @@ object AppRoutes {
     fun addendum(noteId: String): String = "addendum/$noteId"
 
     fun summary(recipientId: String): String = "summary/$recipientId"
+    fun savedSummaries(recipientId: String): String = "saved-summaries/$recipientId"
     fun summaryResult(
         recipientId: String,
         periodDays: Int,
