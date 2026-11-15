@@ -35,6 +35,8 @@
     <string name="people_add">إضافة شخص</string>
     <string name="person_last_note">آخر ملاحظة</string>
     <string name="chip_done">تم اليوم</string>
+    <string name="detail_today_done">تم تسجيل ملاحظة اليوم</string>
+    <string name="detail_today_missing">لا توجد ملاحظة اليوم</string>
     <string name="chip_missed">لا ملاحظة اليوم</string>
     <string name="chip_high_pain">ألم شديد</string>
     <string name="chip_fall">سقوط</string>

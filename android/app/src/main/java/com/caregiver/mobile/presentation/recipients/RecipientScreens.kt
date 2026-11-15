@@ -908,6 +908,12 @@ fun RecipientDetailScreen(
                 onBack = { navController.popBackStack() },
                 onEdit = { navController.navigate(AppRoutes.editRecipient(s.detail.id)) },
                 onAddNote = { navController.navigate(AppRoutes.noteEditor(s.detail.id)) },
+                onViewToday = {
+                    s.detail.todayNoteId?.let { navController.navigate(AppRoutes.noteDetail(it)) }
+                },
+                onAddCorrection = {
+                    s.detail.todayNoteId?.let { navController.navigate(AppRoutes.addendum(it)) }
+                },
                 onHistory = { navController.navigate(AppRoutes.tab(MainTab.History)) },
                 onSummary = { navController.navigate(AppRoutes.summary(s.detail.id)) },
                 onPlan = { navController.navigate(AppDestinations.Plans.base) },
@@ -939,6 +945,8 @@ internal fun DetailContent(
     onRequestDelete: () -> Unit,
     onConfirmDelete: () -> Unit,
     onCancelDelete: () -> Unit,
+    onViewToday: () -> Unit = {},
+    onAddCorrection: () -> Unit = {},
 ) {
     var confirmingDelete by remember { mutableStateOf(false) }
     Column(
@@ -959,10 +967,10 @@ internal fun DetailContent(
                 if (detail.archived) {
                     GrayPill(stringResource(R.string.people_archived))
                 }
-                if (detail.lastNote == null) {
-                    GrayPill(stringResource(R.string.chip_no_note))
+                if (detail.todayNoteId == null) {
+                    GrayPill(stringResource(R.string.detail_today_missing))
                 } else {
-                    GreenPill(stringResource(R.string.chip_done))
+                    GreenPill(stringResource(R.string.detail_today_done))
                 }
             }
             if (detail.archived) {
@@ -973,12 +981,27 @@ internal fun DetailContent(
                     color = CaregiverColors.Muted,
                 )
             } else {
-                PrimaryButton(
-                    label = stringResource(R.string.detail_add_note),
-                    onClick = onAddNote,
-                    enabled = !busy,
-                    height = 52.dp,
-                )
+                if (detail.todayNoteId != null) {
+                    SecondaryButton(
+                        label = stringResource(R.string.editor_duplicate_view),
+                        onClick = onViewToday,
+                        enabled = !busy,
+                        modifier = Modifier.testTag("detail_view_today"),
+                    )
+                    SecondaryButton(
+                        label = stringResource(R.string.detail_add_correction),
+                        onClick = onAddCorrection,
+                        enabled = !busy,
+                        modifier = Modifier.testTag("detail_add_correction"),
+                    )
+                } else {
+                    PrimaryButton(
+                        label = stringResource(R.string.detail_add_note),
+                        onClick = onAddNote,
+                        enabled = !busy,
+                        height = 52.dp,
+                    )
+                }
             }
         }
         // Latest note section — only when history actually returned one.
