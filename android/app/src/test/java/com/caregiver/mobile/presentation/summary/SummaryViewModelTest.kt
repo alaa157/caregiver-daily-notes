@@ -234,6 +234,96 @@ class SummaryViewModelTest {
     }
 
     @Test
+    fun successThenFailureKeepsTheLastGoodResult() = runTest {
+        summaries.summarizeHandler = { summary().copy(text = "Last good summary") }
+        val vm = SummaryViewModel("r1", apis(), repository, this)
+        val successful = (vm.state.first {
+            it is SummaryState.Content && !it.refreshing
+        } as SummaryState.Content).data
+
+        summaries.summarizeHandler = { throw IOException("down") }
+        vm.refresh()
+        advanceUntilIdle()
+
+        val failed = vm.state.value as SummaryState.AiUnavailable
+        assertEquals(successful, failed.last)
+    }
+
+    @Test
+    fun aSecondFailureStillKeepsTheLastGoodResult() = runTest {
+        summaries.summarizeHandler = { summary().copy(text = "Last good summary") }
+        val vm = SummaryViewModel("r1", apis(), repository, this)
+        val successful = (vm.state.first {
+            it is SummaryState.Content && !it.refreshing
+        } as SummaryState.Content).data
+        summaries.summarizeHandler = { throw IOException("down") }
+
+        vm.refresh()
+        advanceUntilIdle()
+        assertEquals(successful, (vm.state.value as SummaryState.AiUnavailable).last)
+
+        vm.refresh()
+        advanceUntilIdle()
+
+        assertEquals(successful, (vm.state.value as SummaryState.AiUnavailable).last)
+    }
+
+    @Test
+    fun noSourceDataFailureDoesNotExposeTheLastGoodResult() = runTest {
+        val today = LocalDate.of(2026, 10, 10)
+        val note = NoteDto(
+            id = "n1",
+            recipientId = "r1",
+            date = today.toString(),
+            mood = "ok",
+            appetite = "good",
+            sleep = "good",
+            mobility = "ok",
+            medicationTaken = "yes",
+            pain = 1,
+            fall = false,
+            text = "walked",
+        )
+        var hasSourceNote = true
+        val noteApi = FakeNoteApi().also {
+            it.historyHandler = { _, _, _ -> if (hasSourceNote) listOf(note) else emptyList() }
+        }
+        summaries.signalsHandler = { _, _, _ -> emptyList() }
+        val apis = FakeBackendApis(FakeAuthApi()).also {
+            it.noteApi = noteApi
+            it.summaryApi = summaries
+        }
+        val repository = AuthRepository(apis, settings(), TokenHolder())
+        val keyStore = AiKeyStore(ApplicationProvider.getApplicationContext(), TestApiKeyCipher()).also {
+            it.setProvider(AiProvider.OPENAI)
+            it.setConsentGiven(AiProvider.OPENAI)
+            it.setApiKey("test-key")
+        }
+        val vm = SummaryViewModel(
+            "r1",
+            apis,
+            repository,
+            this,
+            aiKeyStore = keyStore,
+            llmClientFactory = FixedFactory(OkClient()),
+            initialEnd = today,
+            clock = { today },
+        )
+        val successful = vm.state.first {
+            it is SummaryState.Content && !it.refreshing
+        } as SummaryState.Content
+        assertTrue(successful.data.summary.text.isNotBlank())
+
+        hasSourceNote = false
+        vm.refresh()
+        advanceUntilIdle()
+
+        val failed = vm.state.value as SummaryState.AiUnavailable
+        assertEquals("no_source_data", failed.reasonCode)
+        assertNull(failed.last)
+    }
+
+    @Test
     fun failedRefreshKeepsFlagsOnRejected() = runTest {
         summaries.summarizeHandler = { summary() }
         val vm = SummaryViewModel("r1", apis(), repository, this)
