@@ -54,6 +54,8 @@ fun NoteEntity.toDto(): NoteDto = NoteDto(
     pain = pain,
     fall = fall,
     text = text,
+    painRecorded = painRecorded,
+    fallRecorded = fallRecorded,
 )
 
 fun NoteDto.toEntity(): NoteEntity = NoteEntity(
@@ -68,6 +70,8 @@ fun NoteDto.toEntity(): NoteEntity = NoteEntity(
     pain = pain,
     fall = fall,
     text = text,
+    painRecorded = painRecorded,
+    fallRecorded = fallRecorded,
 )
 
 /** Detail carries the note fields plus addenda; only the note fields are cached. */
@@ -83,6 +87,8 @@ fun NoteDetailDto.toEntity(): NoteEntity = NoteEntity(
     pain = pain,
     fall = fall,
     text = text,
+    painRecorded = painRecorded,
+    fallRecorded = fallRecorded,
 )
 
 /**
