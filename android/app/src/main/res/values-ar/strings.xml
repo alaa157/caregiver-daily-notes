@@ -33,6 +33,7 @@
     <string name="home_safety_title">تنبيه رعاية</string>
     <string name="home_safety_fall">سقوط مبلغ عنه — %1$s</string>
     <string name="people_add">إضافة شخص</string>
+    <string name="people_empty_subtitle">أضف الشخص الذي ترعاه لتبدأ تدوين الملاحظات اليومية.</string>
     <string name="person_last_note">آخر ملاحظة</string>
     <string name="person_last_note_date">آخر ملاحظة: %1$s</string>
     <string name="person_last_note_pain">الألم %1$d من 10</string>

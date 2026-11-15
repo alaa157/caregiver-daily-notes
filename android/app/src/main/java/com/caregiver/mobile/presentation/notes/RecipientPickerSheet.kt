@@ -26,6 +26,7 @@ import com.caregiver.mobile.core.i18n.Bidi
 import com.caregiver.mobile.core.theme.CaregiverColors
 import com.caregiver.mobile.core.theme.PlexArabic
 import com.caregiver.mobile.data.api.RecipientDto
+import com.caregiver.mobile.data.recipient.RecipientNameRules
 import com.caregiver.mobile.presentation.common.AppDimens
 import com.caregiver.mobile.presentation.common.AppEmptyState
 import com.caregiver.mobile.presentation.common.AppLoadingSkeleton
@@ -99,7 +100,7 @@ private fun RecipientOption(recipient: RecipientDto, onPick: () -> Unit) {
             .padding(vertical = AppDimens.GapForm)
             .testTag("picker_recipient_${recipient.id}"),
     ) {
-        Avatar(recipient.name.take(1))
+        Avatar(RecipientNameRules.initial(recipient.name))
         Text(
             text = Bidi.isolate(recipient.name),
             fontFamily = PlexArabic,
