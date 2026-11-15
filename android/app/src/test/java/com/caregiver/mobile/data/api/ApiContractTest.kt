@@ -118,6 +118,15 @@ class ApiContractTest {
     }
 
     @Test
+    fun evidenceWithoutClaimDecodesEmpty() {
+        val parsed = ApiClient.json.decodeFromString<SummaryDto>(
+            SummaryDto.serializer(),
+            """{"id":"s1","recipientId":"r1","periodDays":7,"text":"ok","redFlags":[],"evidence":[{"noteId":"n1","quote":"fell"}],"uncertainties":[]}""",
+        )
+        assertEquals("", parsed.evidence[0].claim)
+    }
+
+    @Test
     fun emptySummarySectionsParse() {
         // The contract has no trends/appetite/sleep/medication sections —
         // only these fields. Empty lists must parse, not crash.

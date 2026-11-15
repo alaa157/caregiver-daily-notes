@@ -151,6 +151,18 @@ class SummaryAiServiceTest {
     }
 
     @Test
+    fun evidenceCarriesTheTrimmedClaimOfEachValidObservation() = runBlocking {
+        val json = """{"observations":[{"text":"  walked  ","noteId":"n1","quote":"Patient walked today"},{"text":"  walked today  ","noteId":"n1","quote":"walked today"}],"uncertainties":[]}"""
+        val svc = service(json)
+        val result = svc.summarize("r1", 7, listOf(note), emptyList(), LocalDate.parse("2026-10-01"))
+        assertTrue(result is SummaryAiResult.Success)
+        val evidence = (result as SummaryAiResult.Success).summary.evidence
+        assertEquals(2, evidence.size)
+        assertEquals("walked", evidence[0].claim)
+        assertEquals("walked today", evidence[1].claim)
+    }
+
+    @Test
     fun claimInAnotherLanguageKeepsTheObservation() = runBlocking {
         // The summary is written in the app's language while the quote stays
         // in the language of the note. The quote is verified against the
