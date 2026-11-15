@@ -13,6 +13,7 @@ import { SUMMARY_TIMEOUT_MS, SummaryPage } from '../features/summary/SummaryPage
 import { ProtectedRoute } from '../app/ProtectedRoute';
 import { I18nProvider } from '../i18n/I18nProvider';
 import { summaryMessages } from '../i18n/summaryTranslations';
+import { readSummaryResponse } from '../api/summary';
 import { ApiProvider } from '../lib/api';
 import { jsonResponse, testToken } from './authFixtures';
 import { recipientFixture } from './recipientFixtures';
@@ -75,6 +76,47 @@ async function choose() {
 async function generate() { await choose(); await userEvent.click(screen.getByRole('button', { name: 'Generate summary' })); return screen.findByRole('heading', { name: 'Requested summary' }); }
 const posts = (fetcher: ReturnType<typeof vi.fn>) => fetcher.mock.calls.filter(([, init]) => init.method === 'POST');
 const renderedTrendLines = (period: Element) => Array.from(period.querySelectorAll('dd > span'), (line) => line.textContent?.trim() ?? '');
+
+describe('summary unavailable reason response field', () => {
+  it.each(['INVALID_KEY', 'INVALID_MODEL', 'RATE_LIMIT', 'TIMEOUT', 'PROVIDER_UNAVAILABLE', 'INVALID_OUTPUT'] as const)(
+    'accepts %s without invalidating the response',
+    (unavailableReason) => {
+      const fixture = summaryFixture();
+      const result = readSummaryResponse({
+        ...fixture,
+        summary: { ...fixture.summary, unavailableReason },
+      });
+
+      expect(result.invalidContent).toBe(false);
+      expect(result.summary?.unavailableReason).toBe(unavailableReason);
+    },
+  );
+  it('treats missing, null, and unrecognized reasons as absent', () => {
+    const fixture = summaryFixture();
+    const baseline = readSummaryResponse(fixture);
+
+    for (const unavailableReason of [undefined, null, 'SOMETHING_ELSE']) {
+      const result = readSummaryResponse({
+        ...fixture,
+        summary: {
+          ...fixture.summary,
+          ...(unavailableReason === undefined ? {} : { unavailableReason }),
+        },
+      });
+      expect(result).toEqual(baseline);
+    }
+  });
+  it('still rejects malformed summary fields', () => {
+    const fixture = summaryFixture();
+    const result = readSummaryResponse({
+      ...fixture,
+      summary: { ...fixture.summary, aiUnavailable: 'false' },
+    });
+
+    expect(result.summary).toBeNull();
+    expect(result.invalidContent).toBe(true);
+  });
+});
 
 describe('on-demand summary and safety workflow', () => {
   it('keeps summary translation keys in parity and uses neutral attribution', () => {
@@ -412,6 +454,26 @@ describe('on-demand summary and safety workflow', () => {
     expect(screen.queryByRole('blockquote')).not.toBeInTheDocument();
     expect(screen.getByRole('region', { name: 'Safety information' })).toHaveTextContent('HIGH');
     expect(screen.getByRole('region', { name: 'Recorded observation counts' })).toHaveTextContent('POOR_APPETITE_COUNT');
+  });
+  it('does not render unavailable reasons and preserves output for absent or unknown values', async () => {
+    const renderedResults: Array<string | null> = [];
+    for (const unavailableReason of [undefined, null, 'SOMETHING_ELSE', 'RATE_LIMIT'] as const) {
+      const fixture = summaryFixture();
+      const response = {
+        ...fixture,
+        summary: {
+          ...fixture.summary,
+          ...(unavailableReason === undefined ? {} : { unavailableReason }),
+        },
+      };
+      const view = show(dataFetcher((path) => path === byokSummaryPath ? jsonResponse(response) : undefined));
+      await generate();
+      expect(screen.getByRole('region', { name: 'Summary observations' })).toHaveTextContent('Reported appetite varied.');
+      if (unavailableReason) expect(document.body.textContent).not.toContain(unavailableReason);
+      renderedResults.push(screen.getByRole('region', { name: 'Requested summary' }).textContent);
+      view.unmount();
+    }
+    expect(new Set(renderedResults).size).toBe(1);
   });
   it('does not render malformed model observations as successful content', async () => {
     const fixture = summaryFixture();
