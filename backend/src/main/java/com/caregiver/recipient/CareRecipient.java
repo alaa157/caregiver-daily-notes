@@ -17,6 +17,7 @@ import org.hibernate.annotations.UpdateTimestamp;
 import org.hibernate.annotations.UuidGenerator;
 
 import java.time.Instant;
+import java.time.LocalDate;
 import java.util.UUID;
 
 /** A care recipient owned by exactly one caregiver. */
@@ -41,6 +42,21 @@ public class CareRecipient {
 
   @Column(name = "relationship", length = 80)
   private String relationship;
+
+  @Column(name = "date_of_birth")
+  private LocalDate dateOfBirth;
+
+  @Column(name = "allergies", length = 500)
+  private String allergies;
+
+  @Column(name = "conditions", length = 500)
+  private String conditions;
+
+  @Column(name = "emergency_contact_name", length = 120)
+  private String emergencyContactName;
+
+  @Column(name = "emergency_contact_phone", length = 30)
+  private String emergencyContactPhone;
 
   /** Compatibility projection for older API clients; lifecycleStatus is canonical. */
   @Column(name = "active", nullable = false)
@@ -77,6 +93,11 @@ public class CareRecipient {
   public Caregiver getCaregiver() { return caregiver; }
   public String getName() { return name; }
   public String getRelationship() { return relationship; }
+  public LocalDate getDateOfBirth() { return dateOfBirth; }
+  public String getAllergies() { return allergies; }
+  public String getConditions() { return conditions; }
+  public String getEmergencyContactName() { return emergencyContactName; }
+  public String getEmergencyContactPhone() { return emergencyContactPhone; }
   public boolean isActive() { return active; }
   public RecipientLifecycleStatus getLifecycleStatus() { return lifecycleStatus; }
   public Instant getArchivedAt() { return archivedAt; }
@@ -90,6 +111,16 @@ public class CareRecipient {
     requireActive();
     this.name = name;
     this.relationship = relationship;
+  }
+
+  public void updateCareDetails(LocalDate dateOfBirth, String allergies, String conditions,
+      String emergencyContactName, String emergencyContactPhone) {
+    requireActive();
+    this.dateOfBirth = dateOfBirth;
+    this.allergies = allergies;
+    this.conditions = conditions;
+    this.emergencyContactName = emergencyContactName;
+    this.emergencyContactPhone = emergencyContactPhone;
   }
 
   /** Archive is reversible and never touches recipient child records. */
