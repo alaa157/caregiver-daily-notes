@@ -8,6 +8,7 @@ import com.caregiver.mobile.data.FakeRecipientAdmin
 import com.caregiver.mobile.data.FakeRecipientApi
 import com.caregiver.mobile.data.LoggedOutException
 import com.caregiver.mobile.data.SettingsStore
+import com.caregiver.mobile.data.api.CreateRecipientRequest
 import com.caregiver.mobile.data.api.RecipientDto
 import com.caregiver.mobile.data.local.RecipientDeletionCounts
 import androidx.datastore.preferences.core.PreferenceDataStoreFactory
@@ -278,6 +279,80 @@ class RecipientsViewModelTest {
             scope,
             admin,
         )
+    }
+
+    private suspend fun addViewModel(scope: TestScope): RecipientsViewModel {
+        recipients.listHandler = { emptyList() }
+        return RecipientsViewModel(
+            FakeBackendApis(FakeAuthApi()).also { it.recipientApi = recipients },
+            repository,
+            scope,
+        ).also { vm -> vm.state.first { it is PeopleState.Content } }
+    }
+
+    @Test
+    fun noRelationshipSelectedSendsNull() = runTest {
+        var request: CreateRecipientRequest? = null
+        recipients.createHandler = { body ->
+            request = body
+            RecipientDto("r1", body.name, true)
+        }
+        val vm = addViewModel(this)
+
+        vm.onName("Mona")
+        vm.add()
+        vm.addState.first { it.addedId != null }
+
+        assertNull(request?.relationship)
+    }
+
+    @Test
+    fun otherRelationshipSendsEnteredText() = runTest {
+        var request: CreateRecipientRequest? = null
+        recipients.createHandler = { body ->
+            request = body
+            RecipientDto("r1", body.name, true)
+        }
+        val vm = addViewModel(this)
+
+        vm.onName("Mona")
+        vm.setRelationship("OTHER")
+        vm.setRelationshipOther("Niece")
+        vm.add()
+        vm.addState.first { it.addedId != null }
+
+        assertEquals("Niece", request?.relationship)
+    }
+
+    @Test
+    fun blankOtherRelationshipSendsNull() = runTest {
+        var request: CreateRecipientRequest? = null
+        recipients.createHandler = { body ->
+            request = body
+            RecipientDto("r1", body.name, true)
+        }
+        val vm = addViewModel(this)
+
+        vm.onName("Mona")
+        vm.setRelationship("OTHER")
+        vm.add()
+        vm.addState.first { it.addedId != null }
+
+        assertNull(request?.relationship)
+    }
+
+    @Test
+    fun tooLongOtherRelationshipSetsErrorWithoutCallingApi() = runTest {
+        val vm = addViewModel(this)
+
+        vm.onName("Mona")
+        vm.setRelationship("OTHER")
+        vm.setRelationshipOther("x".repeat(81))
+        vm.add()
+
+        assertTrue(vm.addState.value.relationshipError)
+        assertFalse(vm.addState.value.busy)
+        assertNull(recipients.lastCreatedName)
     }
 
     @Test
