@@ -709,4 +709,5 @@
     <string name="note_nothing_recorded">لم تُسجَّل أي إجابات لهذه الملاحظة.</string>
     <string name="editor_progress">%1$d من 7 تمت الإجابة عنها</string>
     <string name="editor_add_details">إضافة تفاصيل</string>
+    <string name="editor_pain_level_description">الألم %1$d من 10</string>
 </resources>

@@ -2,8 +2,15 @@ package com.caregiver.mobile.presentation.notes
 
 import android.content.Context
 import androidx.compose.material3.Text
+import androidx.compose.ui.semantics.Role
+import androidx.compose.ui.semantics.SemanticsProperties
+import androidx.compose.ui.test.SemanticsMatcher
 import androidx.compose.ui.test.assertCountEquals
 import androidx.compose.ui.test.assertIsDisplayed
+import androidx.compose.ui.test.assertIsNotSelected
+import androidx.compose.ui.test.assertIsSelected
+import androidx.compose.ui.test.hasContentDescription
+import androidx.compose.ui.test.hasText
 import androidx.compose.ui.test.junit4.createComposeRule
 import androidx.compose.ui.test.onAllNodesWithText
 import androidx.compose.ui.test.onNodeWithText
@@ -129,6 +136,41 @@ class NoteEditorFlowUiTest {
         runCatching { compose.onNodeWithText("Save note").performClick() }
         assertEquals("note-saved/{noteId}", nav.currentDestination?.route)
         assertEquals(1, demoNotesFor("r1").count { it.text == "Zebra double tap 67890" })
+    }
+
+    @Test
+    fun optionChipsExposeRadioRoleAndSelectedState() {
+        setNav("note-editor/r1")
+        // Mood/Appetite/Sleep each offer "Good"; document order is Mood first.
+        val moodGood = SemanticsMatcher.expectValue(SemanticsProperties.Role, Role.RadioButton) and
+            hasText("Good")
+        compose.onAllNodes(moodGood)[0].assertIsNotSelected()
+
+        compose.onAllNodes(moodGood)[0].performClick()
+
+        compose.onAllNodes(moodGood)[0].assertIsSelected()
+    }
+
+    @Test
+    fun painButtonsExposeRadioRoleAndSelectedState() {
+        setNav("note-editor/r1")
+        val painFive = SemanticsMatcher.expectValue(SemanticsProperties.Role, Role.RadioButton) and
+            hasContentDescription("Pain 5 out of 10")
+        compose.onNode(painFive).assertIsDisplayed()
+        compose.onNode(painFive).assertIsNotSelected()
+
+        compose.onNode(painFive).performClick()
+
+        compose.onNode(painFive).assertIsSelected()
+    }
+
+    @Test
+    fun selectionMarkIsHiddenFromTheSemanticsTree() {
+        setNav("note-editor/r1")
+        compose.onAllNodesWithText("Good")[0].performClick()
+
+        compose.onAllNodesWithText("✓").assertCountEquals(0)
+        compose.onAllNodesWithText("✓", useUnmergedTree = true).assertCountEquals(0)
     }
 
     @Test
