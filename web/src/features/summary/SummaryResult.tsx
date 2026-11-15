@@ -12,6 +12,14 @@ const sampleSizeKey = (metric: string) => {
   return 'summarySampleSize';
 };
 const summaryTextLanguage = (text: string): 'ar' | 'en' => /[\u0600-\u06FF]/u.test(text) ? 'ar' : 'en';
+const unavailableReasonKeys = {
+  INVALID_KEY: 'summaryUnavailableInvalidKey',
+  INVALID_MODEL: 'summaryUnavailableInvalidModel',
+  RATE_LIMIT: 'summaryUnavailableRateLimit',
+  TIMEOUT: 'summaryUnavailableTimeout',
+  PROVIDER_UNAVAILABLE: 'summaryUnavailableProvider',
+  INVALID_OUTPUT: 'summaryUnavailableInvalidOutput',
+} as const;
 
 function SummaryTrend({ trend, format }: { trend: SummaryResponse['trends'][number]; format: (value: number) => string }) {
   const { t } = useI18n();
@@ -56,6 +64,8 @@ export function SummaryResult({ view }: { view: SummaryView }) {
   const canPresentAiSuccess = response.summary !== null && !response.summary.aiUnavailable
     && !response.invalidContent && !view.failed && response.summary.observations.length > 0;
   const canPresentUncertainty = response.summary !== null && !response.invalidContent && !view.failed;
+  const unavailableReason = response.summary && response.summary.aiUnavailable ? response.summary.unavailableReason : undefined;
+  const unavailableReasonKey = unavailableReason ? unavailableReasonKeys[unavailableReason] : undefined;
   const headingKey = view.failed ? 'summaryFailureSafety'
     : response.invalidContent ? 'summaryInvalidSummaryTitle'
       : response.summary?.aiUnavailable ? 'summaryUnavailable' : 'summaryResult';
@@ -67,7 +77,7 @@ export function SummaryResult({ view }: { view: SummaryView }) {
     <SummarySafety safety={response.safety} recipientId={request.recipientId}
       periodEndInclusive={request.periodEndInclusive} periodDays={request.periodDays} />
     {response.invalidContent && <p className="summary-notice" role="alert">{t('summaryInvalidContent')}</p>}
-    {response.summary?.aiUnavailable && !view.failed && <p className="summary-notice" role="status">{t('summaryFallback')}</p>}
+    {response.summary?.aiUnavailable && !view.failed && <p className="summary-notice" role="status">{t('summaryFallback')}{unavailableReasonKey ? ` ${t(unavailableReasonKey)}` : null}</p>}
     {canPresentAiSuccess && <section className="summary-surface summary-ai" aria-labelledby="summary-observations-heading">
       <div className="summary-ai-heading">
         <h3 id="summary-observations-heading">{t('summaryObservations')}</h3>
