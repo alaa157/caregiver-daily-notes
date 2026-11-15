@@ -28,6 +28,7 @@ import com.caregiver.mobile.data.local.AppDatabase
 import com.caregiver.mobile.data.local.LocalBackendApis
 import com.caregiver.mobile.data.local.MedicationStore
 import com.caregiver.mobile.data.local.RecipientAdmin
+import com.caregiver.mobile.data.summary.SavedSummaryStore
 import com.caregiver.mobile.data.update.GitHubReleaseChecker
 import com.caregiver.mobile.data.update.UpdateChecker
 import com.caregiver.mobile.ai.LlmClientFactory
@@ -224,6 +225,20 @@ class AppGraph(val context: Context, val forceProduction: Boolean = false) {
      */
     val medications: MedicationStore? by lazy {
         localDatabase?.let { MedicationStore(it) }
+    }
+
+    /**
+     * On-device store for generated summaries, shared by the summary result
+     * screen. Local mode writes through the shared local database; production
+     * uses the cache database. Null in demo graphs — illustrative summaries
+     * are never persisted — so callers pass it straight through.
+     */
+    val savedSummaryStore: SavedSummaryStore? by lazy {
+        when {
+            isDemo -> null
+            localMode -> localDatabase?.let { SavedSummaryStore(it) }
+            else -> db?.let { SavedSummaryStore(it) }
+        }
     }
 
     /**
