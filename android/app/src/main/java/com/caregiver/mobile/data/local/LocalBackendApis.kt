@@ -209,7 +209,7 @@ class LocalBackendApis(
                     pain = if (note.painRecorded) note.pain else null,
                     medication = note.medicationTaken,
                     medicationUnverified = note.medicationTaken == "unsure",
-                    poorAppetite = note.appetite == "poor",
+                    poorAppetite = note.appetite == "poor" || note.appetite == "refused",
                     // Safety rules read the addenda too; a fall first
                     // mentioned after the original note must still flag.
                     text = note.combinedText(),
