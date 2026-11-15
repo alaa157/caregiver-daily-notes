@@ -7,6 +7,7 @@ import com.caregiver.mobile.data.FakeBackendApis
 import com.caregiver.mobile.data.FakeNoteApi
 import com.caregiver.mobile.data.SettingsStore
 import com.caregiver.mobile.data.testNote
+import com.caregiver.mobile.data.local.DuplicateNoteDayException
 import androidx.datastore.preferences.core.PreferenceDataStoreFactory
 import java.io.File
 import java.io.IOException
@@ -230,6 +231,21 @@ class NoteEditorViewModelTest {
 
         assertTrue(error is EditorError.Rejected)
         assertEquals("VALIDATION_ERROR", (error as EditorError.Rejected).code)
+        assertEquals(false, vm.state.value.busy)
+    }
+
+    @Test
+    fun duplicateNoteDayExceptionSurfacesExistingNoteId() = runTest {
+        notes.createHandler = {
+            throw DuplicateNoteDayException("r1", "existing-note")
+        }
+        val vm = vm(this)
+        vm.select(OptionGroup.Mood, "good")
+
+        vm.submit()
+        val error = vm.state.first { it.formError != null }.formError
+
+        assertEquals(EditorError.DuplicateDay("existing-note"), error)
         assertEquals(false, vm.state.value.busy)
     }
 
