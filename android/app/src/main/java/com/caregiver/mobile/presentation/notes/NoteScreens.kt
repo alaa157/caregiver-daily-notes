@@ -51,6 +51,7 @@ import androidx.compose.ui.unit.sp
 import androidx.navigation.NavController
 import com.caregiver.mobile.AppGraph
 import com.caregiver.mobile.R
+import com.caregiver.mobile.data.api.NoteDetailDto
 import com.caregiver.mobile.core.i18n.Bidi
 import com.caregiver.mobile.core.theme.CaregiverColors
 import com.caregiver.mobile.presentation.common.AppDimens
@@ -403,51 +404,86 @@ fun NoteDetailScreen(noteId: String, graph: AppGraph, navController: NavControll
                         subtitle = DateFormats.historyDay(s.content.note.date, arabic),
                         onBack = { navController.popBackStack() },
                     )
-                    // 2-col grid of 7 mini-cards: every status value the
-                    // editor records, including medication.
-                    androidx.compose.foundation.layout.FlowRow(
-                        horizontalArrangement = Arrangement.spacedBy(10.dp),
-                        verticalArrangement = Arrangement.spacedBy(10.dp),
-                        maxItemsInEachRow = 2,
-                        modifier = Modifier.fillMaxWidth(),
-                    ) {
-                        StatMini(
-                            stringResource(R.string.editor_mood),
-                            OptionLabels.label(OptionGroup.Mood, s.content.note.mood, arabic),
-                        )
-                        StatMini(
-                            stringResource(R.string.editor_appetite),
-                            OptionLabels.label(OptionGroup.Appetite, s.content.note.appetite, arabic),
-                        )
-                        StatMini(
-                            stringResource(R.string.editor_sleep),
-                            OptionLabels.label(OptionGroup.Sleep, s.content.note.sleep, arabic),
-                        )
-                        StatMini(
-                            stringResource(R.string.editor_mobility),
-                            OptionLabels.label(OptionGroup.Mobility, s.content.note.mobility, arabic),
-                        )
-                        StatMini(
-                            stringResource(R.string.editor_medication),
-                            OptionLabels.label(
-                                OptionGroup.Medication,
-                                s.content.note.medicationTaken,
-                                arabic,
-                            ),
-                        )
-                        StatMini(
-                            stringResource(R.string.editor_pain),
-                            // A bare "5 / 10" flips to "10 / 5" in an RTL
-                            // paragraph, which misreports the pain score.
-                            Bidi.isolate("${s.content.note.pain} / 10"),
-                        )
-                        StatMini(
-                            stringResource(R.string.editor_fall),
-                            stringResource(
-                                if (s.content.note.fall) R.string.detail_fall_yes
-                                else R.string.detail_fall_no,
-                            ),
-                        )
+                    // Only the fields the caregiver actually answered; an
+                    // unanswered pain or fall must not render as 0/false.
+                    val note = s.content.note
+                    val stats = visibleStats(
+                        NoteDetailDto(
+                            id = note.id,
+                            recipientId = note.recipientId,
+                            date = note.date,
+                            mood = note.mood,
+                            appetite = note.appetite,
+                            sleep = note.sleep,
+                            mobility = note.mobility,
+                            medicationTaken = note.medicationTaken,
+                            pain = note.pain,
+                            fall = note.fall,
+                            text = note.text,
+                            addenda = s.content.addenda,
+                            painRecorded = note.painRecorded,
+                            fallRecorded = note.fallRecorded,
+                        ),
+                    )
+                    if (stats.isEmpty()) {
+                        HelperCaption(stringResource(R.string.note_nothing_recorded))
+                    } else {
+                        androidx.compose.foundation.layout.FlowRow(
+                            horizontalArrangement = Arrangement.spacedBy(10.dp),
+                            verticalArrangement = Arrangement.spacedBy(10.dp),
+                            maxItemsInEachRow = 2,
+                            modifier = Modifier.fillMaxWidth(),
+                        ) {
+                            stats.forEach { field ->
+                                when (field) {
+                                    StatField.Mood -> StatMini(
+                                        stringResource(R.string.editor_mood),
+                                        OptionLabels.label(
+                                            OptionGroup.Mood, s.content.note.mood, arabic,
+                                        ),
+                                    )
+                                    StatField.Appetite -> StatMini(
+                                        stringResource(R.string.editor_appetite),
+                                        OptionLabels.label(
+                                            OptionGroup.Appetite, s.content.note.appetite, arabic,
+                                        ),
+                                    )
+                                    StatField.Sleep -> StatMini(
+                                        stringResource(R.string.editor_sleep),
+                                        OptionLabels.label(
+                                            OptionGroup.Sleep, s.content.note.sleep, arabic,
+                                        ),
+                                    )
+                                    StatField.Mobility -> StatMini(
+                                        stringResource(R.string.editor_mobility),
+                                        OptionLabels.label(
+                                            OptionGroup.Mobility, s.content.note.mobility, arabic,
+                                        ),
+                                    )
+                                    StatField.Medication -> StatMini(
+                                        stringResource(R.string.editor_medication),
+                                        OptionLabels.label(
+                                            OptionGroup.Medication,
+                                            s.content.note.medicationTaken,
+                                            arabic,
+                                        ),
+                                    )
+                                    StatField.Pain -> StatMini(
+                                        stringResource(R.string.editor_pain),
+                                        // A bare "5 / 10" flips to "10 / 5" in an RTL
+                                        // paragraph, which misreports the pain score.
+                                        Bidi.isolate("${s.content.note.pain} / 10"),
+                                    )
+                                    StatField.Fall -> StatMini(
+                                        stringResource(R.string.editor_fall),
+                                        stringResource(
+                                            if (s.content.note.fall) R.string.detail_fall_yes
+                                            else R.string.detail_fall_no,
+                                        ),
+                                    )
+                                }
+                            }
+                        }
                     }
                     // Caregiver notes + lock row.
                     SectionTitle(stringResource(R.string.editor_text))
@@ -468,14 +504,16 @@ fun NoteDetailScreen(noteId: String, graph: AppGraph, navController: NavControll
                             color = CaregiverColors.Muted,
                         )
                     }
-                    Text(
-                        s.content.note.text,
-                        style = TextStyle(textDirection = textDirection),
-                        fontFamily = PlexArabic,
-                        fontSize = 16.sp,
-                        lineHeight = 29.sp,
-                        color = CaregiverColors.Ink,
-                    )
+                    if (s.content.note.text.isNotBlank()) {
+                        Text(
+                            s.content.note.text,
+                            style = TextStyle(textDirection = textDirection),
+                            fontFamily = PlexArabic,
+                            fontSize = 16.sp,
+                            lineHeight = 29.sp,
+                            color = CaregiverColors.Ink,
+                        )
+                    }
                     // Attachments timeline.
                     SectionTitle(stringResource(R.string.note_attachments))
                     if (s.content.addenda.isEmpty()) {

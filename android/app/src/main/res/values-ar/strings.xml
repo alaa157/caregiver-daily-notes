@@ -707,4 +707,5 @@
     <string name="note_option_medication_taken">أخذ الدواء</string>
     <string name="note_option_medication_missed">فاته الدواء</string>
     <string name="note_option_medication_unsure">غير متأكد</string>
+    <string name="note_nothing_recorded">لم تُسجَّل أي إجابات لهذه الملاحظة.</string>
 </resources>

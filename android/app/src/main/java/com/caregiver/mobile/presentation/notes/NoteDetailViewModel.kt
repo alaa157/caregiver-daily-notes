@@ -126,5 +126,6 @@ class NoteDetailViewModel(
         id = id, recipientId = recipientId, date = date, mood = mood,
         appetite = appetite, sleep = sleep, mobility = mobility,
         medicationTaken = medicationTaken, pain = pain, fall = fall, text = text,
+        painRecorded = painRecorded, fallRecorded = fallRecorded,
     )
 }

@@ -1,6 +1,7 @@
 package com.caregiver.mobile.presentation.notes
 
 import com.caregiver.mobile.R
+import com.caregiver.mobile.data.api.NoteDetailDto
 
 /** Chip groups in the note editor (board 5); single-select each. */
 enum class OptionGroup { Mood, Appetite, Sleep, Mobility, Medication }
@@ -123,4 +124,22 @@ object OptionLabels {
             else -> value
         }
     }
+}
+
+/** The stat cards the note detail screen may show, in display order. */
+enum class StatField { Mood, Appetite, Sleep, Mobility, Medication, Pain, Fall }
+
+/**
+ * The fields a note actually answered. Option fields appear only when their
+ * value is non-blank; pain and fall appear only when their recorded flag is
+ * set, so an unanswered question never renders as a confident `0`/`false`.
+ */
+fun visibleStats(note: NoteDetailDto): List<StatField> = buildList {
+    if (note.mood.isNotBlank()) add(StatField.Mood)
+    if (note.appetite.isNotBlank()) add(StatField.Appetite)
+    if (note.sleep.isNotBlank()) add(StatField.Sleep)
+    if (note.mobility.isNotBlank()) add(StatField.Mobility)
+    if (note.medicationTaken.isNotBlank()) add(StatField.Medication)
+    if (note.painRecorded) add(StatField.Pain)
+    if (note.fallRecorded) add(StatField.Fall)
 }
