@@ -82,7 +82,7 @@ describe('AI settings model picker', () => {
 
     expect(screen.getByRole('radiogroup', { name: 'Model' })).toBeInTheDocument();
     expect(screen.getAllByRole('radio').some((radio) => (radio as HTMLInputElement).checked)).toBe(false);
-    expect(screen.getByText('On the free tier, Google may use your prompts and responses to improve its products. Paid-tier requests are not used for this.')).toBeInTheDocument();
+    expect(screen.getByText('Google may use content sent with a free-tier key to improve its products. A key from a project with billing turned on is not used this way. The model you pick does not change this.')).toBeInTheDocument();
     expect(screen.getByRole('button', { name: 'Test connection' })).toBeDisabled();
   });
 
@@ -95,6 +95,7 @@ describe('AI settings model picker', () => {
 
     await user.click(screen.getByRole('radio', { name: /Gemini 3\.8 Flash/ }));
     await user.type(screen.getByLabelText('API key'), 'test-key');
+    await user.click(screen.getByRole('checkbox', { name: /I understand that my care notes/ }));
     await user.click(screen.getByRole('button', { name: 'Test connection' }));
 
     await waitFor(() => expect(fetcher).toHaveBeenCalledTimes(1));
@@ -115,6 +116,7 @@ describe('AI settings model picker', () => {
     await user.click(screen.getByRole('radio', { name: /Other/ }));
     await user.type(screen.getByLabelText('Model ID'), 'custom/model-1');
     await user.type(screen.getByLabelText('API key'), 'test-key');
+    await user.click(screen.getByRole('checkbox', { name: /I understand that my care notes/ }));
     await user.click(screen.getByRole('button', { name: 'Test connection' }));
 
     await waitFor(() => expect(fetcher).toHaveBeenCalledTimes(1));
@@ -151,6 +153,35 @@ describe('AI settings model picker', () => {
     expect(screen.queryByRole('radio', { name: /Gemini 3\.8 Flash/ })).not.toBeInTheDocument();
     expect(screen.getAllByRole('radio').some((radio) => (radio as HTMLInputElement).checked)).toBe(false);
     expect(screen.getByText('No free tier. Usage is billed to your OpenAI account.')).toBeInTheDocument();
+  });
+
+  it('keeps the connection test disabled until the data-use acknowledgement is checked', async () => {
+    const user = userEvent.setup();
+    renderDialog();
+    await openDialog(user);
+
+    await user.click(screen.getByRole('radio', { name: /Gemini 3\.8 Flash/ }));
+    await user.type(screen.getByLabelText('API key'), 'test-key');
+
+    const testButton = screen.getByRole('button', { name: 'Test connection' });
+    expect(testButton).toBeDisabled();
+
+    await user.click(screen.getByRole('checkbox', { name: /I understand that my care notes/ }));
+    expect(testButton).toBeEnabled();
+  });
+
+  it('unchecks the acknowledgement when the provider changes', async () => {
+    const user = userEvent.setup();
+    renderDialog();
+    await openDialog(user);
+
+    await user.click(screen.getByRole('checkbox', { name: /I understand that my care notes/ }));
+    await user.selectOptions(screen.getByRole('combobox', { name: 'Provider' }), 'OPEN_ROUTER');
+    await user.click(screen.getByRole('radio', { name: /NVIDIA Nemotron 3 Ultra/ }));
+
+    const ack = screen.getByRole('checkbox', { name: /I understand that my care notes/ });
+    expect(ack).not.toBeChecked();
+    expect(screen.getByRole('button', { name: 'Test connection' })).toBeDisabled();
   });
 
   it('keeps English and Arabic translation keys in parity', () => {
@@ -248,6 +279,7 @@ describe('AI preferences in dialog', () => {
       await openDialog(user);
       await user.click(screen.getByRole('radio', { name: /Gemini 3\.8 Flash/ }));
       await user.type(screen.getByLabelText('API key'), 'test-key');
+      await user.click(screen.getByRole('checkbox', { name: /I understand that my care notes/ }));
       await user.click(screen.getByRole('button', { name: 'Test connection' }));
 
       expect(await screen.findByRole('status')).toHaveTextContent('Connection test succeeded');
@@ -279,6 +311,7 @@ describe('AI preferences in dialog', () => {
 
     await user.click(screen.getByRole('radio', { name: /Gemini 3\.8 Flash/ }));
     await user.type(screen.getByLabelText('API key'), 'test-key');
+    await user.click(screen.getByRole('checkbox', { name: /I understand that my care notes/ }));
     await user.click(screen.getByRole('button', { name: 'Test connection' }));
     expect(await screen.findByRole('status')).toHaveTextContent('Connection test succeeded');
 
