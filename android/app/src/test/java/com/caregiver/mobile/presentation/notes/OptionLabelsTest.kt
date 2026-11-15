@@ -1,6 +1,7 @@
 package com.caregiver.mobile.presentation.notes
 
 import com.caregiver.mobile.R
+import com.caregiver.mobile.data.api.NoteDetailDto
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertNotNull
 import org.junit.Assert.assertNull
@@ -98,5 +99,86 @@ class OptionLabelsTest {
     fun labelResReturnsNullForUnknownValues() {
         assertNull(OptionLabels.labelRes(OptionGroup.Mood, "unknown"))
         assertNull(OptionLabels.labelRes(OptionGroup.Medication, "taken "))
+    }
+
+    private fun detail(
+        mood: String = "",
+        appetite: String = "",
+        sleep: String = "",
+        mobility: String = "",
+        medicationTaken: String = "",
+        pain: Int = 0,
+        fall: Boolean = false,
+        painRecorded: Boolean = false,
+        fallRecorded: Boolean = false,
+    ) = NoteDetailDto(
+        id = "n1",
+        recipientId = "r1",
+        date = "2026-11-15",
+        mood = mood,
+        appetite = appetite,
+        sleep = sleep,
+        mobility = mobility,
+        medicationTaken = medicationTaken,
+        pain = pain,
+        fall = fall,
+        text = "note",
+        addenda = emptyList(),
+        painRecorded = painRecorded,
+        fallRecorded = fallRecorded,
+    )
+
+    @Test
+    fun visibleStatsIsEmptyWhenNothingWasAnswered() {
+        assertEquals(emptyList<StatField>(), visibleStats(detail()))
+    }
+
+    @Test
+    fun visibleStatsShowsOnlyTheAnsweredOption() {
+        assertEquals(listOf(StatField.Mood), visibleStats(detail(mood = "good")))
+    }
+
+    @Test
+    fun visibleStatsIncludesRecordedZeroPain() {
+        assertEquals(
+            listOf(StatField.Pain),
+            visibleStats(detail(pain = 0, painRecorded = true)),
+        )
+    }
+
+    @Test
+    fun visibleStatsIncludesRecordedFalseFall() {
+        assertEquals(
+            listOf(StatField.Fall),
+            visibleStats(detail(fall = false, fallRecorded = true)),
+        )
+    }
+
+    @Test
+    fun visibleStatsHidesPainWhenItsFlagIsOffEvenWithAValue() {
+        assertEquals(
+            emptyList<StatField>(),
+            visibleStats(detail(pain = 5, painRecorded = false)),
+        )
+    }
+
+    @Test
+    fun visibleStatsReturnsAllSevenFieldsInEnumOrder() {
+        assertEquals(
+            StatField.entries.toList(),
+            visibleStats(
+                detail(
+                    mood = "good",
+                    appetite = "good",
+                    sleep = "good",
+                    mobility = "walks",
+                    medicationTaken = "taken",
+                    pain = 3,
+                    fall = true,
+                    painRecorded = true,
+                    fallRecorded = true,
+                ),
+            ),
+        )
     }
 }
