@@ -40,6 +40,9 @@ data class OutboxEntity(
     val date: String,
     val createdAt: Long,
     val status: String = OutboxStatus.PENDING,
+    /** Same recorded-flag contract as [NoteEntity]; columns last for the 7→8 ALTER. */
+    val painRecorded: Boolean = true,
+    val fallRecorded: Boolean = true,
 )
 
 object OutboxStatus {
