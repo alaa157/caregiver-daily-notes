@@ -35,10 +35,32 @@ data class RecipientEntity(
 )
 
 fun RecipientEntity.toDto(): RecipientDto =
-    RecipientDto(id = serverId, name = name, active = active, archivedAt = archivedAt)
+    RecipientDto(
+        id = serverId,
+        name = name,
+        active = active,
+        archivedAt = archivedAt,
+        relationship = relationship,
+        dateOfBirth = dateOfBirth,
+        allergies = allergies,
+        conditions = conditions,
+        emergencyContactName = emergencyContactName,
+        emergencyContactPhone = emergencyContactPhone,
+    )
 
 fun RecipientDto.toEntity(): RecipientEntity =
-    RecipientEntity(serverId = id, name = name, active = active, archivedAt = archivedAt)
+    RecipientEntity(
+        serverId = id,
+        name = name,
+        active = active,
+        archivedAt = archivedAt,
+        relationship = relationship,
+        dateOfBirth = dateOfBirth,
+        allergies = allergies,
+        conditions = conditions,
+        emergencyContactName = emergencyContactName,
+        emergencyContactPhone = emergencyContactPhone,
+    )
 
 /**
  * Room access for the recipient cache. [replaceAll] is the refresh write:
