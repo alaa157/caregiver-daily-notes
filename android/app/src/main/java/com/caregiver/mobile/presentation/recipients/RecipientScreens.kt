@@ -6,6 +6,8 @@ import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.ExperimentalLayoutApi
+import androidx.compose.foundation.layout.FlowRow
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
@@ -14,6 +16,7 @@ import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.imePadding
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.selection.selectableGroup
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.lazy.rememberLazyListState
@@ -49,6 +52,9 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.semantics.Role
+import androidx.compose.ui.semantics.role
+import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.res.pluralStringResource
 import androidx.compose.ui.res.stringResource
@@ -68,6 +74,7 @@ import com.caregiver.mobile.core.theme.PlexArabic
 import com.caregiver.mobile.data.api.RecipientDto
 import com.caregiver.mobile.data.local.RecipientAdmin
 import com.caregiver.mobile.data.local.RecipientDeletionCounts
+import com.caregiver.mobile.data.recipient.RelationshipOptions
 import com.caregiver.mobile.presentation.common.AppCard
 import com.caregiver.mobile.presentation.common.AppDimens
 import com.caregiver.mobile.presentation.common.AppEmptyState
@@ -459,7 +466,8 @@ internal fun DeleteRecipientDialog(
     )
 }
 
-/** Add-person form (missing-page spec): name only, inline required error. */
+/** Add-person form (missing-page spec): name and optional relationship. */
+@OptIn(ExperimentalLayoutApi::class)
 @Composable
 fun AddRecipientScreen(graph: AppGraph, navController: NavController) {
     val activity = LocalContext.current as androidx.activity.ComponentActivity
@@ -531,6 +539,56 @@ fun AddRecipientScreen(graph: AppGraph, navController: NavController) {
             ),
             modifier = Modifier.fillMaxWidth().heightIn(min = AppDimens.InputHeight).testTag("add_person_name"),
         )
+        Text(
+            stringResource(R.string.relationship_field),
+            fontFamily = PlexArabic,
+            fontWeight = FontWeight.Bold,
+            fontSize = 14.sp,
+            color = CaregiverColors.Ink,
+        )
+        FlowRow(
+            horizontalArrangement = Arrangement.spacedBy(8.dp),
+            verticalArrangement = Arrangement.spacedBy(8.dp),
+            modifier = Modifier.fillMaxWidth().selectableGroup(),
+        ) {
+            RelationshipOptions.codes.forEach { code ->
+                FilterChip(
+                    selected = addState.relationship == code,
+                    onClick = { vm.setRelationship(code) },
+                    modifier = Modifier.semantics { role = Role.RadioButton },
+                    label = {
+                        Text(stringResource(requireNotNull(relationshipLabelRes(code))))
+                    },
+                )
+            }
+        }
+        if (addState.relationship == "OTHER") {
+            OutlinedTextField(
+                value = addState.relationshipOther,
+                onValueChange = vm::setRelationshipOther,
+                placeholder = { Text(stringResource(R.string.relationship_other_placeholder)) },
+                isError = addState.relationshipError,
+                supportingText = {
+                    if (addState.relationshipError) {
+                        Text(
+                            stringResource(R.string.relationship_error_long),
+                            fontFamily = PlexArabic,
+                            color = CaregiverColors.Danger,
+                        )
+                    }
+                },
+                singleLine = true,
+                maxLines = 1,
+                shape = RoundedCornerShape(AppDimens.ControlRadius),
+                colors = OutlinedTextFieldDefaults.colors(
+                    focusedBorderColor = CaregiverColors.Primary,
+                    unfocusedBorderColor = CaregiverColors.Border,
+                    focusedContainerColor = CaregiverColors.Surface,
+                    unfocusedContainerColor = CaregiverColors.Surface,
+                ),
+                modifier = Modifier.fillMaxWidth().heightIn(min = AppDimens.InputHeight),
+            )
+        }
         PrimaryButton(
             label = stringResource(R.string.add_save),
             onClick = vm::add,
