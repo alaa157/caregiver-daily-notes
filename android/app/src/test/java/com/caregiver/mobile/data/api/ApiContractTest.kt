@@ -1,6 +1,7 @@
 package com.caregiver.mobile.data.api
 
 import org.junit.Assert.assertEquals
+import org.junit.Assert.assertNull
 import org.junit.Assert.assertTrue
 import org.junit.Test
 
@@ -229,5 +230,70 @@ class ApiContractTest {
                 ApiClient.checkBaseUrl(url),
             )
         }
+    }
+
+    @Test
+    fun recipientDtoWithoutCareFieldsDecodesNulls() {
+        val parsed = ApiClient.json.decodeFromString<RecipientDto>(
+            RecipientDto.serializer(),
+            """{"id":"r1","name":"Aisha","active":true}""",
+        )
+        assertNull(parsed.relationship)
+        assertNull(parsed.dateOfBirth)
+        assertNull(parsed.allergies)
+        assertNull(parsed.conditions)
+        assertNull(parsed.emergencyContactName)
+        assertNull(parsed.emergencyContactPhone)
+    }
+
+    @Test
+    fun recipientDtoCareFieldsRoundTrip() {
+        val dto = RecipientDto(
+            id = "r1",
+            name = "Aisha",
+            active = true,
+            archivedAt = 1_700_000_000_000L,
+            relationship = "MOTHER",
+            dateOfBirth = "1950-04-12",
+            allergies = "penicillin",
+            conditions = "hypertension",
+            emergencyContactName = "Omar",
+            emergencyContactPhone = "+966500000000",
+        )
+        val json = ApiClient.json.encodeToString(RecipientDto.serializer(), dto)
+        val parsed = ApiClient.json.decodeFromString<RecipientDto>(RecipientDto.serializer(), json)
+        assertEquals(dto, parsed)
+    }
+
+    @Test
+    fun recipientDtoCopyKeepsCareFields() {
+        val dto = RecipientDto(
+            id = "r1",
+            name = "Aisha",
+            active = true,
+            relationship = "MOTHER",
+            dateOfBirth = "1950-04-12",
+            allergies = "penicillin",
+            conditions = "hypertension",
+            emergencyContactName = "Omar",
+            emergencyContactPhone = "+966500000000",
+        )
+        val copied = dto.copy(name = "Aisha Mohamed")
+        assertEquals("MOTHER", copied.relationship)
+        assertEquals("1950-04-12", copied.dateOfBirth)
+        assertEquals("penicillin", copied.allergies)
+        assertEquals("hypertension", copied.conditions)
+        assertEquals("Omar", copied.emergencyContactName)
+        assertEquals("+966500000000", copied.emergencyContactPhone)
+    }
+
+    @Test
+    fun createRecipientRequestWithoutRelationshipDecodesNull() {
+        val parsed = ApiClient.json.decodeFromString<CreateRecipientRequest>(
+            CreateRecipientRequest.serializer(),
+            """{"name":"Aisha"}""",
+        )
+        assertEquals("Aisha", parsed.name)
+        assertNull(parsed.relationship)
     }
 }
