@@ -9,6 +9,7 @@ import com.caregiver.mobile.data.api.NoteDto
 import com.caregiver.mobile.data.local.RecipientAdmin
 import com.caregiver.mobile.data.local.RecipientDeletionCounts
 import java.io.IOException
+import java.time.LocalDate
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -26,6 +27,7 @@ data class RecipientDetail(
     val lastNote: NoteDto?,
     val actions: List<DetailAction> = DetailAction.entries,
     val archived: Boolean = false,
+    val todayNoteId: String? = null,
 )
 
 sealed interface DetailState {
@@ -57,6 +59,7 @@ class RecipientDetailViewModel(
     private val repository: AuthRepository,
     scope: CoroutineScope? = null,
     private val admin: RecipientAdmin? = null,
+    private val today: () -> LocalDate = LocalDate::now,
 ) : ViewModel() {
     // Production uses viewModelScope; tests inject their TestScope.
     private val execScope: CoroutineScope = scope ?: viewModelScope
@@ -191,6 +194,7 @@ class RecipientDetailViewModel(
                 return
             }
             val notes = repository.authorized { apis.notes().history(recipientId, null, null) }
+            val todayDate = today().toString()
             _state.value = DetailState.Content(
                 RecipientDetail(
                     id = recipient.id,
@@ -198,6 +202,7 @@ class RecipientDetailViewModel(
                     active = recipient.active,
                     lastNote = notes.maxByOrNull { it.date },
                     archived = recipient.archivedAt != null,
+                    todayNoteId = notes.firstOrNull { it.date == todayDate }?.id,
                 ),
             )
         } catch (e: LoggedOutException) {
