@@ -95,6 +95,9 @@ class NoteEditorViewModel(
 
     fun submit() {
         val current = _state.value
+        // A second tap while a save is in flight — or after one landed —
+        // must not issue another create call.
+        if (current.busy || current.savedId != null) return
         val answered = current.mood != null || current.appetite != null ||
             current.sleep != null || current.mobility != null ||
             current.medication != null || current.pain != null ||

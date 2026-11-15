@@ -10,6 +10,7 @@ import com.caregiver.mobile.data.testNote
 import androidx.datastore.preferences.core.PreferenceDataStoreFactory
 import java.io.File
 import java.io.IOException
+import kotlinx.coroutines.CompletableDeferred
 import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.test.TestScope
@@ -191,6 +192,28 @@ class NoteEditorViewModelTest {
         assertEquals(true, sent.fall)
         assertEquals(arabic, sent.text)
         assertEquals("n9", vm.state.value.savedId)
+    }
+
+    @Test
+    fun submitsWhileSavingOrAfterSavingAreIgnored() = runTest {
+        val gate = CompletableDeferred<com.caregiver.mobile.data.api.NoteDto>()
+        var creates = 0
+        notes.createHandler = {
+            creates++
+            gate.await()
+        }
+        val vm = vm(this)
+        vm.select(OptionGroup.Mood, "good")
+
+        vm.submit()
+        vm.submit()
+        vm.submit()
+
+        gate.complete(testNote())
+        vm.state.first { it.savedId != null }
+        vm.submit()
+
+        assertEquals(1, creates)
     }
 
     @Test
