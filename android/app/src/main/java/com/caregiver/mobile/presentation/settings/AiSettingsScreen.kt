@@ -37,12 +37,16 @@ import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
+import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalUriHandler
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.semantics.Role
+import androidx.compose.ui.semantics.role
+import androidx.compose.ui.semantics.semantics
+import androidx.compose.ui.semantics.stateDescription
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.text.input.PasswordVisualTransformation
 import androidx.compose.ui.unit.dp
@@ -117,6 +121,9 @@ fun AiSettingsScreen(graph: AppGraph, navController: NavController, navEntry: Na
     var systemPrompt by remember { mutableStateOf(store.systemPrompt()) }
     var summaryPrompt by remember { mutableStateOf(store.summarySystemPrompt()) }
     var planPrompt by remember { mutableStateOf(store.planSystemPrompt()) }
+    var advancedOpen by rememberSaveable {
+        mutableStateOf(initialAdvancedOpen(customBaseUrl, systemPrompt, summaryPrompt, planPrompt))
+    }
     val savedSystemPrompt = remember { store.systemPrompt() }
     val savedSummaryPrompt = remember { store.summarySystemPrompt() }
     val savedPlanPrompt = remember { store.planSystemPrompt() }
@@ -485,14 +492,6 @@ fun AiSettingsScreen(graph: AppGraph, navController: NavController, navEntry: Na
                         onClick = { showModelDialog = true },
                     ),
                 )
-                add(
-                    CaregiverSettingsRow(
-                        title = stringResource(R.string.settings_ai_base_url),
-                        icon = Icons.Outlined.Link,
-                        description = baseUrl.ifBlank { provider.defaultBaseUrl },
-                        onClick = { showUrlDialog = true },
-                    ),
-                )
             },
         )
         if (customBaseUrl) {
@@ -506,28 +505,61 @@ fun AiSettingsScreen(graph: AppGraph, navController: NavController, navEntry: Na
             )
         }
 
-        CaregiverSettingsGroup(
-            items = listOf(
-                CaregiverSettingsRow(
-                    title = stringResource(R.string.settings_ai_system_prompt),
-                    icon = Icons.Outlined.Article,
-                    description = if (systemPrompt.isBlank()) stringResource(R.string.settings_ai_default) else stringResource(R.string.settings_ai_custom),
-                    onClick = { showPromptDialog = true },
-                ),
-                CaregiverSettingsRow(
-                    title = stringResource(R.string.settings_ai_summary_prompt),
-                    icon = Icons.Outlined.Description,
-                    description = if (summaryPrompt.isBlank()) stringResource(R.string.settings_ai_default) else stringResource(R.string.settings_ai_custom),
-                    onClick = { showSummaryPromptDialog = true },
-                ),
-                CaregiverSettingsRow(
-                    title = stringResource(R.string.settings_ai_plan_prompt),
-                    icon = Icons.Outlined.List,
-                    description = if (planPrompt.isBlank()) stringResource(R.string.settings_ai_default) else stringResource(R.string.settings_ai_custom),
-                    onClick = { showPlanPromptDialog = true },
-                ),
-            ),
+        val advancedStateDescription = stringResource(
+            if (advancedOpen) {
+                R.string.settings_ai_advanced_open
+            } else {
+                R.string.settings_ai_advanced_closed
+            },
         )
+        TextButton(
+            onClick = { advancedOpen = !advancedOpen },
+            modifier = Modifier
+                .fillMaxWidth()
+                .testTag("ai_advanced_toggle")
+                .semantics {
+                    role = Role.Button
+                    stateDescription = advancedStateDescription
+                },
+        ) {
+            Text(stringResource(R.string.settings_ai_advanced))
+        }
+        Text(
+            text = stringResource(R.string.settings_ai_advanced_hint),
+            style = MaterialTheme.typography.bodySmall,
+            color = MaterialTheme.colorScheme.onSurfaceVariant,
+            modifier = Modifier.padding(horizontal = 16.dp),
+        )
+        if (advancedOpen) {
+            CaregiverSettingsGroup(
+                items = listOf(
+                    CaregiverSettingsRow(
+                        title = stringResource(R.string.settings_ai_base_url),
+                        icon = Icons.Outlined.Link,
+                        description = baseUrl.ifBlank { provider.defaultBaseUrl },
+                        onClick = { showUrlDialog = true },
+                    ),
+                    CaregiverSettingsRow(
+                        title = stringResource(R.string.settings_ai_system_prompt),
+                        icon = Icons.Outlined.Article,
+                        description = if (systemPrompt.isBlank()) stringResource(R.string.settings_ai_default) else stringResource(R.string.settings_ai_custom),
+                        onClick = { showPromptDialog = true },
+                    ),
+                    CaregiverSettingsRow(
+                        title = stringResource(R.string.settings_ai_summary_prompt),
+                        icon = Icons.Outlined.Description,
+                        description = if (summaryPrompt.isBlank()) stringResource(R.string.settings_ai_default) else stringResource(R.string.settings_ai_custom),
+                        onClick = { showSummaryPromptDialog = true },
+                    ),
+                    CaregiverSettingsRow(
+                        title = stringResource(R.string.settings_ai_plan_prompt),
+                        icon = Icons.Outlined.List,
+                        description = if (planPrompt.isBlank()) stringResource(R.string.settings_ai_default) else stringResource(R.string.settings_ai_custom),
+                        onClick = { showPlanPromptDialog = true },
+                    ),
+                ),
+            )
+        }
 
         // One button runs connection, summary format and accuracy in order;
         // each stage reports its own status underneath.
@@ -991,6 +1023,13 @@ fun AiSettingsScreen(graph: AppGraph, navController: NavController, navEntry: Na
         )
     }
 }
+
+internal fun initialAdvancedOpen(
+    customUrl: Boolean,
+    system: String,
+    summary: String,
+    plan: String,
+): Boolean = customUrl || system.isNotBlank() || summary.isNotBlank() || plan.isNotBlank()
 
 private fun pendingSetupCheckState() = SetupCheckState(
     stages = SetupStage.values().associateWith { StageStatus.Pending },

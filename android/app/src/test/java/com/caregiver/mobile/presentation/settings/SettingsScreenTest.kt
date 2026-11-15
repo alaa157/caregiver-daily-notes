@@ -7,6 +7,10 @@ import androidx.compose.runtime.Composable
 import androidx.compose.ui.platform.LocalUriHandler
 import androidx.compose.ui.platform.UriHandler
 import androidx.compose.ui.semantics.SemanticsActions
+import androidx.compose.ui.semantics.Role
+import androidx.compose.ui.semantics.SemanticsProperties
+import androidx.compose.ui.test.SemanticsMatcher
+import androidx.compose.ui.test.assert
 import androidx.compose.ui.test.assertCountEquals
 import androidx.compose.ui.test.assertIsEnabled
 import androidx.compose.ui.test.assertIsNotEnabled
@@ -205,6 +209,32 @@ class SettingsScreenTest {
             }
         }
 
+        compose.onNodeWithTag("ai_advanced_toggle")
+            .assert(
+                SemanticsMatcher.expectValue(
+                    SemanticsProperties.StateDescription,
+                    context.getString(R.string.settings_ai_advanced_closed),
+                ),
+            )
+            .assert(
+                SemanticsMatcher.expectValue(
+                    SemanticsProperties.Role,
+                    Role.Button,
+                ),
+            )
+        compose.onNodeWithText(context.getString(R.string.settings_ai_advanced_hint)).assertExists()
+        compose.onAllNodesWithText(context.getString(R.string.settings_ai_base_url)).assertCountEquals(0)
+        compose.onNodeWithTag("ai_advanced_toggle")
+            .performSemanticsAction(SemanticsActions.OnClick)
+        compose.waitForIdle()
+        compose.onNodeWithTag("ai_advanced_toggle")
+            .assert(
+                SemanticsMatcher.expectValue(
+                    SemanticsProperties.StateDescription,
+                    context.getString(R.string.settings_ai_advanced_open),
+                ),
+            )
+
         listOf(
             R.string.settings_ai_provider,
             R.string.settings_ai_model,
@@ -218,7 +248,7 @@ class SettingsScreenTest {
         compose.onAllNodesWithText(context.getString(R.string.settings_ai_system_prompt)).assertCountEquals(1)
         // The screen carries the same back arrow as every other detail route.
         compose.onNodeWithContentDescription(context.getString(R.string.action_back)).assertExists()
-        compose.onNodeWithText(context.getString(R.string.settings_ai_quality_check)).performScrollTo()
+        compose.onNodeWithText(context.getString(R.string.settings_ai_stage_quality)).performScrollTo()
     }
 
     /** Rows carry the title as their test tag. Robolectric does not deliver
@@ -232,6 +262,9 @@ class SettingsScreenTest {
     }
 
     private fun enterCustomBaseUrl() {
+        compose.onNodeWithTag("ai_advanced_toggle")
+            .performSemanticsAction(SemanticsActions.OnClick)
+        compose.waitForIdle()
         clickRow(context.getString(R.string.settings_ai_base_url))
         // The edit dialog materialises over a frame: wait for any text
         // field to exist before addressing the last one.
