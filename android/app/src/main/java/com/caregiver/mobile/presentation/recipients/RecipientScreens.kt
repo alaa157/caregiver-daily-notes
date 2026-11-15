@@ -85,6 +85,7 @@ import com.caregiver.mobile.data.local.RecipientDeletionCounts
 import com.caregiver.mobile.data.recipient.CareDetailsField
 import com.caregiver.mobile.data.recipient.CareDetailsIssue
 import com.caregiver.mobile.data.recipient.CareDetailsRules
+import com.caregiver.mobile.data.recipient.RecipientNameRules
 import com.caregiver.mobile.data.recipient.RelationshipOptions
 import com.caregiver.mobile.presentation.common.AppCard
 import com.caregiver.mobile.presentation.common.AppDimens
@@ -290,7 +291,7 @@ internal fun RecipientsContent(
                                 subtitle = if (filter == PeopleFilter.Archived) {
                                     stringResource(R.string.people_archived_readonly)
                                 } else {
-                                    stringResource(R.string.tab_people)
+                                    stringResource(R.string.people_empty_subtitle)
                                 },
                                 actionLabel = stringResource(R.string.people_add),
                                 onAction = onAdd,
@@ -348,12 +349,18 @@ private fun PersonRow(
     // The list response carries only id/name/active/archivedAt — no per-person
     // note data — so no "last note" caption is shown here. Note state is
     // visible on the detail screen, which loads the recipient's history.
-    AppCard(modifier = Modifier.clickable(enabled = !busy, onClick = onOpen)) {
+    AppCard(
+        modifier = Modifier.clickable(
+            enabled = !busy,
+            role = Role.Button,
+            onClick = onOpen,
+        ),
+    ) {
         Row(
             horizontalArrangement = Arrangement.spacedBy(12.dp),
             verticalAlignment = Alignment.CenterVertically,
         ) {
-            Avatar(recipient.name.take(1))
+            Avatar(RecipientNameRules.initial(recipient.name))
             Text(
                 text = Bidi.isolate(recipient.name),
                 fontFamily = PlexArabic,

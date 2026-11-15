@@ -53,6 +53,7 @@ import com.caregiver.mobile.core.navigation.MainTab
 import com.caregiver.mobile.core.navigation.ScrollToTop
 import com.caregiver.mobile.core.theme.CaregiverColors
 import com.caregiver.mobile.core.theme.PlexArabic
+import com.caregiver.mobile.data.recipient.RecipientNameRules
 import com.caregiver.mobile.presentation.common.AppCard
 import com.caregiver.mobile.presentation.common.AppDimens
 import com.caregiver.mobile.presentation.common.AppEmptyState
@@ -391,7 +392,7 @@ private fun HomeStatsRow(done: Int, total: Int, attention: Int) {
 @Composable
 private fun RecipientRow(card: HomeCard, showDivider: Boolean, onOpen: () -> Unit) {
     NoteRow(
-        avatarLetter = card.name.take(1),
+        avatarLetter = RecipientNameRules.initial(card.name),
         name = card.name,
         // TODO(api-gap): the API carries only a day-precision note date, no
         // timestamp, so the row's time slot stays empty — the client must

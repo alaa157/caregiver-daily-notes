@@ -33,6 +33,7 @@
     <string name="home_safety_title">Care alert</string>
     <string name="home_safety_fall">Reported fall — %1$s</string>
     <string name="people_add">Add person</string>
+    <string name="people_empty_subtitle">Add the person you care for to start taking daily notes.</string>
     <string name="person_last_note">Last note</string>
     <string name="person_last_note_date">Last note: %1$s</string>
     <string name="person_last_note_pain">Pain %1$d out of 10</string>

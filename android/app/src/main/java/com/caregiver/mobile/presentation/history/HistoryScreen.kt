@@ -71,6 +71,7 @@ import com.caregiver.mobile.core.theme.PlexArabic
 import com.caregiver.mobile.core.time.DateFormats
 import com.caregiver.mobile.core.util.isAppArabic
 import com.caregiver.mobile.data.api.RecipientDto
+import com.caregiver.mobile.data.recipient.RecipientNameRules
 import com.caregiver.mobile.presentation.common.AppDimens
 import com.caregiver.mobile.presentation.common.AppEmptyState
 import com.caregiver.mobile.presentation.common.AppErrorState
@@ -295,7 +296,7 @@ private fun HistoryNoteRow(
     onOpen: () -> Unit,
 ) {
     NoteRow(
-        avatarLetter = name.take(1),
+        avatarLetter = RecipientNameRules.initial(name),
         name = name,
         time = DateFormats.historyDay(entry.note.date, arabic),
         body = entry.note.text,
