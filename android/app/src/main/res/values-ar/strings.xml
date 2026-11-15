@@ -301,6 +301,7 @@
     <string name="summary_coverage">تغطي من %1$s إلى %2$s (%3$d يومًا)</string>
     <string name="summary_generated_with">أُنشئ باستخدام %1$s · %2$s</string>
     <string name="summary_open_source">فتح الملاحظة المصدر</string>
+    <string name="summary_saved_note">تم الحفظ على هذا الجهاز</string>
     <string name="summary_unclear_invalid_evidence">بعض نتائج الذكاء الاصطناعي غير مدعومة بملاحظات المصدر</string>
     <string name="summary_unclear_unverified">نتائج الذكاء الاصطناعي مبنية على الاقتباس ولا تزال بحاجة إلى تحقق طبي</string>
     <string name="pdf_title">ملخص الرعاية</string>

@@ -22,6 +22,7 @@ import com.caregiver.mobile.data.api.SummaryDto
 import com.caregiver.mobile.data.api.SummaryRequest
 import com.caregiver.mobile.data.api.SignalDto
 import com.caregiver.mobile.data.api.SuggestPlanRequest
+import com.caregiver.mobile.data.summary.SavedSummaryStore
 import java.io.IOException
 import java.time.LocalDate
 import kotlinx.coroutines.CoroutineScope
@@ -98,6 +99,8 @@ class SummaryViewModel(
     private val clock: () -> LocalDate = LocalDate::now,
     /** Wall-clock time stamped on each successful result. */
     private val nowMillis: () -> Long = System::currentTimeMillis,
+    /** On-device store for generated summaries; null disables saving. */
+    private val savedStore: SavedSummaryStore? = null,
 ) : ViewModel() {
     private val exec: CoroutineScope = scope ?: viewModelScope
 
@@ -127,6 +130,11 @@ class SummaryViewModel(
     private val _suggestedForCurrent = MutableStateFlow(false)
     val suggestedForCurrent: StateFlow<Boolean> = _suggestedForCurrent.asStateFlow()
 
+    private val _savedId = MutableStateFlow<String?>(null)
+
+    /** Id of the row the latest successful result was saved under, if any. */
+    val savedId: StateFlow<String?> = _savedId.asStateFlow()
+
     init {
         loadJob = exec.launch { load(preserve = false, periodDays = _period.value) }
     }
@@ -154,6 +162,7 @@ class SummaryViewModel(
         val current = (_state.value as? SummaryState.Content)?.data
         _suggestedForCurrent.value = false
         _suggestStatus.value = null
+        _savedId.value = null
         _state.value = if (current != null) {
             SummaryState.Content(current, refreshing = true)
         } else {
@@ -324,18 +333,20 @@ class SummaryViewModel(
                 when (result) {
                     is SummaryAiResult.Success -> {
                         val end = endDate.value
+                        val resultData = SummaryResultData(
+                            result.summary,
+                            trends = computeTrends(end, periodDays, aiWindowedSignals),
+                            periodStart = SummaryWindow.start(end, periodDays).toString(),
+                            periodEnd = end.toString(),
+                            provider = provider.name,
+                            model = model,
+                            generatedAt = nowMillis(),
+                        )
                         _state.value = SummaryState.Content(
-                            SummaryResultData(
-                                result.summary,
-                                trends = computeTrends(end, periodDays, aiWindowedSignals),
-                                periodStart = SummaryWindow.start(end, periodDays).toString(),
-                                periodEnd = end.toString(),
-                                provider = provider.name,
-                                model = model,
-                                generatedAt = nowMillis(),
-                            ),
+                            resultData,
                             aiGenerated = true,
                         )
+                        persistSummary(resultData)
                         _suggestedForCurrent.value = false
                         _suggestStatus.value = null
                         return
@@ -408,15 +419,15 @@ class SummaryViewModel(
                 }
             }
             val end = endDate.value
-            _state.value = SummaryState.Content(
-                SummaryResultData(
-                    summary,
-                    trends = computeTrends(end, periodDays),
-                    periodStart = SummaryWindow.start(end, periodDays).toString(),
-                    periodEnd = end.toString(),
-                    generatedAt = nowMillis(),
-                ),
+            val resultData = SummaryResultData(
+                summary,
+                trends = computeTrends(end, periodDays),
+                periodStart = SummaryWindow.start(end, periodDays).toString(),
+                periodEnd = end.toString(),
+                generatedAt = nowMillis(),
             )
+            _state.value = SummaryState.Content(resultData)
+            persistSummary(resultData)
             _suggestedForCurrent.value = false
             _suggestStatus.value = null
         } catch (e: LoggedOutException) {
@@ -577,6 +588,25 @@ class SummaryViewModel(
             throw e
         } catch (e: Exception) {
             return emptyList()
+        }
+    }
+
+    /**
+     * Saves a successful result on the device. A summary with neither text
+     * nor flags has nothing worth keeping; a store failure is swallowed —
+     * saving must never change what the screen shows.
+     */
+    private fun persistSummary(data: SummaryResultData) {
+        val store = savedStore ?: return
+        if (data.summary.text.isBlank() && data.summary.redFlags.isEmpty()) return
+        exec.launch {
+            try {
+                _savedId.value = store.save(recipientId, data)
+            } catch (e: kotlinx.coroutines.CancellationException) {
+                throw e
+            } catch (e: Exception) {
+                // A failed save never changes the screen.
+            }
         }
     }
 
