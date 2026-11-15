@@ -4,7 +4,7 @@ import { Button } from '../../components/Button';
 import { useI18n } from '../../i18n/I18nProvider';
 import type { MessageKey } from '../../i18n/translations';
 
-type LifecycleAction = 'archive' | 'restore';
+type LifecycleAction = 'archive' | 'restore' | 'resolve-archived' | 'resolve-active';
 export function RecipientLifecycleDialog({ recipient, action, onClose, onConfirm }: {
   recipient: Recipient; action: LifecycleAction; onClose: () => void; onConfirm: (signal: AbortSignal) => Promise<void>;
 }) {
@@ -17,7 +17,11 @@ export function RecipientLifecycleDialog({ recipient, action, onClose, onConfirm
   const [error, setError] = useState<MessageKey | null>(null);
   const keys = action === 'archive'
     ? { title: 'recipientArchiveTitle', description: 'recipientArchiveDescription', confirm: 'recipientConfirmArchive', progress: 'recipientArchiving' } as const
-    : { title: 'recipientRestoreTitle', description: 'recipientRestoreDescription', confirm: 'recipientConfirmRestore', progress: 'recipientRestoring' } as const;
+    : action === 'restore'
+      ? { title: 'recipientRestoreTitle', description: 'recipientRestoreDescription', confirm: 'recipientConfirmRestore', progress: 'recipientRestoring' } as const
+      : action === 'resolve-archived'
+        ? { title: 'recipientResolveReviewTitle', description: 'recipientResolveArchivedEffect', confirm: 'recipientResolveArchived', progress: 'recipientSaving' } as const
+        : { title: 'recipientResolveReviewTitle', description: 'recipientResolveActiveEffect', confirm: 'recipientResolveActive', progress: 'recipientSaving' } as const;
   useEffect(() => {
     const dialog = dialogRef.current!; const trigger = document.activeElement;
     dialog.showModal(); cancelRef.current?.focus();

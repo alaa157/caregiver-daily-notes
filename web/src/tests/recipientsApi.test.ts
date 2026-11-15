@@ -158,6 +158,24 @@ describe('recipient API contract', () => {
     expect((await api.restore(recipient.id)).lifecycleStatus).toBe('ACTIVE');
     expect(fetcher.mock.calls[1][0]).toBe(`/api/recipients/${recipient.id}/restore`);
   });
+  it('resolves legacy review through the resolve-review endpoint for both resolutions', async () => {
+    const archived = { ...recipient, active: false, lifecycleStatus: 'ARCHIVED' as const,
+      archivedAt: '2026-10-15T10:00:00Z', archivedBy: 'b1111111-1111-4111-8111-111111111111' };
+    const restored = { ...recipient, restoredAt: '2026-10-16T10:00:00Z', restoredBy: 'b1111111-1111-4111-8111-111111111111' };
+    const fetcher = vi.fn().mockResolvedValueOnce(jsonResponse(archived)).mockResolvedValueOnce(jsonResponse(restored));
+    const api = createRecipientsApi(createApiClient({ apiBaseUrl: '' }, fetcher));
+
+    expect((await api.resolveReview(recipient.id, 'ARCHIVED')).lifecycleStatus).toBe('ARCHIVED');
+    expect(fetcher.mock.calls[0][0]).toBe(`/api/recipients/${recipient.id}/resolve-review`);
+    expect(fetcher.mock.calls[0][1].method).toBe('PATCH');
+    expect(fetcher.mock.calls[0][1].body).toBe(JSON.stringify({ resolution: 'ARCHIVED' }));
+
+    expect((await api.resolveReview(recipient.id, 'ACTIVE')).lifecycleStatus).toBe('ACTIVE');
+    expect(fetcher.mock.calls[1][0]).toBe(`/api/recipients/${recipient.id}/resolve-review`);
+    expect(fetcher.mock.calls[1][1].method).toBe('PATCH');
+    expect(fetcher.mock.calls[1][1].body).toBe(JSON.stringify({ resolution: 'ACTIVE' }));
+  });
+
   it.each([403, 404, 409])('maps archive and restore HTTP %i failures safely', async (status) => {
     const expected = status === 409 ? 'recipientConflict' : 'recipientUnavailable';
     const { api, fetcher } = apiWithResponse({ message: 'private server details' }, status);

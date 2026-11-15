@@ -170,7 +170,7 @@ function RecipientRecord({ id, edit }: { id: string; edit: boolean }) {
   const { t, language } = useI18n(); const api = useRecipientsApi(); const navigate = useNavigate(); const location = useLocation();
   const load = useCallback((signal: AbortSignal) => api.get(id, signal), [api, id]);
   const { state, reload, replace } = useRecipientResource<Recipient>(load);
-  const [confirming, setConfirming] = useState<'archive' | 'restore' | null>(null);
+  const [confirming, setConfirming] = useState<'archive' | 'restore' | 'resolve-archived' | 'resolve-active' | null>(null);
   const [notice, setNotice] = useState<MessageKey | null>(() => {
     const value = (location.state as { recipientNotice?: unknown } | null)?.recipientNotice;
     return value === 'created' ? 'recipientCreated' : value === 'updated' ? 'recipientUpdated' : null;
@@ -243,16 +243,25 @@ function RecipientRecord({ id, edit }: { id: string; edit: boolean }) {
       {!edit && <div className="recipient-surface medication-surface" id="recipient-medications" tabIndex={-1}>
         <MedicationListPanel recipientId={state.data.id} canEdit={state.data.lifecycleStatus === 'ACTIVE'} />
       </div>}
-      {!edit && (state.data.lifecycleStatus === 'ACTIVE' || state.data.lifecycleStatus === 'ARCHIVED') && <section className="recipient-manage" aria-labelledby="recipient-manage-title">
+      {!edit && <section className="recipient-manage" aria-labelledby="recipient-manage-title">
         <h2 id="recipient-manage-title">{t('recipientManageTitle')}</h2>
         <div className="recipient-actions">
           {state.data.lifecycleStatus === 'ACTIVE' && <Button variant="secondary" onClick={() => { setNotice(null); setConfirming('archive'); }}>{t('recipientArchive')}</Button>}
           {state.data.lifecycleStatus === 'ARCHIVED' && <Button variant="secondary" onClick={() => { setNotice(null); setConfirming('restore'); }}>{t('recipientRestore')}</Button>}
+          {state.data.lifecycleStatus === 'LEGACY_INACTIVE_REVIEW' && <>
+            <Button variant="secondary" onClick={() => { setNotice(null); setConfirming('resolve-archived'); }}>{t('recipientResolveArchived')}</Button>
+            <Button variant="secondary" onClick={() => { setNotice(null); setConfirming('resolve-active'); }}>{t('recipientResolveActive')}</Button>
+          </>}
         </div>
       </section>}
       {confirming && <RecipientLifecycleDialog recipient={state.data} action={confirming} onClose={() => setConfirming(null)} onConfirm={async (signal) => {
-        const updated = confirming === 'archive' ? await api.archive(id, signal) : await api.restore(id, signal);
-        if (!signal.aborted) { replace(updated); setNotice(confirming === 'archive' ? 'recipientArchivedSuccess' : 'recipientRestoredSuccess'); }
+        const updated = confirming === 'archive' ? await api.archive(id, signal)
+          : confirming === 'restore' ? await api.restore(id, signal)
+          : await api.resolveReview(id, confirming === 'resolve-archived' ? 'ARCHIVED' : 'ACTIVE', signal);
+        if (!signal.aborted) {
+          replace(updated);
+          setNotice(updated.lifecycleStatus === 'ARCHIVED' ? 'recipientArchivedSuccess' : 'recipientRestoredSuccess');
+        }
       }} />}
     </>}
   </RecipientLayout>;
