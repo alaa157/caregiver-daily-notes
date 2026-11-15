@@ -53,6 +53,8 @@ class RecipientControllerTest {
 
   @BeforeEach
   void cleanDatabase() {
+    jdbcTemplate.update("delete from medication_intake_events");
+    jdbcTemplate.update("delete from recipient_medications");
     jdbcTemplate.update("delete from note_addenda");
     jdbcTemplate.update("delete from daily_notes");
     jdbcTemplate.update("delete from care_plan_versions");
@@ -440,6 +442,129 @@ class RecipientControllerTest {
             .contentType(MediaType.APPLICATION_JSON)
             .content("{\"recipientId\":\"" + id + "\",\"date\":\"2026-10-18\",\"freeText\":\"After restore\"}"))
         .andExpect(status().isCreated());
+  }
+
+  @Test
+  void resolveReviewToArchivedSetsArchiveProvenanceAndPreservesChildren() throws Exception {
+    TestCaregiver owner = register("resolve-archive@example.com");
+    String id = createLegacyRecipientWithChildren(owner, "Legacy archived");
+
+    mvc.perform(patch(RECIPIENTS + "/" + id + "/resolve-review")
+            .header("Authorization", bearer(owner.token()))
+            .contentType(MediaType.APPLICATION_JSON)
+            .content("{\"resolution\":\"ARCHIVED\"}"))
+        .andExpect(status().isOk())
+        .andExpect(jsonPath("$.active").value(false))
+        .andExpect(jsonPath("$.lifecycleStatus").value("ARCHIVED"))
+        .andExpect(jsonPath("$.archivedAt").isNotEmpty())
+        .andExpect(jsonPath("$.archivedBy").value(owner.id().toString()))
+        .andExpect(jsonPath("$.restoredAt").value(org.hamcrest.Matchers.nullValue()))
+        .andExpect(jsonPath("$.restoredBy").value(org.hamcrest.Matchers.nullValue()));
+
+    assertChildRecordsPreserved(id);
+    assertThat(jdbcTemplate.queryForObject(
+        "SELECT safe_metadata FROM audit_events WHERE event_type = 'RECIPIENT_REVIEW_RESOLVED' AND target_id = ?",
+        String.class, id)).isEqualTo("resolution=ARCHIVED");
+  }
+
+  @Test
+  void resolveReviewToActiveSetsRestoreProvenanceAndPreservesChildren() throws Exception {
+    TestCaregiver owner = register("resolve-active@example.com");
+    String id = createLegacyRecipientWithChildren(owner, "Legacy active");
+
+    mvc.perform(patch(RECIPIENTS + "/" + id + "/resolve-review")
+            .header("Authorization", bearer(owner.token()))
+            .contentType(MediaType.APPLICATION_JSON)
+            .content("{\"resolution\":\"ACTIVE\"}"))
+        .andExpect(status().isOk())
+        .andExpect(jsonPath("$.active").value(true))
+        .andExpect(jsonPath("$.lifecycleStatus").value("ACTIVE"))
+        .andExpect(jsonPath("$.archivedAt").value(org.hamcrest.Matchers.nullValue()))
+        .andExpect(jsonPath("$.archivedBy").value(org.hamcrest.Matchers.nullValue()))
+        .andExpect(jsonPath("$.restoredAt").isNotEmpty())
+        .andExpect(jsonPath("$.restoredBy").value(owner.id().toString()));
+
+    assertChildRecordsPreserved(id);
+    assertThat(jdbcTemplate.queryForObject(
+        "SELECT safe_metadata FROM audit_events WHERE event_type = 'RECIPIENT_REVIEW_RESOLVED' AND target_id = ?",
+        String.class, id)).isEqualTo("resolution=ACTIVE");
+  }
+
+  @Test
+  void resolveReviewRejectsNonLegacyInvalidBodiesAndForeignCaregivers() throws Exception {
+    TestCaregiver owner = register("resolve-validation@example.com");
+    TestCaregiver other = register("resolve-other@example.com");
+    String legacyId = createLegacyRecipientWithChildren(owner, "Legacy validation");
+    String activeId = createRecipient(owner.token(), "{\"name\":\"Already active\"}");
+    String path = RECIPIENTS + "/" + legacyId + "/resolve-review";
+
+    mvc.perform(patch(RECIPIENTS + "/" + activeId + "/resolve-review")
+            .header("Authorization", bearer(owner.token()))
+            .contentType(MediaType.APPLICATION_JSON)
+            .content("{\"resolution\":\"ARCHIVED\"}"))
+        .andExpect(status().isConflict())
+        .andExpect(jsonPath("$.code").value("INACTIVE_RECIPIENT"));
+
+    mvc.perform(patch(path)
+            .header("Authorization", bearer(owner.token()))
+            .contentType(MediaType.APPLICATION_JSON)
+            .content(""))
+        .andExpect(status().isBadRequest());
+    mvc.perform(patch(path)
+            .header("Authorization", bearer(owner.token()))
+            .contentType(MediaType.APPLICATION_JSON)
+            .content("{}"))
+        .andExpect(status().isBadRequest());
+    mvc.perform(patch(path)
+            .header("Authorization", bearer(owner.token()))
+            .contentType(MediaType.APPLICATION_JSON)
+            .content("{\"resolution\":\"NOPE\"}"))
+        .andExpect(status().isBadRequest());
+    mvc.perform(patch(path)
+            .header("Authorization", bearer(other.token()))
+            .contentType(MediaType.APPLICATION_JSON)
+            .content("{\"resolution\":\"ARCHIVED\"}"))
+        .andExpect(status().isNotFound());
+
+    mvc.perform(get(RECIPIENTS + "/" + legacyId).header("Authorization", bearer(owner.token())))
+        .andExpect(status().isOk())
+        .andExpect(jsonPath("$.lifecycleStatus").value("LEGACY_INACTIVE_REVIEW"))
+        .andExpect(jsonPath("$.active").value(false));
+  }
+
+  private String createLegacyRecipientWithChildren(TestCaregiver owner, String name) throws Exception {
+    String id = createRecipient(owner.token(), "{\"name\":\"" + name + "\"}");
+    mvc.perform(post("/api/notes")
+            .header("Authorization", bearer(owner.token()))
+            .contentType(MediaType.APPLICATION_JSON)
+            .content("{\"recipientId\":\"" + id
+                + "\",\"date\":\"2026-10-17\",\"freeText\":\"Preserved note text\"}"))
+        .andExpect(status().isCreated());
+    mvc.perform(post(RECIPIENTS + "/" + id + "/medications")
+            .header("Authorization", bearer(owner.token()))
+            .contentType(MediaType.APPLICATION_JSON)
+            .content("{\"displayName\":\"Preserved medication\",\"doseText\":\"1 tablet\","
+                + "\"scheduleText\":\"Once daily\"}"))
+        .andExpect(status().isCreated());
+    jdbcTemplate.update(
+        "UPDATE care_recipients SET active = FALSE, lifecycle_status = 'LEGACY_INACTIVE_REVIEW' WHERE id = ?",
+        UUID.fromString(id));
+    return id;
+  }
+
+  private void assertChildRecordsPreserved(String recipientId) {
+    UUID id = UUID.fromString(recipientId);
+    assertThat(jdbcTemplate.queryForObject(
+        "SELECT COUNT(*) FROM daily_notes WHERE recipient_id = ?", Integer.class, id)).isEqualTo(1);
+    assertThat(jdbcTemplate.queryForObject(
+        "SELECT free_text FROM daily_notes WHERE recipient_id = ?", String.class, id))
+        .isEqualTo("Preserved note text");
+    assertThat(jdbcTemplate.queryForObject(
+        "SELECT COUNT(*) FROM recipient_medications WHERE recipient_id = ?", Integer.class, id))
+        .isEqualTo(1);
+    assertThat(jdbcTemplate.queryForObject(
+        "SELECT display_name FROM recipient_medications WHERE recipient_id = ?", String.class, id))
+        .isEqualTo("Preserved medication");
   }
 
   private TestCaregiver register(String email) throws Exception {

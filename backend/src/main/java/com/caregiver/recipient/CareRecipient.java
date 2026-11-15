@@ -114,6 +114,30 @@ public class CareRecipient {
     this.restoredBy = actorId;
   }
 
+  /** Resolves a legacy-review recipient as archived without inventing prior archive history. */
+  public void resolveReviewAsArchived(UUID actorId) {
+    requireLegacyReview();
+    this.lifecycleStatus = RecipientLifecycleStatus.ARCHIVED;
+    this.active = false;
+    this.archivedAt = Instant.now();
+    this.archivedBy = actorId;
+  }
+
+  /** Resolves a legacy-review recipient as active while preserving the lack of archive provenance. */
+  public void resolveReviewAsActive(UUID actorId) {
+    requireLegacyReview();
+    this.lifecycleStatus = RecipientLifecycleStatus.ACTIVE;
+    this.active = true;
+    this.restoredAt = Instant.now();
+    this.restoredBy = actorId;
+  }
+
+  private void requireLegacyReview() {
+    if (lifecycleStatus != RecipientLifecycleStatus.LEGACY_INACTIVE_REVIEW) {
+      throw new InactiveRecipientException("This recipient is not awaiting legacy-review resolution.");
+    }
+  }
+
   private void requireActive() {
     if (lifecycleStatus != RecipientLifecycleStatus.ACTIVE || !active) {
       throw new InactiveRecipientException();
