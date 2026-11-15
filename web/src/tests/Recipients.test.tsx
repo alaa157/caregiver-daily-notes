@@ -121,7 +121,8 @@ describe('care recipients screens', () => {
     });
     renderRecipients(root, fetcher);
     expect(screen.getByText('Loading your care recipients…')).toBeInTheDocument();
-    resolve(jsonResponse([recipient]));
+    resolve(jsonResponse([recipient, { ...recipient, id: 'e0000000-0000-4000-8000-000000000099', name: 'Archived Extra',
+      active: false, lifecycleStatus: 'ARCHIVED', archivedAt: '2026-10-15T10:00:00Z', archivedBy: 'b1111111-1111-4111-8111-111111111111' }]));
     expect(await screen.findByRole('link', { name: recipient.name })).toHaveAttribute('href', detail);
     expect(within(screen.getByRole('group', { name: 'Filter recipients by lifecycle status' })).getByRole('button', { name: 'Active' })).toHaveAttribute('aria-pressed', 'true');
     expect(screen.queryByText('secret-owner')).not.toBeInTheDocument();
@@ -188,12 +189,14 @@ describe('care recipients screens', () => {
     const archivedFillers = Array.from({ length: 5 }, (_, index) => ({ ...recipient, id: `b0000000-0000-4000-8000-00000000000${index}`,
       name: `Archived Filler ${index}`, active: false, lifecycleStatus: 'ARCHIVED' as const,
       archivedAt: '2026-10-15T10:00:00Z', archivedBy: 'b1111111-1111-4111-8111-111111111111' }));
-    const fetcher = vi.fn().mockImplementation((path: string) => path === '/api/recipients?status=ARCHIVED'
-      ? Promise.resolve(jsonResponse([archived, ...archivedFillers]))
-      : Promise.resolve(jsonResponse([active])));
+    const fetcher = vi.fn().mockImplementation((path: string) => {
+      const url = new URL(path, 'http://localhost');
+      if (url.pathname === '/api/notes') return Promise.resolve(jsonResponse(historyPage([], 0, 100)));
+      return Promise.resolve(jsonResponse([active, archived, ...archivedFillers]));
+    });
     renderRecipients(root, fetcher);
 
-    await userEvent.click(screen.getByRole('button', { name: 'Archived' }));
+    await userEvent.click(await screen.findByRole('button', { name: 'Archived' }));
     expect(await screen.findByRole('link', { name: archived.name })).toBeInTheDocument();
     expect(screen.queryByRole('link', { name: active.name })).not.toBeInTheDocument();
     const filterGroup = screen.getByRole('group', { name: 'Filter recipients by lifecycle status' });
@@ -206,7 +209,7 @@ describe('care recipients screens', () => {
     expect(within(filterGroup).getByRole('button', { name: 'Archived' })).toHaveAttribute('aria-pressed', 'true');
     expect(screen.getByRole('link', { name: archived.name })).toBeInTheDocument();
     expect(screen.queryByRole('link', { name: active.name })).not.toBeInTheDocument();
-    expect(fetcher).toHaveBeenCalledWith('/api/recipients?status=ARCHIVED', expect.anything());
+    expect(fetcher).toHaveBeenCalledWith('/api/recipients', expect.anything());
   });
 
   it('retries a list error and does not display raw server messages', async () => {
@@ -942,28 +945,70 @@ describe('care recipients screens', () => {
 
     it('resets the query when the list drops to five and clears it when it grows back', async () => {
       let count = 6;
-      const fetcher = vi.fn().mockImplementation((path: string) => {
+      const fetcher = () => vi.fn().mockImplementation((path: string) => {
         const url = new URL(path, 'http://localhost');
         if (url.pathname === '/api/recipients') return Promise.resolve(jsonResponse(searchRecipients(count)));
         if (url.pathname === '/api/notes') return Promise.resolve(jsonResponse(historyPage([], 0, 100)));
         return Promise.resolve(jsonResponse([]));
       });
-      renderRecipients(root, fetcher);
+      const view = renderRecipients(root, fetcher());
       const search = await screen.findByLabelText('Search name or relationship');
       await userEvent.type(search, 'Recipient 1');
       expect(search).toHaveValue('Recipient 1');
+      view.unmount();
 
       count = 5;
-      await userEvent.click(screen.getByRole('button', { name: 'Archived' }));
-      await userEvent.click(screen.getByRole('button', { name: 'Active' }));
+      renderRecipients(root, fetcher());
       await waitFor(() => expect(screen.queryByLabelText('Search name or relationship')).not.toBeInTheDocument());
       expect(screen.getByRole('link', { name: 'Recipient 5' })).toBeInTheDocument();
 
       count = 6;
-      await userEvent.click(screen.getByRole('button', { name: 'Archived' }));
-      await userEvent.click(screen.getByRole('button', { name: 'Active' }));
+      renderRecipients(root, fetcher());
       const restored = await screen.findByLabelText('Search name or relationship');
       expect(restored).toHaveValue('');
+    });
+  });
+
+  describe('lifecycle filters', () => {
+    const archivedExtra = { ...recipient, id: 'a0000000-0000-4000-8000-0000000000aa', name: 'Archived Extra',
+      active: false, lifecycleStatus: 'ARCHIVED' as const,
+      archivedAt: '2026-10-15T10:00:00Z', archivedBy: 'b1111111-1111-4111-8111-111111111111' };
+    const reviewExtra = { ...recipient, id: 'a0000000-0000-4000-8000-0000000000bb', name: 'Review Extra',
+      active: false, lifecycleStatus: 'LEGACY_INACTIVE_REVIEW' as const };
+    const activeExtra = { ...recipient, id: 'a0000000-0000-4000-8000-0000000000cc', name: 'Active Extra' };
+    const filterFetcher = (list: (typeof recipient)[]) => vi.fn().mockImplementation((path: string) => {
+      const url = new URL(path, 'http://localhost');
+      if (url.pathname === '/api/recipients') return Promise.resolve(jsonResponse(list));
+      if (url.pathname === '/api/notes') return Promise.resolve(jsonResponse(historyPage([], 0, 100)));
+      return Promise.resolve(jsonResponse([]));
+    });
+
+    it('shows no filter group when every recipient is active', async () => {
+      renderRecipients(root, filterFetcher([recipient, activeExtra]));
+      expect(await screen.findByRole('link', { name: 'Active Extra' })).toBeInTheDocument();
+      expect(screen.queryByRole('group', { name: 'Filter recipients by lifecycle status' })).not.toBeInTheDocument();
+    });
+
+    it('shows only populated filters with counts on a mixed list', async () => {
+      renderRecipients(root, filterFetcher([recipient, activeExtra, archivedExtra, reviewExtra]));
+      const group = await screen.findByRole('group', { name: 'Filter recipients by lifecycle status' });
+      expect(within(group).getByRole('button', { name: 'Active' })).toHaveTextContent('Active (2)');
+      expect(within(group).getByRole('button', { name: 'Archived' })).toHaveTextContent('Archived (1)');
+      expect(within(group).getByRole('button', { name: 'Needs review' })).toHaveTextContent('Needs review (1)');
+      expect(within(group).getAllByRole('button')).toHaveLength(3);
+      expect(within(group).getByRole('button', { name: 'Active' })).toHaveAttribute('aria-pressed', 'true');
+    });
+
+    it('removes the Archived filter and falls back to Active when the last archived recipient is restored', async () => {
+      const view = renderRecipients(root, filterFetcher([recipient, activeExtra, archivedExtra]));
+      await userEvent.click(await screen.findByRole('button', { name: 'Archived' }));
+      expect(await screen.findByRole('link', { name: 'Archived Extra' })).toBeInTheDocument();
+      view.unmount();
+
+      renderRecipients(root, filterFetcher([recipient, activeExtra]));
+      expect(await screen.findByRole('link', { name: 'Active Extra' })).toBeInTheDocument();
+      expect(screen.queryByRole('link', { name: 'Archived Extra' })).not.toBeInTheDocument();
+      expect(screen.queryByRole('group', { name: 'Filter recipients by lifecycle status' })).not.toBeInTheDocument();
     });
   });
 
