@@ -8,6 +8,7 @@ import com.caregiver.mobile.data.api.BackendApis
 import com.caregiver.mobile.data.api.NoteDto
 import com.caregiver.mobile.data.local.RecipientAdmin
 import com.caregiver.mobile.data.local.RecipientDeletionCounts
+import com.caregiver.mobile.data.recipient.CareDetails
 import java.io.IOException
 import java.time.LocalDate
 import kotlinx.coroutines.CancellationException
@@ -28,6 +29,8 @@ data class RecipientDetail(
     val actions: List<DetailAction> = DetailAction.entries,
     val archived: Boolean = false,
     val todayNoteId: String? = null,
+    val relationship: String? = null,
+    val careDetails: CareDetails = CareDetails(),
 )
 
 sealed interface DetailState {
@@ -203,6 +206,14 @@ class RecipientDetailViewModel(
                     lastNote = notes.maxByOrNull { it.date },
                     archived = recipient.archivedAt != null,
                     todayNoteId = notes.firstOrNull { it.date == todayDate }?.id,
+                    relationship = recipient.relationship,
+                    careDetails = CareDetails(
+                        dateOfBirth = recipient.dateOfBirth,
+                        allergies = recipient.allergies,
+                        conditions = recipient.conditions,
+                        emergencyContactName = recipient.emergencyContactName,
+                        emergencyContactPhone = recipient.emergencyContactPhone,
+                    ),
                 ),
             )
         } catch (e: LoggedOutException) {
