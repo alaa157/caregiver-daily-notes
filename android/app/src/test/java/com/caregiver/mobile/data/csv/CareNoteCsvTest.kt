@@ -151,6 +151,52 @@ class CareNoteCsvTest {
     }
 
     @Test
+    fun encodeWritesEmptyCellsForUnansweredPainAndFall() {
+        val record = CareNoteRecord(
+            date = "2026-10-01",
+            recipientId = "r1",
+            recipientName = "Mona",
+            mood = "good",
+            appetite = "good",
+            sleep = "ok",
+            mobility = "walks",
+            medicationTaken = "taken",
+            pain = null,
+            fall = null,
+            text = "note",
+        )
+
+        val row = (CareNoteCsv.decode(CareNoteCsv.encode(listOf(record))) as CsvDecodeResult.Success)
+            .rows.single()
+
+        assertEquals("", row.values[CareNoteCsv.COL_PAIN])
+        assertEquals("", row.values[CareNoteCsv.COL_FALL])
+    }
+
+    @Test
+    fun encodePreservesRecordedZeroPainAndFalseFall() {
+        val record = CareNoteRecord(
+            date = "2026-10-01",
+            recipientId = "r1",
+            recipientName = "Mona",
+            mood = "good",
+            appetite = "good",
+            sleep = "ok",
+            mobility = "walks",
+            medicationTaken = "taken",
+            pain = 0,
+            fall = false,
+            text = "note",
+        )
+
+        val row = (CareNoteCsv.decode(CareNoteCsv.encode(listOf(record))) as CsvDecodeResult.Success)
+            .rows.single()
+
+        assertEquals("0", row.values[CareNoteCsv.COL_PAIN])
+        assertEquals("false", row.values[CareNoteCsv.COL_FALL])
+    }
+
+    @Test
     fun malformedCsvSurfacesTheParserLine() {
         val result = CareNoteCsv.decode("date,recipient_id\n2026-10-01,\"open")
 

@@ -35,8 +35,8 @@ object CsvExport {
                     sleep = note.sleep,
                     mobility = note.mobility,
                     medicationTaken = note.medicationTaken,
-                    pain = note.pain,
-                    fall = note.fall,
+                    pain = note.pain.takeIf { note.painRecorded },
+                    fall = note.fall.takeIf { note.fallRecorded },
                     text = note.text,
                 )
             }
