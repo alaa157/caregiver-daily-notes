@@ -464,6 +464,10 @@ internal fun DeleteRecipientDialog(
                     ),
                 )
                 Text(
+                    stringResource(R.string.detail_delete_summaries, counts.summaries),
+                    color = CaregiverColors.Muted,
+                )
+                Text(
                     stringResource(R.string.people_delete_backup_caveat),
                     color = CaregiverColors.Muted,
                 )
