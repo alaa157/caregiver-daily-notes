@@ -128,9 +128,11 @@ class LocalBackendApis(
                 sleep = body.sleep,
                 mobility = body.mobility,
                 medicationTaken = body.medicationTaken,
-                pain = body.pain,
-                fall = body.fall,
+                pain = if (body.painRecorded) body.pain else 0,
+                fall = body.fallRecorded && body.fall,
                 text = body.text,
+                painRecorded = body.painRecorded,
+                fallRecorded = body.fallRecorded,
             )
             noteDao.insertAll(listOf(dto.toEntity()))
             dto
@@ -152,6 +154,8 @@ class LocalBackendApis(
                 fall = dto.fall,
                 text = dto.text,
                 addenda = addendumDao.byNoteId(id).map { it.toDto() },
+                painRecorded = note.painRecorded,
+                fallRecorded = note.fallRecorded,
             )
         }
 
