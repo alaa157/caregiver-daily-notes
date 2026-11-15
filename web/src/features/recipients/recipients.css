@@ -127,3 +127,6 @@
 .recipient-note-action { display: inline-flex; align-items: center; min-height: 2.5rem; margin-block-start: 6px; color: #315a3d; font-weight: 600; text-decoration: none; overflow-wrap: anywhere; }
 .recipient-note-action:hover { text-decoration: underline; text-underline-offset: 0.15em; }
 .recipient-note-action:focus-visible { outline: 3px solid #436f4f; outline-offset: 2px; }
+.recipient-today-action { display: flex; align-items: center; justify-content: space-between; flex-wrap: wrap; gap: 12px 16px; margin-block: 18px 6px; padding: 14px 18px; background: #f7f8f2; border: 1px solid #dfe3d5; border-radius: 12px; }
+.recipient-today-action .recipient-note-status { margin-block: 0; }
+.recipient-today-action .button { flex: none; }

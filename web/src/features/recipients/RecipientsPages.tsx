@@ -67,6 +67,30 @@ function RecipientTodayStatus({ recipient, note, status, date }: { recipient: Re
     </Link>}
   </>;
 }
+function RecipientTodayActionSection({ recipient }: { recipient: Recipient }) {
+  const today = localToday();
+  const todayNotes = useTodayNotes(today);
+  const note = todayNotes.state === 'ready' ? todayNotes.byRecipient.get(recipient.id) ?? null : null;
+  const status: TodayNoteStatus | null = todayNotes.state === 'error' ? 'error'
+    : todayNotes.state === 'ready' ? (note ? 'recorded' : 'missing') : null;
+  if (!status) return null;
+  return <RecipientTodayAction recipient={recipient} note={note} status={status} date={today} />;
+}
+function RecipientTodayAction({ recipient, note, status, date }: { recipient: Recipient; note: DailyNote | null; status: TodayNoteStatus; date: string }) {
+  const { t } = useI18n();
+  const location = useLocation();
+  return <div className="recipient-today-action">
+    <div className="recipient-note-status" role="status" aria-live="polite">
+      {status === 'recorded' && <span className="recipient-note-status-label recipient-note-status-label--recorded">{t('overviewNoteRecorded')}</span>}
+      {status === 'missing' && <span className="recipient-note-status-label">{t('overviewNoNote')}</span>}
+      {status === 'error' && <span className="recipient-note-status-label recipient-note-status-label--error">{t('overviewNoteStatusUnavailable')}</span>}
+    </div>
+    {status === 'recorded' && note
+      ? <ButtonLink to={`/app/notes/${note.id}`}>{t('recipientOpenToday')}</ButtonLink>
+      : <ButtonLink to={`/app/notes/new?recipientId=${encodeURIComponent(recipient.id)}&date=${encodeURIComponent(date)}`}
+          state={{ backgroundLocation: location }}>{t('recipientRecordToday')}</ButtonLink>}
+  </div>;
+}
 
 export function RecipientsListPage() {
   const { t } = useI18n(); const api = useRecipientsApi();
@@ -160,6 +184,7 @@ function RecipientRecord({ id, edit }: { id: string; edit: boolean }) {
         <div className="recipient-record-heading"><h2><bdi>{state.data.name}</bdi></h2><RecipientStatus status={state.data.lifecycleStatus} /></div>
         {state.data.lifecycleStatus === 'ARCHIVED' && <p className="recipient-inactive-notice">{t('recipientArchivedDescription')}</p>}
         {state.data.lifecycleStatus === 'LEGACY_INACTIVE_REVIEW' && <p className="recipient-review-notice">{t('recipientLegacyReviewDescription')}</p>}
+        {!edit && state.data.lifecycleStatus === 'ACTIVE' && <RecipientTodayActionSection recipient={state.data} />}
         {edit && state.data.lifecycleStatus === 'ACTIVE' ? <>
           <RecipientForm initial={state.data} cancelTo={`${listPath}/${id}`} onReload={reload} onSave={async (input, _key, signal) => {
             await api.update(id, input, signal);
@@ -189,7 +214,6 @@ function RecipientRecord({ id, edit }: { id: string; edit: boolean }) {
           </section>}
           <div className="recipient-actions">
             <ButtonLink variant="secondary" to={`/app/recipients/${encodeURIComponent(id)}/notes`}>{t('historyTitle')}</ButtonLink>
-            {state.data.lifecycleStatus === 'ACTIVE' && <ButtonLink variant="secondary" to={`/app/notes/new?recipientId=${encodeURIComponent(id)}`}>{t('notesCreate')}</ButtonLink>}
             {state.data.lifecycleStatus === 'ACTIVE' && <ButtonLink to={`${listPath}/${id}/edit`}>{t('recipientEdit')}</ButtonLink>}
             {state.data.lifecycleStatus === 'ACTIVE' && <Button variant="secondary" onClick={() => { setNotice(null); setConfirming('archive'); }}>{t('recipientArchive')}</Button>}
             {state.data.lifecycleStatus === 'ARCHIVED' && <Button variant="secondary" onClick={() => { setNotice(null); setConfirming('restore'); }}>{t('recipientRestore')}</Button>}
