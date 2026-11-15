@@ -224,6 +224,49 @@ class RecipientMigrationTest {
         migrated.close()
     }
 
+    @Test
+    fun migration9To10PreservesRecipientsAndCreatesEmptySavedSummaries() {
+        helper.createDatabase(DB_NAME, 9).apply {
+            execSQL(
+                "INSERT INTO recipients (serverId, localId, name, active, archivedAt, relationship, " +
+                    "dateOfBirth, allergies, conditions, emergencyContactName, emergencyContactPhone) " +
+                    "VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)",
+                arrayOf(
+                    "r1", null, "Test recipient", 1, 456L, "CHILD", "2000-01-02",
+                    "Allergy", "Condition", "Emergency contact", "+1 555 0100",
+                ),
+            )
+            close()
+        }
+
+        val migrated = helper.runMigrationsAndValidate(
+            DB_NAME,
+            10,
+            true,
+            AppDatabase.MIGRATION_9_10,
+        )
+
+        assertEquals(1, migrated.count("recipients"))
+        assertEquals(0, migrated.count("saved_summaries"))
+        migrated.query(
+            "SELECT serverId, name, active, archivedAt, relationship, dateOfBirth, allergies, " +
+                "conditions, emergencyContactName, emergencyContactPhone FROM recipients",
+        ).use { cursor ->
+            assertTrue(cursor.moveToFirst())
+            assertEquals("r1", cursor.getString(0))
+            assertEquals("Test recipient", cursor.getString(1))
+            assertEquals(1, cursor.getInt(2))
+            assertEquals(456L, cursor.getLong(3))
+            assertEquals("CHILD", cursor.getString(4))
+            assertEquals("2000-01-02", cursor.getString(5))
+            assertEquals("Allergy", cursor.getString(6))
+            assertEquals("Condition", cursor.getString(7))
+            assertEquals("Emergency contact", cursor.getString(8))
+            assertEquals("+1 555 0100", cursor.getString(9))
+        }
+        migrated.close()
+    }
+
     private fun SupportSQLiteDatabase.count(table: String): Int =
         query("SELECT COUNT(*) FROM `$table`").use { cursor ->
             assertTrue(cursor.moveToFirst())
