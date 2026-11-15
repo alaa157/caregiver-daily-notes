@@ -170,6 +170,12 @@ function RecipientRecord({ id, edit }: { id: string; edit: boolean }) {
   });
   const noticeRef = useRef<HTMLParagraphElement>(null);
   useEffect(() => { if (notice && state.status === 'ready') noticeRef.current?.focus(); }, [notice, state.status]);
+  const today = localToday();
+  const focusMedications = () => {
+    const section = document.getElementById('recipient-medications');
+    section?.scrollIntoView?.({ block: 'start' });
+    section?.focus({ preventScroll: true });
+  };
   const date = (value: string, timeZone?: Intl.DateTimeFormatOptions['timeZone']) =>
     new Intl.DateTimeFormat(language === 'ar' ? 'ar-EG' : 'en', {
       dateStyle: 'medium', ...(timeZone ? { timeZone } : {}),
@@ -185,6 +191,15 @@ function RecipientRecord({ id, edit }: { id: string; edit: boolean }) {
         {state.data.lifecycleStatus === 'ARCHIVED' && <p className="recipient-inactive-notice">{t('recipientArchivedDescription')}</p>}
         {state.data.lifecycleStatus === 'LEGACY_INACTIVE_REVIEW' && <p className="recipient-review-notice">{t('recipientLegacyReviewDescription')}</p>}
         {!edit && state.data.lifecycleStatus === 'ACTIVE' && <RecipientTodayActionSection recipient={state.data} />}
+        {!edit && notice === 'recipientCreated' && state.data.lifecycleStatus === 'ACTIVE' && <section className="recipient-next-steps" aria-labelledby="recipient-next-steps-title">
+          <h2 id="recipient-next-steps-title">{t('recipientNextStepsTitle')}</h2>
+          <div className="recipient-next-steps-actions">
+            <ButtonLink variant="secondary" to={`${listPath}/${id}/edit`}>{t('recipientNextStepsCareDetails')}</ButtonLink>
+            <ButtonLink variant="secondary" to="#recipient-medications" onClick={(event) => { event.preventDefault(); focusMedications(); }}>{t('recipientNextStepsMedications')}</ButtonLink>
+            <ButtonLink variant="secondary" to={`/app/notes/new?recipientId=${encodeURIComponent(id)}&date=${encodeURIComponent(today)}`}
+              state={{ backgroundLocation: location }}>{t('recipientNextStepsFirstNote')}</ButtonLink>
+          </div>
+        </section>}
         {edit && state.data.lifecycleStatus === 'ACTIVE' ? <>
           <RecipientForm initial={state.data} cancelTo={`${listPath}/${id}`} onReload={reload} onSave={async (input, _key, signal) => {
             await api.update(id, input, signal);
@@ -218,7 +233,7 @@ function RecipientRecord({ id, edit }: { id: string; edit: boolean }) {
           {edit && state.data.lifecycleStatus !== 'ACTIVE' && <ButtonLink variant="secondary" to={`${listPath}/${id}`}>{t('recipientDetails')}</ButtonLink>}
         </>}
       </div>
-      {!edit && <div className="recipient-surface medication-surface">
+      {!edit && <div className="recipient-surface medication-surface" id="recipient-medications" tabIndex={-1}>
         <MedicationListPanel recipientId={state.data.id} canEdit={state.data.lifecycleStatus === 'ACTIVE'} />
       </div>}
       {!edit && (state.data.lifecycleStatus === 'ACTIVE' || state.data.lifecycleStatus === 'ARCHIVED') && <section className="recipient-manage" aria-labelledby="recipient-manage-title">

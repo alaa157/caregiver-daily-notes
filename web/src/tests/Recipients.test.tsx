@@ -35,11 +35,12 @@ afterAll(() => {
   else Reflect.deleteProperty(HTMLDialogElement.prototype, 'close');
 });
 
-function renderRecipients(path: string, fetcher: ReturnType<typeof vi.fn>, language = 'en', authenticated = true) {
+function renderRecipients(path: string, fetcher: ReturnType<typeof vi.fn>, language = 'en', authenticated = true, locationState?: unknown) {
   vi.stubGlobal('fetch', fetcher);
   localStorage.setItem('caregiver-language', language);
   if (authenticated) sessionStorage.setItem('caregiver-auth-session-v1', JSON.stringify({ token: testToken(), baseUrl: '' }));
-  return render(<I18nProvider><ApiProvider config={{ apiBaseUrl: '' }}><AuthProvider><MemoryRouter initialEntries={[path]}><App /></MemoryRouter></AuthProvider></ApiProvider></I18nProvider>);
+  const entry = locationState === undefined ? path : { pathname: path, state: locationState };
+  return render(<I18nProvider><ApiProvider config={{ apiBaseUrl: '' }}><AuthProvider><MemoryRouter initialEntries={[entry]}><App /></MemoryRouter></AuthProvider></ApiProvider></I18nProvider>);
 }
 
 function recipientDetailFetcher(value: typeof recipient) {
@@ -865,6 +866,46 @@ describe('care recipients screens', () => {
       await userEvent.click(within(screen.getByRole('dialog')).getByRole('button', { name: 'Restore recipient' }));
       expect(await screen.findByText('Active')).toBeInTheDocument();
       expect(screen.getByText('Recipient restored to active status.')).toBeInTheDocument();
+    });
+  });
+
+  describe('next steps panel', () => {
+    const panelFetcher = () => vi.fn().mockImplementation((path: string) => {
+      const url = new URL(path, 'http://localhost');
+      if (url.pathname === `/api/recipients/${recipient.id}`) return Promise.resolve(jsonResponse(recipient));
+      if (url.pathname === '/api/recipients') return Promise.resolve(jsonResponse([recipient]));
+      if (url.pathname === '/api/notes') return Promise.resolve(jsonResponse(historyPage([], 0, 100)));
+      return Promise.resolve(jsonResponse([]));
+    });
+
+    it('shows the next steps panel after creating a recipient', async () => {
+      renderRecipients(detail, panelFetcher(), 'en', true, { recipientNotice: 'created' });
+      const panel = await screen.findByRole('region', { name: 'Next steps' });
+      expect(within(panel).getByRole('link', { name: 'Add care details' })).toHaveAttribute('href', `${detail}/edit`);
+      expect(within(panel).getByRole('link', { name: 'Add medications' })).toBeInTheDocument();
+      expect(within(panel).getByRole('link', { name: "Record first note" })).toBeInTheDocument();
+    });
+
+    it('does not show the panel on a normal visit without the notice', async () => {
+      renderRecipients(detail, panelFetcher());
+      expect(await screen.findByRole('link', { name: "Record today's note" })).toBeInTheDocument();
+      expect(screen.queryByRole('region', { name: 'Next steps' })).not.toBeInTheDocument();
+    });
+
+    it('focuses the medications section from the panel', async () => {
+      renderRecipients(detail, panelFetcher(), 'en', true, { recipientNotice: 'created' });
+      const panel = await screen.findByRole('region', { name: 'Next steps' });
+      await userEvent.click(within(panel).getByRole('link', { name: 'Add medications' }));
+      const section = document.getElementById('recipient-medications');
+      expect(section).not.toBeNull();
+      expect(section).toHaveFocus();
+    });
+
+    it('opens the create-note modal from the panel', async () => {
+      renderRecipients(detail, panelFetcher(), 'en', true, { recipientNotice: 'created' });
+      const panel = await screen.findByRole('region', { name: 'Next steps' });
+      await userEvent.click(within(panel).getByRole('link', { name: "Record first note" }));
+      expect(await screen.findByRole('dialog')).toBeInTheDocument();
     });
   });
 
