@@ -51,6 +51,10 @@ data class EditorState(
     val savedId: String? = null,
 )
 
+/** How many of the seven questions have an answer; free text does not count. */
+fun EditorState.answeredCount(): Int =
+    listOf(mood, appetite, sleep, mobility, medication, pain, fall).count { it != null }
+
 /**
  * Note editor (board 5). Every question is optional; unselected groups
  * submit as "" (the backend stores those verbatim). Pain is clamped 0-10.

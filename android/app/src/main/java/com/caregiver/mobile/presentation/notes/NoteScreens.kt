@@ -42,6 +42,9 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.stringResource
+import androidx.compose.ui.semantics.LiveRegionMode
+import androidx.compose.ui.semantics.liveRegion
+import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
@@ -100,6 +103,13 @@ fun NoteEditorScreen(recipientId: String, graph: AppGraph, navController: NavCon
             AppTopBar(
                 title = stringResource(R.string.editor_title),
                 onBack = { navController.popBackStack() },
+            )
+            Text(
+                stringResource(R.string.editor_progress, state.answeredCount()),
+                fontFamily = PlexArabic,
+                fontSize = 13.sp,
+                color = CaregiverColors.Muted,
+                modifier = Modifier.semantics { liveRegion = LiveRegionMode.Polite },
             )
             // Section 1: الحالة العامة — 4 chip groups.
             SectionTitle(stringResource(R.string.editor_section_general))
