@@ -287,6 +287,9 @@ class LocalBackendApis(
                     // Safety rules read the addenda too; a fall first
                     // mentioned after the original note must still flag.
                     text = note.combinedText(),
+                    fallRecorded = note.fallRecorded,
+                    painRecorded = note.painRecorded,
+                    appetiteRecorded = note.appetite.isNotBlank(),
                 )
             }
         }

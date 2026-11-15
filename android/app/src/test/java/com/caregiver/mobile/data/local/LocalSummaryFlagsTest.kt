@@ -108,6 +108,7 @@ class LocalSummaryFlagsTest {
         val signal = apis.summaries().signals("r1", null, null).single()
 
         assertEquals(null, signal.pain)
+        assertFalse(signal.painRecorded)
     }
 
     @Test
@@ -123,7 +124,7 @@ class LocalSummaryFlagsTest {
     }
 
     @Test
-    fun unansweredFallProducesAFallNotReportedSignal() = runTest {
+    fun unansweredFallProducesAnUnrecordedFallSignal() = runTest {
         val today = LocalDate.now()
         db.noteDao().insertAll(
             listOf(note("n1", "r1", today.toString(), fall = false, fallRecorded = false)),
@@ -132,6 +133,19 @@ class LocalSummaryFlagsTest {
         val signal = apis.summaries().signals("r1", null, null).single()
 
         assertEquals(false, signal.fallReported)
+        assertFalse(signal.fallRecorded)
+    }
+
+    @Test
+    fun blankAppetiteProducesAnUnrecordedAppetiteSignal() = runTest {
+        val today = LocalDate.now()
+        db.noteDao().insertAll(
+            listOf(note("n1", "r1", today.toString(), appetite = "")),
+        )
+
+        val signal = apis.summaries().signals("r1", null, null).single()
+
+        assertFalse(signal.appetiteRecorded)
     }
 
     @Test

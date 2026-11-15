@@ -223,6 +223,9 @@ class DemoBackendApis : BackendApis, RecipientAdmin {
                     poorAppetite = note.appetite == "poor" || note.appetite == "refused",
                     // Addenda are part of the note for safety purposes.
                     text = note.copy(addenda = addenda.filter { it.noteId == note.id }).combinedText(),
+                    fallRecorded = note.fallRecorded,
+                    painRecorded = note.painRecorded,
+                    appetiteRecorded = note.appetite.isNotBlank(),
                 )
             }
         }
@@ -248,6 +251,9 @@ class DemoBackendApis : BackendApis, RecipientAdmin {
                         medicationUnverified = note.medicationTaken == "unsure",
                         poorAppetite = note.appetite == "poor" || note.appetite == "refused",
                         text = note.copy(addenda = addenda.filter { it.noteId == note.id }).combinedText(),
+                        fallRecorded = note.fallRecorded,
+                        painRecorded = note.painRecorded,
+                        appetiteRecorded = note.appetite.isNotBlank(),
                     )
                 },
             )
