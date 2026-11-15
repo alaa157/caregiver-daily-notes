@@ -2,6 +2,7 @@ package com.caregiver.recipient;
 
 import com.caregiver.auth.ErrorResponse;
 import com.caregiver.auth.InvalidTokenException;
+import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.http.converter.HttpMessageNotReadableException;
@@ -22,6 +23,24 @@ public class RecipientExceptionHandler {
   public ResponseEntity<ErrorResponse> inactive(InactiveRecipientException exception) {
     return ResponseEntity.status(HttpStatus.CONFLICT)
         .body(new ErrorResponse("INACTIVE_RECIPIENT", "Archived or legacy-review recipients cannot be changed in ordinary workflows."));
+  }
+
+  @ExceptionHandler(IdempotencyConflictException.class)
+  public ResponseEntity<ErrorResponse> idempotencyConflict(IdempotencyConflictException exception) {
+    return ResponseEntity.status(HttpStatus.CONFLICT)
+        .body(new ErrorResponse("IDEMPOTENCY_CONFLICT", exception.getMessage()));
+  }
+
+  @ExceptionHandler(IllegalArgumentException.class)
+  public ResponseEntity<ErrorResponse> badRequest(IllegalArgumentException exception) {
+    return ResponseEntity.badRequest()
+        .body(new ErrorResponse("VALIDATION_ERROR", exception.getMessage()));
+  }
+
+  @ExceptionHandler(DataIntegrityViolationException.class)
+  public ResponseEntity<ErrorResponse> conflict(DataIntegrityViolationException exception) {
+    return ResponseEntity.status(HttpStatus.CONFLICT)
+        .body(new ErrorResponse("RECIPIENT_CONFLICT", "The recipient could not be created."));
   }
 
   @ExceptionHandler(InvalidTokenException.class)
