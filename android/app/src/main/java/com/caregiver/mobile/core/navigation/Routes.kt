@@ -86,8 +86,19 @@ object AppRoutes {
     fun addendum(noteId: String): String = "addendum/$noteId"
 
     fun summary(recipientId: String): String = "summary/$recipientId"
-    fun summaryResult(recipientId: String, periodDays: Int): String =
-        "summary-result/$recipientId/$periodDays"
+    fun summaryResult(
+        recipientId: String,
+        periodDays: Int,
+        end: String? = null,
+        saved: String? = null,
+    ): String {
+        val query = buildList {
+            end?.let { add("end=$it") }
+            saved?.let { add("saved=$it") }
+        }
+        val base = "summary-result/$recipientId/$periodDays"
+        return if (query.isEmpty()) base else "$base?${query.joinToString("&")}"
+    }
 
     fun planProposal(planId: String): String = "plan-proposal/$planId"
     fun planEdit(planId: String): String = "plan-edit/$planId"

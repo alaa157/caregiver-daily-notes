@@ -303,6 +303,10 @@
     <string name="summary_generated_with">Generated with %1$s · %2$s</string>
     <string name="summary_open_source">Open source note</string>
     <string name="summary_saved_note">Saved on this device</string>
+    <string name="summary_saved_from">Saved summary from %1$s</string>
+    <string name="summary_generate_new">Generate a new summary</string>
+    <string name="summary_latest_saved">Latest saved summary</string>
+    <string name="summary_open_saved">Open</string>
     <string name="summary_unclear_invalid_evidence">Some AI findings were not supported by the source notes</string>
     <string name="summary_unclear_unverified">These AI findings are quote-based and still need clinical verification</string>
     <string name="pdf_title">Care Summary</string>
