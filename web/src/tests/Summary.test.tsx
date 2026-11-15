@@ -13,7 +13,7 @@ import { SUMMARY_TIMEOUT_MS, SummaryPage } from '../features/summary/SummaryPage
 import { ProtectedRoute } from '../app/ProtectedRoute';
 import { I18nProvider } from '../i18n/I18nProvider';
 import { summaryMessages } from '../i18n/summaryTranslations';
-import { readSummaryResponse } from '../api/summary';
+import { readSummaryResponse, type SummaryUnavailableReason } from '../api/summary';
 import { ApiProvider } from '../lib/api';
 import { jsonResponse, testToken } from './authFixtures';
 import { recipientFixture } from './recipientFixtures';
@@ -115,6 +115,56 @@ describe('summary unavailable reason response field', () => {
 
     expect(result.summary).toBeNull();
     expect(result.invalidContent).toBe(true);
+  });
+});
+
+describe('summary unavailable reason display', () => {
+  const unavailableReasonCases: Array<[SummaryUnavailableReason, keyof typeof summaryMessages.en]> = [
+    ['INVALID_KEY', 'summaryUnavailableInvalidKey'],
+    ['INVALID_MODEL', 'summaryUnavailableInvalidModel'],
+    ['RATE_LIMIT', 'summaryUnavailableRateLimit'],
+    ['TIMEOUT', 'summaryUnavailableTimeout'],
+    ['PROVIDER_UNAVAILABLE', 'summaryUnavailableProvider'],
+    ['INVALID_OUTPUT', 'summaryUnavailableInvalidOutput'],
+  ];
+
+  it.each(unavailableReasonCases)('appends the %s reason in English and keeps safety visible', async (unavailableReason, key) => {
+    const fixture = summaryFixture();
+    const response = { ...fixture, summary: { ...fixture.summary, aiUnavailable: true, unavailableReason } };
+    show(dataFetcher((path) => path === byokSummaryPath ? jsonResponse(response) : undefined));
+    await choose();
+    await userEvent.click(screen.getByRole('button', { name: 'Generate summary' }));
+
+    const status = await screen.findByRole('status');
+    expect(status?.textContent).toBe(`${summaryMessages.en.summaryFallback} ${summaryMessages.en[key]}`);
+    expect(screen.getByText('HIGH')).toBeVisible();
+  });
+
+  it('shows only the fallback text when no reason is returned', async () => {
+    const fixture = summaryFixture();
+    const response = { ...fixture, summary: { ...fixture.summary, aiUnavailable: true } };
+    show(dataFetcher((path) => path === byokSummaryPath ? jsonResponse(response) : undefined));
+    await choose();
+    await userEvent.click(screen.getByRole('button', { name: 'Generate summary' }));
+
+    const status = await screen.findByRole('status');
+    expect(status?.textContent).toBe(summaryMessages.en.summaryFallback);
+    expect(screen.getByText('HIGH')).toBeVisible();
+  });
+
+  it('appends an Arabic reason in RTL and keeps safety visible', async () => {
+    const fixture = summaryFixture();
+    const response = { ...fixture, summary: { ...fixture.summary, aiUnavailable: true, unavailableReason: 'INVALID_KEY' as const } };
+    show(dataFetcher((path) => path === byokSummaryPath ? jsonResponse(response) : undefined), 'ar');
+    await waitFor(() => expect(screen.getByLabelText('المستفيد من الرعاية', { exact: true })).toBeEnabled());
+    await userEvent.selectOptions(screen.getByLabelText('المستفيد من الرعاية', { exact: true }), recipientFixture.id);
+    fireEvent.change(screen.getByLabelText('تاريخ النهاية (شامل)'), { target: { value: '2026-10-24' } });
+    await userEvent.click(screen.getByRole('button', { name: 'إنشاء ملخص' }));
+
+    const status = await screen.findByRole('status');
+    expect(document.documentElement).toHaveAttribute('dir', 'rtl');
+    expect(status?.textContent).toBe(`${summaryMessages.ar.summaryFallback} ${summaryMessages.ar.summaryUnavailableInvalidKey}`);
+    expect(screen.getByText('HIGH')).toBeVisible();
   });
 });
 
