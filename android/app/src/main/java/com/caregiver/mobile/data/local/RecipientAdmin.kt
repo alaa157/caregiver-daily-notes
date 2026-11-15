@@ -24,3 +24,7 @@ class ActiveRecipientDeleteException(val recipientId: String) :
 /** A write targeted an archived recipient; archived records are read-only. */
 class ArchivedRecipientException(val recipientId: String) :
     IllegalStateException("Recipient $recipientId is archived")
+
+/** A note already exists for this recipient on the current day. */
+class DuplicateNoteDayException(val recipientId: String, val existingNoteId: String) :
+    RuntimeException()

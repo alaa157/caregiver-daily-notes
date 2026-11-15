@@ -6,6 +6,7 @@ import com.caregiver.mobile.data.api.CreateNoteRequest
 import com.caregiver.mobile.data.api.CreateRecipientRequest
 import com.caregiver.mobile.data.api.NoteDto
 import kotlinx.coroutines.test.runTest
+import java.time.LocalDate
 import org.junit.After
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
@@ -46,11 +47,12 @@ class NoteRecordedFlagsTest {
     private suspend fun createNote(
         pain: Int,
         fall: Boolean,
+        forRecipientId: String = recipientId,
         painRecorded: Boolean = true,
         fallRecorded: Boolean = true,
     ): NoteDto = apis.notes().create(
         CreateNoteRequest(
-            recipientId = recipientId,
+            recipientId = forRecipientId,
             mood = "good",
             appetite = "good",
             sleep = "good",
@@ -107,7 +109,23 @@ class NoteRecordedFlagsTest {
     @Test
     fun historyReturnsBothFlagsOnEveryNote() = runTest {
         createNote(pain = 9, fall = true, painRecorded = false, fallRecorded = false)
-        createNote(pain = 3, fall = false, painRecorded = true, fallRecorded = true)
+        db.noteDao().insertAll(
+            listOf(
+                NoteDto(
+                    id = "recorded-note",
+                    recipientId = recipientId,
+                    date = LocalDate.now().minusDays(1).toString(),
+                    mood = "good",
+                    appetite = "good",
+                    sleep = "good",
+                    mobility = "walks",
+                    medicationTaken = "taken",
+                    pain = 3,
+                    fall = false,
+                    text = "previous day",
+                ).toEntity(),
+            ),
+        )
 
         val notes = apis.notes().history(recipientId, null, null)
         assertEquals(2, notes.size)
@@ -118,5 +136,58 @@ class NoteRecordedFlagsTest {
         val answered = notes.single { it.painRecorded }
         assertTrue(answered.fallRecorded)
         assertEquals(3, answered.pain)
+    }
+
+    @Test
+    fun secondNoteForRecipientOnSameDayReturnsExistingNoteId() = runTest {
+        val first = createNote(pain = 1, fall = false)
+
+        val error = try {
+            createNote(pain = 2, fall = true)
+            null
+        } catch (e: DuplicateNoteDayException) {
+            e
+        }
+
+        assertEquals(recipientId, error?.recipientId)
+        assertEquals(first.id, error?.existingNoteId)
+    }
+
+    @Test
+    fun differentRecipientCanHaveNoteOnSameDay() = runTest {
+        val otherRecipientId = apis.recipients().create(CreateRecipientRequest("Mariam")).id
+        val first = createNote(pain = 1, fall = false)
+
+        val second = createNote(pain = 2, fall = true, forRecipientId = otherRecipientId)
+
+        assertEquals(otherRecipientId, second.recipientId)
+        assertEquals(first.date, second.date)
+    }
+
+    @Test
+    fun sameRecipientCanHaveNoteOnDifferentDay() = runTest {
+        val yesterday = LocalDate.now().minusDays(1).toString()
+        db.noteDao().insertAll(
+            listOf(
+                NoteDto(
+                    id = "yesterday-note",
+                    recipientId = recipientId,
+                    date = yesterday,
+                    mood = "good",
+                    appetite = "good",
+                    sleep = "good",
+                    mobility = "walks",
+                    medicationTaken = "taken",
+                    pain = 0,
+                    fall = false,
+                    text = "previous day",
+                ).toEntity(),
+            ),
+        )
+
+        val created = createNote(pain = 2, fall = true)
+
+        assertEquals(LocalDate.now().toString(), created.date)
+        assertEquals(recipientId, created.recipientId)
     }
 }
