@@ -8,6 +8,8 @@ import com.caregiver.mobile.data.api.RecipientDto
  * not own a local database do not implement it, so the UI hides the actions.
  */
 interface RecipientAdmin {
+    suspend fun rename(id: String, name: String): RecipientDto
+
     suspend fun archive(id: String): RecipientDto
 
     suspend fun unarchive(id: String): RecipientDto
