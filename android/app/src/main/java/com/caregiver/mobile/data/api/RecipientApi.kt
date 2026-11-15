@@ -28,10 +28,19 @@ data class RecipientDto(
     val name: String,
     val active: Boolean,
     val archivedAt: Long? = null,
+    val relationship: String? = null,
+    val dateOfBirth: String? = null,
+    val allergies: String? = null,
+    val conditions: String? = null,
+    val emergencyContactName: String? = null,
+    val emergencyContactPhone: String? = null,
 )
 
 @Serializable
-data class CreateRecipientRequest(val name: String)
+data class CreateRecipientRequest(
+    val name: String,
+    val relationship: String? = null,
+)
 
 @Serializable
 data class UpdateRecipientRequest(val active: Boolean)
