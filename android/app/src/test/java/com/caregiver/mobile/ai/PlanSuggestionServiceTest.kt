@@ -149,7 +149,12 @@ class PlanSuggestionServiceTest {
         val client = ScriptedClient(listOf(validPlanJson))
         val service = PlanSuggestionService(client)
         service.suggest("grounded summary text")
-        assertEquals("grounded summary text", client.requests[0].dataBlock)
+        val request = client.requests.single()
+        assertEquals("grounded summary text", request.dataBlock)
+        assertFalse(request.systemPrompt.contains("ZZ-SAVED-SUMMARY"))
+        assertFalse(request.dataBlock.contains("ZZ-SAVED-SUMMARY"))
+        assertFalse(request.systemPrompt.contains("ZZ-PREV-PERIOD"))
+        assertFalse(request.dataBlock.contains("ZZ-PREV-PERIOD"))
     }
 
     @Test
