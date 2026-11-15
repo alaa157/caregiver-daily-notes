@@ -13,9 +13,10 @@ import com.caregiver.mobile.data.local.RecipientDeletionCounts
 import androidx.datastore.preferences.core.PreferenceDataStoreFactory
 import java.io.File
 import java.io.IOException
+import java.util.concurrent.CancellationException
 import kotlinx.coroutines.CompletableDeferred
 import kotlinx.coroutines.ExperimentalCoroutinesApi
-import kotlinx.coroutines.cancel
+import kotlinx.coroutines.Job
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.test.TestScope
 import kotlinx.coroutines.test.UnconfinedTestDispatcher
@@ -87,6 +88,22 @@ class RecipientsViewModelTest {
     }
 
     @Test
+    fun tooLongNameBlockedWithoutCallingApi() = runTest {
+        recipients.listHandler = { emptyList() }
+        val vm = RecipientsViewModel(FakeBackendApis(FakeAuthApi()).also {
+            it.recipientApi = recipients
+        }, repository, this)
+        vm.state.first { it is PeopleState.Content }
+
+        vm.onName("a".repeat(121))
+        vm.add()
+
+        assertEquals(NameError.TooLong, vm.addState.value.nameError)
+        assertFalse(vm.addState.value.busy)
+        assertNull(recipients.lastCreatedName)
+    }
+
+    @Test
     fun validNameCreatesRefreshesAndSignalsAdded() = runTest {
         val people = mutableListOf<RecipientDto>()
         recipients.listHandler = { people.toList() }
@@ -103,6 +120,73 @@ class RecipientsViewModelTest {
         assertEquals("Karim", recipients.lastCreatedName)
         assertEquals("9", vm.addState.value.addedId)
         assertEquals(listOf(RecipientDto("9", "Karim", true)), (vm.state.value as PeopleState.Content).recipients)
+    }
+
+    @Test
+    fun whitespacePaddedNameIsNormalizedBeforeCreate() = runTest {
+        recipients.listHandler = { emptyList() }
+        recipients.createHandler = { RecipientDto("9", it.name, true) }
+        val vm = RecipientsViewModel(FakeBackendApis(FakeAuthApi()).also {
+            it.recipientApi = recipients
+        }, repository, this)
+        vm.state.first { it is PeopleState.Content }
+
+        vm.onName("  Mama\t  Aisha  ")
+        vm.add()
+        vm.addState.first { it.addedId != null }
+
+        assertEquals("Mama Aisha", recipients.lastCreatedName)
+    }
+
+    @Test
+    fun quickRepeatedAddWhileCreateIsSuspendedCallsApiOnlyOnce() = runTest {
+        recipients.listHandler = { emptyList() }
+        val gate = CompletableDeferred<RecipientDto>()
+        var createCalls = 0
+        recipients.createHandler = {
+            createCalls++
+            gate.await()
+        }
+        val vm = RecipientsViewModel(FakeBackendApis(FakeAuthApi()).also {
+            it.recipientApi = recipients
+        }, repository, this)
+        vm.state.first { it is PeopleState.Content }
+
+        vm.onName("Karim")
+        vm.add()
+        vm.add()
+        runCurrent()
+
+        assertTrue(vm.addState.value.busy)
+        assertEquals(1, createCalls)
+
+        gate.complete(RecipientDto("9", "Karim", true))
+        vm.addState.first { it.addedId != null }
+        assertEquals(1, createCalls)
+    }
+
+    @Test
+    fun duplicateRequiresConfirmationBeforeCreate() = runTest {
+        val existing = RecipientDto("r1", "Mama Aisha", true, archivedAt = 123L)
+        recipients.listHandler = { listOf(existing) }
+        recipients.createHandler = { RecipientDto("r2", it.name, true) }
+        val vm = RecipientsViewModel(FakeBackendApis(FakeAuthApi()).also {
+            it.recipientApi = recipients
+        }, repository, this)
+        vm.state.first { it is PeopleState.Content }
+
+        vm.onName("  mama  aisha ")
+        vm.add()
+
+        assertEquals(DuplicateMatch("r1", "Mama Aisha", archived = true), vm.addState.value.duplicate)
+        assertNull(recipients.lastCreatedName)
+        assertFalse(vm.addState.value.busy)
+
+        vm.createAnyway()
+        vm.addState.first { it.addedId != null }
+
+        assertEquals("mama aisha", recipients.lastCreatedName)
+        assertNull(vm.addState.value.duplicate)
     }
 
     @Test
@@ -142,7 +226,7 @@ class RecipientsViewModelTest {
     }
 
     @Test
-    fun failedCreateClearsBusyOnHttpError() = runTest {
+    fun failedCreateKeepsContentAndSetsFailureFlag() = runTest {
         recipients.listHandler = { emptyList() }
         recipients.createHandler = { throw FakeAuthApi.httpError(422, "VALIDATION_ERROR", "bad") }
         val vm = RecipientsViewModel(FakeBackendApis(FakeAuthApi()).also {
@@ -152,29 +236,38 @@ class RecipientsViewModelTest {
 
         vm.onName("Karim")
         vm.add()
-        vm.state.first { it is PeopleState.Error }
+        vm.addState.first { it.failed }
 
         assertFalse(vm.addState.value.busy)
         assertNull(vm.addState.value.addedId)
+        assertTrue(vm.addState.value.failed)
+        assertTrue(vm.state.value is PeopleState.Content)
     }
 
     @Test
-    fun cancelledCreateClearsBusyAndPropagates() = runTest {
+    fun cancellationFromCreateIsRethrownAndClearsBusy() = runTest {
         recipients.listHandler = { emptyList() }
-        val gate = CompletableDeferred<RecipientDto>()
-        recipients.createHandler = { gate.await() }
-        val vmScope = TestScope(UnconfinedTestDispatcher())
+        val gate = CompletableDeferred<Unit>()
+        recipients.createHandler = {
+            gate.await()
+            throw CancellationException("cancelled create")
+        }
         val vm = RecipientsViewModel(FakeBackendApis(FakeAuthApi()).also {
             it.recipientApi = recipients
-        }, repository, vmScope)
+        }, repository, this)
         vm.state.first { it is PeopleState.Content }
 
         vm.onName("Karim")
         vm.add()
-        assertTrue(vm.addState.value.busy)
-        vmScope.cancel()
+        runCurrent()
+        val createJob = coroutineContext[Job]!!.children.single()
+        gate.complete(Unit)
+        runCurrent()
 
+        assertTrue(createJob.isCancelled)
         assertFalse(vm.addState.value.busy)
+        assertFalse(vm.addState.value.failed)
+        assertTrue(vm.state.value is PeopleState.Content)
     }
 
     private fun adminVm(scope: TestScope, admin: FakeRecipientAdmin): RecipientsViewModel {
@@ -333,5 +426,7 @@ class RecipientsViewModelTest {
         assertEquals("9", shared.addState.value.addedId)
         shared.consumeAdded()
         assertNull(shared.addState.value.addedId)
+        assertFalse(shared.addState.value.failed)
+        assertNull(shared.addState.value.duplicate)
     }
 }
