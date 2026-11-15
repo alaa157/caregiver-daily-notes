@@ -1,5 +1,6 @@
 package com.caregiver.mobile.presentation.summary
 
+import androidx.room.Room
 import androidx.test.core.app.ApplicationProvider
 import com.caregiver.mobile.ai.AiKeyStore
 import com.caregiver.mobile.ai.AiProvider
@@ -22,6 +23,8 @@ import com.caregiver.mobile.data.api.NoteDto
 import com.caregiver.mobile.data.api.SummaryDto
 import com.caregiver.mobile.data.api.SummaryRequest
 import com.caregiver.mobile.data.api.SignalDto
+import com.caregiver.mobile.data.local.AppDatabase
+import com.caregiver.mobile.data.summary.SavedSummaryStore
 import androidx.datastore.preferences.core.PreferenceDataStoreFactory
 import java.io.File
 import java.io.IOException
@@ -56,6 +59,7 @@ class SummaryViewModelTest {
     private lateinit var file: File
     private lateinit var summaries: FakeSummaryApi
     private lateinit var repository: AuthRepository
+    private var savedDb: AppDatabase? = null
 
     @Before
     fun setUp() {
@@ -73,6 +77,16 @@ class SummaryViewModelTest {
     @After
     fun tearDown() {
         file.delete()
+        savedDb?.close()
+    }
+
+    private fun savedStore(newId: () -> String = { "saved-1" }): SavedSummaryStore {
+        val db = Room.inMemoryDatabaseBuilder(
+            ApplicationProvider.getApplicationContext(),
+            AppDatabase::class.java,
+        ).allowMainThreadQueries().build()
+        savedDb = db
+        return SavedSummaryStore(db, newId = newId)
     }
 
     private fun apis() = FakeBackendApis(FakeAuthApi()).also { it.summaryApi = summaries }
@@ -538,6 +552,85 @@ class SummaryViewModelTest {
         assertNull(plainState.data.provider)
         assertNull(plainState.data.model)
         assertFalse(plainState.aiGenerated)
+    }
+
+    @Test
+    fun successfulResultIsSavedOnce() = runTest {
+        summaries.summarizeHandler = { summary() }
+        summaries.signalsHandler = { _, _, _ -> emptyList() }
+        val store = savedStore()
+        val vm = SummaryViewModel("r1", apis(), repository, this, savedStore = store)
+
+        content(vm)
+        vm.savedId.first { it != null }
+        advanceUntilIdle()
+
+        assertEquals(1, store.list("r1").size)
+    }
+
+    @Test
+    fun failedGenerationSavesNothing() = runTest {
+        summaries.summarizeHandler = { throw IOException("down") }
+        val store = savedStore()
+        val vm = SummaryViewModel("r1", apis(), repository, this, savedStore = store)
+
+        vm.state.first { it is SummaryState.AiUnavailable }
+        advanceUntilIdle()
+
+        assertTrue(store.list("r1").isEmpty())
+        assertNull(vm.savedId.value)
+    }
+
+    @Test
+    fun throwingStoreDoesNotChangeState() = runTest {
+        // The payload cap makes save() throw; the screen must still show
+        // the generated summary.
+        summaries.summarizeHandler = { summary().copy(text = "x".repeat(300_000)) }
+        summaries.signalsHandler = { _, _, _ -> emptyList() }
+        val store = savedStore()
+        val vm = SummaryViewModel("r1", apis(), repository, this, savedStore = store)
+
+        val state = vm.state.first {
+            it is SummaryState.Content && !it.refreshing
+        } as SummaryState.Content
+        advanceUntilIdle()
+
+        assertEquals("x".repeat(300_000), state.data.summary.text)
+        assertTrue(store.list("r1").isEmpty())
+        assertNull(vm.savedId.value)
+    }
+
+    @Test
+    fun emptySummaryWithoutFlagsIsNotSaved() = runTest {
+        summaries.summarizeHandler = {
+            summary().copy(
+                text = "",
+                redFlags = emptyList(),
+                evidence = emptyList(),
+                uncertainties = emptyList(),
+            )
+        }
+        summaries.signalsHandler = { _, _, _ -> emptyList() }
+        val store = savedStore()
+        val vm = SummaryViewModel("r1", apis(), repository, this, savedStore = store)
+
+        content(vm)
+        advanceUntilIdle()
+
+        assertTrue(store.list("r1").isEmpty())
+        assertNull(vm.savedId.value)
+    }
+
+    @Test
+    fun savedIdIsSetAfterSave() = runTest {
+        summaries.summarizeHandler = { summary() }
+        summaries.signalsHandler = { _, _, _ -> emptyList() }
+        val store = savedStore(newId = { "saved-42" })
+        val vm = SummaryViewModel("r1", apis(), repository, this, savedStore = store)
+
+        content(vm)
+        assertEquals("saved-42", vm.savedId.first { it != null })
+        advanceUntilIdle()
     }
 
     private fun signal(
