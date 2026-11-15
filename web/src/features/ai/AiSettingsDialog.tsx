@@ -4,6 +4,7 @@ import { useI18n } from '../../i18n/I18nProvider';
 import type { MessageKey } from '../../i18n/translations';
 import { useApiClient } from '../../lib/api';
 import { useByok, type ByokProviderId } from './ByokContext';
+import { loadAiPreferences, saveAiPreferences } from './aiPreferences';
 import { MODEL_CATALOG, MODEL_ID_PATTERN } from './modelCatalog';
 import './ai-settings.css';
 
@@ -64,6 +65,20 @@ export function AiSettingsDialog({ open, onClose }: { open: boolean; onClose?: (
 
   useEffect(() => {
     if (!open) return;
+    const preferences = loadAiPreferences();
+    const nextProvider = preferences?.providerId ?? 'GEMINI';
+    const catalogHasModel = preferences
+      ? MODEL_CATALOG[nextProvider].some((option) => option.id === preferences.model)
+      : false;
+    setProviderId(nextProvider);
+    setModelChoice(preferences ? (catalogHasModel ? preferences.model : 'other') : '');
+    setCustomModel(preferences && !catalogHasModel ? preferences.model : '');
+    setApiKey('');
+    setTestState({ kind: 'idle' });
+  }, [open]);
+
+  useEffect(() => {
+    if (!open) return;
     const dialog = dialogRef.current!;
     const previouslyFocused = document.activeElement;
     dialog.showModal();
@@ -86,6 +101,8 @@ export function AiSettingsDialog({ open, onClose }: { open: boolean; onClose?: (
       });
       if (typeof response === 'object' && response !== null && 'success' in response && response.success === true) {
         setCredentials({ providerId, model: selectedModel, apiKey });
+        saveAiPreferences({ providerId, model: selectedModel });
+        setApiKey('');
         setTestState({ kind: 'succeeded' });
       } else {
         const code = typeof response === 'object' && response !== null && 'errorCode' in response
@@ -156,6 +173,8 @@ export function AiSettingsDialog({ open, onClose }: { open: boolean; onClose?: (
           ? <p><strong>{t('byokActiveCredentialsLabel')}:</strong> {t(activeProvider.label)} · <bdi>{credentials.model}</bdi></p>
           : <p>{t('byokNoActiveCredentials')}</p>}
         <p>{t('byokDraftNotice')}</p>
+        <p className="byok-provider-notice">{t('byokKeyMemoryNotice')}</p>
+        <p className="byok-provider-notice">{t('byokDataSentNotice')}</p>
       </section>
       <form onSubmit={submit}>
         <div className="auth-field">
@@ -216,7 +235,7 @@ export function AiSettingsDialog({ open, onClose }: { open: boolean; onClose?: (
         </div>
         <div className="byok-actions">
           <Button type="submit" disabled={pending || !modelReady || !apiKey}>{t(pending ? 'byokTestingConnection' : 'byokTestConnection')}</Button>
-          <Button type="button" variant="secondary" disabled={pending} onClick={removeKey}>{t('byokRemoveKey')}</Button>
+          <Button type="button" variant="secondary" disabled={pending || (!credentials && !apiKey)} onClick={removeKey}>{t('byokRemoveKey')}</Button>
         </div>
       </form>
       {testState.kind === 'succeeded' && <p role="status">{t('byokConnectionSuccess')}</p>}
