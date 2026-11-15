@@ -303,6 +303,8 @@
     <string name="summary_trend_count">%1$d من أصل %2$d مسجّل</string>
     <string name="summary_trend_no_data">لا توجد بيانات مسجّلة</string>
     <string name="summary_trend_delta">التغيّر: %1$s</string>
+    <string name="summary_previous_result">النتيجة السابقة</string>
+    <string name="summary_previous_result_note">هذا آخر ملخص نجح إنشاؤه. قد لا يطابق الفترة التي طلبتها للتو.</string>
     <string name="summary_important">ملاحظات مهمة</string>
     <string name="summary_unclear">معلومات غير واضحة</string>
     <string name="summary_meds_locked">الأدوية محمية: الذكاء الاصطناعي لا يغيّر أي دواء أو جرعة.</string>
@@ -315,6 +317,14 @@
     <string name="summary_generate_new">إنشاء ملخص جديد</string>
     <string name="summary_latest_saved">آخر ملخص محفوظ</string>
     <string name="summary_open_saved">فتح</string>
+    <string name="summary_saved_period">%1$d يومًا · %2$s – %3$s</string>
+    <string name="summary_has_flags">يحتوي على تنبيهات رعاية</string>
+    <string name="summary_delete">حذف</string>
+    <string name="summary_delete_title">حذف هذا الملخص المحفوظ؟</string>
+    <string name="summary_delete_body">يؤدي هذا إلى إزالته من هذا الجهاز ومن النسخ الاحتياطية القادمة. ولا تتأثر ملاحظاتك.</string>
+    <string name="summary_saved_empty">لا توجد ملخصات محفوظة بعد.</string>
+    <string name="summary_saved_all">كل الملخصات المحفوظة</string>
+    <string name="detail_saved_summaries">الملخصات المحفوظة</string>
     <string name="summary_unclear_invalid_evidence">بعض نتائج الذكاء الاصطناعي غير مدعومة بملاحظات المصدر</string>
     <string name="summary_unclear_unverified">نتائج الذكاء الاصطناعي مبنية على الاقتباس ولا تزال بحاجة إلى تحقق طبي</string>
     <string name="pdf_title">ملخص الرعاية</string>

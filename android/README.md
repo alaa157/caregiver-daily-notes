@@ -28,8 +28,9 @@ your own API key.
 2. Install it (allow installing from unknown sources).
 3. Open Settings > AI, pick a provider (OpenAI, Anthropic, Gemini, xAI, or
    OpenRouter), paste your API key and model id, then tap **Check setup**.
-4. On first use you will see a consent dialog: care notes are sent to the
-   chosen provider; the app is not a medical device and is not HIPAA-compliant.
+4. On first use you will see a consent dialog: note text used for a summary
+   can be sent to the chosen provider. Relationship and care-detail fields are
+   not included; the app is not a medical device and is not HIPAA-compliant.
 
 ### Getting an API key
 
@@ -166,8 +167,9 @@ too). Start/end layouts only — no left/right paddings.
 1. Login footer → server URL → save → back (once Settings UI lands; today the
    stored URL is used silently).
 2. Register → Home greeting (`صباح الخير، <name>` / `Good morning, <name>`).
-3. People → Add person (Arabic + English names) → detail → Add note / history /
-   care plan / summary all navigate.
+3. People → Add person (Arabic + English names) → person detail shows today’s
+   note status, relationship and care details; Add note / history / care plan /
+   summary all navigate.
 4. Editor:
    - Every question is optional, and nothing is preselected.
    - Tapping a selected chip clears it.
@@ -198,3 +200,40 @@ too). Start/end layouts only — no left/right paddings.
 | Sleep | `restful`, `restless`, `poor`, `sleepless` | `good`, `broken` |
 | Mobility | `independent`, `assisted`, `bedridden` | `walks`, `bed` |
 | Medication | `taken`, `missed`, `unsure` | `none` |
+
+## People and recipient data
+
+- Names are trimmed, inner whitespace is collapsed, and names are limited to
+  120 characters. Avatars show the first Unicode code point of the normalized
+  name.
+- When a name matches an existing person, the form shows duplicate advice with
+  **Open existing**, **Create anyway**, and **Cancel** actions.
+- Names and relationships can be edited. Archived people are read-only.
+- Relationship choices use these stored codes and localized labels:
+
+| Code | English | Arabic |
+| --- | --- | --- |
+| `MOTHER` | Mother | الأم |
+| `FATHER` | Father | الأب |
+| `SPOUSE` | Spouse | الزوج/الزوجة |
+| `GRANDMOTHER` | Grandmother | الجدة |
+| `GRANDFATHER` | Grandfather | الجد |
+| `CHILD` | Child | الابن/البنت |
+| `SIBLING` | Sibling | الأخ/الأخت |
+| `RELATIVE` | Relative | قريب |
+| `FRIEND` | Friend | صديق |
+| `CLIENT` | Client | عميل |
+| `OTHER` | Other | أخرى |
+
+- Text entered for **Other** is stored as free text (with surrounding
+  whitespace trimmed), not mapped to another code; relationship values are
+  limited to 80 characters.
+- Optional care details are stored on the device and included in backups; they
+  are never sent to an AI provider:
+  - Date of birth: `YYYY-MM-DD`, from 1900-01-01 through today.
+  - Allergies and conditions: up to 500 characters each.
+  - Emergency contact name: up to 120 characters.
+  - Emergency contact phone: up to 30 characters.
+- The person screen shows whether a note was recorded today. Recipient fields
+  were added in Room v9 and backup format v5; the current versions are Room
+  v10 and backup format v6.
