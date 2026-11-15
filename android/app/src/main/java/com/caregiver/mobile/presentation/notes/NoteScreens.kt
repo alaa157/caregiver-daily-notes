@@ -42,8 +42,15 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.stringResource
+import androidx.compose.foundation.selection.selectableGroup
 import androidx.compose.ui.semantics.LiveRegionMode
+import androidx.compose.ui.semantics.Role
+import androidx.compose.ui.semantics.clearAndSetSemantics
+import androidx.compose.ui.semantics.contentDescription
+import androidx.compose.ui.semantics.heading
 import androidx.compose.ui.semantics.liveRegion
+import androidx.compose.ui.semantics.role
+import androidx.compose.ui.semantics.selected
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.text.font.FontWeight
@@ -162,6 +169,8 @@ fun NoteEditorScreen(recipientId: String, graph: AppGraph, navController: NavCon
             ChipWrap {
                 (0..10).forEach { level ->
                     val selected = state.pain == level
+                    val painLevelDescription =
+                        stringResource(R.string.editor_pain_level_description, level)
                     OutlinedButton(
                         onClick = { vm.setPain(level) },
                         shape = RoundedCornerShape(8.dp),
@@ -173,10 +182,18 @@ fun NoteEditorScreen(recipientId: String, graph: AppGraph, navController: NavCon
                             containerColor = if (selected) CaregiverColors.PrimarySoft else CaregiverColors.Surface,
                             contentColor = if (selected) CaregiverColors.Primary else CaregiverColors.Ink,
                         ),
-                        modifier = Modifier.size(48.dp),
+                        modifier = Modifier.size(48.dp).semantics {
+                            role = Role.RadioButton
+                            this.selected = selected
+                            contentDescription = painLevelDescription
+                        },
                         contentPadding = androidx.compose.foundation.layout.PaddingValues(0.dp),
                     ) {
-                        Text("$level", fontFamily = PlexArabic, fontWeight = FontWeight.Bold)
+                        Text(
+                            if (selected) "✓ $level" else "$level",
+                            fontFamily = PlexArabic,
+                            fontWeight = FontWeight.Bold,
+                        )
                     }
                 }
             }
@@ -244,7 +261,7 @@ private fun ChipWrap(content: @Composable () -> Unit) {
     androidx.compose.foundation.layout.FlowRow(
         horizontalArrangement = Arrangement.spacedBy(6.dp),
         verticalArrangement = Arrangement.spacedBy(6.dp),
-        modifier = Modifier.fillMaxWidth(),
+        modifier = Modifier.fillMaxWidth().selectableGroup(),
     ) {
         content()
     }
@@ -255,13 +272,19 @@ private fun HtmlChip(label: String, selected: Boolean, onClick: () -> Unit) {
     FilterChip(
         selected = selected,
         onClick = onClick,
+        modifier = Modifier.semantics { role = Role.RadioButton },
         label = {
             Row(
                 horizontalArrangement = Arrangement.spacedBy(4.dp),
                 verticalAlignment = Alignment.CenterVertically,
             ) {
                 if (selected) {
-                    Text("✓", fontFamily = PlexArabic, fontWeight = FontWeight.Bold)
+                    Text(
+                        "✓",
+                        fontFamily = PlexArabic,
+                        fontWeight = FontWeight.Bold,
+                        modifier = Modifier.clearAndSetSemantics { },
+                    )
                 }
                 Text(label, fontFamily = PlexArabic, fontWeight = FontWeight.Bold, fontSize = 14.sp)
             }
@@ -303,6 +326,7 @@ private fun GroupLabelText(text: String) {
         fontWeight = FontWeight.Bold,
         fontSize = 14.sp,
         color = CaregiverColors.Ink,
+        modifier = Modifier.semantics { heading() },
     )
 }
 
