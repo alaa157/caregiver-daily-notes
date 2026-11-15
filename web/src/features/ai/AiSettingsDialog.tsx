@@ -4,6 +4,7 @@ import { useI18n } from '../../i18n/I18nProvider';
 import type { MessageKey } from '../../i18n/translations';
 import { useApiClient } from '../../lib/api';
 import { useByok, type ByokProviderId } from './ByokContext';
+import { MODEL_CATALOG, MODEL_ID_PATTERN } from './modelCatalog';
 import './ai-settings.css';
 
 const providers: { id: ByokProviderId; label: MessageKey }[] = [
@@ -12,6 +13,13 @@ const providers: { id: ByokProviderId; label: MessageKey }[] = [
   { id: 'XAI', label: 'byokProviderXai' },
   { id: 'OPEN_ROUTER', label: 'byokProviderOpenRouter' },
 ];
+
+const providerNotices: Record<ByokProviderId, MessageKey> = {
+  GEMINI: 'byokNoticeGemini',
+  OPENAI: 'byokNoticeOpenAi',
+  XAI: 'byokNoticeXai',
+  OPEN_ROUTER: 'byokNoticeOpenRouter',
+};
 
 const errorMessages: Record<string, MessageKey> = {
   invalid_key: 'byokErrorInvalidKey',
@@ -42,10 +50,17 @@ export function AiSettingsDialog({ open, onClose }: { open: boolean; onClose?: (
   const dialogRef = useRef<HTMLDialogElement>(null);
   const providerRef = useRef<HTMLSelectElement>(null);
   const [providerId, setProviderId] = useState<ByokProviderId>('GEMINI');
-  const [model, setModel] = useState('');
+  const [modelChoice, setModelChoice] = useState('');
+  const [customModel, setCustomModel] = useState('');
   const [apiKey, setApiKey] = useState('');
   const [testState, setTestState] = useState<ConnectionTestState>({ kind: 'idle' });
   const pending = testState.kind === 'testing';
+  const modelOptions = MODEL_CATALOG[providerId];
+  const otherModelSelected = modelChoice === 'other';
+  const customModelValid = MODEL_ID_PATTERN.test(customModel);
+  const customModelInvalid = otherModelSelected && customModel.length > 0 && !customModelValid;
+  const selectedModel = otherModelSelected ? customModel : modelChoice;
+  const modelReady = selectedModel.length > 0 && (!otherModelSelected || customModelValid);
 
   useEffect(() => {
     if (!open) return;
@@ -61,16 +76,16 @@ export function AiSettingsDialog({ open, onClose }: { open: boolean; onClose?: (
 
   const submit = async (event: FormEvent<HTMLFormElement>) => {
     event.preventDefault();
-    if (pending) return;
+    if (pending || !modelReady) return;
     setTestState({ kind: 'testing' });
     try {
       const response: unknown = await api.request({
         path: '/api/ai/byok/connection-test',
         method: 'POST',
-        body: { credentials: { providerId, model, apiKey } },
+        body: { credentials: { providerId, model: selectedModel, apiKey } },
       });
       if (typeof response === 'object' && response !== null && 'success' in response && response.success === true) {
-        setCredentials({ providerId, model, apiKey });
+        setCredentials({ providerId, model: selectedModel, apiKey });
         setTestState({ kind: 'succeeded' });
       } else {
         const code = typeof response === 'object' && response !== null && 'errorCode' in response
@@ -146,14 +161,53 @@ export function AiSettingsDialog({ open, onClose }: { open: boolean; onClose?: (
         <div className="auth-field">
           <label htmlFor="byok-provider">{t('byokProviderLabel')}</label>
           <select ref={providerRef} id="byok-provider" value={providerId} disabled={pending}
-            onChange={(event) => { setProviderId(event.target.value as ByokProviderId); clearTestStatus(); }}>
+            onChange={(event) => {
+              setProviderId(event.target.value as ByokProviderId);
+              setModelChoice('');
+              setCustomModel('');
+              clearTestStatus();
+            }}>
             {providers.map((provider) => <option key={provider.id} value={provider.id}>{t(provider.label)}</option>)}
           </select>
         </div>
         <div className="auth-field">
-          <label htmlFor="byok-model">{t('byokModelLabel')}</label>
-          <input id="byok-model" type="text" autoComplete="off" required value={model} readOnly={pending}
-            onChange={(event) => { setModel(event.target.value); clearTestStatus(); }} />
+          <span className="byok-field-label" id="byok-model-label">{t('byokModelLabel')}</span>
+          <div className="byok-model-picker" role="radiogroup" aria-labelledby="byok-model-label">
+            {modelOptions.map((option) => (
+              <label key={option.id} className="byok-model-option">
+                <input type="radio" name="byok-model-choice" value={option.id}
+                  checked={modelChoice === option.id} disabled={pending}
+                  onChange={() => { setModelChoice(option.id); clearTestStatus(); }} />
+                <span className="byok-model-option-body">
+                  <span className="byok-model-option-title">
+                    <bdi>{option.label}</bdi>
+                    <span className="byok-badge">{t(option.badge)}</span>
+                  </span>
+                  {option.note && <span className="byok-model-option-note">{t(option.note)}</span>}
+                </span>
+              </label>
+            ))}
+            <label className="byok-model-option">
+              <input type="radio" name="byok-model-choice" value="other"
+                checked={otherModelSelected} disabled={pending}
+                onChange={() => { setModelChoice('other'); clearTestStatus(); }} />
+              <span className="byok-model-option-body">
+                <span className="byok-model-option-title">{t('byokModelOther')}</span>
+              </span>
+            </label>
+          </div>
+          {otherModelSelected && (
+            <div className="auth-field byok-other-model">
+              <label htmlFor="byok-model">{t('byokModelOtherLabel')}</label>
+              <input id="byok-model" type="text" autoComplete="off" required maxLength={128}
+                value={customModel} readOnly={pending}
+                aria-invalid={customModelInvalid || undefined}
+                aria-describedby={customModelInvalid ? 'byok-model-error' : undefined}
+                onChange={(event) => { setCustomModel(event.target.value); clearTestStatus(); }} />
+              {customModelInvalid && <p id="byok-model-error" className="byok-model-error">{t('byokModelIdInvalid')}</p>}
+            </div>
+          )}
+          <p className="byok-provider-notice">{t(providerNotices[providerId])}</p>
         </div>
         <div className="auth-field">
           <label htmlFor="byok-key">{t('byokKeyLabel')}</label>
@@ -161,7 +215,7 @@ export function AiSettingsDialog({ open, onClose }: { open: boolean; onClose?: (
             onChange={(event) => { setApiKey(event.target.value); clearTestStatus(); }} />
         </div>
         <div className="byok-actions">
-          <Button type="submit" disabled={pending || !model.trim() || !apiKey}>{t(pending ? 'byokTestingConnection' : 'byokTestConnection')}</Button>
+          <Button type="submit" disabled={pending || !modelReady || !apiKey}>{t(pending ? 'byokTestingConnection' : 'byokTestConnection')}</Button>
           <Button type="button" variant="secondary" disabled={pending} onClick={removeKey}>{t('byokRemoveKey')}</Button>
         </div>
       </form>

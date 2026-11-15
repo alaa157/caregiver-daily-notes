@@ -69,3 +69,83 @@
 .byok-dialog > [role='status'] p {
   margin: 0 0 8px;
 }
+
+.byok-dialog .byok-field-label {
+  display: block;
+  margin-bottom: 8px;
+  font-size: 14px;
+  font-weight: 650;
+}
+
+.byok-dialog .byok-model-picker {
+  display: grid;
+  gap: 10px;
+}
+
+.byok-dialog .byok-model-option {
+  display: flex;
+  align-items: flex-start;
+  gap: 12px;
+  min-height: 44px;
+  padding: 10px 12px;
+  border: 1px solid var(--caregiver-border);
+  border-radius: 12px;
+  cursor: pointer;
+}
+
+.byok-dialog .byok-model-option:has(input:checked) {
+  border-color: var(--caregiver-ink);
+  background: var(--caregiver-primary-soft, var(--caregiver-surface));
+}
+
+.byok-dialog .byok-model-option input[type='radio'] {
+  width: 20px;
+  height: 20px;
+  margin: 2px 0 0;
+  flex: 0 0 auto;
+}
+
+.byok-dialog .byok-model-option-body {
+  display: grid;
+  gap: 4px;
+  min-width: 0;
+}
+
+.byok-dialog .byok-model-option-title {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px;
+  font-weight: 650;
+}
+
+.byok-dialog .byok-badge {
+  display: inline-flex;
+  align-items: center;
+  min-height: 24px;
+  padding: 2px 8px;
+  border: 1px solid var(--caregiver-border);
+  border-radius: 999px;
+  font-size: 12px;
+  font-weight: 600;
+  line-height: 1.4;
+}
+
+.byok-dialog .byok-model-option-note,
+.byok-dialog .byok-provider-notice {
+  margin: 0;
+  color: var(--caregiver-muted);
+  font-size: 13px;
+  line-height: 1.6;
+}
+
+.byok-dialog .byok-other-model {
+  margin-top: 12px;
+}
+
+.byok-dialog .byok-model-error {
+  margin: 8px 0 0;
+  color: var(--color-error, #9a3412);
+  font-size: 13px;
+  line-height: 1.5;
+}
