@@ -126,8 +126,32 @@ too). Start/end layouts only — no left/right paddings.
 2. Register → Home greeting (`صباح الخير، <name>` / `Good morning, <name>`).
 3. People → Add person (Arabic + English names) → detail → Add note / history /
    care plan / summary all navigate.
-4. Editor → mood required, pain 0–10, free text (Arabic roundtrips byte-identical),
-   save → Saved → View note / Create summary.
+4. Editor:
+   - Every question is optional, and nothing is preselected.
+   - Tapping a selected chip clears it.
+   - Saving requires at least one answer or some text.
+   - **Add details** opens the text box.
+   - A second note on the same day offers **View today’s note** and **Add correction**.
 5. History → person/date filters narrow; rotation keeps the banner.
 6. Summary → 7/14/30 → result shows body + evidence (`#<8-char uuid>`) +
    uncertainties + disclaimer; airplane mode → offline error, draft kept, retry works.
+
+## Note fields
+
+- Pain and fall answers are tracked separately with the `painRecorded` and
+  `fallRecorded` flags, so an unanswered question is not confused with pain 0
+  or “no fall.”
+- CSV exports leave the cell empty for unanswered fields, including pain and
+  fall when their recorded flag is false.
+- Backup format v4 introduced these flags. Notes and backups created before
+  the flags existed are treated as recorded; current backups use format v6.
+- The editor’s current chip codes and codes retained for notes written with
+  the legacy vocabulary are:
+
+| Field | Current codes | Legacy codes |
+| --- | --- | --- |
+| Mood | `calm`, `happy`, `anxious`, `agitated`, `sad`, `confused` | `good`, `fair`, `bad` |
+| Appetite | `good`, `fair`, `poor`, `refused` | `reduced` |
+| Sleep | `restful`, `restless`, `poor`, `sleepless` | `good`, `broken` |
+| Mobility | `independent`, `assisted`, `bedridden` | `walks`, `bed` |
+| Medication | `taken`, `missed`, `unsure` | `none` |
