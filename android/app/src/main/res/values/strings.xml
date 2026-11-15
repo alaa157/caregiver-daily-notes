@@ -664,4 +664,34 @@
     <string name="csv_issue_unmatched">recipient was not found in this app</string>
     <string name="csv_issue_duplicate">a note already exists for this person and day</string>
     <string name="csv_issue_unknown">could not be read</string>
+
+    <!-- Note option labels (OptionLabels.labelRes); codes are the wire values. -->
+    <string name="note_option_mood_calm">Calm</string>
+    <string name="note_option_mood_happy">Happy</string>
+    <string name="note_option_mood_anxious">Anxious</string>
+    <string name="note_option_mood_agitated">Agitated</string>
+    <string name="note_option_mood_sad">Sad</string>
+    <string name="note_option_mood_confused">Confused</string>
+    <string name="note_option_mood_good">Good</string>
+    <string name="note_option_mood_fair">Fair</string>
+    <string name="note_option_mood_bad">Bad</string>
+    <string name="note_option_appetite_good">Good</string>
+    <string name="note_option_appetite_fair">Fair</string>
+    <string name="note_option_appetite_poor">Poor</string>
+    <string name="note_option_appetite_refused">Refused food</string>
+    <string name="note_option_appetite_reduced">Reduced</string>
+    <string name="note_option_sleep_restful">Slept well</string>
+    <string name="note_option_sleep_restless">Restless</string>
+    <string name="note_option_sleep_poor">Poor</string>
+    <string name="note_option_sleep_sleepless">Didn’t sleep</string>
+    <string name="note_option_sleep_good">Good</string>
+    <string name="note_option_sleep_broken">Broken</string>
+    <string name="note_option_mobility_independent">Independent</string>
+    <string name="note_option_mobility_assisted">Needs assistance</string>
+    <string name="note_option_mobility_bedridden">Bedridden</string>
+    <string name="note_option_mobility_walks">Walks</string>
+    <string name="note_option_mobility_bed">In bed</string>
+    <string name="note_option_medication_taken">Taken</string>
+    <string name="note_option_medication_missed">Missed</string>
+    <string name="note_option_medication_unsure">Unsure</string>
 </resources>
