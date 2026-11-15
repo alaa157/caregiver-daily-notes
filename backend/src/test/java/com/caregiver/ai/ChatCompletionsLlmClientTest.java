@@ -97,6 +97,8 @@ class ChatCompletionsLlmClientTest {
     assertThat(exchange.calls.get(0).body()).contains("\"model\"");
     assertThat(exchange.calls.get(0).body()).contains("\"messages\"");
     assertThat(exchange.calls.get(0).body()).contains("\"max_tokens\":10000");
+    assertThat(exchange.calls.get(0).body()).contains("\"temperature\":0.2")
+        .doesNotContain("max_completion_tokens");
   }
 
   @Test
@@ -294,6 +296,47 @@ class ChatCompletionsLlmClientTest {
         .doesNotContainValue("Bearer configured-synthetic-key");
     assertThat(call.body()).contains("\"model\":\"byok-model\"")
         .doesNotContain("test-model");
+  }
+
+  @Test
+  void openAiRequest_usesCompletionTokensAndOmitsUnsupportedParameters() {
+    var exchange = new FakeExchange();
+    exchange.addBody(VALID_BODY);
+    var credentials = new ProviderCredentials(
+        "OPENAI", "https://api.openai.com/v1", "byok-model", "byok-key");
+
+    client("", 500L, exchange, ms -> { })
+        .complete(new LlmRequest("system", "notes", credentials));
+
+    assertThat(exchange.calls).singleElement().satisfies(call ->
+        assertThat(call.body())
+            .contains("\"max_completion_tokens\":10000")
+            .doesNotContain("\"max_tokens\"", "\"temperature\"", "\"reasoning\""));
+  }
+
+  @Test
+  void nonOpenAiRequestBodies_remainByteForByteUnchanged() {
+    Map<String, String> providers = Map.of(
+        "GEMINI", "https://generativelanguage.googleapis.com",
+        "XAI", "https://api.x.ai/v1",
+        "OPEN_ROUTER", "https://openrouter.ai/api/v1");
+    String expectedBody = "{\"model\":\"byok-model\",\"messages\":[{\"role\":\"system\","
+        + "\"content\":\"system\"},{\"role\":\"user\",\"content\":\"<<<NOTES_DATA>>>\\nnotes\\n"
+        + "<<<END_NOTES_DATA>>>\"}],\"max_tokens\":10000,\"temperature\":0.2,"
+        + "\"reasoning\":{\"max_tokens\":500}}";
+
+    providers.forEach((provider, baseUrl) -> {
+      var exchange = new FakeExchange();
+      exchange.addBody(VALID_BODY);
+      var credentials = new ProviderCredentials(provider, baseUrl, "byok-model", "byok-key");
+
+      client("", 500L, exchange, ms -> { })
+          .complete(new LlmRequest("system", "notes", credentials));
+
+      assertThat(exchange.calls).singleElement()
+          .extracting(FakeExchange.Call::body)
+          .isEqualTo(expectedBody);
+    });
   }
 
   @Test

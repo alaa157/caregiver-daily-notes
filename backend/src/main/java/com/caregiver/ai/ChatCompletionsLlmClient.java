@@ -103,6 +103,7 @@ public class ChatCompletionsLlmClient implements LlmClient {
       throw new IllegalArgumentException("request");
     }
     ProviderCredentials credentials = request.credentials();
+    boolean openAiRequest = credentials != null && "OPENAI".equals(credentials.providerId());
     String effectiveBaseUrl = baseUrl;
     String effectiveModel = model;
     String effectiveApiKey = apiKey;
@@ -125,9 +126,13 @@ public class ChatCompletionsLlmClient implements LlmClient {
     String body;
     String repairBody;
     try {
-      body = requestBody(effectiveModel, request.systemPrompt(), delimitedData(request.dataBlock()));
+      body = requestBody(
+          effectiveModel, request.systemPrompt(), delimitedData(request.dataBlock()), openAiRequest);
       repairBody = requestBody(
-          effectiveModel, request.systemPrompt(), delimitedData(request.dataBlock()) + REPAIR_SUFFIX);
+          effectiveModel,
+          request.systemPrompt(),
+          delimitedData(request.dataBlock()) + REPAIR_SUFFIX,
+          openAiRequest);
     } catch (IOException e) {
       if (Thread.currentThread().isInterrupted()) throw interruptedCancellation();
       return fallback("request build failed", FailureReason.PROVIDER_UNAVAILABLE);
@@ -270,17 +275,22 @@ public class ChatCompletionsLlmClient implements LlmClient {
     return DATA_BEGIN + "\n" + escapeDataMarkers(dataBlock) + "\n" + DATA_END;
   }
 
-  private String requestBody(String model, String systemPrompt, String userContent) throws IOException {
+  private String requestBody(String model, String systemPrompt, String userContent, boolean openAiRequest)
+      throws IOException {
     Map<String, Object> root = new LinkedHashMap<>();
     root.put("model", model);
     List<Map<String, String>> messages = new ArrayList<>();
     messages.add(Map.of("role", "system", "content", systemPrompt));
     messages.add(Map.of("role", "user", "content", userContent));
     root.put("messages", messages);
-    root.put("max_tokens", maxTokens);
-    root.put("temperature", TEMPERATURE);
-    if (reasoningMaxTokens != null) {
-      root.put("reasoning", Map.of("max_tokens", reasoningMaxTokens));
+    if (openAiRequest) {
+      root.put("max_completion_tokens", maxTokens);
+    } else {
+      root.put("max_tokens", maxTokens);
+      root.put("temperature", TEMPERATURE);
+      if (reasoningMaxTokens != null) {
+        root.put("reasoning", Map.of("max_tokens", reasoningMaxTokens));
+      }
     }
     return JSON.writeValueAsString(root);
   }
