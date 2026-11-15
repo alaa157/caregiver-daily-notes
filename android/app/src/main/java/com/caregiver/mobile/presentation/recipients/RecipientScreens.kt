@@ -469,9 +469,17 @@ fun AddRecipientScreen(graph: AppGraph, navController: NavController) {
     val addState by vm.addState.collectAsStateWithLifecycle()
     addState.addedId?.let {
         LaunchedEffect(it) {
+            val id = it
             vm.consumeAdded()
-            navController.popBackStack()
+            navController.navigate(AppRoutes.recipientDetail(id)) {
+                popUpTo(AppDestinations.AddRecipient.base) { inclusive = true }
+            }
         }
+    }
+    val nameErrorRes = when (addState.nameError) {
+        NameError.Required -> R.string.add_error_name
+        NameError.TooLong -> R.string.add_error_name_long
+        null -> null
     }
     Column(
         Modifier
@@ -497,9 +505,9 @@ fun AddRecipientScreen(graph: AppGraph, navController: NavController) {
             onValueChange = vm::onName,
             isError = addState.nameError != null,
             supportingText = {
-                if (addState.nameError != null) {
+                nameErrorRes?.let { errorRes ->
                     Text(
-                        stringResource(R.string.add_error_name),
+                        stringResource(errorRes),
                         fontFamily = PlexArabic,
                         color = CaregiverColors.Danger,
                     )
@@ -508,6 +516,7 @@ fun AddRecipientScreen(graph: AppGraph, navController: NavController) {
             singleLine = true,
             keyboardOptions = androidx.compose.foundation.text.KeyboardOptions(
                 keyboardType = androidx.compose.ui.text.input.KeyboardType.Text,
+                capitalization = androidx.compose.ui.text.input.KeyboardCapitalization.Words,
                 imeAction = androidx.compose.ui.text.input.ImeAction.Done,
             ),
             keyboardActions = androidx.compose.foundation.text.KeyboardActions(
@@ -528,6 +537,53 @@ fun AddRecipientScreen(graph: AppGraph, navController: NavController) {
             enabled = !addState.busy,
             modifier = Modifier.testTag("add_person_save"),
         )
+        if (addState.failed) {
+            Text(
+                stringResource(R.string.add_error_save_failed),
+                color = CaregiverColors.Danger,
+                modifier = Modifier.testTag("add_person_error"),
+            )
+        }
+        addState.duplicate?.let { match ->
+            AppCard(modifier = Modifier.testTag("add_person_duplicate")) {
+                Text(
+                    stringResource(R.string.add_duplicate_title),
+                    fontFamily = PlexArabic,
+                    fontWeight = FontWeight.Bold,
+                    color = CaregiverColors.Ink,
+                )
+                Text(
+                    stringResource(R.string.add_duplicate_body),
+                    fontFamily = PlexArabic,
+                    color = CaregiverColors.Muted,
+                )
+                Text(Bidi.isolate(match.name), fontFamily = PlexArabic)
+                if (match.archived) {
+                    Text(
+                        stringResource(R.string.people_archived),
+                        fontFamily = PlexArabic,
+                        color = CaregiverColors.Muted,
+                    )
+                }
+                SecondaryButton(
+                    label = stringResource(R.string.add_duplicate_open),
+                    onClick = {
+                        navController.navigate(AppRoutes.recipientDetail(match.id)) {
+                            popUpTo(AppDestinations.AddRecipient.base) { inclusive = true }
+                        }
+                    },
+                    modifier = Modifier.testTag("add_person_duplicate_open"),
+                )
+                PrimaryButton(
+                    label = stringResource(R.string.add_duplicate_create_anyway),
+                    onClick = vm::createAnyway,
+                    modifier = Modifier.testTag("add_person_create_anyway"),
+                )
+                TextButton(onClick = vm::dismissDuplicate) {
+                    Text(stringResource(R.string.common_cancel), fontFamily = PlexArabic)
+                }
+            }
+        }
     }
 }
 
