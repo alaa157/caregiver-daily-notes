@@ -200,6 +200,11 @@ fun SummaryPeriodScreen(recipientId: String, graph: AppGraph, navController: Nav
                     modifier = Modifier.testTag("summary_open_saved"),
                 )
             }
+            SecondaryButton(
+                label = stringResource(R.string.summary_saved_all),
+                onClick = { navController.navigate(AppRoutes.savedSummaries(recipientId)) },
+                modifier = Modifier.testTag("summary_saved_all"),
+            )
         }
         BottomActionBar {
             PrimaryButton(

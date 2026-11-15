@@ -1133,6 +1133,9 @@ fun RecipientDetailScreen(
                 },
                 onHistory = { navController.navigate(AppRoutes.tab(MainTab.History)) },
                 onSummary = { navController.navigate(AppRoutes.summary(s.detail.id)) },
+                onSavedSummaries = {
+                    navController.navigate(AppRoutes.savedSummaries(s.detail.id))
+                },
                 onPlan = { navController.navigate(AppDestinations.Plans.base) },
                 onArchive = vm::archive,
                 onUnarchive = vm::unarchive,
@@ -1203,6 +1206,7 @@ internal fun DetailContent(
     onViewToday: () -> Unit = {},
     onAddCorrection: () -> Unit = {},
     onCareDetails: () -> Unit = {},
+    onSavedSummaries: () -> Unit = {},
 ) {
     var confirmingDelete by remember { mutableStateOf(false) }
     Column(
@@ -1359,6 +1363,12 @@ internal fun DetailContent(
         if (!detail.archived) {
             ActionButton(R.string.detail_plan, onPlan)
         }
+        SecondaryButton(
+            label = stringResource(R.string.detail_saved_summaries),
+            onClick = onSavedSummaries,
+            enabled = !busy,
+            modifier = Modifier.testTag("detail_saved_summaries"),
+        )
         error?.let {
             Text(
                 text = stringResource(
