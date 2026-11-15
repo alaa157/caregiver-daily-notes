@@ -51,6 +51,7 @@ import com.caregiver.mobile.ai.AiKeyStore
 import com.caregiver.mobile.ai.AiModelCatalog
 import com.caregiver.mobile.ai.AiProvider
 import com.caregiver.mobile.ai.AiConsentDialog
+import com.caregiver.mobile.ai.dataUseNotice
 import com.caregiver.mobile.ai.AnthropicLlmClient
 import com.caregiver.mobile.ai.GeminiLlmClient
 import com.caregiver.mobile.ai.GroundingProbe
@@ -63,6 +64,7 @@ import com.caregiver.mobile.ai.PromptNote
 import com.caregiver.mobile.ai.PromptNotes
 import com.caregiver.mobile.ai.Prompts
 import com.caregiver.mobile.ai.SummaryResponseFormat
+import com.caregiver.mobile.ai.stringRes
 import com.caregiver.mobile.core.navigation.markUnsavedChanges
 import com.caregiver.mobile.presentation.common.AiRecovery
 import com.caregiver.mobile.presentation.common.AppTopBar
@@ -778,9 +780,11 @@ fun AiSettingsScreen(graph: AppGraph, navController: NavController, navEntry: Na
     }
 
     if (showProbeConsentDialog) {
+        val consentModel = model.ifBlank { provider.defaultModel }
         AiConsentDialog(
             providerName = provider.displayName,
-            modelName = model.ifBlank { provider.defaultModel },
+            modelName = consentModel,
+            dataUseNoticeRes = AiModelCatalog.dataUseNotice(provider, consentModel)?.stringRes(),
             onAccept = {
                 store.setConsentGiven(provider)
                 consentGiven = true
@@ -902,6 +906,15 @@ fun AiSettingsScreen(graph: AppGraph, navController: NavController, navEntry: Na
                         },
                         modifier = Modifier.fillMaxWidth(),
                     )
+                    AiModelCatalog.dataUseNotice(provider, model.ifBlank { provider.defaultModel })
+                        ?.let { notice ->
+                            Text(
+                                text = stringResource(notice.stringRes()),
+                                style = MaterialTheme.typography.bodySmall,
+                                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                                modifier = Modifier.testTag("model_data_use_notice"),
+                            )
+                        }
                     // What the provider offers for free, so the choice is
                     // made with the cost in view. Paid models are billed per
                     // use; they are never picked silently.
