@@ -109,6 +109,84 @@ class RecipientMigrationTest {
         migrated.close()
     }
 
+    @Test
+    fun migration7To8BackfillsRecordedFlagsOnNotesAndOutbox() {
+        helper.createDatabase(DB_NAME, 7).apply {
+            execSQL(
+                "INSERT INTO notes (serverId, localId, recipientId, date, mood, appetite, " +
+                    "sleep, mobility, medicationTaken, pain, fall, text) " +
+                    "VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)",
+                arrayOf(
+                    "n1", null, "r1", "2026-10-24", "good", "good", "good",
+                    "walks", "taken", 2, 0, "Stable day",
+                ),
+            )
+            execSQL(
+                "INSERT INTO outbox (localId, recipientId, mood, appetite, sleep, mobility, " +
+                    "medicationTaken, pain, fall, text, date, createdAt, status) " +
+                    "VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)",
+                arrayOf(
+                    "o1", "r1", "good", "good", "good", "walks", "taken",
+                    1, 0, "Pending", "2026-10-24", 1L, "pending",
+                ),
+            )
+            close()
+        }
+
+        val migrated = helper.runMigrationsAndValidate(
+            DB_NAME,
+            8,
+            true,
+            AppDatabase.MIGRATION_7_8,
+        )
+
+        assertEquals(1, migrated.count("notes"))
+        assertEquals(1, migrated.count("outbox"))
+
+        migrated.query(
+            "SELECT serverId, recipientId, date, mood, appetite, sleep, mobility, " +
+                "medicationTaken, pain, fall, text, painRecorded, fallRecorded FROM notes",
+        ).use { cursor ->
+            assertTrue(cursor.moveToFirst())
+            assertEquals("n1", cursor.getString(0))
+            assertEquals("r1", cursor.getString(1))
+            assertEquals("2026-10-24", cursor.getString(2))
+            assertEquals("good", cursor.getString(3))
+            assertEquals("good", cursor.getString(4))
+            assertEquals("good", cursor.getString(5))
+            assertEquals("walks", cursor.getString(6))
+            assertEquals("taken", cursor.getString(7))
+            assertEquals(2, cursor.getInt(8))
+            assertEquals(0, cursor.getInt(9))
+            assertEquals("Stable day", cursor.getString(10))
+            assertEquals(1, cursor.getInt(11))
+            assertEquals(1, cursor.getInt(12))
+        }
+        migrated.query(
+            "SELECT localId, recipientId, mood, appetite, sleep, mobility, " +
+                "medicationTaken, pain, fall, text, date, createdAt, status, " +
+                "painRecorded, fallRecorded FROM outbox",
+        ).use { cursor ->
+            assertTrue(cursor.moveToFirst())
+            assertEquals("o1", cursor.getString(0))
+            assertEquals("r1", cursor.getString(1))
+            assertEquals("good", cursor.getString(2))
+            assertEquals("good", cursor.getString(3))
+            assertEquals("good", cursor.getString(4))
+            assertEquals("walks", cursor.getString(5))
+            assertEquals("taken", cursor.getString(6))
+            assertEquals(1, cursor.getInt(7))
+            assertEquals(0, cursor.getInt(8))
+            assertEquals("Pending", cursor.getString(9))
+            assertEquals("2026-10-24", cursor.getString(10))
+            assertEquals(1L, cursor.getLong(11))
+            assertEquals("pending", cursor.getString(12))
+            assertEquals(1, cursor.getInt(13))
+            assertEquals(1, cursor.getInt(14))
+        }
+        migrated.close()
+    }
+
     private fun SupportSQLiteDatabase.count(table: String): Int =
         query("SELECT COUNT(*) FROM `$table`").use { cursor ->
             assertTrue(cursor.moveToFirst())
