@@ -33,6 +33,13 @@ data class NoteEntity(
     val pain: Int,
     val fall: Boolean,
     val text: String,
+    /**
+     * Whether pain/fall were explicitly recorded for this note. Existing
+     * rows predate the flags, so they default to recorded; the columns are
+     * last so the 7→8 migration is a plain ALTER TABLE.
+     */
+    val painRecorded: Boolean = true,
+    val fallRecorded: Boolean = true,
 )
 
 fun NoteEntity.toDto(): NoteDto = NoteDto(
