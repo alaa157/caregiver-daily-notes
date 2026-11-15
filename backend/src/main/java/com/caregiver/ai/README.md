@@ -27,6 +27,30 @@ configured LLM; they never read security context or persist plans. Timeout,
 malformed output and provider failure return unavailable model content with
 deterministic safety/trends retained. No diagnostics or prompts are logged.
 
+## Provider request and failure behavior
+
+Request-scoped model IDs must match
+`^[A-Za-z0-9][A-Za-z0-9._:/-]{0,127}$`.
+
+For requests with credentials whose provider is `OPENAI`, the chat-completions
+body uses `max_completion_tokens` instead of `max_tokens` and omits both
+`temperature` and `reasoning`. Other requests retain the configured
+OpenAI-compatible parameter shape.
+
+The provider transcript does not include caregiver, recipient, addendum,
+correction-event or actor IDs. Note IDs remain in the `[NOTE id="..."]` wrappers
+so the model can cite source notes; they are checked against the loaded notes
+before the summary is returned.
+
+Unavailable summaries include `unavailableReason`, one of:
+`INVALID_KEY`, `INVALID_MODEL`, `RATE_LIMIT`, `TIMEOUT`,
+`PROVIDER_UNAVAILABLE` or `INVALID_OUTPUT`. HTTP `400`, `401`, `403` and `404`
+responses are permanent failures: the client returns fallback immediately
+without retrying or sleeping. HTTP `408`, `429`, 5xx responses, timeouts and
+other I/O failures retry using the configured attempt count and exponential
+backoff (defaults: three attempts, 200 ms base). The reason on the fallback is
+the reason from the last failed attempt.
+
 ## Protected plan format and edits
 
 The server persists a schema-version-1 document with existing catalog changes
