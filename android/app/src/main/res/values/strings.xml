@@ -76,6 +76,9 @@
     <string name="care_error_date">Enter a valid date of birth</string>
     <string name="care_error_phone">Enter a valid phone number</string>
     <string name="care_error_long">This text is too long.</string>
+    <string name="detail_relationship">Relationship: %1$s</string>
+    <string name="detail_care_empty">No care details added yet.</string>
+    <string name="detail_care_edit">Edit care details</string>
     <string name="common_retry">Retry</string>
     <string name="common_ok">OK</string>
     <string name="common_loading_failed">Could not load</string>

@@ -76,6 +76,9 @@
     <string name="care_error_date">أدخل تاريخ ميلاد صحيحًا</string>
     <string name="care_error_phone">أدخل رقم هاتف صحيحًا</string>
     <string name="care_error_long">النص طويل جدًا.</string>
+    <string name="detail_relationship">صلة القرابة أو العلاقة: %1$s</string>
+    <string name="detail_care_empty">لم تتم إضافة تفاصيل رعاية بعد.</string>
+    <string name="detail_care_edit">تعديل تفاصيل الرعاية</string>
     <string name="common_retry">إعادة المحاولة</string>
     <string name="common_ok">موافق</string>
     <string name="common_loading_failed">تعذر التحميل</string>
