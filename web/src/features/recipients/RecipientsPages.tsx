@@ -30,6 +30,7 @@ function RecipientStatus({ status }: { status: RecipientLifecycleStatus }) {
 const filters: RecipientLifecycleStatus[] = ['ACTIVE', 'ARCHIVED', 'LEGACY_INACTIVE_REVIEW'];
 const filterLabel = (status: RecipientLifecycleStatus): MessageKey => status === 'ACTIVE' ? 'recipientActiveFilter'
   : status === 'ARCHIVED' ? 'recipientArchivedFilter' : 'recipientReviewFilter';
+const normalizeRecipientName = (name: string) => name.trim().replace(/\s+/g, ' ').toLowerCase();
 
 export function RecipientsListPage() {
   const { t } = useI18n(); const api = useRecipientsApi();
@@ -75,10 +76,16 @@ export function RecipientsListPage() {
 export function CreateRecipientPage() {
   const { t } = useI18n(); const api = useRecipientsApi(); const navigate = useNavigate();
   return <RecipientLayout title={t('recipientCreate')} description={t('recipientCreateDescription')}>
-    <div className="recipient-surface"><RecipientForm cancelTo={listPath} onSave={async (input, key, signal) => {
-      const recipient = await api.create(input, key, signal);
-      if (!signal.aborted) navigate(`${listPath}/${recipient.id}`, { replace: true, state: { recipientNotice: 'created' } });
-    }} /></div>
+    <div className="recipient-surface"><RecipientForm cancelTo={listPath}
+      onCheckDuplicate={async (input, signal) => {
+        const name = normalizeRecipientName(input.name);
+        const recipients = await api.list(signal, 'ALL');
+        return recipients.find((recipient) => normalizeRecipientName(recipient.name) === name) ?? null;
+      }}
+      onSave={async (input, key, signal) => {
+        const recipient = await api.create(input, key, signal);
+        if (!signal.aborted) navigate(`${listPath}/${recipient.id}`, { replace: true, state: { recipientNotice: 'created' } });
+      }} /></div>
   </RecipientLayout>;
 }
 function RecipientRecord({ id, edit }: { id: string; edit: boolean }) {

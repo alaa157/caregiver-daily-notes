@@ -35,6 +35,18 @@ function renderRecipients(path: string, fetcher: ReturnType<typeof vi.fn>, langu
   return render(<I18nProvider><ApiProvider config={{ apiBaseUrl: '' }}><AuthProvider><MemoryRouter initialEntries={[path]}><App /></MemoryRouter></AuthProvider></ApiProvider></I18nProvider>);
 }
 
+function creationFetcher(existing: (typeof recipient)[], createdName: string) {
+  const created = { ...recipient, id: 'b2222222-2222-4222-8222-222222222222', name: createdName };
+  return vi.fn().mockImplementation((path: string, options: RequestInit = {}) => {
+    if (path === '/api/recipients' && options.method === 'POST') {
+      return Promise.resolve(jsonResponse({ ...created, createdAt: null, updatedAt: null }, 201));
+    }
+    if (path === '/api/recipients') return Promise.resolve(jsonResponse(existing));
+    if (path === `/api/recipients/${created.id}`) return Promise.resolve(jsonResponse(created));
+    return Promise.resolve(jsonResponse([]));
+  });
+}
+
 describe('care recipients screens', () => {
   it('keeps recipient tabs on deep-linkable, recipient-scoped routes', async () => {
     const fetcher = vi.fn().mockImplementation((path: string) => {
@@ -177,7 +189,9 @@ describe('care recipients screens', () => {
 
   it('validates create before submitting, trims fields and opens saved details', async () => {
     // POST currently returns null timestamps; GET returns the committed dates.
-    const fetcher = vi.fn().mockResolvedValueOnce(jsonResponse({ ...recipient, createdAt: null, updatedAt: null }, 201)).mockResolvedValueOnce(jsonResponse(recipient));
+    const fetcher = vi.fn().mockResolvedValueOnce(jsonResponse([]))
+      .mockResolvedValueOnce(jsonResponse({ ...recipient, createdAt: null, updatedAt: null }, 201))
+      .mockResolvedValueOnce(jsonResponse(recipient));
     renderRecipients(`${root}/new`, fetcher);
     await userEvent.click(screen.getByRole('button', { name: 'Add care recipient' }));
     expect(screen.getByRole('textbox', { name: 'Name' })).toHaveFocus();
@@ -188,8 +202,86 @@ describe('care recipients screens', () => {
     await userEvent.click(screen.getByRole('button', { name: 'Add care recipient' }));
     expect(await screen.findByRole('heading', { name: recipient.name })).toBeInTheDocument();
     expect(screen.getByText('Care recipient added.')).toHaveFocus();
-    expect(JSON.parse(fetcher.mock.calls[0][1].body)).toEqual({ name: recipient.name, relationship: recipient.relationship });
-    expect(fetcher.mock.calls[0][1].method).toBe('POST');
+    const post = fetcher.mock.calls.find(([, options]) => options.method === 'POST');
+    expect(post).toBeDefined();
+    expect(JSON.parse(post![1].body)).toEqual({ name: recipient.name, relationship: recipient.relationship });
+    expect(post![1].method).toBe('POST');
+  });
+
+  it('warns when a name matches after trimming, collapsing whitespace and lowercasing', async () => {
+    const fetcher = creationFetcher([recipient], 'Another Samir');
+    renderRecipients(`${root}/new`, fetcher);
+    await userEvent.type(screen.getByLabelText('Name'), '  samir   hassan  ');
+    await userEvent.click(screen.getByRole('button', { name: 'Add care recipient' }));
+
+    const warning = await screen.findByRole('alert');
+    expect(warning).toHaveTextContent('A recipient with this name already exists');
+    expect(warning).toHaveTextContent('You already have a recipient with this name.');
+    expect(warning).toHaveTextContent(recipient.name);
+    expect(warning).toHaveTextContent('Active');
+    expect(within(warning).getByRole('link', { name: 'Open existing' })).toHaveAttribute('href', detail);
+    expect(within(warning).getByRole('button', { name: 'Create anyway' })).toBeVisible();
+    expect(within(warning).getByRole('button', { name: 'Cancel' })).toBeVisible();
+    expect(fetcher.mock.calls.filter(([, options]) => options.method === 'POST')).toHaveLength(0);
+  });
+
+  it('creates directly when no normalized name matches', async () => {
+    const fetcher = creationFetcher([recipient], 'Mona Hassan');
+    renderRecipients(`${root}/new`, fetcher);
+    await userEvent.type(screen.getByLabelText('Name'), 'Mona Hassan');
+    await userEvent.click(screen.getByRole('button', { name: 'Add care recipient' }));
+
+    expect(await screen.findByText('Care recipient added.')).toBeInTheDocument();
+    expect(screen.queryByRole('alert')).not.toBeInTheDocument();
+    expect(fetcher.mock.calls.filter(([, options]) => options.method === 'POST')).toHaveLength(1);
+  });
+
+  it('continues creation when the duplicate-list request fails', async () => {
+    const created = { ...recipient, id: 'b2222222-2222-4222-8222-222222222222', name: 'Mona Hassan' };
+    const fetcher = vi.fn().mockImplementation((path: string, options: RequestInit = {}) => {
+      if (path === '/api/recipients' && options.method === 'POST') {
+        return Promise.resolve(jsonResponse({ ...created, createdAt: null, updatedAt: null }, 201));
+      }
+      if (path === '/api/recipients') return Promise.reject(new TypeError('Network unavailable'));
+      if (path === `/api/recipients/${created.id}`) return Promise.resolve(jsonResponse(created));
+      return Promise.resolve(jsonResponse([]));
+    });
+    renderRecipients(`${root}/new`, fetcher);
+    await userEvent.type(screen.getByLabelText('Name'), created.name);
+    await userEvent.click(screen.getByRole('button', { name: 'Add care recipient' }));
+
+    expect(await screen.findByText('Care recipient added.')).toBeInTheDocument();
+    expect(screen.queryByRole('alert')).not.toBeInTheDocument();
+    expect(fetcher.mock.calls.filter(([, options]) => options.method === 'POST')).toHaveLength(1);
+  });
+
+  it('creates anyway without checking for the duplicate again', async () => {
+    const fetcher = creationFetcher([recipient], 'Another Samir');
+    renderRecipients(`${root}/new`, fetcher);
+    await userEvent.type(screen.getByLabelText('Name'), recipient.name);
+    await userEvent.click(screen.getByRole('button', { name: 'Add care recipient' }));
+    const warning = await screen.findByRole('alert');
+    await userEvent.click(within(warning).getByRole('button', { name: 'Create anyway' }));
+
+    expect(await screen.findByText('Care recipient added.')).toBeInTheDocument();
+    expect(fetcher.mock.calls.filter(([path, options]) => path === '/api/recipients' && options.method !== 'POST')).toHaveLength(1);
+    expect(fetcher.mock.calls.filter(([, options]) => options.method === 'POST')).toHaveLength(1);
+  });
+
+  it('matches an existing Arabic-script name and renders the warning in Arabic RTL', async () => {
+    const arabicRecipient = { ...recipient, name: 'سمير حسن' };
+    const fetcher = creationFetcher([arabicRecipient], 'مستفيد آخر');
+    renderRecipients(`${root}/new`, fetcher, 'ar');
+    await userEvent.type(screen.getByLabelText('الاسم'), 'سمير حسن');
+    await userEvent.click(screen.getByRole('button', { name: 'إضافة مستفيد من الرعاية' }));
+
+    expect(document.documentElement).toHaveAttribute('dir', 'rtl');
+    const warning = await screen.findByRole('alert');
+    expect(warning).toHaveTextContent('يوجد بالفعل مستفيد من الرعاية بهذا الاسم');
+    expect(warning).toHaveTextContent(arabicRecipient.name);
+    expect(within(warning).getByRole('link', { name: 'فتح المستفيد الحالي' })).toHaveAttribute('href', detail);
+    expect(within(warning).getByRole('button', { name: 'إنشاء رغم ذلك' })).toBeVisible();
+    expect(fetcher.mock.calls.filter(([, options]) => options.method === 'POST')).toHaveLength(0);
   });
 
   it('rejects overlength values and links validation to the affected field', async () => {
@@ -204,7 +296,12 @@ describe('care recipients screens', () => {
   });
 
   it('preserves form values after backend validation errors and permits correction', async () => {
-    const fetcher = vi.fn().mockResolvedValueOnce(jsonResponse({ code: 'VALIDATION_ERROR', message: 'private diagnostics' }, 422)).mockResolvedValueOnce(jsonResponse(recipient, 201)).mockResolvedValueOnce(jsonResponse(recipient));
+    const fetcher = vi.fn()
+      .mockResolvedValueOnce(jsonResponse([]))
+      .mockResolvedValueOnce(jsonResponse({ code: 'VALIDATION_ERROR', message: 'private diagnostics' }, 422))
+      .mockResolvedValueOnce(jsonResponse([]))
+      .mockResolvedValueOnce(jsonResponse(recipient, 201))
+      .mockResolvedValueOnce(jsonResponse(recipient));
     renderRecipients(`${root}/new`, fetcher);
     await userEvent.type(screen.getByLabelText('Name'), recipient.name);
     await userEvent.click(screen.getByRole('button', { name: 'Add care recipient' }));
@@ -217,7 +314,9 @@ describe('care recipients screens', () => {
 
   it('reuses the same Idempotency-Key when retrying a failed create', async () => {
     const fetcher = vi.fn()
+      .mockResolvedValueOnce(jsonResponse([]))
       .mockRejectedValueOnce(new TypeError('Failed to fetch'))
+      .mockResolvedValueOnce(jsonResponse([]))
       .mockResolvedValueOnce(jsonResponse({ ...recipient, createdAt: null, updatedAt: null }, 201))
       .mockResolvedValueOnce(jsonResponse(recipient));
     renderRecipients(`${root}/new`, fetcher);
@@ -226,15 +325,18 @@ describe('care recipients screens', () => {
     expect(await screen.findByRole('alert')).toBeInTheDocument();
     await userEvent.click(screen.getByRole('button', { name: 'Add care recipient' }));
     expect(await screen.findByText('Care recipient added.')).toBeInTheDocument();
-    const first = new Headers(fetcher.mock.calls[0][1].headers).get('Idempotency-Key');
-    const second = new Headers(fetcher.mock.calls[1][1].headers).get('Idempotency-Key');
+    const posts = fetcher.mock.calls.filter(([, options]) => options.method === 'POST');
+    const first = new Headers(posts[0][1].headers).get('Idempotency-Key');
+    const second = new Headers(posts[1][1].headers).get('Idempotency-Key');
     expect(first).toMatch(/^[0-9a-f]{32}$/);
     expect(second).toBe(first);
   });
 
   it('generates a new Idempotency-Key when the input changes before retrying', async () => {
     const fetcher = vi.fn()
+      .mockResolvedValueOnce(jsonResponse([]))
       .mockRejectedValueOnce(new TypeError('Failed to fetch'))
+      .mockResolvedValueOnce(jsonResponse([]))
       .mockResolvedValueOnce(jsonResponse({ ...recipient, createdAt: null, updatedAt: null }, 201))
       .mockResolvedValueOnce(jsonResponse(recipient));
     renderRecipients(`${root}/new`, fetcher);
@@ -245,8 +347,9 @@ describe('care recipients screens', () => {
     await userEvent.type(screen.getByLabelText('Name'), 'Second name');
     await userEvent.click(screen.getByRole('button', { name: 'Add care recipient' }));
     expect(await screen.findByText('Care recipient added.')).toBeInTheDocument();
-    const first = new Headers(fetcher.mock.calls[0][1].headers).get('Idempotency-Key');
-    const second = new Headers(fetcher.mock.calls[1][1].headers).get('Idempotency-Key');
+    const posts = fetcher.mock.calls.filter(([, options]) => options.method === 'POST');
+    const first = new Headers(posts[0][1].headers).get('Idempotency-Key');
+    const second = new Headers(posts[1][1].headers).get('Idempotency-Key');
     expect(first).toMatch(/^[0-9a-f]{32}$/);
     expect(second).toMatch(/^[0-9a-f]{32}$/);
     expect(second).not.toBe(first);
@@ -454,14 +557,18 @@ describe('care recipients screens', () => {
   });
 
   it('prevents duplicate create requests and aborts a pending save on cancellation', async () => {
-    const fetcher = vi.fn().mockImplementation(() => new Promise(() => {}));
+    const fetcher = vi.fn().mockImplementation((path: string, options: RequestInit = {}) =>
+      path === '/api/recipients' && options.method === 'POST'
+        ? new Promise(() => {})
+        : Promise.resolve(jsonResponse([])));
     renderRecipients(`${root}/new`, fetcher);
     await userEvent.type(screen.getByLabelText('Name'), recipient.name);
     await userEvent.dblClick(screen.getByRole('button', { name: 'Add care recipient' }));
-    expect(fetcher).toHaveBeenCalledTimes(1);
+    expect(fetcher.mock.calls.filter(([, options]) => options.method === 'POST')).toHaveLength(1);
     expect(screen.getByRole('button', { name: 'Saving…' })).toBeDisabled();
     await userEvent.click(screen.getByRole('link', { name: 'Cancel' }));
-    expect(fetcher.mock.calls[0][1].signal.aborted).toBe(true);
+    const post = fetcher.mock.calls.find(([, options]) => options.method === 'POST');
+    expect(post?.[1].signal.aborted).toBe(true);
   });
 
   it('renders Arabic labels and RTL, and preserves entered values when changing language', async () => {
