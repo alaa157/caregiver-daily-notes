@@ -181,6 +181,7 @@
     <string name="people_delete_title">حذف %1$s نهائياً؟</string>
     <string name="people_delete_body">سيؤدي هذا إلى حذف البيانات التالية من هذا الجهاز: الملاحظات (%1$d)، والإضافات (%2$d)، وخطط الرعاية (%3$d)، والأدوية (%4$d)، وجرعات الدواء (%5$d)، وعناصر المزامنة المعلقة (%6$d). لا يمكن التراجع عن ذلك.</string>
     <string name="people_delete_backup_caveat">يمكن لنسخة احتياطية أُنشئت قبل هذا الحذف أن تستعيد هذا الشخص وبياناته.</string>
+    <string name="detail_delete_summaries">%1$d ملخصات محفوظة</string>
     <string name="people_delete_confirm">حذف نهائي</string>
     <string name="people_delete_success">تم حذف الشخص</string>
     <string name="people_delete_failed">تعذر حذف هذا الشخص. لم يُحذف أي شيء.</string>

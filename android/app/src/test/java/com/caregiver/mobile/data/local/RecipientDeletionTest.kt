@@ -134,6 +134,72 @@ class RecipientDeletionTest {
         )
     }
 
+    @Test
+    fun deletingArchivedRecipientRemovesItsSavedSummaries() = runTest {
+        seed("archived", archivedAt = 1L)
+        seedSummary("s-archived-1", "archived")
+        seedSummary("s-archived-2", "archived")
+        seedSummary("s-active", "active")
+
+        assertEquals(2, db.recipientDataCounts("archived").summaries)
+
+        db.deleteArchivedRecipient("archived")
+
+        assertEquals(
+            RecipientDeletionCounts(0, 0, 0, 0, 0, 0, summaries = 0),
+            db.recipientDataCounts("archived"),
+        )
+        assertTrue(db.savedSummaryDao().forRecipient("archived").isEmpty())
+        // The other recipient's summary is untouched.
+        assertEquals(listOf("s-active"), db.savedSummaryDao().forRecipient("active").map { it.id })
+        assertEquals(1, db.recipientDataCounts("active").summaries)
+    }
+
+    @Test
+    fun deletionCountsMatchTheSavedSummaryRows() = runTest {
+        seed("archived", archivedAt = 1L)
+        repeat(3) { seedSummary("s-archived-$it", "archived") }
+
+        val counts = db.recipientDataCounts("archived")
+
+        assertEquals(3, counts.summaries)
+        assertEquals(db.savedSummaryDao().countForRecipient("archived"), counts.summaries)
+    }
+
+    @Test
+    fun deletingOnePersonLeavesAnotherPersonsSummaries() = runTest {
+        seed("a", archivedAt = 1L)
+        seed("b", archivedAt = 2L)
+        seedSummary("s-a", "a")
+        seedSummary("s-b1", "b")
+        seedSummary("s-b2", "b")
+
+        db.deleteArchivedRecipient("a")
+
+        assertTrue(db.savedSummaryDao().forRecipient("a").isEmpty())
+        assertEquals(
+            listOf("s-b1", "s-b2"),
+            db.savedSummaryDao().forRecipient("b").map { it.id }.sorted(),
+        )
+    }
+
+    private suspend fun seedSummary(id: String, recipientId: String) {
+        db.savedSummaryDao().insert(
+            SavedSummaryEntity(
+                id = id,
+                recipientId = recipientId,
+                periodDays = 7,
+                periodStart = "2026-09-29",
+                periodEnd = "2026-10-05",
+                createdAt = 1L,
+                aiGenerated = false,
+                provider = null,
+                model = null,
+                payload = "{}",
+            ),
+        )
+    }
+
     private suspend fun seed(id: String, archivedAt: Long?) {
         db.recipientDao().insertAll(
             listOf(

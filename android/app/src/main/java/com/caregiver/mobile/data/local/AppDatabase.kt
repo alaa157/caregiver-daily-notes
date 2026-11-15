@@ -76,6 +76,7 @@ abstract class AppDatabase : RoomDatabase() {
                 .forEach { medicationDao().clearIntakesForMedications(it) }
             medicationDao().deleteByRecipient(recipientId)
             outboxDao().deleteByRecipient(recipientId)
+            savedSummaryDao().deleteForRecipient(recipientId)
             recipientDao().deleteByServerId(recipientId)
         }
     }
@@ -90,6 +91,7 @@ abstract class AppDatabase : RoomDatabase() {
                 medications = medicationDao().countByRecipient(recipientId),
                 intakes = medicationDao().countIntakesForRecipient(recipientId),
                 outbox = outboxDao().countByRecipient(recipientId),
+                summaries = savedSummaryDao().countForRecipient(recipientId),
             )
         }
 
