@@ -27,8 +27,11 @@ import com.caregiver.mobile.data.api.UpdateRecipientRequest
 import com.caregiver.mobile.data.local.ArchivedRecipientException
 import com.caregiver.mobile.data.local.RecipientAdmin
 import com.caregiver.mobile.data.local.RecipientDeletionCounts
+import com.caregiver.mobile.data.recipient.CareDetails
+import com.caregiver.mobile.data.recipient.CareDetailsRules
 import com.caregiver.mobile.data.recipient.NameCheck
 import com.caregiver.mobile.data.recipient.RecipientNameRules
+import com.caregiver.mobile.data.recipient.RelationshipOptions
 import okhttp3.MediaType.Companion.toMediaType
 import okhttp3.ResponseBody.Companion.toResponseBody
 import retrofit2.HttpException
@@ -100,6 +103,48 @@ class FakeRecipientAdmin(initial: List<RecipientDto> = emptyList()) : RecipientA
             throw IllegalArgumentException("recipient name")
         }
         val updated = current.copy(name = RecipientNameRules.normalize(name))
+        recipients[id] = updated
+        return updated
+    }
+
+    override suspend fun updateProfile(
+        id: String,
+        name: String,
+        relationship: String?,
+    ): RecipientDto {
+        val current = recipients[id] ?: throw NoSuchElementException("recipient $id")
+        if (current.archivedAt != null) throw ArchivedRecipientException(id)
+        if (RecipientNameRules.check(name) != NameCheck.Ok) {
+            throw IllegalArgumentException("recipient name")
+        }
+        if (RelationshipOptions.isTooLong(relationship)) {
+            throw IllegalArgumentException("relationship")
+        }
+        val updated = current.copy(
+            name = RecipientNameRules.normalize(name),
+            relationship = RelationshipOptions.normalize(relationship),
+        )
+        recipients[id] = updated
+        return updated
+    }
+
+    override suspend fun updateCareDetails(
+        id: String,
+        details: CareDetails,
+    ): RecipientDto {
+        val current = recipients[id] ?: throw NoSuchElementException("recipient $id")
+        if (current.archivedAt != null) throw ArchivedRecipientException(id)
+        val normalized = CareDetailsRules.normalize(details)
+        if (CareDetailsRules.validate(normalized, java.time.LocalDate.now()).isNotEmpty()) {
+            throw IllegalArgumentException("care details")
+        }
+        val updated = current.copy(
+            dateOfBirth = normalized.dateOfBirth,
+            allergies = normalized.allergies,
+            conditions = normalized.conditions,
+            emergencyContactName = normalized.emergencyContactName,
+            emergencyContactPhone = normalized.emergencyContactPhone,
+        )
         recipients[id] = updated
         return updated
     }

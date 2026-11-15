@@ -1,6 +1,7 @@
 package com.caregiver.mobile.data.local
 
 import com.caregiver.mobile.data.api.RecipientDto
+import com.caregiver.mobile.data.recipient.CareDetails
 
 /**
  * Local-only recipient archive/delete administration. Implemented by the
@@ -9,6 +10,10 @@ import com.caregiver.mobile.data.api.RecipientDto
  */
 interface RecipientAdmin {
     suspend fun rename(id: String, name: String): RecipientDto
+
+    suspend fun updateProfile(id: String, name: String, relationship: String?): RecipientDto
+
+    suspend fun updateCareDetails(id: String, details: CareDetails): RecipientDto
 
     suspend fun archive(id: String): RecipientDto
 

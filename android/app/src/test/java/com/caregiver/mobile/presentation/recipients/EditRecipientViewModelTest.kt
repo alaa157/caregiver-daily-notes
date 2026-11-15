@@ -239,6 +239,17 @@ private class TestRecipientAdmin : RecipientAdmin {
         return renameHandler(id, name)
     }
 
+    override suspend fun updateProfile(
+        id: String,
+        name: String,
+        relationship: String?,
+    ): RecipientDto = error("unused")
+
+    override suspend fun updateCareDetails(
+        id: String,
+        details: com.caregiver.mobile.data.recipient.CareDetails,
+    ): RecipientDto = error("unused")
+
     override suspend fun archive(id: String): RecipientDto = error("unused")
 
     override suspend fun unarchive(id: String): RecipientDto = error("unused")
