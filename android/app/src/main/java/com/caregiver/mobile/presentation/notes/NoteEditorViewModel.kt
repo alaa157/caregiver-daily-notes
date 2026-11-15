@@ -19,8 +19,7 @@ import kotlinx.coroutines.launch
 import retrofit2.HttpException
 
 sealed interface EditorError {
-    data object MoodRequired : EditorError
-    data object TextRequired : EditorError
+    data object NothingAnswered : EditorError
     data class Rejected(val code: String?) : EditorError
     data object Unreachable : EditorError
     data object ArchivedRecipient : EditorError
@@ -44,18 +43,16 @@ data class EditorState(
     val sleep: String? = null,
     val mobility: String? = null,
     val medication: String? = null,
-    val pain: Int = 0,
-    val fall: Boolean = false,
+    val pain: Int? = null,
+    val fall: Boolean? = null,
     val text: String = "",
-    val moodError: EditorError.MoodRequired? = null,
-    val textError: EditorError.TextRequired? = null,
     val formError: EditorError? = null,
     val busy: Boolean = false,
     val savedId: String? = null,
 )
 
 /**
- * Note editor (board 5). Mood and free text are required; unselected groups
+ * Note editor (board 5). Every question is optional; unselected groups
  * submit as "" (the backend stores those verbatim). Pain is clamped 0-10.
  */
 class NoteEditorViewModel(
@@ -76,25 +73,34 @@ class NoteEditorViewModel(
     }
 
     fun setPain(value: Int) {
-        _state.value = _state.value.copy(pain = value.coerceIn(MIN_PAIN, MAX_PAIN))
+        val clamped = value.coerceIn(MIN_PAIN, MAX_PAIN)
+        val current = _state.value
+        _state.value = current.copy(
+            pain = if (current.pain == clamped) null else clamped,
+            formError = null,
+        )
     }
 
     fun setFall(value: Boolean) {
-        _state.value = _state.value.copy(fall = value)
+        val current = _state.value
+        _state.value = current.copy(
+            fall = if (current.fall == value) null else value,
+            formError = null,
+        )
     }
 
     fun onText(value: String) {
-        _state.value = _state.value.copy(text = value, textError = null, formError = null)
+        _state.value = _state.value.copy(text = value, formError = null)
     }
 
     fun submit() {
         val current = _state.value
-        if (current.mood == null) {
-            _state.value = current.copy(moodError = EditorError.MoodRequired)
-            return
-        }
-        if (current.text.isBlank()) {
-            _state.value = current.copy(textError = EditorError.TextRequired)
+        val answered = current.mood != null || current.appetite != null ||
+            current.sleep != null || current.mobility != null ||
+            current.medication != null || current.pain != null ||
+            current.fall != null || current.text.isNotBlank()
+        if (!answered) {
+            _state.value = current.copy(formError = EditorError.NothingAnswered)
             return
         }
         _state.value = current.copy(busy = true, formError = null)
@@ -104,14 +110,16 @@ class NoteEditorViewModel(
                     apis.notes().create(
                         CreateNoteRequest(
                             recipientId = recipientId,
-                            mood = current.mood,
+                            mood = current.mood.orEmpty(),
                             appetite = current.appetite.orEmpty(),
                             sleep = current.sleep.orEmpty(),
                             mobility = current.mobility.orEmpty(),
                             medicationTaken = current.medication.orEmpty(),
-                            pain = current.pain,
-                            fall = current.fall,
+                            pain = current.pain ?: 0,
+                            fall = current.fall ?: false,
                             text = current.text,
+                            painRecorded = current.pain != null,
+                            fallRecorded = current.fall != null,
                         ),
                     )
                 }
@@ -146,7 +154,7 @@ class NoteEditorViewModel(
     }
 
     private fun EditorState.with(group: OptionGroup, value: String?): EditorState = when (group) {
-        OptionGroup.Mood -> copy(mood = value, moodError = null)
+        OptionGroup.Mood -> copy(mood = value)
         OptionGroup.Appetite -> copy(appetite = value)
         OptionGroup.Sleep -> copy(sleep = value)
         OptionGroup.Mobility -> copy(mobility = value)

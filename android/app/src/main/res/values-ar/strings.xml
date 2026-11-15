@@ -62,8 +62,7 @@
     <string name="editor_text">ملاحظات حرة</string>
     <string name="editor_save">حفظ الملاحظة</string>
     <string name="editor_save_note">الحفظ لا يعتمد على الذكاء الاصطناعي</string>
-    <string name="editor_error_mood">اختر الحالة المزاجية</string>
-    <string name="editor_error_text">اكتب نص الملاحظة</string>
+    <string name="editor_error_nothing_answered">أجب عن سؤال واحد على الأقل أو أضف ملاحظة قبل الحفظ.</string>
     <string name="editor_error_duplicate_day">توجد ملاحظة لهذا الشخص اليوم بالفعل.</string>
     <string name="editor_error_generic">تعذر حفظ الملاحظة. حاول مرة أخرى.</string>
     <string name="saved_title">تم الحفظ</string>
