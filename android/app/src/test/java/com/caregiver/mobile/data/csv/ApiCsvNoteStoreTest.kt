@@ -4,12 +4,14 @@ import com.caregiver.mobile.data.FakeAuthApi
 import com.caregiver.mobile.data.FakeBackendApis
 import com.caregiver.mobile.data.FakeNoteApi
 import com.caregiver.mobile.data.FakeRecipientApi
+import com.caregiver.mobile.data.api.CreateNoteRequest
 import com.caregiver.mobile.data.api.RecipientDto
 import com.caregiver.mobile.data.testNote
 import java.io.IOException
 import kotlinx.coroutines.test.runTest
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
+import org.junit.Assert.assertTrue
 import org.junit.Test
 
 /**
@@ -30,8 +32,8 @@ class ApiCsvNoteStoreTest {
         date: String = "2026-10-07",
         recipientId: String = "r1",
         text: String = "ate well اليوم",
-        pain: Int = 2,
-        fall: Boolean = false,
+        pain: Int? = 2,
+        fall: Boolean? = false,
     ) = PlannedNote(
         line = 2,
         date = date,
@@ -75,7 +77,39 @@ class ApiCsvNoteStoreTest {
         assertEquals("taken", sent.medicationTaken)
         assertEquals(5, sent.pain)
         assertEquals(true, sent.fall)
+        assertEquals(true, sent.painRecorded)
+        assertEquals(true, sent.fallRecorded)
         assertEquals("ate well اليوم", sent.text)
+    }
+
+    @Test
+    fun insertAllPreservesUnansweredAndExplicitZeroAndFalseFlags() = runTest {
+        val requests = mutableListOf<CreateNoteRequest>()
+        notes.createHandler = { request ->
+            requests += request
+            testNote(
+                id = "created",
+                pain = request.pain,
+                fall = request.fall,
+                text = request.text,
+            )
+        }
+        val unanswered = planned(date = "2026-10-07", pain = null, fall = null)
+        val explicit = planned(date = "2026-10-08", pain = 0, fall = false)
+
+        assertEquals(
+            listOf(CsvInsertResult.Inserted, CsvInsertResult.Inserted),
+            ApiCsvNoteStore(apis).insertAll(listOf(unanswered, explicit)),
+        )
+
+        assertEquals(2, requests.size)
+        assertEquals(0, requests[0].pain)
+        assertFalse(requests[0].painRecorded)
+        assertFalse(requests[0].fallRecorded)
+        assertEquals(0, requests[1].pain)
+        assertFalse(requests[1].fall)
+        assertTrue(requests[1].painRecorded)
+        assertTrue(requests[1].fallRecorded)
     }
 
     @Test

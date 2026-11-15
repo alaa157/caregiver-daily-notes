@@ -41,6 +41,7 @@ enum class ImportIssue {
     UNMATCHED_RECIPIENT,
     DUPLICATE,
     UNKNOWN,
+    EMPTY_NOTE,
 }
 
 /** A rejected/skipped/duplicate CSV row. [column] is a stable header name, not note content. */
@@ -56,8 +57,8 @@ data class PlannedNote(
     val sleep: String,
     val mobility: String,
     val medicationTaken: String,
-    val pain: Int,
-    val fall: Boolean,
+    val pain: Int?,
+    val fall: Boolean?,
     val text: String,
 )
 
@@ -120,9 +121,11 @@ data class ImportPlan(
  *   an existing recipient or leave skipped. No recipient is ever invented and
  *   a note is never attached to a different person silently.
  *
- * Required fields follow the editor/backend contract: mood and note text must
- * be non-empty and pain must be 0..10. Optional option groups may be empty and
- * are limited to the backend's 32-character columns.
+ * The date and recipient are required. Mood, note text, pain and fall are
+ * optional, but a row with no option values, pain, fall or text is rejected
+ * as [ImportIssue.EMPTY_NOTE]. Non-empty pain must be 0..10 and non-empty
+ * fall must be `true` or `false`. Option values are limited to the backend's
+ * 32-character columns.
  */
 object CsvImportPlanner {
     fun plan(
@@ -168,28 +171,6 @@ object CsvImportPlanner {
                 return@forEach
             }
 
-            val pain = normalizeDigits(
-                row.values[CareNoteCsv.COL_PAIN].orEmpty().trim(),
-            ).toIntOrNull()
-            if (pain == null || pain !in 0..10) {
-                reject(ImportIssue.INVALID_PAIN, CareNoteCsv.COL_PAIN)
-                return@forEach
-            }
-
-            val fall = CareNoteCsv.booleanOf(
-                normalizeDigits(row.values[CareNoteCsv.COL_FALL].orEmpty()),
-            )
-            if (fall == null) {
-                reject(ImportIssue.INVALID_FALL, CareNoteCsv.COL_FALL)
-                return@forEach
-            }
-
-            val mood = row.values[CareNoteCsv.COL_MOOD].orEmpty().trim()
-            if (mood.isEmpty()) {
-                reject(ImportIssue.MISSING_MOOD, CareNoteCsv.COL_MOOD)
-                return@forEach
-            }
-
             val optionColumns = listOf(
                 CareNoteCsv.COL_MOOD,
                 CareNoteCsv.COL_APPETITE,
@@ -197,17 +178,38 @@ object CsvImportPlanner {
                 CareNoteCsv.COL_MOBILITY,
                 CareNoteCsv.COL_MEDICATION_TAKEN,
             )
+            val painText = normalizeDigits(row.values[CareNoteCsv.COL_PAIN].orEmpty().trim())
+            val fallText = normalizeDigits(row.values[CareNoteCsv.COL_FALL].orEmpty().trim())
+            val text = row.values[CareNoteCsv.COL_NOTE_TEXT].orEmpty()
+            if (optionColumns.none { row.values[it].orEmpty().isNotBlank() }
+                && painText.isEmpty() && fallText.isEmpty() && text.isBlank()) {
+                reject(ImportIssue.EMPTY_NOTE)
+                return@forEach
+            }
+
+            val pain = if (painText.isEmpty()) null else painText.toIntOrNull()?.takeIf { it in 0..10 }
+            if (painText.isNotEmpty() && pain == null) {
+                reject(ImportIssue.INVALID_PAIN, CareNoteCsv.COL_PAIN)
+                return@forEach
+            }
+
+            val fall = when (fallText.lowercase(Locale.ROOT)) {
+                "" -> null
+                "true" -> true
+                "false" -> false
+                else -> null
+            }
+            if (fallText.isNotEmpty() && fall == null) {
+                reject(ImportIssue.INVALID_FALL, CareNoteCsv.COL_FALL)
+                return@forEach
+            }
+
+            val mood = row.values[CareNoteCsv.COL_MOOD].orEmpty().trim()
             val tooLong = optionColumns.firstOrNull { column ->
                 row.values[column].orEmpty().trim().length > MAX_OPTION_LENGTH
             }
             if (tooLong != null) {
                 reject(ImportIssue.VALUE_TOO_LONG, tooLong)
-                return@forEach
-            }
-
-            val text = row.values[CareNoteCsv.COL_NOTE_TEXT].orEmpty()
-            if (text.isBlank()) {
-                reject(ImportIssue.EMPTY_TEXT, CareNoteCsv.COL_NOTE_TEXT)
                 return@forEach
             }
 

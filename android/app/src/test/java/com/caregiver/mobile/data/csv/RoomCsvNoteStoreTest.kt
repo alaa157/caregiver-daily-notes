@@ -8,6 +8,7 @@ import com.caregiver.mobile.data.local.RecipientEntity
 import kotlinx.coroutines.test.runTest
 import org.junit.After
 import org.junit.Assert.assertEquals
+import org.junit.Assert.assertFalse
 import org.junit.Assert.assertNotNull
 import org.junit.Assert.assertTrue
 import org.junit.Before
@@ -41,6 +42,8 @@ class RoomCsvNoteStoreTest {
         date: String = "2026-10-01",
         recipientId: String = "r1",
         text: String = "note",
+        pain: Int? = 2,
+        fall: Boolean? = false,
     ) = PlannedNote(
         line = 2,
         date = date,
@@ -50,8 +53,8 @@ class RoomCsvNoteStoreTest {
         sleep = "ok",
         mobility = "walks",
         medicationTaken = "taken",
-        pain = 2,
-        fall = false,
+        pain = pain,
+        fall = fall,
         text = text,
     )
 
@@ -87,6 +90,30 @@ class RoomCsvNoteStoreTest {
         val snapshot = store.snapshot()
         assertEquals("r1", snapshot.notes.single().recipientId)
         assertEquals("Mona", snapshot.recipients.single().name)
+    }
+
+    @Test
+    fun storesUnansweredAndExplicitZeroAndFalseWithRecordedFlags() = runTest {
+        db.recipientDao().insertAll(listOf(RecipientEntity(serverId = "r1", name = "Mona", active = true)))
+        val store = RoomCsvNoteStore(db)
+
+        val results = store.insertAll(
+            listOf(
+                planned(date = "2026-10-01", pain = null, fall = null),
+                planned(date = "2026-10-02", pain = 0, fall = false),
+            ),
+        )
+
+        assertEquals(listOf(CsvInsertResult.Inserted, CsvInsertResult.Inserted), results)
+        val unanswered = db.noteDao().query("r1", "2026-10-01", "2026-10-01").single()
+        assertEquals(0, unanswered.pain)
+        assertFalse(unanswered.painRecorded)
+        assertFalse(unanswered.fallRecorded)
+        val explicit = db.noteDao().query("r1", "2026-10-02", "2026-10-02").single()
+        assertEquals(0, explicit.pain)
+        assertTrue(explicit.painRecorded)
+        assertFalse(explicit.fall)
+        assertTrue(explicit.fallRecorded)
     }
 
     @Test
