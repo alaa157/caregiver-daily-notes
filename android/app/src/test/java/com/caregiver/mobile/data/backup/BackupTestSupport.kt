@@ -30,6 +30,8 @@ fun backupNote(
     pain: Int = 2,
     fall: Boolean = false,
     text: String = "note",
+    painRecorded: Boolean = true,
+    fallRecorded: Boolean = true,
 ): BackupNote = BackupNote(
     serverId = serverId,
     recipientId = recipientId,
@@ -42,6 +44,8 @@ fun backupNote(
     pain = pain,
     fall = fall,
     text = text,
+    painRecorded = painRecorded,
+    fallRecorded = fallRecorded,
 )
 
 /** An addendum fixture referencing [noteId]; defaults to [backupNote]'s id. */
@@ -124,6 +128,39 @@ fun encodeBackup(
 ): String = CareBackupCodec.encode(createdAt = createdAt, appVersion = appVersion, data = data)
 
 /**
+ * The note shape v1–v3 writers emitted: no recorded flags. Older digests
+ * must be computed over exactly this shape.
+ */
+@Serializable
+private data class LegacyBackupNote(
+    val serverId: String,
+    val recipientId: String,
+    val date: String,
+    val mood: String,
+    val appetite: String,
+    val sleep: String,
+    val mobility: String,
+    val medicationTaken: String,
+    val pain: Int,
+    val fall: Boolean,
+    val text: String,
+)
+
+private fun BackupNote.toLegacyNote(): LegacyBackupNote = LegacyBackupNote(
+    serverId = serverId,
+    recipientId = recipientId,
+    date = date,
+    mood = mood,
+    appetite = appetite,
+    sleep = sleep,
+    mobility = mobility,
+    medicationTaken = medicationTaken,
+    pain = pain,
+    fall = fall,
+    text = text,
+)
+
+/**
  * The canonical payload a v1/v2 writer produced: only recipients, notes,
  * addenda and plans. Used to build hand-made older documents whose digest the
  * current codec still verifies.
@@ -131,7 +168,7 @@ fun encodeBackup(
 @Serializable
 private data class LegacyPayload(
     val recipients: List<BackupRecipient>,
-    val notes: List<BackupNote>,
+    val notes: List<LegacyBackupNote>,
     val addenda: List<BackupAddendum>,
     val plans: List<BackupPlan>,
 )
@@ -140,9 +177,35 @@ fun legacyCanonicalJson(data: BackupData): String =
     Json { encodeDefaults = true; explicitNulls = false }.encodeToString(
         LegacyPayload(
             recipients = data.recipients,
-            notes = data.notes,
+            notes = data.notes.map { it.toLegacyNote() },
             addenda = data.addenda,
             plans = data.plans,
+        ),
+    )
+
+/**
+ * The canonical payload a v3 writer produced: the four legacy lists plus
+ * the medication tables, and notes without the recorded flags.
+ */
+@Serializable
+private data class V3Payload(
+    val recipients: List<BackupRecipient>,
+    val notes: List<LegacyBackupNote>,
+    val addenda: List<BackupAddendum>,
+    val plans: List<BackupPlan>,
+    val medications: List<BackupMedication> = emptyList(),
+    val medicationIntakes: List<BackupMedicationIntake> = emptyList(),
+)
+
+fun v3CanonicalJson(data: BackupData): String =
+    Json { encodeDefaults = true; explicitNulls = false }.encodeToString(
+        V3Payload(
+            recipients = data.recipients,
+            notes = data.notes.map { it.toLegacyNote() },
+            addenda = data.addenda,
+            plans = data.plans,
+            medications = data.medications,
+            medicationIntakes = data.medicationIntakes,
         ),
     )
 

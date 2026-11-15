@@ -14,6 +14,7 @@ import com.caregiver.mobile.data.local.RecipientEntity
 import kotlinx.coroutines.test.runTest
 import org.junit.After
 import org.junit.Assert.assertEquals
+import org.junit.Assert.assertFalse
 import org.junit.Assert.assertNotNull
 import org.junit.Assert.assertNull
 import org.junit.Assert.assertTrue
@@ -62,6 +63,10 @@ class RoomBackupStoreTest {
         recipientId: String = "r1",
         date: String = "2026-10-01",
         text: String = "note",
+        pain: Int = 2,
+        fall: Boolean = false,
+        painRecorded: Boolean = true,
+        fallRecorded: Boolean = true,
     ) = NoteEntity(
         serverId = serverId,
         recipientId = recipientId,
@@ -71,9 +76,11 @@ class RoomBackupStoreTest {
         sleep = "ok",
         mobility = "walks",
         medicationTaken = "taken",
-        pain = 2,
-        fall = false,
+        pain = pain,
+        fall = fall,
         text = text,
+        painRecorded = painRecorded,
+        fallRecorded = fallRecorded,
     )
 
     private fun addendumRow(id: String, noteId: String = "n1") = AddendumEntity(
@@ -233,6 +240,49 @@ class RoomBackupStoreTest {
         assertEquals(listOf("m9:2026-10-03:1"), db.medicationDao().allIntakes().map { it.id })
         assertNull(db.medicationDao().byId("old-med"))
         assertTrue(db.medicationDao().allIntakes().none { it.medicationId == "old-med" })
+    }
+
+    @Test
+    fun snapshotAndRestoreCarryTheRecordedFlags() = runTest {
+        db.recipientDao().insertAll(listOf(recipientRow("r1")))
+        db.noteDao().insertAll(
+            listOf(
+                noteRow("n1", pain = 0, fall = false, painRecorded = false, fallRecorded = false),
+                noteRow("n2", date = "2026-10-02", pain = 6, fall = true),
+            ),
+        )
+        val store = RoomBackupStore(db)
+
+        val snapshot = store.snapshot()
+        val flagged = snapshot.notes.single { it.serverId == "n1" }
+        assertFalse(flagged.painRecorded)
+        assertFalse(flagged.fallRecorded)
+        val plain = snapshot.notes.single { it.serverId == "n2" }
+        assertTrue(plain.painRecorded)
+        assertTrue(plain.fallRecorded)
+
+        // Wipe and restore: the flags must come back exactly.
+        db.noteDao().deleteAll()
+        assertEquals(BackupReplaceResult.Replaced, store.replaceAll(snapshot, store.state()))
+        val restored = db.noteDao().byServerId("n1")!!
+        assertFalse(restored.painRecorded)
+        assertFalse(restored.fallRecorded)
+        assertTrue(db.noteDao().byServerId("n2")!!.painRecorded)
+        assertTrue(db.noteDao().byServerId("n2")!!.fallRecorded)
+    }
+
+    @Test
+    fun theStateTokenChangesWhenARecordedFlagChanges() = runTest {
+        db.recipientDao().insertAll(listOf(recipientRow("r1")))
+        db.noteDao().insertAll(listOf(noteRow("n1", pain = 0, painRecorded = false)))
+        val store = RoomBackupStore(db)
+        val before = store.state()
+
+        db.noteDao().insertAll(listOf(noteRow("n1", pain = 0, painRecorded = true)))
+        val after = store.state()
+
+        assertEquals(before.counts, after.counts)
+        assertTrue(before.token != after.token)
     }
 
     @Test

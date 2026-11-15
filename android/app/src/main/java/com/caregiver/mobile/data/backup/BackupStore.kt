@@ -141,6 +141,8 @@ fun NoteEntity.toBackup(): BackupNote = BackupNote(
     pain = pain,
     fall = fall,
     text = text,
+    painRecorded = painRecorded,
+    fallRecorded = fallRecorded,
 )
 
 fun BackupNote.toEntity(): NoteEntity = NoteEntity(
@@ -155,6 +157,8 @@ fun BackupNote.toEntity(): NoteEntity = NoteEntity(
     pain = pain,
     fall = fall,
     text = text,
+    painRecorded = painRecorded,
+    fallRecorded = fallRecorded,
 )
 
 fun AddendumEntity.toBackup(): BackupAddendum =

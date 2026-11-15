@@ -15,6 +15,7 @@ enum class BackupIssueKind {
     INVALID_OPTION,
     INVALID_DATE,
     INVALID_PAIN,
+    INVALID_FALL,
     INVALID_COUNT,
     BROKEN_REFERENCE,
     INVALID_PLAN_JSON,
@@ -95,6 +96,14 @@ object BackupValidator {
             }
             if (note.pain !in 0..10) {
                 report(BackupEntity.NOTE, BackupIssueKind.INVALID_PAIN)
+            }
+            // An unanswered flag must not carry an answer: painRecorded=false
+            // requires pain 0 and fallRecorded=false requires fall false.
+            if (!note.painRecorded && note.pain != 0) {
+                report(BackupEntity.NOTE, BackupIssueKind.INVALID_PAIN)
+            }
+            if (!note.fallRecorded && note.fall) {
+                report(BackupEntity.NOTE, BackupIssueKind.INVALID_FALL)
             }
         }
 
