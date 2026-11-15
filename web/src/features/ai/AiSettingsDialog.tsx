@@ -5,7 +5,7 @@ import type { MessageKey } from '../../i18n/translations';
 import { useApiClient } from '../../lib/api';
 import { useByok, type ByokProviderId } from './ByokContext';
 import { loadAiPreferences, saveAiPreferences } from './aiPreferences';
-import { MODEL_CATALOG, MODEL_ID_PATTERN } from './modelCatalog';
+import { MODEL_CATALOG, MODEL_ID_PATTERN, requiresDataUseAck } from './modelCatalog';
 import './ai-settings.css';
 
 const providers: { id: ByokProviderId; label: MessageKey }[] = [
@@ -54,6 +54,7 @@ export function AiSettingsDialog({ open, onClose }: { open: boolean; onClose?: (
   const [modelChoice, setModelChoice] = useState('');
   const [customModel, setCustomModel] = useState('');
   const [apiKey, setApiKey] = useState('');
+  const [dataUseAck, setDataUseAck] = useState(false);
   const [testState, setTestState] = useState<ConnectionTestState>({ kind: 'idle' });
   const pending = testState.kind === 'testing';
   const modelOptions = MODEL_CATALOG[providerId];
@@ -62,6 +63,8 @@ export function AiSettingsDialog({ open, onClose }: { open: boolean; onClose?: (
   const customModelInvalid = otherModelSelected && customModel.length > 0 && !customModelValid;
   const selectedModel = otherModelSelected ? customModel : modelChoice;
   const modelReady = selectedModel.length > 0 && (!otherModelSelected || customModelValid);
+  const ackRequired = requiresDataUseAck(providerId, selectedModel);
+  const ackBlocked = ackRequired && !dataUseAck;
 
   useEffect(() => {
     if (!open) return;
@@ -74,6 +77,7 @@ export function AiSettingsDialog({ open, onClose }: { open: boolean; onClose?: (
     setModelChoice(preferences ? (catalogHasModel ? preferences.model : 'other') : '');
     setCustomModel(preferences && !catalogHasModel ? preferences.model : '');
     setApiKey('');
+    setDataUseAck(false);
     setTestState({ kind: 'idle' });
   }, [open]);
 
@@ -91,7 +95,7 @@ export function AiSettingsDialog({ open, onClose }: { open: boolean; onClose?: (
 
   const submit = async (event: FormEvent<HTMLFormElement>) => {
     event.preventDefault();
-    if (pending || !modelReady) return;
+    if (pending || !modelReady || ackBlocked) return;
     setTestState({ kind: 'testing' });
     try {
       const response: unknown = await api.request({
@@ -184,6 +188,7 @@ export function AiSettingsDialog({ open, onClose }: { open: boolean; onClose?: (
               setProviderId(event.target.value as ByokProviderId);
               setModelChoice('');
               setCustomModel('');
+              setDataUseAck(false);
               clearTestStatus();
             }}>
             {providers.map((provider) => <option key={provider.id} value={provider.id}>{t(provider.label)}</option>)}
@@ -196,7 +201,7 @@ export function AiSettingsDialog({ open, onClose }: { open: boolean; onClose?: (
               <label key={option.id} className="byok-model-option">
                 <input type="radio" name="byok-model-choice" value={option.id}
                   checked={modelChoice === option.id} disabled={pending}
-                  onChange={() => { setModelChoice(option.id); clearTestStatus(); }} />
+                  onChange={() => { setModelChoice(option.id); setDataUseAck(false); clearTestStatus(); }} />
                 <span className="byok-model-option-body">
                   <span className="byok-model-option-title">
                     <bdi>{option.label}</bdi>
@@ -209,7 +214,7 @@ export function AiSettingsDialog({ open, onClose }: { open: boolean; onClose?: (
             <label className="byok-model-option">
               <input type="radio" name="byok-model-choice" value="other"
                 checked={otherModelSelected} disabled={pending}
-                onChange={() => { setModelChoice('other'); clearTestStatus(); }} />
+                onChange={() => { setModelChoice('other'); setDataUseAck(false); clearTestStatus(); }} />
               <span className="byok-model-option-body">
                 <span className="byok-model-option-title">{t('byokModelOther')}</span>
               </span>
@@ -222,11 +227,18 @@ export function AiSettingsDialog({ open, onClose }: { open: boolean; onClose?: (
                 value={customModel} readOnly={pending}
                 aria-invalid={customModelInvalid || undefined}
                 aria-describedby={customModelInvalid ? 'byok-model-error' : undefined}
-                onChange={(event) => { setCustomModel(event.target.value); clearTestStatus(); }} />
+                onChange={(event) => { setCustomModel(event.target.value); setDataUseAck(false); clearTestStatus(); }} />
               {customModelInvalid && <p id="byok-model-error" className="byok-model-error">{t('byokModelIdInvalid')}</p>}
             </div>
           )}
           <p className="byok-provider-notice">{t(providerNotices[providerId])}</p>
+          {ackRequired && (
+            <label className="byok-ack">
+              <input type="checkbox" checked={dataUseAck} disabled={pending}
+                onChange={(event) => setDataUseAck(event.target.checked)} />
+              <span>{t('byokDataUseAck')}</span>
+            </label>
+          )}
         </div>
         <div className="auth-field">
           <label htmlFor="byok-key">{t('byokKeyLabel')}</label>
@@ -234,7 +246,7 @@ export function AiSettingsDialog({ open, onClose }: { open: boolean; onClose?: (
             onChange={(event) => { setApiKey(event.target.value); clearTestStatus(); }} />
         </div>
         <div className="byok-actions">
-          <Button type="submit" disabled={pending || !modelReady || !apiKey}>{t(pending ? 'byokTestingConnection' : 'byokTestConnection')}</Button>
+          <Button type="submit" disabled={pending || !modelReady || !apiKey || ackBlocked}>{t(pending ? 'byokTestingConnection' : 'byokTestConnection')}</Button>
           <Button type="button" variant="secondary" disabled={pending || (!credentials && !apiKey)} onClick={removeKey}>{t('byokRemoveKey')}</Button>
         </div>
       </form>
