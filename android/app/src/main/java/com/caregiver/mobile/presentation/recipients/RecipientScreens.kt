@@ -1,6 +1,7 @@
 package com.caregiver.mobile.presentation.recipients
 
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.text.KeyboardOptions
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
@@ -43,6 +44,7 @@ import androidx.compose.material3.pulltorefresh.PullToRefreshBox
 import androidx.compose.material3.pulltorefresh.PullToRefreshDefaults.Indicator
 import androidx.compose.material3.pulltorefresh.rememberPullToRefreshState
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
@@ -52,6 +54,7 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.platform.LocalLayoutDirection
 import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.semantics.role
 import androidx.compose.ui.semantics.semantics
@@ -59,6 +62,8 @@ import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.res.pluralStringResource
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.input.KeyboardType
+import androidx.compose.ui.unit.LayoutDirection
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.lifecycle.Lifecycle
@@ -76,6 +81,9 @@ import com.caregiver.mobile.core.theme.PlexArabic
 import com.caregiver.mobile.data.api.RecipientDto
 import com.caregiver.mobile.data.local.RecipientAdmin
 import com.caregiver.mobile.data.local.RecipientDeletionCounts
+import com.caregiver.mobile.data.recipient.CareDetailsField
+import com.caregiver.mobile.data.recipient.CareDetailsIssue
+import com.caregiver.mobile.data.recipient.CareDetailsRules
 import com.caregiver.mobile.data.recipient.RelationshipOptions
 import com.caregiver.mobile.presentation.common.AppCard
 import com.caregiver.mobile.presentation.common.AppDimens
@@ -855,6 +863,199 @@ fun EditRecipientScreen(recipientId: String, graph: AppGraph, navController: Nav
                 }
             }
         }
+    }
+}
+
+@Composable
+fun CareDetailsScreen(recipientId: String, graph: AppGraph, navController: NavController) {
+    val admin = graph.recipientAdmin
+    if (admin == null) {
+        Column(
+            Modifier
+                .fillMaxSize()
+                .padding(horizontal = AppDimens.ScreenHPadding),
+        ) {
+            AppTopBar(
+                title = stringResource(R.string.care_details_title),
+                onBack = { navController.popBackStack() },
+            )
+            Text(
+                stringResource(R.string.edit_unavailable),
+                color = CaregiverColors.Danger,
+            )
+        }
+        return
+    }
+
+    val vm: CareDetailsViewModel = assistedViewModel("care-details-$recipientId") {
+        CareDetailsViewModel(recipientId, graph.apis, graph.auth, admin)
+    }
+    val state by vm.state.collectAsStateWithLifecycle()
+    LaunchedEffect(state.saved) {
+        if (state.saved) navController.popBackStack()
+    }
+
+    Column(
+        Modifier
+            .fillMaxSize()
+            .verticalScroll(rememberScrollState())
+            .imePadding()
+            .padding(horizontal = AppDimens.ScreenHPadding),
+        verticalArrangement = Arrangement.spacedBy(AppDimens.SectionGap),
+    ) {
+        AppTopBar(
+            title = stringResource(R.string.care_details_title),
+            onBack = { navController.popBackStack() },
+        )
+        Text(
+            stringResource(R.string.care_details_hint),
+            color = CaregiverColors.Muted,
+        )
+        when {
+            state.missing -> {
+                Text(
+                    stringResource(R.string.edit_unavailable),
+                    color = CaregiverColors.Danger,
+                )
+            }
+            !state.loaded -> LoadingRow()
+            else -> {
+                val fieldsEnabled = !state.archived && !state.busy
+                CareDetailsInput(
+                    label = stringResource(R.string.care_dob),
+                    value = state.dateOfBirth,
+                    onValueChange = vm::onDateOfBirth,
+                    issue = state.errors[CareDetailsField.DateOfBirth],
+                    supportingHint = R.string.care_dob_hint,
+                    enabled = fieldsEnabled,
+                    forceLtr = true,
+                    modifier = Modifier.testTag("care_details_dob"),
+                )
+                CareDetailsInput(
+                    label = stringResource(R.string.care_allergies),
+                    value = state.allergies,
+                    onValueChange = vm::onAllergies,
+                    issue = state.errors[CareDetailsField.Allergies],
+                    maxLength = CareDetailsRules.ALLERGIES_MAX_LENGTH,
+                    enabled = fieldsEnabled,
+                    multiLine = true,
+                    modifier = Modifier.testTag("care_details_allergies"),
+                )
+                CareDetailsInput(
+                    label = stringResource(R.string.care_conditions),
+                    value = state.conditions,
+                    onValueChange = vm::onConditions,
+                    issue = state.errors[CareDetailsField.Conditions],
+                    maxLength = CareDetailsRules.CONDITIONS_MAX_LENGTH,
+                    enabled = fieldsEnabled,
+                    multiLine = true,
+                    modifier = Modifier.testTag("care_details_conditions"),
+                )
+                CareDetailsInput(
+                    label = stringResource(R.string.care_contact_name),
+                    value = state.emergencyContactName,
+                    onValueChange = vm::onEmergencyContactName,
+                    issue = state.errors[CareDetailsField.EmergencyContactName],
+                    maxLength = CareDetailsRules.EMERGENCY_CONTACT_NAME_MAX_LENGTH,
+                    enabled = fieldsEnabled,
+                    modifier = Modifier.testTag("care_details_contact_name"),
+                )
+                CareDetailsInput(
+                    label = stringResource(R.string.care_contact_phone),
+                    value = state.emergencyContactPhone,
+                    onValueChange = vm::onEmergencyContactPhone,
+                    issue = state.errors[CareDetailsField.EmergencyContactPhone],
+                    maxLength = 30,
+                    keyboardType = KeyboardType.Phone,
+                    enabled = fieldsEnabled,
+                    forceLtr = true,
+                    modifier = Modifier.testTag("care_details_contact_phone"),
+                )
+                if (state.archived) {
+                    Text(
+                        stringResource(R.string.people_archived_readonly),
+                        color = CaregiverColors.Muted,
+                    )
+                } else {
+                    PrimaryButton(
+                        label = stringResource(R.string.care_save),
+                        onClick = vm::save,
+                        enabled = !state.busy,
+                        modifier = Modifier.testTag("care_details_save"),
+                    )
+                    if (state.failed) {
+                        Text(
+                            stringResource(R.string.add_error_save_failed),
+                            color = CaregiverColors.Danger,
+                            modifier = Modifier.testTag("care_details_error"),
+                        )
+                    }
+                }
+            }
+        }
+    }
+}
+
+@Composable
+private fun CareDetailsInput(
+    label: String,
+    value: String,
+    onValueChange: (String) -> Unit,
+    issue: CareDetailsIssue?,
+    enabled: Boolean,
+    modifier: Modifier = Modifier,
+    maxLength: Int? = null,
+    supportingHint: Int? = null,
+    keyboardType: KeyboardType = KeyboardType.Text,
+    multiLine: Boolean = false,
+    forceLtr: Boolean = false,
+) {
+    val errorRes = when (issue) {
+        CareDetailsIssue.InvalidDate -> R.string.care_error_date
+        CareDetailsIssue.InvalidPhone -> R.string.care_error_phone
+        CareDetailsIssue.TooLong -> R.string.care_error_long
+        null -> null
+    }
+    val input: @Composable () -> Unit = {
+        OutlinedTextField(
+            value = value,
+            onValueChange = { newValue ->
+                onValueChange(maxLength?.let(newValue::take) ?: newValue)
+            },
+            enabled = enabled,
+            label = { Text(label) },
+            isError = issue != null,
+            supportingText = {
+                when {
+                    errorRes != null -> Text(
+                        stringResource(errorRes),
+                        color = CaregiverColors.Danger,
+                    )
+                    supportingHint != null -> Text(stringResource(supportingHint))
+                }
+            },
+            singleLine = !multiLine,
+            minLines = if (multiLine) 3 else 1,
+            maxLines = if (multiLine) 5 else 1,
+            keyboardOptions = KeyboardOptions(keyboardType = keyboardType),
+            shape = RoundedCornerShape(AppDimens.ControlRadius),
+            colors = OutlinedTextFieldDefaults.colors(
+                focusedBorderColor = CaregiverColors.Primary,
+                unfocusedBorderColor = CaregiverColors.Border,
+                focusedContainerColor = CaregiverColors.Surface,
+                unfocusedContainerColor = CaregiverColors.Surface,
+            ),
+            modifier = modifier
+                .fillMaxWidth()
+                .heightIn(min = AppDimens.InputHeight),
+        )
+    }
+    if (forceLtr) {
+        CompositionLocalProvider(LocalLayoutDirection provides LayoutDirection.Ltr) {
+            input()
+        }
+    } else {
+        input()
     }
 }
 

@@ -40,6 +40,7 @@ object AppDestinations {
     val RecipientDetail = Destination("recipient/{recipientId}")
     val AddRecipient = Destination("add-recipient")
     val EditRecipient = Destination("edit-recipient/{recipientId}")
+    val CareDetails = Destination("care-details/{recipientId}")
     val NoteEditor = Destination("note-editor/{recipientId}")
     val NoteSaved = Destination("note-saved/{noteId}")
     val NoteDetail = Destination("note/{noteId}")
@@ -61,7 +62,7 @@ object AppDestinations {
     val all: List<Destination> = listOf(
         Login, Register, ServerUrl,
         Home, People, Notes, History,
-        RecipientDetail, AddRecipient, EditRecipient, NoteEditor, NoteSaved, NoteDetail, Addendum,
+        RecipientDetail, AddRecipient, EditRecipient, CareDetails, NoteEditor, NoteSaved, NoteDetail, Addendum,
         Summary, SummaryResult,
         Plans, PlanProposal, PlanEdit, PlanVersions,
         Settings, AiSettings, About, ThemeColors,
@@ -78,6 +79,7 @@ object AppRoutes {
 
     fun recipientDetail(recipientId: String): String = "recipient/$recipientId"
     fun editRecipient(recipientId: String): String = "edit-recipient/$recipientId"
+    fun careDetails(recipientId: String): String = "care-details/$recipientId"
     fun noteEditor(recipientId: String): String = "note-editor/$recipientId"
     fun noteSaved(noteId: String): String = "note-saved/$noteId"
     fun noteDetail(noteId: String): String = "note/$noteId"

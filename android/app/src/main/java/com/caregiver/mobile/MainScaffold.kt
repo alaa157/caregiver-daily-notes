@@ -102,6 +102,7 @@ import com.caregiver.mobile.presentation.plans.PlanProposalScreen
 import com.caregiver.mobile.presentation.plans.PlanVersionsScreen
 import com.caregiver.mobile.presentation.plans.PlansScreen
 import com.caregiver.mobile.presentation.recipients.AddRecipientScreen
+import com.caregiver.mobile.presentation.recipients.CareDetailsScreen
 import com.caregiver.mobile.presentation.recipients.EditRecipientScreen
 import com.caregiver.mobile.presentation.recipients.PeopleState
 import com.caregiver.mobile.presentation.recipients.RecipientDetailScreen
@@ -447,6 +448,12 @@ fun MainScaffold(graph: AppGraph) {
                     arguments = listOf(navArgument("recipientId") { type = NavType.StringType }),
                 ) { entry ->
                     EditRecipientScreen(AppRoutes.arg(entry, "recipientId"), graph, navController)
+                }
+                composable(
+                    AppDestinations.CareDetails.base,
+                    arguments = listOf(navArgument("recipientId") { type = NavType.StringType }),
+                ) { entry ->
+                    CareDetailsScreen(AppRoutes.arg(entry, "recipientId"), graph, navController)
                 }
                 composable(
                     AppDestinations.NoteEditor.base,
