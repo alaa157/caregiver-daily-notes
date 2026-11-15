@@ -7,17 +7,21 @@ import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 
+import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Box
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
+import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.Button
 import androidx.compose.material3.DatePicker
 import androidx.compose.material3.DatePickerDialog
@@ -39,10 +43,13 @@ import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.res.stringResource
+import androidx.compose.ui.semantics.clearAndSetSemantics
+import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextDirection
@@ -55,9 +62,10 @@ import com.caregiver.mobile.ai.AiConsentDialog
 import com.caregiver.mobile.ai.AiKeyStore
 import com.caregiver.mobile.ai.AiModelCatalog
 import com.caregiver.mobile.ai.AiProvider
+import com.caregiver.mobile.ai.SummaryWindow
+import com.caregiver.mobile.ai.TrendDto
 import com.caregiver.mobile.ai.dataUseNotice
 import com.caregiver.mobile.ai.stringRes
-import com.caregiver.mobile.ai.SummaryWindow
 import com.caregiver.mobile.core.i18n.Bidi
 import com.caregiver.mobile.core.navigation.AppDestinations
 import com.caregiver.mobile.core.navigation.AppRoutes
@@ -92,6 +100,7 @@ import com.caregiver.mobile.presentation.home.LoadFailed
 import com.caregiver.mobile.presentation.home.LoadingRow
 import com.caregiver.mobile.ui.component.ChipsRow
 import com.caregiver.mobile.ui.component.DefaultDialog
+import java.text.NumberFormat
 import java.time.LocalDate
 
 /**
@@ -453,6 +462,137 @@ internal fun usesObservationCards(evidence: List<SummaryDto.EvidenceDto>): Boole
     evidence.isNotEmpty() && evidence.all { it.claim.isNotBlank() }
 
 @Composable
+private fun TrendsSection(trends: List<TrendDto>) {
+    if (trends.none { it.previousSampleSize > 0 || it.currentSampleSize > 0 }) {
+        return
+    }
+
+    val locale = appLocale()
+    val numberFormat = remember(locale) { NumberFormat.getInstance(locale) }
+    val countTemplate = stringResource(R.string.summary_trend_count)
+
+    SectionTitle(stringResource(R.string.summary_trends))
+    trends.forEach { trend ->
+        val metricLabelRes = when (trend.metric) {
+            "FALL_COUNT" -> R.string.summary_trend_fall
+            "HIGH_PAIN_COUNT" -> R.string.summary_trend_pain
+            "MISSED_MED_COUNT" -> R.string.summary_trend_missed_med
+            "POOR_APPETITE_COUNT" -> R.string.summary_trend_poor_appetite
+            else -> null
+        } ?: return@forEach
+        val metricLabel = stringResource(metricLabelRes)
+
+        AppCard {
+            Text(
+                text = metricLabel,
+                style = MaterialTheme.typography.titleMedium,
+                color = CaregiverColors.Ink,
+            )
+            TrendPeriodRow(
+                metricLabel = metricLabel,
+                labelRes = R.string.summary_trend_previous,
+                count = trend.previousCount,
+                sampleSize = trend.previousSampleSize,
+                previousCount = trend.previousCount,
+                currentCount = trend.currentCount,
+                countTemplate = countTemplate,
+                numberFormat = numberFormat,
+            )
+            TrendPeriodRow(
+                metricLabel = metricLabel,
+                labelRes = R.string.summary_trend_current,
+                count = trend.currentCount,
+                sampleSize = trend.currentSampleSize,
+                previousCount = trend.previousCount,
+                currentCount = trend.currentCount,
+                countTemplate = countTemplate,
+                numberFormat = numberFormat,
+            )
+            if (trend.previousSampleSize > 0 && trend.currentSampleSize > 0) {
+                val delta = if (trend.delta > 0) {
+                    "+${numberFormat.format(trend.delta)}"
+                } else {
+                    numberFormat.format(trend.delta)
+                }
+                Text(
+                    text = stringResource(R.string.summary_trend_delta, Bidi.isolate(delta)),
+                    style = MaterialTheme.typography.bodyMedium,
+                    color = CaregiverColors.Muted,
+                )
+            }
+        }
+    }
+}
+
+@Composable
+private fun TrendPeriodRow(
+    metricLabel: String,
+    labelRes: Int,
+    count: Int,
+    sampleSize: Int,
+    previousCount: Int,
+    currentCount: Int,
+    countTemplate: String,
+    numberFormat: NumberFormat,
+) {
+    val periodLabel = stringResource(labelRes)
+    val valueText = if (sampleSize > 0) {
+        // Keep the resource's integer placeholders while applying the app locale's number format.
+        countTemplate
+            .replace("%1\$d", Bidi.isolate(numberFormat.format(count)))
+            .replace("%2\$d", Bidi.isolate(numberFormat.format(sampleSize)))
+    } else {
+        stringResource(R.string.summary_trend_no_data)
+    }
+
+    Column(
+        modifier = Modifier
+            .fillMaxWidth()
+            .clearAndSetSemantics {
+                contentDescription = "$metricLabel, $periodLabel, $valueText"
+            },
+        verticalArrangement = Arrangement.spacedBy(4.dp),
+    ) {
+        Row(
+            modifier = Modifier.fillMaxWidth(),
+            horizontalArrangement = Arrangement.SpaceBetween,
+            verticalAlignment = Alignment.CenterVertically,
+        ) {
+            Text(
+                text = periodLabel,
+                style = MaterialTheme.typography.bodyMedium,
+                color = CaregiverColors.Ink,
+            )
+            Text(
+                text = valueText,
+                style = MaterialTheme.typography.bodySmall,
+                color = CaregiverColors.Muted,
+            )
+        }
+        if (sampleSize > 0) {
+            Box(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .height(8.dp)
+                    .clip(RoundedCornerShape(percent = 50))
+                    .background(CaregiverColors.PrimarySoft)
+                    .clearAndSetSemantics { },
+            ) {
+                Box(
+                    modifier = Modifier
+                        .fillMaxWidth(trendBarFraction(count, previousCount, currentCount))
+                        .fillMaxHeight()
+                        .background(CaregiverColors.Primary),
+                )
+            }
+        }
+    }
+}
+
+internal fun trendBarFraction(count: Int, previousCount: Int, currentCount: Int): Float =
+    count.toFloat() / maxOf(previousCount, currentCount, 1)
+
+@Composable
 private fun SummaryBody(
     graph: com.caregiver.mobile.AppGraph,
     data: SummaryResultData,
@@ -546,6 +686,7 @@ private fun SummaryBody(
         if (summary.redFlags.isNotEmpty()) {
             FlagsBanner(summary.redFlags)
         }
+        TrendsSection(data.trends)
         if (usesObservationCards(summary.evidence)) {
             summary.evidence.forEachIndexed { index, item ->
                 AppCard(Modifier.testTag("summary_observation_$index")) {
