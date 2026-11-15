@@ -51,13 +51,17 @@ function SeedCredentials({ credentials, children }: { credentials: ByokCredentia
   useEffect(() => { if (credentials) setCredentials(credentials); }, [credentials, setCredentials]);
   return <>{children}</>;
 }
-function show(fetcher: ReturnType<typeof vi.fn>, language = 'en', credentials: ByokCredentials | null = syntheticCredentials) {
+function SwapCredentials({ next, label = 'swap credentials' }: { next: ByokCredentials; label?: string }) {
+  const { setCredentials } = useByok();
+  return <button onClick={() => setCredentials(next)}>{label}</button>;
+}
+function show(fetcher: ReturnType<typeof vi.fn>, language = 'en', credentials: ByokCredentials | null = syntheticCredentials, extras?: ReactNode) {
   vi.stubGlobal('fetch', fetcher); localStorage.setItem('caregiver-language', language);
   sessionStorage.setItem('caregiver-auth-session-v1', JSON.stringify({ token: testToken(), baseUrl: '' }));
   return render(<I18nProvider><ApiProvider config={{ apiBaseUrl: '' }}><AuthProvider><ThemeProvider><MemoryRouter initialEntries={[root]}>
     <AppShell><Routes>
       <Route element={<ProtectedRoute />}>
-        <Route path={root} element={<SeedCredentials credentials={credentials}><SummaryPage /></SeedCredentials>} />
+        <Route path={root} element={<SeedCredentials credentials={credentials}><SummaryPage />{extras}</SeedCredentials>} />
       </Route>
       <Route path="/login" element={<LoginPage />} />
     </Routes></AppShell>
@@ -852,5 +856,49 @@ describe('on-demand summary and safety workflow', () => {
     expect(within(previous).queryByText(/عدد الأحداث:/)).not.toBeInTheDocument();
     expect(Array.from(trend.querySelectorAll('dl > div')[1].querySelectorAll('dd bdi'), (item) => item.textContent))
       .toEqual([new Intl.NumberFormat('ar-EG').format(2), new Intl.NumberFormat('ar-EG').format(3)]);
+  });
+});
+
+describe('generated-with attribution', () => {
+  it('shows the provider and model after a successful generation', async () => {
+    show(dataFetcher()); await generate();
+
+    const line = screen.getByText(/Generated with/);
+    expect(line).toHaveTextContent('Gemini');
+    expect(line).toHaveTextContent('gemini-test-model');
+    expect(line.textContent).not.toContain(syntheticCredentials.apiKey);
+  });
+
+  it('is absent when the summary is aiUnavailable', async () => {
+    const fixture = summaryFixture();
+    const response = { ...fixture, summary: { ...fixture.summary, aiUnavailable: true } };
+    show(dataFetcher((path) => path === byokSummaryPath ? jsonResponse(response) : undefined));
+    await choose();
+    await userEvent.click(screen.getByRole('button', { name: 'Generate summary' }));
+    await screen.findByRole('status');
+
+    expect(screen.queryByText(/Generated with/)).not.toBeInTheDocument();
+    expect(screen.queryByText('gemini-test-model')).not.toBeInTheDocument();
+  });
+
+  it('keeps the provider and model from request start after credentials change', async () => {
+    const swapped: ByokCredentials = {
+      providerId: 'OPENAI',
+      model: 'swapped-model-id',
+      apiKey: 'synthetic-swap-key',
+    };
+    show(dataFetcher(), 'en', syntheticCredentials, <SwapCredentials next={swapped} />);
+    await generate();
+
+    const line = screen.getByText(/Generated with/);
+    expect(line).toHaveTextContent('Gemini');
+    expect(line).toHaveTextContent('gemini-test-model');
+
+    await userEvent.click(screen.getByRole('button', { name: 'swap credentials' }));
+
+    expect(screen.getByText(/Generated with/)).toHaveTextContent('Gemini');
+    expect(screen.getByText(/Generated with/)).toHaveTextContent('gemini-test-model');
+    expect(document.body.textContent).not.toContain('swapped-model-id');
+    expect(document.body.textContent).not.toContain('synthetic-swap-key');
   });
 });

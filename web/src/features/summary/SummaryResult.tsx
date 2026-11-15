@@ -3,9 +3,17 @@ import { Link } from 'react-router-dom';
 import { isRecipientId } from '../../api/recipients';
 import type { SummaryRequest, SummaryResponse } from '../../api/summary';
 import { useI18n } from '../../i18n/I18nProvider';
+import type { ByokProviderId } from '../ai/ByokContext';
+import { providerLabelKey } from '../ai/providers';
 import { SummarySafety } from '../safety/SummarySafety';
 
-export interface SummaryView { request: SummaryRequest; recipientName: string; response: SummaryResponse; failed?: boolean }
+export interface SummaryView {
+  request: SummaryRequest;
+  recipientName: string;
+  response: SummaryResponse;
+  failed?: boolean;
+  generatedWith?: { providerId: ByokProviderId; model: string };
+}
 const sampleSizeKey = (metric: string) => {
   if (metric === 'MISSED_MED_COUNT' || metric === 'POOR_APPETITE_COUNT') return 'summarySampleSizeDays';
   if (metric === 'FALL_COUNT' || metric === 'HIGH_PAIN_COUNT') return 'summarySampleSizeObservations';
@@ -73,6 +81,7 @@ export function SummaryResult({ view }: { view: SummaryView }) {
     <header className="summary-result-heading"><h2 id="summary-result-heading">{t(headingKey)}</h2>
       <p className="summary-recipient"><bdi>{view.recipientName}</bdi></p>
       <p>{t('summaryCoverage')}: <bdi>{from.toISOString().slice(0, 10)}</bdi> – <bdi>{request.periodEndInclusive}</bdi> (<bdi>{format(request.periodDays)}</bdi> {t('summaryDays')})</p>
+      {view.generatedWith && !response.summary?.aiUnavailable && <p>{t('summaryGeneratedWith')}: {t(providerLabelKey(view.generatedWith.providerId))} · <bdi>{view.generatedWith.model}</bdi></p>}
     </header>
     <SummarySafety safety={response.safety} recipientId={request.recipientId}
       periodEndInclusive={request.periodEndInclusive} periodDays={request.periodDays} />
