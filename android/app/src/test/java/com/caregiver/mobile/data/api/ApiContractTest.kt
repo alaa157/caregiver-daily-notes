@@ -58,6 +58,50 @@ class ApiContractTest {
         assertEquals("taken", parsed.medicationTaken)
         assertEquals(2, parsed.pain)
         assertEquals(false, parsed.fall)
+        assertEquals(true, parsed.painRecorded)
+        assertEquals(true, parsed.fallRecorded)
+    }
+
+    @Test
+    fun noteDtoRecordedFlagsRoundTripAndCopy() {
+        val parsed = ApiClient.json.decodeFromString<NoteDto>(
+            NoteDto.serializer(),
+            """{"id":"n1","recipientId":"r1","date":"2026-10-07","mood":"good","appetite":"good","sleep":"ok","mobility":"walks","medicationTaken":"taken","pain":2,"fall":false,"text":"ate well","painRecorded":false,"fallRecorded":false}""",
+        )
+        assertEquals(false, parsed.painRecorded)
+        assertEquals(false, parsed.fallRecorded)
+
+        val encoded = ApiClient.json.encodeToString(NoteDto.serializer(), parsed)
+        assertTrue(encoded.contains("\"painRecorded\":false"))
+        assertTrue(encoded.contains("\"fallRecorded\":false"))
+
+        val roundTripped = ApiClient.json.decodeFromString<NoteDto>(NoteDto.serializer(), encoded)
+        assertEquals(false, roundTripped.painRecorded)
+        assertEquals(false, roundTripped.fallRecorded)
+
+        val copied = parsed.copy(text = "changed")
+        assertEquals(parsed.painRecorded, copied.painRecorded)
+        assertEquals(parsed.fallRecorded, copied.fallRecorded)
+    }
+
+    @Test
+    fun noteDetailDtoDefaultsRecordedFlagsWhenFieldsAreMissing() {
+        val parsed = ApiClient.json.decodeFromString<NoteDetailDto>(
+            NoteDetailDto.serializer(),
+            """{"id":"n1","recipientId":"r1","date":"2026-10-07","mood":"good","appetite":"good","sleep":"ok","mobility":"walks","medicationTaken":"taken","pain":2,"fall":false,"text":"ate well","addenda":[]}""",
+        )
+        assertEquals(true, parsed.painRecorded)
+        assertEquals(true, parsed.fallRecorded)
+    }
+
+    @Test
+    fun createNoteRequestDefaultsRecordedFlagsWhenFieldsAreMissing() {
+        val parsed = ApiClient.json.decodeFromString<CreateNoteRequest>(
+            CreateNoteRequest.serializer(),
+            """{"recipientId":"r1","mood":"good","appetite":"good","sleep":"ok","mobility":"walks","medicationTaken":"taken","pain":2,"fall":false,"text":"ate well"}""",
+        )
+        assertEquals(true, parsed.painRecorded)
+        assertEquals(true, parsed.fallRecorded)
     }
 
     @Test
