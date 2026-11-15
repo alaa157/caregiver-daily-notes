@@ -190,6 +190,23 @@ public class RecipientService {
     return RecipientResponse.from(recipient);
   }
 
+  @Transactional
+  public RecipientResponse resolveReview(UUID id, String resolution) {
+    CareRecipient recipient = findOwnedForUpdate(id);
+    UUID actor = AuthContext.currentCaregiverId();
+    if ("ARCHIVED".equals(resolution)) {
+      recipient.resolveReviewAsArchived(actor);
+    } else if ("ACTIVE".equals(resolution)) {
+      recipient.resolveReviewAsActive(actor);
+    } else {
+      throw new IllegalArgumentException("resolution must be ARCHIVED or ACTIVE.");
+    }
+    recipient = recipients.saveAndFlush(recipient);
+    audit.record("RECIPIENT_REVIEW_RESOLVED", "CARE_RECIPIENT", recipient.getId().toString(),
+        "resolution=" + resolution);
+    return RecipientResponse.from(recipient);
+  }
+
   /** Backward-compatible alias for older clients; now means reversible archive. */
   @Transactional
   public RecipientResponse deactivate(UUID id) {

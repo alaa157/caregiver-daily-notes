@@ -57,6 +57,13 @@ public class RecipientController {
   @Operation(summary = "Restore an ARCHIVED owned recipient to ACTIVE")
   public RecipientResponse restore(@PathVariable UUID id) { return service.restore(id); }
 
+  @PatchMapping("/{id}/resolve-review")
+  @Operation(summary = "Resolve a LEGACY_INACTIVE_REVIEW owned recipient to ARCHIVED or ACTIVE")
+  public RecipientResponse resolveReview(@PathVariable UUID id,
+      @RequestBody(required = false) RecipientReviewResolutionRequest request) {
+    return service.resolveReview(id, request == null ? null : request.resolution());
+  }
+
   /** Backward-compatible endpoint; deactivation now means reversible archive. */
   @PatchMapping("/{id}/deactivate")
   @Operation(summary = "Backward-compatible alias for archive")
