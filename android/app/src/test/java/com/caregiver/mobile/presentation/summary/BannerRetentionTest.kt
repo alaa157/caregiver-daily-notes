@@ -77,7 +77,7 @@ class BannerRetentionTest {
     private suspend fun summaryContent(vm: SummaryViewModel): SummaryDto {
         val state = vm.state.first { it is SummaryState.Content || it !is SummaryState.Loading }
         assertTrue("expected Content, was $state", state is SummaryState.Content)
-        return (state as SummaryState.Content).summary
+        return (state as SummaryState.Content).data.summary
     }
 
     @Test
@@ -94,7 +94,7 @@ class BannerRetentionTest {
         // Notes-safe copy + retry, flags intact for the banner.
         assertEquals(
             listOf("FALL_REPORTED"),
-            (degraded as SummaryState.AiUnavailable).last?.redFlags,
+            (degraded as SummaryState.AiUnavailable).last?.summary?.redFlags,
         )
     }
 
@@ -110,7 +110,7 @@ class BannerRetentionTest {
 
         assertEquals(
             listOf("HIGH_PAIN", "MEDICATION_UNCLEAR"),
-            (degraded as SummaryState.Rejected).last?.redFlags,
+            (degraded as SummaryState.Rejected).last?.summary?.redFlags,
         )
     }
 
