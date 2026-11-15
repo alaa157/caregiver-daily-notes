@@ -670,6 +670,7 @@
     <string name="csv_issue_pain">يجب أن تكون شدة الألم رقمًا من 0 إلى 10</string>
     <string name="csv_issue_fall">يجب أن تكون قيمة السقوط true أو false</string>
     <string name="csv_issue_mood">الحالة المزاجية مطلوبة</string>
+    <string name="csv_issue_empty_note">لا توجد إجابات أو نص ملاحظة في هذا الصف.</string>
     <string name="csv_issue_too_long">%1$s طويلة جدًا</string>
     <string name="csv_issue_text">نص الملاحظة مطلوب</string>
     <string name="csv_issue_recipient">الشخص تحت الرعاية مطلوب</string>

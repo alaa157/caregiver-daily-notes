@@ -366,4 +366,5 @@ internal fun importIssueText(issue: ImportIssue, column: String?): String = when
     ImportIssue.UNMATCHED_RECIPIENT -> stringResource(R.string.csv_issue_unmatched)
     ImportIssue.DUPLICATE -> stringResource(R.string.csv_issue_duplicate)
     ImportIssue.UNKNOWN -> stringResource(R.string.csv_issue_unknown)
+    ImportIssue.EMPTY_NOTE -> stringResource(R.string.csv_issue_empty_note)
 }
