@@ -3,6 +3,7 @@ import type { MessageKey } from '../i18n/translations';
 
 export type RecipientLifecycleStatus = 'ACTIVE' | 'ARCHIVED' | 'LEGACY_INACTIVE_REVIEW';
 export type RecipientListFilter = RecipientLifecycleStatus | 'ALL';
+export type RecipientReviewResolution = 'ARCHIVED' | 'ACTIVE';
 
 export interface Recipient {
   id: string; name: string; relationship: string | null; active: boolean;
@@ -155,5 +156,9 @@ export function createRecipientsApi(client: ApiClient) {
       })),
     archive: (id: string, signal?: AbortSignal) => single(`${pathFor(id)}/archive`, 'PATCH', signal),
     restore: (id: string, signal?: AbortSignal) => single(`${pathFor(id)}/restore`, 'PATCH', signal),
+    resolveReview: async (id: string, resolution: RecipientReviewResolution, signal?: AbortSignal) =>
+      readRecipient(await client.request<unknown>({
+        path: `${pathFor(id)}/resolve-review`, method: 'PATCH', signal, body: { resolution },
+      })),
   };
 }

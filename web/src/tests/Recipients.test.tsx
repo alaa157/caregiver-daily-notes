@@ -1188,6 +1188,119 @@ describe('care recipients screens', () => {
     expect(screen.queryByRole('button', { name: 'Archive recipient' })).not.toBeInTheDocument();
   });
 
+  it('shows review resolution actions only for legacy-review recipients', async () => {
+    const legacy = { ...recipient, active: false, lifecycleStatus: 'LEGACY_INACTIVE_REVIEW' as const };
+    renderRecipients(detail, vi.fn().mockImplementation((path: string) => {
+      const url = new URL(path, 'http://localhost');
+      if (url.pathname === `/api/recipients/${recipient.id}`) return Promise.resolve(jsonResponse(legacy));
+      return Promise.resolve(jsonResponse([]));
+    }));
+    expect(await screen.findByRole('button', { name: 'Mark as archived' })).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: 'Mark as active' })).toBeInTheDocument();
+  });
+
+  it.each([
+    ['active', recipient],
+    ['archived', { ...recipient, active: false, lifecycleStatus: 'ARCHIVED' as const,
+      archivedAt: '2026-10-15T10:00:00Z', archivedBy: 'b1111111-1111-4111-8111-111111111111' }],
+  ])('hides review resolution actions for %s recipients', async (_label, value) => {
+    renderRecipients(detail, vi.fn().mockImplementation((path: string) => {
+      const url = new URL(path, 'http://localhost');
+      if (url.pathname === `/api/recipients/${recipient.id}`) return Promise.resolve(jsonResponse(value));
+      if (url.pathname === '/api/notes') return Promise.resolve(jsonResponse(historyPage([], 0, 100)));
+      return Promise.resolve(jsonResponse([]));
+    }));
+    await screen.findByRole('heading', { name: recipient.name });
+    expect(screen.queryByRole('button', { name: 'Mark as archived' })).not.toBeInTheDocument();
+    expect(screen.queryByRole('button', { name: 'Mark as active' })).not.toBeInTheDocument();
+  });
+
+  it('marks a legacy-review recipient as archived through the API', async () => {
+    const legacy = { ...recipient, active: false, lifecycleStatus: 'LEGACY_INACTIVE_REVIEW' as const };
+    const archived = { ...recipient, active: false, lifecycleStatus: 'ARCHIVED' as const,
+      archivedAt: '2026-10-15T10:00:00Z', archivedBy: 'b1111111-1111-4111-8111-111111111111' };
+    const fetcher = vi.fn().mockImplementation((path: string) => {
+      const url = new URL(path, 'http://localhost');
+      if (url.pathname === `/api/recipients/${recipient.id}/resolve-review`) return Promise.resolve(jsonResponse(archived));
+      if (url.pathname === `/api/recipients/${recipient.id}`) return Promise.resolve(jsonResponse(legacy));
+      return Promise.resolve(jsonResponse([]));
+    });
+    renderRecipients(detail, fetcher);
+
+    await userEvent.click(await screen.findByRole('button', { name: 'Mark as archived' }));
+    const dialog = screen.getByRole('dialog', { name: 'Resolve this recipient' });
+    expect(dialog).toHaveTextContent('The recipient is archived. All notes are kept and it can be restored later.');
+    await userEvent.click(within(dialog).getByRole('button', { name: 'Mark as archived' }));
+
+    expect(await screen.findByText('Archived')).toBeInTheDocument();
+    expect(screen.getByText('Recipient archived. Their history has been preserved.')).toBeVisible();
+    const resolveCall = fetcher.mock.calls.find(([path]) =>
+      new URL(path, 'http://localhost').pathname === `/api/recipients/${recipient.id}/resolve-review`);
+    expect(resolveCall?.[1].method).toBe('PATCH');
+    expect(resolveCall?.[1].body).toBe(JSON.stringify({ resolution: 'ARCHIVED' }));
+  });
+
+  it('marks a legacy-review recipient as active through the API', async () => {
+    const legacy = { ...recipient, active: false, lifecycleStatus: 'LEGACY_INACTIVE_REVIEW' as const };
+    const restored = { ...recipient, restoredAt: '2026-10-16T10:00:00Z', restoredBy: 'b1111111-1111-4111-8111-111111111111' };
+    const fetcher = vi.fn().mockImplementation((path: string) => {
+      const url = new URL(path, 'http://localhost');
+      if (url.pathname === `/api/recipients/${recipient.id}/resolve-review`) return Promise.resolve(jsonResponse(restored));
+      if (url.pathname === `/api/recipients/${recipient.id}`) return Promise.resolve(jsonResponse(legacy));
+      if (url.pathname === '/api/notes') return Promise.resolve(jsonResponse(historyPage([], 0, 100)));
+      return Promise.resolve(jsonResponse([]));
+    });
+    renderRecipients(detail, fetcher);
+
+    await userEvent.click(await screen.findByRole('button', { name: 'Mark as active' }));
+    const dialog = screen.getByRole('dialog', { name: 'Resolve this recipient' });
+    expect(dialog).toHaveTextContent('The recipient becomes active again and you can record new notes.');
+    await userEvent.click(within(dialog).getByRole('button', { name: 'Mark as active' }));
+
+    expect(await screen.findByText('Active')).toBeInTheDocument();
+    expect(screen.getByText('Recipient restored to active status.')).toBeVisible();
+    const resolveCall = fetcher.mock.calls.find(([path]) =>
+      new URL(path, 'http://localhost').pathname === `/api/recipients/${recipient.id}/resolve-review`);
+    expect(resolveCall?.[1].method).toBe('PATCH');
+    expect(resolveCall?.[1].body).toBe(JSON.stringify({ resolution: 'ACTIVE' }));
+  });
+
+  it('keeps the resolve dialog open with a mapped error after a failed request', async () => {
+    const legacy = { ...recipient, active: false, lifecycleStatus: 'LEGACY_INACTIVE_REVIEW' as const };
+    const fetcher = vi.fn().mockImplementation((path: string) => {
+      const url = new URL(path, 'http://localhost');
+      if (url.pathname === `/api/recipients/${recipient.id}/resolve-review`) {
+        return Promise.resolve(jsonResponse({ message: 'private diagnostics' }, 500));
+      }
+      if (url.pathname === `/api/recipients/${recipient.id}`) return Promise.resolve(jsonResponse(legacy));
+      return Promise.resolve(jsonResponse([]));
+    });
+    renderRecipients(detail, fetcher);
+
+    await userEvent.click(await screen.findByRole('button', { name: 'Mark as archived' }));
+    const dialog = screen.getByRole('dialog', { name: 'Resolve this recipient' });
+    await userEvent.click(within(dialog).getByRole('button', { name: 'Mark as archived' }));
+
+    expect(await screen.findByRole('alert')).toHaveTextContent('We couldn’t complete this request.');
+    expect(screen.queryByText('private diagnostics')).not.toBeInTheDocument();
+    expect(screen.getByRole('dialog')).toBeInTheDocument();
+  });
+
+  it('renders review resolution actions and dialog in Arabic with RTL', async () => {
+    const legacy = { ...recipient, active: false, lifecycleStatus: 'LEGACY_INACTIVE_REVIEW' as const };
+    renderRecipients(detail, vi.fn().mockImplementation((path: string) => {
+      const url = new URL(path, 'http://localhost');
+      if (url.pathname === `/api/recipients/${recipient.id}`) return Promise.resolve(jsonResponse(legacy));
+      return Promise.resolve(jsonResponse([]));
+    }), 'ar');
+
+    expect(document.documentElement).toHaveAttribute('dir', 'rtl');
+    await userEvent.click(await screen.findByRole('button', { name: 'اعتباره مؤرشفًا' }));
+    const dialog = screen.getByRole('dialog', { name: 'حسم حالة هذا المستفيد' });
+    expect(dialog).toHaveTextContent('سيتم أرشفة المستفيد. ستبقى جميع الملاحظات محفوظة ويمكن استعادته لاحقًا.');
+    expect(within(dialog).getByRole('button', { name: 'اعتباره مؤرشفًا' })).toBeInTheDocument();
+  });
+
   it('expires rejected sessions and removes private UI', async () => {
     renderRecipients(root, vi.fn().mockResolvedValue(jsonResponse({ code: 'UNAUTHORIZED' }, 401)));
     expect(await screen.findByRole('heading', { name: 'Caregiver sign in' })).toBeInTheDocument();
