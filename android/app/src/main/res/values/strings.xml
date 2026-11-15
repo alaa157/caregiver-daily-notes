@@ -697,4 +697,5 @@
     <string name="note_nothing_recorded">No answers were recorded for this note.</string>
     <string name="editor_progress">%1$d of 7 answered</string>
     <string name="editor_add_details">Add details</string>
+    <string name="editor_pain_level_description">Pain %1$d out of 10</string>
 </resources>
