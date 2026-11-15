@@ -3,10 +3,15 @@ package com.caregiver.ai;
 import com.fasterxml.jackson.annotation.JsonIgnoreType;
 import java.net.URI;
 import java.util.Objects;
+import java.util.regex.Pattern;
 
 /** In-memory credentials for exactly one OpenAI-compatible provider call. */
 @JsonIgnoreType
 public final class ProviderCredentials {
+  /** Provider model identifiers: one leading alphanumeric, then up to 127 safe characters. */
+  public static final Pattern MODEL_ID_PATTERN =
+      Pattern.compile("^[A-Za-z0-9][A-Za-z0-9._:/-]{0,127}$");
+
   private enum Provider {
     OPENAI("api.openai.com", "/v1", "/v1"),
     GEMINI("generativelanguage.googleapis.com", "", "/v1beta/openai"),
@@ -37,7 +42,7 @@ public final class ProviderCredentials {
   public ProviderCredentials(String providerId, String baseUrl, String modelId, String apiKey) {
     this.provider = parseProvider(providerId);
     this.baseUrl = normalizeAndValidateBaseUrl(this.provider, baseUrl);
-    this.modelId = requireNonBlank(modelId, "modelId");
+    this.modelId = requireValidModelId(modelId);
     this.apiKey = Objects.requireNonNull(apiKey, "apiKey");
     validate();
   }
@@ -71,7 +76,7 @@ public final class ProviderCredentials {
     if (!baseUrl.equals(normalizeAndValidateBaseUrl(provider, baseUrl))) {
       throw new IllegalArgumentException("baseUrl is not approved for providerId");
     }
-    requireNonBlank(modelId, "modelId");
+    requireValidModelId(modelId);
     Objects.requireNonNull(apiKey, "apiKey");
   }
 
@@ -125,10 +130,14 @@ public final class ProviderCredentials {
     return "https://" + provider.host + provider.referencePath;
   }
 
-  private static String requireNonBlank(String value, String fieldName) {
-    if (value == null || value.isBlank()) {
-      throw new IllegalArgumentException(fieldName + " must be non-blank");
+  /**
+   * A model ID is forwarded verbatim to the provider, so it must match the
+   * approved shape before it can reach the provider boundary.
+   */
+  private static String requireValidModelId(String modelId) {
+    if (modelId == null || !MODEL_ID_PATTERN.matcher(modelId).matches()) {
+      throw new IllegalArgumentException("modelId is invalid");
     }
-    return value;
+    return modelId;
   }
 }
