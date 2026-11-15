@@ -3,7 +3,7 @@ package com.caregiver.mobile.data.csv
 import com.caregiver.mobile.data.api.RecipientDto
 import com.caregiver.mobile.data.testNote
 import org.junit.Assert.assertEquals
-import org.junit.Assert.assertTrue
+import org.junit.Assert.assertNull
 import org.junit.Test
 
 /** Export mapping: whole history, stable ids, no fabricated names, safe pending merge. */
@@ -41,8 +41,38 @@ class CsvExportTest {
         assertEquals("assisted", record.mobility)
         assertEquals("missed", record.medicationTaken)
         assertEquals(6, record.pain)
-        assertTrue(record.fall)
+        assertEquals(true, record.fall)
         assertEquals(note.text, record.text)
+    }
+
+    @Test
+    fun unrecordedPainAndFallAreExportedAsNull() {
+        val note = testNote(id = "n1", pain = 0, fall = false)
+            .copy(painRecorded = false, fallRecorded = false)
+
+        val record = CsvExport.buildRecords(listOf(note), recipients).single()
+
+        assertNull(record.pain)
+        assertNull(record.fall)
+        val row = (CareNoteCsv.decode(CareNoteCsv.encode(listOf(record))) as CsvDecodeResult.Success)
+            .rows.single()
+        assertEquals("", row.values[CareNoteCsv.COL_PAIN])
+        assertEquals("", row.values[CareNoteCsv.COL_FALL])
+    }
+
+    @Test
+    fun recordedZeroPainAndFalseFallRemainExplicit() {
+        val record = CsvExport.buildRecords(
+            listOf(testNote(id = "n1", pain = 0, fall = false)),
+            recipients,
+        ).single()
+
+        assertEquals(0, record.pain)
+        assertEquals(false, record.fall)
+        val row = (CareNoteCsv.decode(CareNoteCsv.encode(listOf(record))) as CsvDecodeResult.Success)
+            .rows.single()
+        assertEquals("0", row.values[CareNoteCsv.COL_PAIN])
+        assertEquals("false", row.values[CareNoteCsv.COL_FALL])
     }
 
     @Test
