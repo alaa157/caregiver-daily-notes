@@ -10,6 +10,7 @@ import com.caregiver.mobile.data.api.RecipientDto
 import com.caregiver.mobile.data.local.RecipientAdmin
 import com.caregiver.mobile.data.local.RecipientDeletionCounts
 import com.caregiver.mobile.data.recipient.NameCheck
+import com.caregiver.mobile.data.recipient.RelationshipOptions
 import com.caregiver.mobile.data.recipient.RecipientNameRules
 import java.io.IOException
 import kotlinx.coroutines.CancellationException
@@ -62,6 +63,9 @@ data class AddPersonState(
     val busy: Boolean = false,
     val duplicate: DuplicateMatch? = null,
     val failed: Boolean = false,
+    val relationship: String? = null,
+    val relationshipOther: String = "",
+    val relationshipError: Boolean = false,
 )
 
 /**
@@ -139,6 +143,25 @@ class RecipientsViewModel(
         )
     }
 
+    fun setRelationship(code: String?) {
+        val current = _addState.value
+        val selected = if (current.relationship == code) null else code
+        _addState.value = current.copy(
+            relationship = selected,
+            relationshipOther = if (selected == "OTHER") current.relationshipOther else "",
+            relationshipError = false,
+            failed = false,
+        )
+    }
+
+    fun setRelationshipOther(value: String) {
+        _addState.value = _addState.value.copy(
+            relationshipOther = value,
+            relationshipError = false,
+            failed = false,
+        )
+    }
+
     fun add() {
         if (_addState.value.busy) return
         val rawName = _addState.value.name
@@ -154,6 +177,14 @@ class RecipientsViewModel(
             NameCheck.Ok -> Unit
         }
         val name = RecipientNameRules.normalize(rawName)
+        val relationship = RelationshipOptions.storedValue(
+            _addState.value.relationship,
+            _addState.value.relationshipOther,
+        )
+        if (RelationshipOptions.isTooLong(relationship)) {
+            _addState.value = _addState.value.copy(relationshipError = true)
+            return
+        }
         if (!duplicateConfirmed) {
             val duplicate = RecipientNameRules.findDuplicate(name, allRecipients)
             if (duplicate != null) {
@@ -170,6 +201,7 @@ class RecipientsViewModel(
         }
         _addState.value = _addState.value.copy(
             nameError = null,
+            relationshipError = false,
             busy = true,
             failed = false,
             duplicate = null,
@@ -177,7 +209,7 @@ class RecipientsViewModel(
         launch {
             try {
                 val created = repository.authorized {
-                    apis.recipients().create(CreateRecipientRequest(name))
+                    apis.recipients().create(CreateRecipientRequest(name, relationship))
                 }
                 _addState.value = _addState.value.copy(busy = false, addedId = created.id)
                 load()
@@ -209,6 +241,9 @@ class RecipientsViewModel(
             name = "",
             failed = false,
             duplicate = null,
+            relationship = null,
+            relationshipOther = "",
+            relationshipError = false,
         )
     }
 
