@@ -5,6 +5,7 @@ import com.caregiver.mobile.data.api.NoteDetailDto
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertNotNull
 import org.junit.Assert.assertNull
+import org.junit.Assert.assertTrue
 import org.junit.Test
 
 /** Chip labels in both languages, plus the raw fallback for unknown values. */
@@ -99,6 +100,45 @@ class OptionLabelsTest {
     fun labelResReturnsNullForUnknownValues() {
         assertNull(OptionLabels.labelRes(OptionGroup.Mood, "unknown"))
         assertNull(OptionLabels.labelRes(OptionGroup.Medication, "taken "))
+    }
+
+    @Test
+    fun currentVocabularyMatchesTheWidenedLists() {
+        assertEquals(
+            listOf("calm", "happy", "anxious", "agitated", "sad", "confused"),
+            NoteOptions.values(OptionGroup.Mood),
+        )
+        assertEquals(
+            listOf("good", "fair", "poor", "refused"),
+            NoteOptions.values(OptionGroup.Appetite),
+        )
+        assertEquals(
+            listOf("restful", "restless", "poor", "sleepless"),
+            NoteOptions.values(OptionGroup.Sleep),
+        )
+        assertEquals(
+            listOf("independent", "assisted", "bedridden"),
+            NoteOptions.values(OptionGroup.Mobility),
+        )
+        assertEquals(
+            listOf("taken", "missed", "unsure"),
+            NoteOptions.values(OptionGroup.Medication),
+        )
+    }
+
+    @Test
+    fun knownMergesCurrentAndLegacyValuesWithoutDuplicates() {
+        val known = NoteOptions.known(OptionGroup.Mood)
+        assertEquals(
+            listOf("calm", "happy", "anxious", "agitated", "sad", "confused", "good", "fair", "bad"),
+            known,
+        )
+        assertEquals(known.size, known.toSet().size)
+
+        assertTrue(NoteOptions.known(OptionGroup.Appetite).containsAll(listOf("reduced")))
+        assertTrue(NoteOptions.known(OptionGroup.Sleep).containsAll(listOf("good", "broken")))
+        assertTrue(NoteOptions.known(OptionGroup.Mobility).containsAll(listOf("walks", "bed")))
+        assertTrue(NoteOptions.known(OptionGroup.Medication).contains("none"))
     }
 
     private fun detail(
