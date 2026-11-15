@@ -9,6 +9,7 @@ import com.caregiver.mobile.data.api.ApiErrors
 import com.caregiver.mobile.data.api.BackendApis
 import com.caregiver.mobile.data.api.CreateNoteRequest
 import com.caregiver.mobile.data.local.ArchivedRecipientException
+import com.caregiver.mobile.data.local.DuplicateNoteDayException
 import java.io.IOException
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.CoroutineScope
@@ -23,6 +24,7 @@ sealed interface EditorError {
     data class Rejected(val code: String?) : EditorError
     data object Unreachable : EditorError
     data object ArchivedRecipient : EditorError
+    data class DuplicateDay(val existingNoteId: String) : EditorError
 }
 
 /**
@@ -137,6 +139,11 @@ class NoteEditorViewModel(
                 _state.value = _state.value.copy(
                     busy = false,
                     formError = EditorError.ArchivedRecipient,
+                )
+            } catch (e: DuplicateNoteDayException) {
+                _state.value = _state.value.copy(
+                    busy = false,
+                    formError = EditorError.DuplicateDay(e.existingNoteId),
                 )
             } catch (e: HttpException) {
                 _state.value = _state.value.copy(

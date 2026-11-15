@@ -117,8 +117,12 @@ class LocalBackendApis(
     override suspend fun notes(): NoteApi = object : NoteApi {
         override suspend fun create(body: CreateNoteRequest): NoteDto = db.withTransaction {
             requireWritableRecipient(body.recipientId)
-            val id = UUID.randomUUID().toString()
             val date = LocalDate.now().toString()
+            val existing = noteDao.query(body.recipientId, date, date).firstOrNull()
+            if (existing != null) {
+                throw DuplicateNoteDayException(body.recipientId, existing.serverId)
+            }
+            val id = UUID.randomUUID().toString()
             val dto = NoteDto(
                 id = id,
                 recipientId = body.recipientId,
