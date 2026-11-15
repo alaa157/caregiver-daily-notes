@@ -9,6 +9,7 @@ import type { MessageKey } from '../../i18n/translations';
 import { RecipientLifecycleDialog } from './RecipientLifecycleDialog';
 import { RecipientForm } from './RecipientForm';
 import { relationshipLabel } from './relationshipOptions';
+import { RecipientCareDetailsForm } from './RecipientCareDetailsForm';
 import { MedicationListPanel } from '../medications/MedicationListPanel';
 import { useRecipientResource, useRecipientsApi } from './useRecipientResource';
 import './recipients.css';
@@ -112,10 +113,13 @@ function RecipientRecord({ id, edit }: { id: string; edit: boolean }) {
         <div className="recipient-record-heading"><h2><bdi>{state.data.name}</bdi></h2><RecipientStatus status={state.data.lifecycleStatus} /></div>
         {state.data.lifecycleStatus === 'ARCHIVED' && <p className="recipient-inactive-notice">{t('recipientArchivedDescription')}</p>}
         {state.data.lifecycleStatus === 'LEGACY_INACTIVE_REVIEW' && <p className="recipient-review-notice">{t('recipientLegacyReviewDescription')}</p>}
-        {edit && state.data.lifecycleStatus === 'ACTIVE' ? <RecipientForm initial={state.data} cancelTo={`${listPath}/${id}`} onReload={reload} onSave={async (input, _key, signal) => {
-          await api.update(id, input, signal);
-          if (!signal.aborted) navigate(`${listPath}/${id}`, { replace: true, state: { recipientNotice: 'updated' } });
-        }} /> : <>
+        {edit && state.data.lifecycleStatus === 'ACTIVE' ? <>
+          <RecipientForm initial={state.data} cancelTo={`${listPath}/${id}`} onReload={reload} onSave={async (input, _key, signal) => {
+            await api.update(id, input, signal);
+            if (!signal.aborted) navigate(`${listPath}/${id}`, { replace: true, state: { recipientNotice: 'updated' } });
+          }} />
+          <RecipientCareDetailsForm initial={state.data} onSave={(input, signal) => api.updateCareDetails(id, input, signal)} />
+        </> : <>
           <dl className="recipient-details">
             <div><dt>{t('recipientRelationshipLabel')}</dt><dd><bdi>{relationshipLabel(state.data.relationship, t) || t('recipientRelationshipEmpty')}</bdi></dd></div>
             <div><dt>{t('recipientCreatedAt')}</dt><dd><time dateTime={state.data.createdAt}>{date(state.data.createdAt)}</time></dd></div>

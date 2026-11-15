@@ -13,6 +13,13 @@ import { MedicationListPanel } from '../features/medications/MedicationListPanel
 
 const root = '/app/recipients';
 const detail = `${root}/${recipient.id}`;
+const fullCareDetails = {
+  dateOfBirth: '1950-04-12',
+  allergies: 'Penicillin',
+  conditions: 'Type 2 diabetes',
+  emergencyContactName: 'Layla Hassan',
+  emergencyContactPhone: '+20 (100) 123-4567',
+};
 const showModal = Object.getOwnPropertyDescriptor(HTMLDialogElement.prototype, 'showModal');
 const close = Object.getOwnPropertyDescriptor(HTMLDialogElement.prototype, 'close');
 
@@ -388,6 +395,98 @@ describe('care recipients screens', () => {
     expect(JSON.parse(fetcher.mock.calls[1][1].body)).toEqual({ name: updated.name, relationship: null });
     expect(fetcher.mock.calls[1][1].method).toBe('PUT');
     expect(await screen.findByRole('heading', { name: updated.name })).toBeInTheDocument();
+  });
+
+  it('saves all care details with PATCH and shows a saved notice', async () => {
+    const updated = { ...recipient, ...fullCareDetails };
+    const fetcher = vi.fn().mockImplementation((path: string, options: RequestInit = {}) =>
+      path === `/api/recipients/${recipient.id}/care-details` && options.method === 'PATCH'
+        ? Promise.resolve(jsonResponse(updated))
+        : Promise.resolve(jsonResponse(recipient)));
+    renderRecipients(`${detail}/edit`, fetcher);
+    const form = await screen.findByRole('form', { name: 'Care details' });
+
+    fireEvent.change(within(form).getByLabelText('Date of birth'), { target: { value: fullCareDetails.dateOfBirth } });
+    await userEvent.type(within(form).getByLabelText('Allergies'), fullCareDetails.allergies);
+    await userEvent.type(within(form).getByLabelText('Conditions'), fullCareDetails.conditions);
+    await userEvent.type(within(form).getByLabelText('Emergency contact name'), fullCareDetails.emergencyContactName);
+    await userEvent.type(within(form).getByLabelText('Emergency contact phone'), fullCareDetails.emergencyContactPhone);
+    await userEvent.click(within(form).getByRole('button', { name: 'Save care details' }));
+
+    expect(await within(form).findByText('Care details saved')).toBeInTheDocument();
+    const patch = fetcher.mock.calls.find(([path, options]) => path === `/api/recipients/${recipient.id}/care-details`
+      && (options as RequestInit).method === 'PATCH');
+    expect(patch).toBeDefined();
+    expect(JSON.parse((patch![1] as RequestInit).body as string)).toEqual(fullCareDetails);
+  });
+
+  it('sends null when a care-detail field is cleared', async () => {
+    const existing = { ...recipient, ...fullCareDetails };
+    const updated = { ...existing, allergies: null };
+    const fetcher = vi.fn().mockImplementation((path: string, options: RequestInit = {}) =>
+      path === `/api/recipients/${recipient.id}/care-details` && options.method === 'PATCH'
+        ? Promise.resolve(jsonResponse(updated))
+        : Promise.resolve(jsonResponse(existing)));
+    renderRecipients(`${detail}/edit`, fetcher);
+    const form = await screen.findByRole('form', { name: 'Care details' });
+    await userEvent.clear(within(form).getByLabelText('Allergies'));
+    await userEvent.click(within(form).getByRole('button', { name: 'Save care details' }));
+
+    expect(await within(form).findByText('Care details saved')).toBeInTheDocument();
+    const patch = fetcher.mock.calls.find(([path, options]) => path === `/api/recipients/${recipient.id}/care-details`
+      && (options as RequestInit).method === 'PATCH');
+    expect(JSON.parse((patch![1] as RequestInit).body as string)).toEqual({
+      dateOfBirth: fullCareDetails.dateOfBirth,
+      allergies: null,
+      conditions: fullCareDetails.conditions,
+      emergencyContactName: fullCareDetails.emergencyContactName,
+      emergencyContactPhone: fullCareDetails.emergencyContactPhone,
+    });
+  });
+
+  it('rejects a future date of birth', async () => {
+    const fetcher = vi.fn().mockResolvedValue(jsonResponse(recipient));
+    renderRecipients(`${detail}/edit`, fetcher);
+    const form = await screen.findByRole('form', { name: 'Care details' });
+    const dateOfBirth = within(form).getByLabelText('Date of birth');
+    const now = new Date();
+    const today = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}-${String(now.getDate()).padStart(2, '0')}`;
+    expect(dateOfBirth).toHaveAttribute('type', 'date');
+    expect(dateOfBirth).toHaveAttribute('dir', 'ltr');
+    expect(dateOfBirth).toHaveAttribute('max', today);
+    fireEvent.change(dateOfBirth, { target: { value: '2099-12-31' } });
+    await userEvent.click(within(form).getByRole('button', { name: 'Save care details' }));
+
+    expect(await screen.findByText('Enter a valid date of birth')).toBeInTheDocument();
+    expect(fetcher.mock.calls.some(([, options]) => (options as RequestInit).method === 'PATCH')).toBe(false);
+  });
+
+  it('shows the phone error for invalid emergency contact phone', async () => {
+    const fetcher = vi.fn().mockResolvedValue(jsonResponse(recipient));
+    renderRecipients(`${detail}/edit`, fetcher);
+    const form = await screen.findByRole('form', { name: 'Care details' });
+    const phone = within(form).getByLabelText('Emergency contact phone');
+    expect(phone).toHaveAttribute('type', 'tel');
+    expect(phone).toHaveAttribute('dir', 'ltr');
+    fireEvent.change(phone, { target: { value: '1' } });
+    await userEvent.click(within(form).getByRole('button', { name: 'Save care details' }));
+
+    expect(await screen.findByText('Enter a valid phone number')).toBeInTheDocument();
+    expect(fetcher.mock.calls.some(([, options]) => (options as RequestInit).method === 'PATCH')).toBe(false);
+  });
+
+  it('does not render the care-details form for an archived recipient', async () => {
+    const archived = {
+      ...recipient,
+      active: false,
+      lifecycleStatus: 'ARCHIVED' as const,
+      archivedAt: '2026-10-15T10:00:00Z',
+      archivedBy: 'b1111111-1111-4111-8111-111111111111',
+    };
+    renderRecipients(`${detail}/edit`, vi.fn().mockResolvedValue(jsonResponse(archived)));
+
+    expect(await screen.findByText(/This recipient is archived and read-only/)).toBeInTheDocument();
+    expect(screen.queryByRole('form', { name: 'Care details' })).not.toBeInTheDocument();
   });
 
   describe('relationship chips', () => {
