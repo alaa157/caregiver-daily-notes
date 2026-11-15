@@ -53,11 +53,15 @@ public class SummaryService {
 
     LlmResult result = llm.complete(new LlmRequest(SummaryPrompts.SYSTEM_PROMPT, block, credentials));
     if (result.status() == LlmStatus.FALLBACK) {
+      String unavailableReason = result.failureReason() == null
+          ? FailureReason.PROVIDER_UNAVAILABLE.name()
+          : result.failureReason().name();
       return new SummaryResult(
           new GroundedSummary(
               List.of(),
               List.of(new SummaryUncertainty("availability", "AI unavailable")),
-              true),
+              true,
+              unavailableReason),
           safety,
           trendResults);
     }

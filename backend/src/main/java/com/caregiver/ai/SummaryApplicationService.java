@@ -43,16 +43,22 @@ public class SummaryApplicationService {
       }
       // Ownership/data reads happen outside this catch. Invalid model output
       // and provider failures erase model content, never authoritative safety.
-      result = unavailable(request, source.signals());
+      String unavailableReason = providerOrValidationFailure instanceof InvalidModelOutputException
+          ? FailureReason.INVALID_OUTPUT.name()
+          : providerOrValidationFailure instanceof ProviderDeadlineExceededException
+              ? FailureReason.TIMEOUT.name()
+              : FailureReason.PROVIDER_UNAVAILABLE.name();
+      result = unavailable(request, source.signals(), unavailableReason);
     }
     return new Generated(result, source.notes());
   }
   private SummaryResult noNotes(SummaryRequest request, List<NoteSignals> signals) {
     return result(request, signals, new GroundedSummary(List.of(), List.of(), false));
   }
-  private SummaryResult unavailable(SummaryRequest request, List<NoteSignals> signals) {
+  private SummaryResult unavailable(SummaryRequest request, List<NoteSignals> signals, String unavailableReason) {
     return result(request, signals,
-        new GroundedSummary(List.of(), List.of(new SummaryUncertainty("availability", "AI unavailable")), true));
+        new GroundedSummary(List.of(), List.of(new SummaryUncertainty("availability", "AI unavailable")),
+            true, unavailableReason));
   }
   private SummaryResult result(SummaryRequest request, List<NoteSignals> signals, GroundedSummary summary) {
     return new SummaryResult(summary, evaluator.evaluate(signals, request.periodEndInclusive(), request.periodDays()),

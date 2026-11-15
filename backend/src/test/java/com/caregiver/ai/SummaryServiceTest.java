@@ -79,9 +79,22 @@ class SummaryServiceTest {
     var result = svc.summarize(new SummaryRequest("r1", END, 7), notes, signals);
 
     assertThat(result.summary().aiUnavailable()).isTrue();
+    assertThat(result.summary().unavailableReason()).isEqualTo("PROVIDER_UNAVAILABLE");
     assertThat(result.summary().observations()).isEmpty();
     assertThat(result.summary().uncertainties()).extracting(SummaryUncertainty::detail).contains("AI unavailable");
     assertThat(result.safety().signals()).extracting(SafetySignal::ruleId).contains(SafetyRuleId.FALL_DETECTED);
+  }
+
+  @Test
+  void fallbackResult_usesProvidedFailureReason() {
+    var svc = service(new LlmResult(LlmStatus.FALLBACK, "", "AI_UNAVAILABLE: rate limited",
+        FailureReason.RATE_LIMIT));
+    var notes = List.of(new SummaryNote("n1", END, "routine day"));
+
+    var result = svc.summarize(new SummaryRequest("r1", END, 7), notes, List.of());
+
+    assertThat(result.summary().aiUnavailable()).isTrue();
+    assertThat(result.summary().unavailableReason()).isEqualTo("RATE_LIMIT");
   }
 
   @Test
