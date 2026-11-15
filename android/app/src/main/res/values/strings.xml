@@ -181,6 +181,7 @@
     <string name="people_delete_title">Delete %1$s permanently?</string>
     <string name="people_delete_body">This removes %1$d notes, %2$d addenda, %3$d care plans, %4$d medications, %5$d medication intakes, and %6$d pending sync items from this device. This cannot be undone.</string>
     <string name="people_delete_backup_caveat">A backup created before this deletion can still restore this person and their data.</string>
+    <string name="detail_delete_summaries">%1$d saved summaries</string>
     <string name="people_delete_confirm">Delete permanently</string>
     <string name="people_delete_success">Person deleted</string>
     <string name="people_delete_failed">Could not delete this person. Nothing was removed.</string>

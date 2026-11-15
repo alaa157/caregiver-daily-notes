@@ -11,4 +11,5 @@ data class RecipientDeletionCounts(
     val medications: Int,
     val intakes: Int,
     val outbox: Int,
+    val summaries: Int = 0,
 )
