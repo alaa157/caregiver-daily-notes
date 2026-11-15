@@ -97,27 +97,31 @@ export function RecipientsListPage() {
   const { t } = useI18n(); const api = useRecipientsApi();
   const [filter, setFilter] = useState<RecipientListFilter>('ACTIVE');
   const [query, setQuery] = useState('');
-  const load = useCallback((signal: AbortSignal) => api.list(signal, filter), [api, filter]);
+  const load = useCallback((signal: AbortSignal) => api.list(signal, 'ALL'), [api]);
   const { state, reload } = useRecipientResource(load);
   const today = localToday();
   const todayNotes = useTodayNotes(today);
-  const empty = filter === 'ACTIVE' ? ['recipientsEmpty', 'recipientsEmptyDescription']
-    : filter === 'ARCHIVED' ? ['recipientArchivedEmpty', 'recipientArchivedEmptyDescription']
-      : ['recipientReviewEmpty', 'recipientReviewEmptyDescription'];
   const recipients = state.status === 'ready' ? state.data : [];
+  const counts: Record<RecipientLifecycleStatus, number> = { ACTIVE: 0, ARCHIVED: 0, LEGACY_INACTIVE_REVIEW: 0 };
+  recipients.forEach((recipient) => { counts[recipient.lifecycleStatus] += 1; });
+  const populated = filters.filter((status) => counts[status] > 0);
+  const effectiveFilter: RecipientLifecycleStatus = counts[filter as RecipientLifecycleStatus] > 0
+    ? filter as RecipientLifecycleStatus
+    : counts.ACTIVE > 0 ? 'ACTIVE' : populated[0] ?? 'ACTIVE';
+  const showFilters = populated.some((status) => status !== 'ACTIVE');
   const showSearch = state.status === 'ready' && recipients.length > SEARCH_THRESHOLD;
   useEffect(() => { if (!showSearch) setQuery(''); }, [showSearch]);
   const normalizedQuery = showSearch ? query.trim().toLocaleLowerCase() : '';
   const relationshipText = (recipient: Recipient) => relationshipLabel(recipient.relationship, t);
   const matches = (recipient: Recipient) => !normalizedQuery
     || `${recipient.name}\n${recipient.relationship ?? ''}\n${relationshipText(recipient)}`.toLocaleLowerCase().includes(normalizedQuery);
-  const filtered = recipients.filter(matches);
+  const filtered = recipients.filter((recipient) => recipient.lifecycleStatus === effectiveFilter && matches(recipient));
   return <RecipientLayout title={t('recipientsTitle')} description={t('recipientsDescription')}
     action={<ButtonLink to={`${listPath}/new`}>{t('recipientCreate')}<Icon name="arrow-right" className="directional-icon" /></ButtonLink>}>
-    <div className="recipient-filters" role="group" aria-label={t('recipientListFilter')}>
-      {filters.map((status) => <button type="button" key={status} className="recipient-filter" aria-pressed={filter === status}
-        onClick={() => setFilter(status)}>{t(filterLabel(status))}</button>)}
-    </div>
+    {showFilters && <div className="recipient-filters" role="group" aria-label={t('recipientListFilter')}>
+      {populated.map((status) => <button type="button" key={status} className="recipient-filter" aria-pressed={effectiveFilter === status}
+        onClick={() => setFilter(status)}>{t(filterLabel(status))} <span aria-hidden="true">({counts[status]})</span></button>)}
+    </div>}
     {state.status === 'loading' && <LoadingState label={t('recipientsLoading')} />}
     {state.status === 'error' && <ErrorState description={t(recipientErrorMessage(state.error))} onRetry={reload} />}
     {showSearch && <div className="recipient-search">
@@ -125,10 +129,10 @@ export function RecipientsListPage() {
       <div><input id="recipient-search" type="search" value={query} onChange={(event) => setQuery(event.target.value)} />
         <Button type="button" variant="secondary" disabled={!query} onClick={() => setQuery('')}>{t('recipientSearchClear')}</Button></div>
     </div>}
-    {state.status === 'ready' && state.data.length === 0 && <EmptyState title={t(empty[0] as MessageKey)} description={t(empty[1] as MessageKey)} />}
-    {state.status === 'ready' && state.data.length > 0 && filtered.length === 0
+    {state.status === 'ready' && recipients.length === 0 && <EmptyState title={t('recipientsEmpty')} description={t('recipientsEmptyDescription')} />}
+    {state.status === 'ready' && recipients.length > 0 && filtered.length === 0
       && <EmptyState title={t('recipientSearchNoResults')} description={t('recipientSearchNoResultsDescription')} />}
-    {filtered.length > 0 && <ul className="recipient-list" aria-label={t(filterLabel(filter as RecipientLifecycleStatus))}>
+    {filtered.length > 0 && <ul className="recipient-list" aria-label={t(filterLabel(effectiveFilter))}>
       {filtered.map((recipient) => {
         const note = recipient.lifecycleStatus === 'ACTIVE' && todayNotes.state === 'ready'
           ? todayNotes.byRecipient.get(recipient.id) ?? null : null;
