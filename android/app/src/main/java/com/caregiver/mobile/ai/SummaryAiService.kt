@@ -329,6 +329,7 @@ class SummaryAiService(
                 evidenceType = it.evidenceType.ifBlank { EvidenceType.NOTE_TEXT.name },
                 structuredField = it.structuredField,
                 structuredValue = it.structuredValue,
+                claim = it.text.trim(),
             )
         }
         val uncertainties = parsed.uncertainties.map { SummaryDto.UncertaintyDto(topic = it.topic, detail = it.detail) }.toMutableList()
