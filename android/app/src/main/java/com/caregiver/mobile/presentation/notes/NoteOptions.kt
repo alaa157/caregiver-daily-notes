@@ -1,5 +1,8 @@
 package com.caregiver.mobile.presentation.notes
 
+import android.content.Context
+import androidx.compose.runtime.Composable
+import androidx.compose.ui.res.stringResource
 import com.caregiver.mobile.R
 import com.caregiver.mobile.data.api.NoteDetailDto
 
@@ -72,58 +75,27 @@ object OptionLabels {
             else -> null
         }
     }
+}
 
-    fun label(group: OptionGroup, value: String, arabic: Boolean): String {
-        if (arabic) {
-            return when (group) {
-                OptionGroup.Mood -> when (value) {
-                    "good" -> "جيدة"
-                    "fair" -> "متوسطة"
-                    "bad" -> "سيئة"
-                    else -> value
-                }
-                OptionGroup.Appetite -> when (value) {
-                    "good" -> "جيدة"
-                    "reduced" -> "منخفضة"
-                    "poor" -> "ضعيفة"
-                    else -> value
-                }
-                OptionGroup.Sleep -> when (value) {
-                    "good" -> "جيد"
-                    "broken" -> "متقطع"
-                    "poor" -> "ضعيف"
-                    else -> value
-                }
-                OptionGroup.Mobility -> when (value) {
-                    "walks" -> "يمشي"
-                    "assisted" -> "بمساعدة"
-                    "bed" -> "طريح الفراش"
-                    else -> value
-                }
-                OptionGroup.Medication -> when (value) {
-                    "taken" -> "أخذ الدواء"
-                    "missed" -> "فاته الدواء"
-                    "unsure" -> "غير متأكد"
-                    else -> value
-                }
-            }
-        }
-        return when (value) {
-            "good" -> "Good"
-            "fair" -> "Fair"
-            "bad" -> "Bad"
-            "reduced" -> "Reduced"
-            "poor" -> "Poor"
-            "broken" -> "Broken"
-            "walks" -> "Walks"
-            "assisted" -> "Assisted"
-            "bed" -> "In bed"
-            "taken" -> "Taken"
-            "missed" -> "Missed"
-            "unsure" -> "Unsure"
-            else -> value
-        }
-    }
+internal fun optionLabelFallback(value: String, resourceId: Int?): String? = when {
+    value.isBlank() -> ""
+    resourceId == null -> value
+    else -> null
+}
+
+@Composable
+fun optionLabel(group: OptionGroup, value: String): String {
+    val resourceId = OptionLabels.labelRes(group, value)
+    return optionLabelFallback(value, resourceId)
+        ?: resourceId?.let { stringResource(it) }
+        ?: value
+}
+
+fun Context.optionLabel(group: OptionGroup, value: String): String {
+    val resourceId = OptionLabels.labelRes(group, value)
+    return optionLabelFallback(value, resourceId)
+        ?: resourceId?.let { getString(it) }
+        ?: value
 }
 
 /** The stat cards the note detail screen may show, in display order. */

@@ -65,7 +65,6 @@ import com.caregiver.mobile.core.navigation.MainTab
 import com.caregiver.mobile.core.navigation.ScrollToTop
 import com.caregiver.mobile.core.theme.CaregiverColors
 import com.caregiver.mobile.core.theme.PlexArabic
-import com.caregiver.mobile.core.util.isAppArabic
 import com.caregiver.mobile.data.api.RecipientDto
 import com.caregiver.mobile.data.local.RecipientAdmin
 import com.caregiver.mobile.data.local.RecipientDeletionCounts
@@ -86,7 +85,7 @@ import com.caregiver.mobile.presentation.common.rememberSmartToastState
 import com.caregiver.mobile.presentation.home.LoadFailed
 import com.caregiver.mobile.presentation.home.LoadingRow
 import com.caregiver.mobile.presentation.notes.OptionGroup
-import com.caregiver.mobile.presentation.notes.OptionLabels
+import com.caregiver.mobile.presentation.notes.optionLabel
 
 /**
  * Recipients list (board 3) with the add-person entry point. The list shares
@@ -609,7 +608,6 @@ internal fun DetailContent(
     onCancelDelete: () -> Unit,
 ) {
     var confirmingDelete by remember { mutableStateOf(false) }
-    val arabic = isAppArabic()
     Column(
         modifier = Modifier.fillMaxSize().verticalScroll(rememberScrollState()),
         verticalArrangement = Arrangement.spacedBy(AppDimens.SectionGap),
@@ -654,9 +652,9 @@ internal fun DetailContent(
         // The status card above already covers the no-notes empty state.
         detail.lastNote?.let { note ->
             val labels = listOf(
-                OptionLabels.label(OptionGroup.Mood, note.mood, arabic),
-                OptionLabels.label(OptionGroup.Appetite, note.appetite, arabic),
-                OptionLabels.label(OptionGroup.Mobility, note.mobility, arabic),
+                optionLabel(OptionGroup.Mood, note.mood),
+                optionLabel(OptionGroup.Appetite, note.appetite),
+                optionLabel(OptionGroup.Mobility, note.mobility),
             ).filter { it.isNotBlank() }
             if (labels.isNotEmpty()) {
                 SectionTitle(stringResource(R.string.person_last_note))

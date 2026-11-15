@@ -7,39 +7,61 @@ import org.junit.Assert.assertNotNull
 import org.junit.Assert.assertNull
 import org.junit.Test
 
-/** Chip labels in both languages, plus the raw fallback for unknown values. */
+/** Chip label resource mappings and fallbacks for blank/unknown values. */
 class OptionLabelsTest {
 
     @Test
-    fun arabicLabels() {
-        assertEquals("جيدة", OptionLabels.label(OptionGroup.Mood, "good", true))
-        assertEquals("متقطع", OptionLabels.label(OptionGroup.Sleep, "broken", true))
-        assertEquals("غير متأكد", OptionLabels.label(OptionGroup.Medication, "unsure", true))
-        assertEquals("طريح الفراش", OptionLabels.label(OptionGroup.Mobility, "bed", true))
+    fun labelsResolveToResources() {
+        assertEquals(R.string.note_option_mood_good, OptionLabels.labelRes(OptionGroup.Mood, "good"))
+        assertEquals(R.string.note_option_sleep_broken, OptionLabels.labelRes(OptionGroup.Sleep, "broken"))
+        assertEquals(
+            R.string.note_option_medication_unsure,
+            OptionLabels.labelRes(OptionGroup.Medication, "unsure"),
+        )
+        assertEquals(
+            R.string.note_option_mobility_bed,
+            OptionLabels.labelRes(OptionGroup.Mobility, "bed"),
+        )
     }
 
     @Test
-    fun englishLabels() {
-        assertEquals("Good", OptionLabels.label(OptionGroup.Mood, "good", false))
-        assertEquals("Unsure", OptionLabels.label(OptionGroup.Medication, "unsure", false))
+    fun editorLabelsResolveToResources() {
+        assertEquals(R.string.note_option_mood_good, OptionLabels.labelRes(OptionGroup.Mood, "good"))
+        assertEquals(
+            R.string.note_option_medication_unsure,
+            OptionLabels.labelRes(OptionGroup.Medication, "unsure"),
+        )
     }
 
     @Test
-    fun medicationLabelsCoverAllEditorValuesBothLanguages() {
+    fun medicationLabelsResolveToResourcesForAllEditorValues() {
         // The note detail grid renders medicationTaken through these labels,
-        // so every wire value the editor records must resolve in en + ar.
-        assertEquals("Taken", OptionLabels.label(OptionGroup.Medication, "taken", false))
-        assertEquals("Missed", OptionLabels.label(OptionGroup.Medication, "missed", false))
-        assertEquals("Unsure", OptionLabels.label(OptionGroup.Medication, "unsure", false))
-        assertEquals("أخذ الدواء", OptionLabels.label(OptionGroup.Medication, "taken", true))
-        assertEquals("فاته الدواء", OptionLabels.label(OptionGroup.Medication, "missed", true))
-        assertEquals("غير متأكد", OptionLabels.label(OptionGroup.Medication, "unsure", true))
+        // so every wire value the editor records must resolve to a resource.
+        assertEquals(
+            R.string.note_option_medication_taken,
+            OptionLabels.labelRes(OptionGroup.Medication, "taken"),
+        )
+        assertEquals(
+            R.string.note_option_medication_missed,
+            OptionLabels.labelRes(OptionGroup.Medication, "missed"),
+        )
+        assertEquals(
+            R.string.note_option_medication_unsure,
+            OptionLabels.labelRes(OptionGroup.Medication, "unsure"),
+        )
     }
 
     @Test
     fun unknownValuesFallBackToRaw() {
-        assertEquals("weird", OptionLabels.label(OptionGroup.Mood, "weird", true))
-        assertEquals("weird", OptionLabels.label(OptionGroup.Mood, "weird", false))
+        assertEquals(
+            "weird",
+            optionLabelFallback("weird", OptionLabels.labelRes(OptionGroup.Mood, "weird")),
+        )
+    }
+
+    @Test
+    fun blankValuesFallBackToEmpty() {
+        assertEquals("", optionLabelFallback("  ", OptionLabels.labelRes(OptionGroup.Mood, "  ")))
     }
 
     @Test
