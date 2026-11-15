@@ -572,6 +572,37 @@ describe('care recipients screens', () => {
     });
   });
 
+  describe('relationship labels', () => {
+    it('renders the English label for a known relationship code', async () => {
+      const coded = { ...recipient, relationship: 'MOTHER' };
+      const list = renderRecipients(root, vi.fn().mockResolvedValue(jsonResponse([coded])));
+      expect(await screen.findByText('Mother')).toBeInTheDocument();
+      list.unmount();
+      renderRecipients(detail, vi.fn().mockResolvedValue(jsonResponse(coded)));
+      expect(await screen.findByText('Mother')).toBeInTheDocument();
+    });
+
+    it('renders the Arabic label for a known relationship code', async () => {
+      renderRecipients(root, vi.fn().mockResolvedValue(jsonResponse([{ ...recipient, relationship: 'MOTHER' }])), 'ar');
+      expect(await screen.findByText('الأم')).toBeInTheDocument();
+    });
+
+    it('renders a legacy relationship string unchanged', async () => {
+      renderRecipients(root, vi.fn().mockResolvedValue(jsonResponse([{ ...recipient, relationship: 'My uncle' }])));
+      expect(await screen.findByText('My uncle')).toBeInTheDocument();
+    });
+
+    it('finds recipients by the displayed relationship label', async () => {
+      const coded = { ...recipient, relationship: 'MOTHER' };
+      const other = { ...recipient, id: 'b2222222-2222-4222-8222-222222222222', name: 'Mona', relationship: 'Aunt', active: true };
+      renderRecipients(root, vi.fn().mockResolvedValue(jsonResponse([coded, other])));
+      await screen.findByRole('link', { name: recipient.name });
+      await userEvent.type(screen.getByLabelText('Search name or relationship'), 'Mother');
+      expect(screen.getByRole('link', { name: recipient.name })).toBeInTheDocument();
+      expect(screen.queryByRole('link', { name: 'Mona' })).not.toBeInTheDocument();
+    });
+  });
+
   it('keeps archived recipient fields read only', async () => {
     const archived = { ...recipient, active: false, lifecycleStatus: 'ARCHIVED' as const,
       archivedAt: '2026-10-15T10:00:00Z', archivedBy: 'b1111111-1111-4111-8111-111111111111' };

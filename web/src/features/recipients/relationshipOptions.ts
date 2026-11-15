@@ -29,3 +29,9 @@ export const relationshipOptions: ReadonlyArray<{ code: RelationshipCode; labelK
   { code: 'CLIENT', labelKey: 'relationshipCLIENT' },
   { code: 'OTHER', labelKey: 'relationshipOTHER' },
 ];
+
+export function relationshipLabel(value: string | null | undefined, t: (key: MessageKey) => string): string {
+  const stored = value ?? '';
+  const option = relationshipOptions.find((candidate) => candidate.code === stored.trim());
+  return option ? t(option.labelKey) : stored;
+}

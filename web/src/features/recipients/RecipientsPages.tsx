@@ -8,6 +8,7 @@ import { useI18n } from '../../i18n/I18nProvider';
 import type { MessageKey } from '../../i18n/translations';
 import { RecipientLifecycleDialog } from './RecipientLifecycleDialog';
 import { RecipientForm } from './RecipientForm';
+import { relationshipLabel } from './relationshipOptions';
 import { RecipientCareDetailsForm } from './RecipientCareDetailsForm';
 import { MedicationListPanel } from '../medications/MedicationListPanel';
 import { useRecipientResource, useRecipientsApi } from './useRecipientResource';
@@ -44,8 +45,9 @@ export function RecipientsListPage() {
       : ['recipientReviewEmpty', 'recipientReviewEmptyDescription'];
   const recipients = state.status === 'ready' ? state.data : [];
   const normalizedQuery = query.trim().toLocaleLowerCase();
+  const relationshipText = (recipient: Recipient) => relationshipLabel(recipient.relationship, t);
   const matches = (recipient: Recipient) => !normalizedQuery
-    || `${recipient.name}\n${recipient.relationship ?? ''}`.toLocaleLowerCase().includes(normalizedQuery);
+    || `${recipient.name}\n${recipient.relationship ?? ''}\n${relationshipText(recipient)}`.toLocaleLowerCase().includes(normalizedQuery);
   const filtered = recipients.filter(matches);
   return <RecipientLayout title={t('recipientsTitle')} description={t('recipientsDescription')}
     action={<ButtonLink to={`${listPath}/new`}>{t('recipientCreate')}<Icon name="arrow-right" className="directional-icon" /></ButtonLink>}>
@@ -69,7 +71,7 @@ export function RecipientsListPage() {
         <RecipientStatus status={recipient.lifecycleStatus} />
         <h2><Link to={`${listPath}/${recipient.id}`}><bdi>{recipient.name}</bdi></Link></h2>
           <p className="recipient-hint">{t('recipientRelationshipLabel')}</p>
-          <p><bdi>{recipient.relationship || t('recipientRelationshipEmpty')}</bdi></p>
+          <p><bdi>{relationshipText(recipient) || t('recipientRelationshipEmpty')}</bdi></p>
         </li>)}
       </ul>}
   </RecipientLayout>;
@@ -119,7 +121,7 @@ function RecipientRecord({ id, edit }: { id: string; edit: boolean }) {
           <RecipientCareDetailsForm initial={state.data} onSave={(input, signal) => api.updateCareDetails(id, input, signal)} />
         </> : <>
           <dl className="recipient-details">
-            <div><dt>{t('recipientRelationshipLabel')}</dt><dd><bdi>{state.data.relationship || t('recipientRelationshipEmpty')}</bdi></dd></div>
+            <div><dt>{t('recipientRelationshipLabel')}</dt><dd><bdi>{relationshipLabel(state.data.relationship, t) || t('recipientRelationshipEmpty')}</bdi></dd></div>
             <div><dt>{t('recipientCreatedAt')}</dt><dd><time dateTime={state.data.createdAt}>{date(state.data.createdAt)}</time></dd></div>
             <div><dt>{t('recipientUpdatedAt')}</dt><dd><time dateTime={state.data.updatedAt}>{date(state.data.updatedAt)}</time></dd></div>
             {state.data.archivedAt && <div><dt>{t('recipientArchivedAt')}</dt><dd><time dateTime={state.data.archivedAt}>{date(state.data.archivedAt)}</time></dd></div>}
