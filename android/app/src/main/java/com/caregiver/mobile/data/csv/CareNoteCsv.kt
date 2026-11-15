@@ -47,8 +47,8 @@ data class CareNoteRecord(
     val sleep: String,
     val mobility: String,
     val medicationTaken: String,
-    val pain: Int,
-    val fall: Boolean,
+    val pain: Int?,
+    val fall: Boolean?,
     val text: String,
 )
 
@@ -71,8 +71,9 @@ sealed interface CsvDecodeResult {
  * - `mood,appetite,sleep,mobility,medication_taken` are the canonical wire
  *   values used by the editor; they may be empty when the original note left
  *   the group unselected.
- * - `pain` is an integer 0..10, `fall` is `true`/`false` (import also accepts
- *   `yes/no`, `y/n`, `1/0`, case-insensitively).
+ * - `pain` is an integer 0..10 or empty when unanswered; `fall` is
+ *   `true`/`false` or empty when unanswered (import also accepts `yes/no`,
+ *   `y/n`, `1/0`, case-insensitively).
  * - `note_text` is the free text note; commas, quotes and newlines are
  *   escaped by the writer.
  *
@@ -206,8 +207,8 @@ object CareNoteCsv {
                         record.sleep,
                         record.mobility,
                         record.medicationTaken,
-                        record.pain.toString(),
-                        if (record.fall) "true" else "false",
+                        record.pain?.toString().orEmpty(),
+                        record.fall?.toString().orEmpty(),
                         record.text,
                     ),
                 )
