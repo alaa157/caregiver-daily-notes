@@ -57,6 +57,7 @@ data class SummaryDto(
         val evidenceType: String = "NOTE_TEXT",
         val structuredField: String = "",
         val structuredValue: String = "",
+        val claim: String = "",
     )
 
     @Serializable
