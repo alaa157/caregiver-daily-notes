@@ -109,6 +109,7 @@ import com.caregiver.mobile.presentation.recipients.RecipientDetailScreen
 import com.caregiver.mobile.presentation.recipients.RecipientsScreen
 import com.caregiver.mobile.presentation.recipients.RecipientsViewModel
 import com.caregiver.mobile.presentation.settings.SettingsScreen
+import com.caregiver.mobile.presentation.summary.SavedSummariesScreen
 import com.caregiver.mobile.presentation.summary.SummaryPeriodScreen
 import com.caregiver.mobile.presentation.summary.SummaryResultScreen
 import com.caregiver.mobile.ui.component.AppNavigationBar
@@ -509,6 +510,16 @@ fun MainScaffold(graph: AppGraph) {
                         navController,
                         end = entry.arguments?.getString("end"),
                         saved = entry.arguments?.getString("saved"),
+                    )
+                }
+                composable(
+                    AppDestinations.SavedSummaries.base,
+                    arguments = listOf(navArgument("recipientId") { type = NavType.StringType }),
+                ) { entry ->
+                    SavedSummariesScreen(
+                        AppRoutes.arg(entry, "recipientId"),
+                        graph,
+                        navController,
                     )
                 }
                 // Task 7 wired the plan and settings destinations; no placeholders remain.
