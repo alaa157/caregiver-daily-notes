@@ -1,5 +1,6 @@
 package com.caregiver.mobile.presentation.settings
 
+import android.content.Context
 import android.util.Log
 
 import androidx.activity.compose.BackHandler
@@ -119,23 +120,10 @@ fun AiSettingsScreen(graph: AppGraph, navController: NavController, navEntry: Na
     val savedSystemPrompt = remember { store.systemPrompt() }
     val savedSummaryPrompt = remember { store.summarySystemPrompt() }
     val savedPlanPrompt = remember { store.planSystemPrompt() }
-    // Connection status and feature-level format status are deliberately
-    // separate: reachability is not the same as a usable response shape.
-    var status by remember { mutableStateOf<String?>(null) }
-    var formatStatus by remember { mutableStateOf<String?>(null) }
-    var qualityStatus by remember { mutableStateOf<String?>(null) }
-    var testing by remember { mutableStateOf(false) }
-    var testGeneration by remember { mutableStateOf(0) }
-    var validating by remember { mutableStateOf(false) }
-    // The in-flight test, so the caregiver can stop waiting for a provider
-    // that is not going to answer.
-    var testJob by remember { mutableStateOf<Job?>(null) }
-    var formatJob by remember { mutableStateOf<Job?>(null) }
-    var checkingQuality by remember { mutableStateOf(false) }
-    var qualityGeneration by remember { mutableStateOf(0) }
-    var qualityJob by remember { mutableStateOf<Job?>(null) }
-    var showProbeConsentDialog by remember { mutableStateOf(false) }
-    var pendingProbe by remember { mutableStateOf<PendingSettingsProbe?>(null) }
+    // One "Check setup" run reports each stage's outcome; the stages share
+    // a single job so they always run in order.
+    var setupState by remember { mutableStateOf(pendingSetupCheckState()) }
+    var setupJob by remember { mutableStateOf<Job?>(null) }
     // Consent is per provider: switching provider must show that provider's
     // own state, not the previous one's.
     var consentGiven by remember(provider) { mutableStateOf(store.consentGiven(provider)) }
@@ -186,9 +174,9 @@ fun AiSettingsScreen(graph: AppGraph, navController: NavController, navEntry: Na
         baseUrl = storedBaseUrl.ifBlank { target.defaultBaseUrl }
         savedBaseUrl = storedBaseUrl
         keyError = null
-        status = null
-        formatStatus = null
-        qualityStatus = null
+        setupJob?.cancel()
+        setupJob = null
+        setupState = pendingSetupCheckState()
         consentStatus = null
         showRevokeConsentDialog = false
         guideLinkError = false
@@ -240,142 +228,187 @@ fun AiSettingsScreen(graph: AppGraph, navController: NavController, navEntry: Na
         }
     }
 
-    fun beginFormatValidation() {
-        validating = true
-        formatJob = scope.launch {
-            try {
-                val client = llmClientFor(
-                    graph,
-                    provider,
-                    baseUrl.ifBlank { provider.defaultBaseUrl },
-                    model.ifBlank { provider.defaultModel },
-                    trimmedKey,
-                )
-                val preferences = summaryPrompt.takeIf { it.isNotBlank() }
-                    ?: systemPrompt.takeIf { it.isNotBlank() }
-                val prompt = Prompts.withPreferences(
-                    Prompts.summarySystemPrompt(),
-                    preferences,
-                )
-                val probe = PromptNotes.dataBlock(
-                    listOf(
-                        PromptNote(
-                            id = "probe",
-                            date = LocalDate.now().toString(),
-                            text = context.getString(R.string.settings_ai_format_probe),
-                        ),
-                    ),
-                )
-                // The JSON-shape fixture is only sent after this provider's
-                // consent was accepted through the shared consent dialog.
-                val res = client.complete(
-                    LlmRequest(prompt, probe, jsonMode = true, timeoutSeconds = TEST_TIMEOUT_SECONDS),
-                )
-                val reason = if (res.status == LlmStatus.FALLBACK) {
-                    res.error ?: "unavailable"
-                } else if (SummaryResponseFormat.validate(res.text) != null) {
-                    // Shape-validator details are internal; show localized recovery copy.
-                    "malformed_output"
-                } else {
-                    null
-                }
-                formatStatus = if (reason == null) {
-                    context.getString(R.string.settings_ai_format_ok)
-                } else {
-                    context.getString(
-                        R.string.settings_ai_format_invalid,
-                        AiRecovery.copyFor(reason).resolvedMessage(context),
+    /**
+     * Runs one stage of "Check setup" and reports its outcome. Every stage
+     * is bounded by the same twenty-second budget; a stage that needs the
+     * provider's consent reports [StageOutcome.NeedsConsent] instead of
+     * sending anything.
+     */
+    suspend fun runSetupStage(stage: SetupStage): StageOutcome {
+        return try {
+            when (stage) {
+                SetupStage.Connection -> withTimeout(TEST_TIMEOUT_SECONDS * 1_000L) {
+                    val client = llmClientFor(
+                        graph,
+                        provider,
+                        baseUrl.ifBlank { provider.defaultBaseUrl },
+                        model.ifBlank { provider.defaultModel },
+                        trimmedKey,
                     )
+                    // A ping that has not answered in twenty seconds is not
+                    // going to answer. The probe asks for a tiny JSON object
+                    // in native JSON mode, so a pass proves the exact
+                    // capability summaries rely on (not just reachability),
+                    // and the reply is checked as parseable JSON.
+                    val res = client.complete(
+                        LlmRequest(
+                            "Reply with only this JSON object and nothing else: {\"ok\":true}",
+                            "ping",
+                            jsonMode = true,
+                            timeoutSeconds = TEST_TIMEOUT_SECONDS,
+                        ),
+                    )
+                    val jsonOk = res.status == LlmStatus.OK && runCatching {
+                        val element = kotlinx.serialization.json.Json.parseToJsonElement(res.text)
+                        element is kotlinx.serialization.json.JsonObject
+                    }.getOrDefault(false)
+                    when {
+                        res.status == LlmStatus.OK && !jsonOk ->
+                            StageOutcome.Fail("json_mode_unsupported")
+                        res.status == LlmStatus.OK -> {
+                            // A test that worked is a setup the caregiver
+                            // expects to stick. Without this the key stays in
+                            // the text field only, and the summary screen —
+                            // which reads the stored key — tells them to set
+                            // AI up again.
+                            if (persistCredentials()) {
+                                savedApiKey = trimmedKey
+                                savedModel = model
+                                savedBaseUrl = baseUrl
+                                keyState = store.apiKeyState(provider)
+                                keyError = null
+                                StageOutcome.Pass
+                            } else {
+                                // The keystore refused the key: the
+                                // caregiver has to know it was not stored.
+                                val failure = context.getString(R.string.settings_ai_key_store_failed)
+                                keyError = failure
+                                keyState = store.apiKeyState(provider)
+                                StageOutcome.Fail("key_store_failed")
+                            }
+                        }
+                        else -> StageOutcome.Fail(res.error ?: "unavailable")
+                    }
                 }
-            } catch (e: kotlinx.coroutines.CancellationException) {
-                throw e
-            } catch (e: Exception) {
-                formatStatus = context.getString(
-                    R.string.settings_ai_format_invalid,
-                    AiRecovery.copyFor("unavailable").resolvedMessage(context),
-                )
-            } finally {
-                validating = false
-            }
-        }
-    }
-
-    fun beginQualityCheck() {
-        checkingQuality = true
-        qualityStatus = null
-        val generation = ++qualityGeneration
-        qualityJob = scope.launch {
-            try {
-                val client = llmClientFor(
-                    graph,
-                    provider,
-                    baseUrl.ifBlank { provider.defaultBaseUrl },
-                    model.ifBlank { provider.defaultModel },
-                    trimmedKey,
-                )
-                val preferences = summaryPrompt.takeIf { it.isNotBlank() }
-                    ?: systemPrompt.takeIf { it.isNotBlank() }
-                val language = if (context.resources.configuration.locales[0]?.language == "ar") "ar" else "en"
-                val result = withTimeout(TEST_TIMEOUT_SECONDS * 1_000L) {
-                    GroundingProbe.runIfConsented(
+                SetupStage.Format -> {
+                    // The JSON-shape fixture is only sent after this
+                    // provider's consent was accepted through the shared
+                    // consent dialog.
+                    if (!store.consentGiven(provider)) {
+                        StageOutcome.NeedsConsent
+                    } else {
+                        withTimeout(TEST_TIMEOUT_SECONDS * 1_000L) {
+                            val client = llmClientFor(
+                                graph,
+                                provider,
+                                baseUrl.ifBlank { provider.defaultBaseUrl },
+                                model.ifBlank { provider.defaultModel },
+                                trimmedKey,
+                            )
+                            val preferences = summaryPrompt.takeIf { it.isNotBlank() }
+                                ?: systemPrompt.takeIf { it.isNotBlank() }
+                            val prompt = Prompts.withPreferences(
+                                Prompts.summarySystemPrompt(),
+                                preferences,
+                            )
+                            val probe = PromptNotes.dataBlock(
+                                listOf(
+                                    PromptNote(
+                                        id = "probe",
+                                        date = LocalDate.now().toString(),
+                                        text = context.getString(R.string.settings_ai_format_probe),
+                                    ),
+                                ),
+                            )
+                            val res = client.complete(
+                                LlmRequest(prompt, probe, jsonMode = true, timeoutSeconds = TEST_TIMEOUT_SECONDS),
+                            )
+                            val reason = if (res.status == LlmStatus.FALLBACK) {
+                                res.error ?: "unavailable"
+                            } else if (SummaryResponseFormat.validate(res.text) != null) {
+                                // Shape-validator details are internal;
+                                // report a stable recovery code instead.
+                                "malformed_output"
+                            } else {
+                                null
+                            }
+                            if (reason == null) StageOutcome.Pass else StageOutcome.Fail(reason)
+                        }
+                    }
+                }
+                SetupStage.Quality -> withTimeout(TEST_TIMEOUT_SECONDS * 1_000L) {
+                    val client = llmClientFor(
+                        graph,
+                        provider,
+                        baseUrl.ifBlank { provider.defaultBaseUrl },
+                        model.ifBlank { provider.defaultModel },
+                        trimmedKey,
+                    )
+                    val preferences = summaryPrompt.takeIf { it.isNotBlank() }
+                        ?: systemPrompt.takeIf { it.isNotBlank() }
+                    val language = if (context.resources.configuration.locales[0]?.language == "ar") "ar" else "en"
+                    val result = GroundingProbe.runIfConsented(
                         client = client,
                         language = language,
                         consentGiven = store.consentGiven(provider),
                         promptPreferences = preferences,
                     )
-                }
-                if (result == null) {
-                    pendingProbe = PendingSettingsProbe.QUALITY
-                    showProbeConsentDialog = true
-                } else {
-                    qualityStatus = when (result.status) {
-                        GroundingProbeStatus.PASS -> context.getString(
-                            R.string.settings_ai_quality_pass,
-                            result.groundedObservations,
-                            result.totalObservations,
-                        )
-                        GroundingProbeStatus.PARTIAL -> context.getString(
-                            R.string.settings_ai_quality_partial,
-                            result.groundedObservations,
-                            result.totalObservations,
-                        )
-                        GroundingProbeStatus.FAIL -> context.getString(R.string.settings_ai_quality_fail)
-                        GroundingProbeStatus.ERROR -> AiRecovery.copyFor(result.reasonCode).resolvedMessage(context)
+                    when {
+                        result == null -> StageOutcome.NeedsConsent
+                        result.status == GroundingProbeStatus.PASS ->
+                            StageOutcome.Graded(
+                                result.groundedObservations,
+                                result.totalObservations,
+                                full = true,
+                            )
+                        result.status == GroundingProbeStatus.PARTIAL ->
+                            StageOutcome.Graded(
+                                result.groundedObservations,
+                                result.totalObservations,
+                                full = false,
+                            )
+                        result.status == GroundingProbeStatus.FAIL ->
+                            StageOutcome.Fail("quality_fail")
+                        else -> StageOutcome.Fail(result.reasonCode ?: "unavailable")
                     }
                 }
-            } catch (_: TimeoutCancellationException) {
-                qualityStatus = AiRecovery.copyFor("timeout").resolvedMessage(context)
-            } catch (e: kotlinx.coroutines.CancellationException) {
-                throw e
-            } catch (_: Exception) {
-                qualityStatus = AiRecovery.copyFor("unavailable").resolvedMessage(context)
-            } finally {
-                if (qualityGeneration == generation) {
-                    checkingQuality = false
-                    qualityJob = null
-                }
             }
+        } catch (e: TimeoutCancellationException) {
+            StageOutcome.Fail("timeout")
+        } catch (e: kotlinx.coroutines.CancellationException) {
+            // The screen went away mid-request or the caregiver cancelled:
+            // let the scope cancel.
+            throw e
+        } catch (e: Exception) {
+            // Exception text is not a recovery step and may contain
+            // transport internals; report the connect-and-retry code.
+            StageOutcome.Fail("unavailable")
         }
     }
 
-    fun requestProbe(probe: PendingSettingsProbe) {
+    val setupRunner = remember { AiSetupCheckRunner { stage -> runSetupStage(stage) } }
+
+    fun startSetupCheck(from: SetupStage = SetupStage.Connection, previous: SetupCheckState? = null) {
         if (apiKey.isBlank()) {
-            val copy = AiRecovery.copyFor("missing_key").resolvedMessage(context)
-            if (probe == PendingSettingsProbe.FORMAT) {
-                formatStatus = context.getString(R.string.settings_ai_format_invalid, copy)
-            } else {
-                qualityStatus = copy
+            // Without a key there is nothing to send; mark the first stage
+            // failed and leave the rest untouched.
+            setupState = SetupCheckState(
+                stages = mapOf(
+                    SetupStage.Connection to StageStatus.Failed("missing_key"),
+                    SetupStage.Format to StageStatus.Pending,
+                    SetupStage.Quality to StageStatus.Pending,
+                ),
+                running = false,
+                awaitingConsent = false,
+            )
+            return
+        }
+        setupJob = scope.launch {
+            try {
+                setupRunner.run(from = from, previous = previous) { setupState = it }
+            } finally {
+                setupJob = null
             }
-            return
-        }
-        if (!store.consentGiven(provider)) {
-            pendingProbe = probe
-            showProbeConsentDialog = true
-            return
-        }
-        when (probe) {
-            PendingSettingsProbe.FORMAT -> beginFormatValidation()
-            PendingSettingsProbe.QUALITY -> beginQualityCheck()
         }
     }
 
@@ -496,107 +529,40 @@ fun AiSettingsScreen(graph: AppGraph, navController: NavController, navEntry: Na
             ),
         )
 
-        Button(onClick = {
-            if (apiKey.isBlank()) {
-                status = context.getString(
-                    R.string.settings_ai_failed,
-                    AiRecovery.copyFor("missing_key").resolvedMessage(context),
-                )
-                return@Button
-            }
-            testing = true
-            val generation = ++testGeneration
-            testJob = scope.launch {
-                try {
-                    val client = llmClientFor(
-                        graph,
-                        provider,
-                        baseUrl.ifBlank { provider.defaultBaseUrl },
-                        model.ifBlank { provider.defaultModel },
-                        trimmedKey,
-                    )
-                    // A ping that has not answered in twenty seconds is not
-                    // going to answer. The probe asks for a tiny JSON object
-                    // in native JSON mode, so a pass proves the exact
-                    // capability summaries rely on (not just reachability),
-                    // and the reply is checked as parseable JSON.
-                    val res = client.complete(
-                        LlmRequest(
-                            "Reply with only this JSON object and nothing else: {\"ok\":true}",
-                            "ping",
-                            jsonMode = true,
-                            timeoutSeconds = TEST_TIMEOUT_SECONDS,
-                        ),
-                    )
-                    val jsonOk = res.status == LlmStatus.OK && runCatching {
-                        val element = kotlinx.serialization.json.Json.parseToJsonElement(res.text)
-                        element is kotlinx.serialization.json.JsonObject
-                    }.getOrDefault(false)
-                    status = if (res.status == LlmStatus.OK && !jsonOk) {
-                        context.getString(
-                            R.string.settings_ai_failed,
-                            AiRecovery.copyFor("json_mode_unsupported").resolvedMessage(context),
-                        )
-                    } else if (res.status == LlmStatus.OK) {
-                        // A test that worked is a setup the caregiver expects
-                        // to stick. Without this the key stays in the text
-                        // field only, and the summary screen — which reads
-                        // the stored key — tells them to set AI up again.
-                        if (persistCredentials()) {
-                            savedApiKey = trimmedKey
-                            savedModel = model
-                            savedBaseUrl = baseUrl
-                            keyState = store.apiKeyState(provider)
-                            keyError = null
-                            context.getString(R.string.settings_ai_connection_ok_saved)
-                        } else {
-                            // The keystore refused the key: the caregiver has
-                            // to know that it was not stored.
-                            val failure = context.getString(R.string.settings_ai_key_store_failed)
-                            keyError = failure
-                            keyState = store.apiKeyState(provider)
-                            context.getString(R.string.settings_ai_failed, failure)
-                        }
-                    } else {
-                        context.getString(
-                            R.string.settings_ai_failed,
-                            AiRecovery.copyFor(res.error ?: "unavailable")
-                                .resolvedMessage(context),
-                        )
-                    }
-                } catch (e: kotlinx.coroutines.CancellationException) {
-                    // The screen went away mid-request: let the scope cancel.
-                    throw e
-                } catch (e: Exception) {
-                    // Exception text is not a recovery step and may contain
-                    // transport internals; show the connect-and-retry copy.
-                    status = context.getString(
-                        R.string.settings_ai_failed,
-                        AiRecovery.copyFor("unavailable").resolvedMessage(context),
-                    )
-                } finally {
-                    if (testGeneration == generation) {
-                        testing = false
-                        testJob = null
-                    }
-                }
-            }
-        }, enabled = !testing && !modelInvalid) {
-            Text(if (testing) stringResource(R.string.settings_ai_testing) else stringResource(R.string.settings_ai_test_connection))
+        // One button runs connection, summary format and accuracy in order;
+        // each stage reports its own status underneath.
+        Button(
+            onClick = { startSetupCheck() },
+            enabled = !setupState.running && !modelInvalid,
+            modifier = Modifier.testTag("ai_check_setup"),
+        ) {
+            Text(stringResource(R.string.settings_ai_check_setup))
         }
-        if (testing) {
+        if (setupState.running) {
             // Without this the button stays disabled until the client gives
             // up, and a provider that never answers looks like a frozen
             // screen.
-            TextButton(onClick = {
-                testGeneration++
-                testJob?.cancel()
-                testJob = null
-                testing = false
-                status = context.getString(R.string.settings_ai_test_cancelled)
-            }) { Text(stringResource(R.string.common_cancel)) }
+            TextButton(
+                onClick = { setupJob?.cancel() },
+                modifier = Modifier.testTag("ai_check_cancel"),
+            ) { Text(stringResource(R.string.common_cancel)) }
         }
-        status?.let { Text(it) }
+        Text(
+            text = stringResource(R.string.settings_ai_check_hint),
+            style = MaterialTheme.typography.bodySmall,
+            color = MaterialTheme.colorScheme.onSurfaceVariant,
+        )
+        listOf(
+            SetupStage.Connection to R.string.settings_ai_stage_connection,
+            SetupStage.Format to R.string.settings_ai_stage_format,
+            SetupStage.Quality to R.string.settings_ai_stage_quality,
+        ).forEach { (stage, labelRes) ->
+            SetupStageRow(
+                stage = stage,
+                labelRes = labelRes,
+                status = setupState.stages[stage] ?: StageStatus.Pending,
+            )
+        }
 
         if (showGuideDialog) {
             val url = when (provider) {
@@ -646,47 +612,6 @@ fun AiSettingsScreen(graph: AppGraph, navController: NavController, navEntry: Na
                 },
             )
         }
-
-        // Shape validation remains available, but its fictional input is sent
-        // only after this provider's consent is accepted.
-        Button(
-            onClick = { requestProbe(PendingSettingsProbe.FORMAT) },
-            enabled = !validating,
-        ) {
-            Text(if (validating) stringResource(R.string.settings_ai_validating) else stringResource(R.string.settings_ai_validate_format))
-        }
-        if (validating) {
-            TextButton(onClick = {
-                formatJob?.cancel()
-                formatJob = null
-                validating = false
-                formatStatus = context.getString(R.string.settings_ai_test_cancelled)
-            }) { Text(stringResource(R.string.common_cancel)) }
-        }
-        formatStatus?.let { Text(it) }
-
-        Button(
-            onClick = { requestProbe(PendingSettingsProbe.QUALITY) },
-            enabled = !checkingQuality,
-        ) {
-            Text(
-                if (checkingQuality) {
-                    stringResource(R.string.settings_ai_quality_checking)
-                } else {
-                    stringResource(R.string.settings_ai_quality_check)
-                },
-            )
-        }
-        if (checkingQuality) {
-            TextButton(onClick = {
-                qualityGeneration++
-                qualityJob?.cancel()
-                qualityJob = null
-                checkingQuality = false
-                qualityStatus = context.getString(R.string.settings_ai_test_cancelled)
-            }) { Text(stringResource(R.string.common_cancel)) }
-        }
-        qualityStatus?.let { Text(it) }
 
         val baseUrlInvalid = !AiSettingsValidation.isAcceptableBaseUrl(baseUrl)
         if (baseUrlInvalid) {
@@ -785,7 +710,7 @@ fun AiSettingsScreen(graph: AppGraph, navController: NavController, navEntry: Na
         )
     }
 
-    if (showProbeConsentDialog) {
+    if (setupState.awaitingConsent) {
         val consentModel = model.ifBlank { provider.defaultModel }
         AiConsentDialog(
             providerName = provider.displayName,
@@ -794,18 +719,13 @@ fun AiSettingsScreen(graph: AppGraph, navController: NavController, navEntry: Na
             onAccept = {
                 store.setConsentGiven(provider)
                 consentGiven = true
-                showProbeConsentDialog = false
-                val requestedProbe = pendingProbe
-                pendingProbe = null
-                when (requestedProbe) {
-                    PendingSettingsProbe.FORMAT -> beginFormatValidation()
-                    PendingSettingsProbe.QUALITY -> beginQualityCheck()
-                    null -> Unit
-                }
+                val previous = setupState
+                startSetupCheck(from = SetupStage.Format, previous = previous)
             },
             onDismiss = {
-                showProbeConsentDialog = false
-                pendingProbe = null
+                // Declining consent leaves the run paused at the Format
+                // stage; the caregiver can accept and run it again.
+                setupState = setupState.copy(awaitingConsent = false)
             },
         )
     }
@@ -880,8 +800,7 @@ fun AiSettingsScreen(graph: AppGraph, navController: NavController, navEntry: Na
                     savedApiKey = ""
                     keyState = store.apiKeyState(provider)
                     keyError = null
-                    status = null
-                    formatStatus = null
+                    setupState = pendingSetupCheckState()
                     showClearKeyDialog = false
                 }) { Text(stringResource(R.string.settings_ai_clear_key)) }
             },
@@ -910,8 +829,7 @@ fun AiSettingsScreen(graph: AppGraph, navController: NavController, navEntry: Na
                                         role = Role.RadioButton,
                                         onClick = {
                                             model = option.id
-                                            qualityStatus = null
-                                            formatStatus = null
+                                            setupState = pendingSetupCheckState()
                                             otherSelected = false
                                         },
                                     )
@@ -942,8 +860,7 @@ fun AiSettingsScreen(graph: AppGraph, navController: NavController, navEntry: Na
                                     role = Role.RadioButton,
                                     onClick = {
                                         otherSelected = true
-                                        qualityStatus = null
-                                        formatStatus = null
+                                        setupState = pendingSetupCheckState()
                                     },
                                 )
                                 .testTag("model_option_other"),
@@ -961,8 +878,7 @@ fun AiSettingsScreen(graph: AppGraph, navController: NavController, navEntry: Na
                             value = model,
                             onValueChange = {
                                 model = it
-                                qualityStatus = null
-                                formatStatus = null
+                                setupState = pendingSetupCheckState()
                             },
                             label = { Text(stringResource(R.string.settings_ai_custom_model)) },
                             singleLine = true,
@@ -1076,7 +992,11 @@ fun AiSettingsScreen(graph: AppGraph, navController: NavController, navEntry: Na
     }
 }
 
-private enum class PendingSettingsProbe { FORMAT, QUALITY }
+private fun pendingSetupCheckState() = SetupCheckState(
+    stages = SetupStage.values().associateWith { StageStatus.Pending },
+    running = false,
+    awaitingConsent = false,
+)
 
 /** Single place the settings screen builds a provider client (test + probes). */
 private fun llmClientFor(
@@ -1091,6 +1011,67 @@ private fun llmClientFor(
     AiProvider.ANTHROPIC -> graph.llmClientFactory.createAnthropicClient(baseUrl, model, apiKey)
     AiProvider.GEMINI -> graph.llmClientFactory.createGeminiClient(baseUrl, model, apiKey)
 }
+
+/** One labelled row of the "Check setup" stage list. */
+@Composable
+private fun SetupStageRow(
+    stage: SetupStage,
+    labelRes: Int,
+    status: StageStatus,
+) {
+    val context = LocalContext.current
+    val tag = when (stage) {
+        SetupStage.Connection -> "ai_stage_connection"
+        SetupStage.Format -> "ai_stage_format"
+        SetupStage.Quality -> "ai_stage_quality"
+    }
+    Row(
+        modifier = Modifier
+            .fillMaxWidth()
+            .testTag(tag),
+        verticalAlignment = Alignment.CenterVertically,
+    ) {
+        Text(
+            text = stringResource(labelRes),
+            style = MaterialTheme.typography.bodyMedium,
+            modifier = Modifier.weight(1f),
+        )
+        Text(
+            text = stageStatusText(context, stage, status),
+            style = MaterialTheme.typography.bodySmall,
+            color = if (status is StageStatus.Failed) {
+                MaterialTheme.colorScheme.error
+            } else {
+                MaterialTheme.colorScheme.onSurfaceVariant
+            },
+        )
+    }
+}
+
+/** Maps a stage outcome to the localized text shown under its label. */
+private fun stageStatusText(context: Context, stage: SetupStage, status: StageStatus): String =
+    when (status) {
+        StageStatus.Pending -> context.getString(R.string.settings_ai_stage_pending)
+        StageStatus.Running -> context.getString(R.string.settings_ai_stage_running)
+        StageStatus.Skipped -> context.getString(R.string.settings_ai_stage_skipped)
+        StageStatus.Cancelled -> context.getString(R.string.settings_ai_test_cancelled)
+        StageStatus.Passed -> when (stage) {
+            SetupStage.Connection -> context.getString(R.string.settings_ai_connection_ok_saved)
+            SetupStage.Format -> context.getString(R.string.settings_ai_format_ok)
+            // The quality stage always reports Graded, never bare Passed.
+            SetupStage.Quality -> context.getString(R.string.settings_ai_quality_pass, 0, 0)
+        }
+        is StageStatus.Graded -> if (status.full) {
+            context.getString(R.string.settings_ai_quality_pass, status.grounded, status.total)
+        } else {
+            context.getString(R.string.settings_ai_quality_partial, status.grounded, status.total)
+        }
+        is StageStatus.Failed -> when (status.reasonCode) {
+            "key_store_failed" -> context.getString(R.string.settings_ai_key_store_failed)
+            "quality_fail" -> context.getString(R.string.settings_ai_quality_fail)
+            else -> AiRecovery.copyFor(status.reasonCode).resolvedMessage(context)
+        }
+    }
 
 /** The "free" marker on a model the caregiver does not have to pay for. */
 @Composable
