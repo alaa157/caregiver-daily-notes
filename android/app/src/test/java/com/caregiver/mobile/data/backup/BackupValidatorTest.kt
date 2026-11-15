@@ -79,6 +79,42 @@ class BackupValidatorTest {
     }
 
     @Test
+    fun invalidRelationshipAndCareDetailsAreReportedWithoutValues() {
+        val data = backupData(
+            recipients = listOf(
+                backupRecipient(
+                    relationship = "x".repeat(81),
+                    allergies = "x".repeat(501),
+                    emergencyContactPhone = "call me",
+                ),
+            ),
+        )
+
+        val issues = issues(data)
+
+        assertEquals(1, kinds(data, BackupIssueKind.INVALID_RELATIONSHIP).size)
+        assertEquals(1, kinds(data, BackupIssueKind.INVALID_CARE_DETAILS).size)
+        assertTrue(issues.all { it.entity == BackupEntity.RECIPIENT })
+        assertTrue(issues.none { issue ->
+            issue.toString().contains("call me") || issue.toString().contains("x".repeat(81))
+        })
+    }
+
+    @Test
+    fun invalidDateOfBirthIsReported() {
+        val data = backupData(recipients = listOf(backupRecipient(dateOfBirth = "not-a-date")))
+
+        assertEquals(1, kinds(data, BackupIssueKind.INVALID_CARE_DETAILS).size)
+    }
+
+    @Test
+    fun invalidEmergencyContactPhoneIsReported() {
+        val data = backupData(recipients = listOf(backupRecipient(emergencyContactPhone = "call me")))
+
+        assertEquals(1, kinds(data, BackupIssueKind.INVALID_CARE_DETAILS).size)
+    }
+
+    @Test
     fun anInvalidNoteDateIsReported() {
         val data = backupData(notes = listOf(backupNote(date = "01/10/2026")))
         assertEquals(BackupEntity.NOTE, kinds(data, BackupIssueKind.INVALID_DATE).single().entity)

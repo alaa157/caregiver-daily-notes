@@ -132,7 +132,63 @@ class BackupCodecTest {
     }
 
     @Test
-    fun aV4RoundTripPreservesTheRecordedFlags() {
+    fun v5RoundTripPreservesRecipientCareDetails() {
+        val data = backupData(
+            recipients = listOf(
+                backupRecipient(
+                    relationship = "MOTHER",
+                    dateOfBirth = "1980-03-04",
+                    allergies = "Peanuts",
+                    conditions = "Asthma",
+                    emergencyContactName = "Mona",
+                    emergencyContactPhone = "+1 555 555 5555",
+                ),
+            ),
+        )
+
+        val decoded = (CareBackupCodec.decode(encodeBackup(data)) as BackupDecodeResult.Success).backup
+
+        assertEquals(data, decoded.data)
+        assertEquals(5, decoded.formatVersion)
+    }
+
+    @Test
+    fun aV4BackupIgnoresCareDetailsAndPreservesRecordedFlags() {
+        val data = backupData(
+            recipients = listOf(
+                backupRecipient(
+                    archivedAt = 123,
+                    relationship = "MOTHER",
+                    dateOfBirth = "1980-03-04",
+                    allergies = "Peanuts",
+                    conditions = "Asthma",
+                    emergencyContactName = "Mona",
+                    emergencyContactPhone = "+1 555 555 5555",
+                ),
+            ),
+            notes = listOf(backupNote("n1", pain = 0, painRecorded = false, fallRecorded = false)),
+            medications = listOf(backupMedication()),
+        )
+        val canonical = Json { encodeDefaults = true; explicitNulls = false }.encodeToString(data)
+        val document = versionedDocument(version = 4, dataJson = canonical, digest = sha256(v4CanonicalJson(data)))
+
+        val decoded = (CareBackupCodec.decode(document) as BackupDecodeResult.Success).backup
+
+        assertEquals(4, decoded.formatVersion)
+        assertEquals(123L, decoded.data.recipients.single().archivedAt)
+        assertNull(decoded.data.recipients.single().relationship)
+        assertNull(decoded.data.recipients.single().dateOfBirth)
+        assertNull(decoded.data.recipients.single().allergies)
+        assertNull(decoded.data.recipients.single().conditions)
+        assertNull(decoded.data.recipients.single().emergencyContactName)
+        assertNull(decoded.data.recipients.single().emergencyContactPhone)
+        assertFalse(decoded.data.notes.single().painRecorded)
+        assertFalse(decoded.data.notes.single().fallRecorded)
+        assertEquals(1, decoded.data.medications.size)
+    }
+
+    @Test
+    fun aV5RoundTripPreservesTheRecordedFlags() {
         val data = backupData(
             notes = listOf(
                 backupNote("n1", pain = 0, painRecorded = false, fallRecorded = false),
@@ -143,7 +199,7 @@ class BackupCodecTest {
         val decoded = (CareBackupCodec.decode(encodeBackup(data)) as BackupDecodeResult.Success).backup
 
         assertEquals(data, decoded.data)
-        assertEquals(4, decoded.formatVersion)
+        assertEquals(5, decoded.formatVersion)
         assertFalse(decoded.data.notes.first().painRecorded)
         assertFalse(decoded.data.notes.first().fallRecorded)
         assertTrue(decoded.data.notes.last().painRecorded)
@@ -169,7 +225,10 @@ class BackupCodecTest {
 
     @Test
     fun aV3BackupWithHandAddedFlagsStillVerifiesAndRestoresRecorded() {
-        val data = backupData(notes = listOf(backupNote("n1", pain = 9, painRecorded = false)))
+        val data = backupData(
+            recipients = listOf(backupRecipient(relationship = "MOTHER", allergies = "Peanuts")),
+            notes = listOf(backupNote("n1", pain = 9, painRecorded = false)),
+        )
         // A hand-edited v3 file may carry flag fields; the digest still
         // covers the v3 shape and normalization restores the flags to true.
         val canonical = Json { encodeDefaults = true; explicitNulls = false }.encodeToString(data)
@@ -180,6 +239,8 @@ class BackupCodecTest {
 
         assertTrue(decoded.backup.data.notes.single().painRecorded)
         assertTrue(decoded.backup.data.notes.single().fallRecorded)
+        assertNull(decoded.backup.data.recipients.single().relationship)
+        assertNull(decoded.backup.data.recipients.single().allergies)
     }
 
     @Test

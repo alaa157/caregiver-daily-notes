@@ -51,11 +51,23 @@ class RoomBackupStoreTest {
         name: String = "Mona",
         active: Boolean = true,
         archivedAt: Long? = null,
+        relationship: String? = null,
+        dateOfBirth: String? = null,
+        allergies: String? = null,
+        conditions: String? = null,
+        emergencyContactName: String? = null,
+        emergencyContactPhone: String? = null,
     ) = RecipientEntity(
         serverId = serverId,
         name = name,
         active = active,
         archivedAt = archivedAt,
+        relationship = relationship,
+        dateOfBirth = dateOfBirth,
+        allergies = allergies,
+        conditions = conditions,
+        emergencyContactName = emergencyContactName,
+        emergencyContactPhone = emergencyContactPhone,
     )
 
     private fun noteRow(
@@ -178,6 +190,64 @@ class RoomBackupStoreTest {
         assertEquals(BackupReplaceResult.Replaced, store.replaceAll(snapshot, store.state()))
         assertEquals(111L, db.recipientDao().byServerId("r1")?.archivedAt)
         assertNull(db.recipientDao().byServerId("r2")?.archivedAt)
+    }
+
+    @Test
+    fun snapshotAndRestorePreserveRecipientCareDetails() = runTest {
+        db.recipientDao().insertAll(
+            listOf(
+                recipientRow(
+                    "r1",
+                    relationship = "MOTHER",
+                    dateOfBirth = "1980-03-04",
+                    allergies = "Peanuts",
+                    conditions = "Asthma",
+                    emergencyContactName = "Mona",
+                    emergencyContactPhone = "+1 555 555 5555",
+                ),
+            ),
+        )
+        val store = RoomBackupStore(db)
+
+        val snapshot = store.snapshot()
+        val recipient = snapshot.recipients.single()
+        assertEquals("MOTHER", recipient.relationship)
+        assertEquals("1980-03-04", recipient.dateOfBirth)
+        assertEquals("Peanuts", recipient.allergies)
+        assertEquals("Asthma", recipient.conditions)
+        assertEquals("Mona", recipient.emergencyContactName)
+        assertEquals("+1 555 555 5555", recipient.emergencyContactPhone)
+
+        assertEquals(BackupReplaceResult.Replaced, store.replaceAll(snapshot, store.state()))
+        val restored = db.recipientDao().byServerId("r1")!!
+        assertEquals("MOTHER", restored.relationship)
+        assertEquals("1980-03-04", restored.dateOfBirth)
+        assertEquals("Peanuts", restored.allergies)
+        assertEquals("Asthma", restored.conditions)
+        assertEquals("Mona", restored.emergencyContactName)
+        assertEquals("+1 555 555 5555", restored.emergencyContactPhone)
+    }
+
+    @Test
+    fun theStateTokenChangesWhenRecipientCareDetailsChange() = runTest {
+        db.recipientDao().insertAll(listOf(recipientRow("r1")))
+        val store = RoomBackupStore(db)
+        val before = store.state()
+        val changedRecipients = listOf(
+            recipientRow("r1", relationship = "MOTHER"),
+            recipientRow("r1", dateOfBirth = "1980-03-04"),
+            recipientRow("r1", allergies = "Peanuts"),
+            recipientRow("r1", conditions = "Asthma"),
+            recipientRow("r1", emergencyContactName = "Mona"),
+            recipientRow("r1", emergencyContactPhone = "+1 555 555 5555"),
+        )
+
+        changedRecipients.forEach { changedRecipient ->
+            db.recipientDao().insertAll(listOf(changedRecipient))
+            val after = store.state()
+            assertEquals(before.counts, after.counts)
+            assertTrue(before.token != after.token)
+        }
     }
 
     @Test
