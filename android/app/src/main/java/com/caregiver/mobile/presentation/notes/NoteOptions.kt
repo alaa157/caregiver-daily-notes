@@ -9,13 +9,27 @@ import com.caregiver.mobile.data.api.NoteDetailDto
 /** Chip groups in the note editor (board 5); single-select each. */
 enum class OptionGroup { Mood, Appetite, Sleep, Mobility, Medication }
 
-/** Canonical wire values. The backend stores these verbatim (or ""). */
+/**
+ * Canonical wire values offered by the note editor. The backend stores
+ * these verbatim (or ""). Notes saved before the vocabulary widened keep
+ * the legacy codes in [Legacy]; [known] is the union used to recognise
+ * both old and new values.
+ */
 object NoteOptions {
-    val Mood = listOf("good", "fair", "bad")
-    val Appetite = listOf("good", "reduced", "poor")
-    val Sleep = listOf("good", "broken", "poor")
-    val Mobility = listOf("walks", "assisted", "bed")
+    val Mood = listOf("calm", "happy", "anxious", "agitated", "sad", "confused")
+    val Appetite = listOf("good", "fair", "poor", "refused")
+    val Sleep = listOf("restful", "restless", "poor", "sleepless")
+    val Mobility = listOf("independent", "assisted", "bedridden")
     val Medication = listOf("taken", "missed", "unsure")
+
+    /** Codes stored by notes written before the current vocabulary. */
+    object Legacy {
+        val Mood = listOf("good", "fair", "bad")
+        val Appetite = listOf("reduced")
+        val Sleep = listOf("good", "broken")
+        val Mobility = listOf("walks", "bed")
+        val Medication = listOf("none")
+    }
 
     fun values(group: OptionGroup): List<String> = when (group) {
         OptionGroup.Mood -> Mood
@@ -24,6 +38,18 @@ object NoteOptions {
         OptionGroup.Mobility -> Mobility
         OptionGroup.Medication -> Medication
     }
+
+    private fun legacy(group: OptionGroup): List<String> = when (group) {
+        OptionGroup.Mood -> Legacy.Mood
+        OptionGroup.Appetite -> Legacy.Appetite
+        OptionGroup.Sleep -> Legacy.Sleep
+        OptionGroup.Mobility -> Legacy.Mobility
+        OptionGroup.Medication -> Legacy.Medication
+    }
+
+    /** Current values first, then legacy codes, duplicates removed. */
+    fun known(group: OptionGroup): List<String> =
+        (values(group) + legacy(group)).distinct()
 }
 
 /**
