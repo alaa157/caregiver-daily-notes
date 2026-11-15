@@ -293,7 +293,16 @@
     <string name="summary_choose_period">اختر الفترة الزمنية</string>
     <string name="summary_no_supported_observations">لم يتم العثور على ملاحظات مدعومة في الفترة المحددة.</string>
     <string name="summary_overview">نظرة عامة</string>
-    <string name="summary_trends">الاتجاهات</string>
+    <string name="summary_trends">التغيّرات مقارنةً بالفترة السابقة</string>
+    <string name="summary_trend_fall">السقوط</string>
+    <string name="summary_trend_pain">ألم مرتفع (7 فأكثر)</string>
+    <string name="summary_trend_missed_med">أيام فوات الدواء</string>
+    <string name="summary_trend_poor_appetite">أيام ضعف الشهية</string>
+    <string name="summary_trend_previous">الفترة السابقة</string>
+    <string name="summary_trend_current">الفترة المطلوبة</string>
+    <string name="summary_trend_count">%1$d من أصل %2$d مسجّل</string>
+    <string name="summary_trend_no_data">لا توجد بيانات مسجّلة</string>
+    <string name="summary_trend_delta">التغيّر: %1$s</string>
     <string name="summary_important">ملاحظات مهمة</string>
     <string name="summary_unclear">معلومات غير واضحة</string>
     <string name="summary_meds_locked">الأدوية محمية: الذكاء الاصطناعي لا يغيّر أي دواء أو جرعة.</string>

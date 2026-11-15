@@ -285,7 +285,16 @@
     <string name="summary_choose_period">Choose the time period</string>
     <string name="summary_no_supported_observations">No supported observations found in the selected period.</string>
     <string name="summary_overview">Overview</string>
-    <string name="summary_trends">Trends</string>
+    <string name="summary_trends">Changes since the previous period</string>
+    <string name="summary_trend_fall">Falls</string>
+    <string name="summary_trend_pain">High pain (7 or more)</string>
+    <string name="summary_trend_missed_med">Days with missed medication</string>
+    <string name="summary_trend_poor_appetite">Days with poor appetite</string>
+    <string name="summary_trend_previous">Previous period</string>
+    <string name="summary_trend_current">Requested period</string>
+    <string name="summary_trend_count">%1$d out of %2$d recorded</string>
+    <string name="summary_trend_no_data">No recorded data</string>
+    <string name="summary_trend_delta">Change: %1$s</string>
     <string name="summary_important">Important notes</string>
     <string name="summary_unclear">Unclear information</string>
     <string name="summary_meds_locked">Medications are locked: AI never changes any medication or dose.</string>
