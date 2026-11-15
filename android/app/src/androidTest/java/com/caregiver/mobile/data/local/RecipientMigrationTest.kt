@@ -187,6 +187,43 @@ class RecipientMigrationTest {
         migrated.close()
     }
 
+    @Test
+    fun migration8To9AddsNullableCareColumnsAndPreservesRows() {
+        helper.createDatabase(DB_NAME, 8).apply {
+            execSQL(
+                "INSERT INTO recipients (serverId, localId, name, active, archivedAt) " +
+                    "VALUES (?, ?, ?, ?, ?)",
+                arrayOf("r1", null, "Aisha", 1, 456L),
+            )
+            close()
+        }
+
+        val migrated = helper.runMigrationsAndValidate(
+            DB_NAME,
+            9,
+            true,
+            AppDatabase.MIGRATION_8_9,
+        )
+
+        assertEquals(1, migrated.count("recipients"))
+
+        migrated.query(
+            "SELECT serverId, name, active, archivedAt, `relationship`, dateOfBirth, " +
+                "allergies, `conditions`, emergencyContactName, emergencyContactPhone " +
+                "FROM recipients",
+        ).use { cursor ->
+            assertTrue(cursor.moveToFirst())
+            assertEquals("r1", cursor.getString(0))
+            assertEquals("Aisha", cursor.getString(1))
+            assertEquals(1, cursor.getInt(2))
+            assertEquals(456L, cursor.getLong(3))
+            for (i in 4..9) {
+                assertTrue("column $i must be NULL", cursor.isNull(i))
+            }
+        }
+        migrated.close()
+    }
+
     private fun SupportSQLiteDatabase.count(table: String): Int =
         query("SELECT COUNT(*) FROM `$table`").use { cursor ->
             assertTrue(cursor.moveToFirst())
