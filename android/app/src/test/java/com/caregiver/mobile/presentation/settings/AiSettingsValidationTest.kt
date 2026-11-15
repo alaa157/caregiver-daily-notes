@@ -108,4 +108,24 @@ class AiSettingsValidationTest {
     fun withoutAKeyThereIsNothingToStore() {
         assertEquals(null, AiSettingsValidation.credentialsFor(AiProvider.OPENAI, "   ", "m", ""))
     }
+
+    @Test
+    fun acceptableModelIds() {
+        assertTrue(AiSettingsValidation.isAcceptableModelId("gpt-6-luna"))
+        assertTrue(AiSettingsValidation.isAcceptableModelId("openai/gpt-4o-mini"))
+        assertTrue(AiSettingsValidation.isAcceptableModelId(""))
+    }
+
+    @Test
+    fun unacceptableModelIds() {
+        assertFalse(AiSettingsValidation.isAcceptableModelId("-bad"))
+        assertFalse(AiSettingsValidation.isAcceptableModelId("a b"))
+        assertFalse(AiSettingsValidation.isAcceptableModelId("a;b"))
+    }
+
+    @Test
+    fun modelIdLengthBound() {
+        assertTrue(AiSettingsValidation.isAcceptableModelId("a".repeat(128)))
+        assertFalse(AiSettingsValidation.isAcceptableModelId("a".repeat(129)))
+    }
 }
