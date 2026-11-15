@@ -587,6 +587,162 @@ fun AddRecipientScreen(graph: AppGraph, navController: NavController) {
     }
 }
 
+@Composable
+fun EditRecipientScreen(recipientId: String, graph: AppGraph, navController: NavController) {
+    val admin = graph.recipientAdmin
+    if (admin == null) {
+        Column(
+            Modifier
+                .fillMaxSize()
+                .padding(horizontal = AppDimens.ScreenHPadding),
+        ) {
+            AppTopBar(
+                title = stringResource(R.string.edit_title),
+                onBack = { navController.popBackStack() },
+            )
+            Text(
+                stringResource(R.string.edit_unavailable),
+                color = CaregiverColors.Danger,
+            )
+        }
+        return
+    }
+
+    val vm: EditRecipientViewModel = assistedViewModel("edit-person-$recipientId") {
+        EditRecipientViewModel(recipientId, graph.apis, graph.auth, admin)
+    }
+    val state by vm.state.collectAsStateWithLifecycle()
+    state.savedId?.let { savedId ->
+        LaunchedEffect(savedId) { navController.popBackStack() }
+    }
+    val nameErrorRes = when (state.nameError) {
+        NameError.Required -> R.string.add_error_name
+        NameError.TooLong -> R.string.add_error_name_long
+        null -> null
+    }
+
+    Column(
+        Modifier
+            .fillMaxSize()
+            .verticalScroll(rememberScrollState())
+            .imePadding()
+            .padding(horizontal = AppDimens.ScreenHPadding),
+        verticalArrangement = Arrangement.spacedBy(AppDimens.SectionGap),
+    ) {
+        AppTopBar(
+            title = stringResource(R.string.edit_title),
+            onBack = { navController.popBackStack() },
+        )
+        when {
+            state.missing -> {
+                Text(
+                    stringResource(R.string.edit_unavailable),
+                    color = CaregiverColors.Danger,
+                )
+            }
+            !state.loaded -> LoadingRow()
+            else -> {
+                Text(
+                    stringResource(R.string.add_name),
+                    fontFamily = PlexArabic,
+                    fontWeight = FontWeight.Bold,
+                    fontSize = 14.sp,
+                    color = CaregiverColors.Ink,
+                )
+                OutlinedTextField(
+                    value = state.name,
+                    onValueChange = vm::onName,
+                    enabled = !state.archived && !state.busy,
+                    isError = state.nameError != null,
+                    supportingText = {
+                        nameErrorRes?.let { errorRes ->
+                            Text(
+                                stringResource(errorRes),
+                                fontFamily = PlexArabic,
+                                color = CaregiverColors.Danger,
+                            )
+                        }
+                    },
+                    singleLine = true,
+                    keyboardOptions = androidx.compose.foundation.text.KeyboardOptions(
+                        keyboardType = androidx.compose.ui.text.input.KeyboardType.Text,
+                        capitalization = androidx.compose.ui.text.input.KeyboardCapitalization.Words,
+                        imeAction = androidx.compose.ui.text.input.ImeAction.Done,
+                    ),
+                    keyboardActions = androidx.compose.foundation.text.KeyboardActions(
+                        onDone = { vm.save() },
+                    ),
+                    shape = RoundedCornerShape(AppDimens.ControlRadius),
+                    colors = OutlinedTextFieldDefaults.colors(
+                        focusedBorderColor = CaregiverColors.Primary,
+                        unfocusedBorderColor = CaregiverColors.Border,
+                        focusedContainerColor = CaregiverColors.Surface,
+                        unfocusedContainerColor = CaregiverColors.Surface,
+                    ),
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .heightIn(min = AppDimens.InputHeight)
+                        .testTag("edit_person_name"),
+                )
+                if (state.archived) {
+                    Text(
+                        stringResource(R.string.people_archived_readonly),
+                        color = CaregiverColors.Muted,
+                    )
+                } else {
+                    PrimaryButton(
+                        label = stringResource(R.string.edit_save),
+                        onClick = vm::save,
+                        enabled = !state.busy,
+                        modifier = Modifier.testTag("edit_person_save"),
+                    )
+                    if (state.failed) {
+                        Text(
+                            stringResource(R.string.add_error_save_failed),
+                            color = CaregiverColors.Danger,
+                            modifier = Modifier.testTag("edit_person_error"),
+                        )
+                    }
+                    state.duplicate?.let { match ->
+                        AppCard(modifier = Modifier.testTag("edit_person_duplicate")) {
+                            Text(
+                                stringResource(R.string.add_duplicate_title),
+                                fontFamily = PlexArabic,
+                                fontWeight = FontWeight.Bold,
+                                color = CaregiverColors.Ink,
+                            )
+                            Text(
+                                stringResource(R.string.add_duplicate_body),
+                                fontFamily = PlexArabic,
+                                color = CaregiverColors.Muted,
+                            )
+                            Text(Bidi.isolate(match.name), fontFamily = PlexArabic)
+                            if (match.archived) {
+                                Text(
+                                    stringResource(R.string.people_archived),
+                                    fontFamily = PlexArabic,
+                                    color = CaregiverColors.Muted,
+                                )
+                            }
+                            PrimaryButton(
+                                label = stringResource(R.string.edit_duplicate_save_anyway),
+                                onClick = vm::saveAnyway,
+                                modifier = Modifier.testTag("edit_person_save_anyway"),
+                            )
+                            TextButton(onClick = vm::dismissDuplicate) {
+                                Text(
+                                    stringResource(R.string.common_cancel),
+                                    fontFamily = PlexArabic,
+                                )
+                            }
+                        }
+                    }
+                }
+            }
+        }
+    }
+}
+
 /**
  * Recipient detail (board 4): status card + latest note + 3 design actions.
  * Archived recipients hide write actions and offer Unarchive/Delete instead.
