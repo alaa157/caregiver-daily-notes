@@ -677,4 +677,34 @@
     <string name="csv_issue_unmatched">لم يتم العثور على الشخص تحت الرعاية في هذا التطبيق</string>
     <string name="csv_issue_duplicate">توجد ملاحظة مسجّلة مسبقًا لهذا الشخص واليوم</string>
     <string name="csv_issue_unknown">تعذّرت القراءة</string>
+
+    <!-- تسميات خيارات الملاحظة (OptionLabels.labelRes)؛ الرموز هي قيم السلك. -->
+    <string name="note_option_mood_calm">هدوء</string>
+    <string name="note_option_mood_happy">سعادة</string>
+    <string name="note_option_mood_anxious">قلق</string>
+    <string name="note_option_mood_agitated">اضطراب</string>
+    <string name="note_option_mood_sad">حزن</string>
+    <string name="note_option_mood_confused">ارتباك</string>
+    <string name="note_option_mood_good">جيدة</string>
+    <string name="note_option_mood_fair">متوسطة</string>
+    <string name="note_option_mood_bad">سيئة</string>
+    <string name="note_option_appetite_good">جيدة</string>
+    <string name="note_option_appetite_fair">متوسطة</string>
+    <string name="note_option_appetite_poor">ضعيفة</string>
+    <string name="note_option_appetite_refused">رفض الطعام</string>
+    <string name="note_option_appetite_reduced">منخفضة</string>
+    <string name="note_option_sleep_restful">نام جيدًا</string>
+    <string name="note_option_sleep_restless">مضطرب</string>
+    <string name="note_option_sleep_poor">ضعيف</string>
+    <string name="note_option_sleep_sleepless">لم ينم</string>
+    <string name="note_option_sleep_good">جيد</string>
+    <string name="note_option_sleep_broken">متقطع</string>
+    <string name="note_option_mobility_independent">مستقل</string>
+    <string name="note_option_mobility_assisted">يحتاج مساعدة</string>
+    <string name="note_option_mobility_bedridden">طريح الفراش</string>
+    <string name="note_option_mobility_walks">يمشي</string>
+    <string name="note_option_mobility_bed">طريح الفراش</string>
+    <string name="note_option_medication_taken">أخذ الدواء</string>
+    <string name="note_option_medication_missed">فاته الدواء</string>
+    <string name="note_option_medication_unsure">غير متأكد</string>
 </resources>
