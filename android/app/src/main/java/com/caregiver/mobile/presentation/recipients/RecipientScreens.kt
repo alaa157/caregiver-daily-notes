@@ -82,6 +82,7 @@ import com.caregiver.mobile.data.api.NoteDto
 import com.caregiver.mobile.data.api.RecipientDto
 import com.caregiver.mobile.data.local.RecipientAdmin
 import com.caregiver.mobile.data.local.RecipientDeletionCounts
+import com.caregiver.mobile.data.recipient.CareDetails
 import com.caregiver.mobile.data.recipient.CareDetailsField
 import com.caregiver.mobile.data.recipient.CareDetailsIssue
 import com.caregiver.mobile.data.recipient.CareDetailsRules
@@ -1115,6 +1116,9 @@ fun RecipientDetailScreen(
                 hasAdmin = admin != null,
                 deleteCounts = deleteCounts?.counts,
                 onBack = { navController.popBackStack() },
+                onCareDetails = {
+                    navController.navigate(AppRoutes.careDetails(s.detail.id))
+                },
                 onEdit = { navController.navigate(AppRoutes.editRecipient(s.detail.id)) },
                 onAddNote = { navController.navigate(AppRoutes.noteEditor(s.detail.id)) },
                 onViewToday = {
@@ -1157,6 +1161,23 @@ internal fun lastNoteItems(note: NoteDto): List<LastNoteItem> = buildList {
     if (note.fallRecorded && note.fall) add(LastNoteItem.FallReported)
 }
 
+internal data class CareDetailLine(
+    val field: CareDetailsField,
+    val value: String,
+)
+
+internal fun careDetailLines(details: CareDetails): List<CareDetailLine> = buildList {
+    fun addLine(field: CareDetailsField, value: String?) {
+        value?.trim()?.takeIf(String::isNotEmpty)?.let { add(CareDetailLine(field, it)) }
+    }
+
+    addLine(CareDetailsField.DateOfBirth, details.dateOfBirth)
+    addLine(CareDetailsField.Allergies, details.allergies)
+    addLine(CareDetailsField.Conditions, details.conditions)
+    addLine(CareDetailsField.EmergencyContactName, details.emergencyContactName)
+    addLine(CareDetailsField.EmergencyContactPhone, details.emergencyContactPhone)
+}
+
 @Composable
 internal fun DetailContent(
     detail: RecipientDetail,
@@ -1177,6 +1198,7 @@ internal fun DetailContent(
     onCancelDelete: () -> Unit,
     onViewToday: () -> Unit = {},
     onAddCorrection: () -> Unit = {},
+    onCareDetails: () -> Unit = {},
 ) {
     var confirmingDelete by remember { mutableStateOf(false) }
     Column(
@@ -1187,6 +1209,17 @@ internal fun DetailContent(
             title = Bidi.isolate(detail.name),
             onBack = onBack,
         )
+        if (!detail.relationship.isNullOrBlank()) {
+            Text(
+                stringResource(
+                    R.string.detail_relationship,
+                    Bidi.isolate(relationshipLabel(detail.relationship)),
+                ),
+                fontFamily = PlexArabic,
+                fontSize = 14.sp,
+                color = CaregiverColors.Muted,
+            )
+        }
         // Status card: pill + primary add-note 52dp. Archived records are
         // read-only, so the write action is absent instead of disabled.
         AppCard {
@@ -1233,6 +1266,51 @@ internal fun DetailContent(
                     )
                 }
             }
+        }
+        SectionTitle(stringResource(R.string.care_details_title))
+        val careLines = careDetailLines(detail.careDetails)
+        if (careLines.isEmpty()) {
+            Text(
+                stringResource(R.string.detail_care_empty),
+                fontFamily = PlexArabic,
+                fontSize = 14.sp,
+                color = CaregiverColors.Muted,
+            )
+        } else {
+            careLines.forEach { line ->
+                val label = stringResource(
+                    when (line.field) {
+                        CareDetailsField.DateOfBirth -> R.string.care_dob
+                        CareDetailsField.Allergies -> R.string.care_allergies
+                        CareDetailsField.Conditions -> R.string.care_conditions
+                        CareDetailsField.EmergencyContactName -> R.string.care_contact_name
+                        CareDetailsField.EmergencyContactPhone -> R.string.care_contact_phone
+                    },
+                )
+                val value = when (line.field) {
+                    CareDetailsField.DateOfBirth,
+                    CareDetailsField.EmergencyContactPhone,
+                    -> Bidi.isolate(line.value)
+                    CareDetailsField.Allergies,
+                    CareDetailsField.Conditions,
+                    CareDetailsField.EmergencyContactName,
+                    -> line.value
+                }
+                Text(
+                    "$label: $value",
+                    fontFamily = PlexArabic,
+                    fontSize = 14.sp,
+                    color = CaregiverColors.Ink,
+                )
+            }
+        }
+        if (hasAdmin && !detail.archived) {
+            SecondaryButton(
+                label = stringResource(R.string.detail_care_edit),
+                onClick = onCareDetails,
+                enabled = !busy,
+                modifier = Modifier.testTag("detail_care_edit"),
+            )
         }
         // The status card above covers the no-notes empty state.
         detail.lastNote?.let { note ->

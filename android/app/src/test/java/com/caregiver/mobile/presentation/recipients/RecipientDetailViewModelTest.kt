@@ -12,6 +12,7 @@ import com.caregiver.mobile.data.api.NoteDto
 import com.caregiver.mobile.data.api.RecipientDto
 import com.caregiver.mobile.data.local.RecipientAdmin
 import com.caregiver.mobile.data.local.RecipientDeletionCounts
+import com.caregiver.mobile.data.recipient.CareDetails
 import androidx.datastore.preferences.core.PreferenceDataStoreFactory
 import java.io.File
 import java.io.IOException
@@ -120,6 +121,41 @@ class RecipientDetailViewModelTest {
         assertEquals(
             listOf(DetailAction.AddNote, DetailAction.History, DetailAction.CarePlan, DetailAction.Summary),
             content.actions,
+        )
+    }
+
+    @Test
+    fun loadPopulatesRelationshipAndCareDetails() = runTest {
+        recipients.listHandler = {
+            listOf(
+                RecipientDto(
+                    id = "r1",
+                    name = "Aisha",
+                    active = true,
+                    relationship = "MOTHER",
+                    dateOfBirth = "1980-03-04",
+                    allergies = "Peanuts",
+                    conditions = "Asthma",
+                    emergencyContactName = "Mona",
+                    emergencyContactPhone = "+1 555 555 5555",
+                ),
+            )
+        }
+        notes.historyHandler = { _, _, _ -> emptyList() }
+        val viewModel = vm(this)
+
+        val detail = (viewModel.state.first { it is DetailState.Content } as DetailState.Content).detail
+
+        assertEquals("MOTHER", detail.relationship)
+        assertEquals(
+            CareDetails(
+                dateOfBirth = "1980-03-04",
+                allergies = "Peanuts",
+                conditions = "Asthma",
+                emergencyContactName = "Mona",
+                emergencyContactPhone = "+1 555 555 5555",
+            ),
+            detail.careDetails,
         )
     }
 
