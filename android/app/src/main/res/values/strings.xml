@@ -47,6 +47,12 @@
     <string name="add_name">Name</string>
     <string name="add_save">Save</string>
     <string name="add_error_name">Name is required</string>
+    <string name="add_error_name_long">Use a name of up to 120 characters.</string>
+    <string name="add_error_save_failed">We couldn’t save. Please try again.</string>
+    <string name="add_duplicate_title">A person with this name already exists</string>
+    <string name="add_duplicate_body">You already have someone with this name. Adding another may make it hard to tell them apart.</string>
+    <string name="add_duplicate_open">Open existing</string>
+    <string name="add_duplicate_create_anyway">Create anyway</string>
     <string name="common_retry">Retry</string>
     <string name="common_ok">OK</string>
     <string name="common_loading_failed">Could not load</string>
