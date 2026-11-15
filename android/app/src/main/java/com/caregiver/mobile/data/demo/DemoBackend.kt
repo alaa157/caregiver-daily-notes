@@ -33,6 +33,8 @@ import com.caregiver.mobile.data.local.RecipientDeletionCounts
 import com.caregiver.mobile.data.plan.IllegalPlanTransitionException
 import com.caregiver.mobile.data.plan.PlanStateMachine
 import com.caregiver.mobile.data.plan.planTransitionError
+import com.caregiver.mobile.data.recipient.NameCheck
+import com.caregiver.mobile.data.recipient.RecipientNameRules
 import java.time.LocalDate
 import java.time.LocalDateTime
 import java.util.concurrent.atomic.AtomicInteger
@@ -355,6 +357,18 @@ class DemoBackendApis : BackendApis, RecipientAdmin {
             plans[plans.indexOfFirst { it.id == updated.id }] = updated
             return updated
         }
+    }
+
+    override suspend fun rename(id: String, name: String): RecipientDto = synchronized(lock) {
+        val index = recipients.indexOfFirst { it.id == id }
+        if (index < 0) throw notFound("recipient")
+        val existing = recipients[index]
+        if (existing.archivedAt != null) throw ArchivedRecipientException(id)
+        if (RecipientNameRules.check(name) != NameCheck.Ok) {
+            throw IllegalArgumentException("recipient name")
+        }
+        recipients[index] = existing.copy(name = RecipientNameRules.normalize(name))
+        recipients[index]
     }
 
     override suspend fun archive(id: String): RecipientDto = synchronized(lock) {
