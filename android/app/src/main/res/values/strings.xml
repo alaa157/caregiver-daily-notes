@@ -339,6 +339,8 @@
     <string name="settings_appearance">Appearance</string>
     <string name="ai_consent_title">AI consent</string>
     <string name="ai_consent_body">Care notes are sent to %1$s, the AI provider you selected. This app is not a medical device and is not HIPAA-compliant.</string>
+    <string name="ai_data_use_gemini">Google may use content sent with a free-tier key to improve its products. A key from a project with billing turned on is not used this way. The model you pick does not change this.</string>
+    <string name="ai_data_use_free_host">A free model keeps its host’s data policy, and some hosts train on what they receive.</string>
     <string name="ai_consent_body_model">Care notes are sent to %1$s using the model %2$s. This app is not a medical device and is not HIPAA-compliant.</string>
     <string name="ai_consent_accept">I understand</string>
     <string name="common_cancel">Cancel</string>

@@ -48,7 +48,10 @@ import com.caregiver.mobile.AppGraph
 import com.caregiver.mobile.R
 import com.caregiver.mobile.ai.AiConsentDialog
 import com.caregiver.mobile.ai.AiKeyStore
+import com.caregiver.mobile.ai.AiModelCatalog
 import com.caregiver.mobile.ai.AiProvider
+import com.caregiver.mobile.ai.dataUseNotice
+import com.caregiver.mobile.ai.stringRes
 import com.caregiver.mobile.ai.SummaryWindow
 import com.caregiver.mobile.core.i18n.Bidi
 import com.caregiver.mobile.core.navigation.AppDestinations
@@ -185,8 +188,10 @@ fun SummaryResultScreen(
         androidx.compose.runtime.mutableStateOf<AiProvider?>(null)
     }
     consentProvider.value?.let { provider ->
+        val model = AiKeyStore(graph.context).model(provider) ?: provider.defaultModel
         AiConsentDialog(
             providerName = provider.displayName,
+            dataUseNoticeRes = AiModelCatalog.dataUseNotice(provider, model)?.stringRes(),
             onAccept = {
                 AiKeyStore(graph.context).setConsentGiven(provider)
                 consentProvider.value = null
@@ -275,9 +280,11 @@ fun SummaryResultScreen(
             }
             is SummaryState.NeedsConsent -> {
                 val consentStore = AiKeyStore(graph.context)
+                val consentModel = consentStore.model(s.provider) ?: s.provider.defaultModel
                 AiConsentDialog(
                     providerName = s.provider.displayName,
-                    modelName = consentStore.model(s.provider) ?: s.provider.defaultModel,
+                    modelName = consentModel,
+                    dataUseNoticeRes = AiModelCatalog.dataUseNotice(s.provider, consentModel)?.stringRes(),
                     onAccept = { vm.grantConsent() },
                     onDismiss = { navController.popBackStack() },
                 )

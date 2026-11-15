@@ -351,6 +351,8 @@
     <string name="settings_appearance">المظهر</string>
     <string name="ai_consent_title">موافقة الذكاء الاصطناعي</string>
     <string name="ai_consent_body">تُرسل ملاحظات الرعاية إلى %1$s، مزود الذكاء الاصطناعي الذي اخترته. هذا التطبيق ليس جهازًا طبيًا ولا يتوافق مع HIPAA.</string>
+    <string name="ai_data_use_gemini">قد تستخدم Google المحتوى المُرسل بمفتاح من الفئة المجانية لتحسين منتجاتها. لا يحدث هذا مع مفتاح من مشروع مفعّل فيه الفوترة. اختيار النموذج لا يغيّر ذلك.</string>
+    <string name="ai_data_use_free_host">يحتفظ النموذج المجاني بسياسة بيانات مضيفه، وبعض المضيفين يدرّبون نماذجهم على ما يتلقونه.</string>
     <string name="ai_consent_body_model">تُرسل ملاحظات الرعاية إلى %1$s باستخدام النموذج %2$s. هذا التطبيق ليس جهازًا طبيًا ولا يتوافق مع HIPAA.</string>
     <string name="ai_consent_accept">أتفهم</string>
     <string name="common_cancel">إلغاء</string>
