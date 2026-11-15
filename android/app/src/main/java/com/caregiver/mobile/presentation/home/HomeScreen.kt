@@ -53,7 +53,6 @@ import com.caregiver.mobile.core.navigation.MainTab
 import com.caregiver.mobile.core.navigation.ScrollToTop
 import com.caregiver.mobile.core.theme.CaregiverColors
 import com.caregiver.mobile.core.theme.PlexArabic
-import com.caregiver.mobile.core.util.isAppArabic
 import com.caregiver.mobile.presentation.common.AppCard
 import com.caregiver.mobile.presentation.common.AppDimens
 import com.caregiver.mobile.presentation.common.AppEmptyState
@@ -67,7 +66,7 @@ import com.caregiver.mobile.presentation.common.RedPill
 import com.caregiver.mobile.presentation.common.SafetyAlertCard
 import com.caregiver.mobile.presentation.common.assistedViewModel
 import com.caregiver.mobile.presentation.notes.OptionGroup
-import com.caregiver.mobile.presentation.notes.OptionLabels
+import com.caregiver.mobile.presentation.notes.optionLabel
 
 /**
  * Home timeline (Task 5): greeting, compact stats, then one [NoteRow] per
@@ -391,7 +390,6 @@ private fun HomeStatsRow(done: Int, total: Int, attention: Int) {
  */
 @Composable
 private fun RecipientRow(card: HomeCard, showDivider: Boolean, onOpen: () -> Unit) {
-    val arabic = isAppArabic()
     NoteRow(
         avatarLetter = card.name.take(1),
         name = card.name,
@@ -401,8 +399,8 @@ private fun RecipientRow(card: HomeCard, showDivider: Boolean, onOpen: () -> Uni
         time = "",
         body = card.lastNote?.let { note ->
             val labels = listOf(
-                OptionLabels.label(OptionGroup.Appetite, note.appetite, arabic),
-                OptionLabels.label(OptionGroup.Sleep, note.sleep, arabic),
+                optionLabel(OptionGroup.Appetite, note.appetite),
+                optionLabel(OptionGroup.Sleep, note.sleep),
             ).filter { it.isNotBlank() }
             if (labels.isEmpty()) {
                 ""
