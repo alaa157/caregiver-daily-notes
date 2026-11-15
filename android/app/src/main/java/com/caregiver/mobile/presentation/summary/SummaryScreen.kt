@@ -29,6 +29,7 @@ import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.material3.rememberDatePickerState
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableIntStateOf
@@ -72,6 +73,7 @@ import com.caregiver.mobile.core.time.DateFormats
 import com.caregiver.mobile.core.util.appLocale
 import com.caregiver.mobile.data.api.SummaryDto
 import com.caregiver.mobile.data.export.CareSummaryPdfExporter
+import com.caregiver.mobile.data.summary.SavedSummaryStore
 import com.caregiver.mobile.presentation.history.HistoryDates
 import com.caregiver.mobile.presentation.common.AppCard
 import com.caregiver.mobile.presentation.common.AppTopBar
@@ -92,7 +94,9 @@ import com.caregiver.mobile.presentation.home.LoadFailed
 import com.caregiver.mobile.presentation.home.LoadingRow
 import com.caregiver.mobile.ui.component.ChipsRow
 import com.caregiver.mobile.ui.component.DefaultDialog
+import java.time.Instant
 import java.time.LocalDate
+import java.time.ZoneId
 
 /**
  * Summary period picker (board 10): blue info alert + period chips +
@@ -106,6 +110,13 @@ fun SummaryPeriodScreen(recipientId: String, graph: AppGraph, navController: Nav
     var showDatePicker by rememberSaveable { mutableStateOf(false) }
     val today = LocalDate.now()
     val arabic = appLocale().language == "ar"
+    // The newest saved summary, if any: reopening it costs no provider call.
+    // Demo graphs have no store, so the card simply never appears there.
+    val savedStore = graph.savedSummaryStore
+    var latestSaved by remember { mutableStateOf<SavedSummaryStore.SavedSummaryItem?>(null) }
+    LaunchedEffect(recipientId, savedStore) {
+        latestSaved = savedStore?.latest(recipientId)
+    }
     Column(Modifier.fillMaxSize()) {
         Column(
             modifier = Modifier.weight(1f).verticalScroll(rememberScrollState())
@@ -150,6 +161,36 @@ fun SummaryPeriodScreen(recipientId: String, graph: AppGraph, navController: Nav
                 onClick = { showDatePicker = true },
                 modifier = Modifier.testTag("summary_end_date_button"),
             )
+            latestSaved?.let { item ->
+                AppCard {
+                    Text(
+                        text = stringResource(R.string.summary_latest_saved),
+                        fontFamily = PlexArabic,
+                        fontWeight = FontWeight.Bold,
+                        fontSize = 15.sp,
+                        color = CaregiverColors.Ink,
+                    )
+                    Text(
+                        text = "${DateFormats.historyDay(
+                            Instant.ofEpochMilli(item.createdAt)
+                                .atZone(ZoneId.systemDefault()).toLocalDate().toString(),
+                            arabic,
+                        )} · ${periodLabel(item.periodDays)}",
+                        fontFamily = PlexArabic,
+                        fontSize = 13.sp,
+                        color = CaregiverColors.Muted,
+                    )
+                }
+                SecondaryButton(
+                    label = stringResource(R.string.summary_open_saved),
+                    onClick = {
+                        navController.navigate(
+                            AppRoutes.summaryResult(recipientId, item.periodDays, saved = item.id),
+                        )
+                    },
+                    modifier = Modifier.testTag("summary_open_saved"),
+                )
+            }
         }
         BottomActionBar {
             PrimaryButton(
@@ -211,6 +252,7 @@ fun SummaryResultScreen(
     graph: AppGraph,
     navController: NavController,
     end: String? = null,
+    saved: String? = null,
 ) {
     val initialEnd = parseEndArg(end, LocalDate.now())
     // No key is not an error state. [SummaryViewModel] falls back to the
@@ -235,10 +277,12 @@ fun SummaryResultScreen(
             language = language,
             initialEnd = initialEnd,
             savedStore = graph.savedSummaryStore,
+            initialSavedId = saved,
         )
     }
     val state by vm.state.collectAsStateWithLifecycle()
     val savedId by vm.savedId.collectAsStateWithLifecycle()
+    val showingSaved by vm.showingSaved.collectAsStateWithLifecycle()
     val activePeriodDays by vm.period.collectAsStateWithLifecycle()
     val onRecoveryAction: (AiRecoveryAction) -> Unit = { action ->
         when (action) {
@@ -362,6 +406,8 @@ fun SummaryResultScreen(
             is SummaryState.Content -> SummaryBody(
                 graph, s.data, activePeriodDays, graph.isDemo, navController, s.aiGenerated,
                 savedId = savedId,
+                showingSaved = showingSaved,
+                onGenerateNew = vm::refresh,
                 onSuggestPlan = {
                     val store = AiKeyStore(graph.context)
                     val provider = store.selectedProvider()
@@ -461,6 +507,8 @@ private fun SummaryBody(
     navController: NavController,
     aiGenerated: Boolean = false,
     savedId: String? = null,
+    showingSaved: Boolean = false,
+    onGenerateNew: (() -> Unit)? = null,
     onSuggestPlan: (() -> Unit)? = null,
     suggesting: Boolean = false,
     suggestedForCurrent: Boolean = false,
@@ -527,6 +575,31 @@ private fun SummaryBody(
                 fontSize = 12.sp,
                 color = CaregiverColors.Muted,
             )
+        }
+        if (showingSaved) {
+            val arabic = textDirection == TextDirection.Rtl
+            val savedDate = data.generatedAt?.let {
+                Instant.ofEpochMilli(it).atZone(ZoneId.systemDefault()).toLocalDate().toString()
+            }
+            if (savedDate != null) {
+                Text(
+                    text = stringResource(
+                        R.string.summary_saved_from,
+                        Bidi.isolate(DateFormats.historyDay(savedDate, arabic)),
+                    ),
+                    fontFamily = PlexArabic,
+                    fontSize = 12.sp,
+                    color = CaregiverColors.Muted,
+                )
+            }
+            if (onGenerateNew != null) {
+                PrimaryButton(
+                    label = stringResource(R.string.summary_generate_new),
+                    onClick = onGenerateNew,
+                    height = 48.dp,
+                    modifier = Modifier.testTag("summary_generate_new"),
+                )
+            }
         }
         val periodStart = data.periodStart
         val periodEnd = data.periodEnd

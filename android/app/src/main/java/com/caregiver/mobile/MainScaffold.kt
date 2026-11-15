@@ -495,6 +495,11 @@ fun MainScaffold(graph: AppGraph) {
                             nullable = true
                             defaultValue = null
                         },
+                        navArgument("saved") {
+                            type = NavType.StringType
+                            nullable = true
+                            defaultValue = null
+                        },
                     ),
                 ) { entry ->
                     SummaryResultScreen(
@@ -503,6 +508,7 @@ fun MainScaffold(graph: AppGraph) {
                         graph,
                         navController,
                         end = entry.arguments?.getString("end"),
+                        saved = entry.arguments?.getString("saved"),
                     )
                 }
                 // Task 7 wired the plan and settings destinations; no placeholders remain.
