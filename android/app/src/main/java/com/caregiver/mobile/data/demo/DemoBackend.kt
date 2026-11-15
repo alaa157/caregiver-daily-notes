@@ -33,8 +33,11 @@ import com.caregiver.mobile.data.local.RecipientDeletionCounts
 import com.caregiver.mobile.data.plan.IllegalPlanTransitionException
 import com.caregiver.mobile.data.plan.PlanStateMachine
 import com.caregiver.mobile.data.plan.planTransitionError
+import com.caregiver.mobile.data.recipient.CareDetails
+import com.caregiver.mobile.data.recipient.CareDetailsRules
 import com.caregiver.mobile.data.recipient.NameCheck
 import com.caregiver.mobile.data.recipient.RecipientNameRules
+import com.caregiver.mobile.data.recipient.RelationshipOptions
 import java.time.LocalDate
 import java.time.LocalDateTime
 import java.util.concurrent.atomic.AtomicInteger
@@ -368,6 +371,50 @@ class DemoBackendApis : BackendApis, RecipientAdmin {
             throw IllegalArgumentException("recipient name")
         }
         recipients[index] = existing.copy(name = RecipientNameRules.normalize(name))
+        recipients[index]
+    }
+
+    override suspend fun updateProfile(
+        id: String,
+        name: String,
+        relationship: String?,
+    ): RecipientDto = synchronized(lock) {
+        val index = recipients.indexOfFirst { it.id == id }
+        if (index < 0) throw notFound("recipient")
+        val existing = recipients[index]
+        if (existing.archivedAt != null) throw ArchivedRecipientException(id)
+        if (RecipientNameRules.check(name) != NameCheck.Ok) {
+            throw IllegalArgumentException("recipient name")
+        }
+        if (RelationshipOptions.isTooLong(relationship)) {
+            throw IllegalArgumentException("relationship")
+        }
+        recipients[index] = existing.copy(
+            name = RecipientNameRules.normalize(name),
+            relationship = RelationshipOptions.normalize(relationship),
+        )
+        recipients[index]
+    }
+
+    override suspend fun updateCareDetails(
+        id: String,
+        details: CareDetails,
+    ): RecipientDto = synchronized(lock) {
+        val index = recipients.indexOfFirst { it.id == id }
+        if (index < 0) throw notFound("recipient")
+        val existing = recipients[index]
+        if (existing.archivedAt != null) throw ArchivedRecipientException(id)
+        val normalized = CareDetailsRules.normalize(details)
+        if (CareDetailsRules.validate(normalized, LocalDate.now()).isNotEmpty()) {
+            throw IllegalArgumentException("care details")
+        }
+        recipients[index] = existing.copy(
+            dateOfBirth = normalized.dateOfBirth,
+            allergies = normalized.allergies,
+            conditions = normalized.conditions,
+            emergencyContactName = normalized.emergencyContactName,
+            emergencyContactPhone = normalized.emergencyContactPhone,
+        )
         recipients[index]
     }
 
