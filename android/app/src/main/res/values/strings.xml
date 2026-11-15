@@ -140,6 +140,7 @@
     <string name="summary_days_14">14 days</string>
     <string name="summary_days_30">30 days</string>
     <string name="summary_generate">Generate summary</string>
+    <string name="summary_end_date">Last day covered: %1$s</string>
     <string name="summary_evidence">Evidence</string>
     <string name="summary_uncertain">Uncertain</string>
     <string name="summary_disclaimer">This summary is indicative and does not replace medical advice</string>
