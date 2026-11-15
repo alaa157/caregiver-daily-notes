@@ -32,6 +32,7 @@ function RecipientStatus({ status }: { status: RecipientLifecycleStatus }) {
   </span>;
 }
 const filters: RecipientLifecycleStatus[] = ['ACTIVE', 'ARCHIVED', 'LEGACY_INACTIVE_REVIEW'];
+const SEARCH_THRESHOLD = 5;
 const filterLabel = (status: RecipientLifecycleStatus): MessageKey => status === 'ACTIVE' ? 'recipientActiveFilter'
   : status === 'ARCHIVED' ? 'recipientArchivedFilter' : 'recipientReviewFilter';
 const normalizeRecipientName = (name: string) => name.trim().replace(/\s+/g, ' ').toLowerCase();
@@ -104,7 +105,9 @@ export function RecipientsListPage() {
     : filter === 'ARCHIVED' ? ['recipientArchivedEmpty', 'recipientArchivedEmptyDescription']
       : ['recipientReviewEmpty', 'recipientReviewEmptyDescription'];
   const recipients = state.status === 'ready' ? state.data : [];
-  const normalizedQuery = query.trim().toLocaleLowerCase();
+  const showSearch = state.status === 'ready' && recipients.length > SEARCH_THRESHOLD;
+  useEffect(() => { if (!showSearch) setQuery(''); }, [showSearch]);
+  const normalizedQuery = showSearch ? query.trim().toLocaleLowerCase() : '';
   const relationshipText = (recipient: Recipient) => relationshipLabel(recipient.relationship, t);
   const matches = (recipient: Recipient) => !normalizedQuery
     || `${recipient.name}\n${recipient.relationship ?? ''}\n${relationshipText(recipient)}`.toLocaleLowerCase().includes(normalizedQuery);
@@ -117,7 +120,7 @@ export function RecipientsListPage() {
     </div>
     {state.status === 'loading' && <LoadingState label={t('recipientsLoading')} />}
     {state.status === 'error' && <ErrorState description={t(recipientErrorMessage(state.error))} onRetry={reload} />}
-    {state.status === 'ready' && state.data.length > 0 && <div className="recipient-search">
+    {showSearch && <div className="recipient-search">
       <label htmlFor="recipient-search">{t('recipientSearch')}</label>
       <div><input id="recipient-search" type="search" value={query} onChange={(event) => setQuery(event.target.value)} />
         <Button type="button" variant="secondary" disabled={!query} onClick={() => setQuery('')}>{t('recipientSearchClear')}</Button></div>
