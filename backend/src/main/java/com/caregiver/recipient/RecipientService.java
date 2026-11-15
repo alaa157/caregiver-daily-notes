@@ -160,6 +160,22 @@ public class RecipientService {
     return RecipientResponse.from(recipient);
   }
 
+  /**
+   * Replaces all five optional care-detail fields on an ACTIVE recipient.
+   * {@code null} or blank values clear the corresponding field. The audit
+   * event records only identifiers, never the care-detail values.
+   */
+  @Transactional
+  public RecipientResponse updateCareDetails(UUID id, RecipientCareDetailsRequest request) {
+    CareRecipient recipient = findOwnedForUpdate(id);
+    request.validate();
+    recipient.updateCareDetails(request.dateOfBirth(), request.allergies(), request.conditions(),
+        request.emergencyContactName(), request.emergencyContactPhone());
+    recipient = recipients.saveAndFlush(recipient);
+    audit.record("RECIPIENT_CARE_DETAILS_UPDATED", "CARE_RECIPIENT", recipient.getId().toString(), null);
+    return RecipientResponse.from(recipient);
+  }
+
   @Transactional
   public RecipientResponse archive(UUID id) {
     CareRecipient recipient = findOwnedForUpdate(id);

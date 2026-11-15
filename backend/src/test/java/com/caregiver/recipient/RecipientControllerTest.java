@@ -58,6 +58,7 @@ class RecipientControllerTest {
     jdbcTemplate.update("delete from note_addenda");
     jdbcTemplate.update("delete from daily_notes");
     jdbcTemplate.update("delete from care_plan_versions");
+    jdbcTemplate.update("delete from recipient_create_requests");
     jdbcTemplate.update("delete from audit_events");
     recipientRepository.deleteAll();
     caregiverRepository.deleteAll();
@@ -530,6 +531,152 @@ class RecipientControllerTest {
         .andExpect(status().isOk())
         .andExpect(jsonPath("$.lifecycleStatus").value("LEGACY_INACTIVE_REVIEW"))
         .andExpect(jsonPath("$.active").value(false));
+  }
+
+  @Test
+  void careDetailsSetClearAndRoundTripThroughGet() throws Exception {
+    TestCaregiver owner = register("care-details@example.com");
+    String id = createRecipient(owner.token(), "{\"name\":\"Care details\"}");
+    String path = RECIPIENTS + "/" + id + "/care-details";
+
+    mvc.perform(patch(path)
+            .header("Authorization", bearer(owner.token()))
+            .contentType(MediaType.APPLICATION_JSON)
+            .content("{\"dateOfBirth\":\"1950-04-12\",\"allergies\":\" Penicillin \","
+                + "\"conditions\":\"Type 2 diabetes\",\"emergencyContactName\":\"Layla Hassan\","
+                + "\"emergencyContactPhone\":\"+20 100 123 4567\"}"))
+        .andExpect(status().isOk())
+        .andExpect(jsonPath("$.dateOfBirth").value("1950-04-12"))
+        .andExpect(jsonPath("$.allergies").value("Penicillin"))
+        .andExpect(jsonPath("$.conditions").value("Type 2 diabetes"))
+        .andExpect(jsonPath("$.emergencyContactName").value("Layla Hassan"))
+        .andExpect(jsonPath("$.emergencyContactPhone").value("+20 100 123 4567"));
+
+    // The five fields together replace the previous values: omitted and null
+    // fields are cleared.
+    mvc.perform(patch(path)
+            .header("Authorization", bearer(owner.token()))
+            .contentType(MediaType.APPLICATION_JSON)
+            .content("{\"allergies\":null}"))
+        .andExpect(status().isOk())
+        .andExpect(jsonPath("$.dateOfBirth").value(org.hamcrest.Matchers.nullValue()))
+        .andExpect(jsonPath("$.allergies").value(org.hamcrest.Matchers.nullValue()))
+        .andExpect(jsonPath("$.conditions").value(org.hamcrest.Matchers.nullValue()))
+        .andExpect(jsonPath("$.emergencyContactName").value(org.hamcrest.Matchers.nullValue()))
+        .andExpect(jsonPath("$.emergencyContactPhone").value(org.hamcrest.Matchers.nullValue()));
+
+    // Restore all five, then a blank string also clears a field.
+    mvc.perform(patch(path)
+            .header("Authorization", bearer(owner.token()))
+            .contentType(MediaType.APPLICATION_JSON)
+            .content("{\"dateOfBirth\":\"1950-04-12\",\"allergies\":\"Penicillin\","
+                + "\"conditions\":\"Type 2 diabetes\",\"emergencyContactName\":\"Layla Hassan\","
+                + "\"emergencyContactPhone\":\"+20 100 123 4567\"}"))
+        .andExpect(status().isOk());
+    mvc.perform(patch(path)
+            .header("Authorization", bearer(owner.token()))
+            .contentType(MediaType.APPLICATION_JSON)
+            .content("{\"dateOfBirth\":\"1950-04-12\",\"allergies\":\"Penicillin\","
+                + "\"conditions\":\"   \",\"emergencyContactName\":\"Layla Hassan\","
+                + "\"emergencyContactPhone\":\"+20 100 123 4567\"}"))
+        .andExpect(status().isOk())
+        .andExpect(jsonPath("$.conditions").value(org.hamcrest.Matchers.nullValue()));
+
+    mvc.perform(get(RECIPIENTS + "/" + id).header("Authorization", bearer(owner.token())))
+        .andExpect(status().isOk())
+        .andExpect(jsonPath("$.dateOfBirth").value("1950-04-12"))
+        .andExpect(jsonPath("$.allergies").value("Penicillin"))
+        .andExpect(jsonPath("$.conditions").value(org.hamcrest.Matchers.nullValue()))
+        .andExpect(jsonPath("$.emergencyContactName").value("Layla Hassan"))
+        .andExpect(jsonPath("$.emergencyContactPhone").value("+20 100 123 4567"));
+
+    // A PUT for name/relationship must not erase the care details.
+    mvc.perform(put(RECIPIENTS + "/" + id)
+            .header("Authorization", bearer(owner.token()))
+            .contentType(MediaType.APPLICATION_JSON)
+            .content("{\"name\":\"Renamed\",\"relationship\":\"Mother\"}"))
+        .andExpect(status().isOk())
+        .andExpect(jsonPath("$.dateOfBirth").value("1950-04-12"))
+        .andExpect(jsonPath("$.emergencyContactName").value("Layla Hassan"));
+  }
+
+  @Test
+  void careDetailsValidationRejectsBadValues() throws Exception {
+    TestCaregiver owner = register("care-details-validation@example.com");
+    String id = createRecipient(owner.token(), "{\"name\":\"Validation\"}");
+    String path = RECIPIENTS + "/" + id + "/care-details";
+
+    mvc.perform(patch(path)
+            .header("Authorization", bearer(owner.token()))
+            .contentType(MediaType.APPLICATION_JSON)
+            .content("{\"dateOfBirth\":\"2999-01-01\"}"))
+        .andExpect(status().isBadRequest())
+        .andExpect(jsonPath("$.code").value("VALIDATION_ERROR"));
+    mvc.perform(patch(path)
+            .header("Authorization", bearer(owner.token()))
+            .contentType(MediaType.APPLICATION_JSON)
+            .content("{\"dateOfBirth\":\"1899-12-31\"}"))
+        .andExpect(status().isBadRequest())
+        .andExpect(jsonPath("$.code").value("VALIDATION_ERROR"));
+    mvc.perform(patch(path)
+            .header("Authorization", bearer(owner.token()))
+            .contentType(MediaType.APPLICATION_JSON)
+            .content("{\"emergencyContactPhone\":\"abc\"}"))
+        .andExpect(status().isBadRequest())
+        .andExpect(jsonPath("$.code").value("VALIDATION_ERROR"));
+    mvc.perform(patch(path)
+            .header("Authorization", bearer(owner.token()))
+            .contentType(MediaType.APPLICATION_JSON)
+            .content("{\"emergencyContactPhone\":\"" + "1".repeat(31) + "\"}"))
+        .andExpect(status().isBadRequest())
+        .andExpect(jsonPath("$.code").value("VALIDATION_ERROR"));
+    mvc.perform(patch(path)
+            .header("Authorization", bearer(owner.token()))
+            .contentType(MediaType.APPLICATION_JSON)
+            .content("{\"allergies\":\"" + "x".repeat(501) + "\"}"))
+        .andExpect(status().isBadRequest())
+        .andExpect(jsonPath("$.code").value("VALIDATION_ERROR"));
+
+    mvc.perform(get(RECIPIENTS + "/" + id).header("Authorization", bearer(owner.token())))
+        .andExpect(status().isOk())
+        .andExpect(jsonPath("$.dateOfBirth").value(org.hamcrest.Matchers.nullValue()))
+        .andExpect(jsonPath("$.allergies").value(org.hamcrest.Matchers.nullValue()));
+  }
+
+  @Test
+  void careDetailsRejectsArchivedAndForeignRecipientsAndAuditsWithoutValues() throws Exception {
+    TestCaregiver owner = register("care-details-scope@example.com");
+    TestCaregiver other = register("care-details-other@example.com");
+    String id = createRecipient(owner.token(), "{\"name\":\"Scoped\"}");
+    String path = RECIPIENTS + "/" + id + "/care-details";
+    String body = "{\"allergies\":\"Secret allergy\",\"emergencyContactPhone\":\"+20 100 000 0000\"}";
+
+    mvc.perform(patch(path)
+            .header("Authorization", bearer(other.token()))
+            .contentType(MediaType.APPLICATION_JSON)
+            .content(body))
+        .andExpect(status().isNotFound())
+        .andExpect(jsonPath("$.code").value("RECIPIENT_NOT_FOUND"));
+
+    mvc.perform(patch(path)
+            .header("Authorization", bearer(owner.token()))
+            .contentType(MediaType.APPLICATION_JSON)
+            .content(body))
+        .andExpect(status().isOk());
+
+    assertThat(jdbcTemplate.queryForObject(
+        "SELECT safe_metadata FROM audit_events WHERE event_type = 'RECIPIENT_CARE_DETAILS_UPDATED' AND target_id = ?",
+        String.class, id)).isNull();
+
+    mvc.perform(patch(RECIPIENTS + "/" + id + "/archive")
+            .header("Authorization", bearer(owner.token())))
+        .andExpect(status().isOk());
+    mvc.perform(patch(path)
+            .header("Authorization", bearer(owner.token()))
+            .contentType(MediaType.APPLICATION_JSON)
+            .content("{\"conditions\":\"Should be blocked\"}"))
+        .andExpect(status().isConflict())
+        .andExpect(jsonPath("$.code").value("INACTIVE_RECIPIENT"));
   }
 
   private String createLegacyRecipientWithChildren(TestCaregiver owner, String name) throws Exception {

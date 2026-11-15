@@ -49,6 +49,13 @@ public class RecipientController {
     return service.update(id, request);
   }
 
+  @PatchMapping("/{id}/care-details")
+  @Operation(summary = "Replace the optional care details of an ACTIVE, owned recipient")
+  public RecipientResponse updateCareDetails(@PathVariable UUID id,
+      @RequestBody RecipientCareDetailsRequest request) {
+    return service.updateCareDetails(id, request);
+  }
+
   @PatchMapping("/{id}/archive")
   @Operation(summary = "Archive an ACTIVE owned recipient without deleting history")
   public RecipientResponse archive(@PathVariable UUID id) { return service.archive(id); }
