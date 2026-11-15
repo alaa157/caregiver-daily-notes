@@ -1,16 +1,29 @@
 package com.caregiver.mobile.presentation.summary
 
+import androidx.test.core.app.ApplicationProvider
+import com.caregiver.mobile.ai.AiKeyStore
+import com.caregiver.mobile.ai.AiProvider
+import com.caregiver.mobile.ai.LlmClient
+import com.caregiver.mobile.ai.LlmClientFactory
+import com.caregiver.mobile.ai.LlmRequest
+import com.caregiver.mobile.ai.LlmResult
+import com.caregiver.mobile.ai.LlmStatus
+import com.caregiver.mobile.ai.SummaryWindow
+import com.caregiver.mobile.test.TestApiKeyCipher
 import com.caregiver.mobile.core.network.TokenHolder
 import com.caregiver.mobile.data.AuthRepository
 import com.caregiver.mobile.data.FakeAuthApi
 import com.caregiver.mobile.data.FakeBackendApis
+import com.caregiver.mobile.data.FakeNoteApi
 import com.caregiver.mobile.data.FakeSummaryApi
 import com.caregiver.mobile.data.SettingsStore
+import com.caregiver.mobile.data.api.NoteDto
 import com.caregiver.mobile.data.api.SummaryDto
 import com.caregiver.mobile.data.api.SummaryRequest
 import androidx.datastore.preferences.core.PreferenceDataStoreFactory
 import java.io.File
 import java.io.IOException
+import java.time.LocalDate
 import kotlinx.coroutines.CompletableDeferred
 import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.flow.first
@@ -25,10 +38,14 @@ import org.junit.Assert.assertTrue
 import org.junit.Before
 import org.junit.Test
 
+import org.junit.runner.RunWith
+import org.robolectric.RobolectricTestRunner
+
 /**
  * Summary (boards 10-11): 7/14/30-day periods, flag/evidence/uncertainty
  * passthrough, and the AI-unavailable path with notes-safe reassurance.
  */
+@RunWith(RobolectricTestRunner::class)
 @OptIn(ExperimentalCoroutinesApi::class)
 class SummaryViewModelTest {
 
@@ -276,5 +293,117 @@ class SummaryViewModelTest {
         )
         val state = SummaryState.Content(SummaryResultData(summary))
         assertEquals(summary, (state as SummaryState.Content).data.summary)
+    }
+
+    @Test
+    fun defaultEndDateIsTheClock() = runTest {
+        val today = LocalDate.of(2026, 10, 10)
+        summaries.summarizeHandler = { summary() }
+        val vm = SummaryViewModel("r1", apis(), repository, this, clock = { today })
+
+        content(vm)
+
+        assertEquals(today, vm.endDate.value)
+    }
+
+    @Test
+    fun aFutureEndDateIsRejected() = runTest {
+        val today = LocalDate.of(2026, 10, 10)
+        var summarizeCalls = 0
+        summaries.summarizeHandler = { summarizeCalls++; summary() }
+        val vm = SummaryViewModel("r1", apis(), repository, this, clock = { today })
+        content(vm)
+
+        vm.setEndDate(today.plusDays(3))
+        advanceUntilIdle()
+
+        assertEquals(today, vm.endDate.value)
+        // No reload happened: the backend saw exactly one summarize call.
+        assertEquals(1, summarizeCalls)
+    }
+
+    @Test
+    fun successfulResultCarriesThePeriodBounds() = runTest {
+        val today = LocalDate.of(2026, 10, 10)
+        summaries.summarizeHandler = { summary() }
+        val vm = SummaryViewModel("r1", apis(), repository, this, clock = { today })
+
+        val state = vm.state.first {
+            it is SummaryState.Content && !it.refreshing
+        } as SummaryState.Content
+
+        assertEquals(SummaryWindow.start(today, 7).toString(), state.data.periodStart)
+        assertEquals(today.toString(), state.data.periodEnd)
+    }
+
+    @Test
+    fun aPastEndDateNarrowsBothFetches() = runTest {
+        val today = LocalDate.of(2026, 10, 10)
+        val end = LocalDate.of(2026, 10, 5)
+        val note = NoteDto(
+            id = "n1", recipientId = "r1", date = end.toString(),
+            mood = "ok", appetite = "good", sleep = "good", mobility = "ok",
+            medicationTaken = "yes", pain = 1, fall = false,
+            text = "Patient walked today",
+        )
+        val noteFake = FakeNoteApi().also {
+            it.historyHandler = { _, _, _ -> listOf(note) }
+        }
+        var notesFrom: String? = null
+        var notesTo: String? = null
+        noteFake.historyHandler = { _, from, to ->
+            notesFrom = from
+            notesTo = to
+            listOf(note)
+        }
+        var signalsFrom: String? = null
+        var signalsTo: String? = null
+        summaries.signalsHandler = { _, from, to ->
+            signalsFrom = from
+            signalsTo = to
+            emptyList()
+        }
+        val apis = FakeBackendApis(FakeAuthApi()).also {
+            it.noteApi = noteFake
+            it.summaryApi = summaries
+        }
+        val repository = AuthRepository(apis, settings(), TokenHolder())
+        val store = AiKeyStore(ApplicationProvider.getApplicationContext(), TestApiKeyCipher())
+        store.setProvider(AiProvider.OPENAI)
+        store.setConsentGiven(AiProvider.OPENAI)
+        store.setApiKey("test-key")
+        val vm = SummaryViewModel(
+            "r1", apis, repository, this,
+            aiKeyStore = store,
+            llmClientFactory = FixedFactory(OkClient()),
+            initialEnd = end,
+            clock = { today },
+        )
+
+        vm.state.first { it is SummaryState.Content }
+
+        val expectedFrom = SummaryWindow.start(end, 7).toString()
+        assertEquals(expectedFrom, notesFrom)
+        assertEquals(end.toString(), notesTo)
+        assertEquals(expectedFrom, signalsFrom)
+        assertEquals(end.toString(), signalsTo)
+    }
+
+    private fun settings() = SettingsStore(
+        PreferenceDataStoreFactory.create(scope = TestScope(UnconfinedTestDispatcher())) { file },
+    )
+
+    private class OkClient : LlmClient {
+        override suspend fun complete(request: LlmRequest): LlmResult =
+            LlmResult(
+                LlmStatus.OK,
+                """{"observations":[{"text":"walked","noteId":"n1","quote":"walked"}],"uncertainties":[]}""",
+            )
+    }
+
+    private class FixedFactory(private val client: LlmClient) : LlmClientFactory() {
+        override fun createClient(baseUrl: String, model: String, apiKey: String): LlmClient = client
+        override fun createAnthropicClient(baseUrl: String, model: String, apiKey: String): LlmClient = client
+        override fun createGeminiClient(baseUrl: String, model: String, apiKey: String): LlmClient = client
     }
 }
