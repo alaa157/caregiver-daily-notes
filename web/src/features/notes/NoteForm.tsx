@@ -10,7 +10,7 @@ import { useI18n } from '../../i18n/I18nProvider';
 import type { MessageKey } from '../../i18n/translations';
 import { createInput, emptyNoteValues, fieldLabels, observationInput, validateNoteValues, type Corrections, type NoteErrors, type NoteValues } from './noteForm';
 import { ObservationStateField } from './ObservationStateField';
-import { ChipGroup } from './ChipGroup';
+import { ChipGroup } from '../../components/ChipGroup';
 import { chipFieldOptions, type ChipField } from './chipOptions';
 import { chipKeyFor, observationForChip } from './chipState';
 

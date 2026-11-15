@@ -2,7 +2,7 @@ import { fireEvent, render, screen } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { useState } from 'react';
 import { describe, expect, it, vi } from 'vitest';
-import { ChipGroup, type ChipGroupOption } from '../../features/notes/ChipGroup';
+import { ChipGroup, type ChipGroupOption } from './ChipGroup';
 
 const options: ChipGroupOption[] = [
   { key: 'calm', label: 'Calm' },
