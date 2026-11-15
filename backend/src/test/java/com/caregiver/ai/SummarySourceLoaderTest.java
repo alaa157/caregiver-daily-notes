@@ -32,6 +32,7 @@ import java.time.LocalDate;
 import java.util.ArrayList;
 import java.util.Comparator;
 import java.util.List;
+import java.util.Map;
 import java.util.Optional;
 import java.util.UUID;
 import org.junit.jupiter.api.AfterEach;
@@ -115,7 +116,6 @@ class SummarySourceLoaderTest {
   @Test
   @DisplayName("preserves original observations, addendum provenance, and structured corrections")
   void preservesOriginalObservationsAddendumProvenanceAndStructuredCorrections() {
-    when(caregiver.getId()).thenReturn(OWNER_ID);
     DailyNote note = note("note-with-history", END, originalObservations());
     when(notes.findAllByCaregiver_IdAndRecipient_IdAndDateBetweenOrderByDateAsc(
         OWNER_ID, RECIPIENT_ID, END.minusDays(13), END)).thenReturn(List.of(note));
@@ -157,42 +157,47 @@ class SummarySourceLoaderTest {
         "mood [NOT_RECORDED]",
         "freeText [RECORDED]: later addendum text",
         "STRUCTURED CORRECTION EVENT",
-        "eventId: " + set.getId(),
-        "noteId: " + note.getId(),
         "sequenceNo: 1",
         "createdAt: " + CREATED_AT,
-        "actorId: " + OWNER_ID,
         "field: appetite",
         "operation: SET",
         "valueJson: \"corrected appetite\"",
         "operation: CLEAR",
         "operation: UNKNOWN",
         "operation: NOT_RECORDED");
-    String earlierBlock = transcript.substring(transcript.indexOf("id: " + earlierAddendum.getId()),
-        transcript.indexOf("id: " + laterAddendum.getId()));
-    String laterBlock = transcript.substring(transcript.indexOf("id: " + laterAddendum.getId()),
-        transcript.indexOf("eventId: " + set.getId()));
-    assertThat(earlierBlock).contains("createdAt: " + earlierAt, "actorId: " + OWNER_ID,
+    int firstAddendum = transcript.indexOf("APPENDED ADDENDUM");
+    int secondAddendum = transcript.indexOf("APPENDED ADDENDUM", firstAddendum + 1);
+    int firstEvent = transcript.indexOf("STRUCTURED CORRECTION EVENT");
+    assertThat(firstAddendum).isGreaterThanOrEqualTo(0);
+    assertThat(secondAddendum).isGreaterThan(firstAddendum);
+    assertThat(firstEvent).isGreaterThan(secondAddendum);
+    String earlierBlock = transcript.substring(firstAddendum, secondAddendum);
+    String laterBlock = transcript.substring(secondAddendum, firstEvent);
+    assertThat(earlierBlock).contains("createdAt: " + earlierAt,
         "providedFields: [mood]", "medicationVerificationProvided: true",
         "mood [NOT_RECORDED]", "appetite [UNKNOWN]", "medicationVerification: UNVERIFIED");
-    assertThat(laterBlock).contains("createdAt: " + laterAt, "actorId: " + OWNER_ID,
+    assertThat(laterBlock).contains("createdAt: " + laterAt,
         "providedFields: [freeText]", "medicationVerificationProvided: false",
         "freeText [RECORDED]: later addendum text", "medicationVerification: NOT_ASSERTED");
-    assertThat(transcript.indexOf("ORIGINAL OBSERVATIONS"))
-        .isLessThan(transcript.indexOf("id: " + earlierAddendum.getId()))
-        .isLessThan(transcript.indexOf("eventId: " + set.getId()));
-    assertThat(transcript.indexOf("id: " + earlierAddendum.getId()))
-        .isLessThan(transcript.indexOf("id: " + laterAddendum.getId()));
+    assertThat(transcript.indexOf("ORIGINAL OBSERVATIONS")).isLessThan(firstAddendum);
     assertThat(transcript.indexOf("sequenceNo: 1"))
         .isLessThan(transcript.indexOf("sequenceNo: 2"))
         .isLessThan(transcript.indexOf("sequenceNo: 3"))
         .isLessThan(transcript.indexOf("sequenceNo: 4"));
-    assertThat(transcript.substring(transcript.indexOf("eventId: " + clear.getId()),
-        transcript.indexOf("eventId: " + unknown.getId()))).doesNotContain("valueJson:");
-    assertThat(transcript.substring(transcript.indexOf("eventId: " + unknown.getId()),
-        transcript.indexOf("eventId: " + notRecorded.getId()))).doesNotContain("valueJson:");
-    assertThat(transcript.substring(transcript.indexOf("eventId: " + notRecorded.getId())))
-        .doesNotContain("valueJson:");
+    List<Integer> eventStarts = new ArrayList<>();
+    int eventSearchFrom = 0;
+    while (true) {
+      int eventStart = transcript.indexOf("STRUCTURED CORRECTION EVENT", eventSearchFrom);
+      if (eventStart < 0) break;
+      eventStarts.add(eventStart);
+      eventSearchFrom = eventStart + 1;
+    }
+    assertThat(eventStarts).hasSize(4);
+    assertThat(transcript.substring(eventStarts.get(0), eventStarts.get(1)))
+        .contains("operation: SET", "valueJson: \"corrected appetite\"");
+    assertThat(transcript.substring(eventStarts.get(1), eventStarts.get(2))).doesNotContain("valueJson:");
+    assertThat(transcript.substring(eventStarts.get(2), eventStarts.get(3))).doesNotContain("valueJson:");
+    assertThat(transcript.substring(eventStarts.get(3))).doesNotContain("valueJson:");
 
     verify(addenda).findAllByNote_IdInAndCaregiver_IdOrderByCreatedAtAscIdAsc(List.of(note.getId()), OWNER_ID);
     verify(correctionEvents).findAllByNote_IdInAndCaregiver_IdOrderByNote_IdAscSequenceNoAsc(
@@ -201,9 +206,38 @@ class SummarySourceLoaderTest {
   }
 
   @Test
+  @DisplayName("omits internal identifiers and preserves addendum quote evidence")
+  void omitsInternalIdentifiersAndPreservesAddendumQuoteEvidence() {
+    DailyNote note = note("redacted-note", END, originalObservations());
+    when(notes.findAllByCaregiver_IdAndRecipient_IdAndDateBetweenOrderByDateAsc(
+        OWNER_ID, RECIPIENT_ID, END.minusDays(13), END)).thenReturn(List.of(note));
+    NoteAddendum addendum = addendum(note, "redacted-addendum", CREATED_AT,
+        new ObservationPresence(false, false, false, false, false, false, false, true), false,
+        addendumObservations(Observation.state(ObservationState.NOT_RECORDED), "verbatim addendum quote",
+            VerificationState.UNVERIFIED));
+    when(addenda.findAllByNote_IdInAndCaregiver_IdOrderByCreatedAtAscIdAsc(List.of(note.getId()), OWNER_ID))
+        .thenReturn(List.of(addendum));
+    NoteCorrectionEvent event = event(note, "redacted-event", 1, "mood", CorrectionOperation.SET, "\"corrected\"");
+    when(correctionEvents.findAllByNote_IdInAndCaregiver_IdOrderByNote_IdAscSequenceNoAsc(
+        List.of(note.getId()), OWNER_ID)).thenReturn(List.of(event));
+
+    String transcript = loader.load(request(14)).notes().getFirst().text();
+
+    assertThat(transcript)
+        .doesNotContain(note.getId().toString(), addendum.getId().toString(), event.getId().toString(),
+            OWNER_ID.toString())
+        .contains("createdAt: " + CREATED_AT, "sequenceNo: 1", "field: mood", "operation: SET",
+            "valueJson: \"corrected\"", "freeText [RECORDED]: verbatim addendum quote");
+    GroundedSummary validated = EvidenceValidator.validate(
+        new GroundedSummary(List.of(new SummaryObservation("addendum evidence", note.getId().toString(),
+            "verbatim addendum quote")), List.of(), false),
+        Map.of(note.getId().toString(), transcript));
+    assertThat(validated.observations().get(0).quote()).isEqualTo("verbatim addendum quote");
+  }
+
+  @Test
   @DisplayName("orders interleaved addenda and structured correction events chronologically")
   void ordersInterleavedAddendaAndStructuredCorrectionEventsChronologically() {
-    when(caregiver.getId()).thenReturn(OWNER_ID);
     DailyNote note = note("interleaved-note", END, originalObservations());
     when(notes.findAllByCaregiver_IdAndRecipient_IdAndDateBetweenOrderByDateAsc(
         OWNER_ID, RECIPIENT_ID, END.minusDays(13), END)).thenReturn(List.of(note));
@@ -243,16 +277,21 @@ class SummarySourceLoaderTest {
     List<NoteAddendum> tiedAddenda = List.of(tied, tiedSecond).stream()
         .sorted(Comparator.comparing(NoteAddendum::getId))
         .toList();
+    String firstTiedMarker = tiedAddenda.get(0) == tied ? "tied addendum" : "second tied addendum";
+    String secondTiedMarker = tiedAddenda.get(0) == tied ? "second tied addendum" : "tied addendum";
     List<Integer> timelinePositions = new ArrayList<>();
-    timelinePositions.add(transcript.indexOf("id: " + earlier.getId()));
-    timelinePositions.add(transcript.indexOf("eventId: " + firstEvent.getId()));
-    tiedAddenda.forEach(addendum -> timelinePositions.add(transcript.indexOf("id: " + addendum.getId())));
-    timelinePositions.add(transcript.indexOf("eventId: " + secondEvent.getId()));
-    timelinePositions.add(transcript.indexOf("eventId: " + thirdEvent.getId()));
-    timelinePositions.add(transcript.indexOf("id: " + latest.getId()));
+    timelinePositions.add(transcript.indexOf("freeText [RECORDED]: early addendum"));
+    timelinePositions.add(transcript.indexOf("valueJson: \"first\""));
+    timelinePositions.add(transcript.indexOf("freeText [RECORDED]: " + firstTiedMarker));
+    timelinePositions.add(transcript.indexOf("freeText [RECORDED]: " + secondTiedMarker));
+    timelinePositions.add(transcript.indexOf("valueJson: \"second\""));
+    timelinePositions.add(transcript.indexOf("valueJson: \"third\""));
+    timelinePositions.add(transcript.indexOf("freeText [RECORDED]: latest addendum"));
 
-    assertThat(transcript).contains("early addendum", "tied addendum", "second tied addendum", "latest addendum",
-        "eventId: " + firstEvent.getId(), "eventId: " + secondEvent.getId(), "eventId: " + thirdEvent.getId());
+    assertThat(transcript).contains("freeText [RECORDED]: early addendum", "freeText [RECORDED]: tied addendum",
+        "freeText [RECORDED]: second tied addendum", "freeText [RECORDED]: latest addendum",
+        "valueJson: \"first\"", "valueJson: \"second\"", "valueJson: \"third\"")
+        .doesNotContain("id: ", "eventId:", "noteId:", "actorId:");
     assertThat(timelinePositions).allSatisfy(position -> assertThat(position).isGreaterThanOrEqualTo(0));
     assertThat(timelinePositions).isSorted();
   }

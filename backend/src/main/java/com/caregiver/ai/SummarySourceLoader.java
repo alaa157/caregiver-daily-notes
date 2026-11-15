@@ -95,20 +95,15 @@ public class SummarySourceLoader {
   }
   private void appendAddendum(StringBuilder text, NoteAddendum addendum) {
     text.append("\nAPPENDED ADDENDUM\n")
-        .append("id: ").append(addendum.getId()).append('\n')
         .append("createdAt: ").append(addendum.getCreatedAt()).append('\n')
-        .append("actorId: ").append(addendum.getCaregiver().getId()).append('\n')
         .append("providedFields: ").append(addendum.observationPresence().fieldNames()).append('\n')
         .append("medicationVerificationProvided: ").append(addendum.medicationVerificationWasProvided()).append('\n');
     append(text, addendum.observations());
   }
   private void appendCorrectionEvent(StringBuilder text, NoteCorrectionEvent event) {
     text.append("\nSTRUCTURED CORRECTION EVENT\n")
-        .append("eventId: ").append(event.getId()).append('\n')
-        .append("noteId: ").append(event.getNote().getId()).append('\n')
         .append("sequenceNo: ").append(event.getSequenceNo()).append('\n')
         .append("createdAt: ").append(event.getCreatedAt()).append('\n')
-        .append("actorId: ").append(event.getCaregiver().getId()).append('\n')
         .append("field: ").append(event.getField()).append('\n')
         .append("operation: ").append(event.getOperation()).append('\n');
     if ("SET".equals(event.getOperation())) {
