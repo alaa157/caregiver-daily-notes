@@ -12,6 +12,7 @@ import com.caregiver.mobile.ai.SafetySignalEvaluator
 import com.caregiver.mobile.ai.SummaryAiResult
 import com.caregiver.mobile.ai.SummaryAiService
 import com.caregiver.mobile.ai.SummaryWindow
+import com.caregiver.mobile.ai.TrendCalculator
 import com.caregiver.mobile.ai.TrendDto
 import com.caregiver.mobile.data.AuthRepository
 import com.caregiver.mobile.data.LoggedOutException
@@ -19,6 +20,7 @@ import com.caregiver.mobile.data.api.ApiErrors
 import com.caregiver.mobile.data.api.BackendApis
 import com.caregiver.mobile.data.api.SummaryDto
 import com.caregiver.mobile.data.api.SummaryRequest
+import com.caregiver.mobile.data.api.SignalDto
 import com.caregiver.mobile.data.api.SuggestPlanRequest
 import java.io.IOException
 import java.time.LocalDate
@@ -94,6 +96,8 @@ class SummaryViewModel(
     /** End of the summary window; null or a future date means "today". */
     initialEnd: LocalDate? = null,
     private val clock: () -> LocalDate = LocalDate::now,
+    /** Wall-clock time stamped on each successful result. */
+    private val nowMillis: () -> Long = System::currentTimeMillis,
 ) : ViewModel() {
     private val exec: CoroutineScope = scope ?: viewModelScope
 
@@ -252,6 +256,10 @@ class SummaryViewModel(
         val store = aiKeyStore
         val provider = store?.selectedProvider()
         var aiRedFlags: List<String> = emptyList()
+        // The current window's signals, already recipient- and
+        // window-filtered — reused for trends so the previous window's
+        // signals never mix into them.
+        var aiWindowedSignals: List<SignalDto>? = null
         // The selected provider has no usable key. When another provider
         // does, say so precisely and offer to switch (never silently reuse
         // that provider's credentials). When none does, keep the backend
@@ -308,17 +316,23 @@ class SummaryViewModel(
                     it.recipientId == recipientId &&
                         SummaryWindow.contains(it.date, end, periodDays)
                 }
+                    aiWindowedSignals = windowedSignals
                     aiRedFlags = SafetySignalEvaluator.evaluate(windowedSignals)
                     lastRedFlags = aiRedFlags
                     service.summarize(recipientId, periodDays, notes, signals, end)
                 }
                 when (result) {
                     is SummaryAiResult.Success -> {
+                        val end = endDate.value
                         _state.value = SummaryState.Content(
                             SummaryResultData(
                                 result.summary,
-                                periodStart = SummaryWindow.start(endDate.value, periodDays).toString(),
-                                periodEnd = endDate.value.toString(),
+                                trends = computeTrends(end, periodDays, aiWindowedSignals),
+                                periodStart = SummaryWindow.start(end, periodDays).toString(),
+                                periodEnd = end.toString(),
+                                provider = provider.name,
+                                model = model,
+                                generatedAt = nowMillis(),
                             ),
                             aiGenerated = true,
                         )
@@ -393,11 +407,14 @@ class SummaryViewModel(
                     apis.summaries().summarize(SummaryRequest(recipientId, periodDays))
                 }
             }
+            val end = endDate.value
             _state.value = SummaryState.Content(
                 SummaryResultData(
                     summary,
-                    periodStart = SummaryWindow.start(endDate.value, periodDays).toString(),
-                    periodEnd = endDate.value.toString(),
+                    trends = computeTrends(end, periodDays),
+                    periodStart = SummaryWindow.start(end, periodDays).toString(),
+                    periodEnd = end.toString(),
+                    generatedAt = nowMillis(),
                 ),
             )
             _suggestedForCurrent.value = false
@@ -520,6 +537,46 @@ class SummaryViewModel(
             } finally {
                 _suggesting.value = false
             }
+        }
+    }
+
+    /**
+     * Compares the current window's signals with the previous window's for
+     * the trends strip. [current] may carry signals the caller already
+     * fetched and windowed (the AI path); otherwise they are fetched here
+     * the same way. Either fetch failing leaves the summary untouched —
+     * trends come back empty, never an error state. The previous window's
+     * signals stay on the device: they only ever reach [TrendCalculator],
+     * never a provider.
+     */
+    private suspend fun computeTrends(
+        end: LocalDate,
+        periodDays: Int,
+        current: List<SignalDto>? = null,
+    ): List<TrendDto> {
+        try {
+            val currentSignals = current ?: run {
+                val from = SummaryWindow.start(end, periodDays).toString()
+                repository.authorized {
+                    apis.summaries().signals(recipientId, from, end.toString())
+                }.filter {
+                    it.recipientId == recipientId &&
+                        SummaryWindow.contains(it.date, end, periodDays)
+                }
+            }
+            val prevEnd = SummaryWindow.start(end, periodDays).minusDays(1)
+            val prevStart = SummaryWindow.start(prevEnd, periodDays)
+            val previousSignals = repository.authorized {
+                apis.summaries().signals(recipientId, prevStart.toString(), prevEnd.toString())
+            }.filter {
+                it.recipientId == recipientId &&
+                    SummaryWindow.contains(it.date, prevEnd, periodDays)
+            }
+            return TrendCalculator.compute(currentSignals, previousSignals)
+        } catch (e: kotlinx.coroutines.CancellationException) {
+            throw e
+        } catch (e: Exception) {
+            return emptyList()
         }
     }
 
