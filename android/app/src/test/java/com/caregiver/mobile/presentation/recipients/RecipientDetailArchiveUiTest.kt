@@ -60,6 +60,7 @@ class RecipientDetailArchiveUiTest {
                         hasAdmin = hasAdmin,
                         deleteCounts = counts,
                         onBack = {},
+                        onEdit = {},
                         onAddNote = {},
                         onHistory = {},
                         onSummary = {},

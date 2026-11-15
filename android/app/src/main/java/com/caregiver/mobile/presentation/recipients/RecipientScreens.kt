@@ -61,6 +61,8 @@ import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import androidx.lifecycle.Lifecycle
+import androidx.lifecycle.compose.LifecycleEventEffect
 import androidx.navigation.NavController
 import com.caregiver.mobile.AppGraph
 import com.caregiver.mobile.R
@@ -821,6 +823,10 @@ fun RecipientDetailScreen(
     val deleted by vm.deleted.collectAsStateWithLifecycle()
     val deleteCounts by vm.deleteCounts.collectAsStateWithLifecycle()
 
+    LifecycleEventEffect(Lifecycle.Event.ON_RESUME) {
+        vm.reload()
+    }
+
     LaunchedEffect(deleted) {
         if (deleted) {
             vm.consumeDeleted()
@@ -845,6 +851,7 @@ fun RecipientDetailScreen(
                 hasAdmin = admin != null,
                 deleteCounts = deleteCounts?.counts,
                 onBack = { navController.popBackStack() },
+                onEdit = { navController.navigate(AppRoutes.editRecipient(s.detail.id)) },
                 onAddNote = { navController.navigate(AppRoutes.noteEditor(s.detail.id)) },
                 onHistory = { navController.navigate(AppRoutes.tab(MainTab.History)) },
                 onSummary = { navController.navigate(AppRoutes.summary(s.detail.id)) },
@@ -867,6 +874,7 @@ internal fun DetailContent(
     hasAdmin: Boolean,
     deleteCounts: RecipientDeletionCounts?,
     onBack: () -> Unit,
+    onEdit: () -> Unit,
     onAddNote: () -> Unit,
     onHistory: () -> Unit,
     onSummary: () -> Unit,
@@ -980,6 +988,12 @@ internal fun DetailContent(
                     modifier = Modifier.testTag("detail_delete"),
                 )
             } else {
+                SecondaryButton(
+                    label = stringResource(R.string.detail_edit_person),
+                    onClick = onEdit,
+                    enabled = !busy,
+                    modifier = Modifier.testTag("detail_edit"),
+                )
                 SecondaryButton(
                     label = stringResource(R.string.people_archive),
                     onClick = onArchive,
