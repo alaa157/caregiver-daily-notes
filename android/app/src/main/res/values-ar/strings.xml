@@ -395,6 +395,7 @@
     <string name="settings_ai_cost_note">قد يترتب على استخدام API تكاليف. تعتمد التكلفة على النموذج والاستخدام.</string>
     <string name="settings_ai_model">النموذج</string>
     <string name="settings_ai_custom_model">نموذج مخصص</string>
+    <string name="settings_ai_model_other">نموذج آخر</string>
     <string name="settings_ai_suggestions">اقتراحات:</string>
     <string name="settings_ai_model_free">مجاني</string>
     <string name="settings_ai_model_recommended">موصى به للملخصات</string>

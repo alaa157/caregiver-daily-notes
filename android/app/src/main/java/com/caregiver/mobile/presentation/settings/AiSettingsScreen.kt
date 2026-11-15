@@ -11,11 +11,14 @@ import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.selection.selectable
+import androidx.compose.foundation.selection.selectableGroup
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Button
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedTextField
+import androidx.compose.material3.RadioButton
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.outlined.Article
 import androidx.compose.material.icons.outlined.Cloud
@@ -38,6 +41,7 @@ import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalUriHandler
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.res.stringResource
+import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.text.input.PasswordVisualTransformation
 import androidx.compose.ui.unit.dp
@@ -51,7 +55,6 @@ import com.caregiver.mobile.ai.AiKeyStore
 import com.caregiver.mobile.ai.AiModelCatalog
 import com.caregiver.mobile.ai.AiProvider
 import com.caregiver.mobile.ai.AiConsentDialog
-import com.caregiver.mobile.ai.dataUseNotice
 import com.caregiver.mobile.ai.AnthropicLlmClient
 import com.caregiver.mobile.ai.GeminiLlmClient
 import com.caregiver.mobile.ai.GroundingProbe
@@ -64,7 +67,10 @@ import com.caregiver.mobile.ai.PromptNote
 import com.caregiver.mobile.ai.PromptNotes
 import com.caregiver.mobile.ai.Prompts
 import com.caregiver.mobile.ai.SummaryResponseFormat
+import com.caregiver.mobile.ai.dataUseNotice
+import com.caregiver.mobile.ai.isCatalogModel
 import com.caregiver.mobile.ai.stringRes
+import com.caregiver.mobile.core.i18n.Bidi
 import com.caregiver.mobile.core.navigation.markUnsavedChanges
 import com.caregiver.mobile.presentation.common.AiRecovery
 import com.caregiver.mobile.presentation.common.AppTopBar
@@ -890,22 +896,87 @@ fun AiSettingsScreen(graph: AppGraph, navController: NavController, navEntry: Na
             onDismissRequest = { showModelDialog = false },
             title = { Text(stringResource(R.string.settings_ai_model)) },
             text = {
+                var otherSelected by remember {
+                    mutableStateOf(!AiModelCatalog.isCatalogModel(provider, model))
+                }
                 Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
-                    OutlinedTextField(
-                        value = model,
-                        onValueChange = {
-                            model = it
-                            qualityStatus = null
-                        },
-                        label = { Text(stringResource(R.string.settings_ai_custom_model)) },
-                        isError = modelInvalid,
-                        supportingText = {
-                            if (modelInvalid) {
-                                Text(stringResource(R.string.settings_ai_invalid_model))
+                    Column(Modifier.selectableGroup()) {
+                        AiModelCatalog.options(provider).forEach { option ->
+                            Row(
+                                modifier = Modifier
+                                    .fillMaxWidth()
+                                    .selectable(
+                                        selected = model.trim() == option.id,
+                                        role = Role.RadioButton,
+                                        onClick = {
+                                            model = option.id
+                                            qualityStatus = null
+                                            formatStatus = null
+                                            otherSelected = false
+                                        },
+                                    )
+                                    .testTag("model_option_${option.id}"),
+                                verticalAlignment = Alignment.CenterVertically,
+                            ) {
+                                RadioButton(
+                                    selected = model.trim() == option.id,
+                                    onClick = null,
+                                )
+                                Text(
+                                    text = Bidi.isolate(option.id),
+                                    modifier = Modifier.weight(1f),
+                                )
+                                if (option.recommendedForSummaries) {
+                                    RecommendedTag()
+                                }
+                                if (option.free) {
+                                    FreeTag()
+                                }
                             }
-                        },
-                        modifier = Modifier.fillMaxWidth(),
-                    )
+                        }
+                        Row(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .selectable(
+                                    selected = otherSelected,
+                                    role = Role.RadioButton,
+                                    onClick = {
+                                        otherSelected = true
+                                        qualityStatus = null
+                                        formatStatus = null
+                                    },
+                                )
+                                .testTag("model_option_other"),
+                            verticalAlignment = Alignment.CenterVertically,
+                        ) {
+                            RadioButton(selected = otherSelected, onClick = null)
+                            Text(
+                                text = stringResource(R.string.settings_ai_model_other),
+                                modifier = Modifier.weight(1f),
+                            )
+                        }
+                    }
+                    if (otherSelected) {
+                        OutlinedTextField(
+                            value = model,
+                            onValueChange = {
+                                model = it
+                                qualityStatus = null
+                                formatStatus = null
+                            },
+                            label = { Text(stringResource(R.string.settings_ai_custom_model)) },
+                            singleLine = true,
+                            isError = modelInvalid,
+                            supportingText = {
+                                if (modelInvalid) {
+                                    Text(stringResource(R.string.settings_ai_invalid_model))
+                                }
+                            },
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .testTag("model_custom_field"),
+                        )
+                    }
                     AiModelCatalog.dataUseNotice(provider, model.ifBlank { provider.defaultModel })
                         ?.let { notice ->
                             Text(
@@ -935,28 +1006,6 @@ fun AiSettingsScreen(graph: AppGraph, navController: NavController, navEntry: Na
                         style = MaterialTheme.typography.bodySmall,
                         color = MaterialTheme.colorScheme.onSurfaceVariant,
                     )
-                    Text(stringResource(R.string.settings_ai_suggestions))
-                    AiModelCatalog.options(provider).forEach { option ->
-                        Row(
-                            modifier = Modifier.fillMaxWidth(),
-                            verticalAlignment = Alignment.CenterVertically,
-                        ) {
-                            TextButton(
-                                onClick = {
-                                    model = option.id
-                                    qualityStatus = null
-                                    formatStatus = null
-                                },
-                                modifier = Modifier.weight(1f),
-                            ) { Text(option.id) }
-                            if (option.recommendedForSummaries) {
-                                RecommendedTag()
-                            }
-                            if (option.free) {
-                                FreeTag()
-                            }
-                        }
-                    }
                 }
             },
             confirmButton = { TextButton(onClick = { showModelDialog = false }) { Text(stringResource(R.string.common_ok)) } },
