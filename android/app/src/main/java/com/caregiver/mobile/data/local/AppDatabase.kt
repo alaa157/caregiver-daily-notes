@@ -19,7 +19,7 @@ import androidx.sqlite.db.SupportSQLiteDatabase
  * standalone medication tracker, 6.json doses-per-day, 7.json the recipient
  * archive timestamp, 8.json the note recorded flags (`painRecorded`,
  * `fallRecorded`) on `notes` and `outbox`, and 9.json the recipient
- * relationship and care-detail columns.
+ * relationship and care-detail columns, and 10.json the saved summaries.
  *
  * File-backed database for production graphs. Demo graphs never call this:
  * demo data must not reach disk (Task 8a rule), so `AppGraph` only creates
@@ -34,8 +34,9 @@ import androidx.sqlite.db.SupportSQLiteDatabase
         AddendumEntity::class,
         MedicationEntity::class,
         MedicationIntakeEntity::class,
+        SavedSummaryEntity::class,
     ],
-    version = 9,
+    version = 10,
     exportSchema = true,
 )
 abstract class AppDatabase : RoomDatabase() {
@@ -50,6 +51,8 @@ abstract class AppDatabase : RoomDatabase() {
     abstract fun addendumDao(): AddendumDao
 
     abstract fun medicationDao(): MedicationDao
+
+    abstract fun savedSummaryDao(): SavedSummaryDao
 
     /**
      * Removes an archived recipient and every row it owns in one transaction.
@@ -266,6 +269,29 @@ abstract class AppDatabase : RoomDatabase() {
             }
         }
 
+        val MIGRATION_9_10: Migration = object : Migration(9, 10) {
+            override fun migrate(db: SupportSQLiteDatabase) {
+                db.execSQL(
+                    "CREATE TABLE IF NOT EXISTS `saved_summaries` (" +
+                        "`id` TEXT NOT NULL, " +
+                        "`recipientId` TEXT NOT NULL, " +
+                        "`periodDays` INTEGER NOT NULL, " +
+                        "`periodStart` TEXT NOT NULL, " +
+                        "`periodEnd` TEXT NOT NULL, " +
+                        "`createdAt` INTEGER NOT NULL, " +
+                        "`aiGenerated` INTEGER NOT NULL, " +
+                        "`provider` TEXT, " +
+                        "`model` TEXT, " +
+                        "`payload` TEXT NOT NULL, " +
+                        "PRIMARY KEY(`id`))",
+                )
+                db.execSQL(
+                    "CREATE INDEX IF NOT EXISTS `index_saved_summaries_recipientId_createdAt` " +
+                        "ON `saved_summaries` (`recipientId`, `createdAt`)",
+                )
+            }
+        }
+
         fun create(context: Context): AppDatabase =
             Room.databaseBuilder(context.applicationContext, AppDatabase::class.java, "caregiver-db")
                 .addMigrations(
@@ -277,6 +303,7 @@ abstract class AppDatabase : RoomDatabase() {
                     MIGRATION_6_7,
                     MIGRATION_7_8,
                     MIGRATION_8_9,
+                    MIGRATION_9_10,
                 )
                 .build()
     }
