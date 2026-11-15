@@ -1,6 +1,8 @@
 package com.caregiver.mobile.ai
 
 import com.caregiver.mobile.data.api.NoteDto
+import com.caregiver.mobile.presentation.notes.NoteOptions
+import com.caregiver.mobile.presentation.notes.OptionGroup
 
 /**
  * Typed evidence for one AI summary observation.
@@ -35,11 +37,11 @@ object StructuredEvidence {
      * values skip this guard.
      */
     private val knownValues: Map<String, List<String>> = mapOf(
-        "mood" to listOf("good", "fair", "bad"),
-        "appetite" to listOf("good", "reduced", "poor"),
-        "sleep" to listOf("good", "broken", "poor"),
-        "mobility" to listOf("walks", "assisted", "bed"),
-        "medicationTaken" to listOf("taken", "missed", "unsure"),
+        "mood" to NoteOptions.known(OptionGroup.Mood),
+        "appetite" to NoteOptions.known(OptionGroup.Appetite),
+        "sleep" to NoteOptions.known(OptionGroup.Sleep),
+        "mobility" to NoteOptions.known(OptionGroup.Mobility),
+        "medicationTaken" to NoteOptions.known(OptionGroup.Medication),
     )
 
     private val fieldAliases: Map<String, String> = mapOf(

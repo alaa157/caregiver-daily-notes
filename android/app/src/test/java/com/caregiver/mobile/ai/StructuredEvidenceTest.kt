@@ -95,6 +95,29 @@ class StructuredEvidenceTest {
     }
 
     @Test
+    fun newVocabularyValuesAreRecognised() {
+        val calm = note.copy(mood = "calm")
+        assertTrue(StructuredEvidence.matches(calm, "mood", "calm"))
+    }
+
+    @Test
+    fun claimOfNewValueAgainstDifferentRecordedValueIsRejected() {
+        val happy = note.copy(mood = "happy")
+        assertFalse(StructuredEvidence.claimAligns("The patient's mood was calm.", "mood", "happy"))
+    }
+
+    @Test
+    fun legacyValueIsStillARecognisedKnownValue() {
+        val calm = note.copy(mood = "calm")
+        // "good" is a legacy mood code: asserting it against mood=calm
+        // must still be caught as a different known value.
+        assertFalse(StructuredEvidence.claimAligns("The patient's mood was good.", "mood", "calm"))
+        val good = note.copy(mood = "good")
+        assertTrue(StructuredEvidence.matches(good, "mood", "good"))
+        assertTrue(StructuredEvidence.claimAligns("The patient's mood was good.", "mood", "good"))
+    }
+
+    @Test
     fun claimAssertingADifferentKnownValueDoesNotAlign() {
         assertFalse(StructuredEvidence.claimAligns("The patient's mood was good.", "mood", "fair"))
         assertFalse(StructuredEvidence.claimAligns("medication taken today", "medicationTaken", "missed"))
