@@ -33,6 +33,11 @@
 .recipient-details { display: grid; gap: 22px; margin-block: 28px 35px; }
 .recipient-details dt { font-size: 13px; color: var(--color-muted); margin-bottom: 8px; }
 .recipient-details dd { margin: 0; font-size: 16px; line-height: 1.8; overflow-wrap: anywhere; }
+.recipient-care-details-overview { margin-top: 28px; border-top: 1px solid var(--color-border); padding-top: 24px; }
+.recipient-care-details-overview-heading { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 12px; }
+.recipient-care-details-overview-heading h3 { margin: 0; font-size: 22px; line-height: 1.5; }
+.recipient-care-details-overview .recipient-details { margin-block: 20px 0; }
+.recipient-care-details-text { white-space: pre-wrap; }
 .recipient-actions { display: flex; flex-wrap: wrap; gap: 12px; }
 .recipient-form { display: grid; gap: 24px; }
 .recipient-record-heading + .recipient-form { margin-top: 26px; }
