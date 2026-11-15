@@ -36,10 +36,10 @@ data class AiModelOption(
  * grok-3 in May 2026). OpenRouter's separate route to openai/gpt-4o-mini
  * remains available and is listed under that provider.
  *
- * Paid models lead, and a provider's default is a paid model. On Gemini's
- * free tier the notes may be used to improve Google's products, and an
- * OpenRouter free model keeps whatever data policy its host has — some of
- * them train on what they receive. A free model is therefore an explicit
+ * Paid models lead, and a provider's default is a paid model. Gemini data
+ * use follows the key's billing tier, not the model, and an OpenRouter
+ * `:free` model keeps whatever data policy its host has — some of them
+ * train on what they receive. A free model is therefore an explicit
  * opt-in, never the first suggestion.
  */
 object AiModelCatalog {
@@ -60,15 +60,15 @@ object AiModelCatalog {
             AiModelOption("gemini-3.8-flash", recommendedForSummaries = true),
             AiModelOption("gemini-3.5-flash"),
             AiModelOption("gemini-3.5-flash-lite"),
-            // The one Gemini model the free tier still covers. Opt-in.
-            AiModelOption("gemini-3.1-flash-lite", free = true),
+            // Gemini data use follows the key's billing tier, not the model.
+            AiModelOption("gemini-3.1-flash-lite"),
         )
 
         AiProvider.ANTHROPIC -> listOf(
             AiModelOption("claude-sonnet-5-5", recommendedForSummaries = true),
             AiModelOption("claude-haiku-5-5"),
             AiModelOption("claude-opus-5-5"),
-            AiModelOption("claude-fable-5-1"),
+            AiModelOption("claude-fable-5-2"),
         )
 
         AiProvider.XAI -> listOf(
@@ -88,4 +88,25 @@ object AiModelCatalog {
             AiModelOption("google/gemma-4-31b-it:free", free = true),
         )
     }
+}
+
+/** Why a provider/model pair needs a data-use notice in the UI. */
+enum class AiDataUseNotice { KEY_TIER, FREE_HOST }
+
+/**
+ * The data-use notice a provider/model pair needs, or null when none
+ * applies. Gemini follows the key's billing tier for every model;
+ * OpenRouter flags only `:free` model variants.
+ */
+fun AiModelCatalog.dataUseNotice(provider: AiProvider, modelId: String): AiDataUseNotice? = when {
+    provider == AiProvider.GEMINI -> AiDataUseNotice.KEY_TIER
+    provider == AiProvider.OPEN_ROUTER && modelId.trim().endsWith(":free") ->
+        AiDataUseNotice.FREE_HOST
+    else -> null
+}
+
+/** True when [raw] (trimmed) is one of the catalog's suggested ids for [provider]. */
+fun AiModelCatalog.isCatalogModel(provider: AiProvider, raw: String): Boolean {
+    val id = raw.trim()
+    return options(provider).any { it.id == id }
 }
