@@ -15,6 +15,7 @@ import com.caregiver.mobile.data.local.RecipientDeletionCounts
 import androidx.datastore.preferences.core.PreferenceDataStoreFactory
 import java.io.File
 import java.io.IOException
+import kotlinx.coroutines.CompletableDeferred
 import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.test.TestScope
@@ -165,6 +166,48 @@ class RecipientDetailViewModelTest {
         val state = vm.state.first { it is DetailState.Content }
 
         assertEquals("n1", (state as DetailState.Content).detail.lastNote?.id)
+    }
+
+    @Test
+    fun reloadKeepsContentWhileTheReloadIsInFlight() = runTest {
+        var listCalls = 0
+        val reloadStarted = CompletableDeferred<Unit>()
+        val finishReload = CompletableDeferred<List<RecipientDto>>()
+        recipients.listHandler = {
+            listCalls++
+            if (listCalls == 1) {
+                listOf(RecipientDto("r1", "Aisha", true))
+            } else {
+                reloadStarted.complete(Unit)
+                finishReload.await()
+            }
+        }
+        notes.historyHandler = { _, _, _ -> emptyList() }
+        val vm = vm(this)
+        vm.state.first { it is DetailState.Content }
+
+        vm.reload()
+        reloadStarted.await()
+
+        assertTrue(vm.state.value is DetailState.Content)
+
+        finishReload.complete(listOf(RecipientDto("r1", "Aisha", true)))
+        vm.state.first { it is DetailState.Content && it.detail.name == "Aisha" }
+    }
+
+    @Test
+    fun reloadShowsUpdatedNameAfterLoadingTheNewRecipient() = runTest {
+        var name = "Aisha"
+        recipients.listHandler = { listOf(RecipientDto("r1", name, true)) }
+        notes.historyHandler = { _, _, _ -> emptyList() }
+        val vm = vm(this)
+        vm.state.first { it is DetailState.Content }
+
+        name = "Mariam"
+        vm.reload()
+        val state = vm.state.first { it is DetailState.Content && it.detail.name == "Mariam" }
+
+        assertEquals("Mariam", (state as DetailState.Content).detail.name)
     }
 
     @Test

@@ -43,6 +43,7 @@
     <string name="detail_history">View history</string>
     <string name="detail_plan">Care plan</string>
     <string name="detail_summary">Smart summary</string>
+    <string name="detail_edit_person">Edit details</string>
     <string name="add_title">Add a person in care</string>
     <string name="add_name">Name</string>
     <string name="add_save">Save</string>
