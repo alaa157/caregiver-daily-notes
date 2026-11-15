@@ -295,6 +295,8 @@
     <string name="summary_trend_count">%1$d out of %2$d recorded</string>
     <string name="summary_trend_no_data">No recorded data</string>
     <string name="summary_trend_delta">Change: %1$s</string>
+    <string name="summary_previous_result">Previous result</string>
+    <string name="summary_previous_result_note">This is the last summary that worked. It may not match the period you just asked for.</string>
     <string name="summary_important">Important notes</string>
     <string name="summary_unclear">Unclear information</string>
     <string name="summary_meds_locked">Medications are locked: AI never changes any medication or dose.</string>
