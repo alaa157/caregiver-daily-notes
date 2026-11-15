@@ -130,3 +130,6 @@
 .recipient-today-action { display: flex; align-items: center; justify-content: space-between; flex-wrap: wrap; gap: 12px 16px; margin-block: 18px 6px; padding: 14px 18px; background: #f7f8f2; border: 1px solid #dfe3d5; border-radius: 12px; }
 .recipient-today-action .recipient-note-status { margin-block: 0; }
 .recipient-today-action .button { flex: none; }
+.recipient-manage { margin-block-start: 28px; padding-block-start: 20px; border-block-start: 1px solid var(--color-border); }
+.recipient-manage h2 { margin-block-end: 12px; color: #596358; font-size: 1rem; font-weight: 600; }
+.recipient-manage .recipient-actions { margin-block-start: 0; }

@@ -212,18 +212,22 @@ function RecipientRecord({ id, edit }: { id: string; edit: boolean }) {
               {hasCareDetailValue(state.data.emergencyContactPhone) && <div><dt>{t('careDetailsEmergencyContactPhone')}</dt><dd><a href={telephoneHref(state.data.emergencyContactPhone)} dir="ltr">{state.data.emergencyContactPhone}</a></dd></div>}
             </dl>
           </section>}
-          <div className="recipient-actions">
-            <ButtonLink variant="secondary" to={`/app/recipients/${encodeURIComponent(id)}/notes`}>{t('historyTitle')}</ButtonLink>
-            {state.data.lifecycleStatus === 'ACTIVE' && <ButtonLink to={`${listPath}/${id}/edit`}>{t('recipientEdit')}</ButtonLink>}
-            {state.data.lifecycleStatus === 'ACTIVE' && <Button variant="secondary" onClick={() => { setNotice(null); setConfirming('archive'); }}>{t('recipientArchive')}</Button>}
-            {state.data.lifecycleStatus === 'ARCHIVED' && <Button variant="secondary" onClick={() => { setNotice(null); setConfirming('restore'); }}>{t('recipientRestore')}</Button>}
-          </div>
+          {state.data.lifecycleStatus === 'ACTIVE' && <div className="recipient-actions">
+            <ButtonLink variant="secondary" to={`${listPath}/${id}/edit`}>{t('recipientEdit')}</ButtonLink>
+          </div>}
           {edit && state.data.lifecycleStatus !== 'ACTIVE' && <ButtonLink variant="secondary" to={`${listPath}/${id}`}>{t('recipientDetails')}</ButtonLink>}
         </>}
       </div>
       {!edit && <div className="recipient-surface medication-surface">
         <MedicationListPanel recipientId={state.data.id} canEdit={state.data.lifecycleStatus === 'ACTIVE'} />
       </div>}
+      {!edit && (state.data.lifecycleStatus === 'ACTIVE' || state.data.lifecycleStatus === 'ARCHIVED') && <section className="recipient-manage" aria-labelledby="recipient-manage-title">
+        <h2 id="recipient-manage-title">{t('recipientManageTitle')}</h2>
+        <div className="recipient-actions">
+          {state.data.lifecycleStatus === 'ACTIVE' && <Button variant="secondary" onClick={() => { setNotice(null); setConfirming('archive'); }}>{t('recipientArchive')}</Button>}
+          {state.data.lifecycleStatus === 'ARCHIVED' && <Button variant="secondary" onClick={() => { setNotice(null); setConfirming('restore'); }}>{t('recipientRestore')}</Button>}
+        </div>
+      </section>}
       {confirming && <RecipientLifecycleDialog recipient={state.data} action={confirming} onClose={() => setConfirming(null)} onConfirm={async (signal) => {
         const updated = confirming === 'archive' ? await api.archive(id, signal) : await api.restore(id, signal);
         if (!signal.aborted) { replace(updated); setNotice(confirming === 'archive' ? 'recipientArchivedSuccess' : 'recipientRestoredSuccess'); }

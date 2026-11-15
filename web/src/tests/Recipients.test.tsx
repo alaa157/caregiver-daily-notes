@@ -813,6 +813,61 @@ describe('care recipients screens', () => {
     });
   });
 
+  describe('simplified overview actions', () => {
+    const manageFetcher = (value: typeof recipient) => vi.fn().mockImplementation((path: string) => {
+      const url = new URL(path, 'http://localhost');
+      if (url.pathname === `/api/recipients/${recipient.id}`) return Promise.resolve(jsonResponse(value));
+      if (url.pathname === '/api/notes') return Promise.resolve(jsonResponse(historyPage([], 0, 100)));
+      return Promise.resolve(jsonResponse([]));
+    });
+
+    it('orders the primary today action before a secondary Edit and drops History', async () => {
+      renderRecipients(detail, manageFetcher(recipient));
+      const todayAction = await screen.findByRole('link', { name: "Record today's note" });
+      const edit = screen.getByRole('link', { name: 'Edit recipient' });
+      expect(todayAction.compareDocumentPosition(edit) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
+      expect(edit).toHaveClass('button--secondary');
+      expect(screen.queryByRole('link', { name: 'Notes history' })).not.toBeInTheDocument();
+    });
+
+    it('archives the recipient from the manage section', async () => {
+      const archived = { ...recipient, active: false, lifecycleStatus: 'ARCHIVED' as const,
+        archivedAt: '2026-10-15T10:00:00Z', archivedBy: 'b1111111-1111-4111-8111-111111111111' };
+      const fetcher = vi.fn().mockImplementation((path: string) => {
+        const url = new URL(path, 'http://localhost');
+        if (url.pathname === `/api/recipients/${recipient.id}/archive`) return Promise.resolve(jsonResponse(archived));
+        if (url.pathname === `/api/recipients/${recipient.id}`) return Promise.resolve(jsonResponse(recipient));
+        if (url.pathname === '/api/notes') return Promise.resolve(jsonResponse(historyPage([], 0, 100)));
+        return Promise.resolve(jsonResponse([]));
+      });
+      renderRecipients(detail, fetcher);
+      const manage = await screen.findByRole('region', { name: 'Manage recipient' });
+      await userEvent.click(within(manage).getByRole('button', { name: 'Archive recipient' }));
+      await userEvent.click(within(screen.getByRole('dialog')).getByRole('button', { name: 'Archive recipient' }));
+      expect(await screen.findByText('Archived')).toBeInTheDocument();
+      expect(screen.getByText('Recipient archived. Their history has been preserved.')).toBeInTheDocument();
+    });
+
+    it('restores an archived recipient from the manage section', async () => {
+      const archived = { ...recipient, active: false, lifecycleStatus: 'ARCHIVED' as const,
+        archivedAt: '2026-10-15T10:00:00Z', archivedBy: 'b1111111-1111-4111-8111-111111111111' };
+      const restored = { ...recipient, restoredAt: '2026-10-16T10:00:00Z', restoredBy: 'b1111111-1111-4111-8111-111111111111' };
+      const fetcher = vi.fn().mockImplementation((path: string) => {
+        const url = new URL(path, 'http://localhost');
+        if (url.pathname === `/api/recipients/${recipient.id}/restore`) return Promise.resolve(jsonResponse(restored));
+        if (url.pathname === `/api/recipients/${recipient.id}`) return Promise.resolve(jsonResponse(archived));
+        if (url.pathname === '/api/notes') return Promise.resolve(jsonResponse(historyPage([], 0, 100)));
+        return Promise.resolve(jsonResponse([]));
+      });
+      renderRecipients(detail, fetcher);
+      const manage = await screen.findByRole('region', { name: 'Manage recipient' });
+      await userEvent.click(within(manage).getByRole('button', { name: 'Restore recipient' }));
+      await userEvent.click(within(screen.getByRole('dialog')).getByRole('button', { name: 'Restore recipient' }));
+      expect(await screen.findByText('Active')).toBeInTheDocument();
+      expect(screen.getByText('Recipient restored to active status.')).toBeInTheDocument();
+    });
+  });
+
   it('keeps archived recipient fields read only', async () => {
     const archived = { ...recipient, active: false, lifecycleStatus: 'ARCHIVED' as const,
       archivedAt: '2026-10-15T10:00:00Z', archivedBy: 'b1111111-1111-4111-8111-111111111111' };
