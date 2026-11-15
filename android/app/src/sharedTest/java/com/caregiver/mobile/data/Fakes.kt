@@ -24,8 +24,11 @@ import com.caregiver.mobile.data.api.SummaryApi
 import com.caregiver.mobile.data.api.SummaryDto
 import com.caregiver.mobile.data.api.SummaryRequest
 import com.caregiver.mobile.data.api.UpdateRecipientRequest
+import com.caregiver.mobile.data.local.ArchivedRecipientException
 import com.caregiver.mobile.data.local.RecipientAdmin
 import com.caregiver.mobile.data.local.RecipientDeletionCounts
+import com.caregiver.mobile.data.recipient.NameCheck
+import com.caregiver.mobile.data.recipient.RecipientNameRules
 import okhttp3.MediaType.Companion.toMediaType
 import okhttp3.ResponseBody.Companion.toResponseBody
 import retrofit2.HttpException
@@ -89,6 +92,17 @@ class FakeRecipientAdmin(initial: List<RecipientDto> = emptyList()) : RecipientA
     val unarchiveCalls = mutableListOf<String>()
     val deleteCalls = mutableListOf<String>()
     val countsCalls = mutableListOf<String>()
+
+    override suspend fun rename(id: String, name: String): RecipientDto {
+        val current = recipients[id] ?: throw NoSuchElementException("recipient $id")
+        if (current.archivedAt != null) throw ArchivedRecipientException(id)
+        if (RecipientNameRules.check(name) != NameCheck.Ok) {
+            throw IllegalArgumentException("recipient name")
+        }
+        val updated = current.copy(name = RecipientNameRules.normalize(name))
+        recipients[id] = updated
+        return updated
+    }
 
     override suspend fun archive(id: String): RecipientDto {
         archiveCalls += id

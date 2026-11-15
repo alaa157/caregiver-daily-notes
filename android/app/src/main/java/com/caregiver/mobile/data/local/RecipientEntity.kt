@@ -58,6 +58,9 @@ interface RecipientDao {
     @Query("UPDATE recipients SET active = :active WHERE serverId = :serverId")
     suspend fun setActive(serverId: String, active: Boolean): Int
 
+    @Query("UPDATE recipients SET name = :name WHERE serverId = :serverId")
+    suspend fun setName(serverId: String, name: String): Int
+
     @Query("DELETE FROM recipients WHERE serverId = :serverId")
     suspend fun deleteByServerId(serverId: String): Int
 
