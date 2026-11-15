@@ -303,6 +303,8 @@
     <string name="summary_trend_count">%1$d من أصل %2$d مسجّل</string>
     <string name="summary_trend_no_data">لا توجد بيانات مسجّلة</string>
     <string name="summary_trend_delta">التغيّر: %1$s</string>
+    <string name="summary_previous_result">النتيجة السابقة</string>
+    <string name="summary_previous_result_note">هذا آخر ملخص نجح إنشاؤه. قد لا يطابق الفترة التي طلبتها للتو.</string>
     <string name="summary_important">ملاحظات مهمة</string>
     <string name="summary_unclear">معلومات غير واضحة</string>
     <string name="summary_meds_locked">الأدوية محمية: الذكاء الاصطناعي لا يغيّر أي دواء أو جرعة.</string>

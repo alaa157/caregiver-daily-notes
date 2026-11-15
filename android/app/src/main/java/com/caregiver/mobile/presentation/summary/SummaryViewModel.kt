@@ -119,6 +119,8 @@ class SummaryViewModel(
     /** Last deterministic flags, so cancel/timeout states keep them. */
     private var lastRedFlags: List<String> = emptyList()
 
+    private var lastGood: SummaryResultData? = null
+
     private val _period = MutableStateFlow(initialPeriod)
     val period: StateFlow<Int> = _period.asStateFlow()
 
@@ -152,6 +154,7 @@ class SummaryViewModel(
                 savedStore?.let { store -> runCatching { store.get(id) }.getOrNull() }
             }
             if (saved != null) {
+                lastGood = saved
                 _savedId.value = saved.savedId
                 _showingSaved.value = true
                 _state.value = SummaryState.Content(
@@ -256,7 +259,7 @@ class SummaryViewModel(
         lastRedFlags = redFlags
         if (waiting()) {
             _state.value = SummaryState.AiUnavailable(
-                last = null,
+                last = lastSummary(reasonCode),
                 redFlags = redFlags,
                 reasonCode = reasonCode,
                 switchToProvider = store.otherUsableProvider(provider),
@@ -368,6 +371,7 @@ class SummaryViewModel(
                             model = model,
                             generatedAt = nowMillis(),
                         )
+                        lastGood = resultData
                         _state.value = SummaryState.Content(
                             resultData,
                             aiGenerated = true,
@@ -381,17 +385,7 @@ class SummaryViewModel(
                         aiRedFlags = result.redFlags
                         lastRedFlags = result.redFlags
                         if (waiting()) _state.value = SummaryState.AiUnavailable(
-                            SummaryResultData(
-                                SummaryDto(
-                                    id = "",
-                                    recipientId = recipientId,
-                                    periodDays = periodDays,
-                                    text = "",
-                                    redFlags = result.redFlags,
-                                    evidence = emptyList(),
-                                    uncertainties = listOf(SummaryDto.UncertaintyDto("ai_unavailable", "")),
-                                ),
-                            ),
+                            lastSummary(result.reasonCode),
                             redFlags = result.redFlags,
                             reasonCode = result.reasonCode,
                         )
@@ -410,10 +404,11 @@ class SummaryViewModel(
             } catch (e: kotlinx.coroutines.CancellationException) {
                 throw e
             } catch (e: HttpException) {
+                val reasonCode = ApiErrors.parse(e)?.code ?: "http_${e.code()}"
                 if (waiting()) _state.value = SummaryState.AiUnavailable(
-                    lastSummary(),
+                    lastSummary(reasonCode),
                     redFlags = lastRedFlags,
-                    reasonCode = ApiErrors.parse(e)?.code ?: "http_${e.code()}",
+                    reasonCode = reasonCode,
                 )
                 return
             } catch (e: IOException) {
@@ -452,6 +447,7 @@ class SummaryViewModel(
                 periodEnd = end.toString(),
                 generatedAt = nowMillis(),
             )
+            lastGood = resultData
             _state.value = SummaryState.Content(resultData)
             persistSummary(resultData)
             _suggestedForCurrent.value = false
@@ -463,9 +459,10 @@ class SummaryViewModel(
                 lastSummary()?.let { if (waiting()) _state.value = SummaryState.Content(it) }
             }
         } catch (e: HttpException) {
+            val code = ApiErrors.parse(e)?.code ?: "http_${e.code()}"
             if (waiting()) _state.value = SummaryState.Rejected(
-                ApiErrors.parse(e)?.code ?: "http_${e.code()}",
-                lastSummary(),
+                code,
+                lastSummary(code),
             )
         } catch (e: IOException) {
             if (waiting()) _state.value = SummaryState.AiUnavailable(
@@ -636,8 +633,8 @@ class SummaryViewModel(
         }
     }
 
-    private fun lastSummary(): SummaryResultData? =
-        (_state.value as? SummaryState.Content)?.data
+    private fun lastSummary(reasonCode: String? = null): SummaryResultData? =
+        if (reasonCode == "no_source_data") null else lastGood
 
     companion object {
         const val DEFAULT_PERIOD_DAYS = 7
