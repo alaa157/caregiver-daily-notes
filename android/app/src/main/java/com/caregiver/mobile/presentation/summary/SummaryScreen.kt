@@ -225,7 +225,7 @@ fun SummaryResultScreen(
                 verticalArrangement = Arrangement.spacedBy(AppDimens.SectionGap),
                 modifier = Modifier.padding(top = 16.dp),
             ) {
-                val flags = ((s.last?.redFlags ?: emptyList()) + s.redFlags).distinct()
+                val flags = ((s.last?.summary?.redFlags ?: emptyList()) + s.redFlags).distinct()
                 FlagsBanner(flags)
                 val otherProvider = s.switchToProvider
                 val onAiAction: (AiRecoveryAction) -> Unit = { action ->
@@ -246,10 +246,10 @@ fun SummaryResultScreen(
                 // The PDF is useful even when generation failed (flags,
                 // recorded observations, disclaimer) — offer it below the
                 // failure card whenever there is something to export.
-                if (summaryExportVisible(s.reasonCode, flags, s.last)) {
+                if (summaryExportVisible(s.reasonCode, flags, s.last?.summary)) {
                     SummaryExportActions(
                         graph = graph,
-                        summary = exportDtoFor(recipientId, activePeriodDays, flags, s.last),
+                        summary = exportDtoFor(recipientId, activePeriodDays, flags, s.last?.summary),
                         periodDays = activePeriodDays,
                         isDemo = graph.isDemo,
                     )
@@ -259,8 +259,8 @@ fun SummaryResultScreen(
                 verticalArrangement = Arrangement.spacedBy(AppDimens.SectionGap),
                 modifier = Modifier.padding(top = 16.dp),
             ) {
-                val flags = s.last?.redFlags ?: emptyList()
-                s.last?.let { FlagsBanner(it.redFlags) }
+                val flags = s.last?.summary?.redFlags ?: emptyList()
+                s.last?.let { FlagsBanner(it.summary.redFlags) }
                 SummaryFailureCard(
                     copy = AiRecovery.copyFor(
                         s.code,
@@ -269,10 +269,10 @@ fun SummaryResultScreen(
                     ),
                     onAction = onRecoveryAction,
                 )
-                if (summaryExportVisible(s.code, flags, s.last)) {
+                if (summaryExportVisible(s.code, flags, s.last?.summary)) {
                     SummaryExportActions(
                         graph = graph,
-                        summary = exportDtoFor(recipientId, activePeriodDays, flags, s.last),
+                        summary = exportDtoFor(recipientId, activePeriodDays, flags, s.last?.summary),
                         periodDays = activePeriodDays,
                         isDemo = graph.isDemo,
                     )
@@ -290,7 +290,7 @@ fun SummaryResultScreen(
                 )
             }
             is SummaryState.Content -> SummaryBody(
-                graph, s.summary, activePeriodDays, graph.isDemo, navController, s.aiGenerated,
+                graph, s.data.summary, activePeriodDays, graph.isDemo, navController, s.aiGenerated,
                 onSuggestPlan = {
                     val store = AiKeyStore(graph.context)
                     val provider = store.selectedProvider()
