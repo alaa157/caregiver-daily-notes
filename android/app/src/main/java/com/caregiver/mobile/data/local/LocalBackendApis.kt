@@ -36,6 +36,7 @@ import com.caregiver.mobile.data.plan.planConflictError
 import com.caregiver.mobile.data.plan.planTransitionError
 import com.caregiver.mobile.data.recipient.NameCheck
 import com.caregiver.mobile.data.recipient.RecipientNameRules
+import com.caregiver.mobile.data.recipient.RelationshipOptions
 import kotlinx.serialization.encodeToString
 import kotlinx.serialization.json.Json
 import java.time.LocalDate
@@ -117,10 +118,14 @@ class LocalBackendApis(
             ) {
                 throw IllegalArgumentException("recipient name")
             }
+            if (RelationshipOptions.isTooLong(body.relationship)) {
+                throw IllegalArgumentException("relationship")
+            }
             val dto = RecipientDto(
                 id = UUID.randomUUID().toString(),
                 name = normalizedName,
                 active = true,
+                relationship = RelationshipOptions.normalize(body.relationship),
             )
             recipientDao.insertAll(listOf(dto.toEntity()))
             return dto
