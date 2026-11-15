@@ -295,6 +295,8 @@
     <string name="summary_trend_count">%1$d out of %2$d recorded</string>
     <string name="summary_trend_no_data">No recorded data</string>
     <string name="summary_trend_delta">Change: %1$s</string>
+    <string name="summary_previous_result">Previous result</string>
+    <string name="summary_previous_result_note">This is the last summary that worked. It may not match the period you just asked for.</string>
     <string name="summary_important">Important notes</string>
     <string name="summary_unclear">Unclear information</string>
     <string name="summary_meds_locked">Medications are locked: AI never changes any medication or dose.</string>
@@ -307,6 +309,14 @@
     <string name="summary_generate_new">Generate a new summary</string>
     <string name="summary_latest_saved">Latest saved summary</string>
     <string name="summary_open_saved">Open</string>
+    <string name="summary_saved_period">%1$d days · %2$s – %3$s</string>
+    <string name="summary_has_flags">Has care flags</string>
+    <string name="summary_delete">Delete</string>
+    <string name="summary_delete_title">Delete this saved summary?</string>
+    <string name="summary_delete_body">This removes it from this device and from future backups. Your notes are not affected.</string>
+    <string name="summary_saved_empty">No saved summaries yet.</string>
+    <string name="summary_saved_all">All saved summaries</string>
+    <string name="detail_saved_summaries">Saved summaries</string>
     <string name="summary_unclear_invalid_evidence">Some AI findings were not supported by the source notes</string>
     <string name="summary_unclear_unverified">These AI findings are quote-based and still need clinical verification</string>
     <string name="pdf_title">Care Summary</string>

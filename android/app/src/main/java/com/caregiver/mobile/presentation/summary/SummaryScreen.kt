@@ -200,6 +200,11 @@ fun SummaryPeriodScreen(recipientId: String, graph: AppGraph, navController: Nav
                     modifier = Modifier.testTag("summary_open_saved"),
                 )
             }
+            SecondaryButton(
+                label = stringResource(R.string.summary_saved_all),
+                onClick = { navController.navigate(AppRoutes.savedSummaries(recipientId)) },
+                modifier = Modifier.testTag("summary_saved_all"),
+            )
         }
         BottomActionBar {
             PrimaryButton(
@@ -377,6 +382,7 @@ fun SummaryResultScreen(
                         isDemo = graph.isDemo,
                     )
                 }
+                PreviousSummaryResult(s.last, s.reasonCode, navController)
             }
             is SummaryState.Rejected -> Column(
                 verticalArrangement = Arrangement.spacedBy(AppDimens.SectionGap),
@@ -400,6 +406,7 @@ fun SummaryResultScreen(
                         isDemo = graph.isDemo,
                     )
                 }
+                PreviousSummaryResult(s.last, s.code, navController)
             }
             is SummaryState.NeedsConsent -> {
                 val consentStore = AiKeyStore(graph.context)
@@ -506,6 +513,95 @@ private fun FlagsBanner(redFlags: List<String>) {
  */
 internal fun usesObservationCards(evidence: List<SummaryDto.EvidenceDto>): Boolean =
     evidence.isNotEmpty() && evidence.all { it.claim.isNotBlank() }
+
+@Composable
+private fun SummaryResultContent(
+    summary: SummaryDto,
+    trends: List<TrendDto>,
+    textDirection: TextDirection,
+    navController: NavController,
+) {
+    TrendsSection(trends)
+    if (usesObservationCards(summary.evidence)) {
+        summary.evidence.forEachIndexed { index, item ->
+            AppCard(Modifier.testTag("summary_observation_$index")) {
+                Text(
+                    text = item.claim,
+                    style = TextStyle(textDirection = textDirection),
+                    fontFamily = PlexArabic,
+                    fontSize = 16.sp,
+                    color = CaregiverColors.Ink,
+                )
+                Text(
+                    text = "“${Bidi.isolate(item.quote)}”",
+                    fontFamily = PlexArabic,
+                    fontSize = 15.sp,
+                    color = CaregiverColors.Ink,
+                )
+                TextButton(
+                    onClick = { navController.navigate(AppRoutes.noteDetail(item.noteId)) },
+                ) {
+                    Text(stringResource(R.string.summary_open_source))
+                }
+            }
+        }
+    } else {
+        SectionTitle(stringResource(R.string.summary_overview))
+        Text(
+            text = if (summary.text.isBlank()) {
+                stringResource(R.string.summary_no_supported_observations)
+            } else {
+                summary.text
+            },
+            style = TextStyle(textDirection = textDirection),
+            fontFamily = PlexArabic,
+            fontSize = 16.sp,
+            lineHeight = 29.sp,
+            color = CaregiverColors.Ink,
+        )
+        if (summary.evidence.isNotEmpty()) {
+            SectionTitle(stringResource(R.string.summary_important))
+            summary.evidence.forEach { item ->
+                AppCard {
+                    Text(
+                        text = "“${Bidi.isolate(item.quote)}”",
+                        fontFamily = PlexArabic,
+                        fontSize = 15.sp,
+                        color = CaregiverColors.Ink,
+                    )
+                    GrayPill(stringResource(R.string.summary_source))
+                }
+            }
+        }
+    }
+}
+
+@Composable
+private fun PreviousSummaryResult(
+    last: SummaryResultData?,
+    failureCode: String?,
+    navController: NavController,
+) {
+    val data = last ?: return
+    if (
+        failureCode == "no_source_data" ||
+        (data.summary.text.isBlank() && data.summary.evidence.isEmpty())
+    ) {
+        return
+    }
+
+    val textDirection = if (appLocale().language == "ar") TextDirection.Rtl else TextDirection.Ltr
+    Column(verticalArrangement = Arrangement.spacedBy(AppDimens.GapForm)) {
+        SectionTitle(stringResource(R.string.summary_previous_result))
+        Text(
+            text = stringResource(R.string.summary_previous_result_note),
+            fontFamily = PlexArabic,
+            fontSize = 12.sp,
+            color = CaregiverColors.Muted,
+        )
+        SummaryResultContent(data.summary, data.trends, textDirection, navController)
+    }
+}
 
 @Composable
 private fun TrendsSection(trends: List<TrendDto>) {
@@ -759,55 +855,7 @@ private fun SummaryBody(
         if (summary.redFlags.isNotEmpty()) {
             FlagsBanner(summary.redFlags)
         }
-        TrendsSection(data.trends)
-        if (usesObservationCards(summary.evidence)) {
-            summary.evidence.forEachIndexed { index, item ->
-                AppCard(Modifier.testTag("summary_observation_$index")) {
-                    Text(
-                        text = item.claim,
-                        style = TextStyle(textDirection = textDirection),
-                        fontFamily = PlexArabic,
-                        fontSize = 16.sp,
-                        color = CaregiverColors.Ink,
-                    )
-                    Text(
-                        text = "“${Bidi.isolate(item.quote)}”",
-                        fontFamily = PlexArabic,
-                        fontSize = 15.sp,
-                        color = CaregiverColors.Ink,
-                    )
-                    TextButton(
-                        onClick = { navController.navigate(AppRoutes.noteDetail(item.noteId)) },
-                    ) {
-                        Text(stringResource(R.string.summary_open_source))
-                    }
-                }
-            }
-        } else {
-            SectionTitle(stringResource(R.string.summary_overview))
-            Text(
-                text = if (summary.text.isBlank()) stringResource(R.string.summary_no_supported_observations) else summary.text,
-                style = TextStyle(textDirection = textDirection),
-                fontFamily = PlexArabic,
-                fontSize = 16.sp,
-                lineHeight = 29.sp,
-                color = CaregiverColors.Ink,
-            )
-            if (summary.evidence.isNotEmpty()) {
-                SectionTitle(stringResource(R.string.summary_important))
-                summary.evidence.forEach { item ->
-                    AppCard {
-                        Text(
-                            text = "“${Bidi.isolate(item.quote)}”",
-                            fontFamily = PlexArabic,
-                            fontSize = 15.sp,
-                            color = CaregiverColors.Ink,
-                        )
-                        GrayPill(stringResource(R.string.summary_source))
-                    }
-                }
-            }
-        }
+        SummaryResultContent(summary, data.trends, textDirection, navController)
         if (summary.uncertainties.isNotEmpty()) {
             SectionTitle(stringResource(R.string.summary_unclear))
             summary.uncertainties.forEach { item ->
