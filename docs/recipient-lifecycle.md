@@ -40,8 +40,11 @@ All operations derive the caregiver identity from the authenticated principal; r
 | PATCH | `/api/recipients/{id}/archive` | Archive an active recipient |
 | PATCH | `/api/recipients/{id}/restore` | Restore an archived recipient |
 | PATCH | `/api/recipients/{id}/deactivate` | Compatibility alias for reversible archive |
+| PATCH | `/api/recipients/{id}/resolve-review` | Resolve a legacy-review recipient with `{"resolution":"ARCHIVED"}` or `{"resolution":"ACTIVE"}` |
 
 Unknown or cross-caregiver IDs remain indistinguishable (404). Invalid lifecycle filters return 400. Archived/legacy mutation conflicts return 409. Lifecycle writes are transactional and lock the owned recipient row.
+
+`resolve-review` is the explicit path for `LEGACY_INACTIVE_REVIEW` records. Choosing `ARCHIVED` marks the record archived; choosing `ACTIVE` returns it to active workflows. Neither choice invents earlier archive history.
 
 ## Operational workflow rules
 
@@ -49,7 +52,7 @@ Archived and legacy-review recipients are excluded from active note-creation sel
 
 Plan mutations and plan generation use the owned-recipient row lock and reject non-active recipients. Existing plans and historical notes, addenda, structured correction events, and reports remain readable. Restoring returns the recipient to active operational selectors; no historical content or dates are rewritten.
 
-The Web recipient management page has separate Active, Archived, and Needs review filters. Archived detail pages are read-only, show archive/restore metadata, and offer Restore. Legacy-review records remain read-only and have no automatic archive or restore action. Confirmation dialogs identify the recipient, explain preserved history and reversibility, and display loading, error, and success feedback. English and Arabic strings are supplied through the translation catalogue, with RTL layouts.
+The Web recipient management page has separate Active, Archived, and Needs review filters. Archived detail pages are read-only, show archive/restore metadata, and offer Restore. Legacy-review records remain read-only and have no automatic archive or restore action; resolution is an explicit choice of `ARCHIVED` or `ACTIVE` through `PATCH /api/recipients/{id}/resolve-review`. Confirmation dialogs identify the recipient, explain preserved history and reversibility, and display loading, error, and success feedback. English and Arabic strings are supplied through the translation catalogue, with RTL layouts.
 
 ## Verification scope
 
