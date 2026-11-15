@@ -234,9 +234,11 @@ fun SummaryResultScreen(
             graph.llmClientFactory,
             language = language,
             initialEnd = initialEnd,
+            savedStore = graph.savedSummaryStore,
         )
     }
     val state by vm.state.collectAsStateWithLifecycle()
+    val savedId by vm.savedId.collectAsStateWithLifecycle()
     val activePeriodDays by vm.period.collectAsStateWithLifecycle()
     val onRecoveryAction: (AiRecoveryAction) -> Unit = { action ->
         when (action) {
@@ -359,6 +361,7 @@ fun SummaryResultScreen(
             }
             is SummaryState.Content -> SummaryBody(
                 graph, s.data, activePeriodDays, graph.isDemo, navController, s.aiGenerated,
+                savedId = savedId,
                 onSuggestPlan = {
                     val store = AiKeyStore(graph.context)
                     val provider = store.selectedProvider()
@@ -457,6 +460,7 @@ private fun SummaryBody(
     isDemo: Boolean,
     navController: NavController,
     aiGenerated: Boolean = false,
+    savedId: String? = null,
     onSuggestPlan: (() -> Unit)? = null,
     suggesting: Boolean = false,
     suggestedForCurrent: Boolean = false,
@@ -511,6 +515,14 @@ private fun SummaryBody(
                     providerName,
                     Bidi.isolate(data.model),
                 ),
+                fontFamily = PlexArabic,
+                fontSize = 12.sp,
+                color = CaregiverColors.Muted,
+            )
+        }
+        if (savedId != null) {
+            Text(
+                text = stringResource(R.string.summary_saved_note),
                 fontFamily = PlexArabic,
                 fontSize = 12.sp,
                 color = CaregiverColors.Muted,
