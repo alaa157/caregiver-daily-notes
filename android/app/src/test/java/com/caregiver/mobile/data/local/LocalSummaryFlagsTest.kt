@@ -7,6 +7,7 @@ import java.time.LocalDate
 import kotlinx.coroutines.test.runTest
 import org.junit.After
 import org.junit.Assert.assertEquals
+import org.junit.Assert.assertFalse
 import org.junit.Assert.assertTrue
 import org.junit.Before
 import org.junit.Test
@@ -45,13 +46,14 @@ class LocalSummaryFlagsTest {
         pain: Int = 1,
         painRecorded: Boolean = true,
         fallRecorded: Boolean = true,
+        appetite: String = "good",
         text: String = "note $id",
     ) = NoteEntity(
         serverId = id,
         recipientId = recipientId,
         date = date,
         mood = "good",
-        appetite = "good",
+        appetite = appetite,
         sleep = "good",
         mobility = "walks",
         medicationTaken = "taken",
@@ -148,6 +150,54 @@ class LocalSummaryFlagsTest {
         val summary = apis.summaries().summarize(SummaryRequest("r1", 7))
 
         assertTrue(summary.redFlags.contains("FALL_REPORTED"))
+    }
+
+    @Test
+    fun threeDaysOfRefusedAppetiteRaisePoorAppetiteDays() = runTest {
+        val today = LocalDate.now()
+        db.noteDao().insertAll(
+            listOf(
+                note("n1", "r1", today.toString(), appetite = "refused"),
+                note("n2", "r1", today.minusDays(1).toString(), appetite = "refused"),
+                note("n3", "r1", today.minusDays(2).toString(), appetite = "refused"),
+            ),
+        )
+
+        val summary = apis.summaries().summarize(SummaryRequest("r1", 7))
+
+        assertTrue(summary.redFlags.contains("POOR_APPETITE_DAYS"))
+    }
+
+    @Test
+    fun threeDaysOfReducedAppetiteDoNotRaisePoorAppetiteDays() = runTest {
+        val today = LocalDate.now()
+        db.noteDao().insertAll(
+            listOf(
+                note("n1", "r1", today.toString(), appetite = "reduced"),
+                note("n2", "r1", today.minusDays(1).toString(), appetite = "reduced"),
+                note("n3", "r1", today.minusDays(2).toString(), appetite = "reduced"),
+            ),
+        )
+
+        val summary = apis.summaries().summarize(SummaryRequest("r1", 7))
+
+        assertFalse(summary.redFlags.contains("POOR_APPETITE_DAYS"))
+    }
+
+    @Test
+    fun threeDaysOfPoorAppetiteStillRaisePoorAppetiteDays() = runTest {
+        val today = LocalDate.now()
+        db.noteDao().insertAll(
+            listOf(
+                note("n1", "r1", today.toString(), appetite = "poor"),
+                note("n2", "r1", today.minusDays(1).toString(), appetite = "poor"),
+                note("n3", "r1", today.minusDays(2).toString(), appetite = "poor"),
+            ),
+        )
+
+        val summary = apis.summaries().summarize(SummaryRequest("r1", 7))
+
+        assertTrue(summary.redFlags.contains("POOR_APPETITE_DAYS"))
     }
 
     @Test

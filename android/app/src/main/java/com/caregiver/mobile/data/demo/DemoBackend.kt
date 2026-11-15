@@ -215,7 +215,7 @@ class DemoBackendApis : BackendApis, RecipientAdmin {
                     pain = if (note.painRecorded) note.pain else null,
                     medication = note.medicationTaken,
                     medicationUnverified = note.medicationTaken == "unsure",
-                    poorAppetite = note.appetite == "poor",
+                    poorAppetite = note.appetite == "poor" || note.appetite == "refused",
                     // Addenda are part of the note for safety purposes.
                     text = note.copy(addenda = addenda.filter { it.noteId == note.id }).combinedText(),
                 )
@@ -241,7 +241,7 @@ class DemoBackendApis : BackendApis, RecipientAdmin {
                         pain = if (note.painRecorded) note.pain else null,
                         medication = note.medicationTaken,
                         medicationUnverified = note.medicationTaken == "unsure",
-                        poorAppetite = note.appetite == "poor",
+                        poorAppetite = note.appetite == "poor" || note.appetite == "refused",
                         text = note.copy(addenda = addenda.filter { it.noteId == note.id }).combinedText(),
                     )
                 },
