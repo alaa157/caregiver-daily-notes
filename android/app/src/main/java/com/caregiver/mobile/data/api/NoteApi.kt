@@ -57,6 +57,8 @@ data class NoteDto(
      * sends this field, so decoded and cached rows always default to false.
      */
     val pending: Boolean = false,
+    val painRecorded: Boolean = true,
+    val fallRecorded: Boolean = true,
 )
 
 /**
@@ -90,6 +92,8 @@ data class NoteDetailDto(
     val fall: Boolean,
     val text: String,
     val addenda: List<AddendumDto>,
+    val painRecorded: Boolean = true,
+    val fallRecorded: Boolean = true,
 )
 
 @Serializable
@@ -104,6 +108,8 @@ data class CreateNoteRequest(
     val fall: Boolean,
     val text: String,
     val idempotencyKey: String? = null,
+    val painRecorded: Boolean = true,
+    val fallRecorded: Boolean = true,
 )
 
 @Serializable
