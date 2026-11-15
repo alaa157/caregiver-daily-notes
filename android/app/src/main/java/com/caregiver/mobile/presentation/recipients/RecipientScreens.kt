@@ -73,6 +73,7 @@ import com.caregiver.mobile.core.navigation.MainTab
 import com.caregiver.mobile.core.navigation.ScrollToTop
 import com.caregiver.mobile.core.theme.CaregiverColors
 import com.caregiver.mobile.core.theme.PlexArabic
+import com.caregiver.mobile.data.api.NoteDto
 import com.caregiver.mobile.data.api.RecipientDto
 import com.caregiver.mobile.data.local.RecipientAdmin
 import com.caregiver.mobile.data.local.RecipientDeletionCounts
@@ -927,6 +928,27 @@ fun RecipientDetailScreen(
     }
 }
 
+internal sealed interface LastNoteItem {
+    data class Option(val group: OptionGroup, val value: String) : LastNoteItem
+    data class Pain(val value: Int) : LastNoteItem
+    data object FallReported : LastNoteItem
+}
+
+internal fun lastNoteItems(note: NoteDto): List<LastNoteItem> = buildList {
+    val options = listOf(
+        OptionGroup.Mood to note.mood,
+        OptionGroup.Appetite to note.appetite,
+        OptionGroup.Sleep to note.sleep,
+        OptionGroup.Mobility to note.mobility,
+        OptionGroup.Medication to note.medicationTaken,
+    )
+    options.forEach { (group, value) ->
+        if (value.isNotBlank()) add(LastNoteItem.Option(group, value))
+    }
+    if (note.painRecorded) add(LastNoteItem.Pain(note.pain))
+    if (note.fallRecorded && note.fall) add(LastNoteItem.FallReported)
+}
+
 @Composable
 internal fun DetailContent(
     detail: RecipientDetail,
@@ -1004,16 +1026,31 @@ internal fun DetailContent(
                 }
             }
         }
-        // Latest note section — only when history actually returned one.
-        // The status card above already covers the no-notes empty state.
+        // The status card above covers the no-notes empty state.
         detail.lastNote?.let { note ->
-            val labels = listOf(
-                optionLabel(OptionGroup.Mood, note.mood),
-                optionLabel(OptionGroup.Appetite, note.appetite),
-                optionLabel(OptionGroup.Mobility, note.mobility),
-            ).filter { it.isNotBlank() }
-            if (labels.isNotEmpty()) {
+            val items = lastNoteItems(note)
+            if (items.isNotEmpty()) {
                 SectionTitle(stringResource(R.string.person_last_note))
+                Text(
+                    text = stringResource(
+                        R.string.person_last_note_date,
+                        Bidi.isolate(note.date),
+                    ),
+                    fontFamily = PlexArabic,
+                    fontSize = 13.sp,
+                    color = CaregiverColors.Muted,
+                )
+                val labels = mutableListOf<String>()
+                for (item in items) {
+                    labels += when (item) {
+                        is LastNoteItem.Option -> optionLabel(item.group, item.value)
+                        is LastNoteItem.Pain -> stringResource(
+                            R.string.person_last_note_pain,
+                            item.value,
+                        )
+                        LastNoteItem.FallReported -> stringResource(R.string.person_last_note_fall)
+                    }
+                }
                 Text(
                     text = labels.joinToString(" · "),
                     fontFamily = PlexArabic,
