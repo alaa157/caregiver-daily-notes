@@ -103,6 +103,8 @@ fun AiSettingsScreen(graph: AppGraph, navController: NavController, navEntry: Na
     val initialStoredBaseUrl = store.baseUrl(initialProvider).orEmpty()
     var baseUrl by remember { mutableStateOf(initialStoredBaseUrl.ifBlank { initialProvider.defaultBaseUrl }) }
     var savedBaseUrl by remember { mutableStateOf(initialStoredBaseUrl) }
+    val modelInvalid = !AiSettingsValidation.isAcceptableModelId(model)
+    val customBaseUrl = AiSettingsValidation.normalizedBaseUrl(baseUrl, provider).isNotEmpty()
     var systemPrompt by remember { mutableStateOf(store.systemPrompt()) }
     var summaryPrompt by remember { mutableStateOf(store.summarySystemPrompt()) }
     var planPrompt by remember { mutableStateOf(store.planSystemPrompt()) }
@@ -452,6 +454,16 @@ fun AiSettingsScreen(graph: AppGraph, navController: NavController, navEntry: Na
                 )
             },
         )
+        if (customBaseUrl) {
+            Text(
+                text = stringResource(R.string.settings_ai_custom_url_warning, provider.displayName),
+                style = MaterialTheme.typography.bodySmall,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                modifier = Modifier
+                    .padding(horizontal = 16.dp)
+                    .testTag("custom_url_warning"),
+            )
+        }
 
         CaregiverSettingsGroup(
             items = listOf(
@@ -561,7 +573,7 @@ fun AiSettingsScreen(graph: AppGraph, navController: NavController, navEntry: Na
                     }
                 }
             }
-        }, enabled = !testing) {
+        }, enabled = !testing && !modelInvalid) {
             Text(if (testing) stringResource(R.string.settings_ai_testing) else stringResource(R.string.settings_ai_test_connection))
         }
         if (testing) {
@@ -690,7 +702,7 @@ fun AiSettingsScreen(graph: AppGraph, navController: NavController, navEntry: Na
             keyError = null
             keyState = store.apiKeyState(provider)
             navController.popBackStack()
-        }, enabled = !baseUrlInvalid) { Text(stringResource(R.string.settings_ai_save)) }
+        }, enabled = !baseUrlInvalid && !modelInvalid) { Text(stringResource(R.string.settings_ai_save)) }
 
         keyError?.let {
             Text(text = it, color = MaterialTheme.colorScheme.error)
@@ -882,6 +894,12 @@ fun AiSettingsScreen(graph: AppGraph, navController: NavController, navEntry: Na
                             qualityStatus = null
                         },
                         label = { Text(stringResource(R.string.settings_ai_custom_model)) },
+                        isError = modelInvalid,
+                        supportingText = {
+                            if (modelInvalid) {
+                                Text(stringResource(R.string.settings_ai_invalid_model))
+                            }
+                        },
                         modifier = Modifier.fillMaxWidth(),
                     )
                     // What the provider offers for free, so the choice is
@@ -940,6 +958,11 @@ fun AiSettingsScreen(graph: AppGraph, navController: NavController, navEntry: Na
                 OutlinedTextField(
                     value = baseUrl,
                     onValueChange = { baseUrl = it },
+                    supportingText = {
+                        if (customBaseUrl) {
+                            Text(stringResource(R.string.settings_ai_custom_url_warning, provider.displayName))
+                        }
+                    },
                     modifier = Modifier.fillMaxWidth(),
                 )
             },

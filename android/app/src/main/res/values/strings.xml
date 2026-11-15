@@ -437,6 +437,8 @@
     <string name="settings_ai_format_probe">Format validation probe: no concerns reported today.</string>
     <string name="settings_ai_format_invalid">Format check failed: %1$s</string>
     <string name="settings_ai_invalid_base_url">Base URL must start with http:// or https:// and include a host.</string>
+    <string name="settings_ai_invalid_model">Use only letters, digits and . _ : / - (up to 128 characters).</string>
+    <string name="settings_ai_custom_url_warning">Your API key and your care notes will be sent to this address instead of %1$s. Only use an address you trust.</string>
     <string name="settings_mode">Mode</string>
     <string name="settings_accent">Accent</string>
     <string name="settings_mode_light">Light</string>

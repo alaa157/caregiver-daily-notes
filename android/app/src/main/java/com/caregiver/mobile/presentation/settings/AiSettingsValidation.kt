@@ -71,6 +71,18 @@ object AiSettingsValidation {
     }
 
     /**
+     * False only for a non-blank model id that cannot work: it must start
+     * with a letter or digit and contain only letters, digits and
+     * `.` `_` `:` `/` `-`, up to 128 characters. Blank means "follow the
+     * provider default" and is always acceptable.
+     */
+    fun isAcceptableModelId(raw: String): Boolean {
+        val model = raw.trim()
+        if (model.isEmpty()) return true
+        return Regex("^[A-Za-z0-9][A-Za-z0-9._:/-]{0,127}$").matches(model)
+    }
+
+    /**
      * Model to persist: blank when the user kept the provider default (so
      * later changes to the default are picked up), the trimmed custom id
      * otherwise. Empty stored model means "follow app default".
