@@ -1,6 +1,7 @@
 package com.caregiver.mobile.ai
 
 import org.junit.Assert.assertEquals
+import org.junit.Assert.assertNull
 import org.junit.Assert.assertTrue
 import org.junit.Test
 
@@ -101,5 +102,64 @@ class AiModelCatalogTest {
                 assertEquals(option.id, option.id.trim())
             }
         }
+    }
+
+    @Test
+    fun noGeminiModelIsFree() {
+        assertTrue(
+            "Gemini data use follows the key's billing tier, not the model",
+            AiModelCatalog.options(AiProvider.GEMINI).none { it.free },
+        )
+    }
+
+    @Test
+    fun eachProviderHasExactlyOnePaidSummaryRecommendation() {
+        for (provider in AiProvider.entries) {
+            val matches = AiModelCatalog.options(provider).filter {
+                it.recommendedForSummaries && !it.free
+            }
+            assertEquals("${provider.name} paid summary recommendations", 1, matches.size)
+        }
+    }
+
+    @Test
+    fun idsAreUniquePerProvider() {
+        for (provider in AiProvider.entries) {
+            val ids = AiModelCatalog.options(provider).map { it.id }
+            assertEquals(ids.size, ids.toSet().size)
+        }
+    }
+
+    @Test
+    fun geminiAlwaysNeedsTheKeyTierNotice() {
+        for (model in listOf("gemini-3.8-flash", "anything-else")) {
+            assertEquals(
+                AiDataUseNotice.KEY_TIER,
+                AiModelCatalog.dataUseNotice(AiProvider.GEMINI, model),
+            )
+        }
+    }
+
+    @Test
+    fun openRouterFreeVariantNeedsTheFreeHostNotice() {
+        assertEquals(
+            AiDataUseNotice.FREE_HOST,
+            AiModelCatalog.dataUseNotice(AiProvider.OPEN_ROUTER, "a:free"),
+        )
+        assertNull(
+            AiModelCatalog.dataUseNotice(AiProvider.OPEN_ROUTER, "openai/gpt-4o-mini"),
+        )
+        assertNull(
+            AiModelCatalog.dataUseNotice(AiProvider.OPENAI, "gpt-4o-mini"),
+        )
+    }
+
+    @Test
+    fun isCatalogModelMatchesTrimmedListedIds() {
+        val provider = AiProvider.OPENAI
+        val listed = AiModelCatalog.options(provider).first().id
+        assertTrue(AiModelCatalog.isCatalogModel(provider, listed))
+        assertTrue(AiModelCatalog.isCatalogModel(provider, "  $listed  "))
+        assertTrue(!AiModelCatalog.isCatalogModel(provider, "not-a-model"))
     }
 }
