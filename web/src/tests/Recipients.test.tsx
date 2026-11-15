@@ -47,6 +47,11 @@ function creationFetcher(existing: (typeof recipient)[], createdName: string) {
   });
 }
 
+function postedRecipient(fetcher: ReturnType<typeof vi.fn>) {
+  const post = fetcher.mock.calls.find(([, options]) => options.method === 'POST');
+  return post ? JSON.parse(post[1].body) : undefined;
+}
+
 describe('care recipients screens', () => {
   it('keeps recipient tabs on deep-linkable, recipient-scoped routes', async () => {
     const fetcher = vi.fn().mockImplementation((path: string) => {
@@ -198,13 +203,13 @@ describe('care recipients screens', () => {
     expect(screen.getByRole('alert')).toHaveTextContent('Enter the recipient’s name.');
     expect(fetcher).not.toHaveBeenCalled();
     await userEvent.type(screen.getByRole('textbox', { name: 'Name' }), ' Samir Hassan ');
-    await userEvent.type(screen.getByRole('textbox', { name: 'Relationship (optional)' }), ' Father ');
+    await userEvent.click(screen.getByRole('radio', { name: 'Father' }));
     await userEvent.click(screen.getByRole('button', { name: 'Add care recipient' }));
     expect(await screen.findByRole('heading', { name: recipient.name })).toBeInTheDocument();
     expect(screen.getByText('Care recipient added.')).toHaveFocus();
     const post = fetcher.mock.calls.find(([, options]) => options.method === 'POST');
     expect(post).toBeDefined();
-    expect(JSON.parse(post![1].body)).toEqual({ name: recipient.name, relationship: recipient.relationship });
+    expect(JSON.parse(post![1].body)).toEqual({ name: recipient.name, relationship: 'FATHER' });
     expect(post![1].method).toBe('POST');
   });
 
@@ -288,7 +293,8 @@ describe('care recipients screens', () => {
     const fetcher = vi.fn();
     renderRecipients(`${root}/new`, fetcher);
     fireEvent.change(screen.getByRole('textbox', { name: 'Name' }), { target: { value: 'x'.repeat(121) } });
-    fireEvent.change(screen.getByRole('textbox', { name: 'Relationship (optional)' }), { target: { value: 'x'.repeat(81) } });
+    await userEvent.click(screen.getByRole('radio', { name: 'Other' }));
+    fireEvent.change(screen.getByRole('textbox', { name: 'Describe the relationship' }), { target: { value: 'x'.repeat(81) } });
     await userEvent.click(screen.getByRole('button', { name: 'Add care recipient' }));
     expect(screen.getAllByRole('alert')).toHaveLength(2);
     expect(screen.getByRole('textbox', { name: 'Name' })).toHaveAttribute('aria-describedby', expect.stringContaining('recipient-name-error'));
@@ -376,12 +382,95 @@ describe('care recipients screens', () => {
     expect(await screen.findByLabelText('Name')).toHaveValue(recipient.name);
     await userEvent.clear(screen.getByLabelText('Name'));
     await userEvent.type(screen.getByLabelText('Name'), updated.name);
-    await userEvent.clear(screen.getByLabelText('Relationship (optional)'));
+    await userEvent.click(screen.getByRole('radio', { name: 'Father' }));
     await userEvent.click(screen.getByRole('button', { name: 'Save changes' }));
     expect(await screen.findByText('Recipient details updated.')).toBeInTheDocument();
     expect(JSON.parse(fetcher.mock.calls[1][1].body)).toEqual({ name: updated.name, relationship: null });
     expect(fetcher.mock.calls[1][1].method).toBe('PUT');
     expect(await screen.findByRole('heading', { name: updated.name })).toBeInTheDocument();
+  });
+
+  describe('relationship chips', () => {
+    const chipCases = [
+      ['MOTHER', 'Mother'],
+      ['FATHER', 'Father'],
+      ['SPOUSE', 'Spouse'],
+      ['GRANDMOTHER', 'Grandmother'],
+      ['GRANDFATHER', 'Grandfather'],
+      ['CHILD', 'Child'],
+      ['SIBLING', 'Sibling'],
+      ['RELATIVE', 'Relative'],
+      ['FRIEND', 'Friend'],
+      ['CLIENT', 'Client'],
+    ] as const;
+
+    it.each(chipCases)('sends %s for the %s chip', async (code, label) => {
+      const name = `Chip ${code}`;
+      const fetcher = creationFetcher([], name);
+      renderRecipients(`${root}/new`, fetcher);
+      await userEvent.type(await screen.findByLabelText('Name'), name);
+      await userEvent.click(screen.getByRole('radio', { name: label }));
+      await userEvent.click(screen.getByRole('button', { name: 'Add care recipient' }));
+
+      expect(await screen.findByText('Care recipient added.')).toBeInTheDocument();
+      expect(postedRecipient(fetcher)).toEqual({ name, relationship: code });
+    });
+
+    it('sends null when the selected chip is tapped again', async () => {
+      const fetcher = creationFetcher([], 'Deselected chip');
+      renderRecipients(`${root}/new`, fetcher);
+      await userEvent.type(await screen.findByLabelText('Name'), 'Deselected chip');
+      const chip = screen.getByRole('radio', { name: 'Mother' });
+      await userEvent.click(chip);
+      await userEvent.click(chip);
+      await userEvent.click(screen.getByRole('button', { name: 'Add care recipient' }));
+
+      expect(await screen.findByText('Care recipient added.')).toBeInTheDocument();
+      expect(postedRecipient(fetcher)).toEqual({ name: 'Deselected chip', relationship: null });
+    });
+
+    it('sends null when Other has no text', async () => {
+      const fetcher = creationFetcher([], 'Empty other');
+      renderRecipients(`${root}/new`, fetcher);
+      await userEvent.type(await screen.findByLabelText('Name'), 'Empty other');
+      await userEvent.click(screen.getByRole('radio', { name: 'Other' }));
+      await userEvent.click(screen.getByRole('button', { name: 'Add care recipient' }));
+
+      expect(await screen.findByText('Care recipient added.')).toBeInTheDocument();
+      expect(postedRecipient(fetcher)).toEqual({ name: 'Empty other', relationship: null });
+    });
+
+    it('sends trimmed Other text', async () => {
+      const fetcher = creationFetcher([], 'Other text');
+      renderRecipients(`${root}/new`, fetcher);
+      await userEvent.type(await screen.findByLabelText('Name'), 'Other text');
+      await userEvent.click(screen.getByRole('radio', { name: 'Other' }));
+      await userEvent.type(screen.getByRole('textbox', { name: 'Describe the relationship' }), '  My uncle  ');
+      await userEvent.click(screen.getByRole('button', { name: 'Add care recipient' }));
+
+      expect(await screen.findByText('Care recipient added.')).toBeInTheDocument();
+      expect(postedRecipient(fetcher)).toEqual({ name: 'Other text', relationship: 'My uncle' });
+    });
+
+    it('selects the FATHER chip for a legacy Father value when editing', async () => {
+      renderRecipients(`${detail}/edit`, vi.fn().mockResolvedValue(jsonResponse(recipient)));
+      expect(await screen.findByRole('radio', { name: 'Father' })).toHaveAttribute('aria-checked', 'true');
+    });
+
+    it('selects Other with prefilled text for a legacy relationship when editing', async () => {
+      renderRecipients(`${detail}/edit`, vi.fn().mockResolvedValue(jsonResponse({ ...recipient, relationship: 'My uncle' })));
+      expect(await screen.findByRole('radio', { name: 'Other' })).toHaveAttribute('aria-checked', 'true');
+      expect(await screen.findByRole('textbox', { name: 'Describe the relationship' })).toHaveValue('My uncle');
+    });
+
+    it('renders relationship chips in Arabic RTL', async () => {
+      renderRecipients(`${root}/new`, vi.fn(), 'ar');
+      expect(document.documentElement).toHaveAttribute('dir', 'rtl');
+      const group = await screen.findByRole('radiogroup', { name: 'صلة القرابة أو العلاقة (اختياري)' });
+      expect(within(group).getByRole('radio', { name: 'الأم' })).toBeInTheDocument();
+      await userEvent.click(within(group).getByRole('radio', { name: 'أخرى' }));
+      expect(screen.getByRole('textbox', { name: 'صف العلاقة' })).toHaveAttribute('dir', 'auto');
+    });
   });
 
   it('keeps archived recipient fields read only', async () => {

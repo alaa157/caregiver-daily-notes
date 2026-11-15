@@ -2,14 +2,31 @@ import { useEffect, useRef, useState, type FormEvent } from 'react';
 import { ApiError } from '../../lib/api';
 import { recipientErrorMessage, validateRecipient, type Recipient, type RecipientInput, type RecipientLifecycleStatus } from '../../api/recipients';
 import { Button, ButtonLink } from '../../components/Button';
+import { ChipGroup } from '../../components/ChipGroup';
 import { FieldError } from '../../components/Feedback';
 import { useI18n } from '../../i18n/I18nProvider';
 import type { MessageKey } from '../../i18n/translations';
+import { relationshipCodes, relationshipOptions, type RelationshipCode } from './relationshipOptions';
 
 const statusMessage: Record<RecipientLifecycleStatus, MessageKey> = {
   ACTIVE: 'recipientActive',
   ARCHIVED: 'recipientArchived',
   LEGACY_INACTIVE_REVIEW: 'recipientNeedsReview',
+};
+
+const relationshipCode = (value: string | null | undefined): RelationshipCode | null => {
+  const normalized = value?.trim().toUpperCase();
+  return relationshipCodes.find((code) => code === normalized) ?? null;
+};
+const initialRelationship = (value: string | null | undefined): { chip: RelationshipCode | null; other: string } => {
+  const chip = relationshipCode(value);
+  if (chip) return { chip, other: '' };
+  const other = value?.trim() ?? '';
+  return other ? { chip: 'OTHER', other } : { chip: null, other: '' };
+};
+const relationshipValue = (chip: RelationshipCode | null, other: string): string | null => {
+  if (chip === 'OTHER') return other.trim() || null;
+  return chip;
 };
 
 export function RecipientForm({ initial, onSave, onCheckDuplicate, cancelTo, onReload }: {
@@ -20,17 +37,18 @@ export function RecipientForm({ initial, onSave, onCheckDuplicate, cancelTo, onR
   onReload?: () => void;
 }) {
   const { t } = useI18n();
+  const relationshipChipOptions = relationshipOptions.map((option) => ({ key: option.code, label: t(option.labelKey) }));
   const [name, setName] = useState(initial?.name ?? '');
-  const [relationship, setRelationship] = useState(initial?.relationship ?? '');
+  const [relationshipChoice, setRelationshipChoice] = useState(() => initialRelationship(initial?.relationship));
   const [errors, setErrors] = useState<Partial<Record<keyof RecipientInput, MessageKey>>>({});
   const [failure, setFailure] = useState<{ key: MessageKey; conflict: boolean } | null>(null);
   const [duplicate, setDuplicate] = useState<{ recipient: Recipient; input: RecipientInput; key: string } | null>(null);
   const [saving, setSaving] = useState(false);
   const request = useRef<AbortController | null>(null);
-  const attempt = useRef<{ key: string; name: string; relationship: string } | null>(null);
+  const attempt = useRef<{ key: string; name: string; relationship: string | null } | null>(null);
   const duplicateBypass = useRef<string | null>(null);
   const nameRef = useRef<HTMLInputElement>(null);
-  const relationshipRef = useRef<HTMLInputElement>(null);
+  const relationshipRef = useRef<HTMLDivElement>(null);
   const failureRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => () => request.current?.abort(), []);
@@ -66,16 +84,28 @@ export function RecipientForm({ initial, onSave, onCheckDuplicate, cancelTo, onR
     }
   }
 
+  function focusRelationship() {
+    const other = relationshipChoice.chip === 'OTHER'
+      ? relationshipRef.current?.querySelector<HTMLInputElement>('input')
+      : null;
+    const target = other
+      ?? relationshipRef.current?.querySelector<HTMLElement>('[aria-checked="true"]')
+      ?? relationshipRef.current?.querySelector<HTMLElement>('[role="radio"]');
+    target?.focus();
+  }
+
   async function submit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
     if (request.current || failure?.conflict) return;
+    const relationship = relationshipValue(relationshipChoice.chip, relationshipChoice.other);
     const input = { name, relationship };
     const nextErrors = validateRecipient(input);
     setErrors(nextErrors);
     setFailure(null);
     setDuplicate(null);
     if (nextErrors.name || nextErrors.relationship) {
-      (nextErrors.name ? nameRef : relationshipRef).current?.focus();
+      if (nextErrors.name) nameRef.current?.focus();
+      else focusRelationship();
       return;
     }
     let key: string | undefined;
@@ -129,13 +159,26 @@ export function RecipientForm({ initial, onSave, onCheckDuplicate, cancelTo, onR
       <p className="recipient-hint" id="recipient-name-hint">{t('recipientNameHint')}</p>
       {errors.name && <FieldError id="recipient-name-error" message={t(errors.name)} />}
     </div>
-    <div className="recipient-field">
-      <label htmlFor="recipient-relationship">{t('recipientRelationship')}</label>
-      <input id="recipient-relationship" ref={relationshipRef} name="relationship" dir="auto" autoComplete="off" maxLength={80}
-        value={relationship} readOnly={saving || failure?.conflict} aria-invalid={!!errors.relationship}
-        aria-describedby={'recipient-relationship-hint' + (errors.relationship ? ' recipient-relationship-error' : '')}
-        onChange={(event) => { setRelationship(event.target.value); setDuplicate(null); setErrors((value) => ({ ...value, relationship: undefined })); }} />
+    <div className="recipient-field" ref={relationshipRef}>
+      <ChipGroup id="recipient-relationship" label={t('recipientRelationship')} options={relationshipChipOptions}
+        selectedKey={relationshipChoice.chip} disabled={saving || failure?.conflict} invalid={!!errors.relationship}
+        describedBy={'recipient-relationship-hint' + (errors.relationship ? ' recipient-relationship-error' : '')}
+        onSelect={(key) => {
+          const chip = relationshipOptions.some((option) => option.code === key) ? key as RelationshipCode : null;
+          setRelationshipChoice((current) => ({ chip, other: chip === 'OTHER' ? current.other : '' }));
+          setDuplicate(null);
+          setErrors((value) => ({ ...value, relationship: undefined }));
+        }} />
       <p className="recipient-hint" id="recipient-relationship-hint">{t('recipientRelationshipHint')}</p>
+      {relationshipChoice.chip === 'OTHER' && <input id="recipient-relationship-other" name="relationshipOther" dir="auto" autoComplete="off" maxLength={80}
+        aria-label={t('relationshipOtherPlaceholder')} placeholder={t('relationshipOtherPlaceholder')}
+        value={relationshipChoice.other} readOnly={saving || failure?.conflict} aria-invalid={!!errors.relationship}
+        aria-describedby={'recipient-relationship-hint' + (errors.relationship ? ' recipient-relationship-error' : '')}
+        onChange={(event) => {
+          setRelationshipChoice((current) => ({ ...current, other: event.target.value }));
+          setDuplicate(null);
+          setErrors((value) => ({ ...value, relationship: undefined }));
+        }} />}
       {errors.relationship && <FieldError id="recipient-relationship-error" message={t(errors.relationship)} />}
     </div>
     <div className="recipient-actions">
