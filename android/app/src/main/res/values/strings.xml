@@ -64,6 +64,7 @@
     <string name="editor_save_note">Saving does not use AI</string>
     <string name="editor_error_nothing_answered">Answer at least one question or add a note before saving.</string>
     <string name="editor_error_duplicate_day">A note already exists for this person today.</string>
+    <string name="editor_duplicate_view">View today’s note</string>
     <string name="editor_error_generic">Could not save the note. Please try again.</string>
     <string name="saved_title">Saved</string>
     <string name="saved_view">View note</string>

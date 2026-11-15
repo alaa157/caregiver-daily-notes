@@ -206,18 +206,40 @@ fun NoteEditorScreen(recipientId: String, graph: AppGraph, navController: NavCon
                     modifier = Modifier.fillMaxWidth().height(130.dp),
                 )
             }
-            state.formError?.let {
+            state.formError?.let { error ->
                 FieldError(
-                    when (it) {
-                        is EditorError.Rejected -> stringResource(EditorErrorText.res(it.code))
+                    when (error) {
+                        is EditorError.Rejected -> stringResource(EditorErrorText.res(error.code))
                         EditorError.Unreachable -> stringResource(R.string.auth_error_unreachable)
                         EditorError.ArchivedRecipient ->
                             stringResource(R.string.people_archived_recipient_unavailable)
                         EditorError.NothingAnswered ->
                             stringResource(R.string.editor_error_nothing_answered)
+                        is EditorError.DuplicateDay ->
+                            stringResource(R.string.editor_error_duplicate_day)
                         else -> ""
                     },
                 )
+                if (error is EditorError.DuplicateDay) {
+                    SecondaryButton(
+                        label = stringResource(R.string.editor_duplicate_view),
+                        onClick = {
+                            navController.navigate("note/${error.existingNoteId}") {
+                                popUpTo("note-editor/$recipientId") { inclusive = true }
+                            }
+                        },
+                        height = 52.dp,
+                    )
+                    SecondaryButton(
+                        label = stringResource(R.string.detail_add_correction),
+                        onClick = {
+                            navController.navigate("addendum/${error.existingNoteId}") {
+                                popUpTo("note-editor/$recipientId") { inclusive = true }
+                            }
+                        },
+                        height = 52.dp,
+                    )
+                }
             }
             Spacer(Modifier.height(4.dp))
         }
