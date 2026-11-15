@@ -9,6 +9,7 @@ import com.caregiver.mobile.data.local.ArchivedRecipientException
 import com.caregiver.mobile.data.local.RecipientAdmin
 import com.caregiver.mobile.data.recipient.NameCheck
 import com.caregiver.mobile.data.recipient.RecipientNameRules
+import com.caregiver.mobile.data.recipient.RelationshipOptions
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -27,6 +28,10 @@ data class EditState(
     val archived: Boolean = false,
     val missing: Boolean = false,
     val savedId: String? = null,
+    val relationship: String? = null,
+    val relationshipOther: String = "",
+    val relationshipError: Boolean = false,
+    val originalRelationship: String? = null,
 )
 
 class EditRecipientViewModel(
@@ -47,11 +52,16 @@ class EditRecipientViewModel(
                 val recipient = repository.authorized {
                     apis.recipients().get(recipientId)
                 }
+                val (chip, other) = RelationshipOptions.choiceOf(recipient.relationship)
                 _state.value = EditState(
                     loaded = true,
                     name = recipient.name,
                     originalName = recipient.name,
                     archived = recipient.archivedAt != null,
+                    relationship = chip,
+                    relationshipOther = other,
+                    originalRelationship =
+                        RelationshipOptions.normalize(recipient.relationship),
                 )
             } catch (e: LoggedOutException) {
                 // Root navigation handles the expired session.
@@ -73,12 +83,36 @@ class EditRecipientViewModel(
         )
     }
 
+    fun setRelationship(code: String?) {
+        val current = _state.value
+        val selected = if (current.relationship == code) null else code
+        _state.value = current.copy(
+            relationship = selected,
+            relationshipOther = if (selected == "OTHER") current.relationshipOther else "",
+            relationshipError = false,
+            failed = false,
+        )
+    }
+
+    fun setRelationshipOther(value: String) {
+        _state.value = _state.value.copy(
+            relationshipOther = value,
+            relationshipError = false,
+            failed = false,
+        )
+    }
+
     fun save() {
         val current = _state.value
         if (current.busy || current.archived) return
 
         val name = RecipientNameRules.normalize(current.name)
-        if (name == RecipientNameRules.normalize(current.originalName)) {
+        val storedRelationship = RelationshipOptions.storedValue(
+            current.relationship,
+            current.relationshipOther,
+        )
+        val nameUnchanged = name == RecipientNameRules.normalize(current.originalName)
+        if (nameUnchanged && storedRelationship == current.originalRelationship) {
             _state.value = current.copy(savedId = recipientId)
             return
         }
@@ -95,8 +129,14 @@ class EditRecipientViewModel(
             NameCheck.Ok -> Unit
         }
 
+        if (RelationshipOptions.isTooLong(storedRelationship)) {
+            _state.value = current.copy(relationshipError = true)
+            return
+        }
+
         _state.value = current.copy(
             nameError = null,
+            relationshipError = false,
             duplicate = null,
             busy = true,
             failed = false,
@@ -121,7 +161,7 @@ class EditRecipientViewModel(
                         return@launch
                     }
                 }
-                val saved = admin.rename(recipientId, name)
+                val saved = admin.updateProfile(recipientId, name, storedRelationship)
                 _state.value = _state.value.copy(savedId = saved.id)
             } catch (e: ArchivedRecipientException) {
                 _state.value = _state.value.copy(archived = true)

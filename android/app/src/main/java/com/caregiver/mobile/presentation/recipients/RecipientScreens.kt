@@ -647,6 +647,7 @@ fun AddRecipientScreen(graph: AppGraph, navController: NavController) {
     }
 }
 
+@OptIn(ExperimentalLayoutApi::class)
 @Composable
 fun EditRecipientScreen(recipientId: String, graph: AppGraph, navController: NavController) {
     val admin = graph.recipientAdmin
@@ -744,6 +745,60 @@ fun EditRecipientScreen(recipientId: String, graph: AppGraph, navController: Nav
                         .heightIn(min = AppDimens.InputHeight)
                         .testTag("edit_person_name"),
                 )
+                Text(
+                    stringResource(R.string.relationship_field),
+                    fontFamily = PlexArabic,
+                    fontWeight = FontWeight.Bold,
+                    fontSize = 14.sp,
+                    color = CaregiverColors.Ink,
+                )
+                FlowRow(
+                    horizontalArrangement = Arrangement.spacedBy(8.dp),
+                    verticalArrangement = Arrangement.spacedBy(8.dp),
+                    modifier = Modifier.fillMaxWidth().selectableGroup(),
+                ) {
+                    RelationshipOptions.codes.forEach { code ->
+                        FilterChip(
+                            selected = state.relationship == code,
+                            onClick = { vm.setRelationship(code) },
+                            modifier = Modifier.semantics { role = Role.RadioButton },
+                            label = {
+                                Text(stringResource(requireNotNull(relationshipLabelRes(code))))
+                            },
+                        )
+                    }
+                }
+                if (state.relationship == "OTHER") {
+                    OutlinedTextField(
+                        value = state.relationshipOther,
+                        onValueChange = vm::setRelationshipOther,
+                        placeholder = {
+                            Text(stringResource(R.string.relationship_other_placeholder))
+                        },
+                        isError = state.relationshipError,
+                        supportingText = {
+                            if (state.relationshipError) {
+                                Text(
+                                    stringResource(R.string.relationship_error_long),
+                                    fontFamily = PlexArabic,
+                                    color = CaregiverColors.Danger,
+                                )
+                            }
+                        },
+                        singleLine = true,
+                        maxLines = 1,
+                        shape = RoundedCornerShape(AppDimens.ControlRadius),
+                        colors = OutlinedTextFieldDefaults.colors(
+                            focusedBorderColor = CaregiverColors.Primary,
+                            unfocusedBorderColor = CaregiverColors.Border,
+                            focusedContainerColor = CaregiverColors.Surface,
+                            unfocusedContainerColor = CaregiverColors.Surface,
+                        ),
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .heightIn(min = AppDimens.InputHeight),
+                    )
+                }
                 if (state.archived) {
                     Text(
                         stringResource(R.string.people_archived_readonly),
