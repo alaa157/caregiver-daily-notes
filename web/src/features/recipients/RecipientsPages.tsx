@@ -75,8 +75,8 @@ export function RecipientsListPage() {
 export function CreateRecipientPage() {
   const { t } = useI18n(); const api = useRecipientsApi(); const navigate = useNavigate();
   return <RecipientLayout title={t('recipientCreate')} description={t('recipientCreateDescription')}>
-    <div className="recipient-surface"><RecipientForm cancelTo={listPath} onSave={async (input, signal) => {
-      const recipient = await api.create(input, signal);
+    <div className="recipient-surface"><RecipientForm cancelTo={listPath} onSave={async (input, key, signal) => {
+      const recipient = await api.create(input, key, signal);
       if (!signal.aborted) navigate(`${listPath}/${recipient.id}`, { replace: true, state: { recipientNotice: 'created' } });
     }} /></div>
   </RecipientLayout>;
@@ -103,7 +103,7 @@ function RecipientRecord({ id, edit }: { id: string; edit: boolean }) {
         <div className="recipient-record-heading"><h2><bdi>{state.data.name}</bdi></h2><RecipientStatus status={state.data.lifecycleStatus} /></div>
         {state.data.lifecycleStatus === 'ARCHIVED' && <p className="recipient-inactive-notice">{t('recipientArchivedDescription')}</p>}
         {state.data.lifecycleStatus === 'LEGACY_INACTIVE_REVIEW' && <p className="recipient-review-notice">{t('recipientLegacyReviewDescription')}</p>}
-        {edit && state.data.lifecycleStatus === 'ACTIVE' ? <RecipientForm initial={state.data} cancelTo={`${listPath}/${id}`} onReload={reload} onSave={async (input, signal) => {
+        {edit && state.data.lifecycleStatus === 'ACTIVE' ? <RecipientForm initial={state.data} cancelTo={`${listPath}/${id}`} onReload={reload} onSave={async (input, _key, signal) => {
           await api.update(id, input, signal);
           if (!signal.aborted) navigate(`${listPath}/${id}`, { replace: true, state: { recipientNotice: 'updated' } });
         }} /> : <>

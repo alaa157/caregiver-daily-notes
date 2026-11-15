@@ -23,6 +23,20 @@ describe('recipient API contract', () => {
     expect(fetcher).toHaveBeenCalledWith('/api/recipients', expect.objectContaining({ method: 'POST', body: JSON.stringify({ name: 'Samir Hassan', relationship: 'Father' }) }));
   });
 
+  it('sends the Idempotency-Key header when a key is provided', async () => {
+    const { api, fetcher } = apiWithResponse({ ...recipient, createdAt: null, updatedAt: null }, 201);
+    await api.create({ name: recipient.name, relationship: recipient.relationship }, 'save-key-123');
+    const headers = new Headers(fetcher.mock.calls[0][1].headers);
+    expect(headers.get('Idempotency-Key')).toBe('save-key-123');
+  });
+
+  it('omits the Idempotency-Key header when no key is provided', async () => {
+    const { api, fetcher } = apiWithResponse({ ...recipient, createdAt: null, updatedAt: null }, 201);
+    await api.create({ name: recipient.name, relationship: recipient.relationship });
+    const headers = new Headers(fetcher.mock.calls[0][1].headers);
+    expect(headers.get('Idempotency-Key')).toBeNull();
+  });
+
   it('accepts a real creation response with pending timestamps without inventing dates or exposing ownership', async () => {
     const { api, fetcher } = apiWithResponse({ ...recipient, createdAt: null, updatedAt: null, caregiverId: 'private-owner' }, 201);
     expect(await api.create({ name: recipient.name, relationship: recipient.relationship })).toEqual({

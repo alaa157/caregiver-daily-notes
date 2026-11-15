@@ -63,6 +63,11 @@ export function recipientErrorMessage(error: unknown): MessageKey {
   if (error instanceof TypeError) return 'recipientNetworkError';
   return 'recipientServiceError';
 }
+function idempotencyHeaders(key?: string) {
+  if (key === undefined) return undefined;
+  if (!key || key.length > 100 || !/^[\w-]+$/.test(key)) throw new Error('Invalid save key.');
+  return { 'Idempotency-Key': key };
+}
 export function createRecipientsApi(client: ApiClient) {
   const pathFor = (id: string): `/api/recipients/${string}` => {
     if (!isRecipientId(id)) throw new ApiError(404, null);
@@ -78,8 +83,8 @@ export function createRecipientsApi(client: ApiClient) {
       return response.map(readRecipient);
     },
     get: async (id: string, signal?: AbortSignal) => single(pathFor(id), 'GET', signal),
-    create: async (input: RecipientInput, signal?: AbortSignal) => readRecipientCore(await client.request<unknown>({
-      path: '/api/recipients', method: 'POST', signal, body: fields(input),
+    create: async (input: RecipientInput, key?: string, signal?: AbortSignal) => readRecipientCore(await client.request<unknown>({
+      path: '/api/recipients', method: 'POST', signal, headers: idempotencyHeaders(key), body: fields(input),
     })),
     update: (id: string, input: RecipientInput, signal?: AbortSignal) => single(pathFor(id), 'PUT', signal, fields(input)),
     archive: (id: string, signal?: AbortSignal) => single(`${pathFor(id)}/archive`, 'PATCH', signal),
