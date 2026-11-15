@@ -34,6 +34,8 @@ import com.caregiver.mobile.data.plan.IllegalPlanTransitionException
 import com.caregiver.mobile.data.plan.PlanStateMachine
 import com.caregiver.mobile.data.plan.planConflictError
 import com.caregiver.mobile.data.plan.planTransitionError
+import com.caregiver.mobile.data.recipient.CareDetails
+import com.caregiver.mobile.data.recipient.CareDetailsRules
 import com.caregiver.mobile.data.recipient.NameCheck
 import com.caregiver.mobile.data.recipient.RecipientNameRules
 import com.caregiver.mobile.data.recipient.RelationshipOptions
@@ -74,6 +76,48 @@ class LocalBackendApis(
             throw IllegalArgumentException("recipient name")
         }
         recipientDao.setName(id, normalized)
+        recipientDao.byServerId(id)?.toDto()
+            ?: throw NoSuchElementException("recipient $id")
+    }
+
+    override suspend fun updateProfile(
+        id: String,
+        name: String,
+        relationship: String?,
+    ): RecipientDto = db.withTransaction {
+        requireWritableRecipient(id)
+        if (RecipientNameRules.check(name) != NameCheck.Ok) {
+            throw IllegalArgumentException("recipient name")
+        }
+        if (RelationshipOptions.isTooLong(relationship)) {
+            throw IllegalArgumentException("relationship")
+        }
+        recipientDao.setProfile(
+            id,
+            RecipientNameRules.normalize(name),
+            RelationshipOptions.normalize(relationship),
+        )
+        recipientDao.byServerId(id)?.toDto()
+            ?: throw NoSuchElementException("recipient $id")
+    }
+
+    override suspend fun updateCareDetails(
+        id: String,
+        details: CareDetails,
+    ): RecipientDto = db.withTransaction {
+        requireWritableRecipient(id)
+        val normalized = CareDetailsRules.normalize(details)
+        if (CareDetailsRules.validate(normalized, LocalDate.now()).isNotEmpty()) {
+            throw IllegalArgumentException("care details")
+        }
+        recipientDao.setCareDetails(
+            id,
+            normalized.dateOfBirth,
+            normalized.allergies,
+            normalized.conditions,
+            normalized.emergencyContactName,
+            normalized.emergencyContactPhone,
+        )
         recipientDao.byServerId(id)?.toDto()
             ?: throw NoSuchElementException("recipient $id")
     }
