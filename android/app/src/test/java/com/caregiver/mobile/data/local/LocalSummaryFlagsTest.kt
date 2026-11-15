@@ -43,6 +43,9 @@ class LocalSummaryFlagsTest {
         date: String,
         fall: Boolean = false,
         pain: Int = 1,
+        painRecorded: Boolean = true,
+        fallRecorded: Boolean = true,
+        text: String = "note $id",
     ) = NoteEntity(
         serverId = id,
         recipientId = recipientId,
@@ -54,7 +57,9 @@ class LocalSummaryFlagsTest {
         medicationTaken = "taken",
         pain = pain,
         fall = fall,
-        text = "note $id",
+        text = text,
+        painRecorded = painRecorded,
+        fallRecorded = fallRecorded,
     )
 
     @Test
@@ -89,5 +94,71 @@ class LocalSummaryFlagsTest {
 
         assertTrue(summary.redFlags.isEmpty())
         assertTrue(summary.uncertainties.any { it.topic == "ai_not_configured" })
+    }
+
+    @Test
+    fun unansweredPainProducesANullSignalPain() = runTest {
+        val today = LocalDate.now()
+        db.noteDao().insertAll(
+            listOf(note("n1", "r1", today.toString(), pain = 0, painRecorded = false)),
+        )
+
+        val signal = apis.summaries().signals("r1", null, null).single()
+
+        assertEquals(null, signal.pain)
+    }
+
+    @Test
+    fun recordedZeroPainProducesAZeroSignalPain() = runTest {
+        val today = LocalDate.now()
+        db.noteDao().insertAll(
+            listOf(note("n1", "r1", today.toString(), pain = 0, painRecorded = true)),
+        )
+
+        val signal = apis.summaries().signals("r1", null, null).single()
+
+        assertEquals(0, signal.pain)
+    }
+
+    @Test
+    fun unansweredFallProducesAFallNotReportedSignal() = runTest {
+        val today = LocalDate.now()
+        db.noteDao().insertAll(
+            listOf(note("n1", "r1", today.toString(), fall = false, fallRecorded = false)),
+        )
+
+        val signal = apis.summaries().signals("r1", null, null).single()
+
+        assertEquals(false, signal.fallReported)
+    }
+
+    @Test
+    fun aFallMentionedInTextStillRaisesTheFlagWhenTheCheckboxWasUnanswered() = runTest {
+        val today = LocalDate.now()
+        db.noteDao().insertAll(
+            listOf(
+                note(
+                    "n1", "r1", today.toString(),
+                    fall = false, fallRecorded = false,
+                    text = "She fell in the bathroom this morning.",
+                ),
+            ),
+        )
+
+        val summary = apis.summaries().summarize(SummaryRequest("r1", 7))
+
+        assertTrue(summary.redFlags.contains("FALL_REPORTED"))
+    }
+
+    @Test
+    fun recordedHighPainStillRaisesTheFlag() = runTest {
+        val today = LocalDate.now()
+        db.noteDao().insertAll(
+            listOf(note("n1", "r1", today.toString(), pain = 8, painRecorded = true)),
+        )
+
+        val summary = apis.summaries().summarize(SummaryRequest("r1", 7))
+
+        assertTrue(summary.redFlags.contains("HIGH_PAIN"))
     }
 }
