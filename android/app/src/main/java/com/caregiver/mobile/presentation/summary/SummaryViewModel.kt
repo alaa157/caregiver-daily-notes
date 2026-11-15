@@ -91,6 +91,9 @@ class SummaryViewModel(
     private val llmClientFactory: LlmClientFactory = LlmClientFactory(),
     /** UI language for AI-generated summary text ("ar"/"en"); defaults to English. */
     private val language: String = "en",
+    /** End of the summary window; null or a future date means "today". */
+    initialEnd: LocalDate? = null,
+    private val clock: () -> LocalDate = LocalDate::now,
 ) : ViewModel() {
     private val exec: CoroutineScope = scope ?: viewModelScope
 
@@ -105,6 +108,11 @@ class SummaryViewModel(
 
     private val _period = MutableStateFlow(initialPeriod)
     val period: StateFlow<Int> = _period.asStateFlow()
+
+    private val _endDate = MutableStateFlow(
+        initialEnd?.takeIf { !it.isAfter(clock()) } ?: clock(),
+    )
+    val endDate: StateFlow<LocalDate> = _endDate.asStateFlow()
 
     private val _state = MutableStateFlow<SummaryState>(SummaryState.Loading)
     val state: StateFlow<SummaryState> = _state.asStateFlow()
@@ -124,6 +132,17 @@ class SummaryViewModel(
             _period.value = days
             refresh()
         }
+    }
+
+    /**
+     * Moves the window's end date. A date after today is ignored — the
+     * window cannot reach into the future — anything else reloads.
+     */
+    fun setEndDate(date: LocalDate) {
+        if (date.isAfter(clock())) return
+        if (date == _endDate.value) return
+        _endDate.value = date
+        refresh()
     }
 
     fun refresh() {
@@ -185,12 +204,12 @@ class SummaryViewModel(
             is ApiKeyState.Readable -> "missing_key"
         }
         val redFlags = try {
-            val today = LocalDate.now()
-            val from = SummaryWindow.start(today, periodDays).toString()
-            val to = today.toString()
+            val end = endDate.value
+            val from = SummaryWindow.start(end, periodDays).toString()
+            val to = end.toString()
             val signals = repository.authorized { apis.summaries().signals(recipientId, from, to) }
             SafetySignalEvaluator.evaluate(
-                signals.filter { it.recipientId == recipientId && SummaryWindow.contains(it.date, today, periodDays) },
+                signals.filter { it.recipientId == recipientId && SummaryWindow.contains(it.date, end, periodDays) },
             )
         } catch (_: Exception) {
             emptyList()
@@ -276,9 +295,9 @@ class SummaryViewModel(
                 // applies. Both fetches are narrowed to it so notes and
                 // signals outside the selected period never reach the AI
                 // provider, and the same window is passed to the service.
-                val today = LocalDate.now()
-                val from = SummaryWindow.start(today, periodDays).toString()
-                val to = today.toString()
+                val end = endDate.value
+                val from = SummaryWindow.start(end, periodDays).toString()
+                val to = end.toString()
                 val notes = repository.authorized { apis.notes().history(recipientId, from, to) }
                 val signals = repository.authorized { apis.summaries().signals(recipientId, from, to) }
                 // Compute deterministic safety flags up front so they survive even
@@ -287,15 +306,22 @@ class SummaryViewModel(
                 // the AiUnavailable state without the service's own filter.
                 val windowedSignals = signals.filter {
                     it.recipientId == recipientId &&
-                        SummaryWindow.contains(it.date, today, periodDays)
+                        SummaryWindow.contains(it.date, end, periodDays)
                 }
                     aiRedFlags = SafetySignalEvaluator.evaluate(windowedSignals)
                     lastRedFlags = aiRedFlags
-                    service.summarize(recipientId, periodDays, notes, signals, today)
+                    service.summarize(recipientId, periodDays, notes, signals, end)
                 }
                 when (result) {
                     is SummaryAiResult.Success -> {
-                        _state.value = SummaryState.Content(SummaryResultData(result.summary), aiGenerated = true)
+                        _state.value = SummaryState.Content(
+                            SummaryResultData(
+                                result.summary,
+                                periodStart = SummaryWindow.start(endDate.value, periodDays).toString(),
+                                periodEnd = endDate.value.toString(),
+                            ),
+                            aiGenerated = true,
+                        )
                         _suggestedForCurrent.value = false
                         _suggestStatus.value = null
                         return
@@ -367,7 +393,13 @@ class SummaryViewModel(
                     apis.summaries().summarize(SummaryRequest(recipientId, periodDays))
                 }
             }
-            _state.value = SummaryState.Content(SummaryResultData(summary))
+            _state.value = SummaryState.Content(
+                SummaryResultData(
+                    summary,
+                    periodStart = SummaryWindow.start(endDate.value, periodDays).toString(),
+                    periodEnd = endDate.value.toString(),
+                ),
+            )
             _suggestedForCurrent.value = false
             _suggestStatus.value = null
         } catch (e: LoggedOutException) {
@@ -442,9 +474,9 @@ class SummaryViewModel(
                 val noteIds = if (summaryIds.isNotEmpty()) {
                     summaryIds
                 } else {
-                    val today = java.time.LocalDate.now()
-                    val from = SummaryWindow.start(today, _period.value).toString()
-                    val to = today.toString()
+                    val end = endDate.value
+                    val from = SummaryWindow.start(end, _period.value).toString()
+                    val to = end.toString()
                     repository.authorized { apis.notes().history(recipientId, from, to) }.map { it.id }.toSet()
                 }
                 // Suggestions must be backed by tracked notes: only the
