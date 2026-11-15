@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useRef, useState, type ReactNode } from 'react';
 import { Link, useLocation, useNavigate, useParams } from 'react-router-dom';
+import type { DailyNote } from '../../api/notes';
 import { recipientErrorMessage, type Recipient, type RecipientLifecycleStatus, type RecipientListFilter } from '../../api/recipients';
 import { Button, ButtonLink } from '../../components/Button';
 import { EmptyState, ErrorState, LoadingState } from '../../components/Feedback';
@@ -12,6 +13,7 @@ import { relationshipLabel } from './relationshipOptions';
 import { RecipientCareDetailsForm } from './RecipientCareDetailsForm';
 import { MedicationListPanel } from '../medications/MedicationListPanel';
 import { useRecipientResource, useRecipientsApi } from './useRecipientResource';
+import { useTodayNotes } from './useTodayNotes';
 import './recipients.css';
 
 const listPath = '/app/recipients';
@@ -39,6 +41,32 @@ const hasCareDetails = (recipient: Recipient) => [
   recipient.emergencyContactName, recipient.emergencyContactPhone,
 ].some(hasCareDetailValue);
 const telephoneHref = (value: string) => `tel:${value.trim().startsWith('+') ? '+' : ''}${value.replace(/\D/g, '')}`;
+function localToday() {
+  const now = new Date();
+  return [now.getFullYear(), String(now.getMonth() + 1).padStart(2, '0'), String(now.getDate()).padStart(2, '0')].join('-');
+}
+type TodayNoteStatus = 'recorded' | 'missing' | 'error';
+function RecipientTodayStatus({ recipient, note, status, date }: { recipient: Recipient; note: DailyNote | null; status: TodayNoteStatus; date: string }) {
+  const { t } = useI18n();
+  const location = useLocation();
+  const nameId = `recipient-card-name-${recipient.id}`;
+  const actionLabelId = `recipient-card-action-${recipient.id}`;
+  return <>
+    <div className="recipient-note-status" role="status" aria-live="polite">
+      {status === 'recorded' && <span className="recipient-note-status-label recipient-note-status-label--recorded">{t('overviewNoteRecorded')}</span>}
+      {status === 'missing' && <span className="recipient-note-status-label">{t('overviewNoNote')}</span>}
+      {status === 'error' && <span className="recipient-note-status-label recipient-note-status-label--error">{t('overviewNoteStatusUnavailable')}</span>}
+    </div>
+    {status === 'recorded' && note && <Link className="recipient-note-action" aria-labelledby={`${nameId} ${actionLabelId}`} to={`/app/notes/${note.id}`}>
+      <span id={actionLabelId}>{t('overviewOpenNote')}</span>
+    </Link>}
+    {status === 'missing' && <Link className="recipient-note-action" aria-labelledby={`${nameId} ${actionLabelId}`}
+      to={`/app/notes/new?recipientId=${encodeURIComponent(recipient.id)}&date=${encodeURIComponent(date)}`}
+      state={{ backgroundLocation: location }}>
+      <span id={actionLabelId}>{t('overviewRecordNote')}</span>
+    </Link>}
+  </>;
+}
 
 export function RecipientsListPage() {
   const { t } = useI18n(); const api = useRecipientsApi();
@@ -46,6 +74,8 @@ export function RecipientsListPage() {
   const [query, setQuery] = useState('');
   const load = useCallback((signal: AbortSignal) => api.list(signal, filter), [api, filter]);
   const { state, reload } = useRecipientResource(load);
+  const today = localToday();
+  const todayNotes = useTodayNotes(today);
   const empty = filter === 'ACTIVE' ? ['recipientsEmpty', 'recipientsEmptyDescription']
     : filter === 'ARCHIVED' ? ['recipientArchivedEmpty', 'recipientArchivedEmptyDescription']
       : ['recipientReviewEmpty', 'recipientReviewEmptyDescription'];
@@ -72,13 +102,21 @@ export function RecipientsListPage() {
     {state.status === 'ready' && state.data.length > 0 && filtered.length === 0
       && <EmptyState title={t('recipientSearchNoResults')} description={t('recipientSearchNoResultsDescription')} />}
     {filtered.length > 0 && <ul className="recipient-list" aria-label={t(filterLabel(filter as RecipientLifecycleStatus))}>
-      {filtered.map((recipient) => <li key={recipient.id} className="recipient-card">
-        <span className="person-avatar"><Icon name="people" size={24} /></span>
-        <RecipientStatus status={recipient.lifecycleStatus} />
-        <h2><Link to={`${listPath}/${recipient.id}`}><bdi>{recipient.name}</bdi></Link></h2>
-          <p className="recipient-hint">{t('recipientRelationshipLabel')}</p>
-          <p><bdi>{relationshipText(recipient) || t('recipientRelationshipEmpty')}</bdi></p>
-        </li>)}
+      {filtered.map((recipient) => {
+        const note = recipient.lifecycleStatus === 'ACTIVE' && todayNotes.state === 'ready'
+          ? todayNotes.byRecipient.get(recipient.id) ?? null : null;
+        const noteStatus: TodayNoteStatus | null = recipient.lifecycleStatus !== 'ACTIVE' ? null
+          : todayNotes.state === 'error' ? 'error'
+          : todayNotes.state === 'ready' ? (note ? 'recorded' : 'missing') : null;
+        return <li key={recipient.id} className="recipient-card">
+          <span className="person-avatar"><Icon name="people" size={24} /></span>
+          <RecipientStatus status={recipient.lifecycleStatus} />
+          <h2><Link to={`${listPath}/${recipient.id}`}><bdi id={`recipient-card-name-${recipient.id}`}>{recipient.name}</bdi></Link></h2>
+            <p className="recipient-hint">{t('recipientRelationshipLabel')}</p>
+            <p><bdi>{relationshipText(recipient) || t('recipientRelationshipEmpty')}</bdi></p>
+            {noteStatus && <RecipientTodayStatus recipient={recipient} note={note} status={noteStatus} date={today} />}
+          </li>;
+      })}
       </ul>}
   </RecipientLayout>;
 }
