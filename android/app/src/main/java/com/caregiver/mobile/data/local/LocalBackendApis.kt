@@ -34,6 +34,8 @@ import com.caregiver.mobile.data.plan.IllegalPlanTransitionException
 import com.caregiver.mobile.data.plan.PlanStateMachine
 import com.caregiver.mobile.data.plan.planConflictError
 import com.caregiver.mobile.data.plan.planTransitionError
+import com.caregiver.mobile.data.recipient.NameCheck
+import com.caregiver.mobile.data.recipient.RecipientNameRules
 import kotlinx.serialization.encodeToString
 import kotlinx.serialization.json.Json
 import java.time.LocalDate
@@ -62,6 +64,17 @@ class LocalBackendApis(
         if (recipient.archivedAt != null) {
             throw ArchivedRecipientException(recipientId)
         }
+    }
+
+    override suspend fun rename(id: String, name: String): RecipientDto = db.withTransaction {
+        requireWritableRecipient(id)
+        val normalized = RecipientNameRules.normalize(name)
+        if (RecipientNameRules.check(name) != NameCheck.Ok) {
+            throw IllegalArgumentException("recipient name")
+        }
+        recipientDao.setName(id, normalized)
+        recipientDao.byServerId(id)?.toDto()
+            ?: throw NoSuchElementException("recipient $id")
     }
 
     override suspend fun archive(id: String): RecipientDto {
