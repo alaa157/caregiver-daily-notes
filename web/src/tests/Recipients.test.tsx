@@ -137,7 +137,8 @@ describe('care recipients screens', () => {
     expect(screen.getByRole('form', { name: 'Add care recipient' })).toBeInTheDocument();
   });
   it('searches recipients by name or relationship', async () => {
-    const fetcher = vi.fn().mockResolvedValue(jsonResponse([recipient, { ...recipient, id: 'b2222222-2222-4222-8222-222222222222', name: 'Mona', relationship: 'Aunt', active: true }]));
+    const fillers = Array.from({ length: 4 }, (_, index) => ({ ...recipient, id: `d0000000-0000-4000-8000-00000000000${index}`, name: `Filler ${index}` }));
+    const fetcher = vi.fn().mockResolvedValue(jsonResponse([recipient, { ...recipient, id: 'b2222222-2222-4222-8222-222222222222', name: 'Mona', relationship: 'Aunt', active: true }, ...fillers]));
     renderRecipients(root, fetcher);
     expect(await screen.findByRole('link', { name: recipient.name })).toBeInTheDocument();
     expect(screen.getByRole('link', { name: 'Mona' })).toBeInTheDocument();
@@ -153,7 +154,8 @@ describe('care recipients screens', () => {
     const nameMatch = { ...recipient, name: 'caregiver Samir', relationship: 'Son' };
     const relationshipMatch = { ...recipient, id: 'b2222222-2222-4222-8222-222222222222', name: 'Mona', relationship: 'Primary caregiver' };
     const unrelated = { ...recipient, id: 'c3333333-3333-4333-8333-333333333333', name: 'Laila', relationship: 'Aunt' };
-    renderRecipients(root, vi.fn().mockResolvedValue(jsonResponse([nameMatch, relationshipMatch, unrelated])));
+    const fillers = Array.from({ length: 3 }, (_, index) => ({ ...recipient, id: `e0000000-0000-4000-8000-00000000000${index}`, name: `Filler ${index}` }));
+    renderRecipients(root, vi.fn().mockResolvedValue(jsonResponse([nameMatch, relationshipMatch, unrelated, ...fillers])));
 
     await screen.findByRole('link', { name: nameMatch.name });
     await userEvent.type(screen.getByLabelText('Search name or relationship'), 'CaReGiVeR');
@@ -163,7 +165,8 @@ describe('care recipients screens', () => {
   });
 
   it('shows no-match state separately from empty recipient list', async () => {
-    const populated = vi.fn().mockResolvedValue(jsonResponse([recipient]));
+    const fillers = Array.from({ length: 5 }, (_, index) => ({ ...recipient, id: `f0000000-0000-4000-8000-00000000000${index}`, name: `Filler ${index}` }));
+    const populated = vi.fn().mockResolvedValue(jsonResponse([recipient, ...fillers]));
     const view = renderRecipients(root, populated);
     await screen.findByRole('link', { name: recipient.name });
     await userEvent.type(screen.getByLabelText('Search name or relationship'), 'not found');
@@ -182,8 +185,11 @@ describe('care recipients screens', () => {
       active: false, lifecycleStatus: 'ARCHIVED' as const, archivedAt: '2026-10-15T10:00:00Z',
       archivedBy: 'b1111111-1111-4111-8111-111111111111', relationship: 'Aunt' };
     const active = { ...recipient, id: 'c3333333-3333-4333-8333-333333333333', name: 'Active Laila' };
+    const archivedFillers = Array.from({ length: 5 }, (_, index) => ({ ...recipient, id: `b0000000-0000-4000-8000-00000000000${index}`,
+      name: `Archived Filler ${index}`, active: false, lifecycleStatus: 'ARCHIVED' as const,
+      archivedAt: '2026-10-15T10:00:00Z', archivedBy: 'b1111111-1111-4111-8111-111111111111' }));
     const fetcher = vi.fn().mockImplementation((path: string) => path === '/api/recipients?status=ARCHIVED'
-      ? Promise.resolve(jsonResponse([archived]))
+      ? Promise.resolve(jsonResponse([archived, ...archivedFillers]))
       : Promise.resolve(jsonResponse([active])));
     renderRecipients(root, fetcher);
 
@@ -614,7 +620,8 @@ describe('care recipients screens', () => {
     it('finds recipients by the displayed relationship label', async () => {
       const coded = { ...recipient, relationship: 'MOTHER' };
       const other = { ...recipient, id: 'b2222222-2222-4222-8222-222222222222', name: 'Mona', relationship: 'Aunt', active: true };
-      renderRecipients(root, vi.fn().mockResolvedValue(jsonResponse([coded, other])));
+      const fillers = Array.from({ length: 4 }, (_, index) => ({ ...recipient, id: `c0000000-0000-4000-8000-00000000000${index}`, name: `Filler ${index}` }));
+      renderRecipients(root, vi.fn().mockResolvedValue(jsonResponse([coded, other, ...fillers])));
       await screen.findByRole('link', { name: recipient.name });
       await userEvent.type(screen.getByLabelText('Search name or relationship'), 'Mother');
       expect(screen.getByRole('link', { name: recipient.name })).toBeInTheDocument();
@@ -906,6 +913,57 @@ describe('care recipients screens', () => {
       const panel = await screen.findByRole('region', { name: 'Next steps' });
       await userEvent.click(within(panel).getByRole('link', { name: "Record first note" }));
       expect(await screen.findByRole('dialog')).toBeInTheDocument();
+    });
+  });
+
+  describe('conditional search box', () => {
+    const searchRecipients = (count: number) => Array.from({ length: count }, (_, index) => ({
+      ...recipient,
+      id: `a0000000-0000-4000-8000-${String(index).padStart(12, '0')}`,
+      name: `Recipient ${index + 1}`,
+    }));
+    const searchFetcher = (count: number) => vi.fn().mockImplementation((path: string) => {
+      const url = new URL(path, 'http://localhost');
+      if (url.pathname === '/api/recipients') return Promise.resolve(jsonResponse(searchRecipients(count)));
+      if (url.pathname === '/api/notes') return Promise.resolve(jsonResponse(historyPage([], 0, 100)));
+      return Promise.resolve(jsonResponse([]));
+    });
+
+    it('hides the search box for five recipients', async () => {
+      renderRecipients(root, searchFetcher(5));
+      expect(await screen.findByRole('link', { name: 'Recipient 5' })).toBeInTheDocument();
+      expect(screen.queryByLabelText('Search name or relationship')).not.toBeInTheDocument();
+    });
+
+    it('shows the search box for six recipients', async () => {
+      renderRecipients(root, searchFetcher(6));
+      expect(await screen.findByLabelText('Search name or relationship')).toBeInTheDocument();
+    });
+
+    it('resets the query when the list drops to five and clears it when it grows back', async () => {
+      let count = 6;
+      const fetcher = vi.fn().mockImplementation((path: string) => {
+        const url = new URL(path, 'http://localhost');
+        if (url.pathname === '/api/recipients') return Promise.resolve(jsonResponse(searchRecipients(count)));
+        if (url.pathname === '/api/notes') return Promise.resolve(jsonResponse(historyPage([], 0, 100)));
+        return Promise.resolve(jsonResponse([]));
+      });
+      renderRecipients(root, fetcher);
+      const search = await screen.findByLabelText('Search name or relationship');
+      await userEvent.type(search, 'Recipient 1');
+      expect(search).toHaveValue('Recipient 1');
+
+      count = 5;
+      await userEvent.click(screen.getByRole('button', { name: 'Archived' }));
+      await userEvent.click(screen.getByRole('button', { name: 'Active' }));
+      await waitFor(() => expect(screen.queryByLabelText('Search name or relationship')).not.toBeInTheDocument());
+      expect(screen.getByRole('link', { name: 'Recipient 5' })).toBeInTheDocument();
+
+      count = 6;
+      await userEvent.click(screen.getByRole('button', { name: 'Archived' }));
+      await userEvent.click(screen.getByRole('button', { name: 'Active' }));
+      const restored = await screen.findByLabelText('Search name or relationship');
+      expect(restored).toHaveValue('');
     });
   });
 
