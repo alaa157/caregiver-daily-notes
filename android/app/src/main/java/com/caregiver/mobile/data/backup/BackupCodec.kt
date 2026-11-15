@@ -122,11 +122,22 @@ private data class BackupDataV4(
     val medicationIntakes: List<BackupMedicationIntake> = emptyList(),
 )
 
+/** The v5 payload shape: care details exist, saved summaries do not. */
+@Serializable
+private data class BackupDataV5(
+    val recipients: List<BackupRecipient>,
+    val notes: List<BackupNote>,
+    val addenda: List<BackupAddendum>,
+    val plans: List<BackupPlan>,
+    val medications: List<BackupMedication> = emptyList(),
+    val medicationIntakes: List<BackupMedicationIntake> = emptyList(),
+)
+
 /**
  * Reads and writes the documented `.carebackup.json` shape.
  *
  * The envelope carries a stable `format` id and an integer `formatVersion`;
- * this codec writes [FORMAT_VERSION] (5), still reads v1–v4, and rejects
+ * this codec writes [FORMAT_VERSION] (6), still reads v1–v5, and rejects
  * newer files with [BackupFailureReason.UNSUPPORTED_VERSION] (a future
  * version must be migrated deliberately — see the migration notes in the
  * docs).
@@ -136,8 +147,9 @@ private data class BackupDataV4(
  * catches corruption and hand-edits; it does not claim authenticity (anyone
  * can recompute a digest), so import safety relies on semantic validation and
  * the restore policy, never on the digest alone. v1/v2 files predate the
- * medication tables, v1–v3 files predate the recorded flags, and v1–v4
- * files predate recipient care details, so their digests cover only the
+ * medication tables, v1–v3 files predate the recorded flags, v1–v4
+ * files predate recipient care details, and v1–v5 files predate saved
+ * summaries, so their digests cover only the
  * payload shapes those versions wrote.
  *
  * The parser is strict (unknown keys are rejected) and never touches the
@@ -145,7 +157,7 @@ private data class BackupDataV4(
  */
 object CareBackupCodec {
     const val FORMAT_ID = "caregiver-daily-notes.backup"
-    const val FORMAT_VERSION = 5
+    const val FORMAT_VERSION = 6
     const val APP_NAME = "caregiver-daily-notes"
     const val INTEGRITY_ALGORITHM = "SHA-256"
 
@@ -238,8 +250,9 @@ object CareBackupCodec {
 
     /**
      * v1 has no archive state, neither v1 nor v2 has medications, versions
-     * before 4 have no recorded flags, and versions before 5 have no care
-     * details. A deliberate path (rather
+     * before 4 have no recorded flags, versions before 5 have no care
+     * details, and versions before 6 have no saved summaries. A deliberate
+     * path (rather
      * than relying only on the defaults) keeps an older file's semantics
      * even if a hand-edited document carries fields the version never
      * defined.
@@ -270,22 +283,28 @@ object CareBackupCodec {
         } else {
             withRecordedFlags
         }
+        val withoutSummaries = if (formatVersion < 6) {
+            base.copy(savedSummaries = emptyList())
+        } else {
+            base
+        }
         return when {
-            formatVersion == 1 -> base.copy(
-                recipients = base.recipients.map { it.copy(archivedAt = null) },
+            formatVersion == 1 -> withoutSummaries.copy(
+                recipients = withoutSummaries.recipients.map { it.copy(archivedAt = null) },
                 medications = emptyList(),
                 medicationIntakes = emptyList(),
             )
-            formatVersion == 2 -> base.copy(
+            formatVersion == 2 -> withoutSummaries.copy(
                 medications = emptyList(),
                 medicationIntakes = emptyList(),
             )
-            else -> base
+            else -> withoutSummaries
         }
     }
 
     private fun expectedDigest(data: BackupData, formatVersion: Int): String = when {
         formatVersion >= FORMAT_VERSION -> digestOf(data)
+        formatVersion == 5 -> digestOfV5(data)
         formatVersion == 4 -> digestOfV4(data)
         formatVersion == 3 -> digestOfV3(data)
         else -> legacyDigestOf(data)
@@ -293,6 +312,20 @@ object CareBackupCodec {
 
     private fun digestOf(data: BackupData): String =
         sha256(canonical.encodeToString(data))
+
+    private fun digestOfV5(data: BackupData): String =
+        sha256(
+            canonical.encodeToString(
+                BackupDataV5(
+                    recipients = data.recipients,
+                    notes = data.notes,
+                    addenda = data.addenda,
+                    plans = data.plans,
+                    medications = data.medications,
+                    medicationIntakes = data.medicationIntakes,
+                ),
+            ),
+        )
 
     private fun digestOfV4(data: BackupData): String =
         sha256(

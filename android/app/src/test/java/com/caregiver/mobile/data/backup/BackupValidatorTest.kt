@@ -260,4 +260,91 @@ class BackupValidatorTest {
             kinds(data, BackupIssueKind.INVALID_DATE).single().entity,
         )
     }
+
+    @Test
+    fun aWellFormedSavedSummaryHasNoIssues() {
+        val data = backupData(savedSummaries = listOf(backupSavedSummary()))
+        assertTrue(issues(data).isEmpty())
+    }
+
+    @Test
+    fun aSummaryReferencingAMissingRecipientIsReported() {
+        val data = backupData(savedSummaries = listOf(backupSavedSummary(recipientId = "gone")))
+        assertEquals(
+            BackupEntity.SAVED_SUMMARY,
+            kinds(data, BackupIssueKind.BROKEN_REFERENCE).single().entity,
+        )
+    }
+
+    @Test
+    fun moreThanTwentySummariesForOneRecipientAreReported() {
+        val summaries = (1..21).map { backupSavedSummary(id = "s$it") }
+        val data = backupData(savedSummaries = summaries)
+        val counts = kinds(data, BackupIssueKind.INVALID_COUNT)
+            .filter { it.entity == BackupEntity.SAVED_SUMMARY }
+        assertEquals(1, counts.size)
+    }
+
+    @Test
+    fun anUnsupportedPeriodDaysIsReported() {
+        for (days in listOf(0, 1, 8, 15, 31)) {
+            val data = backupData(savedSummaries = listOf(backupSavedSummary(periodDays = days)))
+            assertTrue(
+                kinds(data, BackupIssueKind.INVALID_COUNT)
+                    .any { it.entity == BackupEntity.SAVED_SUMMARY },
+            )
+        }
+        for (days in listOf(7, 14, 30)) {
+            val data = backupData(savedSummaries = listOf(backupSavedSummary(periodDays = days)))
+            assertTrue(issues(data).none { it.entity == BackupEntity.SAVED_SUMMARY })
+        }
+    }
+
+    @Test
+    fun invalidPeriodDatesAreReported() {
+        val badStart = backupData(
+            savedSummaries = listOf(backupSavedSummary(periodStart = "not-a-date")),
+        )
+        assertTrue(
+            kinds(badStart, BackupIssueKind.INVALID_DATE)
+                .any { it.entity == BackupEntity.SAVED_SUMMARY },
+        )
+
+        val badEnd = backupData(
+            savedSummaries = listOf(backupSavedSummary(periodEnd = "2026/09/30")),
+        )
+        assertTrue(
+            kinds(badEnd, BackupIssueKind.INVALID_DATE)
+                .any { it.entity == BackupEntity.SAVED_SUMMARY },
+        )
+
+        val reversed = backupData(
+            savedSummaries = listOf(
+                backupSavedSummary(periodStart = "2026-10-01", periodEnd = "2026-09-30"),
+            ),
+        )
+        assertTrue(
+            kinds(reversed, BackupIssueKind.INVALID_DATE)
+                .any { it.entity == BackupEntity.SAVED_SUMMARY },
+        )
+    }
+
+    @Test
+    fun anOversizedOrNonJsonPayloadIsReported() {
+        val oversized = backupData(
+            savedSummaries = listOf(backupSavedSummary(payload = " ".repeat(200_001))),
+        )
+        assertTrue(
+            kinds(oversized, BackupIssueKind.INVALID_PAYLOAD)
+                .any { it.entity == BackupEntity.SAVED_SUMMARY },
+        )
+
+        val notJson = backupData(
+            savedSummaries = listOf(backupSavedSummary(payload = "not json")),
+        )
+        assertTrue(
+            kinds(notJson, BackupIssueKind.INVALID_PAYLOAD)
+                .any { it.entity == BackupEntity.SAVED_SUMMARY },
+        )
+    }
 }

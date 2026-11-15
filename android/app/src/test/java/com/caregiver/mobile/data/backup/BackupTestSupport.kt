@@ -115,6 +115,31 @@ fun backupIntake(
     times = times,
 )
 
+/** A saved summary fixture referencing [recipientId] with a valid payload. */
+fun backupSavedSummary(
+    id: String = "s1",
+    recipientId: String = "r1",
+    periodDays: Int = 7,
+    periodStart: String = "2026-09-24",
+    periodEnd: String = "2026-09-30",
+    createdAt: Long = 1_700_000_000_000,
+    aiGenerated: Boolean = true,
+    provider: String? = "openrouter",
+    model: String? = "openai/gpt-4o-mini",
+    payload: String = """{"summary":{"text":"ok"},"trends":[]}""",
+): BackupSavedSummary = BackupSavedSummary(
+    id = id,
+    recipientId = recipientId,
+    periodDays = periodDays,
+    periodStart = periodStart,
+    periodEnd = periodEnd,
+    createdAt = createdAt,
+    aiGenerated = aiGenerated,
+    provider = provider,
+    model = model,
+    payload = payload,
+)
+
 /** A complete payload with one of each record; all lists can be overridden. */
 fun backupData(
     recipients: List<BackupRecipient> = listOf(backupRecipient()),
@@ -123,6 +148,7 @@ fun backupData(
     plans: List<BackupPlan> = listOf(backupPlan()),
     medications: List<BackupMedication> = emptyList(),
     medicationIntakes: List<BackupMedicationIntake> = emptyList(),
+    savedSummaries: List<BackupSavedSummary> = emptyList(),
 ): BackupData = BackupData(
     recipients = recipients,
     notes = notes,
@@ -130,6 +156,7 @@ fun backupData(
     plans = plans,
     medications = medications,
     medicationIntakes = medicationIntakes,
+    savedSummaries = savedSummaries,
 )
 
 /** Encodes [data] the way the app writes a real file. */
@@ -251,6 +278,33 @@ fun v4CanonicalJson(data: BackupData): String =
     Json { encodeDefaults = true; explicitNulls = false }.encodeToString(
         V4Payload(
             recipients = data.recipients.map { it.toLegacyRecipient() },
+            notes = data.notes,
+            addenda = data.addenda,
+            plans = data.plans,
+            medications = data.medications,
+            medicationIntakes = data.medicationIntakes,
+        ),
+    )
+
+/**
+ * The canonical payload a v5 writer produced: the full pre-v6 shape with
+ * care details but no saved summaries. Used to build hand-made v5
+ * documents whose digest the current codec still verifies.
+ */
+@Serializable
+private data class V5Payload(
+    val recipients: List<BackupRecipient>,
+    val notes: List<BackupNote>,
+    val addenda: List<BackupAddendum>,
+    val plans: List<BackupPlan>,
+    val medications: List<BackupMedication> = emptyList(),
+    val medicationIntakes: List<BackupMedicationIntake> = emptyList(),
+)
+
+fun v5CanonicalJson(data: BackupData): String =
+    Json { encodeDefaults = true; explicitNulls = false }.encodeToString(
+        V5Payload(
+            recipients = data.recipients,
             notes = data.notes,
             addenda = data.addenda,
             plans = data.plans,
