@@ -483,7 +483,7 @@ class SummaryViewModelTest {
     }
 
     @Test
-    fun previousWindowSignalsNeverReachTheProvider() = runTest {
+    fun savedSummariesAndPreviousWindowSignalsNeverReachAnyProviderRequest() = runTest {
         val today = LocalDate.of(2026, 10, 10)
         val note = NoteDto(
             id = "n1", recipientId = "r1", date = "2026-10-08",
@@ -491,6 +491,21 @@ class SummaryViewModelTest {
             medicationTaken = "yes", pain = 1, fall = false,
             text = "Patient walked today",
         )
+        val savedSummaryMarker = "ZZ-SAVED-SUMMARY"
+        val previousPeriodMarker = "ZZ-PREV-PERIOD"
+        var savedSummaryId = 0
+        val savedSummaryStore = savedStore(newId = { "saved-${++savedSummaryId}" })
+        val savedId = savedSummaryStore.save(
+            "r1",
+            SummaryResultData(
+                summary = summary().copy(text = savedSummaryMarker),
+                periodStart = "2026-09-20",
+                periodEnd = "2026-09-26",
+                generatedAt = 1_700_000_000_000L,
+            ),
+        )
+        assertEquals(savedSummaryMarker, savedSummaryStore.get(savedId)?.summary?.text)
+
         val noteFake = FakeNoteApi().also {
             it.historyHandler = { _, _, _ -> listOf(note) }
         }
@@ -511,7 +526,7 @@ class SummaryViewModelTest {
         summaries.signalsHandler = { _, from, to ->
             when (from to to) {
                 prevFrom.toString() to prevEnd.toString() -> listOf(
-                    signal("p1", "2026-09-28", text = "PREVIOUS_ONLY_SECRET"),
+                    signal("p1", "2026-09-28", text = previousPeriodMarker),
                 )
                 else -> emptyList()
             }
@@ -522,6 +537,7 @@ class SummaryViewModelTest {
             llmClientFactory = FixedFactory(client),
             initialEnd = today,
             clock = { today },
+            savedStore = savedSummaryStore,
         )
 
         val state = vm.state.first {
@@ -529,9 +545,14 @@ class SummaryViewModelTest {
         } as SummaryState.Content
 
         assertTrue("expected at least one provider request", client.requests.isNotEmpty())
+        vm.suggestPlan()
+        vm.suggestStatus.first { it != null }
+        assertEquals("expected generation and plan requests", 2, client.requests.size)
         client.requests.forEach { request ->
-            assertFalse(request.systemPrompt.contains("PREVIOUS_ONLY_SECRET"))
-            assertFalse(request.dataBlock.contains("PREVIOUS_ONLY_SECRET"))
+            assertFalse(request.systemPrompt.contains(savedSummaryMarker))
+            assertFalse(request.dataBlock.contains(savedSummaryMarker))
+            assertFalse(request.systemPrompt.contains(previousPeriodMarker))
+            assertFalse(request.dataBlock.contains(previousPeriodMarker))
         }
         assertEquals("OPENAI", state.data.provider)
         assertEquals("test-model-x", state.data.model)
