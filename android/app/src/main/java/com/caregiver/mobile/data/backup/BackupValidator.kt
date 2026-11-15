@@ -24,10 +24,11 @@ enum class BackupIssueKind {
     INVALID_COUNT,
     BROKEN_REFERENCE,
     INVALID_PLAN_JSON,
+    INVALID_PAYLOAD,
 }
 
 /** Which entity a validation issue belongs to. */
-enum class BackupEntity { RECIPIENT, NOTE, ADDENDUM, PLAN, MEDICATION, MEDICATION_INTAKE }
+enum class BackupEntity { RECIPIENT, NOTE, ADDENDUM, PLAN, MEDICATION, MEDICATION_INTAKE, SAVED_SUMMARY }
 
 /** One rejected record. Never carries note text or recipient names. */
 data class BackupIssue(val entity: BackupEntity, val kind: BackupIssueKind)
@@ -49,6 +50,14 @@ object BackupValidator {
 
     /** Plan version JSON is small; the cap keeps a hostile file from deep recursion. */
     private const val MAX_PLAN_JSON_LENGTH = 200_000
+
+    /** Saved-summary payload cap mirrors the store's own limit. */
+    private const val MAX_PAYLOAD_LENGTH = 200_000
+
+    /** Saved summaries per recipient cap mirrors the store's own limit. */
+    private const val MAX_SUMMARIES_PER_RECIPIENT = 20
+
+    private val SUPPORTED_PERIOD_DAYS = setOf(7, 14, 30)
 
     /** Enough to diagnose any real file; a hostile file cannot flood the report. */
     private const val MAX_ISSUES = 100
@@ -191,7 +200,46 @@ object BackupValidator {
             }
         }
 
+        val summaryIds = HashSet<String>()
+        val summaryCounts = HashMap<String, Int>()
+        data.savedSummaries.forEach { summary ->
+            if (summary.id.isBlank()) {
+                report(BackupEntity.SAVED_SUMMARY, BackupIssueKind.MISSING_ID)
+            } else if (!summaryIds.add(summary.id)) {
+                report(BackupEntity.SAVED_SUMMARY, BackupIssueKind.DUPLICATE_ID)
+            }
+            if (summary.recipientId.isBlank() || summary.recipientId !in recipientIds) {
+                report(BackupEntity.SAVED_SUMMARY, BackupIssueKind.BROKEN_REFERENCE)
+            } else {
+                val count = (summaryCounts[summary.recipientId] ?: 0) + 1
+                summaryCounts[summary.recipientId] = count
+                if (count > MAX_SUMMARIES_PER_RECIPIENT) {
+                    report(BackupEntity.SAVED_SUMMARY, BackupIssueKind.INVALID_COUNT)
+                }
+            }
+            if (summary.periodDays !in SUPPORTED_PERIOD_DAYS) {
+                report(BackupEntity.SAVED_SUMMARY, BackupIssueKind.INVALID_COUNT)
+            }
+            val start = parseIsoDate(summary.periodStart)
+            val end = parseIsoDate(summary.periodEnd)
+            if (start == null || end == null || start.isAfter(end)) {
+                report(BackupEntity.SAVED_SUMMARY, BackupIssueKind.INVALID_DATE)
+            }
+            if (summary.payload.length > MAX_PAYLOAD_LENGTH || !isJsonElement(summary.payload)) {
+                report(BackupEntity.SAVED_SUMMARY, BackupIssueKind.INVALID_PAYLOAD)
+            }
+        }
+
         return issues
+    }
+
+    private fun isJsonElement(text: String): Boolean {
+        return try {
+            json.parseToJsonElement(text)
+            true
+        } catch (e: Exception) {
+            false
+        }
     }
 
     private fun isJsonArray(text: String): Boolean {
