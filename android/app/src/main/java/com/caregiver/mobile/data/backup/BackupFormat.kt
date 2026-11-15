@@ -3,13 +3,15 @@ package com.caregiver.mobile.data.backup
 import kotlinx.serialization.Serializable
 
 /**
- * The versioned backup payload (`.carebackup.json`, schema v5). Version 2
+ * The versioned backup payload (`.carebackup.json`, schema v6). Version 2
  * added recipient archive state, version 3 the standalone medication
  * tracker (medications + intake marks), version 4 the note recorded flags
- * (`painRecorded`, `fallRecorded`), and version 5 recipient relationship and
- * care details. Older files still decode: v1 restores as fully unarchived,
- * v1/v2 restore without medication data, v1–v3 restore every note with both
- * flags recorded, and v1–v4 restore recipients without care details.
+ * (`painRecorded`, `fallRecorded`), version 5 recipient relationship and
+ * care details, and version 6 saved summaries. Older files still decode:
+ * v1 restores as fully unarchived, v1/v2 restore without medication data,
+ * v1–v3 restore every note with both flags recorded, v1–v4 restore
+ * recipients without care details, and v1–v5 restore with no saved
+ * summaries.
  *
  * Room surrogate keys (`rowId`) are deliberately absent: list order is the
  * contract that preserves them. Recipients keep their list order, and notes
@@ -25,6 +27,7 @@ data class BackupData(
     val plans: List<BackupPlan>,
     val medications: List<BackupMedication> = emptyList(),
     val medicationIntakes: List<BackupMedicationIntake> = emptyList(),
+    val savedSummaries: List<BackupSavedSummary> = emptyList(),
 ) {
     val counts: BackupCounts
         get() = BackupCounts(
@@ -34,6 +37,7 @@ data class BackupData(
             plans = plans.size,
             medications = medications.size,
             intakes = medicationIntakes.size,
+            summaries = savedSummaries.size,
         )
 }
 
@@ -122,6 +126,25 @@ data class BackupMedicationIntake(
 )
 
 /**
+ * A saved summary; the ten fields mirror `SavedSummaryEntity`. [payload]
+ * is the store's own JSON document and is carried verbatim — the backup
+ * never interprets it.
+ */
+@Serializable
+data class BackupSavedSummary(
+    val id: String,
+    val recipientId: String,
+    val periodDays: Int,
+    val periodStart: String,
+    val periodEnd: String,
+    val createdAt: Long,
+    val aiGenerated: Boolean,
+    val provider: String? = null,
+    val model: String? = null,
+    val payload: String,
+)
+
+/**
  * The document envelope: stable identifiers, provenance and the payload.
  * [integrity] is nullable only so a missing block fails with its own clear
  * error instead of a generic parse error; files this app writes always carry it.
@@ -164,6 +187,7 @@ data class BackupCounts(
     val plans: Int,
     val medications: Int = 0,
     val intakes: Int = 0,
+    val summaries: Int = 0,
 ) {
-    val total: Int get() = recipients + notes + addenda + plans + medications + intakes
+    val total: Int get() = recipients + notes + addenda + plans + medications + intakes + summaries
 }
