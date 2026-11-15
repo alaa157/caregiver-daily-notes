@@ -6,14 +6,8 @@ import { useApiClient } from '../../lib/api';
 import { useByok, type ByokProviderId } from './ByokContext';
 import { loadAiPreferences, saveAiPreferences } from './aiPreferences';
 import { MODEL_CATALOG, MODEL_ID_PATTERN, requiresDataUseAck } from './modelCatalog';
+import { providers } from './providers';
 import './ai-settings.css';
-
-const providers: { id: ByokProviderId; label: MessageKey }[] = [
-  { id: 'OPENAI', label: 'byokProviderOpenAi' },
-  { id: 'GEMINI', label: 'byokProviderGemini' },
-  { id: 'XAI', label: 'byokProviderXai' },
-  { id: 'OPEN_ROUTER', label: 'byokProviderOpenRouter' },
-];
 
 const providerNotices: Record<ByokProviderId, MessageKey> = {
   GEMINI: 'byokNoticeGemini',

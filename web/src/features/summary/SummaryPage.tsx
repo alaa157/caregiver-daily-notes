@@ -58,6 +58,9 @@ export function SummaryPage({ scopedRecipientId }: { scopedRecipientId?: string 
       setCancelled(false);
       return;
     }
+    // The provider/model that actually produced this result is fixed when
+    // the request starts; later credential changes must not rewrite it.
+    const usedCredentials = credentials;
     const request = { recipientId, periodDays, periodEndInclusive };
     const controller = new AbortController();
     active.current = controller;
@@ -71,7 +74,9 @@ export function SummaryPage({ scopedRecipientId }: { scopedRecipientId?: string 
     try {
       const response = await api.generateByok({ summary: request, credentials }, controller.signal);
       if (active.current !== controller || controller.signal.aborted) return;
-      setView((previous) => ({ request, recipientName: recipient!.name, response: {
+      setView((previous) => ({ request, recipientName: recipient!.name, generatedWith: {
+        providerId: usedCredentials.providerId, model: usedCredentials.model,
+      }, response: {
         ...response, safety: retainSafety(previous && sameRequest(previous.request, request) ? previous.response.safety : undefined, response.safety),
       } }));
     } catch (failure: unknown) {
@@ -81,7 +86,9 @@ export function SummaryPage({ scopedRecipientId }: { scopedRecipientId?: string 
         const safety = readSummarySafety(failure.details.safety);
         setView((previous) => {
           const matching = previous && sameRequest(previous.request, request) ? previous : undefined;
-          return { request, recipientName: recipient!.name, failed: true, response: {
+          return { request, recipientName: recipient!.name, failed: true, generatedWith: {
+            providerId: usedCredentials.providerId, model: usedCredentials.model,
+          }, response: {
             summary: matching?.response.summary ?? null, trends: matching?.response.trends ?? [], invalidContent: false,
             safety: retainSafety(matching?.response.safety, safety, true),
           } };
