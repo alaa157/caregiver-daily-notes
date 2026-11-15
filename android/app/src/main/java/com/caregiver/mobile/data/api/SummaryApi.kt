@@ -31,6 +31,9 @@ data class SignalDto(
     val medicationUnverified: Boolean,
     val poorAppetite: Boolean,
     val text: String,
+    val fallRecorded: Boolean = true,
+    val painRecorded: Boolean = true,
+    val appetiteRecorded: Boolean = true,
 )
 
 @Serializable
