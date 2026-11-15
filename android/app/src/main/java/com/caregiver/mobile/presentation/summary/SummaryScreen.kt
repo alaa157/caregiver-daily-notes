@@ -358,7 +358,7 @@ fun SummaryResultScreen(
                 )
             }
             is SummaryState.Content -> SummaryBody(
-                graph, s.data.summary, activePeriodDays, graph.isDemo, navController, s.aiGenerated,
+                graph, s.data, activePeriodDays, graph.isDemo, navController, s.aiGenerated,
                 onSuggestPlan = {
                     val store = AiKeyStore(graph.context)
                     val provider = store.selectedProvider()
@@ -441,10 +441,18 @@ private fun FlagsBanner(redFlags: List<String>) {
     }
 }
 
+/**
+ * Observation cards replace the overview paragraph and the flat quote list
+ * only when every evidence item carries a claim — a quote without its claim
+ * would leave the caregiver guessing what it supports.
+ */
+internal fun usesObservationCards(evidence: List<SummaryDto.EvidenceDto>): Boolean =
+    evidence.isNotEmpty() && evidence.all { it.claim.isNotBlank() }
+
 @Composable
 private fun SummaryBody(
     graph: com.caregiver.mobile.AppGraph,
-    summary: SummaryDto,
+    data: SummaryResultData,
     periodDays: Int,
     isDemo: Boolean,
     navController: NavController,
@@ -459,6 +467,7 @@ private fun SummaryBody(
     // sees. Export/share below resolve their own locale via appLocale().
     val textDirection =
         if (appLocale().language == "ar") TextDirection.Rtl else TextDirection.Ltr
+    val summary = data.summary
 
     Column(
         modifier = Modifier.fillMaxSize().verticalScroll(rememberScrollState()),
@@ -490,29 +499,86 @@ private fun SummaryBody(
                 color = CaregiverColors.Muted,
             )
         }
+        if (aiGenerated && data.provider != null && data.model != null) {
+            // Provenance only: the provider's public name and the model id.
+            // The API key is never part of SummaryResultData and cannot leak.
+            val providerName = AiProvider.entries
+                .firstOrNull { it.name == data.provider }
+                ?.displayName ?: data.provider
+            Text(
+                text = stringResource(
+                    R.string.summary_generated_with,
+                    providerName,
+                    Bidi.isolate(data.model),
+                ),
+                fontFamily = PlexArabic,
+                fontSize = 12.sp,
+                color = CaregiverColors.Muted,
+            )
+        }
+        val periodStart = data.periodStart
+        val periodEnd = data.periodEnd
+        if (periodStart != null && periodEnd != null) {
+            Text(
+                text = stringResource(
+                    R.string.summary_coverage,
+                    Bidi.isolate(periodStart),
+                    Bidi.isolate(periodEnd),
+                    periodDays,
+                ),
+                fontFamily = PlexArabic,
+                fontSize = 12.sp,
+                color = CaregiverColors.Muted,
+            )
+        }
         if (summary.redFlags.isNotEmpty()) {
             FlagsBanner(summary.redFlags)
         }
-        SectionTitle(stringResource(R.string.summary_overview))
-        Text(
-            text = if (summary.text.isBlank()) stringResource(R.string.summary_no_supported_observations) else summary.text,
-            style = TextStyle(textDirection = textDirection),
-            fontFamily = PlexArabic,
-            fontSize = 16.sp,
-            lineHeight = 29.sp,
-            color = CaregiverColors.Ink,
-        )
-        if (summary.evidence.isNotEmpty()) {
-            SectionTitle(stringResource(R.string.summary_important))
-            summary.evidence.forEach { item ->
-                AppCard {
+        if (usesObservationCards(summary.evidence)) {
+            summary.evidence.forEachIndexed { index, item ->
+                AppCard(Modifier.testTag("summary_observation_$index")) {
+                    Text(
+                        text = item.claim,
+                        style = TextStyle(textDirection = textDirection),
+                        fontFamily = PlexArabic,
+                        fontSize = 16.sp,
+                        color = CaregiverColors.Ink,
+                    )
                     Text(
                         text = "“${Bidi.isolate(item.quote)}”",
                         fontFamily = PlexArabic,
                         fontSize = 15.sp,
                         color = CaregiverColors.Ink,
                     )
-                    GrayPill(stringResource(R.string.summary_source))
+                    TextButton(
+                        onClick = { navController.navigate(AppRoutes.noteDetail(item.noteId)) },
+                    ) {
+                        Text(stringResource(R.string.summary_open_source))
+                    }
+                }
+            }
+        } else {
+            SectionTitle(stringResource(R.string.summary_overview))
+            Text(
+                text = if (summary.text.isBlank()) stringResource(R.string.summary_no_supported_observations) else summary.text,
+                style = TextStyle(textDirection = textDirection),
+                fontFamily = PlexArabic,
+                fontSize = 16.sp,
+                lineHeight = 29.sp,
+                color = CaregiverColors.Ink,
+            )
+            if (summary.evidence.isNotEmpty()) {
+                SectionTitle(stringResource(R.string.summary_important))
+                summary.evidence.forEach { item ->
+                    AppCard {
+                        Text(
+                            text = "“${Bidi.isolate(item.quote)}”",
+                            fontFamily = PlexArabic,
+                            fontSize = 15.sp,
+                            color = CaregiverColors.Ink,
+                        )
+                        GrayPill(stringResource(R.string.summary_source))
+                    }
                 }
             }
         }
