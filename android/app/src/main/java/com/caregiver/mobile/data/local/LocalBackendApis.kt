@@ -109,7 +109,19 @@ class LocalBackendApis(
             recipientDao.all().map { it.toDto() }
 
         override suspend fun create(body: CreateRecipientRequest): RecipientDto {
-            val dto = RecipientDto(id = UUID.randomUUID().toString(), name = body.name, active = true)
+            val normalizedName =
+                com.caregiver.mobile.data.recipient.RecipientNameRules.normalize(body.name)
+            if (
+                com.caregiver.mobile.data.recipient.RecipientNameRules.check(body.name) !=
+                com.caregiver.mobile.data.recipient.NameCheck.Ok
+            ) {
+                throw IllegalArgumentException("recipient name")
+            }
+            val dto = RecipientDto(
+                id = UUID.randomUUID().toString(),
+                name = normalizedName,
+                active = true,
+            )
             recipientDao.insertAll(listOf(dto.toEntity()))
             return dto
         }
