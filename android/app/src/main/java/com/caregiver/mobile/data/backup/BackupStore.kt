@@ -119,6 +119,12 @@ fun RecipientEntity.toBackup(): BackupRecipient =
         name = name,
         active = active,
         archivedAt = archivedAt,
+        relationship = relationship,
+        dateOfBirth = dateOfBirth,
+        allergies = allergies,
+        conditions = conditions,
+        emergencyContactName = emergencyContactName,
+        emergencyContactPhone = emergencyContactPhone,
     )
 
 fun BackupRecipient.toEntity(): RecipientEntity =
@@ -127,6 +133,12 @@ fun BackupRecipient.toEntity(): RecipientEntity =
         name = name,
         active = active,
         archivedAt = archivedAt,
+        relationship = relationship,
+        dateOfBirth = dateOfBirth,
+        allergies = allergies,
+        conditions = conditions,
+        emergencyContactName = emergencyContactName,
+        emergencyContactPhone = emergencyContactPhone,
     )
 
 fun NoteEntity.toBackup(): BackupNote = BackupNote(

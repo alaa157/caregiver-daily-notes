@@ -3,12 +3,13 @@ package com.caregiver.mobile.data.backup
 import kotlinx.serialization.Serializable
 
 /**
- * The versioned backup payload (`.carebackup.json`, schema v4). Version 2
+ * The versioned backup payload (`.carebackup.json`, schema v5). Version 2
  * added recipient archive state, version 3 the standalone medication
- * tracker (medications + intake marks), and version 4 the note recorded
- * flags (`painRecorded`, `fallRecorded`). Older files still decode: v1
- * restores as fully unarchived, v1/v2 restore without medication data, and
- * v1–v3 restore every note with both flags recorded.
+ * tracker (medications + intake marks), version 4 the note recorded flags
+ * (`painRecorded`, `fallRecorded`), and version 5 recipient relationship and
+ * care details. Older files still decode: v1 restores as fully unarchived,
+ * v1/v2 restore without medication data, v1–v3 restore every note with both
+ * flags recorded, and v1–v4 restore recipients without care details.
  *
  * Room surrogate keys (`rowId`) are deliberately absent: list order is the
  * contract that preserves them. Recipients keep their list order, and notes
@@ -38,7 +39,8 @@ data class BackupData(
 
 /**
  * A recipient as stored locally; [serverId] is the stable id notes reference.
- * [archivedAt] is absent from v1 files and defaults to unarchived.
+ * [archivedAt] is absent from v1 files and defaults to unarchived. The
+ * relationship and care-detail fields were added in v5.
  */
 @Serializable
 data class BackupRecipient(
@@ -46,6 +48,12 @@ data class BackupRecipient(
     val name: String,
     val active: Boolean,
     val archivedAt: Long? = null,
+    val relationship: String? = null,
+    val dateOfBirth: String? = null,
+    val allergies: String? = null,
+    val conditions: String? = null,
+    val emergencyContactName: String? = null,
+    val emergencyContactPhone: String? = null,
 )
 
 /**

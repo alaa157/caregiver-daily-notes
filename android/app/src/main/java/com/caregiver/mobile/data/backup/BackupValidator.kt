@@ -1,6 +1,9 @@
 package com.caregiver.mobile.data.backup
 
 import com.caregiver.mobile.data.local.MedicationStore
+import com.caregiver.mobile.data.recipient.CareDetails
+import com.caregiver.mobile.data.recipient.CareDetailsRules
+import com.caregiver.mobile.data.recipient.RelationshipOptions
 import java.time.LocalDate
 import java.time.LocalDateTime
 import java.time.format.DateTimeParseException
@@ -13,6 +16,8 @@ enum class BackupIssueKind {
     DUPLICATE_ID,
     MISSING_VALUE,
     INVALID_OPTION,
+    INVALID_RELATIONSHIP,
+    INVALID_CARE_DETAILS,
     INVALID_DATE,
     INVALID_PAIN,
     INVALID_FALL,
@@ -65,6 +70,19 @@ object BackupValidator {
             }
             if (recipient.name.isBlank()) {
                 report(BackupEntity.RECIPIENT, BackupIssueKind.MISSING_VALUE)
+            }
+            if (RelationshipOptions.isTooLong(recipient.relationship)) {
+                report(BackupEntity.RECIPIENT, BackupIssueKind.INVALID_RELATIONSHIP)
+            }
+            val careDetails = CareDetails(
+                dateOfBirth = recipient.dateOfBirth,
+                allergies = recipient.allergies,
+                conditions = recipient.conditions,
+                emergencyContactName = recipient.emergencyContactName,
+                emergencyContactPhone = recipient.emergencyContactPhone,
+            )
+            if (CareDetailsRules.validate(careDetails, LocalDate.now()).isNotEmpty()) {
+                report(BackupEntity.RECIPIENT, BackupIssueKind.INVALID_CARE_DETAILS)
             }
         }
 
