@@ -211,7 +211,8 @@ class DemoBackendApis : BackendApis, RecipientAdmin {
             }.sortedBy { it.date }.map { note ->
                 SignalDto(
                     noteId = note.id, recipientId = note.recipientId, date = note.date,
-                    fallReported = note.fall, pain = note.pain,
+                    fallReported = note.fallRecorded && note.fall,
+                    pain = if (note.painRecorded) note.pain else null,
                     medication = note.medicationTaken,
                     medicationUnverified = note.medicationTaken == "unsure",
                     poorAppetite = note.appetite == "poor",
@@ -236,7 +237,8 @@ class DemoBackendApis : BackendApis, RecipientAdmin {
                 inScope.map { note ->
                     SignalDto(
                         noteId = note.id, recipientId = note.recipientId, date = note.date,
-                        fallReported = note.fall, pain = note.pain,
+                        fallReported = note.fallRecorded && note.fall,
+                        pain = if (note.painRecorded) note.pain else null,
                         medication = note.medicationTaken,
                         medicationUnverified = note.medicationTaken == "unsure",
                         poorAppetite = note.appetite == "poor",
