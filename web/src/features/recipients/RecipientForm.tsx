@@ -8,7 +8,7 @@ import type { MessageKey } from '../../i18n/translations';
 
 export function RecipientForm({ initial, onSave, cancelTo, onReload }: {
   initial?: RecipientInput;
-  onSave: (input: RecipientInput, signal: AbortSignal) => Promise<void>;
+  onSave: (input: RecipientInput, key: string | undefined, signal: AbortSignal) => Promise<void>;
   cancelTo: string;
   onReload?: () => void;
 }) {
@@ -19,6 +19,7 @@ export function RecipientForm({ initial, onSave, cancelTo, onReload }: {
   const [failure, setFailure] = useState<{ key: MessageKey; conflict: boolean } | null>(null);
   const [saving, setSaving] = useState(false);
   const request = useRef<AbortController | null>(null);
+  const attempt = useRef<{ key: string; name: string; relationship: string } | null>(null);
   const nameRef = useRef<HTMLInputElement>(null);
   const relationshipRef = useRef<HTMLInputElement>(null);
   const failureRef = useRef<HTMLDivElement>(null);
@@ -37,11 +38,23 @@ export function RecipientForm({ initial, onSave, cancelTo, onReload }: {
       (nextErrors.name ? nameRef : relationshipRef).current?.focus();
       return;
     }
+    let key: string | undefined;
+    if (!initial) {
+      if (!attempt.current || attempt.current.name !== name || attempt.current.relationship !== relationship) {
+        const bytes = crypto.getRandomValues(new Uint8Array(16));
+        attempt.current = {
+          key: Array.from(bytes, (byte) => byte.toString(16).padStart(2, '0')).join(''),
+          name,
+          relationship,
+        };
+      }
+      key = attempt.current.key;
+    }
     const controller = new AbortController();
     request.current = controller;
     setSaving(true);
     try {
-      await onSave(input, controller.signal);
+      await onSave(input, key, controller.signal);
     } catch (error) {
       if (!controller.signal.aborted) setFailure({ key: recipientErrorMessage(error), conflict: error instanceof ApiError && error.status === 409 });
     } finally {

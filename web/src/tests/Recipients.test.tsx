@@ -215,6 +215,56 @@ describe('care recipients screens', () => {
     expect(await screen.findByText('Care recipient added.')).toBeInTheDocument();
   });
 
+  it('reuses the same Idempotency-Key when retrying a failed create', async () => {
+    const fetcher = vi.fn()
+      .mockRejectedValueOnce(new TypeError('Failed to fetch'))
+      .mockResolvedValueOnce(jsonResponse({ ...recipient, createdAt: null, updatedAt: null }, 201))
+      .mockResolvedValueOnce(jsonResponse(recipient));
+    renderRecipients(`${root}/new`, fetcher);
+    await userEvent.type(screen.getByLabelText('Name'), recipient.name);
+    await userEvent.click(screen.getByRole('button', { name: 'Add care recipient' }));
+    expect(await screen.findByRole('alert')).toBeInTheDocument();
+    await userEvent.click(screen.getByRole('button', { name: 'Add care recipient' }));
+    expect(await screen.findByText('Care recipient added.')).toBeInTheDocument();
+    const first = new Headers(fetcher.mock.calls[0][1].headers).get('Idempotency-Key');
+    const second = new Headers(fetcher.mock.calls[1][1].headers).get('Idempotency-Key');
+    expect(first).toMatch(/^[0-9a-f]{32}$/);
+    expect(second).toBe(first);
+  });
+
+  it('generates a new Idempotency-Key when the input changes before retrying', async () => {
+    const fetcher = vi.fn()
+      .mockRejectedValueOnce(new TypeError('Failed to fetch'))
+      .mockResolvedValueOnce(jsonResponse({ ...recipient, createdAt: null, updatedAt: null }, 201))
+      .mockResolvedValueOnce(jsonResponse(recipient));
+    renderRecipients(`${root}/new`, fetcher);
+    await userEvent.type(screen.getByLabelText('Name'), 'First name');
+    await userEvent.click(screen.getByRole('button', { name: 'Add care recipient' }));
+    expect(await screen.findByRole('alert')).toBeInTheDocument();
+    await userEvent.clear(screen.getByLabelText('Name'));
+    await userEvent.type(screen.getByLabelText('Name'), 'Second name');
+    await userEvent.click(screen.getByRole('button', { name: 'Add care recipient' }));
+    expect(await screen.findByText('Care recipient added.')).toBeInTheDocument();
+    const first = new Headers(fetcher.mock.calls[0][1].headers).get('Idempotency-Key');
+    const second = new Headers(fetcher.mock.calls[1][1].headers).get('Idempotency-Key');
+    expect(first).toMatch(/^[0-9a-f]{32}$/);
+    expect(second).toMatch(/^[0-9a-f]{32}$/);
+    expect(second).not.toBe(first);
+  });
+
+  it('sends no Idempotency-Key when editing a recipient', async () => {
+    const updated = { ...recipient, name: 'Samir Updated', relationship: null };
+    const fetcher = vi.fn().mockResolvedValueOnce(jsonResponse(recipient))
+      .mockResolvedValueOnce(jsonResponse(updated)).mockResolvedValueOnce(jsonResponse(updated));
+    renderRecipients(`${detail}/edit`, fetcher);
+    expect(await screen.findByLabelText('Name')).toHaveValue(recipient.name);
+    await userEvent.click(screen.getByRole('button', { name: 'Save changes' }));
+    expect(await screen.findByText('Recipient details updated.')).toBeInTheDocument();
+    const putCall = fetcher.mock.calls.find(([, init]) => (init as RequestInit).method === 'PUT');
+    expect(putCall).toBeDefined();
+    expect(new Headers((putCall![1] as RequestInit).headers).get('Idempotency-Key')).toBeNull();
+  });
+
   it('edits current data with PUT, including removing the optional relationship', async () => {
     const updated = { ...recipient, name: 'Samir Updated', relationship: null };
     const fetcher = vi.fn().mockResolvedValueOnce(jsonResponse(recipient))
