@@ -9,6 +9,8 @@ import com.caregiver.mobile.data.api.CreateRecipientRequest
 import com.caregiver.mobile.data.api.RecipientDto
 import com.caregiver.mobile.data.local.RecipientAdmin
 import com.caregiver.mobile.data.local.RecipientDeletionCounts
+import com.caregiver.mobile.data.recipient.NameCheck
+import com.caregiver.mobile.data.recipient.RecipientNameRules
 import java.io.IOException
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.CoroutineScope
@@ -48,13 +50,18 @@ sealed interface PeopleState {
 
 sealed interface NameError {
     data object Required : NameError
+    data object TooLong : NameError
 }
+
+data class DuplicateMatch(val id: String, val name: String, val archived: Boolean)
 
 data class AddPersonState(
     val name: String = "",
     val nameError: NameError? = null,
     val addedId: String? = null,
     val busy: Boolean = false,
+    val duplicate: DuplicateMatch? = null,
+    val failed: Boolean = false,
 )
 
 /**
@@ -98,6 +105,7 @@ class RecipientsViewModel(
 
     /** The unfiltered snapshot, so switching filters never refetches. */
     private var allRecipients: List<RecipientDto> = emptyList()
+    private var duplicateConfirmed = false
 
     init {
         launch { refresh() }
@@ -122,17 +130,51 @@ class RecipientsViewModel(
     }
 
     fun onName(value: String) {
-        _addState.value = _addState.value.copy(name = value, nameError = null)
+        duplicateConfirmed = false
+        _addState.value = _addState.value.copy(
+            name = value,
+            nameError = null,
+            failed = false,
+            duplicate = null,
+        )
     }
 
     fun add() {
-        val name = _addState.value.name.trim()
-        if (name.isEmpty()) {
-            _addState.value = _addState.value.copy(nameError = NameError.Required)
-            return
+        if (_addState.value.busy) return
+        val rawName = _addState.value.name
+        when (RecipientNameRules.check(rawName)) {
+            NameCheck.Required -> {
+                _addState.value = _addState.value.copy(nameError = NameError.Required)
+                return
+            }
+            NameCheck.TooLong -> {
+                _addState.value = _addState.value.copy(nameError = NameError.TooLong)
+                return
+            }
+            NameCheck.Ok -> Unit
         }
+        val name = RecipientNameRules.normalize(rawName)
+        if (!duplicateConfirmed) {
+            val duplicate = RecipientNameRules.findDuplicate(name, allRecipients)
+            if (duplicate != null) {
+                _addState.value = _addState.value.copy(
+                    nameError = null,
+                    duplicate = DuplicateMatch(
+                        id = duplicate.id,
+                        name = duplicate.name,
+                        archived = duplicate.archivedAt != null,
+                    ),
+                )
+                return
+            }
+        }
+        _addState.value = _addState.value.copy(
+            nameError = null,
+            busy = true,
+            failed = false,
+            duplicate = null,
+        )
         launch {
-            _addState.value = _addState.value.copy(busy = true)
             try {
                 val created = repository.authorized {
                     apis.recipients().create(CreateRecipientRequest(name))
@@ -141,21 +183,33 @@ class RecipientsViewModel(
                 load()
             } catch (e: LoggedOutException) {
                 _addState.value = _addState.value.copy(busy = false)
-            } catch (e: HttpException) {
-                _addState.value = _addState.value.copy(busy = false)
-                _state.value = PeopleState.Error
-            } catch (e: IOException) {
-                _addState.value = _addState.value.copy(busy = false, nameError = null)
-                _state.value = PeopleState.Error
             } catch (e: CancellationException) {
                 _addState.value = _addState.value.copy(busy = false)
                 throw e
+            } catch (e: Exception) {
+                _addState.value = _addState.value.copy(busy = false, failed = true)
             }
         }
     }
 
+    fun createAnyway() {
+        duplicateConfirmed = true
+        _addState.value = _addState.value.copy(duplicate = null)
+        add()
+    }
+
+    fun dismissDuplicate() {
+        _addState.value = _addState.value.copy(duplicate = null)
+    }
+
     fun consumeAdded() {
-        _addState.value = _addState.value.copy(addedId = null, name = "")
+        duplicateConfirmed = false
+        _addState.value = _addState.value.copy(
+            addedId = null,
+            name = "",
+            failed = false,
+            duplicate = null,
+        )
     }
 
     fun archive(id: String) {
