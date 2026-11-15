@@ -493,15 +493,22 @@ private fun evaluateObservations(
  * against the NoteDto itself. */
 private fun NoteDto.aiSourceText(): String = buildString {
     append(combinedText())
-    append("\n\nRecorded observations:\n")
-    appendObservation("Mood", mood)
-    appendObservation("Appetite", appetite)
-    appendObservation("Sleep", sleep)
-    appendObservation("Mobility", mobility)
-    appendObservation("Medication status", medicationTaken)
-    append("- Pain level: ").append(pain).append(" out of 10.\n")
-    append("- Fall: ")
-    append(if (fall) "a fall was reported.\n" else "no fall was reported.\n")
+    val observations = buildString {
+        appendObservation("Mood", mood)
+        appendObservation("Appetite", appetite)
+        appendObservation("Sleep", sleep)
+        appendObservation("Mobility", mobility)
+        appendObservation("Medication status", medicationTaken)
+        if (painRecorded) append("- Pain level: ").append(pain).append(" out of 10.\n")
+        if (fallRecorded) {
+            append("- Fall: ")
+            append(if (fall) "a fall was reported.\n" else "no fall was reported.\n")
+        }
+    }
+    if (observations.isNotEmpty()) {
+        append("\n\nRecorded observations:\n")
+        append(observations)
+    }
 }
 
 private fun StringBuilder.appendObservation(label: String, value: String) {

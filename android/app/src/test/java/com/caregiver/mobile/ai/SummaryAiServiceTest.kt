@@ -273,6 +273,47 @@ class SummaryAiServiceTest {
     }
 
     @Test
+    fun unrecordedPainAndFallAreOmittedFromSourceText() = runBlocking {
+        val unanswered = note.copy(painRecorded = false, fallRecorded = false)
+        val client = ScriptedClient(listOf("""{"observations":[],"uncertainties":[]}"""))
+        SummaryAiService(client).summarize(
+            "r1", 7, listOf(unanswered), emptyList(), LocalDate.parse("2026-10-01"),
+        )
+
+        val text = capturedNoteText(client)
+        assertFalse(text.contains("Pain level"))
+        assertFalse(text.contains("fall"))
+    }
+
+    @Test
+    fun recordedPainZeroAndNoFallRenderAsExplicitNegatives() = runBlocking {
+        val answered = note.copy(painRecorded = true, pain = 0, fallRecorded = true, fall = false)
+        val client = ScriptedClient(listOf("""{"observations":[],"uncertainties":[]}"""))
+        SummaryAiService(client).summarize(
+            "r1", 7, listOf(answered), emptyList(), LocalDate.parse("2026-10-01"),
+        )
+
+        val text = capturedNoteText(client)
+        assertTrue(text.contains("- Pain level: 0 out of 10."))
+        assertTrue(text.contains("- Fall: no fall was reported."))
+    }
+
+    @Test
+    fun emptyObservationsOmitTheRecordedObservationsHeader() = runBlocking {
+        val blank = note.copy(
+            mood = "", appetite = "", sleep = "", mobility = "", medicationTaken = "",
+            painRecorded = false, fallRecorded = false,
+        )
+        val client = ScriptedClient(listOf("""{"observations":[],"uncertainties":[]}"""))
+        SummaryAiService(client).summarize(
+            "r1", 7, listOf(blank), emptyList(), LocalDate.parse("2026-10-01"),
+        )
+
+        val text = capturedNoteText(client)
+        assertFalse(text.contains("Recorded observations:"))
+    }
+
+    @Test
     fun structuredFieldWithWrongValueIsRejected() = runBlocking {
         val fairNote = note.copy(mood = "fair")
         val json = """{"observations":[{"text":"The patient's mood was good.","noteId":"n1","evidenceType":"STRUCTURED_FIELD","structuredField":"mood","structuredValue":"good"}],"uncertainties":[]}"""
