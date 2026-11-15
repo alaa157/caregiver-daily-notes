@@ -42,6 +42,13 @@ function renderRecipients(path: string, fetcher: ReturnType<typeof vi.fn>, langu
   return render(<I18nProvider><ApiProvider config={{ apiBaseUrl: '' }}><AuthProvider><MemoryRouter initialEntries={[path]}><App /></MemoryRouter></AuthProvider></ApiProvider></I18nProvider>);
 }
 
+function recipientDetailFetcher(value: typeof recipient) {
+  return vi.fn().mockImplementation((requestPath: string) => {
+    const path = new URL(requestPath, 'http://localhost').pathname;
+    return Promise.resolve(path === `/api/recipients/${recipient.id}` ? jsonResponse(value) : jsonResponse([]));
+  });
+}
+
 function creationFetcher(existing: (typeof recipient)[], createdName: string) {
   const created = { ...recipient, id: 'b2222222-2222-4222-8222-222222222222', name: createdName };
   return vi.fn().mockImplementation((path: string, options: RequestInit = {}) => {
@@ -600,6 +607,76 @@ describe('care recipients screens', () => {
       await userEvent.type(screen.getByLabelText('Search name or relationship'), 'Mother');
       expect(screen.getByRole('link', { name: recipient.name })).toBeInTheDocument();
       expect(screen.queryByRole('link', { name: 'Mona' })).not.toBeInTheDocument();
+    });
+  });
+
+  describe('care details overview', () => {
+    it('hides the section when all care-detail fields are empty', async () => {
+      const empty = {
+        ...recipient,
+        dateOfBirth: null,
+        allergies: null,
+        conditions: null,
+        emergencyContactName: null,
+        emergencyContactPhone: null,
+      };
+      const fetcher = recipientDetailFetcher(empty);
+      renderRecipients(detail, fetcher);
+      await waitFor(() => expect(fetcher).toHaveBeenCalled(), { timeout: 5000 });
+
+      expect(await screen.findByRole('heading', { name: recipient.name }, { timeout: 5000 })).toBeInTheDocument();
+      expect(screen.queryByRole('region', { name: 'Care details' })).not.toBeInTheDocument();
+    });
+
+    it('renders only populated fields and links active recipients to edit care details', async () => {
+      const partial = {
+        ...recipient,
+        dateOfBirth: '1950-04-12',
+        allergies: 'Penicillin\nLatex',
+        conditions: '   ',
+        emergencyContactName: null,
+        emergencyContactPhone: '+20 (100) 123-4567',
+      };
+      renderRecipients(detail, recipientDetailFetcher(partial));
+      const section = await screen.findByRole('region', { name: 'Care details' });
+
+      expect(within(section).getByText('Date of birth')).toBeInTheDocument();
+      expect(within(section).getByText('Allergies')).toBeInTheDocument();
+      expect(within(section).getByText((_content, element) =>
+        element?.tagName === 'DD' && element.textContent === 'Penicillin\nLatex')).toHaveAttribute('dir', 'auto');
+      expect(within(section).queryByText('Conditions')).not.toBeInTheDocument();
+      expect(within(section).queryByText('Emergency contact name')).not.toBeInTheDocument();
+      expect(within(section).getByRole('link', { name: 'Edit care details' })).toHaveAttribute('href', `${detail}/edit`);
+
+      const dateOfBirth = within(section).getByText((_content, element) => element?.tagName === 'TIME');
+      expect(dateOfBirth).toHaveAttribute('datetime', '1950-04-12');
+      expect(dateOfBirth).toHaveTextContent(new Intl.DateTimeFormat('en', {
+        dateStyle: 'medium', timeZone: 'UTC',
+      }).format(new Date('1950-04-12T00:00:00.000Z')));
+    });
+
+    it('builds the emergency phone link from digits and a leading plus', async () => {
+      const phone = '+20 (100) 123-4567';
+      renderRecipients(detail, recipientDetailFetcher({ ...recipient, emergencyContactPhone: phone }));
+      const section = await screen.findByRole('region', { name: 'Care details' });
+      const link = within(section).getByRole('link', { name: phone });
+
+      expect(link).toHaveAttribute('href', 'tel:+201001234567');
+      expect(link).toHaveAttribute('dir', 'ltr');
+    });
+
+    it('uses automatic RTL direction for Arabic care-detail values', async () => {
+      const arabicDetails = {
+        ...recipient,
+        allergies: 'حساسية البنسلين',
+        emergencyContactName: 'ليلى حسن',
+      };
+      renderRecipients(detail, recipientDetailFetcher(arabicDetails), 'ar');
+      const section = await screen.findByRole('region', { name: 'تفاصيل الرعاية' });
+
+      expect(document.documentElement).toHaveAttribute('dir', 'rtl');
+      expect(within(section).getByText('حساسية البنسلين')).toHaveAttribute('dir', 'auto');
+      expect(within(section).getByText('ليلى حسن')).toHaveAttribute('dir', 'auto');
     });
   });
 

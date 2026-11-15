@@ -33,6 +33,12 @@ const filters: RecipientLifecycleStatus[] = ['ACTIVE', 'ARCHIVED', 'LEGACY_INACT
 const filterLabel = (status: RecipientLifecycleStatus): MessageKey => status === 'ACTIVE' ? 'recipientActiveFilter'
   : status === 'ARCHIVED' ? 'recipientArchivedFilter' : 'recipientReviewFilter';
 const normalizeRecipientName = (name: string) => name.trim().replace(/\s+/g, ' ').toLowerCase();
+const hasCareDetailValue = (value: string | null | undefined): value is string => typeof value === 'string' && value.trim().length > 0;
+const hasCareDetails = (recipient: Recipient) => [
+  recipient.dateOfBirth, recipient.allergies, recipient.conditions,
+  recipient.emergencyContactName, recipient.emergencyContactPhone,
+].some(hasCareDetailValue);
+const telephoneHref = (value: string) => `tel:${value.trim().startsWith('+') ? '+' : ''}${value.replace(/\D/g, '')}`;
 
 export function RecipientsListPage() {
   const { t } = useI18n(); const api = useRecipientsApi();
@@ -102,7 +108,10 @@ function RecipientRecord({ id, edit }: { id: string; edit: boolean }) {
   });
   const noticeRef = useRef<HTMLParagraphElement>(null);
   useEffect(() => { if (notice && state.status === 'ready') noticeRef.current?.focus(); }, [notice, state.status]);
-  const date = (value: string) => new Intl.DateTimeFormat(language === 'ar' ? 'ar-EG' : 'en', { dateStyle: 'medium' }).format(new Date(value));
+  const date = (value: string, timeZone?: Intl.DateTimeFormatOptions['timeZone']) =>
+    new Intl.DateTimeFormat(language === 'ar' ? 'ar-EG' : 'en', {
+      dateStyle: 'medium', ...(timeZone ? { timeZone } : {}),
+    }).format(new Date(value));
   return <RecipientLayout title={t(edit ? 'recipientEdit' : 'recipientDetails')} description={t(edit ? 'recipientEditDescription' : 'recipientDetailsDescription')}
     action={<ButtonLink variant="secondary" to={listPath}><Icon name="arrow-left" className="directional-icon" />{t('recipientsBack')}</ButtonLink>}>
     {state.status === 'loading' && <LoadingState label={t('recipientLoading')} />}
@@ -127,6 +136,19 @@ function RecipientRecord({ id, edit }: { id: string; edit: boolean }) {
             {state.data.archivedAt && <div><dt>{t('recipientArchivedAt')}</dt><dd><time dateTime={state.data.archivedAt}>{date(state.data.archivedAt)}</time></dd></div>}
             {state.data.restoredAt && <div><dt>{t('recipientRestoredAt')}</dt><dd><time dateTime={state.data.restoredAt}>{date(state.data.restoredAt)}</time></dd></div>}
           </dl>
+          {hasCareDetails(state.data) && <section className="recipient-care-details-overview" aria-labelledby="care-details-section-title">
+            <div className="recipient-care-details-overview-heading">
+              <h3 id="care-details-section-title">{t('careDetailsSectionTitle')}</h3>
+              {state.data.lifecycleStatus === 'ACTIVE' && <ButtonLink variant="secondary" to={`${listPath}/${encodeURIComponent(id)}/edit`}>{t('careDetailsEdit')}</ButtonLink>}
+            </div>
+            <dl className="recipient-details recipient-care-details-list">
+              {hasCareDetailValue(state.data.dateOfBirth) && <div><dt>{t('careDetailsDateOfBirth')}</dt><dd><time dateTime={state.data.dateOfBirth}>{date(state.data.dateOfBirth, 'UTC')}</time></dd></div>}
+              {hasCareDetailValue(state.data.allergies) && <div><dt>{t('careDetailsAllergies')}</dt><dd className="recipient-care-details-text" dir="auto">{state.data.allergies}</dd></div>}
+              {hasCareDetailValue(state.data.conditions) && <div><dt>{t('careDetailsConditions')}</dt><dd className="recipient-care-details-text" dir="auto">{state.data.conditions}</dd></div>}
+              {hasCareDetailValue(state.data.emergencyContactName) && <div><dt>{t('careDetailsEmergencyContactName')}</dt><dd className="recipient-care-details-text" dir="auto">{state.data.emergencyContactName}</dd></div>}
+              {hasCareDetailValue(state.data.emergencyContactPhone) && <div><dt>{t('careDetailsEmergencyContactPhone')}</dt><dd><a href={telephoneHref(state.data.emergencyContactPhone)} dir="ltr">{state.data.emergencyContactPhone}</a></dd></div>}
+            </dl>
+          </section>}
           <div className="recipient-actions">
             <ButtonLink variant="secondary" to={`/app/recipients/${encodeURIComponent(id)}/notes`}>{t('historyTitle')}</ButtonLink>
             {state.data.lifecycleStatus === 'ACTIVE' && <ButtonLink variant="secondary" to={`/app/notes/new?recipientId=${encodeURIComponent(id)}`}>{t('notesCreate')}</ButtonLink>}
