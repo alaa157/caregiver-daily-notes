@@ -250,6 +250,33 @@ class NoteEditorViewModelTest {
     }
 
     @Test
+    fun answeredCountStartsAtZero() {
+        assertEquals(0, EditorState().answeredCount())
+    }
+
+    @Test
+    fun answeredCountCountsOnlyAnsweredOptions() {
+        assertEquals(1, EditorState(mood = "good").answeredCount())
+        assertEquals(
+            3,
+            EditorState(mood = "good", pain = 0, fall = false).answeredCount(),
+        )
+        assertEquals(
+            7,
+            EditorState(
+                mood = "good",
+                appetite = "good",
+                sleep = "good",
+                mobility = "walks",
+                medication = "taken",
+                pain = 0,
+                fall = false,
+            ).answeredCount(),
+        )
+        assertEquals(0, EditorState(text = "only words").answeredCount())
+    }
+
+    @Test
     fun networkFailureSurfacesUnreachable() = runTest {
         notes.createHandler = { throw IOException("down") }
         val vm = vm(this)
