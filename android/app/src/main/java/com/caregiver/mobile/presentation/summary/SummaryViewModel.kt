@@ -12,6 +12,7 @@ import com.caregiver.mobile.ai.SafetySignalEvaluator
 import com.caregiver.mobile.ai.SummaryAiResult
 import com.caregiver.mobile.ai.SummaryAiService
 import com.caregiver.mobile.ai.SummaryWindow
+import com.caregiver.mobile.ai.TrendDto
 import com.caregiver.mobile.data.AuthRepository
 import com.caregiver.mobile.data.LoggedOutException
 import com.caregiver.mobile.data.api.ApiErrors
@@ -30,6 +31,23 @@ import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.launch
 import retrofit2.HttpException
 
+/**
+ * Everything the result screen renders for one generation: the summary
+ * itself plus the fields later issues fill in (trends, period bounds,
+ * provider/model, generation time, saved-summary id). All fields except
+ * [summary] default so existing behaviour is unchanged.
+ */
+data class SummaryResultData(
+    val summary: SummaryDto,
+    val trends: List<TrendDto> = emptyList(),
+    val periodStart: String? = null,
+    val periodEnd: String? = null,
+    val provider: String? = null,
+    val model: String? = null,
+    val generatedAt: Long? = null,
+    val savedId: String? = null,
+)
+
 sealed interface SummaryState {
     data object Loading : SummaryState
 
@@ -39,9 +57,9 @@ sealed interface SummaryState {
      * even if settings change underneath the screen.
      */
     data class NeedsConsent(val provider: AiProvider) : SummaryState
-    data class Content(val summary: SummaryDto, val refreshing: Boolean = false, val aiGenerated: Boolean = false) : SummaryState
+    data class Content(val data: SummaryResultData, val refreshing: Boolean = false, val aiGenerated: Boolean = false) : SummaryState
     data class AiUnavailable(
-        val last: SummaryDto? = null,
+        val last: SummaryResultData? = null,
         val redFlags: List<String> = emptyList(),
         /** Provider/service code; the UI turns it into recovery copy. */
         val reasonCode: String? = null,
@@ -52,7 +70,7 @@ sealed interface SummaryState {
          */
         val switchToProvider: AiProvider? = null,
     ) : SummaryState
-    data class Rejected(val code: String?, val last: SummaryDto? = null) : SummaryState
+    data class Rejected(val code: String?, val last: SummaryResultData? = null) : SummaryState
 }
 
 /**
@@ -110,7 +128,7 @@ class SummaryViewModel(
 
     fun refresh() {
         cancelledByUser = false
-        val current = (_state.value as? SummaryState.Content)?.summary
+        val current = (_state.value as? SummaryState.Content)?.data
         _suggestedForCurrent.value = false
         _suggestStatus.value = null
         _state.value = if (current != null) {
@@ -277,7 +295,7 @@ class SummaryViewModel(
                 }
                 when (result) {
                     is SummaryAiResult.Success -> {
-                        _state.value = SummaryState.Content(result.summary, aiGenerated = true)
+                        _state.value = SummaryState.Content(SummaryResultData(result.summary), aiGenerated = true)
                         _suggestedForCurrent.value = false
                         _suggestStatus.value = null
                         return
@@ -286,14 +304,16 @@ class SummaryViewModel(
                         aiRedFlags = result.redFlags
                         lastRedFlags = result.redFlags
                         if (waiting()) _state.value = SummaryState.AiUnavailable(
-                            SummaryDto(
-                                id = "",
-                                recipientId = recipientId,
-                                periodDays = periodDays,
-                                text = "",
-                                redFlags = result.redFlags,
-                                evidence = emptyList(),
-                                uncertainties = listOf(SummaryDto.UncertaintyDto("ai_unavailable", "")),
+                            SummaryResultData(
+                                SummaryDto(
+                                    id = "",
+                                    recipientId = recipientId,
+                                    periodDays = periodDays,
+                                    text = "",
+                                    redFlags = result.redFlags,
+                                    evidence = emptyList(),
+                                    uncertainties = listOf(SummaryDto.UncertaintyDto("ai_unavailable", "")),
+                                ),
                             ),
                             redFlags = result.redFlags,
                             reasonCode = result.reasonCode,
@@ -347,7 +367,7 @@ class SummaryViewModel(
                     apis.summaries().summarize(SummaryRequest(recipientId, periodDays))
                 }
             }
-            _state.value = SummaryState.Content(summary)
+            _state.value = SummaryState.Content(SummaryResultData(summary))
             _suggestedForCurrent.value = false
             _suggestStatus.value = null
         } catch (e: LoggedOutException) {
@@ -396,7 +416,7 @@ class SummaryViewModel(
         if (!store.hasKey(provider)) return
         if (!store.consentGiven(provider)) return
         if (_suggesting.value || _suggestedForCurrent.value) return
-        val summaryText = (_state.value as? SummaryState.Content)?.summary?.text.orEmpty()
+        val summaryText = (_state.value as? SummaryState.Content)?.data?.summary?.text.orEmpty()
         if (summaryText.isBlank()) {
             _suggestStatus.value = "empty_after_filter"
             return
@@ -418,7 +438,7 @@ class SummaryViewModel(
                     AiProvider.GEMINI ->
                         llmClientFactory.createGeminiClient(baseUrl, model, key)
                 }
-                val summaryIds = (_state.value as? SummaryState.Content)?.summary?.evidence?.map { it.noteId }?.toSet().orEmpty()
+                val summaryIds = (_state.value as? SummaryState.Content)?.data?.summary?.evidence?.map { it.noteId }?.toSet().orEmpty()
                 val noteIds = if (summaryIds.isNotEmpty()) {
                     summaryIds
                 } else {
@@ -471,8 +491,8 @@ class SummaryViewModel(
         }
     }
 
-    private fun lastSummary(): SummaryDto? =
-        (_state.value as? SummaryState.Content)?.summary
+    private fun lastSummary(): SummaryResultData? =
+        (_state.value as? SummaryState.Content)?.data
 
     companion object {
         const val DEFAULT_PERIOD_DAYS = 7

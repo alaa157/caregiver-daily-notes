@@ -66,7 +66,7 @@ class SummaryViewModelTest {
     private suspend fun content(vm: SummaryViewModel): SummaryDto {
         val state = vm.state.first { it is SummaryState.Content || it !is SummaryState.Loading }
         assertTrue("expected Content, was $state", state is SummaryState.Content)
-        return (state as SummaryState.Content).summary
+        return (state as SummaryState.Content).data.summary
     }
 
     @Test
@@ -90,7 +90,7 @@ class SummaryViewModelTest {
 
         vm.setPeriod(30)
         vm.state.first {
-            it is SummaryState.Content && it.summary.periodDays == 30
+            it is SummaryState.Content && it.data.summary.periodDays == 30
         }
 
         assertEquals(30, summaries.lastSummarize?.periodDays)
@@ -119,7 +119,7 @@ class SummaryViewModelTest {
 
         fastThirtyDay.complete(summary().copy(periodDays = 30, text = "30-day summary"))
         advanceUntilIdle()
-        assertEquals(30, (vm.state.value as SummaryState.Content).summary.periodDays)
+        assertEquals(30, (vm.state.value as SummaryState.Content).data.summary.periodDays)
 
         // The 14-day request is now stale. Even if it finishes later, it must
         // not replace the 30-day result.
@@ -127,8 +127,8 @@ class SummaryViewModelTest {
         advanceUntilIdle()
 
         val result = vm.state.value as SummaryState.Content
-        assertEquals(30, result.summary.periodDays)
-        assertEquals("30-day summary", result.summary.text)
+        assertEquals(30, result.data.summary.periodDays)
+        assertEquals("30-day summary", result.data.summary.text)
     }
 
     @Test
@@ -195,7 +195,7 @@ class SummaryViewModelTest {
         vm.refresh()
         val state = vm.state.first { it is SummaryState.AiUnavailable }
 
-        assertEquals(before.redFlags, (state as SummaryState.AiUnavailable).last?.redFlags)
+        assertEquals(before.redFlags, (state as SummaryState.AiUnavailable).last?.summary?.redFlags)
     }
 
     @Test
@@ -212,7 +212,7 @@ class SummaryViewModelTest {
 
         assertEquals(
             listOf("FALL_REPORTED", "MEDICATION_UNCLEAR"),
-            (state as SummaryState.Rejected).last?.redFlags,
+            (state as SummaryState.Rejected).last?.summary?.redFlags,
         )
     }
 
@@ -228,7 +228,7 @@ class SummaryViewModelTest {
             it is SummaryState.Content && !it.refreshing
         } as SummaryState.Content
 
-        assertTrue(state.summary.redFlags.isEmpty())
+        assertTrue(state.data.summary.redFlags.isEmpty())
     }
 
     @Test
@@ -266,5 +266,15 @@ class SummaryViewModelTest {
         val state = vm.state.value
         assertTrue("expected AiUnavailable, was $state", state is SummaryState.AiUnavailable)
         assertEquals("cancelled", (state as SummaryState.AiUnavailable).reasonCode)
+    }
+
+    @Test
+    fun contentDataRoundTripsTheSummary() {
+        val summary = SummaryDto(
+            id = "s1", recipientId = "r1", periodDays = 7, text = "ok",
+            redFlags = emptyList(), evidence = emptyList(), uncertainties = emptyList(),
+        )
+        val state = SummaryState.Content(SummaryResultData(summary))
+        assertEquals(summary, (state as SummaryState.Content).data.summary)
     }
 }

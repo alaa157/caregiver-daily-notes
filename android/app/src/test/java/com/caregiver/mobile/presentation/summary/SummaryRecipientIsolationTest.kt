@@ -173,8 +173,8 @@ class SummaryRecipientIsolationTest {
         // drop the cross-recipient claim, and only the cleaned reply that
         // cites n1 alone is rendered.
         val content = state as SummaryState.Content
-        assertEquals(listOf("n1"), content.summary.evidence.map { it.noteId })
-        assertTrue(content.summary.evidence.none { it.quote.contains("secret") })
+        assertEquals(listOf("n1"), content.data.summary.evidence.map { it.noteId })
+        assertTrue(content.data.summary.evidence.none { it.quote.contains("secret") })
         assertEquals(2, client.requests.size)
     }
 
