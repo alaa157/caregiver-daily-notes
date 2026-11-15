@@ -80,7 +80,7 @@ class CsvTransferServiceTest {
         assertEquals("2026-09-30", note.date)
         assertEquals("r1", note.recipientId)
         assertEquals(8, note.pain)
-        assertTrue(note.fall)
+        assertEquals(true, note.fall)
         assertEquals("أكل جيدًا، سقط مرة", note.text)
     }
 

@@ -6,7 +6,7 @@ import org.junit.Assert.assertTrue
 import org.junit.Test
 
 /**
- * Validation and recipient-resolution rules: required fields, the date
+ * Validation and recipient-resolution rules: optional note answers, the date
  * policy, recipient matching by stable id first, duplicate skipping, and
  * preview counts that match what a commit would do.
  */
@@ -46,7 +46,7 @@ class CsvImportPlannerTest {
                     mobility = "Walks",
                     medicationTaken = "TAKEN",
                     pain = "7",
-                    fall = "yes",
+                    fall = "true",
                     text = "أكل جيدًا",
                 ),
             ),
@@ -61,7 +61,7 @@ class CsvImportPlannerTest {
         assertEquals("walks", note.mobility)
         assertEquals("taken", note.medicationTaken)
         assertEquals(7, note.pain)
-        assertTrue(note.fall)
+        assertEquals(true, note.fall)
         assertEquals("أكل جيدًا", note.text)
     }
 
@@ -94,7 +94,7 @@ class CsvImportPlannerTest {
 
     @Test
     fun painOutsideZeroToTenIsRejected() {
-        listOf("11", "-1", "two", "").forEach { value ->
+        listOf("11", "-1", "two", "abc").forEach { value ->
             val plan = plan(listOf(csvRow(pain = value)))
             assertEquals(
                 "pain='$value' must be rejected",
@@ -106,22 +106,70 @@ class CsvImportPlannerTest {
     }
 
     @Test
-    fun fallMustParseAsABoolean() {
-        val plan = plan(listOf(csvRow(fall = "maybe")))
+    fun emptyPainAndFallCellsAreImportedAsUnanswered() {
+        val note = plan(listOf(csvRow(pain = "  ", fall = "  "))).valid.single()
 
-        assertEquals(ImportIssue.INVALID_FALL, plan.invalid.single().issue)
-        assertEquals("fall", plan.invalid.single().column)
+        assertEquals(null, note.pain)
+        assertEquals(null, note.fall)
     }
 
     @Test
-    fun moodAndNoteTextAreRequired() {
-        val missingMood = plan(listOf(csvRow(mood = " "))).invalid.single()
-        assertEquals(ImportIssue.MISSING_MOOD, missingMood.issue)
-        assertEquals("mood", missingMood.column)
+    fun zeroPainAndFalseFallAreValidRecordedAnswers() {
+        val note = plan(listOf(csvRow(pain = "0", fall = "false"))).valid.single()
 
-        val missingText = plan(listOf(csvRow(text = "  "))).invalid.single()
-        assertEquals(ImportIssue.EMPTY_TEXT, missingText.issue)
-        assertEquals("note_text", missingText.column)
+        assertEquals(0, note.pain)
+        assertEquals(false, note.fall)
+    }
+
+    @Test
+    fun fallMustParseAsABoolean() {
+        listOf("maybe", "yes", "1").forEach { value ->
+            val plan = plan(listOf(csvRow(fall = value)))
+
+            assertEquals(ImportIssue.INVALID_FALL, plan.invalid.single().issue)
+            assertEquals("fall", plan.invalid.single().column)
+        }
+    }
+
+    @Test
+    fun aMoodAnswerDoesNotRequireNoteText() {
+        val note = plan(
+            listOf(
+                csvRow(
+                    mood = "good",
+                    appetite = "",
+                    sleep = "",
+                    mobility = "",
+                    medicationTaken = "",
+                    pain = "",
+                    fall = "",
+                    text = "",
+                ),
+            ),
+        ).valid.single()
+
+        assertEquals("good", note.mood)
+        assertEquals("", note.text)
+    }
+
+    @Test
+    fun aRowWithoutAnyAnswersOrTextIsRejected() {
+        val row = plan(
+            listOf(
+                csvRow(
+                    mood = "",
+                    appetite = "",
+                    sleep = "",
+                    mobility = "",
+                    medicationTaken = "",
+                    pain = "",
+                    fall = "",
+                    text = "  ",
+                ),
+            ),
+        ).invalid.single()
+
+        assertEquals(ImportIssue.EMPTY_NOTE, row.issue)
     }
 
     @Test

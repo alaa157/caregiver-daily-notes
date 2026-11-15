@@ -99,8 +99,10 @@ class RoomCsvNoteStore(
                                     sleep = row.sleep,
                                     mobility = row.mobility,
                                     medicationTaken = row.medicationTaken,
-                                    pain = row.pain,
-                                    fall = row.fall,
+                                    painRecorded = row.pain != null,
+                                    pain = row.pain ?: 0,
+                                    fallRecorded = row.fall != null,
+                                    fall = row.fall ?: false,
                                     text = row.text,
                                 ),
                             ),
@@ -142,9 +144,11 @@ class ApiCsvNoteStore(private val apis: BackendApis) : CsvNoteStore {
                         sleep = row.sleep,
                         mobility = row.mobility,
                         medicationTaken = row.medicationTaken,
-                        pain = row.pain,
-                        fall = row.fall,
+                        pain = row.pain ?: 0,
+                        fall = row.fall ?: false,
                         text = row.text,
+                        painRecorded = row.pain != null,
+                        fallRecorded = row.fall != null,
                     ),
                 )
                 // The repository resolves a duplicate-day 422 to the note
@@ -176,7 +180,7 @@ class ApiCsvNoteStore(private val apis: BackendApis) : CsvNoteStore {
             note.sleep == row.sleep &&
             note.mobility == row.mobility &&
             note.medicationTaken == row.medicationTaken &&
-            note.pain == row.pain &&
-            note.fall == row.fall &&
+            note.pain == (row.pain ?: 0) &&
+            note.fall == (row.fall ?: false) &&
             note.text == row.text
 }
