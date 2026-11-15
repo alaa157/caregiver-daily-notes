@@ -17,8 +17,9 @@ import androidx.sqlite.db.SupportSQLiteDatabase
  * baseline to diff against: 1.json is the Task 8a cache-only shape, 2.json
  * adds the outbox, 3.json the plans, 4.json the addenda, 5.json the
  * standalone medication tracker, 6.json doses-per-day, 7.json the recipient
- * archive timestamp, and 8.json the note recorded flags (`painRecorded`,
- * `fallRecorded`) on `notes` and `outbox`.
+ * archive timestamp, 8.json the note recorded flags (`painRecorded`,
+ * `fallRecorded`) on `notes` and `outbox`, and 9.json the recipient
+ * relationship and care-detail columns.
  *
  * File-backed database for production graphs. Demo graphs never call this:
  * demo data must not reach disk (Task 8a rule), so `AppGraph` only creates
@@ -34,7 +35,7 @@ import androidx.sqlite.db.SupportSQLiteDatabase
         MedicationEntity::class,
         MedicationIntakeEntity::class,
     ],
-    version = 8,
+    version = 9,
     exportSchema = true,
 )
 abstract class AppDatabase : RoomDatabase() {
@@ -249,6 +250,22 @@ abstract class AppDatabase : RoomDatabase() {
             }
         }
 
+        /**
+         * Recipient relationship and care details (9.json): six nullable
+         * TEXT columns, NULL for every existing row. Plain ALTERs keep the
+         * columns last, matching Room.
+         */
+        val MIGRATION_8_9: Migration = object : Migration(8, 9) {
+            override fun migrate(db: SupportSQLiteDatabase) {
+                db.execSQL("ALTER TABLE `recipients` ADD COLUMN `relationship` TEXT")
+                db.execSQL("ALTER TABLE `recipients` ADD COLUMN `dateOfBirth` TEXT")
+                db.execSQL("ALTER TABLE `recipients` ADD COLUMN `allergies` TEXT")
+                db.execSQL("ALTER TABLE `recipients` ADD COLUMN `conditions` TEXT")
+                db.execSQL("ALTER TABLE `recipients` ADD COLUMN `emergencyContactName` TEXT")
+                db.execSQL("ALTER TABLE `recipients` ADD COLUMN `emergencyContactPhone` TEXT")
+            }
+        }
+
         fun create(context: Context): AppDatabase =
             Room.databaseBuilder(context.applicationContext, AppDatabase::class.java, "caregiver-db")
                 .addMigrations(
@@ -259,6 +276,7 @@ abstract class AppDatabase : RoomDatabase() {
                     MIGRATION_5_6,
                     MIGRATION_6_7,
                     MIGRATION_7_8,
+                    MIGRATION_8_9,
                 )
                 .build()
     }

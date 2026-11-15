@@ -26,6 +26,12 @@ data class RecipientEntity(
     val name: String,
     val active: Boolean,
     val archivedAt: Long? = null,
+    val relationship: String? = null,
+    val dateOfBirth: String? = null,
+    val allergies: String? = null,
+    val conditions: String? = null,
+    val emergencyContactName: String? = null,
+    val emergencyContactPhone: String? = null,
 )
 
 fun RecipientEntity.toDto(): RecipientDto =
