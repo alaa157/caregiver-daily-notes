@@ -23,6 +23,9 @@ class StructuredEvidenceTest {
     fun valueMatchesRecordedFieldCaseInsensitively() {
         assertTrue(StructuredEvidence.matches(note, "mood", "FAIR"))
         assertTrue(StructuredEvidence.matches(note, "mood", " Fair "))
+        assertTrue(StructuredEvidence.matches(note, "appetite", "reduced"))
+        assertTrue(StructuredEvidence.matches(note, "sleep", "good"))
+        assertTrue(StructuredEvidence.matches(note, "mobility", "assisted"))
         assertTrue(StructuredEvidence.matches(note, "medicationTaken", "TAKEN"))
         assertTrue(StructuredEvidence.matches(note, "medication", "taken"))
     }
@@ -49,6 +52,29 @@ class StructuredEvidenceTest {
         assertTrue(StructuredEvidence.matches(note, "fall", "yes"))
         assertFalse(StructuredEvidence.matches(note, "fall", "false"))
         assertFalse(StructuredEvidence.matches(note, "fall", "no"))
+    }
+
+    @Test
+    fun unrecordedPainCannotBeCitedAsZero() {
+        val unrecordedPain = note.copy(pain = 0, painRecorded = false)
+
+        assertFalse(StructuredEvidence.matches(unrecordedPain, "pain", "0"))
+    }
+
+    @Test
+    fun unrecordedFallCannotBeCitedAsFalse() {
+        val unrecordedFall = note.copy(fall = false, fallRecorded = false)
+
+        assertFalse(StructuredEvidence.matches(unrecordedFall, "fall", "false"))
+    }
+
+    @Test
+    fun recordedZeroPainAndFalseFallRemainCitable() {
+        val recordedPain = note.copy(pain = 0, painRecorded = true)
+        val recordedFall = note.copy(fall = false, fallRecorded = true)
+
+        assertTrue(StructuredEvidence.matches(recordedPain, "pain", "0"))
+        assertTrue(StructuredEvidence.matches(recordedFall, "fall", "false"))
     }
 
     @Test

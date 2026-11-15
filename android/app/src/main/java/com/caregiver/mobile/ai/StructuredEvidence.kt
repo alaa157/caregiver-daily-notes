@@ -89,8 +89,8 @@ object StructuredEvidence {
         "sleep" -> note.sleep
         "mobility" -> note.mobility
         "medicationTaken" -> note.medicationTaken
-        "pain" -> note.pain.toString()
-        "fall" -> note.fall.toString()
+        "pain" -> if (note.painRecorded) note.pain.toString() else ""
+        "fall" -> if (note.fallRecorded) note.fall.toString() else ""
         else -> ""
     }
 
