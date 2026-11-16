@@ -49,9 +49,9 @@ fun AddAccountFlow(
     AuthForm(
         state = state,
         mode = AuthMode.Register,
-        heroTitleRes = R.string.app_name,
-        heroSubtitleRes = R.string.tagline,
-        submitLabelRes = R.string.register,
+        onEmail = viewModel::onEmail,
+        onPassword = viewModel::onPassword,
+        onConfirm = viewModel::onConfirm,
         onSubmit = viewModel::submit,
         onSwitchMode = onCancel,
         showDisplayName = viewModel.requiresDisplayName,
