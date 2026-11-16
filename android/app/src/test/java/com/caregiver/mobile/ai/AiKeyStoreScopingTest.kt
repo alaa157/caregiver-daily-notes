@@ -258,4 +258,61 @@ class AiKeyStoreScopingTest {
 
         assertEquals(listOf("key-b-secret"), capturedKeys)
     }
+
+    // ── #615: AI settings audit — per-account vs global split ────────────
+    //
+    // Decision table (recorded for ADR #635):
+    //   per-account: provider, model, baseUrl, prompts, consent, api keys
+    //   global:      language, theme (device-level UI prefs in SettingsStore)
+
+    @Test
+    fun newAccountSeesDefaultsNotPreviousAccountsSettings() = runTest {
+        val sharedActive = MutableStateFlow("account-a")
+        val store = AiKeyStore(context, cipher, sharedActive)
+
+        // A configures everything.
+        store.setProvider(AiProvider.ANTHROPIC)
+        store.setModel("claude-x", AiProvider.ANTHROPIC)
+        store.setBaseUrl("https://a.example", AiProvider.ANTHROPIC)
+        store.setConsentGiven(AiProvider.ANTHROPIC)
+        store.setSystemPrompt("a-system")
+        store.setSummarySystemPrompt("a-summary")
+        store.setPlanSystemPrompt("a-plan")
+        store.setApiKey("key-a", AiProvider.ANTHROPIC)
+
+        // Switch to B: every per-account setting must be at its default.
+        sharedActive.value = "account-b"
+
+        assertEquals(AiProvider.OPENAI, store.selectedProvider()) // default
+        assertEquals(null, store.model(AiProvider.OPENAI))
+        assertEquals(null, store.baseUrl(AiProvider.OPENAI))
+        assertEquals(false, store.consentGiven(AiProvider.OPENAI))
+        assertEquals("", store.systemPrompt())
+        assertEquals("", store.summarySystemPrompt())
+        assertEquals("", store.planSystemPrompt())
+        assertEquals(ApiKeyState.Absent, store.apiKeyState(AiProvider.ANTHROPIC))
+
+        // Consent is NOT inherited by the new account.
+        assertFalse(store.consentGiven(AiProvider.ANTHROPIC))
+    }
+
+    @Test
+    fun switchingBackRestoresAccountASettings() = runTest {
+        val sharedActive = MutableStateFlow("account-a")
+        val store = AiKeyStore(context, cipher, sharedActive)
+
+        store.setProvider(AiProvider.ANTHROPIC)
+        store.setModel("claude-x", AiProvider.ANTHROPIC)
+        store.setConsentGiven(AiProvider.ANTHROPIC)
+        store.setApiKey("key-a", AiProvider.ANTHROPIC)
+
+        sharedActive.value = "account-b"
+        assertEquals(AiProvider.OPENAI, store.selectedProvider())
+
+        sharedActive.value = "account-a"
+        assertEquals(AiProvider.ANTHROPIC, store.provider())
+        assertEquals("claude-x", store.model(AiProvider.ANTHROPIC))
+        assertTrue(store.consentGiven(AiProvider.ANTHROPIC))
+        assertEquals("key-a", store.apiKey(AiProvider.ANTHROPIC))
+    }
 }
