@@ -108,6 +108,8 @@ Lint:
 ## Architecture decisions
 
 - Per-account databases: [`docs/adr/001-per-account-databases.md`](docs/adr/001-per-account-databases.md)
+- Test catalog: [`../docs/testing/test-cases.md`](../docs/testing/test-cases.md)
+- Traceability matrix: [`../docs/testing/traceability-matrix.md`](../docs/testing/traceability-matrix.md)
 
 ## Structure
 
