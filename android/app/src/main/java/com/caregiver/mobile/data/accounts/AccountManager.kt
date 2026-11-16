@@ -143,6 +143,9 @@ class AccountManager(
     /** True while the close → persist → open window is in flight. */
     val isSwapping: Boolean get() = swapInProgress
 
+    /** Advances on every completed swap; observers re-fetch when it changes. */
+    val epoch: kotlinx.coroutines.flow.StateFlow<Int> get() = _swapEpoch
+
     /** Database writers call this so a swap window never writes to a wrong file. */
     fun assertWritable() {
         check(!swapInProgress) { "Account swap in progress: database writes are temporarily rejected" }

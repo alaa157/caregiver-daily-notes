@@ -3,6 +3,7 @@ package com.caregiver.mobile
 import android.content.Context
 import androidx.test.core.app.ApplicationProvider
 import com.caregiver.mobile.data.SignInResult
+import com.caregiver.mobile.data.api.CreateRecipientRequest
 import com.caregiver.mobile.data.accounts.AccountsDatabase
 import com.caregiver.mobile.data.accounts.PerAccountDatabaseProvider
 import kotlinx.coroutines.test.runTest
@@ -57,6 +58,55 @@ class AppGraphTest {
         } catch (e: IllegalStateException) {
             assertTrue(e.message!!.contains("No active account"))
         }
+    }
+
+    @Test
+    fun switchingAccountsDoesNotShowThePreviousAccountsRecipients() = runTest {
+        val graph = AppGraph(context)
+        assertEquals(SignInResult.SignedIn, graph.auth.signUp("Amina", "amina@example.com", "goodpass1"))
+        graph.apis.recipients().create(CreateRecipientRequest("Amina's person"))
+        assertEquals(1, graph.apis.recipients().list().size)
+
+        graph.auth.signOut()
+        assertEquals(SignInResult.SignedIn, graph.auth.signUp("Nour", "nour@example.com", "goodpass1"))
+
+        val afterSwitch = graph.apis.recipients().list()
+        assertTrue(afterSwitch.isEmpty())
+        assertFalse(afterSwitch.any { it.name == "Amina's person" })
+    }
+
+    @Test
+    fun accountSwapAdvancesTheEpochAndCallsTheResetHooks() = runTest {
+        var resets = 0
+        var homeNavigations = 0
+        val graph = AppGraph(
+            context,
+            onResetAccountViewModels = { resets++ },
+            onNavigateHome = { homeNavigations++ },
+        )
+        assertEquals(SignInResult.SignedIn, graph.auth.signUp("Amina", "amina@example.com", "goodpass1"))
+        val firstEpoch = graph.accountEpoch.value
+
+        graph.auth.signOut()
+        assertEquals(SignInResult.SignedIn, graph.auth.signUp("Nour", "nour@example.com", "goodpass1"))
+
+        assertTrue(graph.accountEpoch.value > firstEpoch)
+        assertEquals(1, resets) // the sign-out swap
+        assertEquals(1, homeNavigations)
+    }
+
+    @Test
+    fun globalSettingsSurviveAnAccountSwitch() = runTest {
+        val graph = AppGraph(context)
+        val tokensBefore = graph.tokens
+        graph.settings.setLanguage("en")
+        assertEquals(SignInResult.SignedIn, graph.auth.signUp("Amina", "amina@example.com", "goodpass1"))
+
+        graph.auth.signOut()
+        assertEquals(SignInResult.SignedIn, graph.auth.signUp("Nour", "nour@example.com", "goodpass1"))
+
+        assertEquals("en", graph.settings.language.first())
+        org.junit.Assert.assertSame(tokensBefore, graph.tokens) // same process-scoped token holder
     }
 
     @Test
