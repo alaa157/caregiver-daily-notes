@@ -70,6 +70,15 @@ class SessionStoreTest {
     }
 
     @Test
+    fun aClearedIdStaysClearedAfterRecreation() = runTest {
+        store.setActiveAccountId("acc-before")
+        store.clearActiveAccountId()
+
+        val recreated = SessionStore(dataStore)
+        assertNull(recreated.activeAccountId.first())
+    }
+
+    @Test
     fun theKeyNameMatchesTheIssueContract() {
         assertEquals("active_account_id", SessionStore.ACTIVE_ACCOUNT_ID.name)
     }
