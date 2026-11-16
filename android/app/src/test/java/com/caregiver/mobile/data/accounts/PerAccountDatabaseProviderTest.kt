@@ -9,6 +9,10 @@ import com.caregiver.mobile.data.csv.CsvTransferService
 import com.caregiver.mobile.data.csv.ImportPreparation
 import com.caregiver.mobile.data.csv.RoomCsvNoteStore
 import com.caregiver.mobile.data.local.AppDatabase
+import com.caregiver.mobile.data.local.NoteEntity
+import com.caregiver.mobile.data.local.PlanEntity
+import com.caregiver.mobile.data.local.RecipientEntity
+import com.caregiver.mobile.data.local.SavedSummaryEntity
 import java.io.File
 import kotlinx.coroutines.test.runTest
 import org.junit.After
@@ -16,6 +20,7 @@ import org.junit.Ignore
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
 import org.junit.Assert.assertNotNull
+import org.junit.Assert.assertNotEquals
 import org.junit.Assert.assertNotSame
 import org.junit.Assert.assertNull
 import org.junit.Assert.assertSame
@@ -332,5 +337,180 @@ class AccountScopedTransferTest {
     companion object {
         private const val ACCOUNT_A = "scope-a"
         private const val ACCOUNT_B = "scope-b"
+    }
+}
+
+/**
+ * #628: the per-account databases are isolated on disk and at the data layer.
+ *
+ * The six surfaces named in the issue are exercised through the DAOs that back
+ * them (recipient cards/overview, notes history, search, recipient detail,
+ * saved summaries, plans). The ViewModel/screen layers consume exactly these
+ * stores via [ActiveDatabase] (#602), so a leak here would reach every screen.
+ * Lives in this owned file because a new `AccountIsolationTest.kt` would be
+ * UNOWNED by lane B.
+ */
+@RunWith(RobolectricTestRunner::class)
+class AccountDataIsolationTest {
+    private lateinit var context: Context
+    private lateinit var provider: PerAccountDatabaseProvider
+    private lateinit var a: AppDatabase
+    private lateinit var b: AppDatabase
+
+    @Before
+    fun setUp() {
+        context = ApplicationProvider.getApplicationContext()
+        provider = PerAccountDatabaseProvider(context)
+        a = provider.open("isolation-a")
+        b = provider.open("isolation-b")
+    }
+
+    @After
+    fun tearDown() {
+        provider.closeAll()
+    }
+
+    @Test
+    fun differentAccountsGetDistinctDatabaseFiles() = runTest {
+        seed(a, TAG_A)
+        seed(b, TAG_B)
+        materialize(a)
+        materialize(b)
+        val aFile = context.getDatabasePath("${PerAccountDatabaseProvider.FILE_PREFIX}isolation-a")
+        val bFile = context.getDatabasePath("${PerAccountDatabaseProvider.FILE_PREFIX}isolation-b")
+        assertTrue(aFile.exists())
+        assertTrue(bFile.exists())
+        assertNotSame(a, b)
+        assertNotEquals(aFile.path, bFile.path)
+        assertNotEquals(aFile.readBytes().contentHashCode(), bFile.readBytes().contentHashCode())
+    }
+
+    @Test
+    fun homeOverviewNeverShowsTheOtherAccountsRecipientsOrNotes() = runTest {
+        seed(a, TAG_A)
+        seed(b, TAG_B)
+
+        val activeNames = b.recipientDao().all().map { it.name }
+        val activeNotes = b.noteDao().query(null, null, null).map { it.text }
+        assertEquals(listOf("Name $TAG_B"), activeNames)
+        assertEquals(listOf("note $TAG_B"), activeNotes)
+        assertFalse(activeNames.any { it.contains(TAG_A) })
+        assertFalse(activeNotes.any { it.contains(TAG_A) })
+    }
+
+    @Test
+    fun notesHistoryNeverShowsTheOtherAccountsNotes() = runTest {
+        seed(a, TAG_A)
+        seed(b, TAG_B)
+
+        val aHistory = a.noteDao().query(null, null, null)
+        val bHistory = b.noteDao().query(null, null, null)
+        assertEquals(1, aHistory.size)
+        assertEquals(1, bHistory.size)
+        assertEquals("note $TAG_A", aHistory.single().text)
+        assertEquals("note $TAG_B", bHistory.single().text)
+    }
+
+    @Test
+    fun searchNeverReturnsCrossAccountResults() = runTest {
+        seed(a, TAG_A)
+        seed(b, TAG_B)
+
+        val bMatches = b.noteDao().query(null, null, null).filter { "note $TAG_A" in it.text }
+        assertTrue(bMatches.isEmpty())
+        assertTrue(b.noteDao().query(null, null, null).any { "note $TAG_B" in it.text })
+    }
+
+    @Test
+    fun recipientDetailNeverShowsTheOtherAccountsRecipient() = runTest {
+        seed(a, TAG_A)
+        seed(b, TAG_B)
+
+        assertNull(b.recipientDao().byServerId("r-$TAG_A"))
+        assertNotNull(a.recipientDao().byServerId("r-$TAG_A"))
+        assertNotNull(b.recipientDao().byServerId("r-$TAG_B"))
+        assertNull(a.recipientDao().byServerId("r-$TAG_B"))
+    }
+
+    @Test
+    fun savedSummariesNeverShowTheOtherAccountsRows() = runTest {
+        seed(a, TAG_A)
+        seed(b, TAG_B)
+
+        assertEquals(emptyList(), b.savedSummaryDao().allRows().filter { it.payload == "summary $TAG_A" })
+        assertEquals(1, b.savedSummaryDao().allRows().size)
+        assertEquals("summary $TAG_B", b.savedSummaryDao().allRows().single().payload)
+    }
+
+    @Test
+    fun plansNeverShowTheOtherAccountsRows() = runTest {
+        seed(a, TAG_A)
+        seed(b, TAG_B)
+
+        assertEquals(emptyList(), b.planDao().all().filter { it.versionsJson == "plan $TAG_A" })
+        assertEquals("plan $TAG_B", b.planDao().all().single().versionsJson)
+    }
+
+    @Test
+    fun switchingBackRestoresAccountADataIntact() = runTest {
+        seed(a, TAG_A)
+        seed(b, TAG_B)
+
+        val reopenedA = provider.open("isolation-a")
+        assertSame(a, reopenedA)
+        assertEquals("Name $TAG_A", a.recipientDao().all().single().name)
+        assertEquals("note $TAG_A", a.noteDao().query(null, null, null).single().text)
+        assertEquals("summary $TAG_A", a.savedSummaryDao().allRows().single().payload)
+        assertEquals("plan $TAG_A", a.planDao().all().single().versionsJson)
+    }
+
+    private suspend fun seed(db: AppDatabase, tag: String) {
+        val recipientId = "r-$tag"
+        db.recipientDao().insertAll(
+            listOf(RecipientEntity(serverId = recipientId, name = "Name $tag", active = true)),
+        )
+        db.noteDao().insertAll(
+            listOf(
+                NoteEntity(
+                    serverId = "n-$tag",
+                    recipientId = recipientId,
+                    date = "2026-01-01",
+                    mood = "good",
+                    appetite = "good",
+                    sleep = "good",
+                    mobility = "good",
+                    medicationTaken = "yes",
+                    pain = 0,
+                    fall = false,
+                    text = "note $tag",
+                ),
+            ),
+        )
+        db.savedSummaryDao().insert(
+            SavedSummaryEntity(
+                id = "s-$tag",
+                recipientId = recipientId,
+                periodDays = 7,
+                periodStart = "2025-12-25",
+                periodEnd = "2026-01-01",
+                createdAt = 1L,
+                aiGenerated = false,
+                provider = null,
+                model = null,
+                payload = "summary $tag",
+            ),
+        )
+        db.planDao().insert(
+            PlanEntity(id = "p-$tag", recipientId = recipientId, versionsJson = "plan $tag", updatedAt = 1L),
+        )
+    }
+
+    private fun materialize(db: AppDatabase) {
+        db.openHelper.writableDatabase
+    }
+
+    companion object {
+        private const val TAG_A = "AAA"
+        private const val TAG_B = "BBB"
     }
 }
