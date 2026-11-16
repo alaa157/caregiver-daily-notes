@@ -74,6 +74,8 @@ class AuthFormUiTest {
         onSwitch: () -> Unit = {},
         onDemo: (() -> Unit)? = null,
         registerAccount: RegisterAccount? = null,
+        showSwitchAccount: Boolean = false,
+        onSwitchAccount: (() -> Unit)? = null,
     ): AuthViewModel {
         val base = ApplicationProvider.getApplicationContext<Context>()
         val localized = base.withLocale(language)
@@ -93,6 +95,8 @@ class AuthFormUiTest {
                         onDisplayName = vm::onDisplayName,
                         showDisplayName = vm.requiresDisplayName,
                         onDemo = onDemo,
+                        showSwitchAccount = showSwitchAccount,
+                        onSwitchAccount = onSwitchAccount,
                     )
                 }
             }
@@ -243,6 +247,35 @@ class AuthFormUiTest {
         compose.onNodeWithText("No account? Create one").performClick()
 
         assertTrue(switched)
+    }
+
+    @Test
+    fun switchAccountHiddenWithoutAccounts() {
+        setForm(AuthMode.Login, "en", showSwitchAccount = false)
+
+        compose.onNodeWithTag("auth_switch_account").assertDoesNotExist()
+    }
+
+    @Test
+    fun switchAccountEntryFiresCallbackEnglish() {
+        var opened = false
+        setForm(
+            AuthMode.Login,
+            "en",
+            showSwitchAccount = true,
+            onSwitchAccount = { opened = true },
+        )
+
+        compose.onNodeWithTag("auth_switch_account").assertIsDisplayed().performClick()
+
+        assertTrue(opened)
+    }
+
+    @Test
+    fun switchAccountEntryVisibleArabic() {
+        setForm(AuthMode.Login, "ar", showSwitchAccount = true, onSwitchAccount = {})
+
+        compose.onNodeWithText("تبديل الحساب").assertIsDisplayed()
     }
 
     @Test

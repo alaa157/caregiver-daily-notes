@@ -1,6 +1,7 @@
 package com.caregiver.mobile.presentation.auth
 
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.produceState
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
@@ -14,9 +15,23 @@ import com.caregiver.mobile.data.AuthRepository
 
 /** Login (board 1) wired to its ViewModel; signed-in flips at the root nav. */
 @Composable
-fun LoginScreen(repository: AuthRepository, navController: NavController) {
+fun LoginScreen(
+    repository: AuthRepository,
+    navController: NavController,
+    localAccounts: LocalAccountDirectory? = null,
+    onSwitchAccount: (() -> Unit)? = null,
+) {
     val vm: AuthViewModel = authViewModel(AuthMode.Login, repository)
     val state by vm.state.collectAsStateWithLifecycle()
+    val hasAccounts by produceState(initialValue = false, localAccounts) {
+        value = try {
+            localAccounts?.listAccounts()?.isNotEmpty() == true
+        } catch (e: kotlinx.coroutines.CancellationException) {
+            throw e
+        } catch (e: Exception) {
+            false
+        }
+    }
     AuthForm(
         state = state,
         mode = AuthMode.Login,
@@ -35,6 +50,8 @@ fun LoginScreen(repository: AuthRepository, navController: NavController) {
         // never sees it.
         onDemo = vm::demoSignIn,
         modifier = Modifier,
+        showSwitchAccount = hasAccounts,
+        onSwitchAccount = onSwitchAccount,
     )
 }
 
