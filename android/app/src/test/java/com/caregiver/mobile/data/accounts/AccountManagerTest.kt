@@ -1142,6 +1142,131 @@ class AccountManagerTest {
         }
     }
 
+    @OptIn(ExperimentalCoroutinesApi::class)
+    @Test
+    fun swapRunsCancelJoinClosePersistOpenInOrder() = runTest {
+        val file = File.createTempFile("swap-order-test", ".preferences_pb")
+        try {
+            val events = mutableListOf<String>()
+            val dao = FakeAccountDao()
+            dao.rows["old"] = AccountEntity("old", "old@example.com", "Old", "h", "s", 10, FIXED_NOW, FIXED_NOW)
+            dao.rows["next"] = AccountEntity("next", "next@example.com", "Next", "h", "s", 10, FIXED_NOW, FIXED_NOW)
+            val store = newSessionStore(file)
+            store.setActiveAccountId("old")
+            val manager = AccountManager(
+                dao = dao,
+                hasher = PasswordHasher(iterations = 10),
+                sessionStore = store,
+                cancelAccountWork = { events += "cancel" },
+                awaitAccountWork = { events += "join" },
+                closeAccountDatabase = { events += "close:$it" },
+                openAccountDatabase = { events += "open:$it" },
+                onActiveAccountChanged = { id -> events += "set:$id" },
+            )
+
+            assertTrue(manager.switchAccount("next").isSuccess)
+
+            assertEquals(
+                listOf("cancel", "join", "close:old", "set:next", "open:next"),
+                events.take(5),
+            )
+        } finally {
+            file.delete()
+        }
+    }
+
+    @OptIn(ExperimentalCoroutinesApi::class)
+    @Test
+    fun writesDuringTheSwapWindowAreRejected() = runTest {
+        val file = File.createTempFile("swap-gate-test", ".preferences_pb")
+        try {
+            val dao = FakeAccountDao()
+            dao.rows["old"] = AccountEntity("old", "old@example.com", "Old", "h", "s", 10, FIXED_NOW, FIXED_NOW)
+            dao.rows["next"] = AccountEntity("next", "next@example.com", "Next", "h", "s", 10, FIXED_NOW, FIXED_NOW)
+            val store = newSessionStore(file)
+            store.setActiveAccountId("old")
+            lateinit var manager: AccountManager
+            var sawSwapping = false
+            var writeRejected = false
+            manager = AccountManager(
+                dao = dao,
+                hasher = PasswordHasher(iterations = 10),
+                sessionStore = store,
+                openAccountDatabase = { _ ->
+                    sawSwapping = manager.isSwapping
+                    try {
+                        manager.assertWritable()
+                    } catch (_: IllegalStateException) {
+                        writeRejected = true
+                    }
+                },
+            )
+
+            assertTrue(manager.switchAccount("next").isSuccess)
+            assertTrue(sawSwapping)
+            assertTrue(writeRejected)
+            assertFalse(manager.isSwapping)
+            manager.assertWritable() // writes are allowed again once the swap completed
+        } finally {
+            file.delete()
+        }
+    }
+
+    @OptIn(ExperimentalCoroutinesApi::class)
+    @Test
+    fun aCancellationTimeoutIsReportedAndTheSwapStillCompletes() = runTest {
+        val file = File.createTempFile("swap-timeout-test", ".preferences_pb")
+        val never = CompletableDeferred<Unit>()
+        try {
+            var timedOut = false
+            val dao = FakeAccountDao()
+            dao.rows["old"] = AccountEntity("old", "old@example.com", "Old", "h", "s", 10, FIXED_NOW, FIXED_NOW)
+            dao.rows["next"] = AccountEntity("next", "next@example.com", "Next", "h", "s", 10, FIXED_NOW, FIXED_NOW)
+            val store = newSessionStore(file)
+            store.setActiveAccountId("old")
+            val manager = AccountManager(
+                dao = dao,
+                hasher = PasswordHasher(iterations = 10),
+                sessionStore = store,
+                awaitAccountWork = { never.await() },
+                onCancellationTimeout = { timedOut = true },
+                swapTimeoutMs = 10L,
+            )
+
+            assertTrue(manager.switchAccount("next").isSuccess)
+            assertTrue(timedOut)
+            assertEquals("next", store.activeAccountId.first())
+        } finally {
+            never.cancel()
+            file.delete()
+        }
+    }
+
+    @OptIn(ExperimentalCoroutinesApi::class)
+    @Test
+    fun activeAccountFollowsTheNewActiveIdWithoutStaleValues() = runTest {
+        val file = File.createTempFile("swap-emission-test", ".preferences_pb")
+        try {
+            val dao = FakeAccountDao()
+            val store = newSessionStore(file)
+            val manager = AccountManager(
+                dao = dao,
+                hasher = PasswordHasher(iterations = 10),
+                sessionStore = store,
+            )
+            val collected = async { manager.activeAccount.take(3).toList() }
+            assertTrue(manager.signUp("Amina", "amina@example.com", "goodpass1").isSuccess)
+            val idA = dao.listAll().single().id
+            assertTrue(manager.signUp("Nour", "nour@example.com", "goodpass1").isSuccess)
+            val idB = dao.listAll().single { it.email == "nour@example.com" }.id
+
+            val emissions = collected.await()
+            assertEquals(listOf(null, idA, idB), emissions.map { it?.id })
+        } finally {
+            file.delete()
+        }
+    }
+
     @Test
     fun managerSourceHasNoLoggingOfSecrets() {
         val source = locateManagerSource().readText()
