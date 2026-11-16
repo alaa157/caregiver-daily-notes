@@ -62,6 +62,7 @@ data class AuthUiState(
     val formError: FormError? = null,
     val busy: Boolean = false,
     val signedIn: Boolean = false,
+    val createdAccount: Account? = null,
 )
 
 /**
@@ -138,6 +139,7 @@ class AuthViewModel(
             confirmError = null,
             formError = null,
             busy = true,
+            createdAccount = null,
         )
         exec.launch {
             if (mode == AuthMode.Register && registerAccount != null) {
@@ -149,7 +151,12 @@ class AuthViewModel(
                     Result.failure<Account>(e)
                 }
                 if (accountResult.isSuccess) {
-                    _state.value = _state.value.copy(busy = false, signedIn = true, formError = null)
+                    _state.value = _state.value.copy(
+                        busy = false,
+                        signedIn = true,
+                        formError = null,
+                        createdAccount = accountResult.getOrNull(),
+                    )
                 } else {
                     val failure = accountResult.exceptionOrNull()
                     val accountError = (failure as? AccountException)?.error

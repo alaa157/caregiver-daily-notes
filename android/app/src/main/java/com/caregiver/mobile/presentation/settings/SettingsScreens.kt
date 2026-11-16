@@ -53,6 +53,7 @@ import androidx.compose.ui.unit.dp
 import androidx.navigation.NavController
 import com.caregiver.mobile.AppGraph
 import com.caregiver.mobile.R
+import com.caregiver.mobile.core.navigation.AppDestinations
 import com.caregiver.mobile.core.theme.CaregiverColors
 import com.caregiver.mobile.core.theme.ColorPalettes
 import com.caregiver.mobile.core.theme.THEME_MODE_DARK
@@ -65,6 +66,7 @@ import com.caregiver.mobile.data.api.BaseUrlCheck
 import com.caregiver.mobile.data.api.UrlProblem
 import com.caregiver.mobile.data.backup.AndroidBackupDocumentIo
 import com.caregiver.mobile.data.csv.AndroidCsvDocumentIo
+import com.caregiver.mobile.presentation.auth.RegisterAccount
 import com.caregiver.mobile.presentation.common.AppTopBar
 import com.caregiver.mobile.presentation.common.AppDimens
 import com.caregiver.mobile.presentation.common.CaregiverSettingsGroup
@@ -83,9 +85,12 @@ fun SettingsScreen(
     onSwitchAccount: (() -> Unit)? = null,
     onAddAccount: (() -> Unit)? = null,
     onRemoveAccount: (() -> Unit)? = null,
+    registerAccount: RegisterAccount? = null,
+    onAccountCreated: ((Account) -> Unit)? = null,
 ) {
     val scope = rememberCoroutineScope()
     val activity = LocalContext.current as? Activity
+    var showAddAccount by rememberSaveable { mutableStateOf(false) }
 
     // Data & Backup: the CSV actions read/write only the document the user
     // picks in the system picker, so no storage permission is involved.
@@ -114,6 +119,24 @@ fun SettingsScreen(
     val backupRestoreLauncher = rememberLauncherForActivityResult(
         ActivityResultContracts.OpenDocument(),
     ) { uri -> if (uri != null) backupVm.restoreFrom(uri) }
+
+    if (showAddAccount && registerAccount != null) {
+        AddAccountFlow(
+            repository = graph.auth,
+            registerAccount = registerAccount,
+            onCancel = { showAddAccount = false },
+            onCreated = { account ->
+                showAddAccount = false
+                onAccountCreated?.invoke(account)
+                if (!navController.popBackStack(AppDestinations.Home.base, inclusive = false)) {
+                    navController.navigate(AppDestinations.Home.base) {
+                        popUpTo(AppDestinations.Home.base) { inclusive = true }
+                    }
+                }
+            },
+        )
+        return
+    }
 
     val language by graph.settings.language.collectAsState(initial = SettingsStore.DEFAULT_LANGUAGE)
     Column(
@@ -260,7 +283,9 @@ fun SettingsScreen(
                 AccountSettingsSection(
                     account = account,
                     onSwitch = { onSwitchAccount?.invoke() },
-                    onAdd = { onAddAccount?.invoke() },
+                    onAdd = {
+                        if (registerAccount != null) showAddAccount = true else onAddAccount?.invoke()
+                    },
                     onRemove = { onRemoveAccount?.invoke() },
                 )
             }

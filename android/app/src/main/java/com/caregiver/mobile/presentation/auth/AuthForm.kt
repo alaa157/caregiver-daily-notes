@@ -75,6 +75,7 @@ fun AuthForm(
     onServerSettings: (() -> Unit)? = null,
     onDemo: (() -> Unit)? = null,
     onBack: (() -> Unit)? = null,
+    showSwitchMode: Boolean = true,
     showSwitchAccount: Boolean = false,
     onSwitchAccount: (() -> Unit)? = null,
 ) {
@@ -266,16 +267,18 @@ fun AuthForm(
                 }
             }
 
-            TextButton(onClick = onSwitchMode) {
-                Text(
-                    stringResource(
-                        if (mode == AuthMode.Login) R.string.auth_no_account
-                        else R.string.auth_have_account,
-                    ),
-                    fontFamily = PlexArabic,
-                    color = CaregiverColors.Primary,
-                    fontWeight = FontWeight.Bold,
-                )
+            if (showSwitchMode) {
+                TextButton(onClick = onSwitchMode) {
+                    Text(
+                        stringResource(
+                            if (mode == AuthMode.Login) R.string.auth_no_account
+                            else R.string.auth_have_account,
+                        ),
+                        fontFamily = PlexArabic,
+                        color = CaregiverColors.Primary,
+                        fontWeight = FontWeight.Bold,
+                    )
+                }
             }
 
             if (onServerSettings != null) {
