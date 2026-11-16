@@ -8,7 +8,13 @@ import kotlin.coroutines.CoroutineContext
 import kotlinx.coroutines.CoroutineDispatcher
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.ExperimentalCoroutinesApi
+import kotlinx.coroutines.async
+import kotlinx.coroutines.flow.Flow
+import kotlinx.coroutines.flow.MutableSharedFlow
+import kotlinx.coroutines.flow.emptyFlow
 import kotlinx.coroutines.flow.first
+import kotlinx.coroutines.flow.take
+import kotlinx.coroutines.flow.toList
 import kotlinx.coroutines.test.TestScope
 import kotlinx.coroutines.test.UnconfinedTestDispatcher
 import kotlinx.coroutines.test.runTest
@@ -33,6 +39,7 @@ class AccountManagerTest {
         val clock: () -> Long = { FIXED_NOW },
         currentIterations: Int = TEST_ITERATIONS,
         sessionStore: SessionStore? = null,
+        accountsChanged: Flow<Unit> = emptyFlow(),
     ) {
         val activeIds = mutableListOf<String>()
         val openedIds = mutableListOf<String>()
@@ -47,6 +54,7 @@ class AccountManagerTest {
             hashDispatcher = dispatcher,
             clock = clock,
             sessionStore = sessionStore,
+            accountsChanged = accountsChanged,
             openAccountDatabase = { openedIds += it },
             closeAccountDatabase = { closedIds += it },
             cancelAccountWork = { cancelWorkCalls++ },
@@ -441,6 +449,131 @@ class AccountManagerTest {
 
             assertEquals(id, restarted.manager.activeAccountId.first())
             assertEquals(0, restarted.rehashWrites)
+        } finally {
+            file.delete()
+        }
+    }
+
+    @OptIn(ExperimentalCoroutinesApi::class)
+    @Test
+    fun activeAccountEmitsTheAccountForTheStoredId() = runTest {
+        val file = File.createTempFile("active-acc-test", ".preferences_pb")
+        try {
+            val h = Harness(sessionStore = newSessionStore(file))
+            assertTrue(h.manager.signUp("Amina", "amina@example.com", "goodpass1").isSuccess)
+
+            val emitted = h.manager.activeAccount.first()
+            assertEquals(h.dao.rows.values.single().id, emitted?.id)
+            assertEquals("amina@example.com", emitted?.email)
+            assertEquals("Amina", emitted?.displayName)
+        } finally {
+            file.delete()
+        }
+    }
+
+    @Test
+    fun activeAccountEmitsNullWhenNoIdIsStored() = runTest {
+        assertNull(Harness().manager.activeAccount.first())
+    }
+
+    @OptIn(ExperimentalCoroutinesApi::class)
+    @Test
+    fun activeAccountEmitsNullWhenTheStoredRowIsGone() = runTest {
+        val file = File.createTempFile("active-gone-test", ".preferences_pb")
+        try {
+            val store = newSessionStore(file)
+            store.setActiveAccountId("ghost-account")
+            val h = Harness(sessionStore = store)
+
+            assertNull(h.manager.activeAccount.first())
+        } finally {
+            file.delete()
+        }
+    }
+
+    @Test
+    fun listAccountsIsOrderedByLastUsedAtDescending() = runTest {
+        val h = Harness()
+        fun row(id: String, name: String, used: Long) = AccountEntity(
+            id, "$name@example.com", name, "hash-$id", "salt-$id", 1, used, used,
+        )
+        h.dao.rows["a"] = row("a", "Oldest", 100)
+        h.dao.rows["b"] = row("b", "Newest", 300)
+        h.dao.rows["c"] = row("c", "Middle", 200)
+
+        assertEquals(
+            listOf("Newest", "Middle", "Oldest"),
+            h.manager.listAccounts().first().map { it.displayName },
+        )
+    }
+
+    @OptIn(ExperimentalCoroutinesApi::class)
+    @Test
+    fun listAccountsReEmitsAfterInsertUpdateAndDelete() = runTest {
+        val file = File.createTempFile("list-reemit-test", ".preferences_pb")
+        val roomChanges = MutableSharedFlow<Unit>(extraBufferCapacity = 8)
+        try {
+            var now = FIXED_NOW
+            val h = Harness(clock = { now }, sessionStore = newSessionStore(file), accountsChanged = roomChanges)
+            val collected = async { h.manager.listAccounts().take(4).toList() }
+
+            assertTrue(h.manager.signUp("Amina", "amina@example.com", "goodpass1").isSuccess) // insert
+            now = FIXED_NOW + 1_000
+            assertTrue(h.manager.signIn("amina@example.com", "goodpass1").isSuccess) // lastUsedAt update
+            val id = h.dao.rows.values.single().id
+            h.dao.deleteById(id)
+            roomChanges.emit(Unit) // simulates Room invalidating the table after an external delete
+
+            val emissions = collected.await()
+            assertEquals(4, emissions.size)
+            assertEquals(0, emissions[0].size)
+            assertEquals(1, emissions[1].size)
+            assertEquals(FIXED_NOW, emissions[1][0].lastUsedAt)
+            assertEquals(FIXED_NOW + 1_000, emissions[2][0].lastUsedAt)
+            assertEquals(0, emissions[3].size)
+        } finally {
+            file.delete()
+        }
+    }
+
+    @OptIn(ExperimentalCoroutinesApi::class)
+    @Test
+    fun activeAccountReEmitsAfterDelete() = runTest {
+        val file = File.createTempFile("active-reemit-test", ".preferences_pb")
+        val roomChanges = MutableSharedFlow<Unit>(extraBufferCapacity = 8)
+        try {
+            val h = Harness(sessionStore = newSessionStore(file), accountsChanged = roomChanges)
+            val collected = async { h.manager.activeAccount.take(3).toList() }
+
+            assertTrue(h.manager.signUp("Amina", "amina@example.com", "goodpass1").isSuccess)
+            val id = h.dao.rows.values.single().id
+            h.dao.deleteById(id)
+            roomChanges.emit(Unit)
+
+            val emissions = collected.await()
+            assertEquals(listOf(null, id, null), emissions.map { it?.id })
+        } finally {
+            file.delete()
+        }
+    }
+
+    @OptIn(ExperimentalCoroutinesApi::class)
+    @Test
+    fun accountFlowsNeverExposeCredentialMaterial() = runTest {
+        val file = File.createTempFile("flows-credentials-test", ".preferences_pb")
+        try {
+            val store = newSessionStore(file)
+            val h = Harness(sessionStore = store)
+            val seeded = seedAccount(h, iterations = 7)
+            store.setActiveAccountId(seeded.id)
+
+            val listed = h.manager.listAccounts().first().single()
+            val active = h.manager.activeAccount.first()!!
+            // Account has only id/email/displayName/createdAt/lastUsedAt by
+            // type; assert no credential value leaks through either flow.
+            val printed = listed.toString() + active.toString()
+            assertFalse(printed.contains(seeded.passwordHash))
+            assertFalse(printed.contains(seeded.salt))
         } finally {
             file.delete()
         }
