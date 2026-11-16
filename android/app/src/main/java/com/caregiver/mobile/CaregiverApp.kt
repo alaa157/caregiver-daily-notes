@@ -47,6 +47,11 @@ import com.caregiver.mobile.data.summary.SavedSummaryStore
 import com.caregiver.mobile.data.update.GitHubReleaseChecker
 import com.caregiver.mobile.data.update.UpdateChecker
 import com.caregiver.mobile.ai.LlmClientFactory
+import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.Job
+import kotlinx.coroutines.SupervisorJob
+import kotlinx.coroutines.cancel
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.first
@@ -107,12 +112,37 @@ class CaregiverApp : Application() {
 private class ActiveDatabase(
     private val provider: PerAccountDatabaseProvider,
     private val activeAccountId: StateFlow<String?>,
+    private val isSwapping: () -> Boolean = { false },
 ) {
     fun get(): AppDatabase {
+        if (isSwapping()) {
+            throw IllegalStateException("Account swap in progress: database writes are temporarily rejected")
+        }
         val id = activeAccountId.value
             ?: throw IllegalStateException("No active account: local database access is unavailable")
         return provider.open(id)
     }
+}
+
+/** Account-scoped collectors live here so a swap can cancel and join them. */
+private class AccountWorkScope {
+    private var scope: CoroutineScope = fresh()
+
+    val current: CoroutineScope get() = scope
+
+    fun cancel() {
+        scope.cancel()
+    }
+
+    suspend fun join() {
+        scope.coroutineContext[Job]?.join()
+    }
+
+    fun reset() {
+        scope = fresh()
+    }
+
+    private fun fresh() = CoroutineScope(SupervisorJob() + Dispatchers.Main.immediate)
 }
 
 /** Delegates every call to a LocalBackendApis built on the current database. */
@@ -200,8 +230,15 @@ class AppGraph(val context: Context, val forceProduction: Boolean = false) {
 
     private val activeAccountId = MutableStateFlow<String?>(null)
 
+    /** Collectors for the current account; cancelled and joined before close. */
+    private val accountWork = AccountWorkScope()
+
     private val activeDatabase: ActiveDatabase by lazy {
-        ActiveDatabase(accountDatabaseProvider, activeAccountId)
+        ActiveDatabase(
+            provider = accountDatabaseProvider,
+            activeAccountId = activeAccountId,
+            isSwapping = { localAccountManager?.isSwapping == true },
+        )
     }
 
     /** The current account's database, or null when signed out / not local. */
@@ -224,6 +261,9 @@ class AppGraph(val context: Context, val forceProduction: Boolean = false) {
             onActiveAccountChanged = { id -> activeAccountId.value = id },
             openAccountDatabase = { id -> accountDatabaseProvider.open(id) },
             closeAccountDatabase = { accountDatabaseProvider.close() },
+            cancelAccountWork = { accountWork.cancel() },
+            awaitAccountWork = { accountWork.join() },
+            onSwapCompleted = { accountWork.reset() },
         )
     }
 

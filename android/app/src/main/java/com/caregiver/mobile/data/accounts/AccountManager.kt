@@ -7,6 +7,7 @@ import kotlinx.coroutines.CoroutineDispatcher
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.MutableSharedFlow
+import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.flow.distinctUntilChanged
 import kotlinx.coroutines.flow.emptyFlow
@@ -15,7 +16,9 @@ import kotlinx.coroutines.flow.flowOf
 import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.flow.merge
 import kotlinx.coroutines.flow.onStart
+import kotlinx.coroutines.flow.transformLatest
 import kotlinx.coroutines.withContext
+import kotlinx.coroutines.withTimeoutOrNull
 
 /**
  * A typed [AccountError] carried through the manager's [Result] failures.
@@ -91,6 +94,13 @@ class AccountManager(
     private val accountsChanged: Flow<Unit> = emptyFlow(),
     /** Cleanup hooks, called only after the credentials row is gone. */
     private val cleanup: AccountCleanup = NoOpAccountCleanup,
+    /** Joins the cancelled work; the manager applies a timeout around it. */
+    private val awaitAccountWork: suspend () -> Unit = {},
+    /** Notified if cancellation did not finish within the timeout (no secrets). */
+    private val onCancellationTimeout: () -> Unit = {},
+    /** Called after a successful swap so account-scoped scopes can be recreated. */
+    private val onSwapCompleted: () -> Unit = {},
+    private val swapTimeoutMs: Long = 2_000L,
     /** The cost a rehash upgrades to; defaults to the current KDF cost. */
     private val currentIterations: Int = PasswordHasher.DEFAULT_ITERATIONS,
     /** One real PBKDF2 against a throwaway salt, to keep unknown-email timing equal. */
@@ -123,6 +133,19 @@ class AccountManager(
 
     private fun notifyChanged() {
         localChanges.tryEmit(Unit)
+    }
+
+    @Volatile
+    private var swapInProgress = false
+
+    private val _swapEpoch = MutableStateFlow(0)
+
+    /** True while the close → persist → open window is in flight. */
+    val isSwapping: Boolean get() = swapInProgress
+
+    /** Database writers call this so a swap window never writes to a wrong file. */
+    fun assertWritable() {
+        check(!swapInProgress) { "Account swap in progress: database writes are temporarily rejected" }
     }
 
     /**
@@ -163,6 +186,7 @@ class AccountManager(
             lastUsedAt = timestamp,
         )
 
+        assertWritable()
         try {
             dao.insert(entity)
         } catch (_: SQLiteConstraintException) {
@@ -208,6 +232,7 @@ class AccountManager(
         }
 
         val timestamp = clock()
+        assertWritable()
         dao.updateLastUsed(row.id, timestamp)
 
         // #586's lazy rehash: only after a successful verify, and a failed
@@ -242,8 +267,13 @@ class AccountManager(
      * stored or its row has gone. Re-emits on id changes and table changes.
      */
     val activeAccount: Flow<Account?> =
-        combine(activeAccountId, changes) { id, _ -> id }
-            .map { id -> id?.let { dao.findById(it)?.toAccount() } }
+        combine(activeAccountId, changes, _swapEpoch) { id, _, epoch -> id to epoch }
+            .transformLatest { (id, epoch) ->
+                val account = id?.let { dao.findById(it)?.toAccount() }
+                // Drop a value computed under an epoch that has since swapped:
+                // a late emission from account A must never land as account B.
+                if (_swapEpoch.value == epoch) emit(account)
+            }
             // The id and the table can change in the same operation (signUp);
             // collapse the duplicate emission that combine would otherwise make.
             .distinctUntilChanged()
@@ -269,58 +299,74 @@ class AccountManager(
     }
 
     /**
-     * Clears the stored id, closes the active account's database and cancels
-     * its scoped work. [activeAccountId] emits null once the key is cleared.
+     * The single account-swap sequence used by both [signOut] and
+     * [switchAccount] (#603), in this exact order:
+     *  1. cancel account-scoped coroutines (Flows, ViewModels, workers)
+     *  2. join them, with a timeout; a timeout is reported without credentials
+     *  3. close the old account's database
+     *  4. persist the new active id (null clears it)
+     *  5. open the new database (rolling back on failure)
+     *
+     * [swapInProgress] gates database writes for the whole close/open window,
+     * and a successful swap bumps the epoch so emissions computed under the
+     * previous account are dropped rather than written into the new file.
+     *
+     * Returns the original open failure (if any) for the caller to map.
      */
-    suspend fun signOut() {
-        val id = activeAccountId.first()
-        setActiveAccount(null)
-        if (id != null) {
-            closeAccountDatabase(id)
+    private suspend fun performSwap(newId: String?, previous: String?): Exception? {
+        swapInProgress = true
+        try {
             cancelAccountWork()
+            if (withTimeoutOrNull(swapTimeoutMs) { awaitAccountWork() } == null) {
+                onCancellationTimeout()
+            }
+            if (previous != null) closeAccountDatabase(previous)
+
+            setActiveAccount(newId)
+
+            if (newId != null) {
+                try {
+                    openAccountDatabase(newId)
+                } catch (e: CancellationException) {
+                    throw e
+                } catch (e: Exception) {
+                    try {
+                        setActiveAccount(previous)
+                        if (previous != null) openAccountDatabase(previous)
+                    } catch (_: Exception) {
+                        // Best effort: never mask the original open failure.
+                    }
+                    return e
+                }
+            }
+            _swapEpoch.value++
+            onSwapCompleted()
+            return null
+        } finally {
+            swapInProgress = false
         }
     }
 
+    /** Signs out by swapping to no account: clears the id and closes the DB. */
+    suspend fun signOut() {
+        performSwap(null, activeAccountId.first())
+    }
+
     /**
-     * Switches the active account in the one safe order. The target must exist
-     * before anything is torn down, and no database write happens between
-     * closing the old database and opening the new one. If opening the new
-     * database fails, the previous id is restored and its database reopened
-     * so the app never points at a closed database.
+     * Switches to [id] using the shared [performSwap] sequence. The target is
+     * resolved before anything is torn down, and `lastUsedAt` is written only
+     * after the new database is open.
      */
     suspend fun switchAccount(id: String): Result<Unit> {
         val previous = activeAccountId.first()
-        // 1. Same-account request changes nothing at all.
-        if (previous == id) return Result.success(Unit)
-
-        // 2. Resolve the target before cancelling or closing anything.
+        if (previous == id) return Result.success(Unit) // no-op
         if (dao.findById(id) == null) {
             return Result.failure(AccountException(AccountError.AccountNotFound))
         }
 
-        // 3-4. Stop scoped work and close the old database.
-        cancelAccountWork()
-        if (previous != null) closeAccountDatabase(previous)
+        performSwap(id, previous)?.let { return Result.failure(it) }
 
-        // 5. Persist the new id — DataStore only, no per-account DB write.
-        setActiveAccount(id)
-
-        // 6. Open the new database; roll back on failure.
-        try {
-            openAccountDatabase(id)
-        } catch (e: CancellationException) {
-            throw e
-        } catch (e: Exception) {
-            try {
-                setActiveAccount(previous)
-                if (previous != null) openAccountDatabase(previous)
-            } catch (_: Exception) {
-                // Best effort: never mask the original open failure.
-            }
-            return Result.failure(e)
-        }
-
-        // 7. Only now, on the open new database, update its lastUsedAt.
+        assertWritable()
         dao.updateLastUsed(id, clock())
         notifyChanged()
         return Result.success(Unit)
@@ -340,6 +386,7 @@ class AccountManager(
             return Result.failure(AccountException(AccountError.AccountNotFound))
         }
 
+        assertWritable()
         dao.deleteById(id)
         notifyChanged()
 
