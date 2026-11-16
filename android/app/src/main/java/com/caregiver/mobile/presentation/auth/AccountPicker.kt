@@ -112,19 +112,21 @@ private fun AccountPickerRow(
     onClick: () -> Unit,
 ) {
     val activeLabel = stringResource(R.string.account_active_marker)
+    val currentLabel = stringResource(R.string.account_current_marker)
     val rowDescription = buildString {
         append(account.displayName)
         append(", ")
         append(Bidi.isolate(account.email))
         if (isActive) {
             append(", ")
-            append(activeLabel)
+            append(currentLabel)
         }
     }
     Row(
         modifier = Modifier
             .fillMaxWidth()
             .heightIn(min = 48.dp)
+            .testTag("account_picker_row_${account.id}")
             .semantics { contentDescription = rowDescription }
             .clickable(onClick = onClick)
             .padding(horizontal = 8.dp, vertical = 12.dp),
