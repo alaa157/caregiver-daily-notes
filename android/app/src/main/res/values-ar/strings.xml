@@ -815,6 +815,7 @@
     <string name="account_remove_confirm">إزالة</string>
     <string name="account_cannot_remove_active">لا يمكنك إزالة الحساب الذي تستخدمه. بدّل إلى حساب آخر أولاً.</string>
     <string name="account_active_marker">نشط</string>
+    <string name="account_current_marker">الحساب الحالي</string>
     <string name="migration_claim_title">استرجاع بياناتك</string>
     <string name="migration_claim_body">وجدنا ملاحظات موجودة على هذا الجهاز. انقلها إلى حسابك للحفاظ عليها.</string>
     <string name="migration_claim_cta">متابعة</string>

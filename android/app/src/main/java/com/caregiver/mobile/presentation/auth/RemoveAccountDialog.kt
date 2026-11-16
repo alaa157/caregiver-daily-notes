@@ -2,6 +2,7 @@ package com.caregiver.mobile.presentation.auth
 
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.heightIn
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
@@ -110,7 +111,9 @@ fun RemoveAccountDialog(
             Button(
                 onClick = { confirm() },
                 enabled = !isActive && !busy,
-                modifier = Modifier.testTag("remove_account_confirm"),
+                modifier = Modifier
+                    .heightIn(min = 48.dp)
+                    .testTag("remove_account_confirm"),
                 colors = ButtonDefaults.buttonColors(containerColor = CaregiverColors.Danger),
             ) {
                 Text(stringResource(R.string.account_remove_confirm))
@@ -120,7 +123,9 @@ fun RemoveAccountDialog(
             TextButton(
                 onClick = onDismiss,
                 enabled = !busy,
-                modifier = Modifier.testTag("remove_account_cancel"),
+                modifier = Modifier
+                    .heightIn(min = 48.dp)
+                    .testTag("remove_account_cancel"),
             ) {
                 Text(stringResource(R.string.common_cancel))
             }
