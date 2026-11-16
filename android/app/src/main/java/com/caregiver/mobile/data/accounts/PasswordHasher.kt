@@ -102,9 +102,12 @@ class PasswordHasher(
 
     companion object {
         /**
-         * Placeholder from #585. #586 measures device cost and records the
-         * final value (600k is the OWASP-aligned candidate for SHA-256). The
-         * cost is stored per row, so changing this cannot lock out accounts.
+         * Cost decided in #586. 600k is the OWASP-recommended iteration
+         * count for PBKDF2-HMAC-SHA256 (the 210k figure applies to SHA-512).
+         * On-device measurement (issue Option C) was not possible in the
+         * lane environment; the value follows OWASP guidance and the cost
+         * is stored per row, so it can be raised later without locking
+         * accounts out — [KdfPolicy.needsRehash] drives that upgrade.
          */
         const val DEFAULT_ITERATIONS: Int = 600_000
 
@@ -114,4 +117,21 @@ class PasswordHasher(
         /** Derived key length in bits. */
         const val KEY_LENGTH_BITS: Int = 256
     }
+}
+
+/**
+ * Decides whether a stored credential should be re-derived at the current
+ * [PasswordHasher.DEFAULT_ITERATIONS] (#586). The issue named this
+ * `KdfPolicy.kt`; it lives at the bottom of `PasswordHasher.kt` because the
+ * agent lane owns that file and no lane owns a new `KdfPolicy.kt` — the
+ * public API (`KdfPolicy.needsRehash`) is unchanged.
+ *
+ * Rehashing happens only after a *successful* password verify, with a fresh
+ * salt, and a failed rehash write must never fail the login. Those rules
+ * live in `AccountManager.signIn` (lane c); this object only answers the
+ * cost question.
+ */
+object KdfPolicy {
+    fun needsRehash(storedIterations: Int): Boolean =
+        storedIterations < PasswordHasher.DEFAULT_ITERATIONS
 }

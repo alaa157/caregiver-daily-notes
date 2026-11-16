@@ -146,6 +146,41 @@ class PasswordHasherTest {
         assertFalse(hasher.verify("password", empty, validSalt, 1))
     }
 
+    // ── #586: KdfPolicy.needsRehash ──────────────────────────────────────
+
+    @Test
+    fun needsRehashIsTrueForIterationsBelowTheDefault() {
+        assertTrue(KdfPolicy.needsRehash(PasswordHasher.DEFAULT_ITERATIONS - 1))
+        assertTrue(KdfPolicy.needsRehash(1))
+    }
+
+    @Test
+    fun needsRehashIsFalseAtOrAboveTheDefault() {
+        assertFalse(KdfPolicy.needsRehash(PasswordHasher.DEFAULT_ITERATIONS))
+        assertFalse(KdfPolicy.needsRehash(PasswordHasher.DEFAULT_ITERATIONS + 1))
+    }
+
+    @Test
+    fun rehashProducesANewSaltThatStillVerifies() {
+        // The hasher-level half of #586: a row stored at a low cost is
+        // re-derived at the default with a fresh salt, and the same password
+        // still verifies against the new row. AccountManager.signIn owns the
+        // "only after a successful verify, never fail the login" wiring.
+        val oldHasher = PasswordHasher(iterations = 1)
+        val old = oldHasher.hash("correct horse")
+        assertTrue(KdfPolicy.needsRehash(old.iterations))
+
+        val currentHasher = PasswordHasher()
+        val upgraded = currentHasher.hash("correct horse")
+
+        assertEquals(PasswordHasher.DEFAULT_ITERATIONS, upgraded.iterations)
+        assertTrue(upgraded.salt != old.salt)
+        assertTrue(currentHasher.verify("correct horse", upgraded.hash, upgraded.salt, upgraded.iterations))
+        assertFalse(currentHasher.verify("wrong", upgraded.hash, upgraded.salt, upgraded.iterations))
+        // The old row still verifies at its own stored cost — rehash is additive.
+        assertTrue(oldHasher.verify("correct horse", old.hash, old.salt, old.iterations))
+    }
+
     private fun hex(bytes: ByteArray): String =
         bytes.joinToString("") { "%02x".format(it.toInt() and 0xff) }
 }
