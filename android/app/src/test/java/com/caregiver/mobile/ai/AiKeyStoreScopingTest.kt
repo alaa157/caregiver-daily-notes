@@ -1,11 +1,14 @@
 package com.caregiver.mobile.ai
 
+import androidx.test.core.app.ApplicationProvider
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.test.runTest
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
 import org.junit.Assert.assertTrue
 import org.junit.Test
+import org.junit.runner.RunWith
+import org.robolectric.RobolectricTestRunner
 
 /**
  * #613: per-account AI key scoping. Two accounts must not share keys,
@@ -15,18 +18,25 @@ import org.junit.Test
  */
 private class FakeApiKeyCipher : ApiKeyCipher {
     val keys = mutableMapOf<String, String>() // accountId -> key
-    override suspend fun encrypt(plain: String, accountId: String): String? {
+    val deleted = mutableListOf<String>()
+    override fun encrypt(plain: String, accountId: String): String? {
         keys[accountId] = plain
         return "encrypted_$plain"
     }
-    override suspend fun decrypt(stored: String, accountId: String): ApiKeyState {
+    override fun decrypt(stored: String, accountId: String): ApiKeyState {
         val key = keys[accountId] ?: return ApiKeyState.Absent
         return if (stored == "encrypted_$key") ApiKeyState.Readable(key) else ApiKeyState.Invalidated
     }
+    override fun delete(accountId: String) {
+        keys.remove(accountId)
+        deleted += accountId
+    }
 }
 
+@RunWith(RobolectricTestRunner::class)
 class AiKeyStoreScopingTest {
 
+    private val context = ApplicationProvider.getApplicationContext<android.content.Context>()
     private val activeAccountA = MutableStateFlow("account-a")
     private val activeAccountB = MutableStateFlow("account-b")
     private val noAccount = MutableStateFlow<String?>(null)
@@ -34,8 +44,8 @@ class AiKeyStoreScopingTest {
 
     @Test
     fun twoAccountsHoldDifferentKeysForSameProvider() = runTest {
-        val storeA = AiKeyStore(null, cipher, activeAccountA)
-        val storeB = AiKeyStore(null, cipher, activeAccountB)
+        val storeA = AiKeyStore(context, cipher, activeAccountA)
+        val storeB = AiKeyStore(context, cipher, activeAccountB)
 
         storeA.setApiKey("key-a", AiProvider.OPENAI)
         storeB.setApiKey("key-b", AiProvider.OPENAI)
@@ -46,8 +56,8 @@ class AiKeyStoreScopingTest {
 
     @Test
     fun accountBCannotReadAccountAsKey() = runTest {
-        val storeA = AiKeyStore(null, cipher, activeAccountA)
-        val storeB = AiKeyStore(null, cipher, activeAccountB)
+        val storeA = AiKeyStore(context, cipher, activeAccountA)
+        val storeB = AiKeyStore(context, cipher, activeAccountB)
 
         storeA.setApiKey("key-a", AiProvider.OPENAI)
         assertEquals(ApiKeyState.Absent, storeB.apiKeyState(AiProvider.OPENAI))
@@ -58,7 +68,7 @@ class AiKeyStoreScopingTest {
         // The keystore alias in AndroidKeyStoreCipher is `ALIAS_PREFIX + accountId`.
         // We assert the cipher was called with the right id by checking the fake's
         // keys map after two writes with different accounts.
-        val store = AiKeyStore(null, cipher, activeAccountA)
+        val store = AiKeyStore(context, cipher, activeAccountA)
         store.setApiKey("any", AiProvider.OPENAI)
         assertTrue(cipher.keys.containsKey("account-a"))
 
@@ -70,7 +80,7 @@ class AiKeyStoreScopingTest {
     @Test
     fun switchingAccountsChangesWhichKeyIsReturned() = runTest {
         val sharedActive = MutableStateFlow("account-a")
-        val store = AiKeyStore(null, cipher, sharedActive)
+        val store = AiKeyStore(context, cipher, sharedActive)
 
         store.setApiKey("key-a", AiProvider.OPENAI)
         assertEquals("key-a", store.apiKey(AiProvider.OPENAI))
@@ -87,7 +97,7 @@ class AiKeyStoreScopingTest {
 
     @Test
     fun noActiveAccountReturnsAbsent() = runTest {
-        val store = AiKeyStore(null, cipher, noAccount)
+        val store = AiKeyStore(context, cipher, noAccount)
         assertEquals(ApiKeyState.Absent, store.apiKeyState(AiProvider.OPENAI))
         assertEquals(null, store.apiKey(AiProvider.OPENAI))
         assertEquals(null, store.model())
@@ -97,8 +107,8 @@ class AiKeyStoreScopingTest {
 
     @Test
     fun providerModelBaseUrlAndConsentArePerAccount() = runTest {
-        val storeA = AiKeyStore(null, cipher, activeAccountA)
-        val storeB = AiKeyStore(null, cipher, activeAccountB)
+        val storeA = AiKeyStore(context, cipher, activeAccountA)
+        val storeB = AiKeyStore(context, cipher, activeAccountB)
 
         storeA.setProvider(AiProvider.ANTHROPIC)
         storeA.setModel("model-a", AiProvider.ANTHROPIC)
@@ -127,7 +137,7 @@ class AiKeyStoreScopingTest {
         // (represented here by nothing in the fake) never receives the plaintext key.
         // In production, SharedPreferences only gets the encrypted output from
         // `cipher.encrypt`, which we've already tested separately.
-        val store = AiKeyStore(null, cipher, activeAccountA)
+        val store = AiKeyStore(context, cipher, activeAccountA)
         store.setApiKey("secret-key", AiProvider.OPENAI)
 
         // The fake cipher received the plaintext and stored it in its map.
@@ -136,5 +146,47 @@ class AiKeyStoreScopingTest {
         // The SharedPreferences layer would only ever see the encrypted form,
         // which the cipher returns as "encrypted_secret-key". Nothing in this
         // test touches that directly because we're testing at the AiKeyStore level.
+    }
+
+    // ── #614: deleteAllForAccount ─────────────────────────────────────────
+
+    @Test
+    fun deleteAllForAccountRemovesKeysAndLeavesOtherAccount() = runTest {
+        val storeA = AiKeyStore(context, cipher, activeAccountA)
+        val storeB = AiKeyStore(context, cipher, activeAccountB)
+
+        storeA.setApiKey("key-a", AiProvider.OPENAI)
+        storeA.setModel("model-a", AiProvider.OPENAI)
+        storeA.setConsentGiven(AiProvider.OPENAI)
+        storeB.setApiKey("key-b", AiProvider.OPENAI)
+        storeB.setModel("model-b", AiProvider.OPENAI)
+
+        storeA.deleteAllForAccount("account-a")
+
+        assertEquals(ApiKeyState.Absent, storeA.apiKeyState(AiProvider.OPENAI))
+        assertEquals(null, storeA.model(AiProvider.OPENAI))
+        assertEquals(false, storeA.consentGiven(AiProvider.OPENAI))
+        assertEquals("key-b", storeB.apiKey(AiProvider.OPENAI))
+        assertEquals("model-b", storeB.model(AiProvider.OPENAI))
+        assertEquals(listOf("account-a"), cipher.deleted)
+    }
+
+    @Test
+    fun deleteAllForAccountIsIdempotent() = runTest {
+        val store = AiKeyStore(context, cipher, activeAccountA)
+        store.setApiKey("key-a", AiProvider.OPENAI)
+
+        store.deleteAllForAccount("account-a")
+        store.deleteAllForAccount("account-a") // second delete must not throw
+
+        assertEquals(ApiKeyState.Absent, store.apiKeyState(AiProvider.OPENAI))
+        assertEquals(2, cipher.deleted.count { it == "account-a" })
+    }
+
+    @Test
+    fun deleteAllForAccountWithNoKeysSucceeds() = runTest {
+        val store = AiKeyStore(context, cipher, activeAccountA)
+        store.deleteAllForAccount("never-existed") // must not throw
+        assertEquals(listOf("never-existed"), cipher.deleted)
     }
 }

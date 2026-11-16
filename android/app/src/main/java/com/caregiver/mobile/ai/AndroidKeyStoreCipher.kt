@@ -81,6 +81,14 @@ internal class AndroidKeyStoreCipher : ApiKeyCipher {
         }
     }
 
+    /** Deletes the alias for [accountId]; a missing alias is a no-op (#614). */
+    override fun delete(accountId: String) {
+        runCatching {
+            KeyStore.getInstance("AndroidKeyStore").apply { load(null) }
+                .deleteEntry(alias(accountId))
+        }
+    }
+
     private fun getOrCreateKey(accountId: String): SecretKey {
         val ks = KeyStore.getInstance("AndroidKeyStore").apply { load(null) }
         ks.getKey(alias(accountId), null)?.let { return it as SecretKey }

@@ -44,6 +44,12 @@ interface ApiKeyCipher {
 
     /** Reads back a stored key. Never returns [ApiKeyState.Absent]. */
     fun decrypt(stored: String, accountId: String): ApiKeyState
+
+    /**
+     * Deletes the keystore alias for [accountId]. A missing alias is a
+     * no-op, never an error (#614).
+     */
+    fun delete(accountId: String)
 }
 
 /**
@@ -57,11 +63,13 @@ private class PerAccountAndroidKeyStoreCipher(
 ) : ApiKeyCipher {
     private val cipher = AndroidKeyStoreCipher()
 
-    override suspend fun encrypt(plain: String, accountId: String): String? =
+    override fun encrypt(plain: String, accountId: String): String? =
         cipher.encrypt(plain, accountId)
 
-    override suspend fun decrypt(stored: String, accountId: String): ApiKeyState =
+    override fun decrypt(stored: String, accountId: String): ApiKeyState =
         cipher.decrypt(stored, accountId)
+
+    override fun delete(accountId: String) = cipher.delete(accountId)
 }
 
 class AiKeyStore internal constructor(
@@ -256,6 +264,25 @@ class AiKeyStore internal constructor(
         }
         editor.remove(KEY_CONSENT)
         editor.apply()
+    }
+
+    /**
+     * Deletes every AI key and setting for [accountId] (#614): all
+     * namespaced SharedPreferences entries and the account's keystore alias.
+     * Another account's data is untouched — only keys with the
+     * `{accountId}_` prefix are removed. Idempotent: deleting an account
+     * with no keys succeeds silently. Called by `AccountCleanupImpl`'s
+     * `deleteAiKeys` hook.
+     */
+    fun deleteAllForAccount(accountId: String) {
+        val prefix = "${accountId}_"
+        val toRemove = prefs.all.keys.filter { it.startsWith(prefix) }
+        if (toRemove.isNotEmpty()) {
+            prefs.edit().apply {
+                toRemove.forEach { remove(it) }
+            }.apply()
+        }
+        cipher.delete(accountId)
     }
 
     private fun keySlot(provider: AiProvider): String = KEY_API_PREFIX + provider.name
