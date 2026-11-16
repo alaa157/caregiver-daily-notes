@@ -54,12 +54,15 @@ fun CaregiverRoot(graph: AppGraph) {
     // "No active account: local database access is unavailable".
     val hasActiveAccount by produceState(initialValue = false) {
         if (!localMode) return@produceState
-        value = try {
-            graph.activeAccountIdFlow.first() != null
+        // Collect, don't read once: signing in updates the active id and the
+        // root must leave the local login screen without a process restart.
+        // (A one-shot first() also needed an import that was missing here.)
+        try {
+            graph.activeAccountIdFlow.collect { id -> value = id != null }
         } catch (e: kotlinx.coroutines.CancellationException) {
             throw e
         } catch (e: Exception) {
-            false
+            value = false
         }
     }
     when (rootScreenFor(onboardingCompleted, localMode, signedIn)) {
