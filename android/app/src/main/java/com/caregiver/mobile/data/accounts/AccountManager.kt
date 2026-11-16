@@ -5,6 +5,9 @@ import java.util.UUID
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.CoroutineDispatcher
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.flow.Flow
+import kotlinx.coroutines.flow.first
+import kotlinx.coroutines.flow.flowOf
 import kotlinx.coroutines.withContext
 
 /**
@@ -32,9 +35,14 @@ class InvalidDisplayNameException : IllegalArgumentException(
  * in particular [signIn] never logs the address next to a failure, so a real
  * account cannot be identified from the log.
  *
- * Collaborators without an implementation yet are injected as hooks:
- *  - [setActiveAccount] / [openAccountDatabase] — #592 (persist active id) and
- *    #601 (per-account AppDatabase provider); no-op defaults for now.
+ * Active-account state lives in [sessionStore] (the shared settings DataStore)
+ * and is observed through [activeAccountId]. When no store is injected the
+ * app is treated as signed out; the unowned AppGraph/SettingsStore wiring must
+ * pass the single shared DataStore in (see issue #592's integration note).
+ *
+ * Other collaborators without an implementation yet are injected as hooks:
+ *  - [openAccountDatabase] / [closeAccountDatabase] — #601's per-account
+ *    AppDatabase provider; [cancelAccountWork] — #612; no-op defaults.
  *  - [performDummyHash] / [updateCredentials] — the timing oracle defense and
  *    #586's rehash-on-login. Their defaults are real and self-contained here;
  *    #586 will replace the delete+insert persistence with a transactional
@@ -45,8 +53,11 @@ class AccountManager(
     private val hasher: PasswordHasher = PasswordHasher(),
     private val hashDispatcher: CoroutineDispatcher = Dispatchers.Default,
     private val clock: () -> Long = { System.currentTimeMillis() },
-    private val setActiveAccount: suspend (accountId: String) -> Unit = {},
+    private val sessionStore: SessionStore? = null,
     private val openAccountDatabase: suspend (accountId: String) -> Unit = {},
+    private val closeAccountDatabase: suspend (accountId: String) -> Unit = {},
+    private val cancelAccountWork: suspend () -> Unit = {},
+    private val onActiveAccountChanged: suspend (String?) -> Unit = {},
     /** The cost a rehash upgrades to; defaults to the current KDF cost. */
     private val currentIterations: Int = PasswordHasher.DEFAULT_ITERATIONS,
     /** One real PBKDF2 against a throwaway salt, to keep unknown-email timing equal. */
@@ -171,6 +182,39 @@ class AccountManager(
         setActiveAccount(row.id)
         openAccountDatabase(row.id)
         return Result.success(row.copy(lastUsedAt = timestamp).toAccount())
+    }
+
+    /** The active id, or null when signed out. Backed by the shared DataStore. */
+    val activeAccountId: Flow<String?> =
+        sessionStore?.activeAccountId ?: flowOf(null)
+
+    /** Persists the active id — null clears it — and notifies observers. */
+    suspend fun setActiveAccount(id: String?) {
+        sessionStore?.setActiveAccountId(id)
+        onActiveAccountChanged(id)
+    }
+
+    /**
+     * Call on app start. A stored id whose account row no longer exists (a
+     * partial wipe, or a removal through another path) is cleared rather than
+     * crashing — the app simply comes up signed out.
+     */
+    suspend fun restoreActiveAccount() {
+        val stored = sessionStore?.activeAccountId?.first() ?: return
+        if (dao.findById(stored) == null) setActiveAccount(null)
+    }
+
+    /**
+     * Clears the stored id, closes the active account's database and cancels
+     * its scoped work. [activeAccountId] emits null once the key is cleared.
+     */
+    suspend fun signOut() {
+        val id = activeAccountId.first()
+        setActiveAccount(null)
+        if (id != null) {
+            closeAccountDatabase(id)
+            cancelAccountWork()
+        }
     }
 
     companion object {

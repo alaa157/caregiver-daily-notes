@@ -1,15 +1,21 @@
 package com.caregiver.mobile.data.accounts
 
+import androidx.datastore.preferences.core.PreferenceDataStoreFactory
 import androidx.sqlite.SQLiteConstraintException
 import java.io.File
 import java.util.concurrent.Executors
 import kotlin.coroutines.CoroutineContext
 import kotlinx.coroutines.CoroutineDispatcher
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.ExperimentalCoroutinesApi
+import kotlinx.coroutines.flow.first
+import kotlinx.coroutines.test.TestScope
+import kotlinx.coroutines.test.UnconfinedTestDispatcher
 import kotlinx.coroutines.test.runTest
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
 import org.junit.Assert.assertNotEquals
+import org.junit.Assert.assertNull
 import org.junit.Assert.assertTrue
 import org.junit.Test
 
@@ -26,9 +32,12 @@ class AccountManagerTest {
         dispatcher: CoroutineDispatcher = Dispatchers.Default,
         val clock: () -> Long = { FIXED_NOW },
         currentIterations: Int = TEST_ITERATIONS,
+        sessionStore: SessionStore? = null,
     ) {
         val activeIds = mutableListOf<String>()
         val openedIds = mutableListOf<String>()
+        val closedIds = mutableListOf<String>()
+        var cancelWorkCalls = 0
         var dummyHashCalls = 0
         var rehashWrites = 0
         var failRehashWrite = false
@@ -37,8 +46,11 @@ class AccountManagerTest {
             hasher = hasher,
             hashDispatcher = dispatcher,
             clock = clock,
-            setActiveAccount = { activeIds += it },
+            sessionStore = sessionStore,
             openAccountDatabase = { openedIds += it },
+            closeAccountDatabase = { closedIds += it },
+            cancelAccountWork = { cancelWorkCalls++ },
+            onActiveAccountChanged = { id -> if (id != null) activeIds += id },
             currentIterations = currentIterations,
             performDummyHash = { _: String -> dummyHashCalls++ },
             updateCredentials = { row, fresh ->
@@ -371,12 +383,82 @@ class AccountManagerTest {
         assertEquals(seeded.passwordHash, h.dao.rows[seeded.id]!!.passwordHash) // old row kept
     }
 
+    @OptIn(ExperimentalCoroutinesApi::class)
+    @Test
+    fun signOutClearsTheStoredIdClosesTheDatabaseAndEmitsNull() = runTest {
+        val file = File.createTempFile("session-signout-test", ".preferences_pb")
+        try {
+            val store = newSessionStore(file)
+            val h = Harness(sessionStore = store)
+            assertTrue(h.manager.signUp("Amina", "amina@example.com", "goodpass1").isSuccess)
+            val id = h.dao.rows.values.single().id
+            assertEquals(id, h.manager.activeAccountId.first())
+
+            h.manager.signOut()
+
+            assertNull(store.activeAccountId.first()) // id removed from DataStore
+            assertNull(h.manager.activeAccountId.first()) // flow emits null
+            assertEquals(listOf(id), h.openedIds)
+            assertEquals(listOf(id), h.closedIds)
+            assertEquals(1, h.cancelWorkCalls)
+        } finally {
+            file.delete()
+        }
+    }
+
+    @OptIn(ExperimentalCoroutinesApi::class)
+    @Test
+    fun storedIdForAMissingAccountIsClearedOnRestore() = runTest {
+        val file = File.createTempFile("session-stale-test", ".preferences_pb")
+        try {
+            val store = newSessionStore(file)
+            store.setActiveAccountId("ghost-account")
+            val h = Harness(sessionStore = store) // no such row in the accounts table
+
+            h.manager.restoreActiveAccount()
+
+            assertNull(store.activeAccountId.first())
+            assertNull(h.manager.activeAccountId.first())
+            assertTrue(h.closedIds.isEmpty())
+        } finally {
+            file.delete()
+        }
+    }
+
+    @OptIn(ExperimentalCoroutinesApi::class)
+    @Test
+    fun restoreKeepsAnExistingAccountActive() = runTest {
+        val file = File.createTempFile("session-restore-test", ".preferences_pb")
+        try {
+            val store = newSessionStore(file)
+            val first = Harness(sessionStore = store)
+            assertTrue(first.manager.signUp("Amina", "amina@example.com", "goodpass1").isSuccess)
+            val id = first.dao.rows.values.single().id
+
+            // A fresh manager over the same store and rows (process restart).
+            val restarted = Harness(dao = first.dao, sessionStore = store)
+            restarted.manager.restoreActiveAccount()
+
+            assertEquals(id, restarted.manager.activeAccountId.first())
+            assertEquals(0, restarted.rehashWrites)
+        } finally {
+            file.delete()
+        }
+    }
+
     @Test
     fun managerSourceHasNoLoggingOfSecrets() {
         val source = locateManagerSource().readText()
         assertFalse("no android.util.Log calls", source.contains("Log."))
         assertFalse("no println", source.contains("println("))
     }
+
+    @OptIn(ExperimentalCoroutinesApi::class)
+    private fun newSessionStore(file: File): SessionStore = SessionStore(
+        PreferenceDataStoreFactory.create(
+            scope = TestScope(UnconfinedTestDispatcher()),
+        ) { file },
+    )
 
     /** Seeds a row directly at an arbitrary (usually old) iteration cost. */
     private fun seedAccount(h: Harness, iterations: Int): AccountEntity {
