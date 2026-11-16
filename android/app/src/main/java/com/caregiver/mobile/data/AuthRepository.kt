@@ -94,6 +94,9 @@ class AuthRepository(
         signUp(deriveName(email), email, password)
 
     suspend fun signOut() {
+        // In local mode this runs the account swap: clears the stored active
+        // id and closes the account database before the session is forgotten.
+        accountManager?.signOut()
         settings.clearToken()
         settings.clearEmail()
         tokens.token = null

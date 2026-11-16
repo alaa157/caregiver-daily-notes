@@ -189,7 +189,13 @@ private class ActiveBackupStore(private val database: ActiveDatabase) : BackupSt
 }
 
 /** Manual composition root: settings, token mirror, API provider, Room cache, auth. */
-class AppGraph(val context: Context, val forceProduction: Boolean = false) {
+class AppGraph(
+    val context: Context,
+    val forceProduction: Boolean = false,
+    /** UI hooks for #618/#620; the graph stays usable without them. */
+    private val onResetAccountViewModels: () -> Unit = {},
+    private val onNavigateHome: () -> Unit = {},
+) {
     val tokens = TokenHolder()
     val settings: SettingsStore by lazy { SettingsStore.create(context) }
 
@@ -230,6 +236,11 @@ class AppGraph(val context: Context, val forceProduction: Boolean = false) {
 
     private val activeAccountId = MutableStateFlow<String?>(null)
 
+    private val noAccountEpoch = MutableStateFlow(0)
+
+    /** Advances on every local swap; account-scoped observers re-fetch on change. */
+    val accountEpoch: StateFlow<Int> get() = localAccountManager?.epoch ?: noAccountEpoch
+
     /** Collectors for the current account; cancelled and joined before close. */
     private val accountWork = AccountWorkScope()
 
@@ -263,7 +274,11 @@ class AppGraph(val context: Context, val forceProduction: Boolean = false) {
             closeAccountDatabase = { accountDatabaseProvider.close() },
             cancelAccountWork = { accountWork.cancel() },
             awaitAccountWork = { accountWork.join() },
-            onSwapCompleted = { accountWork.reset() },
+            onSwapCompleted = {
+                accountWork.reset()
+                onResetAccountViewModels()
+                onNavigateHome()
+            },
         )
     }
 
@@ -371,8 +386,14 @@ class AppGraph(val context: Context, val forceProduction: Boolean = false) {
      * (forceProduction/server-only test graphs), and the home card hides
      * itself then, the same self-disabling as [backupRestoreService].
      */
-    val medications: MedicationStore? by lazy {
-        localDatabase?.let { MedicationStore(it) }
+    private var medicationsFor: Pair<String, MedicationStore>? = null
+
+    val medications: MedicationStore? get() {
+        if (!localMode) return null
+        val id = activeAccountId.value ?: return null
+        val cached = medicationsFor
+        if (cached?.first == id) return cached.second
+        return MedicationStore(accountDatabaseProvider.databaseFor(id)).also { medicationsFor = id to it }
     }
 
     /**
@@ -381,12 +402,17 @@ class AppGraph(val context: Context, val forceProduction: Boolean = false) {
      * uses the cache database. Null in demo graphs — illustrative summaries
      * are never persisted — so callers pass it straight through.
      */
-    val savedSummaryStore: SavedSummaryStore? by lazy {
-        when {
-            isDemo -> null
-            localMode -> localDatabase?.let { SavedSummaryStore(it) }
-            else -> db?.let { SavedSummaryStore(it) }
+    private var summariesFor: Pair<String, SavedSummaryStore>? = null
+
+    val savedSummaryStore: SavedSummaryStore? get() {
+        if (isDemo) return null
+        if (localMode) {
+            val id = activeAccountId.value ?: return null
+            val cached = summariesFor
+            if (cached?.first == id) return cached.second
+            return SavedSummaryStore(accountDatabaseProvider.databaseFor(id)).also { summariesFor = id to it }
         }
+        return db?.let { SavedSummaryStore(it) }
     }
 
     /**
