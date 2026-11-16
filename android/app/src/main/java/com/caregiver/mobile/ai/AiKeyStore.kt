@@ -94,117 +94,117 @@ class AiKeyStore internal constructor(
         migrateLegacyConsent()
     }
 
-    private suspend fun accountId(): String? = activeAccountId.first()
+    private fun accountId(): String? = kotlinx.coroutines.runBlocking { activeAccountId.first() }
 
     private fun perAccountKey(key: String, accountId: String): String = "${accountId}_$key"
 
-    suspend fun provider(): AiProvider? {
+    fun provider(): AiProvider? {
         val id = accountId() ?: return null
         return prefs.getString(perAccountKey(KEY_PROVIDER, id), null)
             ?.let { runCatching { AiProvider.valueOf(it) }.getOrNull() }
     }
 
-    suspend fun selectedProvider(): AiProvider = provider() ?: AiProvider.OPENAI
+    fun selectedProvider(): AiProvider = provider() ?: AiProvider.OPENAI
 
-    suspend fun setProvider(p: AiProvider) {
+    fun setProvider(p: AiProvider) {
         val id = accountId() ?: return
         prefs.edit().putString(perAccountKey(KEY_PROVIDER, id), p.name).apply()
     }
 
-    suspend fun apiKeyState(provider: AiProvider = selectedProvider()): ApiKeyState {
+    fun apiKeyState(provider: AiProvider = selectedProvider()): ApiKeyState {
         val id = accountId() ?: return ApiKeyState.Absent
         val stored = prefs.getString(perAccountKey(keySlot(provider), id), null)
             ?: return ApiKeyState.Absent
         return cipher.decrypt(stored, id)
     }
 
-    suspend fun apiKey(provider: AiProvider = selectedProvider()): String? =
+    fun apiKey(provider: AiProvider = selectedProvider()): String? =
         (apiKeyState(provider) as? ApiKeyState.Readable)?.key
 
-    suspend fun setApiKey(key: String, provider: AiProvider = selectedProvider()): Boolean {
+    fun setApiKey(key: String, provider: AiProvider = selectedProvider()): Boolean {
         val id = accountId() ?: return false
         val stored = cipher.encrypt(key, id) ?: return false
         prefs.edit().putString(perAccountKey(keySlot(provider), id), stored).apply()
         return true
     }
 
-    suspend fun clearApiKey(provider: AiProvider = selectedProvider()) {
+    fun clearApiKey(provider: AiProvider = selectedProvider()) {
         val id = accountId() ?: return
         prefs.edit().remove(perAccountKey(keySlot(provider), id)).apply()
     }
 
-    suspend fun hasKey(provider: AiProvider = selectedProvider()): Boolean =
+    fun hasKey(provider: AiProvider = selectedProvider()): Boolean =
         (apiKeyState(provider) as? ApiKeyState.Readable)?.key?.isNotBlank() == true
 
-    suspend fun otherUsableProvider(exclude: AiProvider): AiProvider? {
+    fun otherUsableProvider(exclude: AiProvider): AiProvider? {
         val id = accountId() ?: return null
         return AiProvider.values().firstOrNull { it != exclude && hasKey(it) }
     }
 
-    suspend fun model(provider: AiProvider = selectedProvider()): String? {
+    fun model(provider: AiProvider = selectedProvider()): String? {
         val id = accountId() ?: return null
         return prefs.getString(perAccountKey(modelSlot(provider), id), null)?.takeIf { it.isNotBlank() }
     }
 
-    suspend fun setModel(m: String, provider: AiProvider = selectedProvider()) {
+    fun setModel(m: String, provider: AiProvider = selectedProvider()) {
         val id = accountId() ?: return
         prefs.edit().putString(perAccountKey(modelSlot(provider), id), m).apply()
     }
 
-    suspend fun baseUrl(provider: AiProvider = selectedProvider()): String? {
+    fun baseUrl(provider: AiProvider = selectedProvider()): String? {
         val id = accountId() ?: return null
         return prefs.getString(perAccountKey(baseUrlSlot(provider), id), null)
     }
 
-    suspend fun setBaseUrl(url: String, provider: AiProvider = selectedProvider()) {
+    fun setBaseUrl(url: String, provider: AiProvider = selectedProvider()) {
         val id = accountId() ?: return
         prefs.edit().putString(perAccountKey(baseUrlSlot(provider), id), url).apply()
     }
 
-    suspend fun baseUrlOrDefault(provider: AiProvider): String =
+    fun baseUrlOrDefault(provider: AiProvider): String =
         baseUrl(provider)?.takeIf { it.isNotBlank() } ?: provider.defaultBaseUrl
 
-    suspend fun consentGiven(provider: AiProvider = selectedProvider()): Boolean {
+    fun consentGiven(provider: AiProvider = selectedProvider()): Boolean {
         val id = accountId() ?: return false
         return prefs.getBoolean(perAccountKey(consentSlot(provider), id), false)
     }
 
-    suspend fun setConsentGiven(provider: AiProvider = selectedProvider()) {
+    fun setConsentGiven(provider: AiProvider = selectedProvider()) {
         val id = accountId() ?: return
         prefs.edit().putBoolean(perAccountKey(consentSlot(provider), id), true).apply()
     }
 
-    suspend fun revokeConsent(provider: AiProvider = selectedProvider()) {
+    fun revokeConsent(provider: AiProvider = selectedProvider()) {
         val id = accountId() ?: return
         prefs.edit().remove(perAccountKey(consentSlot(provider), id)).apply()
     }
 
-    suspend fun systemPrompt(): String {
+    fun systemPrompt(): String {
         val id = accountId() ?: return ""
         return prefs.getString(perAccountKey(KEY_SYSTEM_PROMPT, id), "").orEmpty()
     }
 
-    suspend fun setSystemPrompt(value: String) {
+    fun setSystemPrompt(value: String) {
         val id = accountId() ?: return
         prefs.edit().putString(perAccountKey(KEY_SYSTEM_PROMPT, id), value).apply()
     }
 
-    suspend fun summarySystemPrompt(): String {
+    fun summarySystemPrompt(): String {
         val id = accountId() ?: return ""
         return prefs.getString(perAccountKey(KEY_SUMMARY_PROMPT, id), "").orEmpty()
     }
 
-    suspend fun setSummarySystemPrompt(value: String) {
+    fun setSummarySystemPrompt(value: String) {
         val id = accountId() ?: return
         prefs.edit().putString(perAccountKey(KEY_SUMMARY_PROMPT, id), value).apply()
     }
 
-    suspend fun planSystemPrompt(): String {
+    fun planSystemPrompt(): String {
         val id = accountId() ?: return ""
         return prefs.getString(perAccountKey(KEY_PLAN_PROMPT, id), "").orEmpty()
     }
 
-    suspend fun setPlanSystemPrompt(value: String) {
+    fun setPlanSystemPrompt(value: String) {
         val id = accountId() ?: return
         prefs.edit().putString(perAccountKey(KEY_PLAN_PROMPT, id), value).apply()
     }
@@ -218,7 +218,7 @@ class AiKeyStore internal constructor(
      *
      * With no active account, nothing to migrate.
      */
-    private suspend fun migrateLegacySettings() {
+    private fun migrateLegacySettings() {
         val id = accountId() ?: return
         val editor = prefs.edit()
         var changed = false
@@ -255,7 +255,7 @@ class AiKeyStore internal constructor(
      * providers must ask again, because the caregiver never saw their names
      * or data policies. With no active account, nothing to migrate.
      */
-    private suspend fun migrateLegacyConsent() {
+    private fun migrateLegacyConsent() {
         val id = accountId() ?: return
         if (!prefs.contains(KEY_CONSENT)) return
         val editor = prefs.edit()

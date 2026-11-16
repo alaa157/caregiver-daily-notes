@@ -208,8 +208,8 @@ class SummaryViewModel(
         // screen that was restored without a NeedsConsent state.
         val store = aiKeyStore ?: return
         val provider = (_state.value as? SummaryState.NeedsConsent)?.provider
-            ?: store.selectedProvider()
-        store.setConsentGiven(provider)
+            ?: kotlinx.coroutines.runBlocking { store.selectedProvider() }
+        kotlinx.coroutines.runBlocking { store.setConsentGiven(provider) }
         cancelledByUser = false
         _state.value = SummaryState.Loading
         loadJob?.cancel()
@@ -224,7 +224,7 @@ class SummaryViewModel(
      */
     fun switchProvider(provider: AiProvider) {
         val store = aiKeyStore ?: return
-        store.setProvider(provider)
+        kotlinx.coroutines.runBlocking { store.setProvider(provider) }
         cancelledByUser = false
         _state.value = SummaryState.Loading
         loadJob?.cancel()
@@ -495,9 +495,9 @@ class SummaryViewModel(
 
     fun suggestPlan() {
         val store = aiKeyStore ?: return
-        val provider = store.selectedProvider()
-        if (!store.hasKey(provider)) return
-        if (!store.consentGiven(provider)) return
+        val provider = kotlinx.coroutines.runBlocking { store.selectedProvider() }
+        if (!kotlinx.coroutines.runBlocking { store.hasKey(provider) }) return
+        if (!kotlinx.coroutines.runBlocking { store.consentGiven(provider) }) return
         if (_suggesting.value || _suggestedForCurrent.value) return
         val summaryText = (_state.value as? SummaryState.Content)?.data?.summary?.text.orEmpty()
         if (summaryText.isBlank()) {

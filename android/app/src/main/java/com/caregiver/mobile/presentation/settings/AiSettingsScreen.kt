@@ -91,13 +91,13 @@ import kotlinx.coroutines.withTimeout
 @Composable
 fun AiSettingsScreen(graph: AppGraph, navController: NavController, navEntry: NavBackStackEntry) {
     val scope = rememberCoroutineScope()
-    val store = remember { AiKeyStore(graph.context) }
+    val store = remember { AiKeyStore(graph.context, graph.activeAccountIdFlow) }
     val uriHandler = LocalUriHandler.current
     // The activity context carries the language the caregiver just picked;
     // `graph.context` is the application context, which keeps the locale the
     // process started with.
     val context = LocalContext.current
-    val initialProvider = store.selectedProvider()
+    val initialProvider = kotlinx.coroutines.runBlocking { store.selectedProvider() }
     val initialStoredKey = store.apiKey(initialProvider).orEmpty()
     var provider by remember { mutableStateOf(initialProvider) }
     var apiKey by remember { mutableStateOf(initialStoredKey) }
