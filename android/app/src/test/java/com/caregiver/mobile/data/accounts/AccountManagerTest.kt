@@ -1,7 +1,11 @@
 package com.caregiver.mobile.data.accounts
 
 import androidx.datastore.preferences.core.PreferenceDataStoreFactory
+import androidx.room.Database
+import androidx.room.Room
+import androidx.room.RoomDatabase
 import androidx.sqlite.SQLiteConstraintException
+import androidx.test.core.app.ApplicationProvider
 import java.io.File
 import java.util.concurrent.Executors
 import kotlin.coroutines.CoroutineContext
@@ -25,6 +29,8 @@ import org.junit.Assert.assertNotNull
 import org.junit.Assert.assertNull
 import org.junit.Assert.assertTrue
 import org.junit.Test
+import org.junit.runner.RunWith
+import org.robolectric.RobolectricTestRunner
 
 private const val FIXED_NOW = 1_700_000_000_000L
 private const val TEST_ITERATIONS = 100
@@ -156,6 +162,17 @@ class AccountManagerTest {
         override suspend fun deleteDatabase(accountId: String) = record("db")
         override suspend fun deleteAiKeys(accountId: String) = record("keys")
         override suspend fun deleteExports(accountId: String) = record("exports")
+    }
+
+    /** Fake database provider that records open/close call order (#606). */
+    private class RecordingDatabaseProvider(private val events: MutableList<String>) {
+        suspend fun open(accountId: String) {
+            events += "open:$accountId"
+        }
+
+        suspend fun close(accountId: String) {
+            events += "close:$accountId"
+        }
     }
 
     /** Runs the dispatched block on a named background thread so we can prove hashing left Main. */
@@ -841,6 +858,42 @@ class AccountManagerTest {
         }
     }
 
+    @OptIn(ExperimentalCoroutinesApi::class)
+    @Test
+    fun aFakeDatabaseProviderRecordsTheSwapOrder() = runTest {
+        val file = File.createTempFile("provider-order-test", ".preferences_pb")
+        try {
+            val store = newSessionStore(file)
+            val providerEvents = mutableListOf<String>()
+            val provider = RecordingDatabaseProvider(providerEvents)
+            val dao = FakeAccountDao()
+            val manager = AccountManager(
+                dao = dao,
+                hasher = PasswordHasher(iterations = 10),
+                sessionStore = store,
+                closeAccountDatabase = { provider.close(it) },
+                openAccountDatabase = { provider.open(it) },
+                cancelAccountWork = { providerEvents += "cancel" },
+            )
+            val old = AccountEntity("old", "old@example.com", "Old", "h", "s", 10, FIXED_NOW, FIXED_NOW)
+            val next = AccountEntity("next", "next@example.com", "Next", "h", "s", 10, FIXED_NOW, FIXED_NOW)
+            dao.rows[old.id] = old
+            dao.rows[next.id] = next
+            store.setActiveAccountId(old.id)
+            providerEvents.clear()
+
+            assertTrue(manager.switchAccount(next.id).isSuccess)
+
+            assertEquals(
+                listOf("cancel", "close:old", "open:next"),
+                providerEvents,
+            )
+            assertEquals(next.id, store.activeAccountId.first())
+        } finally {
+            file.delete()
+        }
+    }
+
     @Test
     fun managerSourceHasNoLoggingOfSecrets() {
         val source = locateManagerSource().readText()
@@ -892,5 +945,82 @@ class AccountManagerTest {
             cursor = cursor.parentFile
         }
         throw AssertionError("could not locate $relative")
+    }
+}
+
+/**
+ * #606: the manager against a real in-memory accounts database, proving the
+ * fake-DAO tests agree with Room's unique index and one-shot reads.
+ *
+ * Distinct database class name so it cannot collide with AccountDaoTest's
+ * test-only database in the same package.
+ */
+@Database(entities = [AccountEntity::class], version = 1, exportSchema = false)
+abstract class ManagerRoomAccountsDb : RoomDatabase() {
+    abstract fun accountDao(): AccountDao
+}
+
+@RunWith(RobolectricTestRunner::class)
+class AccountManagerRoomTest {
+    private lateinit var db: ManagerRoomAccountsDb
+    private lateinit var dao: AccountDao
+
+    @org.junit.Before
+    fun setUp() {
+        db = Room.inMemoryDatabaseBuilder(
+            ApplicationProvider.getApplicationContext(),
+            ManagerRoomAccountsDb::class.java,
+        ).allowMainThreadQueries().build()
+        dao = db.accountDao()
+    }
+
+    @org.junit.After
+    fun tearDown() {
+        db.close()
+    }
+
+    @Test
+    fun roomSignUpPersistsAndSignInVerifies() = runTest {
+        val manager = AccountManager(dao = dao, hasher = PasswordHasher(iterations = 100))
+
+        assertTrue(manager.signUp("Amina", "amina@example.com", "goodpass1").isSuccess)
+
+        val row = dao.findByEmail("amina@example.com")!!
+        assertTrue(PasswordHasher(iterations = 100).verify("goodpass1", row.passwordHash, row.salt, row.kdfIterations))
+        assertTrue(manager.signIn("amina@example.com", "goodpass1").isSuccess)
+        assertFalse(manager.signIn("amina@example.com", "wrongpass1").isSuccess)
+    }
+
+    @Test
+    fun roomUniqueIndexRejectsADuplicateEmail() = runTest {
+        val manager = AccountManager(dao = dao, hasher = PasswordHasher(iterations = 100))
+        assertTrue(manager.signUp("Amina", "amina@example.com", "goodpass1").isSuccess)
+
+        val second = manager.signUp("Other", "amina@example.com", "goodpass1")
+        assertTrue(second.exceptionOrNull() is AccountException)
+        assertEquals(AccountError.EmailTaken, (second.exceptionOrNull() as AccountException).error)
+        assertEquals(1, dao.listAll().size)
+    }
+
+    @Test
+    fun roomBackedFlowsSeeInsertsAndDeletes() = runTest {
+        val changes = MutableSharedFlow<Unit>(extraBufferCapacity = 8)
+        val manager = AccountManager(
+            dao = dao,
+            hasher = PasswordHasher(iterations = 100),
+            accountsChanged = changes,
+        )
+        val collected = async { manager.listAccounts().take(3).toList() }
+
+        assertTrue(manager.signUp("Amina", "amina@example.com", "goodpass1").isSuccess)
+        val id = dao.listAll().single().id
+        dao.deleteById(id)
+        changes.emit(Unit)
+
+        val emissions = collected.await()
+        assertEquals(3, emissions.size)
+        assertEquals(0, emissions[0].size)
+        assertEquals(1, emissions[1].size)
+        assertEquals(0, emissions[2].size)
     }
 }
