@@ -817,8 +817,9 @@
     <string name="account_active_marker">نشط</string>
     <string name="account_current_marker">الحساب الحالي</string>
     <string name="migration_claim_title">استرجاع بياناتك</string>
-    <string name="migration_claim_body">وجدنا ملاحظات موجودة على هذا الجهاز. انقلها إلى حسابك للحفاظ عليها.</string>
+    <string name="migration_claim_body">وجدنا ملاحظات موجودة على هذا الجهاز. أنشئ الحساب الذي سيملكها — لن يتمكن من فتحها إلا هذا الحساب.</string>
     <string name="migration_claim_cta">متابعة</string>
+    <string name="migration_claim_submit">إنشاء حساب واسترجاع البيانات</string>
     <string name="migration_failed">تعذر نقل بياناتك الموجودة. يمكنك المحاولة لاحقًا.</string>
     <string name="settings_account">الحساب</string>
 </resources>
