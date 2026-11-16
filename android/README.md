@@ -87,6 +87,10 @@ Lint:
 ./gradlew :app:lintDebug
 ```
 
+## Architecture decisions
+
+- Per-account databases: [`docs/adr/001-per-account-databases.md`](docs/adr/001-per-account-databases.md)
+
 ## Structure
 
 ```
