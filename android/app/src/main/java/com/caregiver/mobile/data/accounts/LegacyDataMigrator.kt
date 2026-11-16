@@ -1,6 +1,7 @@
 package com.caregiver.mobile.data.accounts
 
 import android.content.Context
+import android.util.Log
 import com.caregiver.mobile.BuildConfig
 import java.io.File
 import kotlinx.coroutines.flow.Flow
@@ -88,13 +89,27 @@ class LegacyMigration(
     private val context: Context,
     private val migrateAiKey: suspend (String) -> Unit = {},
     private val migrateOnboarding: suspend (String) -> Unit = {},
+    private val backupCopy: (File, File) -> Unit = { from, to -> from.copyTo(to, overwrite = true) },
 ) {
     private val prefs = context.getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE)
 
     /** True once the move has completed (also after a no-op with no legacy file). */
     fun isCompleted(): Boolean = prefs.getBoolean(MIGRATION_COMPLETED, false)
 
+    /**
+     * Deletes the recovery backup one launch after a successful move.
+     * The integrator calls this on every launch; [migrate] calls it too.
+     * Returns true when it actually removed a backup.
+     */
+    fun cleanupBackupIfDue(): Boolean {
+        if (!isCompleted() || !prefs.getBoolean(BACKUP_PENDING, false)) return false
+        backupFiles().forEach { it.delete() }
+        prefs.edit().putBoolean(BACKUP_PENDING, false).apply()
+        return true
+    }
+
     suspend fun migrate(ownerId: String): Boolean {
+        cleanupBackupIfDue()
         if (isCompleted()) return false
         val safeId = PerAccountDatabaseProvider.sanitize(ownerId)
 
@@ -102,44 +117,75 @@ class LegacyMigration(
         if (!legacy.exists()) return false
 
         val target = context.getDatabasePath("${PerAccountDatabaseProvider.FILE_PREFIX}$safeId")
+        val sources = listOf(legacy) + listOf(WAL, SHM).map { File(legacy.path + it) }
+            .filter { it.exists() }
 
         // Settings first: a failure here must not move the database.
         migrateAiKey(safeId)
         migrateOnboarding(safeId)
 
-        val renames = linkedMapOf(
-            legacy to target,
-            File(legacy.path + WAL) to File(target.path + WAL),
-            File(legacy.path + SHM) to File(target.path + SHM),
-        ).filter { (from, _) -> from.exists() }
+        // Safety net (#626): copy before any rename. A failed copy (e.g. no
+        // space) aborts with the originals untouched — only status is logged.
+        val backups = sources.map { it to File(it.path + BACKUP_SUFFIX) }
+        try {
+            backups.forEach { (from, to) -> backupCopy(from, to) }
+        } catch (error: java.io.IOException) {
+            Log.i(TAG, "legacy migration aborted: backup copy failed")
+            throw IllegalStateException("legacy backup failed", error)
+        }
+        prefs.edit().putBoolean(BACKUP_PENDING, true).apply()
 
+        val renames = sources.map { from ->
+            val suffix = from.name.removePrefix(PerAccountDatabaseProvider.LEGACY_DATABASE_NAME)
+            from to File(target.path + suffix)
+        }
         val done = mutableListOf<Pair<File, File>>()
         try {
             for ((from, to) in renames) {
-                if (!from.renameTo(to)) throw IllegalStateException("legacy rename failed: ${from.name}")
+                if (!from.renameTo(to)) throw IllegalStateException("legacy rename failed")
                 done += from to to
             }
         } catch (failure: IllegalStateException) {
-            // Roll back in reverse order; best effort, never throw from cleanup.
+            // Reverse the renames, then restore bytes from the backup so the
+            // pre-migration state is byte-for-byte. Never log note content.
             done.reversed().forEach { (from, to) -> to.renameTo(from) }
+            sources.forEach { original ->
+                val backup = File(original.path + BACKUP_SUFFIX)
+                if (backup.exists()) backup.copyTo(original, overwrite = true)
+            }
+            backupFiles().forEach { it.delete() }
+            prefs.edit().putBoolean(BACKUP_PENDING, false).apply()
+            Log.i(TAG, "legacy migration failed: original restored")
             throw failure
         }
 
         prefs.edit().putBoolean(MIGRATION_COMPLETED, true).apply()
+        Log.i(TAG, "legacy migration succeeded")
         return true
     }
 
-    /** Test-only: clears the persisted flag and removes any migrated files. */
+    /** All recovery backup files, whether or not they currently exist. */
+    private fun backupFiles(): List<File> =
+        listOf(PerAccountDatabaseProvider.LEGACY_DATABASE_NAME, WAL, SHM).map { suffix ->
+            val base = context.getDatabasePath(PerAccountDatabaseProvider.LEGACY_DATABASE_NAME)
+            File(base.path + suffix + BACKUP_SUFFIX)
+        }
+
+    /** Test-only: clears the persisted flags and removes any migrated files. */
     internal fun resetForTest(ownerId: String) {
-        prefs.edit().remove(MIGRATION_COMPLETED).apply()
+        prefs.edit().remove(MIGRATION_COMPLETED).remove(BACKUP_PENDING).apply()
+        backupFiles().forEach { it.delete() }
         context.getDatabasePath("${PerAccountDatabaseProvider.FILE_PREFIX}$ownerId").delete()
         context.getDatabasePath("${PerAccountDatabaseProvider.FILE_PREFIX}$ownerId$WAL").delete()
         context.getDatabasePath("${PerAccountDatabaseProvider.FILE_PREFIX}$ownerId$SHM").delete()
     }
 
     companion object {
+        private const val TAG = "LegacyMigration"
         private const val PREFS_NAME = "legacy_migration"
         private const val MIGRATION_COMPLETED = "migration_completed"
+        private const val BACKUP_PENDING = "backup_pending"
+        const val BACKUP_SUFFIX = ".migration-backup"
         private const val WAL = "-wal"
         private const val SHM = "-shm"
     }
