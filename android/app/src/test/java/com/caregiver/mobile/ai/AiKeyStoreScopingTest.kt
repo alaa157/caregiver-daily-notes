@@ -189,4 +189,73 @@ class AiKeyStoreScopingTest {
         store.deleteAllForAccount("never-existed") // must not throw
         assertEquals(listOf("never-existed"), cipher.deleted)
     }
+
+    // ── #630: per-account AI key scoping (acceptance scenarios) ───────────
+
+    @Test
+    fun keystoreAliasContainsTheAccountId() {
+        // Direct assertion on the naming scheme: the alias must embed the
+        // account id so accounts can never share a keystore slot.
+        assertTrue(AndroidKeyStoreCipher.aliasFor("acct-123").contains("acct-123"))
+        assertEquals(
+            "caregiver_ai_key_v1_acct-123",
+            AndroidKeyStoreCipher.aliasFor("acct-123"),
+        )
+    }
+
+    @Test
+    fun switchingProvidersNeverReusesAnotherAccountsKey() = runTest {
+        val storeA = AiKeyStore(context, cipher, activeAccountA)
+        val storeB = AiKeyStore(context, cipher, activeAccountB)
+
+        storeA.setApiKey("key-a-openai", AiProvider.OPENAI)
+        storeB.setApiKey("key-b-anthropic", AiProvider.ANTHROPIC)
+
+        // B reads its own provider's key; A's OPENAI key is invisible to B.
+        assertEquals("key-b-anthropic", storeB.apiKey(AiProvider.ANTHROPIC))
+        assertEquals(ApiKeyState.Absent, storeB.apiKeyState(AiProvider.OPENAI))
+        // And A's OPENAI key is still there for A.
+        assertEquals("key-a-openai", storeA.apiKey(AiProvider.OPENAI))
+    }
+
+    @Test
+    fun removeAccountDeletesTheKeyAlias() = runTest {
+        // removeAccount's cleanup hook calls deleteAllForAccount; assert the
+        // cipher's delete was invoked for the removed account's id.
+        val store = AiKeyStore(context, cipher, activeAccountA)
+        store.setApiKey("key-a", AiProvider.OPENAI)
+
+        store.deleteAllForAccount("account-a")
+
+        assertTrue(cipher.deleted.contains("account-a"))
+        assertEquals(ApiKeyState.Absent, store.apiKeyState(AiProvider.OPENAI))
+    }
+
+    @Test
+    fun summaryUnderBUsesBsKey() = runTest {
+        // Simulates what SummaryViewModel does: read the key from the store
+        // for the active account, then hand it to the client factory. The
+        // factory must receive exactly B's key string.
+        val capturedKeys = mutableListOf<String>()
+        val factory = object : LlmClientFactory() {
+            override fun createClient(baseUrl: String, model: String, apiKey: String): LlmClient {
+                capturedKeys += apiKey
+                return object : LlmClient {
+                    override suspend fun complete(request: LlmRequest): LlmResult =
+                        LlmResult(status = LlmStatus.OK, text = "ok")
+                }
+            }
+        }
+
+        val sharedActive = MutableStateFlow("account-b")
+        val store = AiKeyStore(context, cipher, sharedActive)
+        store.setApiKey("key-b-secret", AiProvider.OPENAI)
+
+        // SummaryViewModel path: key = store.apiKey(provider) then factory.createClient(..., key)
+        val provider = store.selectedProvider()
+        val key = store.apiKey(provider).orEmpty()
+        factory.createClient("https://api.test", "model-x", key)
+
+        assertEquals(listOf("key-b-secret"), capturedKeys)
+    }
 }

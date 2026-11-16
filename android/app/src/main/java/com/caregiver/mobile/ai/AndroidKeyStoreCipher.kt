@@ -23,7 +23,16 @@ import javax.crypto.spec.GCMParameterSpec
  */
 internal class AndroidKeyStoreCipher : ApiKeyCipher {
 
-    private fun alias(accountId: String) = "${ALIAS_PREFIX}_$accountId"
+    private fun alias(accountId: String) = aliasFor(accountId)
+
+    companion object {
+        private const val ALIAS_PREFIX = "caregiver_ai_key_v1"
+        private const val IV_SIZE = 12
+        private const val TAG_SIZE_BITS = 128
+
+        /** Test-visible: the keystore alias for [accountId] (#630). */
+        internal fun aliasFor(accountId: String) = "${ALIAS_PREFIX}_$accountId"
+    }
 
     override fun encrypt(plain: String, accountId: String): String? = runCatching {
         encryptWithKey(plain, accountId)
@@ -103,11 +112,5 @@ internal class AndroidKeyStoreCipher : ApiKeyCipher {
         val gen = KeyGenerator.getInstance(KeyProperties.KEY_ALGORITHM_AES, "AndroidKeyStore")
         gen.init(spec)
         return gen.generateKey()
-    }
-
-    companion object {
-        private const val ALIAS_PREFIX = "caregiver_ai_key_v1"
-        private const val IV_SIZE = 12
-        private const val TAG_SIZE_BITS = 128
     }
 }
