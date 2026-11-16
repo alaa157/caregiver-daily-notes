@@ -95,6 +95,18 @@ class PasswordHasherTest {
     }
 
     @Test
+    fun unicodePasswordRoundTrips() {
+        // #605: Arabic text and emoji are UTF-16-heavy; the hasher must
+        // treat them as opaque characters end to end.
+        val hasher = PasswordHasher(iterations = 1_000)
+        for (password in listOf("كلمةالسر١", "🔒care1🚑", "pass word😀1")) {
+            val stored = hasher.hash(password)
+            assertTrue(hasher.verify(password, stored.hash, stored.salt, stored.iterations))
+            assertFalse(hasher.verify("different", stored.hash, stored.salt, stored.iterations))
+        }
+    }
+
+    @Test
     fun emptyPasswordIsNotRejectedByTheHasher() {
         // Emptiness is a password-policy decision (#588), not this primitive's:
         // the hasher must still be able to derive and verify one.
