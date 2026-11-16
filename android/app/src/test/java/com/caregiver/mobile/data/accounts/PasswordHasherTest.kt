@@ -117,12 +117,33 @@ class PasswordHasherTest {
 
     @Test
     fun malformedStoredValuesFailVerificationWithoutThrowing() {
+        // #587: a non-Base64 hash and an empty hash are failed verifications,
+        // never exceptions and never a fall back to string comparison.
         val hasher = PasswordHasher(iterations = 1)
         val shortSalt = Base64.getEncoder().encodeToString(ByteArray(4))
 
         assertFalse(hasher.verify("password", "not base64", "also not base64", 1))
         assertFalse(hasher.verify("password", "", shortSalt, 1))
         assertFalse(hasher.verify("password", "AAAA", shortSalt, 0))
+    }
+
+    @Test
+    fun verifyReturnsFalseForAHashOfTheWrongLength() {
+        // #587: MessageDigest.isEqual over decoded bytes must reject a hash
+        // that decodes to the wrong number of bytes (too short and too long)
+        // rather than throwing or comparing text. The valid salt proves the
+        // failure is about the hash, not an earlier malformed-input guard.
+        val hasher = PasswordHasher(iterations = 1)
+        val validSalt = Base64.getEncoder().encodeToString(ByteArray(PasswordHasher.SALT_BYTES))
+        val expectedLength = PasswordHasher.KEY_LENGTH_BITS / 8 // 32 bytes
+
+        val tooShort = Base64.getEncoder().encodeToString(ByteArray(expectedLength - 1))
+        val tooLong = Base64.getEncoder().encodeToString(ByteArray(expectedLength + 1))
+        val empty = Base64.getEncoder().encodeToString(ByteArray(0))
+
+        assertFalse(hasher.verify("password", tooShort, validSalt, 1))
+        assertFalse(hasher.verify("password", tooLong, validSalt, 1))
+        assertFalse(hasher.verify("password", empty, validSalt, 1))
     }
 
     private fun hex(bytes: ByteArray): String =
