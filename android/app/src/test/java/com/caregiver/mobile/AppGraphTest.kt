@@ -1,0 +1,68 @@
+package com.caregiver.mobile
+
+import android.content.Context
+import androidx.test.core.app.ApplicationProvider
+import com.caregiver.mobile.data.SignInResult
+import com.caregiver.mobile.data.accounts.AccountsDatabase
+import com.caregiver.mobile.data.accounts.PerAccountDatabaseProvider
+import kotlinx.coroutines.test.runTest
+import org.junit.Assert.assertEquals
+import org.junit.Assert.assertFalse
+import org.junit.Assert.assertTrue
+import org.junit.Assert.fail
+import org.junit.Before
+import org.junit.Test
+import org.junit.runner.RunWith
+import org.robolectric.RobolectricTestRunner
+
+/** #602: the local graph resolves the note database per active account. */
+@RunWith(RobolectricTestRunner::class)
+class AppGraphTest {
+    private lateinit var context: Context
+
+    @Before
+    fun setUp() {
+        context = ApplicationProvider.getApplicationContext()
+    }
+
+    private fun accountIdFor(email: String): String =
+        AccountsDatabase.create(context).accountDao().listAll().single { it.email == email }.id
+
+    @Test
+    fun localWritesGoToTheActiveAccountsFile() = runTest {
+        val graph = AppGraph(context)
+        assertTrue(graph.isLocalMode)
+
+        assertEquals(SignInResult.SignedIn, graph.auth.signUp("Amina", "amina@example.com", "goodpass1"))
+        val idA = accountIdFor("amina@example.com")
+        graph.csvTransferService.export() // materialize the active account's file
+        val fileA = context.getDatabasePath("${PerAccountDatabaseProvider.FILE_PREFIX}$idA")
+        assertTrue(fileA.exists())
+
+        graph.auth.signOut()
+        assertEquals(SignInResult.SignedIn, graph.auth.signUp("Nour", "nour@example.com", "goodpass1"))
+        val idB = accountIdFor("nour@example.com")
+        graph.csvTransferService.export() // now resolves account B's database
+        val fileB = context.getDatabasePath("${PerAccountDatabaseProvider.FILE_PREFIX}$idB")
+        assertTrue(fileB.exists())
+        assertFalse(fileA.path == fileB.path)
+    }
+
+    @Test
+    fun noActiveAccountFailsWithAClearError() = runTest {
+        val graph = AppGraph(context)
+        try {
+            graph.apis.notes()
+            fail("expected local database access to fail with no active account")
+        } catch (e: IllegalStateException) {
+            assertTrue(e.message!!.contains("No active account"))
+        }
+    }
+
+    @Test
+    fun nonLocalGraphCreatesNoPerAccountFile() = runTest {
+        val graph = AppGraph(context, forceProduction = true)
+        assertFalse(graph.isLocalMode)
+        assertFalse(context.getDatabasePath("${PerAccountDatabaseProvider.FILE_PREFIX}acct-none").exists())
+    }
+}
