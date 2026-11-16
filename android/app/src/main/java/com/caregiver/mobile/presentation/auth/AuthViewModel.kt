@@ -4,7 +4,12 @@ import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.caregiver.mobile.data.AuthRepository
 import com.caregiver.mobile.data.SignInResult
+import com.caregiver.mobile.data.accounts.Account
+import com.caregiver.mobile.data.accounts.AccountError
+import com.caregiver.mobile.data.accounts.AccountException
+import com.caregiver.mobile.data.accounts.InvalidDisplayNameException
 import java.nio.charset.StandardCharsets
+import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
@@ -12,6 +17,10 @@ import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.launch
 
 enum class AuthMode { Login, Register }
+
+/** Local-account registration callback: AccountManager.signUp's shape (#590). */
+typealias RegisterAccount =
+    suspend (displayName: String, email: String, password: String) -> Result<Account>
 
 sealed interface EmailError {
     data object Required : EmailError
@@ -27,6 +36,11 @@ sealed interface ConfirmError {
     data object Mismatch : ConfirmError
 }
 
+sealed interface NameError {
+    data object Required : NameError
+    data object TooLong : NameError
+}
+
 sealed interface FormError {
     data object InvalidCredentials : FormError
     data object DuplicateEmail : FormError
@@ -35,9 +49,11 @@ sealed interface FormError {
 }
 
 data class AuthUiState(
+    val displayName: String = "",
     val email: String = "",
     val password: String = "",
     val confirm: String = "",
+    val nameError: NameError? = null,
     val emailError: EmailError? = null,
     val passwordError: PasswordError? = null,
     val confirmError: ConfirmError? = null,
@@ -55,11 +71,20 @@ class AuthViewModel(
     private val mode: AuthMode,
     private val repository: AuthRepository,
     scope: CoroutineScope? = null,
+    private val registerAccount: RegisterAccount? = null,
 ) : ViewModel() {
     private val exec: CoroutineScope = scope ?: viewModelScope
 
     private val _state = MutableStateFlow(AuthUiState())
     val state: StateFlow<AuthUiState> = _state.asStateFlow()
+
+    /** Local registration asks for a display name; server/demo register does not. */
+    val requiresDisplayName: Boolean
+        get() = mode == AuthMode.Register && registerAccount != null
+
+    fun onDisplayName(value: String) {
+        _state.value = _state.value.copy(displayName = value, nameError = null, formError = null)
+    }
 
     fun onEmail(value: String) {
         _state.value = _state.value.copy(email = value, emailError = null, formError = null)
@@ -94,8 +119,10 @@ class AuthViewModel(
             } else {
                 null
             }
-        if (emailError != null || passwordError != null || confirmError != null) {
+        val nameError = if (requiresDisplayName) validateDisplayName(current.displayName) else null
+        if (emailError != null || passwordError != null || confirmError != null || nameError != null) {
             _state.value = current.copy(
+                nameError = nameError,
                 emailError = emailError,
                 passwordError = passwordError,
                 confirmError = confirmError,
@@ -103,6 +130,7 @@ class AuthViewModel(
             return
         }
         _state.value = current.copy(
+            nameError = null,
             emailError = null,
             passwordError = null,
             confirmError = null,
@@ -110,6 +138,34 @@ class AuthViewModel(
             busy = true,
         )
         exec.launch {
+            if (mode == AuthMode.Register && registerAccount != null) {
+                val accountResult = try {
+                    registerAccount(current.displayName.trim(), current.email, current.password)
+                } catch (e: CancellationException) {
+                    throw e
+                } catch (e: Exception) {
+                    Result.failure<Account>(e)
+                }
+                if (accountResult.isSuccess) {
+                    _state.value = _state.value.copy(busy = false, signedIn = true, formError = null)
+                } else {
+                    val failure = accountResult.exceptionOrNull()
+                    val accountError = (failure as? AccountException)?.error
+                    _state.value = _state.value.copy(
+                        busy = false,
+                        signedIn = false,
+                        nameError = if (failure is InvalidDisplayNameException) NameError.TooLong else null,
+                        emailError = if (accountError == AccountError.InvalidEmail) EmailError.Invalid else null,
+                        formError = when (accountError) {
+                            AccountError.EmailTaken -> FormError.DuplicateEmail
+                            AccountError.InvalidCredentials -> FormError.InvalidCredentials
+                            AccountError.InvalidEmail -> null
+                            else -> FormError.Generic
+                        },
+                    )
+                }
+                return@launch
+            }
             val result = when (mode) {
                 AuthMode.Login -> repository.signIn(current.email, current.password)
                 AuthMode.Register -> repository.signUp(current.email, current.password)
@@ -138,6 +194,19 @@ class AuthViewModel(
         /** Fixed credentials for the debug offline demo entry. */
         const val DEMO_EMAIL = "demo@example.com"
         const val DEMO_PASSWORD = "demo-pass"
+
+        /** Mirrors AccountManager.signUp's display-name rule (#590). */
+        fun validateDisplayName(raw: String): NameError? {
+            val name = raw.trim()
+            if (name.isEmpty()) {
+                return NameError.Required
+            }
+            return if (name.length > com.caregiver.mobile.data.accounts.AccountManager.MAX_DISPLAY_NAME_LENGTH) {
+                NameError.TooLong
+            } else {
+                null
+            }
+        }
 
         fun validateEmail(raw: String): EmailError? {
             val email = raw.trim()

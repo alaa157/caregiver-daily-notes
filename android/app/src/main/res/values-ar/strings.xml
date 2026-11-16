@@ -8,6 +8,7 @@
     <string name="fab_add_note">إضافة ملاحظة</string>
     <string name="auth_title_login">تسجيل الدخول</string>
     <string name="auth_title_register">إنشاء حساب</string>
+    <string name="auth_name">الاسم</string>
     <string name="auth_email">البريد الإلكتروني</string>
     <string name="auth_password">كلمة المرور</string>
     <string name="auth_confirm">تأكيد كلمة المرور</string>
@@ -16,6 +17,8 @@
     <string name="auth_no_account">ليس لديك حساب؟ أنشئ حساباً</string>
     <string name="auth_have_account">لديك حساب؟ سجّل الدخول</string>
     <string name="auth_demo">استكشف العرض التجريبي (دون اتصال)</string>
+    <string name="auth_error_name_required">الاسم مطلوب</string>
+    <string name="auth_error_name_long">استخدم اسمًا لا يتجاوز 80 حرفًا.</string>
     <string name="auth_error_email_required">البريد الإلكتروني مطلوب</string>
     <string name="auth_error_email_invalid">أدخل بريداً إلكترونياً صحيحاً</string>
     <string name="auth_error_password_required">كلمة المرور مطلوبة</string>

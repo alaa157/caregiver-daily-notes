@@ -7,6 +7,7 @@ import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.test.assertIsDisplayed
+import androidx.compose.ui.test.assertDoesNotExist
 import androidx.compose.ui.test.assertCountEquals
 import androidx.compose.ui.test.hasClickAction
 import androidx.compose.ui.test.filterToOne
@@ -16,6 +17,7 @@ import androidx.compose.ui.test.onAllNodesWithText
 import androidx.compose.ui.test.onNodeWithTag
 import androidx.compose.ui.test.onNodeWithText
 import androidx.compose.ui.test.performClick
+import androidx.compose.ui.test.performTextClearance
 import androidx.compose.ui.test.performTextInput
 import androidx.test.core.app.ApplicationProvider
 import androidx.test.ext.junit.runners.AndroidJUnit4
@@ -25,6 +27,7 @@ import com.caregiver.mobile.data.AuthRepository
 import com.caregiver.mobile.data.FakeAuthApi
 import com.caregiver.mobile.data.FakeBackendApis
 import com.caregiver.mobile.data.SettingsStore
+import com.caregiver.mobile.data.accounts.Account
 import com.caregiver.mobile.data.api.AuthResponse
 import java.util.Locale
 import kotlinx.coroutines.CompletableDeferred
@@ -70,10 +73,11 @@ class AuthFormUiTest {
         language: String,
         onSwitch: () -> Unit = {},
         onDemo: (() -> Unit)? = null,
+        registerAccount: RegisterAccount? = null,
     ): AuthViewModel {
         val base = ApplicationProvider.getApplicationContext<Context>()
         val localized = base.withLocale(language)
-        val vm = AuthViewModel(mode, repository)
+        val vm = AuthViewModel(mode, repository, registerAccount = registerAccount)
         compose.setContent {
             CompositionLocalProvider(LocalContext provides localized) {
                 CaregiverTheme {
@@ -86,6 +90,8 @@ class AuthFormUiTest {
                         onConfirm = vm::onConfirm,
                         onSubmit = vm::submit,
                         onSwitchMode = onSwitch,
+                        onDisplayName = vm::onDisplayName,
+                        showDisplayName = vm.requiresDisplayName,
                         onDemo = onDemo,
                     )
                 }
@@ -237,6 +243,61 @@ class AuthFormUiTest {
         compose.onNodeWithText("No account? Create one").performClick()
 
         assertTrue(switched)
+    }
+
+    @Test
+    fun serverRegisterHidesNameField() {
+        setForm(AuthMode.Register, "en")
+
+        compose.onNodeWithTag("auth_field_name").assertDoesNotExist()
+    }
+
+    @Test
+    fun localRegisterNameRequiredAndTooLongArabic() {
+        var calls = 0
+        setForm(
+            AuthMode.Register,
+            "ar",
+            registerAccount = { _, _, _ ->
+                calls++
+                Result.success(Account("a1", "a@b.c", "Aisha", 1L, 1L))
+            },
+        )
+        compose.onNodeWithTag("auth_field_name").assertIsDisplayed()
+        compose.onNodeWithTag("auth_field_email").performTextInput("a@b.c")
+        compose.onNodeWithTag("auth_field_password").performTextInput("Password1")
+        compose.onNodeWithTag("auth_field_confirm").performTextInput("Password1")
+
+        submitButton("إنشاء الحساب").performClick()
+        compose.onNodeWithText("الاسم مطلوب").assertIsDisplayed()
+
+        compose.onNodeWithTag("auth_field_name").performTextClearance()
+        compose.onNodeWithTag("auth_field_name").performTextInput("n".repeat(81))
+        submitButton("إنشاء الحساب").performClick()
+        compose.onNodeWithText("استخدم اسمًا لا يتجاوز 80 حرفًا.").assertIsDisplayed()
+        assertEquals(0, calls)
+    }
+
+    @Test
+    fun localRegisterValidNameSubmitsTrimmedEnglish() {
+        val calls = mutableListOf<Triple<String, String, String>>()
+        setForm(
+            AuthMode.Register,
+            "en",
+            registerAccount = { name, email, password ->
+                calls += Triple(name, email, password)
+                Result.success(Account("a1", email, name, 1L, 1L))
+            },
+        )
+        compose.onNodeWithTag("auth_field_name").performTextInput("  Aisha  ")
+        compose.onNodeWithTag("auth_field_email").performTextInput("a@b.c")
+        compose.onNodeWithTag("auth_field_password").performTextInput("Password1")
+        compose.onNodeWithTag("auth_field_confirm").performTextInput("Password1")
+
+        submitButton("Create account").performClick()
+        compose.waitForIdle()
+
+        assertEquals(listOf(Triple("Aisha", "a@b.c", "Password1")), calls)
     }
 
     private fun Context.withLocale(language: String): Context {
