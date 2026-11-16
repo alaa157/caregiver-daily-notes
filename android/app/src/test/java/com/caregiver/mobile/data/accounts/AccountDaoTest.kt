@@ -100,4 +100,25 @@ class AccountDaoTest {
         // The original row is untouched.
         assertEquals("a1", dao.findByEmail("dup@example.com")?.id)
     }
+
+    @Test
+    fun uniqueIndexRejectsTwoSpellingsThatNormalizeToTheSameEmail() = runTest {
+        // Callers normalize before insert (#584), so two differently-cased
+        // inputs reach the DAO as the same canonical key. The unique index
+        // must still reject the second row — this is the final guard against
+        // a concurrent sign-up race.
+        val first = EmailNormalizer.normalize("  A@B.COM ")
+        val second = EmailNormalizer.normalize("a@b.com")
+        assertNotNull(first)
+        assertEquals(first, second)
+
+        dao.insert(account("a1", first!!))
+        try {
+            dao.insert(account("a2", second!!))
+            throw AssertionError("expected a constraint violation")
+        } catch (e: SQLiteConstraintException) {
+            // expected: the unique index rejects the second row
+        }
+        assertEquals("a1", dao.findByEmail(first)?.id)
+    }
 }
