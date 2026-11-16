@@ -7,6 +7,7 @@ import java.io.File
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.test.runTest
 import org.junit.After
+import org.junit.Assert.assertArrayEquals
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
 import org.junit.Assert.assertNotNull
@@ -45,6 +46,7 @@ class LegacyDataMigratorTest {
             val p = context.getDatabasePath("${PerAccountDatabaseProvider.FILE_PREFIX}owner-1$suffix")
             if (p.isDirectory) p.deleteRecursively() else if (p.exists()) p.delete()
             File(legacyFile.path + suffix).delete()
+            File(legacyFile.path + suffix + LegacyMigration.BACKUP_SUFFIX).delete()
         }
         context.getSharedPreferences("legacy_migration", Context.MODE_PRIVATE)
             .edit().clear().apply()
@@ -189,6 +191,59 @@ class LegacyDataMigratorTest {
         val migration = LegacyMigration(context)
 
         assertFalse(migration.migrate("owner-1"))
+        assertFalse(migration.isCompleted())
+    }
+
+    // ---- #626: backup / rollback safety net ----
+
+    @Test
+    fun backupSurvivesSuccessAndIsDeletedOnNextLaunch() = runTest {
+        createLegacyFile()
+        val migration = LegacyMigration(context)
+
+        assertTrue(migration.migrate("owner-1"))
+        val backup = File(legacyFile.path + LegacyMigration.BACKUP_SUFFIX)
+        assertTrue(backup.exists())
+        assertFalse(legacyFile.exists())
+
+        // "Next launch": the integrator calls this once at startup.
+        assertTrue(migration.cleanupBackupIfDue())
+        assertFalse(backup.exists())
+        assertFalse(migration.cleanupBackupIfDue())
+    }
+
+    @Test
+    fun failedMoveRestoresOriginalByteForByteAndRemovesBackup() = runTest {
+        createLegacyFile()
+        val payload = "sensitive-but-safe-fixture-bytes"
+        legacyFile.writeText(payload)
+        val original = legacyFile.readBytes()
+        val target = context.getDatabasePath("${PerAccountDatabaseProvider.FILE_PREFIX}owner-1")
+        assertTrue(target.mkdirs() || target.isDirectory)
+
+        val migration = LegacyMigration(context)
+        assertThrows(IllegalStateException::class.java) { runTest { migration.migrate("owner-1") } }
+
+        assertTrue(legacyFile.exists())
+        assertArrayEquals(original, legacyFile.readBytes())
+        assertFalse(File(legacyFile.path + LegacyMigration.BACKUP_SUFFIX).exists())
+        assertFalse(migration.isCompleted())
+    }
+
+    @Test
+    fun failedBackupCopyAbortsBeforeTouchingTheOriginal() = runTest {
+        createLegacyFile()
+        legacyFile.writeText("do not lose this")
+        val original = legacyFile.readBytes()
+        val migration = LegacyMigration(context, backupCopy = { _, _ ->
+            throw java.io.IOException("simulated no space")
+        })
+
+        assertThrows(IllegalStateException::class.java) { runTest { migration.migrate("owner-1") } }
+
+        assertArrayEquals(original, legacyFile.readBytes())
+        assertFalse(context.getDatabasePath("${PerAccountDatabaseProvider.FILE_PREFIX}owner-1").exists())
+        assertFalse(File(legacyFile.path + LegacyMigration.BACKUP_SUFFIX).exists())
         assertFalse(migration.isCompleted())
     }
 
