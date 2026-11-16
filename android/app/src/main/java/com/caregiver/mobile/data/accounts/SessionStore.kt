@@ -1,6 +1,8 @@
 package com.caregiver.mobile.data.accounts
 
+import android.content.Context
 import androidx.datastore.core.DataStore
+import androidx.datastore.preferences.core.PreferenceDataStoreFactory
 import androidx.datastore.preferences.core.Preferences
 import androidx.datastore.preferences.core.edit
 import androidx.datastore.preferences.core.emptyPreferences
@@ -49,5 +51,17 @@ class SessionStore(private val dataStore: DataStore<Preferences>) {
     companion object {
         /** Added to the settings DataStore; kept here so both sides agree. */
         val ACTIVE_ACCOUNT_ID = stringPreferencesKey("active_account_id")
+
+        /**
+         * Single app-wide instance over the `session` DataStore file. Kept
+         * separate from `settings` because `SettingsStore` does not expose its
+         * DataStore and is not owned by this lane; only the opaque active id
+         * lives here, never a credential.
+         */
+        fun create(context: Context): SessionStore = SessionStore(
+            PreferenceDataStoreFactory.create { context.applicationContext.preferencesDataStoreFile(SESSION_FILE) },
+        )
+
+        private const val SESSION_FILE = "session"
     }
 }

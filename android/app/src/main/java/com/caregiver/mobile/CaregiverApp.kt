@@ -16,22 +16,38 @@ import com.caregiver.mobile.data.RecipientRepository
 import com.caregiver.mobile.data.RoomBackedBackendApis
 import com.caregiver.mobile.data.SampleDataLoader
 import com.caregiver.mobile.data.SettingsStore
+import com.caregiver.mobile.data.accounts.AccountManager
+import com.caregiver.mobile.data.accounts.AccountsDatabase
+import com.caregiver.mobile.data.accounts.PerAccountDatabaseProvider
+import com.caregiver.mobile.data.accounts.SessionStore
+import com.caregiver.mobile.data.backup.BackupData
+import com.caregiver.mobile.data.backup.BackupReplaceResult
 import com.caregiver.mobile.data.backup.BackupRestoreService
+import com.caregiver.mobile.data.backup.BackupState
+import com.caregiver.mobile.data.backup.BackupStore
 import com.caregiver.mobile.data.backup.RoomBackupStore
 import com.caregiver.mobile.data.api.BackendApis
+import com.caregiver.mobile.data.api.RecipientDto
 import com.caregiver.mobile.data.api.RetrofitBackendApis
 import com.caregiver.mobile.data.csv.ApiCsvNoteStore
+import com.caregiver.mobile.data.csv.CsvInsertResult
+import com.caregiver.mobile.data.csv.CsvNoteStore
+import com.caregiver.mobile.data.csv.CsvSnapshot
 import com.caregiver.mobile.data.csv.CsvTransferService
+import com.caregiver.mobile.data.csv.PlannedNote
 import com.caregiver.mobile.data.csv.RoomCsvNoteStore
 import com.caregiver.mobile.data.demo.DemoBackendApis
 import com.caregiver.mobile.data.local.AppDatabase
 import com.caregiver.mobile.data.local.LocalBackendApis
 import com.caregiver.mobile.data.local.MedicationStore
 import com.caregiver.mobile.data.local.RecipientAdmin
+import com.caregiver.mobile.data.local.RecipientDeletionCounts
+import com.caregiver.mobile.data.recipient.CareDetails
 import com.caregiver.mobile.data.summary.SavedSummaryStore
 import com.caregiver.mobile.data.update.GitHubReleaseChecker
 import com.caregiver.mobile.data.update.UpdateChecker
 import com.caregiver.mobile.ai.LlmClientFactory
+import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.runBlocking
@@ -82,6 +98,66 @@ class CaregiverApp : Application() {
     }
 }
 
+/**
+ * Resolves the active account's database on every access (epic #581, #602).
+ * It never captures an instance: a switch changes [activeAccountId], so the
+ * next call opens the other account's file. With no active account it fails
+ * loudly rather than reading or writing a wrong database.
+ */
+private class ActiveDatabase(
+    private val provider: PerAccountDatabaseProvider,
+    private val activeAccountId: StateFlow<String?>,
+) {
+    fun get(): AppDatabase {
+        val id = activeAccountId.value
+            ?: throw IllegalStateException("No active account: local database access is unavailable")
+        return provider.open(id)
+    }
+}
+
+/** Delegates every call to a LocalBackendApis built on the current database. */
+private class ActiveLocalApis(
+    private val database: ActiveDatabase,
+    private val clock: () -> Long,
+) : BackendApis, RecipientAdmin {
+    private fun api(): LocalBackendApis = LocalBackendApis(database.get(), clock)
+
+    override suspend fun auth() = api().auth()
+    override suspend fun recipients() = api().recipients()
+    override suspend fun notes() = api().notes()
+    override suspend fun summaries() = api().summaries()
+    override suspend fun plans() = api().plans()
+
+    override suspend fun rename(id: String, name: String) = api().rename(id, name)
+    override suspend fun updateProfile(id: String, name: String, relationship: String?) =
+        api().updateProfile(id, name, relationship)
+    override suspend fun updateCareDetails(id: String, details: CareDetails) =
+        api().updateCareDetails(id, details)
+    override suspend fun archive(id: String) = api().archive(id)
+    override suspend fun unarchive(id: String) = api().unarchive(id)
+    override suspend fun deleteArchived(id: String) = api().deleteArchived(id)
+    override suspend fun counts(id: String): RecipientDeletionCounts = api().counts(id)
+}
+
+/** CSV import/export over the active account's database. */
+private class ActiveCsvNoteStore(private val database: ActiveDatabase) : CsvNoteStore {
+    override val preservesDates: Boolean = true
+    private fun store(): CsvNoteStore = RoomCsvNoteStore(database.get())
+
+    override suspend fun snapshot(): CsvSnapshot = store().snapshot()
+    override suspend fun insertAll(rows: List<PlannedNote>): List<CsvInsertResult> = store().insertAll(rows)
+}
+
+/** Full backup/restore over the active account's database. */
+private class ActiveBackupStore(private val database: ActiveDatabase) : BackupStore {
+    private fun store(): BackupStore = RoomBackupStore(database.get())
+
+    override suspend fun snapshot(): BackupData = store().snapshot()
+    override suspend fun state(): BackupState = store().state()
+    override suspend fun replaceAll(data: BackupData, expected: BackupState): BackupReplaceResult =
+        store().replaceAll(data, expected)
+}
+
 /** Manual composition root: settings, token mirror, API provider, Room cache, auth. */
 class AppGraph(val context: Context, val forceProduction: Boolean = false) {
     val tokens = TokenHolder()
@@ -111,17 +187,49 @@ class AppGraph(val context: Context, val forceProduction: Boolean = false) {
         get() = isLocalMode
 
     /**
-     * Standalone storage for LOCAL_MODE, shared by the local API and CSV
-     * import/export so both read and write the same database. Null in
-     * demo/server graphs, which use their own (or no) cache.
+     * One note database file per account (#601/#602) — never a singleton.
+     * The active id lives in [sessionStore]; every consumer resolves the
+     * current database through [activeDatabase], so switching accounts can
+     * never leave a stale connection pointing at the previous account.
      */
-    private val localDatabase: AppDatabase? by lazy {
-        if (localMode) AppDatabase.create(context) else null
+    private val accountDatabaseProvider: PerAccountDatabaseProvider by lazy {
+        PerAccountDatabaseProvider(context)
+    }
+
+    private val sessionStore: SessionStore by lazy { SessionStore.create(context) }
+
+    private val activeAccountId = MutableStateFlow<String?>(null)
+
+    private val activeDatabase: ActiveDatabase by lazy {
+        ActiveDatabase(accountDatabaseProvider, activeAccountId)
+    }
+
+    /** The current account's database, or null when signed out / not local. */
+    private val localDatabase: AppDatabase? get() =
+        if (localMode) accountDatabaseProvider.current() else null
+
+    init {
+        if (localMode) {
+            // Restore the active id before any screen asks for a DAO.
+            activeAccountId.value = runBlocking { sessionStore.activeAccountId.first() }
+            activeAccountId.value?.let { accountDatabaseProvider.open(it) }
+        }
+    }
+
+    /** Local sign-in/up keep the active-id flow in sync with the session store. */
+    private val localAccountManager: AccountManager? by lazy {
+        if (!localMode) null else AccountManager(
+            dao = AccountsDatabase.create(context).accountDao(),
+            sessionStore = sessionStore,
+            onActiveAccountChanged = { id -> activeAccountId.value = id },
+            openAccountDatabase = { id -> accountDatabaseProvider.open(id) },
+            closeAccountDatabase = { accountDatabaseProvider.close() },
+        )
     }
 
     private val live: BackendApis by lazy {
         when {
-            localMode -> LocalBackendApis(checkNotNull(localDatabase))
+            localMode -> ActiveLocalApis(activeDatabase, System::currentTimeMillis)
             else -> selectApis(
                 demoBackend,
                 DemoBackendApis(),
@@ -195,7 +303,7 @@ class AppGraph(val context: Context, val forceProduction: Boolean = false) {
     val csvTransferService: CsvTransferService by lazy {
         CsvTransferService(
             store = if (localMode) {
-                RoomCsvNoteStore(checkNotNull(localDatabase))
+                ActiveCsvNoteStore(activeDatabase)
             } else {
                 ApiCsvNoteStore(apis)
             },
@@ -212,7 +320,7 @@ class AppGraph(val context: Context, val forceProduction: Boolean = false) {
      */
     val backupRestoreService: BackupRestoreService by lazy {
         BackupRestoreService(
-            store = localDatabase?.let { RoomBackupStore(it) },
+            store = if (localMode) ActiveBackupStore(activeDatabase) else null,
             appVersion = "${BuildConfig.VERSION_NAME} (${BuildConfig.VERSION_CODE})",
         )
     }
@@ -269,7 +377,20 @@ class AppGraph(val context: Context, val forceProduction: Boolean = false) {
     /** One outbox drain pass; the WorkManager worker (Task 8c) calls this. */
     suspend fun drainOutbox(): OutboxDrain = noteRepository.drainOutbox()
 
-    val auth: AuthRepository by lazy { AuthRepository(apis, settings, tokens) }
+    /**
+     * Auth over local accounts in LOCAL_MODE; the manager writes the active
+     * id to [sessionStore] and opens/closes the per-account database. Server
+     * and demo graphs pass no manager, so their paths are unchanged.
+     */
+    val auth: AuthRepository by lazy {
+        AuthRepository(
+            apis = apis,
+            settings = settings,
+            tokens = tokens,
+            accountManager = localAccountManager,
+            localApisFor = { if (localMode) live else apis },
+        )
+    }
 
     /**
      * Public GitHub Releases check for the About page. It reads only the
