@@ -4,6 +4,9 @@ import com.caregiver.mobile.data.AuthRepository
 import com.caregiver.mobile.data.FakeAuthApi
 import com.caregiver.mobile.data.FakeBackendApis
 import com.caregiver.mobile.data.SettingsStore
+import com.caregiver.mobile.data.accounts.Account
+import com.caregiver.mobile.data.accounts.AccountError
+import com.caregiver.mobile.data.accounts.AccountException
 import com.caregiver.mobile.core.network.TokenHolder
 import androidx.datastore.preferences.core.PreferenceDataStoreFactory
 import java.io.File
@@ -197,4 +200,89 @@ class AuthViewModelTest {
 
         assertEquals(FormError.Unreachable, vm.state.value.formError)
     }
+
+    @Test
+    fun localRegisterRequiresDisplayName() = runTest {
+        var calls = 0
+        val vm = AuthViewModel(AuthMode.Register, repository, this) { _, _, _ ->
+            calls++
+            Result.success(account())
+        }
+        vm.onEmail("a@b.c")
+        vm.onPassword("Password1")
+        vm.onConfirm("Password1")
+
+        vm.submit()
+
+        assertEquals(NameError.Required, vm.state.value.nameError)
+        assertEquals(0, calls)
+    }
+
+    @Test
+    fun localRegisterRejectsBlankAndTooLongNames() = runTest {
+        val vm = AuthViewModel(AuthMode.Register, repository, this) { _, _, _ ->
+            Result.success(account())
+        }
+        vm.onEmail("a@b.c")
+        vm.onPassword("Password1")
+        vm.onConfirm("Password1")
+
+        vm.onDisplayName("   ")
+        vm.submit()
+        assertEquals(NameError.Required, vm.state.value.nameError)
+
+        vm.onDisplayName("n".repeat(81))
+        vm.submit()
+        assertEquals(NameError.TooLong, vm.state.value.nameError)
+    }
+
+    @Test
+    fun localRegisterPassesTrimmedNameAndSkipsServerRegister() = runTest {
+        var serverRegisterCalls = 0
+        fakeAuth.registerHandler = {
+            serverRegisterCalls++
+            com.caregiver.mobile.data.api.AuthResponse("server-token")
+        }
+        var received: Triple<String, String, String>? = null
+        val vm = AuthViewModel(AuthMode.Register, repository, this) { name, email, password ->
+            received = Triple(name, email, password)
+            Result.success(account(displayName = name))
+        }
+        vm.onDisplayName("  Aisha  ")
+        vm.onEmail("a@b.c")
+        vm.onPassword("Password1")
+        vm.onConfirm("Password1")
+
+        vm.submit()
+        vm.state.first { it.signedIn }
+
+        assertEquals(Triple("Aisha", "a@b.c", "Password1"), received)
+        assertEquals(0, serverRegisterCalls)
+        assertTrue(vm.state.value.signedIn)
+    }
+
+    @Test
+    fun localRegisterEmailTakenMapsToDuplicateEmail() = runTest {
+        val vm = AuthViewModel(AuthMode.Register, repository, this) { _, _, _ ->
+            Result.failure(AccountException(AccountError.EmailTaken))
+        }
+        vm.onDisplayName("Aisha")
+        vm.onEmail("a@b.c")
+        vm.onPassword("Password1")
+        vm.onConfirm("Password1")
+
+        vm.submit()
+        vm.state.first { it.formError != null }
+
+        assertEquals(FormError.DuplicateEmail, vm.state.value.formError)
+        assertTrue(!vm.state.value.signedIn)
+    }
+
+    private fun account(displayName: String = "Aisha"): Account = Account(
+        id = "account-1",
+        email = "a@b.c",
+        displayName = displayName,
+        createdAt = 1L,
+        lastUsedAt = 1L,
+    )
 }

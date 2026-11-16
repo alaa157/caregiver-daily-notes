@@ -40,8 +40,12 @@ fun LoginScreen(repository: AuthRepository, navController: NavController) {
 
 /** Register (missing-page spec): mirrors login plus the confirm field. */
 @Composable
-fun RegisterScreen(repository: AuthRepository, navController: NavController) {
-    val vm: AuthViewModel = authViewModel(AuthMode.Register, repository)
+fun RegisterScreen(
+    repository: AuthRepository,
+    navController: NavController,
+    registerAccount: RegisterAccount? = null,
+) {
+    val vm: AuthViewModel = authViewModel(AuthMode.Register, repository, registerAccount)
     val state by vm.state.collectAsStateWithLifecycle()
     val backToLogin: () -> Unit = {
         if (!navController.popBackStack()) {
@@ -56,20 +60,26 @@ fun RegisterScreen(repository: AuthRepository, navController: NavController) {
         onConfirm = vm::onConfirm,
         onSubmit = vm::submit,
         onSwitchMode = backToLogin,
+        onDisplayName = vm::onDisplayName,
+        showDisplayName = vm.requiresDisplayName,
         modifier = Modifier,
         onBack = backToLogin,
     )
 }
 
 @Composable
-fun authViewModel(mode: AuthMode, repository: AuthRepository): AuthViewModel {
+fun authViewModel(
+    mode: AuthMode,
+    repository: AuthRepository,
+    registerAccount: RegisterAccount? = null,
+): AuthViewModel {
     val key = if (mode == AuthMode.Login) "login" else "register"
     return viewModel(
         key = key,
         factory = object : ViewModelProvider.Factory {
             @Suppress("UNCHECKED_CAST")
             override fun <T : ViewModel> create(modelClass: Class<T>): T {
-                return AuthViewModel(mode, repository) as T
+                return AuthViewModel(mode, repository, registerAccount = registerAccount) as T
             }
         },
     )

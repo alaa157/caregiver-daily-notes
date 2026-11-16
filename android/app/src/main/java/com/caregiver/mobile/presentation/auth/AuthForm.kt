@@ -67,6 +67,8 @@ fun AuthForm(
     onConfirm: (String) -> Unit,
     onSubmit: () -> Unit,
     onSwitchMode: () -> Unit,
+    onDisplayName: (String) -> Unit = {},
+    showDisplayName: Boolean = false,
     modifier: Modifier = Modifier,
     onServerSettings: (() -> Unit)? = null,
     onDemo: (() -> Unit)? = null,
@@ -148,6 +150,21 @@ fun AuthForm(
                 fontSize = 22.sp,
                 color = CaregiverColors.Ink,
             )
+
+            if (mode == AuthMode.Register && showDisplayName) {
+                LabeledField(
+                    label = stringResource(R.string.auth_name),
+                    value = state.displayName,
+                    onValueChange = onDisplayName,
+                    isError = state.nameError != null,
+                    supporting = state.nameError?.let { nameErrorText(it) },
+                    keyboardOptions = KeyboardOptions(
+                        keyboardType = KeyboardType.Text,
+                        imeAction = ImeAction.Next,
+                    ),
+                    testTag = "auth_field_name",
+                )
+            }
 
             LabeledField(
                 label = stringResource(R.string.auth_email),
@@ -318,6 +335,14 @@ private fun LabeledField(
         )
     }
 }
+
+@Composable
+private fun nameErrorText(error: NameError): String = stringResource(
+    when (error) {
+        NameError.Required -> R.string.auth_error_name_required
+        NameError.TooLong -> R.string.auth_error_name_long
+    },
+)
 
 @Composable
 private fun emailErrorText(error: EmailError): String = stringResource(
