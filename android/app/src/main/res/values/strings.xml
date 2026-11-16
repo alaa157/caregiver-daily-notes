@@ -787,4 +787,21 @@
     <string name="editor_progress">%1$d of 7 answered</string>
     <string name="editor_add_details">Add details</string>
     <string name="editor_pain_level_description">Pain %1$d out of 10</string>
+    <string name="auth_password_problem_too_short">Use at least %1$d characters.</string>
+    <string name="auth_password_problem_too_long">Use at most %1$d characters.</string>
+    <string name="auth_password_problem_missing_letter">Include at least one letter.</string>
+    <string name="auth_password_problem_missing_digit">Include at least one digit.</string>
+    <string name="auth_password_problem_only_whitespace">Password cannot be only spaces.</string>
+    <string name="auth_error_throttled">Too many attempts. Try again in %1$d seconds.</string>
+    <string name="auth_error_account_not_found">No account found for this email.</string>
+    <string name="account_switch">Switch account</string>
+    <string name="account_add">Add account</string>
+    <string name="account_remove">Remove account</string>
+    <string name="account_remove_confirm_body">This removes %1$s and its data from this device. This cannot be undone.</string>
+    <string name="account_cannot_remove_active">You cannot remove the account you are using. Switch to another account first.</string>
+    <string name="account_active_marker">Active</string>
+    <string name="migration_claim_title">Claim your data</string>
+    <string name="migration_claim_body">We found existing notes on this device. Move them into your account to keep them safe.</string>
+    <string name="migration_claim_cta">Continue</string>
+    <string name="migration_failed">Could not move your existing data. You can try again later.</string>
 </resources>

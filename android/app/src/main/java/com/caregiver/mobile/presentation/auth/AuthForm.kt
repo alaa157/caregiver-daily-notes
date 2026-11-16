@@ -353,12 +353,14 @@ private fun emailErrorText(error: EmailError): String = stringResource(
 )
 
 @Composable
-private fun passwordErrorText(error: PasswordError): String = stringResource(
-    when (error) {
-        PasswordError.Required -> R.string.auth_error_password_required
-        PasswordError.TooLong -> R.string.auth_error_password_long
-    },
-)
+private fun passwordErrorText(error: PasswordError): String = when (error) {
+    PasswordError.Required -> stringResource(R.string.auth_error_password_required)
+    PasswordError.TooLong -> stringResource(R.string.auth_error_password_long)
+    is PasswordError.Policy -> stringResource(
+        passwordProblemRes(error.problem),
+        *passwordProblemArgs(error.problem),
+    )
+}
 
 @Composable
 private fun formErrorText(error: FormError): String = stringResource(
