@@ -16,11 +16,6 @@ public class SummaryApplicationService {
     this.loader = loader; this.summaries = new SummaryService(provider::complete, evaluator, trends);
   }
   public record Generated(SummaryResult result, List<SummaryNote> notes) {}
-  public SummaryResult summarize(SummaryRequest request) { return generate(request).result(); }
-  public Generated generate(SummaryRequest request) {
-    SummarySourceLoader.Source source = loader.load(request);
-    return summarizeLoaded(request, source, null);
-  }
   public Generated generate(SummaryRequest request, ProviderCredentials credentials) {
     SummarySourceLoader.Source source = loader.load(request);
     return summarizeLoaded(request, source, credentials);

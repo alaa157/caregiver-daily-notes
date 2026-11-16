@@ -47,7 +47,7 @@ Each feature owns its controllers, services, repositories, DTOs, domain models, 
 - `recipient/`: care-recipient ownership and CRUD.
 - `notes/`: daily notes, append-only addendums, history, filtering.
 - `plans/`: plan versions, statuses, acceptance/editing/dismissal/archive transitions.
-- `ai/`: LLM client abstraction, Hugging Face integration, summaries, grounded plan suggestions, validators, red flags, fallback handling, and AI evaluation support.
+- `ai/`: LLM client abstraction, BYOK provider integration, summaries, grounded plan suggestions, validators, red flags, fallback handling, and AI evaluation support.
 - `audit/`: persistent audit events for writes and important state changes.
 - `common/`: genuinely cross-cutting exceptions, API utilities, security helpers, and validation utilities.
 - `config/`: application configuration such as OpenAPI and infrastructure client configuration.
@@ -111,7 +111,7 @@ The mobile application is separate from the web application. It may mirror featu
 - Web hosting: Cloudflare.
 - Database: Supabase PostgreSQL.
 - Cache: Upstash Redis.
-- LLM provider: Hugging Face HTTP API.
+- LLM providers: caregiver-supplied keys (OpenAI, Gemini, xAI, OpenRouter) over OpenAI-compatible chat completions; the backend stores no provider keys.
 - CI/CD: GitHub Actions.
 - Android distribution: GitHub Releases.
 

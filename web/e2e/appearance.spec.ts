@@ -5,7 +5,7 @@ import { correctionHistoryFixture, historyPage } from '../src/tests/historyFixtu
 import { noteFixture, noteListFixture } from '../src/tests/noteFixtures';
 import { activePlanFixture, suggestedPlanFixture } from '../src/tests/planFixtures';
 import { recipientFixture } from '../src/tests/recipientFixtures';
-import { summaryFixture, summaryOpenApi, summaryTestPath } from '../src/tests/summaryFixtures';
+import { summaryFixture } from '../src/tests/summaryFixtures';
 
 const require = createRequire(import.meta.url);
 
@@ -29,7 +29,6 @@ async function inspect(page: Page) {
 }
 
 async function serveSyntheticRecords(page: Page) {
-  await page.route('**/v3/api-docs', (route) => route.fulfill({ json: summaryOpenApi() }));
   await page.route('**/api/**', async (route) => {
     const { pathname, searchParams } = new URL(route.request().url());
     if (pathname === '/api/recipients') return route.fulfill({ json: [recipientFixture] });
@@ -40,7 +39,7 @@ async function serveSyntheticRecords(page: Page) {
     if (pathname.endsWith('/corrections')) return route.fulfill({ json: correctionHistoryFixture() });
     if (pathname.endsWith('/addenda')) return route.fulfill({ json: [] });
     if (pathname === `/api/notes/${noteFixture.id}`) return route.fulfill({ json: noteFixture });
-    if (pathname === summaryTestPath) return route.fulfill({ json: summaryFixture() });
+    if (pathname === '/api/summaries/byok') return route.fulfill({ json: summaryFixture() });
     return route.fulfill({ status: 404, json: { code: 'NOT_FOUND' } });
   });
 }
@@ -92,6 +91,10 @@ for (const language of ['en', 'ar'] as const) {
         }
       }
 
+      await page.addInitScript(() => {
+        (window as unknown as { __E2E_BYOK_CREDENTIALS__?: unknown }).__E2E_BYOK_CREDENTIALS__ =
+          { providerId: 'GEMINI', model: 'gemini-appearance', apiKey: 'synthetic-appearance-key' };
+      });
       await serveSyntheticRecords(page);
       await page.evaluate((token) => sessionStorage.setItem('caregiver-auth-session-v1', JSON.stringify({ token, baseUrl: '' })), testToken());
       for (const path of [

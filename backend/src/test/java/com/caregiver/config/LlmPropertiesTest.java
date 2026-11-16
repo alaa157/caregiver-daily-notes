@@ -22,37 +22,14 @@ class LlmPropertiesTest {
   }
 
   @Test
-  void properties_bindFromApplicationYml() {
+  void properties_bindTunablesFromApplicationYml() {
     runner.run(ctx -> {
       assertThat(ctx).hasSingleBean(LlmProperties.class);
       var props = ctx.getBean(LlmProperties.class);
-      assertThat(props.baseUrl()).isEqualTo("https://generativelanguage.googleapis.com/v1beta/openai");
-      assertThat(props.model()).isEqualTo("gemini-3.5-flash-lite");
       assertThat(props.timeout()).isEqualTo(Duration.ofSeconds(30));
       assertThat(props.maxAttempts()).isEqualTo(3);
       assertThat(props.backoffBaseMs()).isEqualTo(200);
-    });
-  }
-
-  @Test
-  void properties_bindsBackupEndpoint() {
-    runner.run(ctx -> {
-      var props = ctx.getBean(LlmProperties.class);
-      assertThat(props.backupBaseUrl()).isEqualTo("https://openrouter.ai/api/v1");
-      assertThat(props.backupModel()).isEqualTo("liquid/lfm-2.5-2.6b:free");
-      assertThat(props.backupApiKey()).isEmpty();
       assertThat(props.maxTokens()).isEqualTo(10000);
-      assertThat(props.reasoningMaxTokens()).isNull();
-      assertThat(props.backupMaxTokens()).isEqualTo(10000);
-      assertThat(props.backupReasoningMaxTokens()).isEqualTo(500L);
-    });
-  }
-
-  @Test
-  void properties_defaultApiKeyToEmpty() {
-    runner.run(ctx -> {
-      var props = ctx.getBean(LlmProperties.class);
-      assertThat(props.apiKey()).isEmpty();
     });
   }
 }

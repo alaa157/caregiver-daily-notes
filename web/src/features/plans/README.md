@@ -58,7 +58,7 @@ browser. Generation uses the existing authenticated backend transport.
 | --- | --- |
 | Active accepted plan | `GET /api/recipients/{id}/plans/active` |
 | Saved versions, newest first | `GET /api/recipients/{id}/plans/history` |
-| Generate from owned notes | `POST /api/plans/generate` |
+| Generate from owned notes | `POST /api/plans/generate/byok` |
 | Accept/dismiss | Bodyless `POST /api/recipients/{id}/plans/{planId}/accept` or `/dismiss` |
 | Protected edit | `POST /api/recipients/{id}/plans/{planId}/edit-and-accept` |
 
@@ -91,21 +91,21 @@ unknown states, lost responses, stale reads, timeout, session rejection and
 focus. Forty contract browser cases run in English/Arabic at 1280/768/390/320px
 with axe WCAG 2/2.1 A/AA and overflow checks.
 
-For the real backend, use a disposable database and the explicit loopback
-provider fixture documented in Task 6's README. Then run:
+For the real backend, use a disposable database; AI calls carry per-request
+BYOK credentials, so supply a disposable account's key via environment (see
+`web/HANDOFF.md` and `src/tests/live-byok.ts`). Then run:
 
 ```sh
 CAREGIVER_TEST_API_URL=http://127.0.0.1:8080 \
 npx playwright test --config src/tests/plans-live/playwright.config.ts
 ```
 
-These four cases exercise real login/JWTs, provider HTTP transport, owned-note
-summary/plan generation, protected editing, original preservation, accept/
-archive, dismiss, externally changed suggestions, medication-field injection
-rejection, cross-caregiver rejection and inactive read-only behavior. They use
-synthetic records/provider responses and disable credential traces/screenshots/
-video. The backend tests separately verify nonempty medication lists and
-add/remove/dose/schedule tampering. No real external AI availability is claimed.
+These cases exercise real login/JWTs, owned-note summary/plan generation,
+protected editing, original preservation, accept/archive, dismiss, externally
+changed suggestions, medication-field injection rejection, cross-caregiver
+rejection and inactive read-only behavior. Without `CAREGIVER_E2E_BYOK_*`
+variables the live suite skips. The backend tests separately verify nonempty
+medication lists and add/remove/dose/schedule tampering.
 
 Existing foundation/auth, recipient, note and history suites remain regression
 checks. `PLAYWRIGHT_CHROMIUM_EXECUTABLE_PATH` can select an existing browser.

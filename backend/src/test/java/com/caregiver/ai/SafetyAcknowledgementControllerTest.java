@@ -179,10 +179,15 @@ class SafetyAcknowledgementControllerTest {
         "fallReported", true)).andExpect(status().isCreated());
     call(acknowledgementPath(recipientId), owner, request()).andExpect(status().isCreated());
 
-    JsonNode summary = json(call("/api/summaries", owner, Map.of(
-        "recipientId", recipientId,
-        "periodEndInclusive", PERIOD_END,
-        "periodDays", 7)).andExpect(status().isOk()));
+    JsonNode summary = json(call("/api/summaries/byok", owner, Map.of(
+        "summary", Map.of(
+            "recipientId", recipientId,
+            "periodEndInclusive", PERIOD_END,
+            "periodDays", 7),
+        "credentials", Map.of(
+            "providerId", "GEMINI",
+            "model", "gemini-3.8-flash",
+            "apiKey", "synthetic-byok-key"))).andExpect(status().isOk()));
 
     assertThat(summary.path("safety").path("signals").toString()).contains("FALL_DETECTED");
   }

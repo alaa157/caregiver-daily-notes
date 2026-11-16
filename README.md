@@ -67,8 +67,8 @@ The web and mobile clients are not separate backends and do not maintain separat
                             │
                             ▼
                   ┌──────────────────┐
-                  │ Hugging Face LLM │
-                  │ HTTP API         │
+                  │ LLM Provider     │
+                  │ (user's own key) │
                   └──────────────────┘
 ```
 
@@ -85,7 +85,7 @@ All application infrastructure is hosted online. Team members do not need to ins
 | Redis cache | Upstash Redis |
 | Spring Boot API | Local JVM (+ Cloudflare Tunnel for shared/demo access) |
 | Web application | Cloudflare |
-| AI/LLM API | Hugging Face |
+| AI providers | Bring-your-own-key (OpenAI, Gemini, xAI, OpenRouter) |
 | Android APK distribution | GitHub Releases |
 | CI/CD | GitHub Actions |
 
@@ -148,11 +148,17 @@ The backend provides:
 
 Cloudflare hosts the web client and provides the public web entry point.
 
-### Hugging Face
+### AI providers (bring your own key)
 
-The backend communicates with the selected LLM through an HTTP API.
+The backend holds **no** provider API keys and has no default model. Every AI
+request (summary, plan suggestion, connection test) carries request-scoped
+credentials chosen by the caregiver: provider, model id and API key. The key is
+used for that call only, never stored server-side, and never logged.
 
-The AI provider is hidden behind the application's `LlmClient` interface so that the provider/model can be changed without coupling the rest of the application to a specific LLM.
+Approved providers are OpenAI, Gemini, xAI and OpenRouter, all reached through
+their OpenAI-compatible chat-completions endpoints. The provider is hidden
+behind the application's `LlmClient` interface so additional providers can be
+added without coupling the rest of the application to a specific LLM.
 
 ### GitHub Releases
 
@@ -198,7 +204,6 @@ The repository should provide a clear release artifact for evaluators to downloa
 - Upstash Redis
 - Local JVM runtime + Cloudflare Tunnel (dev/demo backend access)
 - Cloudflare
-- Hugging Face
 - GitHub Actions
 
 ## Development Model
@@ -262,9 +267,6 @@ REDIS_URL
 
 JWT_SECRET
 JWT_ALGORITHM
-
-LLM_API_KEY
-LLM_MODEL
 
 CORS_ALLOWED_ORIGINS
 ```
@@ -435,10 +437,10 @@ Saving a note must never depend on successful AI generation.
 
 AI generation uses:
 
-- 30-second timeout
-- Up to 2 retries with backoff
+- 30-second per-attempt timeout
+- Up to 3 attempts with exponential backoff
 - One JSON repair retry
-- Rule-based template fallback summary
+- "AI unavailable" fallback that always retains deterministic safety flags
 
 If AI generation ultimately fails, the application shows an appropriate "AI unavailable" message.
 
@@ -688,7 +690,7 @@ Redis is hosted by Upstash.
 
 ### AI
 
-LLM requests are made from the backend to the configured Hugging Face provider.
+LLM requests are made from the backend to the provider chosen per request by the caregiver (bring your own key).
 
 ### Mobile
 

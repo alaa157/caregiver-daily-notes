@@ -1,7 +1,6 @@
 package com.caregiver.config;
 
 import com.caregiver.ai.ChatCompletionsLlmClient;
-import com.caregiver.ai.FailoverLlmClient;
 import com.caregiver.ai.LlmClient;
 import org.junit.jupiter.api.Test;
 import org.springframework.boot.test.context.runner.ApplicationContextRunner;
@@ -11,44 +10,39 @@ import static org.assertj.core.api.Assertions.assertThat;
 
 class LlmClientWiringTest {
 
-  private static ApplicationContextRunner runnerWith(String backupApiKey) {
+  private static ApplicationContextRunner runner() {
     return new ApplicationContextRunner()
         .withInitializer(new ConfigDataApplicationContextInitializer())
-        .withUserConfiguration(LlmClientConfig.class)
-        .withPropertyValues(
-            "llm.base-url=https://primary.example",
-            "llm.model=primary-model",
-            "llm.backup-base-url=https://backup.example",
-            "llm.backup-model=backup-model",
-            "llm.backup-api-key=" + backupApiKey);
+        .withUserConfiguration(LlmClientConfig.class);
   }
 
   @Test
-  void llmClientIsFailoverOverChatCompletions() {
-    runnerWith("backup-key").run(ctx -> {
+  void llmClientIsASingleChatCompletionsClientWithoutConfiguredProvider() {
+    runner().run(ctx -> {
       assertThat(ctx).hasSingleBean(LlmClient.class);
-      var failover = (FailoverLlmClient) ctx.getBean(LlmClient.class);
+      var client = (ChatCompletionsLlmClient) ctx.getBean(LlmClient.class);
 
-      assertThat(failover.primary()).isInstanceOf(ChatCompletionsLlmClient.class);
-      assertThat(failover.backup()).isInstanceOf(ChatCompletionsLlmClient.class);
-      var primary = (ChatCompletionsLlmClient) failover.primary();
-      var backup = (ChatCompletionsLlmClient) failover.backup();
-      assertThat(primary.baseUrl()).isEqualTo("https://primary.example");
-      assertThat(primary.model()).isEqualTo("primary-model");
-      assertThat(backup.baseUrl()).isEqualTo("https://backup.example");
-      assertThat(backup.model()).isEqualTo("backup-model");
+      // BYOK-only: no server-configured endpoint or model; request credentials win.
+      assertThat(client.baseUrl()).isEmpty();
+      assertThat(client.model()).isEmpty();
     });
   }
 
   @Test
-  void blankBackupKeySkipsBackup() {
-    for (String blank : new String[] {"", "   "}) {
-      runnerWith(blank).run(ctx -> {
-        var failover = (FailoverLlmClient) ctx.getBean(LlmClient.class);
+  void llmTunablesBindFromProperties() {
+    runner()
+        .withPropertyValues(
+            "llm.timeout=5s",
+            "llm.max-attempts=2",
+            "llm.backoff-base-ms=50",
+            "llm.max-tokens=512")
+        .run(ctx -> {
+          var props = ctx.getBean(LlmProperties.class);
 
-        assertThat(failover.primary()).isInstanceOf(ChatCompletionsLlmClient.class);
-        assertThat(failover.backup()).isNull();
-      });
-    }
+          assertThat(props.timeout().toSeconds()).isEqualTo(5);
+          assertThat(props.maxAttempts()).isEqualTo(2);
+          assertThat(props.backoffBaseMs()).isEqualTo(50);
+          assertThat(props.maxTokens()).isEqualTo(512);
+        });
   }
 }
