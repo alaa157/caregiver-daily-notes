@@ -5,9 +5,6 @@ name: Android APK build
 #   - app-debug.apk     (unminified debug build)
 #   - app-minified.apk  (R8-shrunk offline demo, shared demo signature)
 on:
-  push:
-    branches: [feat/standalone-byok-ai]
-    paths: ["android/**", ".github/workflows/android-apk-build.yml"]
   workflow_dispatch:
 
 permissions:
