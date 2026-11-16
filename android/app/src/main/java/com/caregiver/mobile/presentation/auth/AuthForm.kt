@@ -32,6 +32,8 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.res.stringResource
+import androidx.compose.ui.semantics.contentDescription
+import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.ImeAction
 import androidx.compose.ui.text.input.KeyboardType
@@ -73,6 +75,8 @@ fun AuthForm(
     onServerSettings: (() -> Unit)? = null,
     onDemo: (() -> Unit)? = null,
     onBack: (() -> Unit)? = null,
+    showSwitchAccount: Boolean = false,
+    onSwitchAccount: (() -> Unit)? = null,
 ) {
     Column(
         modifier = modifier
@@ -243,6 +247,23 @@ fun AuthForm(
                     fontWeight = FontWeight.Bold,
                     fontSize = 17.sp,
                 )
+            }
+
+            if (mode == AuthMode.Login && showSwitchAccount && onSwitchAccount != null) {
+                val switchLabel = stringResource(R.string.account_switch)
+                TextButton(
+                    onClick = onSwitchAccount,
+                    modifier = Modifier
+                        .heightIn(min = 48.dp)
+                        .testTag("auth_switch_account")
+                        .semantics { contentDescription = switchLabel },
+                ) {
+                    Text(
+                        switchLabel,
+                        fontFamily = PlexArabic,
+                        color = CaregiverColors.Primary,
+                    )
+                }
             }
 
             TextButton(onClick = onSwitchMode) {
