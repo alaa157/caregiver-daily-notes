@@ -12,13 +12,18 @@ import kotlin.coroutines.CoroutineContext
 import kotlinx.coroutines.CoroutineDispatcher
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.ExperimentalCoroutinesApi
+import kotlinx.coroutines.CompletableDeferred
+import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.async
+import kotlinx.coroutines.cancel
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.MutableSharedFlow
 import kotlinx.coroutines.flow.emptyFlow
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.flow.take
 import kotlinx.coroutines.flow.toList
+import kotlinx.coroutines.launch
 import kotlinx.coroutines.test.TestScope
 import kotlinx.coroutines.test.UnconfinedTestDispatcher
 import kotlinx.coroutines.test.runTest
@@ -894,6 +899,114 @@ class AccountManagerTest {
         }
     }
 
+    @OptIn(ExperimentalCoroutinesApi::class)
+    @Test
+    fun switchingWhileAnAiCallIsRunningCancelsItAndDropsTheResult() = runTest {
+        val file = File.createTempFile("ai-switch-test", ".preferences_pb")
+        val aiScope = CoroutineScope(SupervisorJob() + UnconfinedTestDispatcher())
+        val gate = CompletableDeferred<Unit>()
+        var resultLanded = false
+        val aiCall = aiScope.launch { gate.await(); resultLanded = true }
+        try {
+            val store = newSessionStore(file)
+            val dao = FakeAccountDao()
+            val manager = AccountManager(
+                dao = dao,
+                hasher = PasswordHasher(iterations = 10),
+                sessionStore = store,
+                cancelAccountWork = { aiScope.cancel() },
+            )
+            dao.rows["old"] = AccountEntity("old", "old@example.com", "Old", "h", "s", 10, FIXED_NOW, FIXED_NOW)
+            dao.rows["next"] = AccountEntity("next", "next@example.com", "Next", "h", "s", 10, FIXED_NOW, FIXED_NOW)
+            store.setActiveAccountId("old")
+
+            assertTrue(manager.switchAccount("next").isSuccess)
+            assertTrue(aiCall.isCancelled)
+
+            gate.complete(Unit) // a late AI result must not land
+            assertFalse(resultLanded)
+        } finally {
+            aiScope.cancel()
+            file.delete()
+        }
+    }
+
+    @OptIn(ExperimentalCoroutinesApi::class)
+    @Test
+    fun switchingWhileADatabaseQueryIsInFlightCannotCrossWrite() = runTest {
+        val file = File.createTempFile("query-switch-test", ".preferences_pb")
+        val queryScope = CoroutineScope(SupervisorJob() + UnconfinedTestDispatcher())
+        val gate = CompletableDeferred<Unit>()
+        var queryResult: List<AccountEntity>? = null
+        try {
+            val store = newSessionStore(file)
+            val dao = FakeAccountDao()
+            val query = queryScope.launch { gate.await(); queryResult = dao.listAll() }
+            var now = FIXED_NOW
+            val manager = AccountManager(
+                dao = dao,
+                hasher = PasswordHasher(iterations = 10),
+                sessionStore = store,
+                clock = { now },
+                cancelAccountWork = { queryScope.cancel() },
+            )
+            dao.rows["old"] = AccountEntity("old", "old@example.com", "Old", "h", "s", 10, FIXED_NOW, FIXED_NOW)
+            dao.rows["next"] = AccountEntity("next", "next@example.com", "Next", "h", "s", 10, FIXED_NOW, FIXED_NOW)
+            store.setActiveAccountId("old")
+            now = FIXED_NOW + 1_000
+
+            assertTrue(manager.switchAccount("next").isSuccess)
+            assertTrue(query.isCancelled)
+            gate.complete(Unit)
+            assertNull(queryResult) // cancelled query never completes against the new database
+            assertEquals(FIXED_NOW, dao.rows["old"]!!.lastUsedAt)
+            assertEquals(FIXED_NOW + 1_000, dao.rows["next"]!!.lastUsedAt)
+        } finally {
+            queryScope.cancel()
+            file.delete()
+        }
+    }
+
+    @OptIn(ExperimentalCoroutinesApi::class)
+    @Test
+    fun removingANonActiveAccountLeavesTheOtherAccountAlone() = runTest {
+        val file = File.createTempFile("remove-nonactive-test", ".preferences_pb")
+        try {
+            val store = newSessionStore(file)
+            val h = Harness(sessionStore = store)
+            val active = seedAccount(h, 7, id = "acc-active")
+            val target = seedAccount(h, 7, id = "acc-target", email = "target@example.com")
+            val other = seedAccount(h, 7, id = "acc-other", email = "other@example.com")
+            store.setActiveAccountId(active.id)
+
+            assertTrue(h.manager.removeAccount(target.id).isSuccess)
+
+            assertEquals(setOf("acc-active", "acc-other"), h.dao.listAll().map { it.id }.toSet())
+            assertNotNull(h.dao.rows[other.id])
+        } finally {
+            file.delete()
+        }
+    }
+
+    @OptIn(ExperimentalCoroutinesApi::class)
+    @Test
+    fun switchingToARemovedAccountReturnsAccountNotFound() = runTest {
+        val file = File.createTempFile("switch-removed-test", ".preferences_pb")
+        try {
+            val store = newSessionStore(file)
+            val h = Harness(sessionStore = store)
+            val active = seedAccount(h, 7, id = "acc-active")
+            val target = seedAccount(h, 7, id = "acc-target", email = "target@example.com")
+            store.setActiveAccountId(active.id)
+            assertTrue(h.manager.removeAccount(target.id).isSuccess)
+
+            assertAccountError(AccountError.AccountNotFound, h.manager.switchAccount(target.id).exceptionOrNull())
+            assertEquals(active.id, store.activeAccountId.first())
+        } finally {
+            file.delete()
+        }
+    }
+
     @Test
     fun managerSourceHasNoLoggingOfSecrets() {
         val source = locateManagerSource().readText()
@@ -1000,6 +1113,44 @@ class AccountManagerRoomTest {
         assertTrue(second.exceptionOrNull() is AccountException)
         assertEquals(AccountError.EmailTaken, (second.exceptionOrNull() as AccountException).error)
         assertEquals(1, dao.listAll().size)
+    }
+
+    @OptIn(ExperimentalCoroutinesApi::class)
+    @Test
+    fun removingTheActiveAccountKeepsTheDatabaseFileIntact() = runTest {
+        val dbPath = File.createTempFile("manager-remove-active", ".db")
+        dbPath.delete() // let Room create the file fresh
+        val sessionFile = File.createTempFile("manager-session", ".preferences_pb")
+        val context = ApplicationProvider.getApplicationContext<android.content.Context>()
+        val fileDb = Room.databaseBuilder(context, ManagerRoomAccountsDb::class.java, dbPath.absolutePath)
+            .allowMainThreadQueries()
+            .build()
+        try {
+            val store = SessionStore(
+                PreferenceDataStoreFactory.create(
+                    scope = TestScope(UnconfinedTestDispatcher()),
+                ) { sessionFile },
+            )
+            val manager = AccountManager(
+                dao = fileDb.accountDao(),
+                hasher = PasswordHasher(iterations = 100),
+                sessionStore = store,
+            )
+            assertTrue(manager.signUp("Amina", "amina@example.com", "goodpass1").isSuccess)
+            val id = fileDb.accountDao().listAll().single().id
+            store.setActiveAccountId(id)
+
+            val result = manager.removeAccount(id)
+
+            assertTrue(result.exceptionOrNull() is AccountException)
+            assertEquals(AccountError.CannotRemoveActive, (result.exceptionOrNull() as AccountException).error)
+            assertTrue(dbPath.exists())
+            assertEquals(1, fileDb.accountDao().listAll().size)
+        } finally {
+            fileDb.close()
+            dbPath.delete()
+            sessionFile.delete()
+        }
     }
 
     @Test
