@@ -114,9 +114,14 @@ class LegacyMigration(
         val safeId = PerAccountDatabaseProvider.sanitize(ownerId)
 
         val legacy = context.getDatabasePath(PerAccountDatabaseProvider.LEGACY_DATABASE_NAME)
+        val target = context.getDatabasePath("${PerAccountDatabaseProvider.FILE_PREFIX}$safeId")
+
+        // A previous attempt may have been killed between renames. Recover to
+        // the pre-migration state before doing anything else (#627).
+        recoverIfInterrupted(legacy, target)
+
         if (!legacy.exists()) return false
 
-        val target = context.getDatabasePath("${PerAccountDatabaseProvider.FILE_PREFIX}$safeId")
         val sources = listOf(legacy) + listOf(WAL, SHM).map { File(legacy.path + it) }
             .filter { it.exists() }
 
@@ -139,6 +144,7 @@ class LegacyMigration(
             val suffix = from.name.removePrefix(PerAccountDatabaseProvider.LEGACY_DATABASE_NAME)
             from to File(target.path + suffix)
         }
+        prefs.edit().putBoolean(MIGRATION_IN_PROGRESS, true).apply()
         val done = mutableListOf<Pair<File, File>>()
         try {
             for ((from, to) in renames) {
@@ -154,14 +160,45 @@ class LegacyMigration(
                 if (backup.exists()) backup.copyTo(original, overwrite = true)
             }
             backupFiles().forEach { it.delete() }
-            prefs.edit().putBoolean(BACKUP_PENDING, false).apply()
+            prefs.edit()
+                .putBoolean(BACKUP_PENDING, false)
+                .putBoolean(MIGRATION_IN_PROGRESS, false)
+                .apply()
             Log.i(TAG, "legacy migration failed: original restored")
             throw failure
         }
 
-        prefs.edit().putBoolean(MIGRATION_COMPLETED, true).apply()
+        prefs.edit()
+            .putBoolean(MIGRATION_COMPLETED, true)
+            .putBoolean(MIGRATION_IN_PROGRESS, false)
+            .apply()
         Log.i(TAG, "legacy migration succeeded")
         return true
+    }
+
+    /**
+     * Called at the start of [migrate] when a previous attempt was killed
+     * mid-rename. Deletes any partially moved files, restores the originals
+     * from the backups, and clears the in-progress marker so the move can be
+     * retried from a clean pre-migration state (#627).
+     */
+    private fun recoverIfInterrupted(legacy: File, target: File) {
+        if (!prefs.getBoolean(MIGRATION_IN_PROGRESS, false) || isCompleted()) return
+        listOf("", WAL, SHM).forEach { suffix ->
+            val moved = File(target.path + suffix)
+            if (moved.isDirectory) moved.deleteRecursively() else if (moved.exists()) moved.delete()
+            val backup = File(legacy.path + suffix + BACKUP_SUFFIX)
+            val original = File(legacy.path + suffix)
+            if (backup.exists()) {
+                backup.copyTo(original, overwrite = true)
+                backup.delete()
+            }
+        }
+        prefs.edit()
+            .putBoolean(MIGRATION_IN_PROGRESS, false)
+            .putBoolean(BACKUP_PENDING, false)
+            .apply()
+        Log.i(TAG, "legacy migration recovered after interruption")
     }
 
     /** All recovery backup files, whether or not they currently exist. */
@@ -184,6 +221,7 @@ class LegacyMigration(
         private const val TAG = "LegacyMigration"
         private const val PREFS_NAME = "legacy_migration"
         private const val MIGRATION_COMPLETED = "migration_completed"
+        internal const val MIGRATION_IN_PROGRESS = "migration_in_progress"
         private const val BACKUP_PENDING = "backup_pending"
         const val BACKUP_SUFFIX = ".migration-backup"
         private const val WAL = "-wal"
