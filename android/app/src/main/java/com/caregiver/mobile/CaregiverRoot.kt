@@ -16,8 +16,8 @@ import com.caregiver.mobile.presentation.settings.ServerUrlScreen
 import kotlinx.coroutines.flow.collect
 
 /**
- * Root gate. In LOCAL_MODE the app is standalone: go straight to MainScaffold,
- * no login/register/server-url screens.
+ * Root gate. In LOCAL_MODE the app is standalone with local accounts:
+ * after onboarding, require an active account before showing MainScaffold.
  */
 @Composable
 fun CaregiverRoot(graph: AppGraph) {
@@ -49,6 +49,19 @@ fun CaregiverRoot(graph: AppGraph) {
             value = false
         }
     }
+    // In LOCAL_MODE, check whether an active account exists before
+    // allowing MainScaffold. Without an account, data loads fail with
+    // "No active account: local database access is unavailable".
+    val hasActiveAccount by produceState(initialValue = false) {
+        if (!localMode) return@produceState
+        value = try {
+            graph.activeAccountIdFlow.first() != null
+        } catch (e: kotlinx.coroutines.CancellationException) {
+            throw e
+        } catch (e: Exception) {
+            false
+        }
+    }
     when (rootScreenFor(onboardingCompleted, localMode, signedIn)) {
         RootScreen.PENDING -> return
         RootScreen.ONBOARDING -> {
@@ -69,6 +82,21 @@ fun CaregiverRoot(graph: AppGraph) {
                 }
             }
         }
-        RootScreen.APP -> MainScaffold(graph)
+        RootScreen.APP -> {
+            if (localMode && !hasActiveAccount) {
+                // LOCAL_MODE but no account: show local login instead of crashing.
+                val navController = rememberNavController()
+                NavHost(navController = navController, startDestination = AppDestinations.Login.base) {
+                    composable(AppDestinations.Login.base) {
+                        LoginScreen(graph.auth, navController)
+                    }
+                    composable(AppDestinations.Register.base) {
+                        RegisterScreen(graph.auth, navController)
+                    }
+                }
+            } else {
+                MainScaffold(graph)
+            }
+        }
     }
 }
