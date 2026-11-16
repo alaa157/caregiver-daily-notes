@@ -25,9 +25,13 @@ class AccountManagerTest {
         val hasher: PasswordHasher = PasswordHasher(iterations = TEST_ITERATIONS),
         dispatcher: CoroutineDispatcher = Dispatchers.Default,
         val clock: () -> Long = { FIXED_NOW },
+        currentIterations: Int = TEST_ITERATIONS,
     ) {
         val activeIds = mutableListOf<String>()
         val openedIds = mutableListOf<String>()
+        var dummyHashCalls = 0
+        var rehashWrites = 0
+        var failRehashWrite = false
         val manager = AccountManager(
             dao = dao,
             hasher = hasher,
@@ -35,6 +39,17 @@ class AccountManagerTest {
             clock = clock,
             setActiveAccount = { activeIds += it },
             openAccountDatabase = { openedIds += it },
+            currentIterations = currentIterations,
+            performDummyHash = { _: String -> dummyHashCalls++ },
+            updateCredentials = { row, fresh ->
+                if (failRehashWrite) throw IllegalStateException("simulated write failure")
+                rehashWrites++
+                dao.rows[row.id] = row.copy(
+                    passwordHash = fresh.hash,
+                    salt = fresh.salt,
+                    kdfIterations = fresh.iterations,
+                )
+            },
         )
     }
 
@@ -79,8 +94,18 @@ class AccountManagerTest {
         var executedOn: String? = null
             private set
 
+        @Volatile
+        var dispatches = 0
+            private set
+
+        fun reset() {
+            executedOn = null
+            dispatches = 0
+        }
+
         override fun dispatch(context: CoroutineContext, block: Runnable) {
             executor.execute {
+                dispatches++
                 executedOn = Thread.currentThread().name
                 block.run()
             }
@@ -194,10 +219,180 @@ class AccountManagerTest {
     }
 
     @Test
+    fun correctPasswordSignsInAndReturnsTheAccount() = runTest {
+        val h = Harness()
+        assertTrue(h.manager.signUp("Amina", "amina@example.com", "goodpass1").isSuccess)
+
+        val result = h.manager.signIn("  AMINA@EXAMPLE.COM ", "goodpass1")
+
+        assertTrue(result.isSuccess)
+        val account = result.getOrThrow()
+        assertEquals("amina@example.com", account.email)
+        assertEquals("Amina", account.displayName)
+        assertEquals(listOf(account.id), h.activeIds)
+        assertEquals(listOf(account.id), h.openedIds)
+        assertEquals(0, h.dummyHashCalls) // a real address needs no dummy work
+    }
+
+    @Test
+    fun wrongPasswordFailsWithoutTouchingTheRowOrSession() = runTest {
+        val h = Harness()
+        assertTrue(h.manager.signUp("Amina", "amina@example.com", "goodpass1").isSuccess)
+        val before = h.dao.rows.values.single()
+
+        assertAccountError(AccountError.InvalidCredentials, h.manager.signIn("amina@example.com", "wrongpass1").exceptionOrNull())
+
+        assertEquals(before, h.dao.rows.values.single())
+        assertTrue(h.activeIds.isEmpty())
+        assertTrue(h.openedIds.isEmpty())
+        assertEquals(0, h.rehashWrites) // never rehash on a failed verify
+        assertEquals(0, h.dummyHashCalls)
+    }
+
+    @Test
+    fun unknownEmailFailsAndPerformsOneDummyHash() = runTest {
+        val h = Harness()
+
+        assertAccountError(AccountError.InvalidCredentials, h.manager.signIn("nobody@example.com", "goodpass1").exceptionOrNull())
+
+        assertEquals(1, h.dummyHashCalls)
+        assertTrue(h.activeIds.isEmpty())
+        assertTrue(h.openedIds.isEmpty())
+    }
+
+    @Test
+    fun malformedEmailMapsToInvalidCredentialsAndPerformsOneDummyHashEach() = runTest {
+        val h = Harness()
+
+        for (bad in listOf("not-an-email", "@example.com", "a@", "a b@example.com")) {
+            assertAccountError(AccountError.InvalidCredentials, h.manager.signIn(bad, "goodpass1").exceptionOrNull())
+        }
+        assertEquals(4, h.dummyHashCalls)
+        assertTrue(h.dao.rows.isEmpty())
+    }
+
+    @Test
+    fun unknownEmailAndWrongPasswordReturnAnIdenticalErrorValue() = runTest {
+        val h = Harness()
+        assertTrue(h.manager.signUp("Amina", "amina@example.com", "goodpass1").isSuccess)
+
+        val wrong = h.manager.signIn("amina@example.com", "wrongpass1").exceptionOrNull()
+        val unknown = h.manager.signIn("nobody@example.com", "wrongpass1").exceptionOrNull()
+
+        assertTrue(wrong is AccountException)
+        assertEquals(AccountError.InvalidCredentials, (wrong as AccountException).error)
+        assertEquals(wrong, unknown)
+    }
+
+    @Test
+    fun lastUsedAtChangesOnSuccessOnly() = runTest {
+        var now = FIXED_NOW
+        val h = Harness(clock = { now })
+        assertTrue(h.manager.signUp("Amina", "amina@example.com", "goodpass1").isSuccess)
+
+        now = FIXED_NOW + 1_000
+        val success = h.manager.signIn("amina@example.com", "goodpass1")
+        assertTrue(success.isSuccess)
+        assertEquals(FIXED_NOW + 1_000, success.getOrThrow().lastUsedAt)
+        assertEquals(FIXED_NOW + 1_000, h.dao.rows.values.single().lastUsedAt)
+
+        val beforeFailure = h.dao.rows.values.single()
+        now = FIXED_NOW + 2_000
+        assertAccountError(AccountError.InvalidCredentials, h.manager.signIn("amina@example.com", "wrongpass1").exceptionOrNull())
+        assertEquals(beforeFailure, h.dao.rows.values.single())
+    }
+
+    @Test
+    fun verificationRunsOnTheInjectedDispatcher() = runTest {
+        val recorder = ThreadRecordingDispatcher()
+        try {
+            val h = Harness(dispatcher = recorder)
+            assertTrue(h.manager.signUp("Amina", "amina@example.com", "goodpass1").isSuccess)
+            recorder.reset()
+
+            assertTrue(h.manager.signIn("amina@example.com", "goodpass1").isSuccess)
+            assertTrue(recorder.dispatches > 0)
+            assertEquals(HASH_THREAD, recorder.executedOn)
+            assertNotEquals("main", recorder.executedOn)
+        } finally {
+            recorder.shutdown()
+        }
+    }
+
+    @Test
+    fun unknownEmailDummyHashDoesRealWork() = runTest {
+        // Uses the production default performDummyHash: one real PBKDF2 at a
+        // high cost, so the call cannot return in microseconds.
+        val manager = AccountManager(
+            dao = FakeAccountDao(),
+            hasher = PasswordHasher(iterations = 1),
+            currentIterations = 200_000,
+        )
+        val started = System.nanoTime()
+        val result = manager.signIn("nobody@example.com", "goodpass1")
+        val elapsedMs = (System.nanoTime() - started) / 1_000_000
+
+        assertAccountError(AccountError.InvalidCredentials, result.exceptionOrNull())
+        assertTrue("dummy PBKDF2 should be measurable, took ${elapsedMs}ms", elapsedMs >= 10)
+    }
+
+    @Test
+    fun rehashUpgradesAnOldRowAndThePasswordStillVerifies() = runTest {
+        val h = Harness(currentIterations = 200)
+        val seeded = seedAccount(h, iterations = TEST_ITERATIONS)
+
+        assertTrue(h.manager.signIn("amina@example.com", "goodpass1").isSuccess)
+
+        val updated = h.dao.rows[seeded.id]!!
+        assertEquals(200, updated.kdfIterations)
+        assertNotEquals(seeded.salt, updated.salt)
+        assertNotEquals(seeded.passwordHash, updated.passwordHash)
+        assertEquals(1, h.rehashWrites)
+        assertTrue(PasswordHasher(iterations = 200).verify("goodpass1", updated.passwordHash, updated.salt, 200))
+    }
+
+    @Test
+    fun noRehashWhenTheRowIsAlreadyAtTheCurrentCost() = runTest {
+        val h = Harness()
+        seedAccount(h, iterations = TEST_ITERATIONS)
+
+        assertTrue(h.manager.signIn("amina@example.com", "goodpass1").isSuccess)
+        assertEquals(0, h.rehashWrites)
+    }
+
+    @Test
+    fun rehashWriteFailureDoesNotFailTheLogin() = runTest {
+        val h = Harness(currentIterations = 200)
+        val seeded = seedAccount(h, iterations = TEST_ITERATIONS)
+        h.failRehashWrite = true
+
+        assertTrue(h.manager.signIn("amina@example.com", "goodpass1").isSuccess)
+        assertEquals(1, h.rehashWrites) // attempted
+        assertEquals(seeded.passwordHash, h.dao.rows[seeded.id]!!.passwordHash) // old row kept
+    }
+
+    @Test
     fun managerSourceHasNoLoggingOfSecrets() {
         val source = locateManagerSource().readText()
         assertFalse("no android.util.Log calls", source.contains("Log."))
         assertFalse("no println", source.contains("println("))
+    }
+
+    /** Seeds a row directly at an arbitrary (usually old) iteration cost. */
+    private fun seedAccount(h: Harness, iterations: Int): AccountEntity {
+        val hashed = PasswordHasher(iterations = iterations).hash("goodpass1")
+        val entity = AccountEntity(
+            id = "acc-seed",
+            email = "amina@example.com",
+            displayName = "Amina",
+            passwordHash = hashed.hash,
+            salt = hashed.salt,
+            kdfIterations = iterations,
+            createdAt = FIXED_NOW,
+            lastUsedAt = FIXED_NOW,
+        )
+        h.dao.rows[entity.id] = entity
+        return entity
     }
 
     private fun assertAccountError(expected: AccountError, actual: Throwable?) {
