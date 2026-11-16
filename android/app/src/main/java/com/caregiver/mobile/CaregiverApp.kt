@@ -4,6 +4,7 @@ import android.app.Application
 
 import android.content.Context
 import android.util.Log
+import androidx.work.WorkManager
 import com.caregiver.mobile.core.network.TokenHolder
 import com.caregiver.mobile.core.util.LanguagePrefs
 import com.caregiver.mobile.core.util.LocaleHelper
@@ -142,7 +143,7 @@ private class AccountWorkScope {
         scope = fresh()
     }
 
-    private fun fresh() = CoroutineScope(SupervisorJob() + Dispatchers.Main.immediate)
+    private fun fresh() = CoroutineScope(SupervisorJob() + Dispatchers.Default)
 }
 
 /** Delegates every call to a LocalBackendApis built on the current database. */
@@ -241,6 +242,12 @@ class AppGraph(
     /** Advances on every local swap; account-scoped observers re-fetch on change. */
     val accountEpoch: StateFlow<Int> get() = localAccountManager?.epoch ?: noAccountEpoch
 
+    /** The active account id; AI callers tag results with it before returning. */
+    val activeAccountIdFlow: StateFlow<String?> get() = activeAccountId
+
+    /** AI/summary work must be launched here so a swap cancels and joins it. */
+    val accountWorkScope: CoroutineScope get() = accountWork.current
+
     /** Collectors for the current account; cancelled and joined before close. */
     private val accountWork = AccountWorkScope()
 
@@ -272,7 +279,15 @@ class AppGraph(
             onActiveAccountChanged = { id -> activeAccountId.value = id },
             openAccountDatabase = { id -> accountDatabaseProvider.open(id) },
             closeAccountDatabase = { accountDatabaseProvider.close() },
-            cancelAccountWork = { accountWork.cancel() },
+            cancelAccountWork = {
+                accountWork.cancel()
+                // WorkManager jobs are cancelled by unique name; the
+                // outbox drain and any per-account-named work for the
+                // outgoing account must not run after the swap (#619).
+                val workManager = WorkManager.getInstance(context.applicationContext)
+                workManager.cancelUniqueWork(OutboxSyncWorker.UNIQUE_WORK_NAME)
+                activeAccountId.value?.let { workManager.cancelUniqueWork("outbox-sync-$it") }
+            },
             awaitAccountWork = { accountWork.join() },
             onSwapCompleted = {
                 accountWork.reset()

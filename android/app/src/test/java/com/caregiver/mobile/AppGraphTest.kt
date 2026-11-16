@@ -4,11 +4,17 @@ import android.content.Context
 import androidx.test.core.app.ApplicationProvider
 import com.caregiver.mobile.data.SignInResult
 import com.caregiver.mobile.data.api.CreateRecipientRequest
+import com.caregiver.mobile.data.accounts.AccountResultGuard
+import com.caregiver.mobile.data.accounts.AccountScopedResult
 import com.caregiver.mobile.data.accounts.AccountsDatabase
 import com.caregiver.mobile.data.accounts.PerAccountDatabaseProvider
+import kotlinx.coroutines.CancellationException
+import kotlinx.coroutines.CompletableDeferred
+import kotlinx.coroutines.launch
 import kotlinx.coroutines.test.runTest
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
+import org.junit.Assert.assertNull
 import org.junit.Assert.assertTrue
 import org.junit.Assert.fail
 import org.junit.Before
@@ -107,6 +113,58 @@ class AppGraphTest {
 
         assertEquals("en", graph.settings.language.first())
         org.junit.Assert.assertSame(tokensBefore, graph.tokens) // same process-scoped token holder
+    }
+
+    @Test
+    fun switchingCancelsInFlightAccountScopedWork() = runTest {
+        val graph = AppGraph(context)
+        assertEquals(SignInResult.SignedIn, graph.auth.signUp("Amina", "amina@example.com", "goodpass1"))
+        val gate = CompletableDeferred<Unit>()
+        var completed = false
+        val job = graph.accountWorkScope.launch {
+            gate.await()
+            completed = true
+        }
+        assertTrue(job.isActive)
+
+        graph.auth.signOut() // cancels and joins the account work scope
+
+        assertTrue(job.isCancelled)
+        gate.complete(Unit) // a late provider result must not land
+        assertFalse(completed)
+    }
+
+    @Test
+    fun cancellationSurfacesAsCancellationNotAnAiFailure() = runTest {
+        val graph = AppGraph(context)
+        assertEquals(SignInResult.SignedIn, graph.auth.signUp("Amina", "amina@example.com", "goodpass1"))
+        var sawCancellation = false
+        val job = graph.accountWorkScope.launch {
+            try {
+                throw CancellationException("provider call cancelled")
+            } catch (_: CancellationException) {
+                sawCancellation = true
+            }
+        }
+        job.join()
+        assertTrue(sawCancellation)
+    }
+
+    @Test
+    fun aResultTaggedWithThePreviousAccountIsDiscarded() = runTest {
+        val graph = AppGraph(context)
+        assertEquals(SignInResult.SignedIn, graph.auth.signUp("Amina", "amina@example.com", "goodpass1"))
+        val idA = accountIdFor("amina@example.com")
+        val guard = AccountResultGuard(graph.activeAccountIdFlow)
+
+        val resultA = AccountScopedResult(idA, "Amina's summary")
+        assertEquals("Amina's summary", guard.accept(resultA))
+        var discarded = false
+        graph.auth.signOut()
+        assertEquals(SignInResult.SignedIn, graph.auth.signUp("Nour", "nour@example.com", "goodpass1"))
+
+        assertNull(guard.accept(resultA, onStale = { discarded = true }))
+        assertTrue(discarded)
     }
 
     @Test
