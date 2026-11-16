@@ -1,0 +1,68 @@
+name: Android APK build
+
+# Builds the two tester-facing APKs from the mobile branch and publishes
+# them to a rolling GitHub prerelease (`apk-latest`):
+#   - app-debug.apk     (unminified debug build)
+#   - app-minified.apk  (R8-shrunk offline demo, shared demo signature)
+on:
+  push:
+    branches: [feat/standalone-byok-ai]
+    paths: ["android/**", ".github/workflows/android-apk-build.yml"]
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  apk:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: "17"
+          cache: gradle
+
+      - uses: android-actions/setup-android@v4
+
+      - name: Install SDK packages
+        run: |
+          yes | sdkmanager --licenses > /dev/null
+          sdkmanager --install "platform-tools" "platforms;android-35" "build-tools;35.0.0"
+
+      - name: Build debug + minified APKs
+        working-directory: android
+        env:
+          GIT_COMMIT: ${{ github.sha }}
+        run: ./gradlew :app:assembleDebug :app:assembleMinified
+
+      - name: Publish APKs to rolling release
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          APK_DIR=android/app/build/outputs/apk
+          DEBUG_APK=$(ls "$APK_DIR/debug/"*.apk | head -1)
+          MIN_APK=$(ls "$APK_DIR/minified/"*.apk | head -1)
+          VERSION_NAME=$(sed -nE 's/^[[:space:]]*versionName[[:space:]]*=[[:space:]]*"([^"]+)".*/\1/p' android/app/build.gradle.kts | head -1)
+          SHORT_SHA=${GITHUB_SHA:0:7}
+
+          cp "$DEBUG_APK" /tmp/app-debug.apk
+          cp "$MIN_APK" /tmp/app-minified.apk
+
+          NOTES=$(printf '%s\n' \
+            "Rolling APK build from \`${GITHUB_REF_NAME}\`." \
+            "" \
+            "- Source commit: \`${GITHUB_SHA}\` (${SHORT_SHA})" \
+            "- App version: ${VERSION_NAME}" \
+            "- \`app-debug.apk\` — unminified debug build" \
+            "- \`app-minified.apk\` — R8-shrunk offline demo (shared demo signature, installs over previous demos)")
+
+          if gh release view apk-latest >/dev/null 2>&1; then
+            gh release upload apk-latest /tmp/app-debug.apk /tmp/app-minified.apk --clobber
+            gh release edit apk-latest --notes "$NOTES" --title "APK latest (${SHORT_SHA})"
+          else
+            gh release create apk-latest /tmp/app-debug.apk /tmp/app-minified.apk \
+              --prerelease --title "APK latest (${SHORT_SHA})" --notes "$NOTES"
+          fi
