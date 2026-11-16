@@ -5,6 +5,8 @@ import android.app.Application
 import android.content.Context
 import android.util.Log
 import androidx.work.WorkManager
+import okhttp3.MediaType.Companion.toMediaType
+import okhttp3.ResponseBody.Companion.toResponseBody
 import com.caregiver.mobile.core.network.TokenHolder
 import com.caregiver.mobile.core.util.LanguagePrefs
 import com.caregiver.mobile.core.util.LocaleHelper
@@ -17,6 +19,8 @@ import com.caregiver.mobile.data.RecipientRepository
 import com.caregiver.mobile.data.RoomBackedBackendApis
 import com.caregiver.mobile.data.SampleDataLoader
 import com.caregiver.mobile.data.SettingsStore
+import com.caregiver.mobile.data.accounts.AccountError
+import com.caregiver.mobile.data.accounts.AccountException
 import com.caregiver.mobile.data.accounts.AccountManager
 import com.caregiver.mobile.data.accounts.AccountsDatabase
 import com.caregiver.mobile.data.accounts.PerAccountDatabaseProvider
@@ -27,8 +31,12 @@ import com.caregiver.mobile.data.backup.BackupRestoreService
 import com.caregiver.mobile.data.backup.BackupState
 import com.caregiver.mobile.data.backup.BackupStore
 import com.caregiver.mobile.data.backup.RoomBackupStore
+import com.caregiver.mobile.data.api.AuthApi
+import com.caregiver.mobile.data.api.AuthResponse
 import com.caregiver.mobile.data.api.BackendApis
+import com.caregiver.mobile.data.api.LoginRequest
 import com.caregiver.mobile.data.api.RecipientDto
+import com.caregiver.mobile.data.api.RegisterRequest
 import com.caregiver.mobile.data.api.RetrofitBackendApis
 import com.caregiver.mobile.data.csv.ApiCsvNoteStore
 import com.caregiver.mobile.data.csv.CsvInsertResult
@@ -57,6 +65,8 @@ import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.runBlocking
+import retrofit2.HttpException
+import retrofit2.Response
 
 /** Log tag for language-restore diagnostics (Log.i/e survive the minified build). */
 private const val TAG = "Language"
@@ -146,14 +156,63 @@ private class AccountWorkScope {
     private fun fresh() = CoroutineScope(SupervisorJob() + Dispatchers.Default)
 }
 
+/**
+ * Real local authentication backed by AccountManager (#597).
+ *
+ * The token is a stable opaque `"local:<accountId>"` handle — no server
+ * exists to authenticate against, so it is not a secret and is never the
+ * password or derived hash. Failures use the same HTTP-shaped exception the
+ * Retrofit path produces, so screens need no local-specific branch.
+ */
+private class LocalAccountAuthApi(
+    private val manager: AccountManager,
+    private val tokens: TokenHolder,
+) : AuthApi {
+    override suspend fun login(body: LoginRequest): AuthResponse =
+        when (val result = manager.signIn(body.email, body.password)) {
+            is Result.Success -> issue(result.value.id)
+            is Result.Failure -> throw result.exceptionOrNull().asHttpError()
+        }
+
+    override suspend fun register(body: RegisterRequest): AuthResponse =
+        when (val result = manager.signUp(AuthRepository.deriveName(body.email), body.email, body.password)) {
+            is Result.Success -> issue(result.value.id)
+            is Result.Failure -> throw result.exceptionOrNull().asHttpError()
+        }
+
+    private fun issue(accountId: String): AuthResponse =
+        AuthResponse(AuthRepository.localToken(accountId)).also { tokens.token = it.token }
+
+    private fun Throwable?.asHttpError(): HttpException {
+        val error = (this as? AccountException)?.error
+        val code = when (error) {
+            AccountError.InvalidCredentials -> 401
+            AccountError.EmailTaken -> 409
+            is AccountError.WeakPassword, AccountError.InvalidEmail -> 400
+            else -> 400
+        }
+        val errorCode = when (error) {
+            AccountError.InvalidCredentials -> "INVALID_CREDENTIALS"
+            AccountError.EmailTaken -> "EMAIL_TAKEN"
+            is AccountError.WeakPassword -> "WEAK_PASSWORD"
+            AccountError.InvalidEmail -> "INVALID_EMAIL"
+            else -> "REQUEST_FAILED"
+        }
+        val body = """{"code":"$errorCode","message":"$errorCode"}"""
+            .toResponseBody("application/json".toMediaType())
+        return HttpException(Response.error<Any>(code, body))
+    }
+}
+
 /** Delegates every call to a LocalBackendApis built on the current database. */
 private class ActiveLocalApis(
     private val database: ActiveDatabase,
     private val clock: () -> Long,
+    private val authApi: () -> AuthApi,
 ) : BackendApis, RecipientAdmin {
     private fun api(): LocalBackendApis = LocalBackendApis(database.get(), clock)
 
-    override suspend fun auth() = api().auth()
+    override suspend fun auth(): AuthApi = authApi()
     override suspend fun recipients() = api().recipients()
     override suspend fun notes() = api().notes()
     override suspend fun summaries() = api().summaries()
@@ -299,7 +358,11 @@ class AppGraph(
 
     private val live: BackendApis by lazy {
         when {
-            localMode -> ActiveLocalApis(activeDatabase, System::currentTimeMillis)
+            localMode -> ActiveLocalApis(
+                database = activeDatabase,
+                clock = System::currentTimeMillis,
+                authApi = { LocalAccountAuthApi(checkNotNull(localAccountManager), tokens) },
+            )
             else -> selectApis(
                 demoBackend,
                 DemoBackendApis(),

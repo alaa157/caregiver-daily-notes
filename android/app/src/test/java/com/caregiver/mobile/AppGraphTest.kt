@@ -4,6 +4,8 @@ import android.content.Context
 import androidx.test.core.app.ApplicationProvider
 import com.caregiver.mobile.data.SignInResult
 import com.caregiver.mobile.data.api.CreateRecipientRequest
+import com.caregiver.mobile.data.api.LoginRequest
+import com.caregiver.mobile.data.api.RegisterRequest
 import com.caregiver.mobile.data.accounts.AccountResultGuard
 import com.caregiver.mobile.data.accounts.AccountScopedResult
 import com.caregiver.mobile.data.accounts.AccountsDatabase
@@ -14,9 +16,11 @@ import kotlinx.coroutines.launch
 import kotlinx.coroutines.test.runTest
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
+import org.junit.Assert.assertNotNull
 import org.junit.Assert.assertNull
 import org.junit.Assert.assertTrue
 import org.junit.Assert.fail
+import retrofit2.HttpException
 import org.junit.Before
 import org.junit.Test
 import org.junit.runner.RunWith
@@ -165,6 +169,57 @@ class AppGraphTest {
 
         assertNull(guard.accept(resultA, onStale = { discarded = true }))
         assertTrue(discarded)
+    }
+
+    @Test
+    fun localAuthApiReturnsAnOpaqueTokenAndStoresIt() = runTest {
+        val graph = AppGraph(context)
+        assertEquals(SignInResult.SignedIn, graph.auth.signUp("Amina", "amina@example.com", "goodpass1"))
+
+        val response = graph.apis.auth().login(LoginRequest("amina@example.com", "goodpass1"))
+
+        assertTrue(response.token.startsWith("local:"))
+        assertFalse(response.token.contains("goodpass1"))
+        val row = AccountsDatabase.create(context).accountDao().findByEmail("amina@example.com")!!
+        assertFalse(response.token.contains(row.passwordHash))
+        assertFalse(response.token.contains(row.salt))
+        assertNotNull(graph.tokens.token)
+    }
+
+    @Test
+    fun localAuthApiWrongPasswordThrowsA401ShapedFailure() = runTest {
+        val graph = AppGraph(context)
+        assertEquals(SignInResult.SignedIn, graph.auth.signUp("Amina", "amina@example.com", "goodpass1"))
+
+        try {
+            graph.apis.auth().login(LoginRequest("amina@example.com", "wrongpass1"))
+            fail("expected an HTTP-shaped failure")
+        } catch (e: HttpException) {
+            assertEquals(401, e.code())
+        }
+    }
+
+    @Test
+    fun localAuthApiRegisterCreatesARealAccountAndMapsDuplicateTo409() = runTest {
+        val graph = AppGraph(context)
+        val created = graph.apis.auth().register(RegisterRequest("amina@example.com", "goodpass1"))
+
+        assertTrue(created.token.startsWith("local:"))
+        assertNotNull(AccountsDatabase.create(context).accountDao().findByEmail("amina@example.com"))
+
+        try {
+            graph.apis.auth().register(RegisterRequest("amina@example.com", "goodpass1"))
+            fail("expected a duplicate-email failure")
+        } catch (e: HttpException) {
+            assertEquals(409, e.code())
+        }
+
+        try {
+            graph.apis.auth().register(RegisterRequest("weak@example.com", "short"))
+            fail("expected a weak-password failure")
+        } catch (e: HttpException) {
+            assertEquals(400, e.code())
+        }
     }
 
     @Test
