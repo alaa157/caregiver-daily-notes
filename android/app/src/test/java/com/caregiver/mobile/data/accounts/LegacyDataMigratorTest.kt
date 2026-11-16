@@ -3,6 +3,7 @@ package com.caregiver.mobile.data.accounts
 import android.content.Context
 import androidx.test.core.app.ApplicationProvider
 import com.caregiver.mobile.data.local.AppDatabase
+import com.caregiver.mobile.data.local.PlanEntity
 import java.io.File
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.test.runTest
@@ -245,6 +246,102 @@ class LegacyDataMigratorTest {
         assertFalse(context.getDatabasePath("${PerAccountDatabaseProvider.FILE_PREFIX}owner-1").exists())
         assertFalse(File(legacyFile.path + LegacyMigration.BACKUP_SUFFIX).exists())
         assertFalse(migration.isCompleted())
+    }
+
+    // ---- #627: end-to-end migration scenarios with a generated legacy fixture ----
+
+    @Test
+    fun successfulMigrationMakesLegacyDataReadableUnderOwner() = runTest {
+        createLegacyFixture("plan-1", "legacy plan body")
+
+        assertTrue(LegacyMigration(context).migrate("owner-1"))
+
+        val plan = readOwnerPlan("plan-1")
+        assertNotNull(plan)
+        assertEquals("legacy plan body", plan!!.versionsJson)
+        assertEquals("legacy-recipient", plan.recipientId)
+        assertEquals(42L, plan.updatedAt)
+        assertFalse(legacyFile.exists())
+    }
+
+    @Test
+    fun interruptedMigrationRecoversOnNextLaunch() = runTest {
+        createLegacyFixture("plan-2", "survives interruption")
+        // Simulate a process kill after the main rename: backup exists, main
+        // file is already at the owner's name, in-progress flag still set.
+        File(legacyFile.path + LegacyMigration.BACKUP_SUFFIX)
+            .also { legacyFile.copyTo(it, overwrite = true) }
+        val target = context.getDatabasePath("${PerAccountDatabaseProvider.FILE_PREFIX}owner-1")
+        assertTrue(legacyFile.renameTo(target))
+        context.getSharedPreferences("legacy_migration", Context.MODE_PRIVATE)
+            .edit().putBoolean(LegacyMigration.MIGRATION_IN_PROGRESS, true).apply()
+        assertFalse(legacyFile.exists())
+        assertTrue(target.exists())
+
+        assertTrue(LegacyMigration(context).migrate("owner-1"))
+
+        val plan = readOwnerPlan("plan-2")
+        assertNotNull(plan)
+        assertEquals("survives interruption", plan!!.versionsJson)
+        assertFalse(legacyFile.exists())
+    }
+
+    @Test
+    fun secondMigrationRunIsANoOp() = runTest {
+        createLegacyFixture("plan-3", "kept once")
+        val migration = LegacyMigration(context)
+
+        assertTrue(migration.migrate("owner-1"))
+        assertFalse(migration.migrate("owner-1"))
+
+        assertEquals("kept once", readOwnerPlan("plan-3")!!.versionsJson)
+    }
+
+    @Test
+    fun freshInstallSkipsMigrationEntirely() = runTest {
+        val migration = LegacyMigration(context)
+
+        assertFalse(migration.migrate("owner-1"))
+        assertFalse(migration.isCompleted())
+        assertFalse(context.getDatabasePath("${PerAccountDatabaseProvider.FILE_PREFIX}owner-1").exists())
+        assertEquals(LegacyState.None, detector().detect())
+    }
+
+    @Test
+    fun detectionReportsTheRightStateForEachScenario() = runTest {
+        assertEquals(LegacyState.None, detector().detect())
+
+        createLegacyFile()
+        assertEquals(LegacyState.NeedsClaim, detector().detect())
+
+        seedAccount()
+        assertEquals(LegacyState.AlreadyMigrated, detector().detect())
+    }
+
+    /** Writes a real Room file at the legacy name with one plan row. */
+    private suspend fun createLegacyFixture(planId: String, body: String) {
+        val db = AppDatabase.create(context)
+        try {
+            db.planDao().insert(
+                PlanEntity(
+                    id = planId,
+                    recipientId = "legacy-recipient",
+                    versionsJson = body,
+                    updatedAt = 42L,
+                ),
+            )
+        } finally {
+            db.close()
+        }
+    }
+
+    private suspend fun readOwnerPlan(planId: String): PlanEntity? {
+        val provider = PerAccountDatabaseProvider(context)
+        return try {
+            provider.databaseFor("owner-1").planDao().byId(planId)
+        } finally {
+            provider.closeAll()
+        }
     }
 
     private fun detector(demoMode: Boolean = false) = LegacyInstallDetector(
