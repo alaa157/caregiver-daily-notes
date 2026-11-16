@@ -17,28 +17,33 @@ import javax.crypto.spec.GCMParameterSpec
  *
  * Every failure is reported, never thrown: a keystore that refuses to work
  * must not take the screen down with it.
+ *
+ * The keystore alias is namespaced per account id, so each account has its
+ * own encrypted slot (#613).
  */
 internal class AndroidKeyStoreCipher : ApiKeyCipher {
 
-    override fun encrypt(plain: String): String? = runCatching {
-        encryptWithKey(plain)
+    private fun alias(accountId: String) = "${ALIAS_PREFIX}_$accountId"
+
+    override fun encrypt(plain: String, accountId: String): String? = runCatching {
+        encryptWithKey(plain, accountId)
     }.recoverCatching {
         // An invalidated alias cannot encrypt new credentials. Existing data
         // encrypted by that key is already unreadable; replace the alias so
         // the user can save a newly entered key.
         val keyStore = KeyStore.getInstance("AndroidKeyStore").apply { load(null) }
-        keyStore.deleteEntry(ALIAS)
-        encryptWithKey(plain)
+        keyStore.deleteEntry(alias(accountId))
+        encryptWithKey(plain, accountId)
     }.getOrNull()
 
-    private fun encryptWithKey(plain: String): String {
+    private fun encryptWithKey(plain: String, accountId: String): String {
         val cipher = Cipher.getInstance("AES/GCM/NoPadding")
-        cipher.init(Cipher.ENCRYPT_MODE, getOrCreateKey())
+        cipher.init(Cipher.ENCRYPT_MODE, getOrCreateKey(accountId))
         val combined = cipher.iv + cipher.doFinal(plain.toByteArray(Charsets.UTF_8))
         return Base64.encodeToString(combined, Base64.NO_WRAP)
     }
 
-    override fun decrypt(stored: String): ApiKeyState {
+    override fun decrypt(stored: String, accountId: String): ApiKeyState {
         val decoded = runCatching { Base64.decode(stored, Base64.NO_WRAP) }.getOrNull()
             ?: return ApiKeyState.Unavailable
         if (decoded.size <= IV_SIZE) return ApiKeyState.Invalidated
@@ -49,7 +54,7 @@ internal class AndroidKeyStoreCipher : ApiKeyCipher {
             return ApiKeyState.Unavailable
         }
         val key = try {
-            keyStore.getKey(ALIAS, null) as? SecretKey
+            keyStore.getKey(alias(accountId), null) as? SecretKey
         } catch (e: Exception) {
             return ApiKeyState.Unavailable
         } ?: return ApiKeyState.Invalidated
@@ -76,11 +81,11 @@ internal class AndroidKeyStoreCipher : ApiKeyCipher {
         }
     }
 
-    private fun getOrCreateKey(): SecretKey {
+    private fun getOrCreateKey(accountId: String): SecretKey {
         val ks = KeyStore.getInstance("AndroidKeyStore").apply { load(null) }
-        ks.getKey(ALIAS, null)?.let { return it as SecretKey }
+        ks.getKey(alias(accountId), null)?.let { return it as SecretKey }
         val spec = KeyGenParameterSpec.Builder(
-            ALIAS,
+            alias(accountId),
             KeyProperties.PURPOSE_ENCRYPT or KeyProperties.PURPOSE_DECRYPT,
         )
             .setBlockModes(KeyProperties.BLOCK_MODE_GCM)
@@ -93,7 +98,7 @@ internal class AndroidKeyStoreCipher : ApiKeyCipher {
     }
 
     companion object {
-        private const val ALIAS = "caregiver_ai_key_v1"
+        private const val ALIAS_PREFIX = "caregiver_ai_key_v1"
         private const val IV_SIZE = 12
         private const val TAG_SIZE_BITS = 128
     }

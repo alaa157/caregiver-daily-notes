@@ -2,6 +2,8 @@ package com.caregiver.mobile.ai
 
 import android.content.Context
 import android.content.SharedPreferences
+import kotlinx.coroutines.flow.Flow
+import kotlinx.coroutines.flow.first
 
 /**
  * The state of the stored API key.
@@ -32,23 +34,49 @@ sealed interface ApiKeyState {
  * The interface exists so tests can run on a JVM that has no keystore
  * provider at all: the only plaintext implementation lives in the test source
  * set, so production code cannot store an unencrypted key by accident.
+ *
+ * Methods take [accountId] because the keystore alias is namespaced per
+ * account (#613).
  */
 interface ApiKeyCipher {
     /** The stored form of [plain], or null when the keystore refused the write. */
-    fun encrypt(plain: String): String?
+    fun encrypt(plain: String, accountId: String): String?
 
     /** Reads back a stored key. Never returns [ApiKeyState.Absent]. */
-    fun decrypt(stored: String): ApiKeyState
+    fun decrypt(stored: String, accountId: String): ApiKeyState
+}
+
+/**
+ * Adapter that bridges the old single-cipher construction to the new
+ * per-account `ApiKeyCipher` interface. Production uses
+ * `AndroidKeyStoreCipher` (which now takes accountId per call); tests can
+ * inject a fake that ignores the accountId argument.
+ */
+private class PerAccountAndroidKeyStoreCipher(
+    private val activeAccountId: Flow<String?>,
+) : ApiKeyCipher {
+    private val cipher = AndroidKeyStoreCipher()
+
+    override suspend fun encrypt(plain: String, accountId: String): String? =
+        cipher.encrypt(plain, accountId)
+
+    override suspend fun decrypt(stored: String, accountId: String): ApiKeyState =
+        cipher.decrypt(stored, accountId)
 }
 
 class AiKeyStore internal constructor(
     private val context: Context,
     private val cipher: ApiKeyCipher,
+    private val activeAccountId: Flow<String?>,
 ) {
     /**
      * Production: the key is encrypted with a hardware-backed keystore key.
      */
-    constructor(context: Context) : this(context, AndroidKeyStoreCipher())
+    constructor(context: Context, activeAccountId: Flow<String?>) : this(
+        context,
+        PerAccountAndroidKeyStoreCipher(activeAccountId),
+        activeAccountId,
+    )
 
     private val prefs: SharedPreferences =
         context.getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE)
@@ -58,137 +86,141 @@ class AiKeyStore internal constructor(
         migrateLegacyConsent()
     }
 
-    fun provider(): AiProvider? =
-        prefs.getString(KEY_PROVIDER, null)?.let { runCatching { AiProvider.valueOf(it) }.getOrNull() }
+    private suspend fun accountId(): String? = activeAccountId.first()
 
-    /** The provider whose key and connection settings are currently selected. */
-    fun selectedProvider(): AiProvider = provider() ?: AiProvider.OPENAI
+    private fun perAccountKey(key: String, accountId: String): String = "${accountId}_$key"
 
-    fun setProvider(p: AiProvider) {
-        prefs.edit().putString(KEY_PROVIDER, p.name).apply()
+    suspend fun provider(): AiProvider? {
+        val id = accountId() ?: return null
+        return prefs.getString(perAccountKey(KEY_PROVIDER, id), null)
+            ?.let { runCatching { AiProvider.valueOf(it) }.getOrNull() }
     }
 
-    /**
-     * The stored key for [provider] and what can be done with it.
-     *
-     * Keys live in one slot per provider. Switching provider must never make
-     * the app reuse the previous provider's credential.
-     */
-    fun apiKeyState(provider: AiProvider = selectedProvider()): ApiKeyState {
-        val stored = prefs.getString(keySlot(provider), null) ?: return ApiKeyState.Absent
-        return cipher.decrypt(stored)
+    suspend fun selectedProvider(): AiProvider = provider() ?: AiProvider.OPENAI
+
+    suspend fun setProvider(p: AiProvider) {
+        val id = accountId() ?: return
+        prefs.edit().putString(perAccountKey(KEY_PROVIDER, id), p.name).apply()
     }
 
-    /** The stored key for [provider], or null when there is none or it cannot be read. */
-    fun apiKey(provider: AiProvider = selectedProvider()): String? =
+    suspend fun apiKeyState(provider: AiProvider = selectedProvider()): ApiKeyState {
+        val id = accountId() ?: return ApiKeyState.Absent
+        val stored = prefs.getString(perAccountKey(keySlot(provider), id), null)
+            ?: return ApiKeyState.Absent
+        return cipher.decrypt(stored, id)
+    }
+
+    suspend fun apiKey(provider: AiProvider = selectedProvider()): String? =
         (apiKeyState(provider) as? ApiKeyState.Readable)?.key
 
-    /**
-     * Stores the key for [provider].
-     *
-     * Returns false when the keystore refused the write. The caller tells the
-     * user; the screen never crashes on a keystore failure.
-     */
-    fun setApiKey(key: String, provider: AiProvider = selectedProvider()): Boolean {
-        val stored = cipher.encrypt(key) ?: return false
-        prefs.edit().putString(keySlot(provider), stored).apply()
+    suspend fun setApiKey(key: String, provider: AiProvider = selectedProvider()): Boolean {
+        val id = accountId() ?: return false
+        val stored = cipher.encrypt(key, id) ?: return false
+        prefs.edit().putString(perAccountKey(keySlot(provider), id), stored).apply()
         return true
     }
 
-    fun clearApiKey(provider: AiProvider = selectedProvider()) {
-        prefs.edit().remove(keySlot(provider)).apply()
+    suspend fun clearApiKey(provider: AiProvider = selectedProvider()) {
+        val id = accountId() ?: return
+        prefs.edit().remove(perAccountKey(keySlot(provider), id)).apply()
     }
 
-    /** True when a usable, non-blank key is stored for [provider]. */
-    fun hasKey(provider: AiProvider = selectedProvider()): Boolean =
+    suspend fun hasKey(provider: AiProvider = selectedProvider()): Boolean =
         (apiKeyState(provider) as? ApiKeyState.Readable)?.key?.isNotBlank() == true
 
-    /**
-     * The first provider other than [exclude] that has a usable key, or null.
-     * Used only to OFFER a switch when the selected provider cannot be used:
-     * keys are never reused across providers automatically, because sending
-     * notes to a different company than the one the user configured needs
-     * that provider's own consent.
-     */
-    fun otherUsableProvider(exclude: AiProvider): AiProvider? =
-        AiProvider.values().firstOrNull { it != exclude && hasKey(it) }
-
-    fun model(provider: AiProvider = selectedProvider()): String? =
-        prefs.getString(modelSlot(provider), null)?.takeIf { it.isNotBlank() }
-
-    fun setModel(m: String, provider: AiProvider = selectedProvider()) {
-        prefs.edit().putString(modelSlot(provider), m).apply()
+    suspend fun otherUsableProvider(exclude: AiProvider): AiProvider? {
+        val id = accountId() ?: return null
+        return AiProvider.values().firstOrNull { it != exclude && hasKey(it) }
     }
 
-    fun baseUrl(provider: AiProvider = selectedProvider()): String? =
-        prefs.getString(baseUrlSlot(provider), null)
-
-    fun setBaseUrl(url: String, provider: AiProvider = selectedProvider()) {
-        prefs.edit().putString(baseUrlSlot(provider), url).apply()
+    suspend fun model(provider: AiProvider = selectedProvider()): String? {
+        val id = accountId() ?: return null
+        return prefs.getString(perAccountKey(modelSlot(provider), id), null)?.takeIf { it.isNotBlank() }
     }
 
-    /** The saved base URL for [provider], or its default when none was saved. */
-    fun baseUrlOrDefault(provider: AiProvider): String =
+    suspend fun setModel(m: String, provider: AiProvider = selectedProvider()) {
+        val id = accountId() ?: return
+        prefs.edit().putString(perAccountKey(modelSlot(provider), id), m).apply()
+    }
+
+    suspend fun baseUrl(provider: AiProvider = selectedProvider()): String? {
+        val id = accountId() ?: return null
+        return prefs.getString(perAccountKey(baseUrlSlot(provider), id), null)
+    }
+
+    suspend fun setBaseUrl(url: String, provider: AiProvider = selectedProvider()) {
+        val id = accountId() ?: return
+        prefs.edit().putString(perAccountKey(baseUrlSlot(provider), id), url).apply()
+    }
+
+    suspend fun baseUrlOrDefault(provider: AiProvider): String =
         baseUrl(provider)?.takeIf { it.isNotBlank() } ?: provider.defaultBaseUrl
 
-    /**
-     * Consent is per provider, not global. Agreeing to send notes to one
-     * provider says nothing about another provider's data policy, and a
-     * caregiver who switches provider has to see that provider's name before
-     * their notes start flowing to it.
-     */
-    fun consentGiven(provider: AiProvider = selectedProvider()): Boolean =
-        prefs.getBoolean(consentSlot(provider), false)
-
-    fun setConsentGiven(provider: AiProvider = selectedProvider()) {
-        prefs.edit().putBoolean(consentSlot(provider), true).apply()
+    suspend fun consentGiven(provider: AiProvider = selectedProvider()): Boolean {
+        val id = accountId() ?: return false
+        return prefs.getBoolean(perAccountKey(consentSlot(provider), id), false)
     }
 
-    fun revokeConsent(provider: AiProvider = selectedProvider()) {
-        // Removing the slot (rather than storing false) keeps a provider that
-        // was never accepted indistinguishable from one whose consent was
-        // revoked: both have to ask again.
-        prefs.edit().remove(consentSlot(provider)).apply()
+    suspend fun setConsentGiven(provider: AiProvider = selectedProvider()) {
+        val id = accountId() ?: return
+        prefs.edit().putBoolean(perAccountKey(consentSlot(provider), id), true).apply()
     }
 
-    fun systemPrompt(): String = prefs.getString(KEY_SYSTEM_PROMPT, "").orEmpty()
-
-    fun setSystemPrompt(value: String) {
-        prefs.edit().putString(KEY_SYSTEM_PROMPT, value).apply()
+    suspend fun revokeConsent(provider: AiProvider = selectedProvider()) {
+        val id = accountId() ?: return
+        prefs.edit().remove(perAccountKey(consentSlot(provider), id)).apply()
     }
 
-    fun summarySystemPrompt(): String = prefs.getString(KEY_SUMMARY_PROMPT, "").orEmpty()
-
-    fun setSummarySystemPrompt(value: String) {
-        prefs.edit().putString(KEY_SUMMARY_PROMPT, value).apply()
+    suspend fun systemPrompt(): String {
+        val id = accountId() ?: return ""
+        return prefs.getString(perAccountKey(KEY_SYSTEM_PROMPT, id), "").orEmpty()
     }
 
+    suspend fun setSystemPrompt(value: String) {
+        val id = accountId() ?: return
+        prefs.edit().putString(perAccountKey(KEY_SYSTEM_PROMPT, id), value).apply()
+    }
 
-    fun planSystemPrompt(): String = prefs.getString(KEY_PLAN_PROMPT, "").orEmpty()
+    suspend fun summarySystemPrompt(): String {
+        val id = accountId() ?: return ""
+        return prefs.getString(perAccountKey(KEY_SUMMARY_PROMPT, id), "").orEmpty()
+    }
 
-    fun setPlanSystemPrompt(value: String) {
-        prefs.edit().putString(KEY_PLAN_PROMPT, value).apply()
+    suspend fun setSummarySystemPrompt(value: String) {
+        val id = accountId() ?: return
+        prefs.edit().putString(perAccountKey(KEY_SUMMARY_PROMPT, id), value).apply()
+    }
+
+    suspend fun planSystemPrompt(): String {
+        val id = accountId() ?: return ""
+        return prefs.getString(perAccountKey(KEY_PLAN_PROMPT, id), "").orEmpty()
+    }
+
+    suspend fun setPlanSystemPrompt(value: String) {
+        val id = accountId() ?: return
+        prefs.edit().putString(perAccountKey(KEY_PLAN_PROMPT, id), value).apply()
     }
 
     /**
      * Older builds kept one key, model, and base URL for whichever provider
-     * was selected. Move those entries into that provider's slots so an
-     * upgrade does not make the saved key disappear. The legacy entries are
-     * only removed after their values have been copied; if the process dies
-     * first, the migration runs again on the next start.
+     * was selected. Move those entries into the **owner account's** slots so
+     * an upgrade does not make the saved key disappear. The legacy entries
+     * are only removed after their values have been copied; if the process
+     * dies first, the migration runs again on the next start.
+     *
+     * With no active account, nothing to migrate.
      */
-    private fun migrateLegacySettings() {
-        val selected = selectedProvider()
+    private suspend fun migrateLegacySettings() {
+        val id = accountId() ?: return
         val editor = prefs.edit()
         var changed = false
 
         val legacyApiKey = prefs.getString(KEY_API_LEGACY, null)
         if (legacyApiKey != null) {
             // The legacy `api_key` entry was written already encrypted by
-            // older builds, so copy it verbatim — re-encrypting would
-            // double-encrypt and a single decrypt would yield ciphertext.
-            if (!prefs.contains(keySlot(selected))) {
-                editor.putString(keySlot(selected), legacyApiKey)
+            // older builds, so copy it verbatim into the owner account's slot.
+            if (!prefs.contains(perAccountKey(keySlot(AiProvider.OPENAI), id))) {
+                editor.putString(perAccountKey(keySlot(AiProvider.OPENAI), id), legacyApiKey)
                 changed = true
             }
             editor.remove(KEY_API_LEGACY)
@@ -197,29 +229,30 @@ class AiKeyStore internal constructor(
 
         fun migrate(legacyKey: String, targetKey: String) {
             val value = prefs.getString(legacyKey, null) ?: return
-            if (!prefs.contains(targetKey)) {
-                editor.putString(targetKey, value)
+            if (!prefs.contains(perAccountKey(targetKey, id))) {
+                editor.putString(perAccountKey(targetKey, id), value)
             }
             editor.remove(legacyKey)
             changed = true
         }
 
-        migrate(KEY_MODEL_LEGACY, modelSlot(selected))
-        migrate(KEY_BASE_URL_LEGACY, baseUrlSlot(selected))
+        migrate(KEY_MODEL_LEGACY, modelSlot(AiProvider.OPENAI))
+        migrate(KEY_BASE_URL_LEGACY, baseUrlSlot(AiProvider.OPENAI))
         if (changed) editor.apply()
     }
 
     /**
      * Older builds stored one consent flag for every provider. Move it to
-     * the provider that was selected when the upgrade ran and remove the
-     * legacy flag: the other providers must ask again, because the caregiver
-     * never saw their names or data policies.
+     * the **owner account's** provider and remove the legacy flag: the other
+     * providers must ask again, because the caregiver never saw their names
+     * or data policies. With no active account, nothing to migrate.
      */
-    private fun migrateLegacyConsent() {
+    private suspend fun migrateLegacyConsent() {
+        val id = accountId() ?: return
         if (!prefs.contains(KEY_CONSENT)) return
         val editor = prefs.edit()
         if (prefs.getBoolean(KEY_CONSENT, false)) {
-            editor.putBoolean(consentSlot(selectedProvider()), true)
+            editor.putBoolean(perAccountKey(consentSlot(AiProvider.OPENAI), id), true)
         }
         editor.remove(KEY_CONSENT)
         editor.apply()
