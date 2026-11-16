@@ -28,6 +28,23 @@ import kotlinx.coroutines.withTimeoutOrNull
 data class AccountException(val error: AccountError) : Exception(error.toString())
 
 /**
+ * A value tagged with the account that produced it (#619). AI results must
+ * carry this tag; [AccountResultGuard] discards results requested under an
+ * account that is no longer active, so A's summary can never be written into
+ * B's database or shown on B's screen.
+ */
+data class AccountScopedResult<T>(val accountId: String?, val value: T)
+
+/** Accepts an [AccountScopedResult] only while its account is still active. */
+class AccountResultGuard(private val activeAccountId: Flow<String?>) {
+    suspend fun <T> accept(result: AccountScopedResult<T>, onStale: () -> Unit = {}): T? {
+        if (result.accountId == activeAccountId.first()) return result.value
+        onStale()
+        return null
+    }
+}
+
+/**
  * Per-account cleanup hooks (epic #581, #595). The bodies are wired by later
  * issues; this layer only defines the contract and calls all three exactly
  * once after the credentials row has been deleted.
