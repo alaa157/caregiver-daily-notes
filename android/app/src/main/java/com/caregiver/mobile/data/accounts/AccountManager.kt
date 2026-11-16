@@ -25,6 +25,24 @@ import kotlinx.coroutines.withContext
 data class AccountException(val error: AccountError) : Exception(error.toString())
 
 /**
+ * Per-account cleanup hooks (epic #581, #595). The bodies are wired by later
+ * issues; this layer only defines the contract and calls all three exactly
+ * once after the credentials row has been deleted.
+ */
+interface AccountCleanup {
+    suspend fun deleteDatabase(accountId: String)
+    suspend fun deleteAiKeys(accountId: String)
+    suspend fun deleteExports(accountId: String)
+}
+
+/** Default for callers with no cleanup wiring; never deletes real data. */
+object NoOpAccountCleanup : AccountCleanup {
+    override suspend fun deleteDatabase(accountId: String) = Unit
+    override suspend fun deleteAiKeys(accountId: String) = Unit
+    override suspend fun deleteExports(accountId: String) = Unit
+}
+
+/**
  * The display name failed the 1..80-after-trim rule. The register form (#599)
  * validates the same rule locally, so this is a defensive data-layer guard;
  * it is deliberately not an [AccountError] variant, which #589 fixes at six.
@@ -71,6 +89,8 @@ class AccountManager(
      * database); empty by default so the flows still emit their initial value.
      */
     private val accountsChanged: Flow<Unit> = emptyFlow(),
+    /** Cleanup hooks, called only after the credentials row is gone. */
+    private val cleanup: AccountCleanup = NoOpAccountCleanup,
     /** The cost a rehash upgrades to; defaults to the current KDF cost. */
     private val currentIterations: Int = PasswordHasher.DEFAULT_ITERATIONS,
     /** One real PBKDF2 against a throwaway salt, to keep unknown-email timing equal. */
@@ -304,6 +324,42 @@ class AccountManager(
         dao.updateLastUsed(id, clock())
         notifyChanged()
         return Result.success(Unit)
+    }
+
+    /**
+     * Removes a local account permanently. The active account is never
+     * removable from this layer — that is a hard rule, not just a UI guard.
+     * The credentials row is deleted first, so a failing cleanup hook can
+     * never leave a half-deleted account with a still-live password.
+     */
+    suspend fun removeAccount(id: String): Result<Unit> {
+        if (activeAccountId.first() == id) {
+            return Result.failure(AccountException(AccountError.CannotRemoveActive))
+        }
+        if (dao.findById(id) == null) {
+            return Result.failure(AccountException(AccountError.AccountNotFound))
+        }
+
+        dao.deleteById(id)
+        notifyChanged()
+
+        // A hook failure must not resurrect the row. Attempt every hook and
+        // report the first failure so callers know cleanup was incomplete.
+        var firstFailure: Exception? = null
+        listOf<suspend () -> Unit>(
+            { cleanup.deleteDatabase(id) },
+            { cleanup.deleteAiKeys(id) },
+            { cleanup.deleteExports(id) },
+        ).forEach { hook ->
+            try {
+                hook()
+            } catch (e: CancellationException) {
+                throw e
+            } catch (e: Exception) {
+                if (firstFailure == null) firstFailure = e
+            }
+        }
+        return firstFailure?.let { Result.failure(it) } ?: Result.success(Unit)
     }
 
     companion object {
