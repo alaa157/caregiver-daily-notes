@@ -40,14 +40,22 @@ class AccountManagerTest {
         currentIterations: Int = TEST_ITERATIONS,
         sessionStore: SessionStore? = null,
         accountsChanged: Flow<Unit> = emptyFlow(),
+        failOpenFor: String? = null,
     ) {
         val activeIds = mutableListOf<String>()
         val openedIds = mutableListOf<String>()
         val closedIds = mutableListOf<String>()
+        /** Exact call order across every collaborator, for the switch ordering test. */
+        val events = mutableListOf<String>()
         var cancelWorkCalls = 0
         var dummyHashCalls = 0
         var rehashWrites = 0
         var failRehashWrite = false
+
+        init {
+            dao.onUpdateLastUsed = { id, _ -> events += "lastUsed:$id" }
+        }
+
         val manager = AccountManager(
             dao = dao,
             hasher = hasher,
@@ -55,10 +63,23 @@ class AccountManagerTest {
             clock = clock,
             sessionStore = sessionStore,
             accountsChanged = accountsChanged,
-            openAccountDatabase = { openedIds += it },
-            closeAccountDatabase = { closedIds += it },
-            cancelAccountWork = { cancelWorkCalls++ },
-            onActiveAccountChanged = { id -> if (id != null) activeIds += id },
+            openAccountDatabase = { id ->
+                events += "open:$id"
+                if (id == failOpenFor) throw IllegalStateException("cannot open account database")
+                openedIds += id
+            },
+            closeAccountDatabase = { id ->
+                events += "close:$id"
+                closedIds += id
+            },
+            cancelAccountWork = {
+                events += "cancel"
+                cancelWorkCalls++
+            },
+            onActiveAccountChanged = { id ->
+                events += "set:$id"
+                if (id != null) activeIds += id
+            },
             currentIterations = currentIterations,
             performDummyHash = { _: String -> dummyHashCalls++ },
             updateCredentials = { row, fresh ->
@@ -77,6 +98,7 @@ class AccountManagerTest {
         val rows = linkedMapOf<String, AccountEntity>()
         /** Simulate the window between findByEmail and insert where a rival signs up. */
         var constraintOnInsert = false
+        var onUpdateLastUsed: ((String, Long) -> Unit)? = null
 
         override suspend fun insert(account: AccountEntity) {
             if (constraintOnInsert) {
@@ -100,6 +122,7 @@ class AccountManagerTest {
         override suspend fun updateLastUsed(id: String, lastUsedAt: Long): Int {
             val row = rows[id] ?: return 0
             rows[id] = row.copy(lastUsedAt = lastUsedAt)
+            onUpdateLastUsed?.invoke(id, lastUsedAt)
             return 1
         }
 
@@ -579,6 +602,105 @@ class AccountManagerTest {
         }
     }
 
+    @OptIn(ExperimentalCoroutinesApi::class)
+    @Test
+    fun switchAccountRunsTheExactOperationOrder() = runTest {
+        val file = File.createTempFile("switch-order-test", ".preferences_pb")
+        try {
+            val store = newSessionStore(file)
+            val h = Harness(sessionStore = store)
+            val old = seedAccount(h, 7, id = "acc-old", email = "old@example.com")
+            val target = seedAccount(h, 7, id = "acc-new", email = "new@example.com")
+            store.setActiveAccountId(old.id)
+            h.events.clear()
+
+            val result = h.manager.switchAccount(target.id)
+
+            assertTrue(result.isSuccess)
+            assertEquals(target.id, store.activeAccountId.first())
+            assertEquals(
+                listOf("cancel", "close:acc-old", "set:acc-new", "open:acc-new", "lastUsed:acc-new"),
+                h.events,
+            )
+            assertEquals(listOf("acc-old"), h.closedIds)
+            assertEquals(listOf("acc-new"), h.openedIds)
+            assertEquals(FIXED_NOW, h.dao.rows[target.id]!!.lastUsedAt)
+        } finally {
+            file.delete()
+        }
+    }
+
+    @OptIn(ExperimentalCoroutinesApi::class)
+    @Test
+    fun switchingToTheCurrentAccountIsANoOp() = runTest {
+        val file = File.createTempFile("switch-noop-test", ".preferences_pb")
+        try {
+            val store = newSessionStore(file)
+            val h = Harness(sessionStore = store)
+            val current = seedAccount(h, 7)
+            store.setActiveAccountId(current.id)
+            h.events.clear()
+
+            assertTrue(h.manager.switchAccount(current.id).isSuccess)
+
+            assertTrue(h.events.isEmpty())
+            assertEquals(current.id, store.activeAccountId.first())
+        } finally {
+            file.delete()
+        }
+    }
+
+    @OptIn(ExperimentalCoroutinesApi::class)
+    @Test
+    fun switchingToAMissingIdLeavesTheCurrentAccountAlone() = runTest {
+        val file = File.createTempFile("switch-missing-test", ".preferences_pb")
+        try {
+            val store = newSessionStore(file)
+            val h = Harness(sessionStore = store)
+            val current = seedAccount(h, 7)
+            store.setActiveAccountId(current.id)
+            h.events.clear()
+
+            assertAccountError(AccountError.AccountNotFound, h.manager.switchAccount("missing").exceptionOrNull())
+
+            assertTrue(h.events.isEmpty())
+            assertEquals(current.id, store.activeAccountId.first())
+            assertEquals(FIXED_NOW, h.dao.rows[current.id]!!.lastUsedAt)
+        } finally {
+            file.delete()
+        }
+    }
+
+    @OptIn(ExperimentalCoroutinesApi::class)
+    @Test
+    fun openFailureRollsBackToThePreviousAccount() = runTest {
+        val file = File.createTempFile("switch-rollback-test", ".preferences_pb")
+        try {
+            var now = FIXED_NOW
+            val store = newSessionStore(file)
+            val h = Harness(sessionStore = store, clock = { now }, failOpenFor = "acc-new")
+            val old = seedAccount(h, 7, id = "acc-old", email = "old@example.com")
+            val target = seedAccount(h, 7, id = "acc-new", email = "new@example.com")
+            store.setActiveAccountId(old.id)
+            h.events.clear()
+            now = FIXED_NOW + 1_000
+
+            val result = h.manager.switchAccount(target.id)
+
+            assertTrue(result.isFailure)
+            assertFalse(result.exceptionOrNull() is AccountException) // original error, not a typed account failure
+            assertEquals(old.id, store.activeAccountId.first()) // stored id reverted
+            assertEquals(
+                listOf("cancel", "close:acc-old", "set:acc-new", "open:acc-new", "set:acc-old", "open:acc-old"),
+                h.events,
+            )
+            assertFalse(h.events.any { it.startsWith("lastUsed:") }) // no DB write on the failed path
+            assertEquals(FIXED_NOW, h.dao.rows[target.id]!!.lastUsedAt)
+        } finally {
+            file.delete()
+        }
+    }
+
     @Test
     fun managerSourceHasNoLoggingOfSecrets() {
         val source = locateManagerSource().readText()
@@ -594,11 +716,16 @@ class AccountManagerTest {
     )
 
     /** Seeds a row directly at an arbitrary (usually old) iteration cost. */
-    private fun seedAccount(h: Harness, iterations: Int): AccountEntity {
+    private fun seedAccount(
+        h: Harness,
+        iterations: Int,
+        id: String = "acc-seed",
+        email: String = "amina@example.com",
+    ): AccountEntity {
         val hashed = PasswordHasher(iterations = iterations).hash("goodpass1")
         val entity = AccountEntity(
-            id = "acc-seed",
-            email = "amina@example.com",
+            id = id,
+            email = email,
             displayName = "Amina",
             passwordHash = hashed.hash,
             salt = hashed.salt,
