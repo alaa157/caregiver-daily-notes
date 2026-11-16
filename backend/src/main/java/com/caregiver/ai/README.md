@@ -7,13 +7,15 @@ Tasks 6 and 7. Frontend changes remain in their own pull requests.
 
 | Operation | Request | Response |
 | --- | --- | --- |
-| Summarize owned notes | `POST /api/summaries` | `SummaryResult`: summary, authoritative safety, trends |
-| Generate a validated suggestion | `POST /api/plans/generate` | plan or null, aiUnavailable, authoritative safety |
+| Summarize owned notes | `POST /api/summaries/byok` | `SummaryResult`: summary, authoritative safety, trends |
+| Generate a validated suggestion | `POST /api/plans/generate/byok` | plan or null, aiUnavailable, authoritative safety |
+| Test provider credentials | `POST /api/ai/byok/connection-test` | connection success flag |
 | Edit and accept | Existing `POST /api/recipients/{recipientId}/plans/{planId}/edit-and-accept` | New immutable accepted version |
 
-Summary and generation request bodies contain only `recipientId`,
-`periodEndInclusive` and `periodDays` (7, 14 or 30). Both operations are
-advertised as JSON in OpenAPI. Authentication uses the existing bearer chain.
+Summary and generation requests wrap those fields in a `summary` object and
+attach request-scoped `credentials` (`providerId`, `model`, `apiKey`). There is
+no server-configured provider: calls without credentials fail closed. Both
+operations are advertised as JSON in OpenAPI. Authentication uses the existing bearer chain.
 The server loads owned recipients, notes, original observations and chronological
 addenda. No client-supplied notes, signals or ownership claims are used. The
 existing signal projection preserves contradictory/unverified medication states.
@@ -23,7 +25,7 @@ Source loading finishes its read transaction before provider work starts.
 A bounded pool limits each provider operation to 40 seconds, including queue
 wait. Summary-plus-plan generation therefore has at most two provider budgets,
 inside the web client's 120-second request budget. Workers only call the
-configured LLM; they never read security context or persist plans. Timeout,
+request-credentialed LLM; they never read security context or persist plans. Timeout,
 malformed output and provider failure return unavailable model content with
 deterministic safety/trends retained. No diagnostics or prompts are logged.
 

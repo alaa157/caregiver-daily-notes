@@ -1,7 +1,9 @@
 import { randomUUID } from 'node:crypto';
 import { expect, test } from '@playwright/test';
+import { liveByokCredentials, seedByokCredentials } from '../live-byok';
 
 const backend = new URL(process.env.CAREGIVER_TEST_API_URL || 'http://127.0.0.1:8080').origin;
+test.skip(!liveByokCredentials(), 'Set CAREGIVER_E2E_BYOK_PROVIDER/_MODEL/_KEY to run live BYOK generation.');
 test.afterEach(async ({ page }) => {
   await page.unrouteAll({ behavior: 'wait' });
 });
@@ -18,6 +20,7 @@ for (const language of ['en', 'ar'] as const) {
     const base = `${backend}/api/recipients/${recipientId}/plans`;
     const note = await request.post(`${backend}/api/notes`, { headers: owner, data: { recipientId, date: '2026-10-26', freeText: 'Live plan source عربي.', fallReported: true } }); expect(note.status()).toBe(201);
     await page.addInitScript((locale) => localStorage.setItem('caregiver-language', locale), language);
+    await seedByokCredentials(page);
     await page.route('**/api/**', async (route) => { const url = new URL(route.request().url()); await route.fulfill({ response: await route.fetch({ url: `${backend}${url.pathname}${url.search}`, maxRedirects: 0 }) }); });
     await page.goto(`/app/notes/plans?recipientId=${recipientId}`); await expect(page).toHaveURL(/\/login$/);
     await page.getByLabel(ar ? 'البريد الإلكتروني' : 'Email address', { exact: true }).fill(email);

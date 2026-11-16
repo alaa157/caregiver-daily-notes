@@ -119,7 +119,7 @@ class SummaryApplicationServiceTest {
         List.of(new SummaryNote("note", END, "routine")), FALLS));
     doThrow(new CancellationException("cancelled")).when(provider).complete(any());
 
-    assertThatThrownBy(() -> new SummaryApplicationService(loader, provider).generate(request))
+    assertThatThrownBy(() -> new SummaryApplicationService(loader, provider).generate(request, credentials()))
         .isInstanceOf(CancellationException.class);
   }
 
@@ -137,9 +137,14 @@ class SummaryApplicationServiceTest {
       when(provider.complete(any())).thenReturn(new LlmResult(LlmStatus.OK,
           "{\"observations\":[{\"text\":\"routine\",\"noteId\":\"note\",\"quote\":\"routine\"}],\"uncertainties\":[]}", null));
     }
-    SummaryResult result = new SummaryApplicationService(loader, provider).generate(request).result();
+    SummaryResult result = new SummaryApplicationService(loader, provider).generate(request, credentials()).result();
     if (mode.equals("no-notes")) verifyNoInteractions(provider);
     return result;
+  }
+
+  private static ProviderCredentials credentials() {
+    return new ProviderCredentials("GEMINI", "https://generativelanguage.googleapis.com",
+        "gemini-3.8-flash", "synthetic-key");
   }
 
   private static SummaryRequest request(int days) {

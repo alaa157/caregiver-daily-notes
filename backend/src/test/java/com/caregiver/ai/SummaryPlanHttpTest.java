@@ -81,7 +81,7 @@ class SummaryPlanHttpTest {
     String excluded = note(LocalDate.parse(start).minusDays(1).toString(), "OUTSIDE_PERIOD", false);
     outOfWindowNoteId = excluded;
     note("2026-10-27", "FUTURE_NOTE", false);
-    call("/api/summaries", owner, request(days)).andExpect(status().isOk()).andExpect(jsonPath("$.summary.aiUnavailable").value(false))
+    call("/api/summaries/byok", owner, summaryByok(days)).andExpect(status().isOk()).andExpect(jsonPath("$.summary.aiUnavailable").value(false))
         .andExpect(jsonPath("$.summary.observations[0].noteId").value(noteId)).andExpect(jsonPath("$.safety.needsDoctorBanner").value(true));
     var capture = org.mockito.ArgumentCaptor.forClass(LlmRequest.class); verify(llm).complete(capture.capture());
     assertThat(capture.getValue().dataBlock()).contains(included, "Source note عربي.").doesNotContain(excluded, "OUTSIDE_PERIOD", "FUTURE_NOTE");
@@ -91,7 +91,7 @@ class SummaryPlanHttpTest {
     outOfWindowNoteId = note("2026-10-18", "OUTSIDE_PERIOD", false);
     summaryMode = "out-of-window";
 
-    call("/api/summaries", owner, request(7)).andExpect(status().isOk())
+    call("/api/summaries/byok", owner, summaryByok(7)).andExpect(status().isOk())
         .andExpect(jsonPath("$.summary.aiUnavailable").value(true))
         .andExpect(jsonPath("$.summary.observations").isEmpty());
 
@@ -100,10 +100,10 @@ class SummaryPlanHttpTest {
     assertThat(capture.getValue().dataBlock()).doesNotContain("OUTSIDE_PERIOD");
   }
 
-  @Test void advertisesTheConcreteSummaryRequestAndResultAsJson() throws Exception {
+  @Test void advertisesTheConcreteByokSummaryRequestAndResultAsJson() throws Exception {
     mvc.perform(get("/v3/api-docs")).andExpect(status().isOk())
-        .andExpect(jsonPath("$.paths['/api/summaries'].post.requestBody.content['application/json'].schema['$ref']").value("#/components/schemas/SummaryRequest"))
-        .andExpect(jsonPath("$.paths['/api/summaries'].post.responses['200'].content['application/json'].schema['$ref']").value("#/components/schemas/SummaryResult"))
+        .andExpect(jsonPath("$.paths['/api/summaries/byok'].post.requestBody.content['application/json'].schema['$ref']").value("#/components/schemas/ByokSummaryRequest"))
+        .andExpect(jsonPath("$.paths['/api/summaries/byok'].post.responses['200'].content['application/json'].schema['$ref']").value("#/components/schemas/SummaryResult"))
         .andExpect(jsonPath("$.components.schemas.GroundedSummary.properties.unavailableReason.enum")
             .value(org.hamcrest.Matchers.containsInAnyOrder("INVALID_KEY", "INVALID_MODEL", "RATE_LIMIT",
                 "TIMEOUT", "PROVIDER_UNAVAILABLE", "INVALID_OUTPUT")));
@@ -114,7 +114,7 @@ class SummaryPlanHttpTest {
     summaryMode = "fallback-reason";
     unavailableReason = reason;
 
-    call("/api/summaries", owner, request(7)).andExpect(status().isOk())
+    call("/api/summaries/byok", owner, summaryByok(7)).andExpect(status().isOk())
         .andExpect(jsonPath("$.summary.aiUnavailable").value(true))
         .andExpect(jsonPath("$.summary.unavailableReason").value(reason.name()))
         .andExpect(jsonPath("$.summary.observations").isEmpty())
@@ -124,14 +124,14 @@ class SummaryPlanHttpTest {
   }
 
   @Test void successfulAndEmptySummariesOmitUnavailableReason() throws Exception {
-    call("/api/summaries", owner, request(7)).andExpect(status().isOk())
+    call("/api/summaries/byok", owner, summaryByok(7)).andExpect(status().isOk())
         .andExpect(jsonPath("$.summary.aiUnavailable").value(false))
         .andExpect(jsonPath("$.summary.unavailableReason").doesNotExist())
         .andExpect(jsonPath("$.safety").exists())
         .andExpect(jsonPath("$.trends").isArray());
 
-    call("/api/summaries", owner, Map.of("recipientId", recipientId,
-        "periodEndInclusive", "2026-09-01", "periodDays", 7))
+    call("/api/summaries/byok", owner, summaryByok(Map.of("recipientId", recipientId,
+        "periodEndInclusive", "2026-09-01", "periodDays", 7)))
         .andExpect(status().isOk())
         .andExpect(jsonPath("$.summary.aiUnavailable").value(false))
         .andExpect(jsonPath("$.summary.unavailableReason").doesNotExist())
@@ -144,7 +144,7 @@ class SummaryPlanHttpTest {
   @ParameterizedTest @ValueSource(strings = {"fallback", "throw", "malformed", "quote"})
   void everyProviderFailureRetainsAuthoritativeSafety(String mode) throws Exception {
     summaryMode = mode;
-    var response = call("/api/summaries", owner, request(7)).andExpect(status().isOk())
+    var response = call("/api/summaries/byok", owner, summaryByok(7)).andExpect(status().isOk())
         .andExpect(jsonPath("$.summary.aiUnavailable").value(true)).andExpect(jsonPath("$.summary.observations").isEmpty())
         .andExpect(jsonPath("$.safety.needsDoctorBanner").value(true));
     assertThat(response.andReturn().getResponse().getContentAsString()).doesNotContain("private provider diagnostic");
@@ -152,7 +152,7 @@ class SummaryPlanHttpTest {
   @Test @DisplayName("returns unavailable summary with no model observations after provider failure")
   void returnsUnavailableSummaryWithNoModelObservationsAfterProviderFailure() throws Exception {
     summaryMode = "throw";
-    var response = call("/api/summaries", owner, request(7)).andExpect(status().isOk())
+    var response = call("/api/summaries/byok", owner, summaryByok(7)).andExpect(status().isOk())
         .andExpect(jsonPath("$.summary.aiUnavailable").value(true))
         .andExpect(jsonPath("$.summary.observations").isEmpty())
         .andExpect(jsonPath("$.safety.needsDoctorBanner").value(true));
@@ -171,7 +171,7 @@ class SummaryPlanHttpTest {
     String otherCaregiver = register();
     reset(llm);
 
-    var response = call("/api/summaries", otherCaregiver, request(7)).andExpect(status().isNotFound());
+    var response = call("/api/summaries/byok", otherCaregiver, summaryByok(7)).andExpect(status().isNotFound());
 
     assertThat(response.andReturn().getResponse().getContentAsString())
         .doesNotContain("Synthetic مستفيد", "Source note عربي.");
@@ -223,18 +223,11 @@ class SummaryPlanHttpTest {
     verify(llm, times(1)).complete(captured.capture());
     assertThat(captured.getValue().credentials()).isNotNull();
   }
-  @Test @DisplayName("keeps non BYOK summary endpoint behavior unchanged")
-  void keepsNonByokSummaryEndpointBehaviorUnchanged() throws Exception {
-    var response = call("/api/summaries", owner, request(7))
-        .andExpect(status().isOk())
-        .andExpect(jsonPath("$.summary.aiUnavailable").value(false))
-        .andExpect(jsonPath("$.summary.observations[0].noteId").value(noteId))
-        .andExpect(jsonPath("$.safety").exists())
-        .andExpect(jsonPath("$.trends").isArray());
-    assertThat(json(response).fieldNames()).toIterable().containsExactlyInAnyOrder("summary", "safety", "trends");
-    var captured = org.mockito.ArgumentCaptor.forClass(LlmRequest.class);
-    verify(llm, times(1)).complete(captured.capture());
-    assertThat(captured.getValue().credentials()).isNull();
+  @Test @DisplayName("server-configured summary and plan routes are removed")
+  void serverConfiguredRoutesAreRemoved() throws Exception {
+    call("/api/summaries", owner, request(7)).andExpect(status().isNotFound());
+    call("/api/plans/generate", owner, request(7)).andExpect(status().isNotFound());
+    verifyNoInteractions(llm);
   }
   @Test @DisplayName("rejects invalid BYOK request fields without echoing credentials")
   void rejectsInvalidByokRequestFieldsWithoutEchoingCredentials() throws Exception {
@@ -358,7 +351,7 @@ class SummaryPlanHttpTest {
   @Test void doesNotGenerateOrPersistAPlanAfterSummaryFailure() throws Exception {
     summaryMode = "throw";
 
-    call("/api/plans/generate", owner, request(7)).andExpect(status().isOk())
+    call("/api/plans/generate/byok", owner, planByok(7)).andExpect(status().isOk())
         .andExpect(jsonPath("$.aiUnavailable").value(true))
         .andExpect(jsonPath("$.plan").isEmpty())
         .andExpect(jsonPath("$.safety.needsDoctorBanner").value(true));
@@ -372,7 +365,7 @@ class SummaryPlanHttpTest {
   @Test void doesNotGenerateAPlanWithoutValidatedObservationEvidence() throws Exception {
     summaryMode = "empty";
 
-    call("/api/plans/generate", owner, request(7)).andExpect(status().isOk())
+    call("/api/plans/generate/byok", owner, planByok(7)).andExpect(status().isOk())
         .andExpect(jsonPath("$.aiUnavailable").value(true))
         .andExpect(jsonPath("$.plan").isEmpty());
 
@@ -385,7 +378,7 @@ class SummaryPlanHttpTest {
     summaryMode = "fallback";
     long rowsBefore = plans.count();
 
-    var response = call("/api/plans/generate", owner, request(7)).andExpect(status().isOk())
+    var response = call("/api/plans/generate/byok", owner, planByok(7)).andExpect(status().isOk())
         .andExpect(jsonPath("$.aiUnavailable").value(true))
         .andExpect(jsonPath("$.plan").isEmpty());
 
@@ -402,7 +395,7 @@ class SummaryPlanHttpTest {
     summaryMode = "quote";
     long rowsBefore = plans.count();
 
-    call("/api/plans/generate", owner, request(7)).andExpect(status().isOk())
+    call("/api/plans/generate/byok", owner, planByok(7)).andExpect(status().isOk())
         .andExpect(jsonPath("$.aiUnavailable").value(true))
         .andExpect(jsonPath("$.plan").isEmpty());
 
@@ -423,7 +416,7 @@ class SummaryPlanHttpTest {
     reset(llm);
     long rowsBefore = plans.count();
 
-    var response = call("/api/plans/generate", owner, request(7, foreignRecipientId))
+    var response = call("/api/plans/generate/byok", owner, planByok(7, foreignRecipientId))
         .andExpect(status().isNotFound());
 
     assertThat(response.andReturn().getResponse().getContentAsString())
@@ -434,12 +427,12 @@ class SummaryPlanHttpTest {
 
   @Test void authenticationOwnershipValidationAndEmptyPeriodsNeverInvokeTheProvider() throws Exception {
     String other = register(); reset(llm);
-    call("/api/summaries", null, request(7)).andExpect(status().isUnauthorized());
-    call("/api/summaries", other, request(7)).andExpect(status().isNotFound());
-    call("/api/plans/generate", other, request(7)).andExpect(status().isNotFound());
-    call("/api/summaries", owner, request(9)).andExpect(status().isUnprocessableEntity());
-    call("/api/summaries", owner, Map.of("recipientId", "invalid", "periodEndInclusive", "2026-10-26", "periodDays", 7)).andExpect(status().isUnprocessableEntity());
-    call("/api/summaries", owner, Map.of("recipientId", recipientId, "periodEndInclusive", "2026-09-01", "periodDays", 7))
+    call("/api/summaries/byok", null, summaryByok(7)).andExpect(status().isUnauthorized());
+    call("/api/summaries/byok", other, summaryByok(7)).andExpect(status().isNotFound());
+    call("/api/plans/generate/byok", other, planByok(7)).andExpect(status().isNotFound());
+    call("/api/summaries/byok", owner, summaryByok(9)).andExpect(status().isBadRequest());
+    call("/api/summaries/byok", owner, summaryByok(Map.of("recipientId", "invalid", "periodEndInclusive", "2026-10-26", "periodDays", 7))).andExpect(status().isUnprocessableEntity());
+    call("/api/summaries/byok", owner, summaryByok(Map.of("recipientId", recipientId, "periodEndInclusive", "2026-09-01", "periodDays", 7)))
         .andExpect(status().isOk())
         .andExpect(jsonPath("$.summary.aiUnavailable").value(false))
         .andExpect(jsonPath("$.summary.observations").isEmpty())
@@ -455,7 +448,7 @@ class SummaryPlanHttpTest {
     Map<String, Object> emptyPeriod = Map.of(
         "recipientId", recipientId, "periodEndInclusive", "2026-09-01", "periodDays", 7);
 
-    call("/api/plans/generate", owner, emptyPeriod).andExpect(status().isOk())
+    call("/api/plans/generate/byok", owner, planByok(emptyPeriod)).andExpect(status().isOk())
         .andExpect(jsonPath("$.aiUnavailable").value(true))
         .andExpect(jsonPath("$.plan").doesNotExist());
 
@@ -496,7 +489,7 @@ class SummaryPlanHttpTest {
   @ParameterizedTest @ValueSource(strings = {"remove", "add", "dose", "schedule", "unknown"})
   void invalidAiMedicationOrCatalogChangesNeverPersist(String mode) throws Exception {
     seedAccepted(); planMode = mode;
-    call("/api/plans/generate", owner, request(7)).andExpect(status().isOk())
+    call("/api/plans/generate/byok", owner, planByok(7)).andExpect(status().isOk())
         .andExpect(jsonPath("$.aiUnavailable").value(true)).andExpect(jsonPath("$.plan").isEmpty())
         .andExpect(jsonPath("$.safety.needsDoctorBanner").value(true));
     assertThat(history().size()).isEqualTo(1);
@@ -521,7 +514,7 @@ class SummaryPlanHttpTest {
 
   @Test void inactiveRecipientsRemainReadableButCannotGenerate() throws Exception {
     mvc.perform(patch("/api/recipients/" + recipientId + "/deactivate").header("Authorization", "Bearer " + owner)).andExpect(status().isOk());
-    reset(llm); call("/api/plans/generate", owner, request(7)).andExpect(status().isConflict()); verifyNoInteractions(llm);
+    reset(llm); call("/api/plans/generate/byok", owner, planByok(7)).andExpect(status().isConflict()); verifyNoInteractions(llm);
   }
 
   private void seedAccepted() {
@@ -530,13 +523,22 @@ class SummaryPlanHttpTest {
     plans.saveAndFlush(new CarePlan(recipients.findById(UUID.fromString(recipientId)).orElseThrow(), 1, PlanStatus.ACCEPTED,
         documents.write(document), "synthetic-summary", null, noteId, PlanSource.AI_GENERATED));
   }
-  private JsonNode generate() throws Exception { return json(call("/api/plans/generate", owner, request(7)).andExpect(status().isOk()).andExpect(jsonPath("$.aiUnavailable").value(false))).get("plan"); }
+  private JsonNode generate() throws Exception { return json(call("/api/plans/generate/byok", owner, planByok(7)).andExpect(status().isOk()).andExpect(jsonPath("$.aiUnavailable").value(false))).get("plan"); }
   private String path(JsonNode plan, String action) { return "/api/recipients/" + recipientId + "/plans/" + plan.path("id").asText() + "/" + action; }
   private Map<String, Object> edit(JsonNode plan, String value) { return Map.of("expectedVersion", plan.path("version").asInt(), "changes", List.of(Map.of("index", 0, "params", Map.of("withinDays", value)))); }
   private Map<String, Object> request(int days) { return request(days, recipientId); }
   private Map<String, Object> request(int days, String targetRecipientId) {
     return Map.of("recipientId", targetRecipientId, "periodEndInclusive", "2026-10-26", "periodDays", days);
   }
+  private Map<String, Object> byok(Map<String, Object> summary) {
+    return Map.of("summary", summary, "credentials",
+        Map.of("providerId", "GEMINI", "model", "gemini-3.8-flash", "apiKey", "synthetic-byok-key"));
+  }
+  private Map<String, Object> summaryByok(int days) { return byok(request(days)); }
+  private Map<String, Object> summaryByok(Map<String, Object> summary) { return byok(summary); }
+  private Map<String, Object> planByok(int days) { return byok(request(days)); }
+  private Map<String, Object> planByok(int days, String targetRecipientId) { return byok(request(days, targetRecipientId)); }
+  private Map<String, Object> planByok(Map<String, Object> summary) { return byok(summary); }
   private JsonNode history() throws Exception { return json(mvc.perform(get("/api/recipients/" + recipientId + "/plans/history").header("Authorization", "Bearer " + owner)).andExpect(status().isOk())); }
   private String note(String date, String text, boolean fall) throws Exception { return json(call("/api/notes", owner, Map.of("recipientId", recipientId, "date", date, "freeText", text, "fallReported", fall))).get("id").asText(); }
   private String register() throws Exception { return json(call("/api/auth/register", null, Map.of("email", "summary-" + UUID.randomUUID() + "@example.com", "password", "Synthetic-password-123" )).andExpect(status().isCreated())).get("token").asText(); }

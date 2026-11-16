@@ -183,7 +183,7 @@ This document records names and behavior verified in the `main` tree. A NOT FOUN
 - No separate `web/src/features/trends/` page/component or standalone trend endpoint was found in the inspected tree.
 - Backend test: `backend/src/test/java/com/caregiver/ai/TrendCalculatorTest.java`.
 
-**Endpoint:** trends are returned as part of `POST /api/summaries` in `SummaryResult`; no dedicated trend endpoint was found.
+**Endpoint:** trends are returned as part of `POST /api/summaries/byok` in `SummaryResult`; no dedicated trend endpoint was found.
 
 **Pattern file:** `backend/src/main/java/com/caregiver/ai/TrendCalculator.java`.
 
@@ -199,7 +199,7 @@ This document records names and behavior verified in the `main` tree. A NOT FOUN
 
 **Backend**
 
-- `backend/src/main/java/com/caregiver/ai/SummaryController.java` — `POST /api/summaries`.
+- `backend/src/main/java/com/caregiver/ai/SummaryController.java` — `POST /api/summaries/byok`.
 - `backend/src/main/java/com/caregiver/ai/SummaryApplicationService.java` — `SummaryApplicationService`.
 - `backend/src/main/java/com/caregiver/ai/SummarySourceLoader.java` — `SummarySourceLoader`.
 - `backend/src/main/java/com/caregiver/ai/SummaryDataBuilder.java` — `SummaryDataBuilder`.
@@ -214,7 +214,7 @@ This document records names and behavior verified in the `main` tree. A NOT FOUN
 - Response DTO: `SummaryResult(summary, safety, trends)`.
 - Tests include `backend/src/test/java/com/caregiver/ai/SummaryServiceTest.java`, `backend/src/test/java/com/caregiver/ai/EvidenceValidatorTest.java`, `backend/src/test/java/com/caregiver/ai/SummaryRequestTest.java`, and `backend/src/test/java/com/caregiver/ai/SummaryPlanHttpTest.java`.
 
-**Endpoint:** `POST /api/summaries` — body `SummaryRequest`; response `SummaryResult`.
+**Endpoint:** `POST /api/summaries/byok` — body `ByokSummaryRequest` (`summary` + request-scoped `credentials`); response `SummaryResult`.
 
 **Pattern file:** `backend/src/main/java/com/caregiver/ai/SummaryApplicationService.java`.
 
@@ -222,10 +222,10 @@ This document records names and behavior verified in the `main` tree. A NOT FOUN
 
 **Found in current code**
 
-- `backend/src/main/java/com/caregiver/ai/LlmClient.java`, `ChatCompletionsLlmClient.java`, `FailoverLlmClient.java`, `LlmRequest.java`, `ProviderDeadline.java`.
-- `backend/src/main/java/com/caregiver/config/LlmProperties.java` — `llm.*` properties; comments identify `GEMINI_API_KEY` and `OPENROUTER_API_KEY` environment variables.
-- `backend/src/main/java/com/caregiver/config/LlmClientConfig.java` — creates a configured primary provider and optional backup provider; returns `FailoverLlmClient`.
-- `backend/src/main/java/com/caregiver/ai/PlanGenerationController.java` — `POST /api/plans/generate`, body `SummaryRequest`; result record `PlanGenerationController.Result(plan, aiUnavailable, safety)`.
+- `backend/src/main/java/com/caregiver/ai/LlmClient.java`, `ChatCompletionsLlmClient.java`, `LlmRequest.java`, `ProviderDeadline.java`, `ProviderCredentials.java`.
+- `backend/src/main/java/com/caregiver/config/LlmProperties.java` — `llm.*` tunables only (timeout, attempts, backoff, token budget); no provider keys or endpoints are configured server-side.
+- `backend/src/main/java/com/caregiver/config/LlmClientConfig.java` — creates a single `ChatCompletionsLlmClient` with no configured provider; every call must carry BYOK credentials or fails closed.
+- `backend/src/main/java/com/caregiver/ai/PlanGenerationController.java` — `POST /api/plans/generate/byok`, body `ByokPlanGenerationRequest`; result record `PlanGenerationController.Result(plan, aiUnavailable, safety)`.
 
 **NOT FOUND (searched `backend/src/main/java/com/caregiver/ai/`, `backend/src/main/java/com/caregiver/config/`, `web/src/api/`, and all `web/src/features/` paths):**
 
@@ -299,7 +299,7 @@ Current implementation instead has provider keys in backend environment configur
 - `POST /api/recipients/{recipientId}/plans/{planId}/accept` → `PlanResponse`.
 - `POST /api/recipients/{recipientId}/plans/{planId}/edit-and-accept` — `EditPlanRequest` → `PlanResponse`.
 - `POST /api/recipients/{recipientId}/plans/{planId}/dismiss` → `PlanResponse`.
-- `POST /api/plans/generate` — `SummaryRequest` → `PlanGenerationController.Result(plan, aiUnavailable, safety)`.
+- `POST /api/plans/generate/byok` — `ByokPlanGenerationRequest` → `PlanGenerationController.Result(plan, aiUnavailable, safety)`.
 
 **Pattern file:** `web/src/features/plans/PlansPage.tsx` for the current read/mutate UI workflow; backend pattern `backend/src/main/java/com/caregiver/plans/PlanController.java`.
 

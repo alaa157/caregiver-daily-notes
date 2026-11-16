@@ -1,7 +1,6 @@
 package com.caregiver.config;
 
 import com.caregiver.ai.ChatCompletionsLlmClient;
-import com.caregiver.ai.FailoverLlmClient;
 import com.caregiver.ai.HttpExchange;
 import com.caregiver.ai.LlmClient;
 import com.caregiver.ai.Sleeper;
@@ -16,9 +15,10 @@ import java.net.http.HttpRequest;
 import java.net.http.HttpResponse;
 
 /**
- * Production LLM wiring: primary Gemini and backup OpenRouter chat clients
- * behind the failover decorator. Keys stay env-only; no test touches the
- * network (beans only construct the clients).
+ * Production LLM wiring: one chat-completions client with no configured
+ * provider. Every request must carry request-scoped BYOK credentials; calls
+ * without them fail closed. No test touches the network (beans only
+ * construct the clients).
  */
 @Configuration
 @EnableConfigurationProperties(LlmProperties.class)
@@ -48,33 +48,16 @@ public class LlmClientConfig {
 
   @Bean
   public LlmClient llmClient(LlmProperties props, HttpExchange exchange, Sleeper sleeper) {
-    var primary = new ChatCompletionsLlmClient(
-        props.baseUrl(),
-        props.model(),
-        props.apiKey(),
+    return new ChatCompletionsLlmClient(
+        "",
+        "",
+        "",
         props.maxTokens(),
-        props.reasoningMaxTokens(),
+        null,
         props.timeout(),
         props.maxAttempts(),
         props.backoffBaseMs(),
         exchange,
         sleeper);
-    // Fail closed with no backup credentials: never send a backup request
-    // without a key. FailoverLlmClient skips a null backup.
-    if (props.backupApiKey() == null || props.backupApiKey().isBlank()) {
-      return new FailoverLlmClient(primary, null);
-    }
-    var backup = new ChatCompletionsLlmClient(
-        props.backupBaseUrl(),
-        props.backupModel(),
-        props.backupApiKey(),
-        props.backupMaxTokens(),
-        props.backupReasoningMaxTokens(),
-        props.timeout(),
-        props.maxAttempts(),
-        props.backoffBaseMs(),
-        exchange,
-        sleeper);
-    return new FailoverLlmClient(primary, backup);
   }
 }

@@ -2,10 +2,12 @@ import { randomUUID } from 'node:crypto';
 import { createRequire } from 'node:module';
 import { expect, test, type Page } from '@playwright/test';
 import { messages, type Language } from '../../i18n/translations';
+import { liveByokCredentials, seedByokCredentials } from '../live-byok';
 
 const require = createRequire(import.meta.url);
 const backend = new URL(process.env.CAREGIVER_TEST_API_URL || 'http://127.0.0.1:8080').origin;
 const date = '2026-10-26';
+test.skip(!liveByokCredentials(), 'Set CAREGIVER_E2E_BYOK_PROVIDER/_MODEL/_KEY to run the live AI journey.');
 
 async function quality(page: Page, language: Language) {
   await expect(page.locator('html')).toHaveAttribute('lang', language);
@@ -44,6 +46,7 @@ for (const initial of ['en', 'ar'] as const) {
     const writes: string[] = [];
     page.on('pageerror', (error) => pageErrors.push(error.message));
     await page.addInitScript((locale) => localStorage.setItem('caregiver-language', locale), initial);
+    await seedByokCredentials(page);
     // Forward unchanged traffic, including public OpenAPI discovery. No mocked
     // DTOs, login tokens, successful writes or safety results are supplied here.
     await page.route(/\/(?:api\/|v3\/api-docs(?:\?|$))/, async (route) => {

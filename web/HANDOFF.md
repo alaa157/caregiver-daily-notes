@@ -34,13 +34,9 @@ These tests create synthetic accounts and records. Use an isolated disposable
 database, never the owner's shared data. H2 is an existing backend test
 dependency; no backend source changes are needed. Use Java 21 and Maven.
 
-From the repository root, start the deterministic provider in one terminal:
-
-```sh
-python web/src/tests/summary-live/synthetic_provider.py
-```
-
-Start the real Spring Boot app in a second terminal:
+Start the real Spring Boot app in one terminal. The backend holds no provider
+keys; AI calls carry per-request BYOK credentials, so no LLM environment
+variables are needed:
 
 ```sh
 JWT_SECRET=disposable-local-smoke-secret-at-least-32-bytes \
@@ -49,19 +45,22 @@ SPRING_DATASOURCE_DRIVER_CLASS_NAME=org.h2.Driver \
 SPRING_DATASOURCE_USERNAME=sa \
 SPRING_DATASOURCE_PASSWORD='' \
 SPRING_FLYWAY_PLACEHOLDER_REPLACEMENT=false \
-LLM_BASE_URL=http://127.0.0.1:8099 \
-LLM_API_KEY= \
-LLM_BACKUP_API_KEY= \
-LLM_MAX_ATTEMPTS=1 \
-GEMINI_API_KEY= \
-OPENROUTER_API_KEY= \
 mvn -f backend/pom.xml test-compile spring-boot:run \
   -Dspring-boot.run.useTestClasspath=true
 ```
 
-The displayed signing value is public and disposable-test-only. Provider
-fixtures return synthetic data over real HTTP; no external AI is contacted.
-Once the backend is listening, run from `web/`:
+The displayed signing value is public and disposable-test-only. Suites that
+generate real AI content additionally need a real provider key supplied through
+the environment (never committed):
+
+```sh
+export CAREGIVER_E2E_BYOK_PROVIDER=OPENAI   # OPENAI | GEMINI | XAI | OPEN_ROUTER
+export CAREGIVER_E2E_BYOK_MODEL=<model id>
+export CAREGIVER_E2E_BYOK_KEY=<api key>
+```
+
+Without those variables the AI-dependent live suites skip; the remaining live
+suites still run. Once the backend is listening, run from `web/`:
 
 ```sh
 CAREGIVER_TEST_API_URL=http://127.0.0.1:8080 npm run test:e2e:live
@@ -96,9 +95,9 @@ product APIs.
 | Note details / date lookup | `GET /api/notes/{id}`, `GET /api/notes/by-recipient/{recipientId}?date=...`; original fields are read-only |
 | Addenda | `GET` / `POST /api/notes/{id}/addenda`; writes send only selected corrections and a separate `Idempotency-Key` |
 | History | `GET /api/notes?from=...&to=...&page=...&size=...` plus optional `recipientId`; reads Spring `Page` fields |
-| Summary discovery | Public `GET /v3/api-docs` without bearer; requires one concrete compatible `SummaryRequest` / `SummaryResult` JSON POST |
-| Summary generation | Currently `POST /api/summaries` with `recipientId`, `periodEndInclusive`, `periodDays` (7, 14, 30); reads independent `summary`, `safety`, `trends` |
-| Generate saved suggestion | `POST /api/plans/generate` with the same three request fields; reads `plan`, `aiUnavailable`, authoritative `safety` |
+| Summary generation | `POST /api/summaries/byok` with `{summary: {recipientId, periodEndInclusive, periodDays}, credentials: {providerId, model, apiKey}}`; reads independent `summary`, `safety`, `trends` |
+| BYOK connection test | `POST /api/ai/byok/connection-test` with `{providerId, model, apiKey}`; used by the AI settings dialog before credentials activate |
+| Generate saved suggestion | `POST /api/plans/generate/byok` with the same `{summary, credentials}` envelope; reads `plan`, `aiUnavailable`, authoritative `safety` |
 | Active plan / history | `GET /api/recipients/{id}/plans/active` and `/history`; only active-plan `404 {code:"NOT_FOUND"}` means no accepted plan |
 | Accept / dismiss | Bodyless `POST /api/recipients/{id}/plans/{planId}/accept` or `/dismiss`; committed active/history snapshots are re-read |
 | Protected edit / acceptance | `POST /api/recipients/{id}/plans/{planId}/edit-and-accept` with `expectedVersion`, indexed `changes[].params`; no medication or ownership fields |
@@ -150,14 +149,17 @@ no credential-pattern hits or test-fixture imports.
 4. For a separate HTTPS backend origin, the owner must provision browser CORS
    for the web origin, JSON, Authorization and Idempotency-Key. The current
    backend does not provision CORS. Rotating the tunnel URL alone is insufficient.
-5. Verify that shared PostgreSQL migrations are applied, a synthetic caregiver
-   can log in, and provider configuration is available server-side. No deployment,
-   shared infrastructure or repository settings are changed by this PR.
+5. Verify that shared PostgreSQL migrations are applied and a synthetic
+   caregiver can log in. AI features additionally require each user to configure
+   their own provider key in the app's AI settings; the backend stores no
+   provider credentials. No deployment, shared infrastructure or repository
+   settings are changed by this PR.
 
-Local integration validates the real application, JWT chain, Flyway and H2 with
-synthetic provider transport. It does not certify the owner's hosted proxy/CORS,
-PostgreSQL concurrency or current external provider availability. Repeat the
-caregiver smoke journey against that environment during owner deployment review.
+Local integration validates the real application, JWT chain, Flyway and H2.
+Live AI suites additionally exercise a real provider through BYOK credentials.
+It does not certify the owner's hosted proxy/CORS, PostgreSQL concurrency or
+current external provider availability. Repeat the caregiver smoke journey
+against that environment during owner deployment review.
 
 Submit for `alaa157` review and merge. Task 9 closes through owner merge of the
 linked PR; this handoff does not self-merge or manually close the assignment.

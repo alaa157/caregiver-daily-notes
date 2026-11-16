@@ -139,12 +139,6 @@ export function createPlansApi(client: ApiClient) {
     return `/api/recipients/${recipientId}/plans`;
   };
   return {
-    async generate(input: SummaryRequest, signal?: AbortSignal): Promise<PlanGeneration> {
-      if (!isSummaryRequest(input)) throw new ApiError(400, null);
-      const result = await client.request<unknown>({ path: '/api/plans/generate', method: 'POST', signal,
-        body: { recipientId: input.recipientId, periodDays: input.periodDays, periodEndInclusive: input.periodEndInclusive } });
-      return readPlanGeneration(result, input);
-    },
     async generateByok(input: SummaryRequest, credentials: ByokCredentials, signal?: AbortSignal): Promise<PlanGeneration> {
       if (!isSummaryRequest(input) || !isValidByokCredentials(credentials)) throw new ApiError(400, null);
       let result: unknown;

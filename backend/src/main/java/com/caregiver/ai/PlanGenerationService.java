@@ -25,31 +25,6 @@ public class PlanGenerationService {
   public PlanGenerationService(SummaryApplicationService summaries, PlanService plans, ProviderDeadline provider, ObjectMapper mapper) {
     this.summaries = summaries; this.plans = plans; this.provider = provider; this.mapper = mapper;
   }
-  public PlanGenerationController.Result generate(SummaryRequest request) {
-    plans.requireGenerationAccess(UUID.fromString(request.recipientId()));
-    var generated = summaries.generate(request); // Authorization and owned-source loading happen first.
-    SummaryResult summary = generated.result();
-    if (summary.summary().aiUnavailable() || summary.summary().observations().isEmpty()) return unavailable(summary.safety());
-    UUID recipientId = UUID.fromString(request.recipientId());
-    PlanResponse accepted = null;
-    try { accepted = plans.latestAcceptedForAi(recipientId); } catch (PlanNotFoundException noAcceptedPlan) { /* First plan. */ }
-    if (accepted != null && accepted.structuredContent() == null) return unavailable(summary.safety());
-    PlanDocument baseline = accepted == null ? new PlanDocument(1, List.of(), List.of()) : accepted.structuredContent();
-    StoredPlanVersion last = accepted == null ? null : new StoredPlanVersion(accepted.id().toString(),
-        new SuggestedPlan(baseline.changes(), baseline.medications(), baseline.medications(), null));
-    String reference = fingerprint(summary);
-    AtomicReference<PlanResponse> saved = new AtomicReference<>();
-    var pipeline = new PlanSuggestionService(provider::complete, (id, suggestion) -> {
-      PlanResponse response = plans.saveGenerated(UUID.fromString(id), suggestion, reference);
-      saved.set(response);
-      return new StoredPlanVersion(response.id().toString(), suggestion);
-    });
-    try {
-      var result = pipeline.suggest(new PlanSuggestionRequest(request.recipientId(), summary.summary(), summary.safety(),
-          generated.notes().stream().collect(Collectors.toMap(SummaryNote::noteId, SummaryNote::text)), last, baseline.medications()));
-      return result.aiUnavailable() ? unavailable(summary.safety()) : new PlanGenerationController.Result(saved.get(), false, summary.safety());
-    } catch (InvalidModelOutputException | ProtectedPlanException invalidSuggestion) { return unavailable(summary.safety()); }
-  }
   public PlanGenerationController.Result generate(ByokPlanGenerationRequest request) {
     SummaryRequest summaryRequest = request.summary();
     ProviderCredentials credentials = request.credentials();

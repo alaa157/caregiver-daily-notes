@@ -1,76 +1,17 @@
 import { describe, expect, it, vi } from 'vitest';
 import { ApiError, createApiClient } from '../lib/api';
-import { createSummaryApi, findSummaryEndpoint, readSummaryResponse, readSummarySafety, retainSafety, SummaryEndpointUnavailable, summaryErrorMessage, type ByokSummaryRequest } from '../api/summary';
+import { createSummaryApi, readSummaryResponse, readSummarySafety, retainSafety, summaryErrorMessage, type ByokSummaryRequest } from '../api/summary';
 import { jsonResponse } from './authFixtures';
-import { summaryFixture, summaryOpenApi, summaryRequest, summaryTestPath } from './summaryFixtures';
+import { summaryFixture, summaryRequest } from './summaryFixtures';
 
 const byokCredentials = { providerId: 'GEMINI', model: 'gemini-test-model', apiKey: 'synthetic-byok-summary-key' } as const;
 const byokRequest: ByokSummaryRequest = { summary: summaryRequest, credentials: byokCredentials };
-
-describe('summary contract and owner-advertised endpoint', () => {
-  it('discovers the single compatible POST from OpenAPI, ignoring foreign server URLs', () => {
-    expect(findSummaryEndpoint({ ...summaryOpenApi(), servers: [{ url: 'https://foreign.invalid' }] })).toBe(summaryTestPath);
-  });
-  it.each(['https://foreign.invalid/api/summary', '//foreign.invalid/summary', '/api/../auth', '/api/summaries/{id}', '/api/summary?token=x', '/api/summary%2fredirect', '/api/a\\b'])('rejects unsafe or templated operation path %s', (path) => {
-    expect(() => findSummaryEndpoint(summaryOpenApi(path))).toThrow(SummaryEndpointUnavailable);
-  });
-  it('does not guess an endpoint when the current backend has no summary controller', () => {
-    expect(() => findSummaryEndpoint({ openapi: '3.0.1', paths: { '/api/notes': { get: {} } } })).toThrow(SummaryEndpointUnavailable);
-  });
-  it('rejects ambiguous operations, external references and incomplete schemas', () => {
-    const document = summaryOpenApi();
-    expect(() => findSummaryEndpoint({ ...document, paths: { ...document.paths, '/api/another': document.paths[summaryTestPath] } })).toThrow();
-    document.paths[summaryTestPath].post.requestBody.content['application/json'].schema.$ref = 'https://foreign.invalid/contract';
-    expect(() => findSummaryEndpoint(document)).toThrow();
-    const incomplete = summaryOpenApi();
-    Reflect.deleteProperty(incomplete.components.schemas.SummaryRequest.properties, 'recipientId');
-    expect(() => findSummaryEndpoint(incomplete)).toThrow();
-  });
-  it('sends only request fields to the advertised endpoint through the existing transport', async () => {
-    const fetcher = vi.fn().mockResolvedValueOnce(jsonResponse(summaryOpenApi())).mockResolvedValueOnce(jsonResponse(summaryFixture()));
-    const api = createSummaryApi(createApiClient({ apiBaseUrl: '' }, fetcher), fetcher);
-    const controller = new AbortController();
-    const result = await api.generate({ ...summaryRequest, caregiverId: 'untrusted', model: 'secret' } as typeof summaryRequest, controller.signal);
-    expect(fetcher.mock.calls[0][0]).toBe('/v3/api-docs');
-    expect(fetcher.mock.calls[1][0]).toBe(summaryTestPath);
-    expect(fetcher.mock.calls[1][1]).toMatchObject({ method: 'POST', signal: controller.signal, cache: 'no-store', credentials: 'omit', redirect: 'error' });
-    expect(JSON.parse(fetcher.mock.calls[1][1].body)).toEqual(summaryRequest);
-    expect(result.safety.needsDoctorBanner).toBe(true);
-  });
-  it.each([7, 14, 30] as const)('supports %s days', async (periodDays) => {
-    const fetcher = vi.fn().mockResolvedValueOnce(jsonResponse(summaryOpenApi())).mockResolvedValueOnce(jsonResponse(summaryFixture()));
-    await createSummaryApi(createApiClient({ apiBaseUrl: '' }, fetcher), fetcher).generate({ ...summaryRequest, periodDays });
-    expect(JSON.parse(fetcher.mock.calls[1][1].body).periodDays).toBe(periodDays);
-  });
-  it.each([{ periodDays: 8 }, { recipientId: '../auth' }, { periodEndInclusive: '2026-02-30' }])('rejects invalid input before any network request: %j', async (change) => {
-    const fetcher = vi.fn();
-    await expect(createSummaryApi(createApiClient({ apiBaseUrl: '' }, fetcher), fetcher).generate({ ...summaryRequest, ...change } as typeof summaryRequest)).rejects.toThrow();
-    expect(fetcher).not.toHaveBeenCalled();
-  });
-  it('stops before POST when the endpoint is missing or a discovery request was cancelled', async () => {
-    const fetcher = vi.fn().mockResolvedValue(jsonResponse({ openapi: '3.0.1', paths: {} }));
-    await expect(createSummaryApi(createApiClient({ apiBaseUrl: '' }, fetcher), fetcher).generate(summaryRequest)).rejects.toThrow(SummaryEndpointUnavailable);
-    expect(fetcher).toHaveBeenCalledTimes(1);
-    const controller = new AbortController(); controller.abort();
-    const late = vi.fn().mockResolvedValue(jsonResponse(summaryOpenApi()));
-    await expect(createSummaryApi(createApiClient({ apiBaseUrl: '' }, late), late).generate(summaryRequest, controller.signal)).rejects.toMatchObject({ name: 'AbortError' });
-    expect(late).toHaveBeenCalledTimes(1);
-  });
-  it('loads public OpenAPI beside an /api runtime base and keeps generation on the authenticated transport', async () => {
-    const fetcher = vi.fn().mockResolvedValueOnce(jsonResponse(summaryOpenApi())).mockResolvedValueOnce(jsonResponse(summaryFixture()));
-    const client = createApiClient({ apiBaseUrl: 'https://backend.example/prefix/api' }, fetcher);
-    await createSummaryApi(client, fetcher).generate(summaryRequest);
-    expect(fetcher.mock.calls[0][0]).toBe('https://backend.example/prefix/v3/api-docs');
-    expect(fetcher.mock.calls[1][0]).toBe('https://backend.example/prefix/api/test-only-summary');
-    expect(fetcher.mock.calls[0][1].headers.has('Authorization')).toBe(false);
-  });
-});
 
 describe('BYOK summary request', () => {
   it('posts summary and credentials to the BYOK route', async () => {
     const fetcher = vi.fn().mockResolvedValueOnce(jsonResponse(summaryFixture()));
     const controller = new AbortController();
-    const result = await createSummaryApi(createApiClient({ apiBaseUrl: '' }, fetcher), fetcher)
+    const result = await createSummaryApi(createApiClient({ apiBaseUrl: '' }, fetcher))
       .generateByok(byokRequest, controller.signal);
 
     expect(fetcher).toHaveBeenCalledTimes(1);
@@ -94,7 +35,7 @@ describe('BYOK summary request', () => {
   it('does not include credentials in summary response parsing', async () => {
     const response = { ...summaryFixture(), credentials: byokCredentials, apiKey: byokCredentials.apiKey };
     const fetcher = vi.fn().mockResolvedValueOnce(jsonResponse(response));
-    const result = await createSummaryApi(createApiClient({ apiBaseUrl: '' }, fetcher), fetcher).generateByok(byokRequest);
+    const result = await createSummaryApi(createApiClient({ apiBaseUrl: '' }, fetcher)).generateByok(byokRequest);
 
     expect(result).toEqual(readSummaryResponse(summaryFixture()));
     expect(Object.keys(result).sort()).toEqual(['invalidContent', 'safety', 'summary', 'trends']);
@@ -111,7 +52,7 @@ describe('BYOK summary request', () => {
     const fetcher = vi.fn().mockResolvedValueOnce(jsonResponse({ ...rawProviderDetails, safety }, 504));
     let failure: unknown;
     try {
-      await createSummaryApi(createApiClient({ apiBaseUrl: '' }, fetcher), fetcher).generateByok(byokRequest);
+      await createSummaryApi(createApiClient({ apiBaseUrl: '' }, fetcher)).generateByok(byokRequest);
     } catch (error) {
       failure = error;
     }
@@ -136,7 +77,7 @@ describe('BYOK summary request', () => {
 
   it('rejects invalid summary input before network activity', async () => {
     const fetcher = vi.fn();
-    const api = createSummaryApi(createApiClient({ apiBaseUrl: '' }, fetcher), fetcher);
+    const api = createSummaryApi(createApiClient({ apiBaseUrl: '' }, fetcher));
     const invalidSummaries = [
       { ...summaryRequest, recipientId: '../auth' },
       { ...summaryRequest, periodEndInclusive: '2026-02-30' },
@@ -151,7 +92,7 @@ describe('BYOK summary request', () => {
 
   it('rejects unusable credentials before network activity', async () => {
     const fetcher = vi.fn();
-    const api = createSummaryApi(createApiClient({ apiBaseUrl: '' }, fetcher), fetcher);
+    const api = createSummaryApi(createApiClient({ apiBaseUrl: '' }, fetcher));
     const invalidCredentials = [
       { ...byokCredentials, providerId: 'ANTHROPIC' },
       { ...byokCredentials, model: '  ' },
@@ -174,7 +115,7 @@ describe('BYOK summary request', () => {
       else signal?.addEventListener('abort', () => reject(new DOMException('Cancelled.', 'AbortError')), { once: true });
     }));
     const controller = new AbortController();
-    const pending = createSummaryApi(createApiClient({ apiBaseUrl: '' }, fetcher as typeof fetch), fetcher as typeof fetch)
+    const pending = createSummaryApi(createApiClient({ apiBaseUrl: '' }, fetcher as typeof fetch))
       .generateByok(byokRequest, controller.signal);
 
     expect(fetcher).toHaveBeenCalledTimes(1);

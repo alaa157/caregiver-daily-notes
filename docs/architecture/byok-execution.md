@@ -3,120 +3,79 @@
 ## 1. Purpose and scope
 
 This document defines the architecture boundary for caregiver-supplied
-provider credentials in the Web application. It is an architecture contract for
-future work, not evidence that caregiver BYOK is implemented.
-
-The intended feature lets a caregiver supply their own provider API key for a
-specific AI request. The key must not be stored in the application's backend
-database or in browser persistence. This document distinguishes verified
-behavior on `main` from the target request lifecycle and from Android-only
-reference material.
+provider credentials. AI summaries and care-plan suggestions are available
+only through bring-your-own-key (BYOK): the backend holds no provider
+credentials and no server-configured provider path exists.
 
 ## 2. Current implementation
 
-On the current `main` branch:
+On `main`:
 
-- [`LlmRequest.java`](../../backend/src/main/java/com/caregiver/ai/LlmRequest.java)
-  contains `systemPrompt` and `dataBlock`; it has no caregiver-supplied API
-  key.
+- [`ProviderCredentials.java`](../../backend/src/main/java/com/caregiver/ai/ProviderCredentials.java)
+  carries request-scoped `providerId`, `model` and `apiKey`; it is validated
+  against an approved provider catalogue and HTTPS base URLs.
+- [`ByokSummaryRequest.java`](../../backend/src/main/java/com/caregiver/ai/ByokSummaryRequest.java)
+  and [`ByokPlanGenerationRequest.java`](../../backend/src/main/java/com/caregiver/ai/ByokPlanGenerationRequest.java)
+  wrap the summary fields plus `credentials`.
+- [`SummaryController.java`](../../backend/src/main/java/com/caregiver/ai/SummaryController.java)
+  exposes `POST /api/summaries/byok`; [`PlanGenerationController.java`](../../backend/src/main/java/com/caregiver/ai/PlanGenerationController.java)
+  exposes `POST /api/plans/generate/byok`; `AiConnectionTestController` exposes
+  `POST /api/ai/byok/connection-test`.
 - [`ChatCompletionsLlmClient.java`](../../backend/src/main/java/com/caregiver/ai/ChatCompletionsLlmClient.java)
-  uses instance-configured provider settings, including base URL, model, and
-  API key.
+  uses the request-scoped credentials for endpoint, model and key. Calls
+  without credentials fail closed; there is no configured fallback provider.
 - [`LlmProperties.java`](../../backend/src/main/java/com/caregiver/config/LlmProperties.java)
-  reads backend provider configuration, including the `GEMINI_API_KEY` and
-  `OPENROUTER_API_KEY` environment variables.
-- [`LlmClientConfig.java`](../../backend/src/main/java/com/caregiver/config/LlmClientConfig.java)
-  wires configured primary and optional backup clients through
-  `FailoverLlmClient`.
-- The [code map](code-map.md) records that no caregiver BYOK settings page or
-  per-request credential-management flow was found in the Web application.
+  holds only shared client tunables (timeout, attempt count, backoff, token
+  budget). No `GEMINI_API_KEY`, `OPENROUTER_API_KEY`, `LLM_API_KEY` or
+  `LLM_BASE_URL` configuration exists.
+- Web UI: caregivers configure provider/model/key in Settings → AI
+  (`web/src/features/ai/`), gated by a connection test before activation.
+  Android: Settings → AI stores keys in the Android Keystore.
 
-**Caregiver BYOK is not implemented on the current `main` branch.** Environment
-configured backend provider credentials are not caregiver BYOK and must not be
-described as such.
+## 3. Request lifecycle
 
-## 3. Target request lifecycle
-
-The following is target architecture, not current behavior:
-
-1. The caregiver opens the future BYOK settings interface.
-2. The caregiver selects a supported provider and enters their API key.
-3. The Web UI holds the entered key in memory only.
-4. The caregiver may perform a connection test.
-5. A connection test sends a fixed, harmless probe containing no caregiver
-   notes, recipient information, or patient data.
-6. When the caregiver requests a summary or plan, the Web application includes
-   the required BYOK credential in that individual authenticated request.
-7. The backend authenticates the caregiver and verifies ownership of the
-   requested recipient.
-8. The backend selects the corresponding provider adapter and uses the
-   supplied credential for that request.
-9. The provider request completes.
-10. The backend discards the request-scoped credential after the request
-    lifecycle ends.
-11. The UI clears its in-memory credential when the caregiver explicitly
-    removes it or leaves the relevant settings context, according to the
-    eventual UI lifecycle design.
-
-This contract does not define endpoint names, request DTO names, or controller
-names. Those details belong to the implementation issues.
+1. The caregiver opens Settings → AI, selects a supported provider, enters
+   their model and API key.
+2. The UI holds the entered key in memory only; nothing is persisted by the
+   backend.
+3. The caregiver runs a connection test, which sends a fixed, harmless probe
+   containing no caregiver notes, recipient information, or patient data.
+4. When the caregiver requests a summary or plan, the app includes the BYOK
+   credential in that individual authenticated request.
+5. The backend authenticates the caregiver and verifies ownership of the
+   requested recipient before any provider call.
+6. The backend invokes the provider adapter with the supplied credential.
+7. The credential is discarded when the request lifecycle ends.
 
 ## 4. Credential security and non-persistence rules
 
 A caregiver-supplied API key must never be:
 
 - Written to PostgreSQL.
-- Written to `localStorage`.
-- Written to `sessionStorage`.
-- Written to IndexedDB.
-- Written to browser cookies.
-- Included in CSV exports.
-- Included in PDF exports.
-- Included in audit metadata.
-- Included in application logs.
-- Included in exception messages or error responses.
-- Returned by any API response.
-- Included in analytics or telemetry payloads.
+- Written to `localStorage`, `sessionStorage`, IndexedDB or browser cookies.
+- Included in CSV/PDF exports, audit metadata, application logs, exception
+  messages, error responses, API responses, analytics or telemetry payloads.
 
-Additionally:
-
-- Never log request headers containing authorization credentials.
-- Never log serialized request bodies if they contain a credential.
-- Never include the key in debug output.
-- Never expose the key through a backend DTO or response object.
-- Error messages must not echo the supplied key.
-- Key removal must clear the UI's in-memory copy.
-- Backend request handling must not retain credentials beyond the lifetime
-  required to complete the request.
-
-The target request lifecycle requires the credential to accompany an individual
-authenticated request, but this document does not prescribe its transport
-representation. Any future request ingress handling must remain narrowly
-request-scoped and must not expose, persist, log, or echo the key.
+Additionally, request headers and serialized bodies containing credentials
+must never be logged, and error messages must not echo the supplied key.
 
 ## 5. Authentication and ownership boundary
 
-BYOK does not replace normal application authentication. Every future summary
-or plan request must still:
-
-- Authenticate the caregiver using the application's existing authentication
-  mechanism.
-- Verify that the requested recipient belongs to the authenticated caregiver.
-- Prevent one caregiver from using another caregiver's recipient identifier
-  to access data.
-- Avoid treating possession of a provider API key as proof of caregiver
-  identity or recipient ownership.
-
-The provider credential authorizes provider access only. It does not authorize
-application data access. These are target requirements, not claims that a BYOK
-feature currently enforces them.
+BYOK does not replace normal application authentication. Every summary or
+plan request still authenticates the caregiver and verifies that the
+requested recipient belongs to them. Possession of a provider API key is not
+proof of caregiver identity or recipient ownership; authentication and
+ownership checks run before any provider call.
 
 ## 6. Provider reference catalogue
 
-The following are **Android reference values** from the read-only
-`feat/standalone-byok-ai` branch. They document that branch's catalogue only;
-they do not imply that all five providers are supported by the current backend
-or guarantee that the provider offerings remain current.
+Backend-supported provider IDs (validated in `ProviderCredentials`):
+`OPENAI`, `GEMINI`, `XAI`, `OPEN_ROUTER`, all over the OpenAI-compatible
+chat-completions endpoint shape. The Android branch's catalogue also lists
+`ANTHROPIC`, which the backend does not support; do not assume Android and
+backend provider sets are identical.
+
+Android reference values from `feat/standalone-byok-ai`:
 
 | Provider ID | Display name | Default model | Default base URL |
 |---|---|---|---|
@@ -126,65 +85,37 @@ or guarantee that the provider offerings remain current.
 | `XAI` | xAI | `grok-4.7` | `https://api.x.ai/v1` |
 | `OPEN_ROUTER` | OpenRouter | `openai/gpt-4o-mini` | `https://openrouter.ai/api/v1` |
 
-Provider IDs and base URL defaults are defined by Android's
-[`AiProvider` in `LlmModels.kt`](https://github.com/alaa157/caregiver-daily-notes/blob/feat/standalone-byok-ai/android/app/src/main/java/com/caregiver/mobile/ai/LlmModels.kt).
-The Android model suggestions are in
-[`AiModelCatalog.kt`](https://github.com/alaa157/caregiver-daily-notes/blob/feat/standalone-byok-ai/android/app/src/main/java/com/caregiver/mobile/ai/AiModelCatalog.kt).
-These files are reference material only; no Android implementation code is
-copied or ported by this issue.
+These Android files are reference material only; no Android implementation
+code is copied or ported by the backend.
 
 ## 7. Provider adapter boundary
 
-The current backend has an OpenAI-compatible
+The backend has one OpenAI-compatible
 [`ChatCompletionsLlmClient`](../../backend/src/main/java/com/caregiver/ai/ChatCompletionsLlmClient.java).
-Anthropic must use its own native adapter. Do not route Anthropic requests
-through the existing OpenAI-compatible client and assume compatibility.
-
-Provider-specific request formats, authentication headers, and response
-parsing belong inside the corresponding provider adapter. This issue does not
-implement adapters.
+Provider-specific request formats and response parsing belong inside provider
+adapters; a non-OpenAI-compatible provider would require its own adapter.
 
 ## 8. Android security reference versus browser security
 
-The Android reference's
-[`AiKeyStore.kt`](https://github.com/alaa157/caregiver-daily-notes/blob/feat/standalone-byok-ai/android/app/src/main/java/com/caregiver/mobile/ai/AiKeyStore.kt)
-uses encrypted key storage backed by Android Keystore. That platform-specific
-implementation is reference material only.
-
-It does not authorize storing browser BYOK credentials in `localStorage`,
+Android's `AiKeyStore.kt` uses encrypted storage backed by Android Keystore.
+That platform-specific implementation is reference material only and does not
+authorize storing browser BYOK credentials in `localStorage`,
 `sessionStorage`, IndexedDB, cookies, or any other browser persistence
-mechanism. Android Keystore encryption cannot be reused directly in a browser
-and is not browser storage guidance.
+mechanism. The web app keeps credentials in memory only for the request
+lifetime.
 
-## 9. Implementation dependencies and status
+## 9. Status
 
-The related future work is tracked in [#103](https://github.com/alaa157/caregiver-daily-notes/issues/103),
-[#104](https://github.com/alaa157/caregiver-daily-notes/issues/104),
-[#122](https://github.com/alaa157/caregiver-daily-notes/issues/122),
-[#123](https://github.com/alaa157/caregiver-daily-notes/issues/123),
-[#125](https://github.com/alaa157/caregiver-daily-notes/issues/125),
-[#126](https://github.com/alaa157/caregiver-daily-notes/issues/126), and
-[#127](https://github.com/alaa157/caregiver-daily-notes/issues/127). Their
-titles and current status are maintained by GitHub; this document does not mark
-any of them complete.
-
-Do not describe the target BYOK lifecycle as implemented until the relevant
-implementation work has been completed and merged. Documentation alone does
-not complete an implementation issue.
+BYOK is implemented for summaries, plan suggestions and the connection test
+on `main`, for both Web and Android. Live E2E coverage requires explicit
+`CAREGIVER_E2E_BYOK_PROVIDER` / `_MODEL` / `_KEY` environment variables and
+skips otherwise (see `web/HANDOFF.md`).
 
 ## 10. Non-goals
 
-This issue does not:
+This boundary does not include:
 
-- Implement a BYOK settings page.
-- Implement a connection-test endpoint.
-- Add credential fields to request DTOs.
-- Add provider adapters.
-- Add database tables.
-- Add API endpoints.
-- Change the current provider configuration.
-- Change summary generation.
-- Change plan generation.
-- Modify Android.
-- Add browser key persistence.
-- Implement key encryption or key storage.
+- Server-side or platform-funded provider keys.
+- Browser or backend persistence of caregiver keys.
+- Anthropic support in the backend adapter set.
+- Changes to Android implementation code.
