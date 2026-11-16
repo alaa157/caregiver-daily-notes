@@ -224,7 +224,14 @@ class OpenAiCompatibleLlmClient(
                     val message = choice?.get("message")?.jsonObject
                     val content = message?.get("content")?.jsonPrimitive?.contentOrNull
                     val finishReason = choice?.get("finish_reason")?.jsonPrimitive?.contentOrNull
-                    if (finishReason == "content_filter" || message?.get("refusal") != null) {
+                    // "refusal" is part of the OpenAI schema, so a provider
+                    // that normalises to it always sends the field — as JSON
+                    // null on an ordinary reply. Reading it as a JsonElement
+                    // sees JsonNull, which is not a Kotlin null, so every
+                    // good answer looked like a safety block. contentOrNull
+                    // unwraps JsonNull, the way the content above does.
+                    if (finishReason == "content_filter" ||
+                        message?.get("refusal")?.jsonPrimitive?.contentOrNull != null) {
                         return LlmResult(LlmStatus.FALLBACK, "", "blocked_safety", resp.code)
                     }
                     if (content.isNullOrBlank()) {
