@@ -6,8 +6,15 @@ import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.CoroutineDispatcher
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.Flow
+import kotlinx.coroutines.flow.MutableSharedFlow
+import kotlinx.coroutines.flow.combine
+import kotlinx.coroutines.flow.distinctUntilChanged
+import kotlinx.coroutines.flow.emptyFlow
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.flow.flowOf
+import kotlinx.coroutines.flow.map
+import kotlinx.coroutines.flow.merge
+import kotlinx.coroutines.flow.onStart
 import kotlinx.coroutines.withContext
 
 /**
@@ -58,6 +65,12 @@ class AccountManager(
     private val closeAccountDatabase: suspend (accountId: String) -> Unit = {},
     private val cancelAccountWork: suspend () -> Unit = {},
     private val onActiveAccountChanged: suspend (String?) -> Unit = {},
+    /**
+     * Emits whenever the accounts table changes. Wire this to Room's
+     * `InvalidationTracker` for the `accounts` table (owned by #601/#582's
+     * database); empty by default so the flows still emit their initial value.
+     */
+    private val accountsChanged: Flow<Unit> = emptyFlow(),
     /** The cost a rehash upgrades to; defaults to the current KDF cost. */
     private val currentIterations: Int = PasswordHasher.DEFAULT_ITERATIONS,
     /** One real PBKDF2 against a throwaway salt, to keep unknown-email timing equal. */
@@ -78,6 +91,20 @@ class AccountManager(
     init {
         require(currentIterations > 0) { "currentIterations must be positive" }
     }
+
+    /**
+     * Re-emission signal for [activeAccount] and [listAccounts]. Combines Room
+     * invalidations with mutations made through this manager, and fires once
+     * on collection so readers always get an initial value.
+     */
+    private val localChanges = MutableSharedFlow<Unit>(extraBufferCapacity = 16)
+
+    private val changes: Flow<Unit> = merge(accountsChanged, localChanges).onStart { emit(Unit) }
+
+    private fun notifyChanged() {
+        localChanges.tryEmit(Unit)
+    }
+
     /**
      * Creates one local account and returns its credential-free [Account].
      * Validation order is fixed: name, email, password, duplicate check,
@@ -122,6 +149,7 @@ class AccountManager(
             // A concurrent sign-up won the unique-index race.
             return Result.failure(AccountException(AccountError.EmailTaken))
         }
+        notifyChanged()
 
         setActiveAccount(id)
         openAccountDatabase(id)
@@ -178,6 +206,7 @@ class AccountManager(
                 }
             }
         }
+        notifyChanged() // lastUsedAt and any rehash write just changed the row
 
         setActiveAccount(row.id)
         openAccountDatabase(row.id)
@@ -187,6 +216,21 @@ class AccountManager(
     /** The active id, or null when signed out. Backed by the shared DataStore. */
     val activeAccountId: Flow<String?> =
         sessionStore?.activeAccountId ?: flowOf(null)
+
+    /**
+     * The credential-free account for the active id, or null when no id is
+     * stored or its row has gone. Re-emits on id changes and table changes.
+     */
+    val activeAccount: Flow<Account?> =
+        combine(activeAccountId, changes) { id, _ -> id }
+            .map { id -> id?.let { dao.findById(it)?.toAccount() } }
+            // The id and the table can change in the same operation (signUp);
+            // collapse the duplicate emission that combine would otherwise make.
+            .distinctUntilChanged()
+
+    /** All accounts, most recently used first, with no credential material. */
+    fun listAccounts(): Flow<List<Account>> =
+        changes.map { dao.listAll().map { entity -> entity.toAccount() } }
 
     /** Persists the active id — null clears it — and notifies observers. */
     suspend fun setActiveAccount(id: String?) {
