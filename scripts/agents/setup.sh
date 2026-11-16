@@ -44,8 +44,14 @@ done
 for L in $LANES; do
   W="$LANES_DIR/$L"
   [ -d "$W" ] || continue
-  grep -qxF 'local.properties' "$W/.git/info/exclude" 2>/dev/null \
-    || printf '\nlocal.properties\nLANE.md\n' >> "$W/.git/info/exclude"
+  EXCLUDE="$(git -C "$W" rev-parse --git-path info/exclude)"
+  case "$EXCLUDE" in
+    /*) ;;
+    *) EXCLUDE="$W/$EXCLUDE" ;;
+  esac
+  mkdir -p "$(dirname "$EXCLUDE")"
+  grep -qxF 'local.properties' "$EXCLUDE" 2>/dev/null \
+    || printf '\nlocal.properties\nLANE.md\n' >> "$EXCLUDE"
 done
 
 echo
