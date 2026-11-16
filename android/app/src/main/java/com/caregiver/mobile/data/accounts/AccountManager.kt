@@ -261,6 +261,51 @@ class AccountManager(
         }
     }
 
+    /**
+     * Switches the active account in the one safe order. The target must exist
+     * before anything is torn down, and no database write happens between
+     * closing the old database and opening the new one. If opening the new
+     * database fails, the previous id is restored and its database reopened
+     * so the app never points at a closed database.
+     */
+    suspend fun switchAccount(id: String): Result<Unit> {
+        val previous = activeAccountId.first()
+        // 1. Same-account request changes nothing at all.
+        if (previous == id) return Result.success(Unit)
+
+        // 2. Resolve the target before cancelling or closing anything.
+        if (dao.findById(id) == null) {
+            return Result.failure(AccountException(AccountError.AccountNotFound))
+        }
+
+        // 3-4. Stop scoped work and close the old database.
+        cancelAccountWork()
+        if (previous != null) closeAccountDatabase(previous)
+
+        // 5. Persist the new id — DataStore only, no per-account DB write.
+        setActiveAccount(id)
+
+        // 6. Open the new database; roll back on failure.
+        try {
+            openAccountDatabase(id)
+        } catch (e: CancellationException) {
+            throw e
+        } catch (e: Exception) {
+            try {
+                setActiveAccount(previous)
+                if (previous != null) openAccountDatabase(previous)
+            } catch (_: Exception) {
+                // Best effort: never mask the original open failure.
+            }
+            return Result.failure(e)
+        }
+
+        // 7. Only now, on the open new database, update its lastUsedAt.
+        dao.updateLastUsed(id, clock())
+        notifyChanged()
+        return Result.success(Unit)
+    }
+
     companion object {
         const val MAX_DISPLAY_NAME_LENGTH = 80
         /** Fixed throwaway salt for the dummy hash; never stored anywhere. */
