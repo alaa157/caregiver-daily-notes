@@ -6,11 +6,21 @@ import org.junit.Assert.assertTrue
 import org.junit.Test
 
 /**
- * #587 source-level guard. Hash and salt values must never be compared with a
- * short-circuiting operator: [MessageDigest.isEqual][java.security.MessageDigest.isEqual]
- * is the single sanctioned primitive, used in [PasswordHasher.verify]. This
- * test reads the checked-in sources so a future `==` / `equals` / `contentEquals`
- * regression fails in CI instead of relying on a reviewer to run a manual grep.
+ * #587 source-level guard + #604 logging audit.
+ *
+ * ## #587
+ * Hash and salt values must never be compared with a short-circuiting operator:
+ * [MessageDigest.isEqual][java.security.MessageDigest.isEqual] is the single
+ * sanctioned primitive, used in [PasswordHasher.verify]. This test reads the
+ * checked-in sources so a future `==` / `equals` / `contentEquals` regression
+ * fails in CI instead of relying on a reviewer to run a manual grep.
+ *
+ * ## #604
+ * Credential material (password, hash, salt) must never reach a log or crash
+ * report. This test scans `data/accounts/` for `Log.` or `println` statements
+ * that interpolate credential fields, and asserts that `AccountEntity` and
+ * `HashedPassword` redact their sensitive fields in `toString()`. Exception
+ * messages are also scanned.
  *
  * Only `src/main/java/.../data/accounts` is scanned — the one package that
  * handles secrets. Test sources and generated code are out of scope.
@@ -50,6 +60,82 @@ class NoInsecureHashComparisonTest {
                     throw AssertionError("${file.name} compares a hash/salt with == or != : ${line.trim()}")
                 }
             }
+        }
+    }
+
+    // ── #604: no credential material in logs or crash reports ───────────────
+
+    @Test
+    fun accountEntityToStringRedactsCredentials() {
+        val entityFile = File(locateAccountsMainDir(), "AccountEntity.kt")
+        assertTrue("AccountEntity.kt must exist", entityFile.exists())
+        val source = stripComments(entityFile.readText())
+
+        assertTrue("toString must be overridden", "override fun toString()" in source)
+        val toStringBlock = source.substringAfter("override fun toString()")
+            .substringBefore("}")
+        assertFalse("toString must not interpolate passwordHash",
+            "passwordHash" in toStringBlock)
+        assertFalse("toString must not interpolate salt",
+            "salt" in toStringBlock)
+        assertFalse("toString must not interpolate kdfIterations",
+            "kdfIterations" in toStringBlock)
+    }
+
+    @Test
+    fun hashedPasswordToStringRedactsTheHash() {
+        val hasherFile = passwordHasherSource()
+        val source = stripComments(hasherFile.readText())
+
+        assertTrue("HashedPassword.toString must be overridden",
+            "override fun toString()" in source)
+        val toStringBlock = source.substringAfter("override fun toString()")
+            .substringBefore("}")
+        assertTrue("toString must redact the hash",
+            "redacted" in toStringBlock.toLowerCase())
+        assertFalse("toString must not interpolate the raw hash field",
+            "hash=" in toStringBlock)
+        assertFalse("toString must not interpolate the raw salt field",
+            "salt=" in toStringBlock)
+    }
+
+    @Test
+    fun noLogStatementsInterpolateCredentialFields() {
+        for (file in accountsMainSources()) {
+            val source = stripComments(file.readText())
+            val lines = source.lines()
+            lines.forEachIndexed { index, line ->
+                if ("Log." in line || "println(" in line) {
+                    assertFalse(
+                        "${file.name}:${index + 1} must not log password/hash/salt",
+                        listOf("password", "hash", "salt").any { field ->
+                            "$$field" in line || "\$$field" in line
+                        }
+                    )
+                }
+            }
+        }
+    }
+
+    @Test
+    fun exceptionMessagesDoNotContainCredentialMaterial() {
+        val hasherFile = passwordHasherSource()
+        val source = stripComments(hasherFile.readText())
+        val requireLines = source.lines()
+            .filter { "require(" in it || "IllegalArgumentException(" in it }
+        requireLines.forEach { line ->
+            assertFalse(
+                "require message must not contain password",
+                "password" in line.lowercase()
+            )
+            assertFalse(
+                "require message must not contain hash",
+                "hash" in line.lowercase()
+            )
+            assertFalse(
+                "require message must not contain salt",
+                "salt" in line.lowercase()
+            )
         }
     }
 
