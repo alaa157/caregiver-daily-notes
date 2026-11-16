@@ -53,7 +53,6 @@ import androidx.compose.ui.unit.dp
 import androidx.navigation.NavController
 import com.caregiver.mobile.AppGraph
 import com.caregiver.mobile.R
-import com.caregiver.mobile.core.navigation.AppDestinations
 import com.caregiver.mobile.core.theme.CaregiverColors
 import com.caregiver.mobile.core.theme.ColorPalettes
 import com.caregiver.mobile.core.theme.THEME_MODE_DARK
@@ -67,6 +66,7 @@ import com.caregiver.mobile.data.api.UrlProblem
 import com.caregiver.mobile.data.backup.AndroidBackupDocumentIo
 import com.caregiver.mobile.data.csv.AndroidCsvDocumentIo
 import com.caregiver.mobile.presentation.auth.RegisterAccount
+import com.caregiver.mobile.presentation.auth.navigateAfterAccountSwitch
 import com.caregiver.mobile.presentation.common.AppTopBar
 import com.caregiver.mobile.presentation.common.AppDimens
 import com.caregiver.mobile.presentation.common.CaregiverSettingsGroup
@@ -128,11 +128,7 @@ fun SettingsScreen(
             onCreated = { account ->
                 showAddAccount = false
                 onAccountCreated?.invoke(account)
-                if (!navController.popBackStack(AppDestinations.Home.base, inclusive = false)) {
-                    navController.navigate(AppDestinations.Home.base) {
-                        popUpTo(AppDestinations.Home.base) { inclusive = true }
-                    }
-                }
+                navController.navigateAfterAccountSwitch()
             },
         )
         return
