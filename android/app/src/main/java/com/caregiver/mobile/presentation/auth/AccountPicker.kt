@@ -115,7 +115,7 @@ private fun AccountPickerRow(
     val rowDescription = buildString {
         append(account.displayName)
         append(", ")
-        append(account.email)
+        append(Bidi.isolate(account.email))
         if (isActive) {
             append(", ")
             append(activeLabel)
