@@ -179,6 +179,53 @@ class OpenAiCompatibleLlmClientTest {
     }
 
     @Test
+    fun aNullRefusalFieldIsNotASafetyBlock() {
+        // OpenAI's schema always carries "refusal", and a provider that
+        // normalises to it sends it as null on an ordinary reply. The field
+        // being present must not read as a refusal: the answer is a normal
+        // one and the summary must still be generated from it.
+        server.start()
+        server.enqueue(
+            MockResponse().setBody(
+                """{"choices":[{"message":{"role":"assistant","content":"hello","refusal":null},"finish_reason":"stop"}]}""",
+            ),
+        )
+        val client = OpenAiCompatibleLlmClient(server.url("/").toString().trimEnd('/'), "m", "key")
+        val res = kotlinx.coroutines.runBlocking { client.complete(LlmRequest("sys", "data")) }
+        assertEquals(LlmStatus.OK, res.status)
+        assertEquals("hello", res.text)
+    }
+
+    @Test
+    fun aRealRefusalIsASafetyBlock() {
+        // The other half of the fix: a genuine refusal still blocks.
+        server.start()
+        server.enqueue(
+            MockResponse().setBody(
+                """{"choices":[{"message":{"role":"assistant","content":null,"refusal":"I cannot help with that"},"finish_reason":"stop"}]}""",
+            ),
+        )
+        val client = OpenAiCompatibleLlmClient(server.url("/").toString().trimEnd('/'), "m", "key")
+        val res = kotlinx.coroutines.runBlocking { client.complete(LlmRequest("sys", "data")) }
+        assertEquals(LlmStatus.FALLBACK, res.status)
+        assertEquals("blocked_safety", res.error)
+    }
+
+    @Test
+    fun aContentFilterFinishReasonIsASafetyBlock() {
+        server.start()
+        server.enqueue(
+            MockResponse().setBody(
+                """{"choices":[{"message":{"role":"assistant","content":"partial","refusal":null},"finish_reason":"content_filter"}]}""",
+            ),
+        )
+        val client = OpenAiCompatibleLlmClient(server.url("/").toString().trimEnd('/'), "m", "key")
+        val res = kotlinx.coroutines.runBlocking { client.complete(LlmRequest("sys", "data")) }
+        assertEquals(LlmStatus.FALLBACK, res.status)
+        assertEquals("blocked_safety", res.error)
+    }
+
+    @Test
     fun theRequestAsksForAUsableTokenBudget() {
         // 1024 tokens is not enough for six observations with their quotes.
         server.start()
