@@ -286,7 +286,7 @@ fun SummaryResultScreen(
             graph.auth,
             null,
             periodDays,
-            AiKeyStore(graph.context),
+            AiKeyStore(graph.context, graph.activeAccountIdFlow),
             graph.llmClientFactory,
             language = language,
             initialEnd = initialEnd,
@@ -316,12 +316,12 @@ fun SummaryResultScreen(
         androidx.compose.runtime.mutableStateOf<AiProvider?>(null)
     }
     consentProvider.value?.let { provider ->
-        val model = AiKeyStore(graph.context).model(provider) ?: provider.defaultModel
+        val model = kotlinx.coroutines.runBlocking { AiKeyStore(graph.context, graph.activeAccountIdFlow).model(provider) } ?: provider.defaultModel
         AiConsentDialog(
             providerName = provider.displayName,
             dataUseNoticeRes = AiModelCatalog.dataUseNotice(provider, model)?.stringRes(),
             onAccept = {
-                AiKeyStore(graph.context).setConsentGiven(provider)
+                kotlinx.coroutines.runBlocking { AiKeyStore(graph.context, graph.activeAccountIdFlow).setConsentGiven(provider) }
                 consentProvider.value = null
                 vm.suggestPlan()
             },
@@ -409,8 +409,8 @@ fun SummaryResultScreen(
                 PreviousSummaryResult(s.last, s.code, navController)
             }
             is SummaryState.NeedsConsent -> {
-                val consentStore = AiKeyStore(graph.context)
-                val consentModel = consentStore.model(s.provider) ?: s.provider.defaultModel
+                val consentStore = AiKeyStore(graph.context, graph.activeAccountIdFlow)
+                val consentModel = kotlinx.coroutines.runBlocking { consentStore.model(s.provider) } ?: s.provider.defaultModel
                 AiConsentDialog(
                     providerName = s.provider.displayName,
                     modelName = consentModel,
@@ -425,12 +425,14 @@ fun SummaryResultScreen(
                 showingSaved = showingSaved,
                 onGenerateNew = vm::refresh,
                 onSuggestPlan = {
-                    val store = AiKeyStore(graph.context)
-                    val provider = store.selectedProvider()
-                    if (!store.consentGiven(provider)) {
-                        consentProvider.value = provider
-                    } else {
-                        vm.suggestPlan()
+                    kotlinx.coroutines.runBlocking {
+                        val store = AiKeyStore(graph.context, graph.activeAccountIdFlow)
+                        val provider = store.selectedProvider()
+                        if (!store.consentGiven(provider)) {
+                            consentProvider.value = provider
+                        } else {
+                            vm.suggestPlan()
+                        }
                     }
                 },
                 suggesting = vm.suggesting.collectAsStateWithLifecycle().value,
