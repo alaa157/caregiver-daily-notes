@@ -18,6 +18,7 @@ ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)"
 CONF="$ROOT/scripts/agents/lanes.conf"
 REPO="${GUARD_REPO:-alaa157/caregiver-daily-notes}"
 LANES_DIR="${LANES_DIR:-$HOME/agents/lanes}"
+BASE_BRANCH="${BASE_BRANCH:-feat/standalone-byok-ai}"
 MARKER="<!-- lane-claim -->"
 
 die() { echo "GUARD: $*" >&2; exit 1; }
@@ -72,8 +73,8 @@ cmd_owns() {
 
 cmd_verify() {
   local lane="$1" wt="$LANES_DIR/$1" bad=0
-  git -C "$wt" fetch origin feat/standalone-byok-ai -q 2>/dev/null
-  local base; base=$(git -C "$wt" merge-base HEAD origin/feat/standalone-byok-ai)
+  git -C "$wt" fetch origin "$BASE_BRANCH" -q 2>/dev/null
+  local base; base=$(git -C "$wt" merge-base HEAD "origin/$BASE_BRANCH")
   while IFS= read -r path; do
     [ -z "$path" ] && continue
     local owner; owner=$(owner_of "$path")
@@ -93,6 +94,9 @@ cmd_claim() {
   local lane="$1" issue="$2" holder
   holder=$(gh issue view "$issue" --repo "$REPO" --json comments \
             --jq "[.comments[] | select(.body | contains(\"$MARKER\"))] | last | .body // \"\"" 2>/dev/null)
+  case "$holder" in
+    *"released by"*) holder="" ;;
+  esac
   if [ -n "$holder" ]; then
     local h; h=$(printf '%s' "$holder" | grep -oP 'lane-\K[a-d]' | head -1)
     [ "$h" = "$lane" ] && { echo "already held by $lane"; return 0; }

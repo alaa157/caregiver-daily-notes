@@ -5,6 +5,7 @@ set -uo pipefail
 ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)"
 CONF="$ROOT/scripts/agents/lanes.conf"
 LANES_DIR="${LANES_DIR:-$HOME/agents/lanes}"
+BASE_BRANCH="${BASE_BRANCH:-feat/standalone-byok-ai}"
 lane="${1:?usage: brief.sh <lane>}"
 
 machine=$(awk -F'|' -v l="$lane" '$1==l{print $2; exit}' "$CONF")
