@@ -59,6 +59,7 @@ import com.caregiver.mobile.core.theme.THEME_MODE_DARK
 import com.caregiver.mobile.core.theme.THEME_MODE_LIGHT
 import com.caregiver.mobile.core.theme.THEME_MODE_SYSTEM
 import com.caregiver.mobile.data.SettingsStore
+import com.caregiver.mobile.data.accounts.Account
 import com.caregiver.mobile.data.api.ApiClient
 import com.caregiver.mobile.data.api.BaseUrlCheck
 import com.caregiver.mobile.data.api.UrlProblem
@@ -75,7 +76,14 @@ import kotlinx.coroutines.launch
 
 @OptIn(ExperimentalLayoutApi::class)
 @Composable
-fun SettingsScreen(graph: AppGraph, navController: NavController) {
+fun SettingsScreen(
+    graph: AppGraph,
+    navController: NavController,
+    activeAccount: Account? = null,
+    onSwitchAccount: (() -> Unit)? = null,
+    onAddAccount: (() -> Unit)? = null,
+    onRemoveAccount: (() -> Unit)? = null,
+) {
     val scope = rememberCoroutineScope()
     val activity = LocalContext.current as? Activity
 
@@ -248,6 +256,14 @@ fun SettingsScreen(graph: AppGraph, navController: NavController) {
                     ),
                 ),
             )
+            activeAccount?.let { account ->
+                AccountSettingsSection(
+                    account = account,
+                    onSwitch = { onSwitchAccount?.invoke() },
+                    onAdd = { onAddAccount?.invoke() },
+                    onRemove = { onRemoveAccount?.invoke() },
+                )
+            }
         }
 
         // Application-specific: About. The About row keeps the version as its

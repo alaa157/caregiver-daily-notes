@@ -804,4 +804,5 @@
     <string name="migration_claim_body">We found existing notes on this device. Move them into your account to keep them safe.</string>
     <string name="migration_claim_cta">Continue</string>
     <string name="migration_failed">Could not move your existing data. You can try again later.</string>
+    <string name="settings_account">Account</string>
 </resources>
