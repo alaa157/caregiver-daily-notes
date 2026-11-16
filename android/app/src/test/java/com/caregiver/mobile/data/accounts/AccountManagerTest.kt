@@ -1007,6 +1007,141 @@ class AccountManagerTest {
         }
     }
 
+    @OptIn(ExperimentalCoroutinesApi::class)
+    @Test
+    fun activeAccountRestoresAfterProcessDeath() = runTest {
+        val file = File.createTempFile("death-active-test", ".preferences_pb")
+        try {
+            val dataStore = PreferenceDataStoreFactory.create(
+                scope = TestScope(UnconfinedTestDispatcher()),
+            ) { file }
+            val dao = FakeAccountDao()
+            val first = AccountManager(
+                dao = dao,
+                hasher = PasswordHasher(iterations = 10),
+                sessionStore = SessionStore(dataStore),
+            )
+            assertTrue(first.signUp("Amina", "amina@example.com", "goodpass1").isSuccess)
+            val id = dao.listAll().single().id
+
+            // Process death: recreate the store and manager over the same
+            // persisted DataStore and the same accounts data.
+            val recreated = AccountManager(
+                dao = dao,
+                hasher = PasswordHasher(iterations = 10),
+                sessionStore = SessionStore(dataStore),
+            )
+            recreated.restoreActiveAccount()
+
+            assertEquals(id, recreated.activeAccountId.first())
+            assertEquals(id, recreated.activeAccount.first()!!.id)
+        } finally {
+            file.delete()
+        }
+    }
+
+    @OptIn(ExperimentalCoroutinesApi::class)
+    @Test
+    fun aRemovedAccountDoesNotReappearAfterRestart() = runTest {
+        val file = File.createTempFile("death-removed-test", ".preferences_pb")
+        try {
+            val dataStore = PreferenceDataStoreFactory.create(
+                scope = TestScope(UnconfinedTestDispatcher()),
+            ) { file }
+            val dao = FakeAccountDao()
+            val first = AccountManager(
+                dao = dao,
+                hasher = PasswordHasher(iterations = 10),
+                sessionStore = SessionStore(dataStore),
+            )
+            assertTrue(first.signUp("Amina", "amina@example.com", "goodpass1").isSuccess)
+            val activeId = dao.findByEmail("amina@example.com")!!.id
+            val removed = seedAccount(Harness(dao = dao), 10, id = "gone", email = "gone@example.com")
+            assertTrue(first.removeAccount(removed.id).isSuccess)
+
+            val recreated = AccountManager(
+                dao = dao,
+                hasher = PasswordHasher(iterations = 10),
+                sessionStore = SessionStore(dataStore),
+            )
+            recreated.restoreActiveAccount()
+
+            assertEquals(setOf(activeId), recreated.listAccounts().first().map { it.id }.toSet())
+            assertFalse(recreated.listAccounts().first().any { it.id == removed.id })
+        } finally {
+            file.delete()
+        }
+    }
+
+    @OptIn(ExperimentalCoroutinesApi::class)
+    @Test
+    fun aHalfCompletedSwitchDoesNotPointAtAClosedDatabaseAfterRestart() = runTest {
+        val file = File.createTempFile("death-switch-test", ".preferences_pb")
+        val events = mutableListOf<String>()
+        try {
+            val dataStore = PreferenceDataStoreFactory.create(
+                scope = TestScope(UnconfinedTestDispatcher()),
+            ) { file }
+            val dao = FakeAccountDao()
+            dao.rows["old"] = AccountEntity("old", "old@example.com", "Old", "h", "s", 10, FIXED_NOW, FIXED_NOW)
+            dao.rows["next"] = AccountEntity("next", "next@example.com", "Next", "h", "s", 10, FIXED_NOW, FIXED_NOW)
+            val store = SessionStore(dataStore)
+            store.setActiveAccountId("old")
+
+            val failing = AccountManager(
+                dao = dao,
+                hasher = PasswordHasher(iterations = 10),
+                sessionStore = store,
+                closeAccountDatabase = { events += "close:$it" },
+                openAccountDatabase = { id ->
+                    events += "open:$id"
+                    if (id == "next") throw IllegalStateException("cannot open new database")
+                },
+            )
+            assertTrue(failing.switchAccount("next").isFailure)
+
+            // Restart: the rollback must have left the stored id on the old,
+            // still-open account, so a fresh open targets the right database.
+            val recreated = AccountManager(
+                dao = dao,
+                hasher = PasswordHasher(iterations = 10),
+                sessionStore = SessionStore(dataStore),
+            )
+            recreated.restoreActiveAccount()
+
+            assertEquals("old", recreated.activeAccountId.first())
+            assertEquals("old", recreated.activeAccount.first()!!.id)
+            assertEquals("open:old", events.last()) // previous account reopened on rollback
+        } finally {
+            file.delete()
+        }
+    }
+
+    @OptIn(ExperimentalCoroutinesApi::class)
+    @Test
+    fun restartWithAStaleActiveIdDoesNotCrash() = runTest {
+        val file = File.createTempFile("death-stale-test", ".preferences_pb")
+        try {
+            val dataStore = PreferenceDataStoreFactory.create(
+                scope = TestScope(UnconfinedTestDispatcher()),
+            ) { file }
+            val store = SessionStore(dataStore)
+            store.setActiveAccountId("ghost-account") // no such row anywhere
+
+            val recreated = AccountManager(
+                dao = FakeAccountDao(),
+                hasher = PasswordHasher(iterations = 10),
+                sessionStore = SessionStore(dataStore),
+            )
+            recreated.restoreActiveAccount() // must not throw
+
+            assertNull(recreated.activeAccountId.first())
+            assertNull(recreated.activeAccount.first())
+        } finally {
+            file.delete()
+        }
+    }
+
     @Test
     fun managerSourceHasNoLoggingOfSecrets() {
         val source = locateManagerSource().readText()
