@@ -1,0 +1,151 @@
+#!/usr/bin/env bash
+# guard — lane isolation for parallel agents across TWO machines.
+#
+# Ownership is global (scripts/agents/lanes.conf). Claims live in GitHub so
+# both machines see them. The Gradle lock is per-machine, because two boxes
+# cannot share a flock.
+#
+#   guard check <lane>            worktree clean, on its lane branch
+#   guard owns <lane> <path>      exit 0 owned, 1 other lane's, 2 unowned
+#   guard verify <lane>           fail if lane touched a file it does not own
+#   guard claim <lane> <issue>    exclusive claim, enforced via GitHub
+#   guard release <lane> <issue>
+#   guard first <lane>            the next issue this lane should take
+#   guard status                  lanes, claims, machine
+set -uo pipefail
+
+ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)"
+CONF="$ROOT/scripts/agents/lanes.conf"
+REPO="${GUARD_REPO:-alaa157/caregiver-daily-notes}"
+LANES_DIR="${LANES_DIR:-$HOME/agents/lanes}"
+MARKER="<!-- lane-claim -->"
+
+die() { echo "GUARD: $*" >&2; exit 1; }
+
+machine_id() {
+  if [ -n "${AGENT_MACHINE:-}" ]; then echo "$AGENT_MACHINE"; return; fi
+  if [ -f "$HOME/agents/machine-id" ]; then cat "$HOME/agents/machine-id"; return; fi
+  echo "unknown"
+}
+
+# lane|machine|path -> prints owner lane of a path, or nothing
+owner_of() {
+  local path="$1" lane m glob
+  while IFS='|' read -r lane m glob; do
+    [[ -z "$lane" || "$lane" == \#* ]] && continue
+    if [[ "$glob" == */ ]]; then
+      [[ "$path" == "$glob"* ]] && { echo "$lane"; return; }
+    else
+      [[ "$path" == "$glob" ]] && { echo "$lane"; return; }
+    fi
+  done < "$CONF"
+}
+
+machine_of() {
+  local lane="$1" l m glob
+  while IFS='|' read -r l m glob; do
+    [[ -z "$l" || "$l" == \#* ]] && continue
+    [ "$l" = "$lane" ] && { echo "$m"; return; }
+  done < "$CONF"
+}
+
+cmd_check() {
+  local lane="$1" wt="$LANES_DIR/$1"
+  [ -d "$wt" ] || die "lane $lane has no worktree at $wt"
+  local br; br=$(git -C "$wt" branch --show-current)
+  [ "$br" = "lane/$lane" ] || die "lane $lane is on '$br', expected 'lane/$lane'"
+  [ -f "$wt/local.properties" ] || die "lane $lane missing local.properties"
+  local want; want=$(machine_of "$lane")
+  local have; have=$(machine_id)
+  if [ "$have" != "unknown" ] && [ "$want" != "shared" ] && [ "$want" != "$have" ]; then
+    die "lane $lane belongs to machine $want, this is $have"
+  fi
+  echo "OK lane $lane @ $br ($(git -C "$wt" rev-parse --short HEAD)) machine=$have"
+}
+
+cmd_owns() {
+  local lane="$1" path="$2" owner; owner=$(owner_of "$path")
+  if [ "$owner" = "$lane" ]; then echo "OWNED by $lane: $path"; return 0; fi
+  if [ -n "$owner" ]; then echo "DENIED: $path belongs to lane $owner"; return 1; fi
+  echo "UNOWNED: $path (no lane claims it — do not edit, report it)"; return 2
+}
+
+cmd_verify() {
+  local lane="$1" wt="$LANES_DIR/$1" bad=0
+  git -C "$wt" fetch origin feat/standalone-byok-ai -q 2>/dev/null
+  local base; base=$(git -C "$wt" merge-base HEAD origin/feat/standalone-byok-ai)
+  while IFS= read -r path; do
+    [ -z "$path" ] && continue
+    local owner; owner=$(owner_of "$path")
+    if [ "$owner" != "$lane" ]; then
+      echo "VIOLATION lane $lane touched $path (owner: ${owner:-none})" >&2
+      bad=$((bad+1))
+    fi
+  done < <(git -C "$wt" diff --name-only "$base" HEAD 2>/dev/null
+           git -C "$wt" diff --name-only 2>/dev/null
+           git -C "$wt" ls-files --others --exclude-standard 2>/dev/null)
+  [ "$bad" -gt 0 ] && die "$bad ownership violation(s) in lane $lane"
+  echo "OK lane $lane: every changed file is owned"
+}
+
+# Claims are GitHub comments, so both machines see them.
+cmd_claim() {
+  local lane="$1" issue="$2" holder
+  holder=$(gh issue view "$issue" --repo "$REPO" --json comments \
+            --jq "[.comments[] | select(.body | contains(\"$MARKER\"))] | last | .body // \"\"" 2>/dev/null)
+  if [ -n "$holder" ]; then
+    local h; h=$(printf '%s' "$holder" | grep -oP 'lane-\K[a-d]' | head -1)
+    [ "$h" = "$lane" ] && { echo "already held by $lane"; return 0; }
+    die "issue #$issue already claimed by lane ${h:-unknown}"
+  fi
+  gh issue comment "$issue" --repo "$REPO" \
+     --body "$MARKER
+claimed by lane-$lane on machine $(machine_id) at $(date -u +%Y-%m-%dT%H:%M:%SZ)" >/dev/null \
+     || die "could not post claim for #$issue"
+  echo "claimed #$issue -> lane $lane"
+}
+
+cmd_release() {
+  local lane="$1" issue="$2"
+  gh issue edit "$issue" --repo "$REPO" --remove-label "lane-$lane" >/dev/null 2>&1
+  gh issue comment "$issue" --repo "$REPO" \
+     --body "$MARKER
+released by lane-$lane on machine $(machine_id) at $(date -u +%Y-%m-%dT%H:%M:%SZ)" >/dev/null 2>&1
+  echo "released #$issue"
+}
+
+cmd_first() {
+  local lane="$1"
+  gh issue list --repo "$REPO" --state open --label "lane-$lane" --limit 100 \
+     --json number,title --jq 'sort_by(.number) | .[0] | "#\(.number) \(.title)"' 2>/dev/null \
+     || die "could not list issues for lane $lane"
+}
+
+cmd_status() {
+  echo "machine: $(machine_id)"
+  echo "=== lanes"
+  for L in a b c d; do
+    local wt="$LANES_DIR/$L" m
+    m=$(machine_of "$L")
+    if [ -d "$wt" ]; then
+      echo "  $L (machine $m): $(git -C "$wt" branch --show-current) $(git -C "$wt" rev-parse --short HEAD) dirty=$(git -C "$wt" status --porcelain | wc -l)"
+    else
+      echo "  $L (machine $m): no worktree here"
+    fi
+  done
+  echo "=== open issues per lane"
+  for L in a b c d; do
+    printf "  lane-%s: " "$L"; cmd_first "$L"
+  done
+}
+
+case "${1:-}" in
+  check)   shift; cmd_check "$@" ;;
+  owns)    shift; cmd_owns "$@" ;;
+  verify)  shift; cmd_verify "$@" ;;
+  claim)   shift; cmd_claim "$@" ;;
+  release) shift; cmd_release "$@" ;;
+  first)   shift; cmd_first "$@" ;;
+  status)  cmd_status ;;
+  *) echo "usage: guard {check|owns|verify|claim|release|first|status} ..." >&2; exit 2 ;;
+esac

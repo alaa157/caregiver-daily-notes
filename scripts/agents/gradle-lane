@@ -1,0 +1,35 @@
+#!/usr/bin/env bash
+# gradle-lane <lane> <gradle args...>
+#
+# Serializes Gradle WITHIN this machine and caps heap. Two machines cannot
+# share a lock, so the lock is per-machine by design: each box runs at most
+# one build at a time. Cross-machine contention does not exist — separate
+# boxes, separate CPUs, separate RAM.
+#
+# Refuses to build if the lane touched a file it does not own.
+set -uo pipefail
+
+ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)"
+LANES_DIR="${LANES_DIR:-$HOME/agents/lanes}"
+LOGS="${AGENT_LOGS:-$HOME/agents/logs}"
+lane="${1:?usage: gradle-lane <lane> <args...>}"; shift
+wt="$LANES_DIR/$lane"
+[ -d "$wt" ] || { echo "no worktree for lane $lane at $wt" >&2; exit 1; }
+
+mkdir -p "$LOGS"
+log="$LOGS/$lane-gradle.log"
+lock="$LOGS/.gradle-$lane.lock"
+
+"$ROOT/scripts/agents/guard" verify "$lane" || { echo "refusing to build: ownership violation" >&2; exit 1; }
+
+echo "[$(date +%H:%M:%S)] lane $lane waiting for gradle lock" | tee -a "$log"
+exec 9>"$lock"
+flock 9
+echo "[$(date +%H:%M:%S)] lane $lane building: $*" | tee -a "$log"
+cd "$wt/android"
+GRADLE_OPTS="-Xmx900m -XX:MaxMetaspaceSize=384m -Dorg.gradle.daemon=false -Dkotlin.daemon.jvm.options=-Xmx512m" \
+  ./gradlew --no-daemon --max-workers=1 "$@" 2>&1 | tee -a "$log"
+rc=${PIPESTATUS[0]}
+echo "[$(date +%H:%M:%S)] lane $lane exit=$rc" | tee -a "$log"
+flock -u 9
+exit $rc
