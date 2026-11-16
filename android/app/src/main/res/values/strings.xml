@@ -798,6 +798,9 @@
     <string name="account_add">Add account</string>
     <string name="account_remove">Remove account</string>
     <string name="account_remove_confirm_body">This removes %1$s and its data from this device. This cannot be undone.</string>
+    <string name="account_remove_dialog_title">Remove account?</string>
+    <string name="account_remove_dialog_body">This permanently removes %1$s (%2$s) and deletes this account\'s recipients, notes, care plans, saved summaries, AI keys, and exports from this device. This cannot be undone.</string>
+    <string name="account_remove_confirm">Remove</string>
     <string name="account_cannot_remove_active">You cannot remove the account you are using. Switch to another account first.</string>
     <string name="account_active_marker">Active</string>
     <string name="migration_claim_title">Claim your data</string>

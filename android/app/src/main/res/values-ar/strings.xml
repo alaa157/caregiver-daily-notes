@@ -810,6 +810,9 @@
     <string name="account_add">إضافة حساب</string>
     <string name="account_remove">إزالة الحساب</string>
     <string name="account_remove_confirm_body">سيؤدي هذا إلى إزالة %1$s وبياناته من هذا الجهاز. لا يمكن التراجع عن ذلك.</string>
+    <string name="account_remove_dialog_title">إزالة الحساب؟</string>
+    <string name="account_remove_dialog_body">سيؤدي هذا إلى إزالة %1$s (%2$s) نهائياً وحذف المستلمين والملاحظات وخطط الرعاية والملخصات المحفوظة ومفاتيح الذكاء الاصطناعي والتصديرات الخاصة بهذا الحساب من هذا الجهاز. لا يمكن التراجع عن ذلك.</string>
+    <string name="account_remove_confirm">إزالة</string>
     <string name="account_cannot_remove_active">لا يمكنك إزالة الحساب الذي تستخدمه. بدّل إلى حساب آخر أولاً.</string>
     <string name="account_active_marker">نشط</string>
     <string name="migration_claim_title">استرجاع بياناتك</string>
