@@ -2,6 +2,13 @@ package com.caregiver.mobile.data
 
 import androidx.datastore.preferences.core.PreferenceDataStoreFactory
 import com.caregiver.mobile.core.network.TokenHolder
+import com.caregiver.mobile.data.accounts.AccountDao
+import com.caregiver.mobile.data.accounts.AccountEntity
+import com.caregiver.mobile.data.accounts.AccountError
+import com.caregiver.mobile.data.accounts.AccountException
+import com.caregiver.mobile.data.accounts.AccountManager
+import com.caregiver.mobile.data.accounts.PasswordHasher
+import com.caregiver.mobile.data.accounts.PasswordProblem
 import com.caregiver.mobile.data.api.AuthResponse
 import com.caregiver.mobile.data.api.LoginRequest
 import java.io.File
@@ -13,6 +20,8 @@ import kotlinx.coroutines.test.UnconfinedTestDispatcher
 import kotlinx.coroutines.test.runTest
 import org.junit.After
 import org.junit.Assert.assertEquals
+import org.junit.Assert.assertFalse
+import org.junit.Assert.assertNotNull
 import org.junit.Assert.assertNull
 import org.junit.Assert.assertTrue
 import org.junit.Assert.fail
@@ -130,5 +139,102 @@ class AuthRepositoryTest {
         assertNull(settings.token.first())
         assertNull(tokens.token)
         assertNull(settings.email.first())
+    }
+
+    // ── #598: AccountError -> SignInResult mapping ─────────────────────────
+
+    @Test
+    fun everyAccountErrorVariantHasAnExplicitMapping() {
+        assertEquals(SignInResult.InvalidCredentials, AccountError.InvalidCredentials.toSignInResult())
+        assertEquals(SignInResult.Rejected("EMAIL_TAKEN", "Email is already registered."), AccountError.EmailTaken.toSignInResult())
+        assertEquals(SignInResult.Rejected("WEAK_PASSWORD", "TOO_SHORT"), AccountError.WeakPassword(PasswordProblem.TooShort).toSignInResult())
+        assertEquals(SignInResult.Rejected("WEAK_PASSWORD", "TOO_LONG"), AccountError.WeakPassword(PasswordProblem.TooLong).toSignInResult())
+        assertEquals(SignInResult.Rejected("WEAK_PASSWORD", "MISSING_LETTER"), AccountError.WeakPassword(PasswordProblem.MissingLetter).toSignInResult())
+        assertEquals(SignInResult.Rejected("WEAK_PASSWORD", "MISSING_DIGIT"), AccountError.WeakPassword(PasswordProblem.MissingDigit).toSignInResult())
+        assertEquals(SignInResult.Rejected("WEAK_PASSWORD", "ONLY_WHITESPACE"), AccountError.WeakPassword(PasswordProblem.OnlyWhitespace).toSignInResult())
+        assertEquals(SignInResult.Rejected("INVALID_EMAIL", "Enter a valid email address."), AccountError.InvalidEmail.toSignInResult())
+        assertEquals(SignInResult.Rejected("ACCOUNT_NOT_FOUND", "Account not found."), AccountError.AccountNotFound.toSignInResult())
+        assertEquals(SignInResult.Rejected("CANNOT_REMOVE_ACTIVE", "The active account cannot be removed."), AccountError.CannotRemoveActive.toSignInResult())
+    }
+
+    @Test
+    fun signInResultTypeIsUnchanged() {
+        // The four existing variants still construct with the original shapes.
+        val variants = listOf<SignInResult>(
+            SignInResult.SignedIn,
+            SignInResult.InvalidCredentials,
+            SignInResult.Rejected("CODE", "message"),
+            SignInResult.Unreachable,
+        )
+        assertEquals(4, variants.size)
+    }
+
+    @Test
+    fun serverModeTwoArgSignUpStillDelegatesWithoutAName() = runTest {
+        var capturedEmail: String? = null
+        var capturedPassword: String? = null
+        fakeAuth.registerHandler = { request ->
+            capturedEmail = request.email
+            capturedPassword = request.password
+            AuthResponse("tok")
+        }
+
+        val result = repository.signUp("  Ali@Example.COM ", "pw")
+
+        assertEquals(SignInResult.SignedIn, result)
+        assertEquals("ali@example.com", capturedEmail)
+        assertEquals("pw", capturedPassword)
+    }
+
+    @Test
+    fun localTokenIsAnOpaqueHandleNotACredential() {
+        val token = AuthRepository.localToken("acc-123")
+
+        assertEquals("local:acc-123", token)
+        assertFalse(token.contains("goodpass1"))
+        assertFalse(token.contains("hash"))
+        assertFalse(token.contains("salt"))
+    }
+
+    @Test
+    fun localModeRegisterSignInAndDuplicateAllMapCorrectly() = runTest {
+        val dao = InMemoryAccountDao()
+        val manager = AccountManager(dao = dao, hasher = PasswordHasher(iterations = 10))
+        val localRepository = AuthRepository(FakeBackendApis(FakeAuthApi()), settings, tokens, accountManager = manager)
+
+        assertEquals(SignInResult.SignedIn, localRepository.signUp("Amina", "amina@example.com", "goodpass1"))
+        val accountId = dao.rows.values.single().id
+        assertEquals(AuthRepository.localToken(accountId), settings.token.first())
+        assertTrue(settings.token.first()!!.startsWith("local:"))
+
+        tokens.token = null
+        assertEquals(SignInResult.SignedIn, localRepository.signIn("  AMINA@EXAMPLE.COM ", "goodpass1"))
+        assertNotNull(tokens.token)
+
+        assertEquals(SignInResult.InvalidCredentials, localRepository.signIn("amina@example.com", "wrongpass1"))
+        assertEquals(
+            SignInResult.Rejected("EMAIL_TAKEN", "Email is already registered."),
+            localRepository.signUp("Other", "amina@example.com", "goodpass1"),
+        )
+    }
+
+    /** Minimal in-memory DAO for the local-mode wiring test. */
+    private class InMemoryAccountDao : AccountDao {
+        val rows = linkedMapOf<String, AccountEntity>()
+
+        override suspend fun insert(account: AccountEntity) {
+            check(rows.values.none { it.email == account.email }) { "duplicate email" }
+            rows[account.id] = account
+        }
+
+        override suspend fun findByEmail(email: String): AccountEntity? = rows.values.firstOrNull { it.email == email }
+        override suspend fun findById(id: String): AccountEntity? = rows[id]
+        override suspend fun listAll(): List<AccountEntity> = rows.values.toList()
+        override suspend fun updateLastUsed(id: String, lastUsedAt: Long): Int {
+            val row = rows[id] ?: return 0
+            rows[id] = row.copy(lastUsedAt = lastUsedAt)
+            return 1
+        }
+        override suspend fun deleteById(id: String): Int = if (rows.remove(id) != null) 1 else 0
     }
 }
