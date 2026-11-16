@@ -1,5 +1,6 @@
 package com.caregiver.mobile.data.accounts
 
+import java.security.MessageDigest
 import java.security.SecureRandom
 import java.util.Base64
 import javax.crypto.SecretKeyFactory
@@ -35,8 +36,11 @@ data class HashedPassword(
  *
  * [verify] deliberately uses the iteration count handed to it, not this
  * object's configured cost: re-deriving at a newer cost would reject every
- * older account. Constant-time comparison is out of scope (#587) — this class
- * only performs the plain equality check needed to answer the question.
+ * older account. The derived key is compared to the stored hash with
+ * [MessageDigest.isEqual] over the *decoded bytes* — a constant-time routine,
+ * never a short-circuiting equality check — so the comparison cannot leak the
+ * hash through timing. This is the single place any hash/salt comparison
+ * happens; NoInsecureHashComparisonTest guards the source against regressions.
  */
 class PasswordHasher(
     private val iterations: Int = DEFAULT_ITERATIONS,
@@ -73,8 +77,9 @@ class PasswordHasher(
             if (saltBytes.size < SALT_BYTES) return false
             val expected = Base64.getDecoder().decode(hash)
             val actual = derive(password, saltBytes, iterations)
-            // Plain equality only; #587 replaces this with a constant-time compare.
-            expected.contentEquals(actual)
+            // Constant-time, decoded-byte comparison. Both sides are byte
+            // arrays; if either failed to decode we already returned false.
+            MessageDigest.isEqual(expected, actual)
         } catch (_: IllegalArgumentException) {
             false
         } catch (_: java.security.GeneralSecurityException) {
