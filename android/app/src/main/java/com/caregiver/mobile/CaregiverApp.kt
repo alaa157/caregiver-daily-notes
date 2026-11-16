@@ -169,16 +169,16 @@ private class LocalAccountAuthApi(
     private val tokens: TokenHolder,
 ) : AuthApi {
     override suspend fun login(body: LoginRequest): AuthResponse =
-        when (val result = manager.signIn(body.email, body.password)) {
-            is Result.Success -> issue(result.value.id)
-            is Result.Failure -> throw result.exceptionOrNull().asHttpError()
-        }
+        manager.signIn(body.email, body.password).fold(
+            onSuccess = { issue(it.id) },
+            onFailure = { throw it.asHttpError() },
+        )
 
     override suspend fun register(body: RegisterRequest): AuthResponse =
-        when (val result = manager.signUp(AuthRepository.deriveName(body.email), body.email, body.password)) {
-            is Result.Success -> issue(result.value.id)
-            is Result.Failure -> throw result.exceptionOrNull().asHttpError()
-        }
+        manager.signUp(AuthRepository.deriveName(body.email), body.email, body.password).fold(
+            onSuccess = { issue(it.id) },
+            onFailure = { throw it.asHttpError() },
+        )
 
     private fun issue(accountId: String): AuthResponse =
         AuthResponse(AuthRepository.localToken(accountId)).also { tokens.token = it.token }

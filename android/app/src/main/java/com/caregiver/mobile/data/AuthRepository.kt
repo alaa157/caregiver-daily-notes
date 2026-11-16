@@ -70,10 +70,10 @@ class AuthRepository(
 
     suspend fun signIn(email: String, password: String): SignInResult {
         val manager = accountManager ?: return signInRemote(email, password)
-        return when (val result = manager.signIn(email, password)) {
-            is Result.Success -> finishLocalSignIn(result.value.id, email)
-            is Result.Failure -> result.toSignInResult()
-        }
+        return manager.signIn(email, password).fold(
+            onSuccess = { finishLocalSignIn(it.id, email) },
+            onFailure = { (it as? AccountException)?.error?.toSignInResult() ?: SignInResult.Rejected(null, "Request failed. Please try again.") },
+        )
     }
 
     /**
@@ -83,10 +83,10 @@ class AuthRepository(
      */
     suspend fun signUp(name: String, email: String, password: String): SignInResult {
         val manager = accountManager ?: return signUpRemote(email, password)
-        return when (val result = manager.signUp(name, email, password)) {
-            is Result.Success -> finishLocalSignIn(result.value.id, email)
-            is Result.Failure -> result.toSignInResult()
-        }
+        return manager.signUp(name, email, password).fold(
+            onSuccess = { finishLocalSignIn(it.id, email) },
+            onFailure = { (it as? AccountException)?.error?.toSignInResult() ?: SignInResult.Rejected(null, "Request failed. Please try again.") },
+        )
     }
 
     /** Two-argument form delegates with a name derived from the address. */

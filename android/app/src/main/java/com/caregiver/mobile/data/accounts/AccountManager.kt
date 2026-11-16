@@ -1,6 +1,6 @@
 package com.caregiver.mobile.data.accounts
 
-import androidx.sqlite.SQLiteConstraintException
+import android.database.sqlite.SQLiteConstraintException
 import java.util.UUID
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.CoroutineDispatcher

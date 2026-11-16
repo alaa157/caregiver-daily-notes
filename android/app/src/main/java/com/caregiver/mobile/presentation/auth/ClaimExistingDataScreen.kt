@@ -52,9 +52,9 @@ fun ClaimExistingDataScreen(
     AuthForm(
         state = state,
         mode = AuthMode.Register,
-        heroTitleRes = R.string.migration_claim_title,
-        heroSubtitleRes = R.string.migration_claim_body,
-        submitLabelRes = R.string.migration_claim_submit,
+        onEmail = viewModel::onEmail,
+        onPassword = viewModel::onPassword,
+        onConfirm = viewModel::onConfirm,
         onSubmit = viewModel::submit,
         onSwitchMode = {},
         showDisplayName = viewModel.requiresDisplayName,
