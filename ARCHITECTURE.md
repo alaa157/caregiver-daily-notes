@@ -97,21 +97,30 @@ android/app/src/main/java/com/caregiver/mobile/
 ├── core/network/      # auth interceptor
 ├── core/time/         # locale-aware dates
 ├── ai/                # provider-agnostic LLM clients, grounding, sanitizer, prompts
-├── data/              # Room (source of truth), settings/token store, backup, CSV, export
+├── data/              # accounts.db + notes-<accountId>.db, settings/token store, backup, CSV, export
+│   └── accounts/      # local account registry/session + per-account database provider
 └── presentation/      # auth, home, people, notes, history, summary, plans, trends, settings
 ```
 
 The mobile application is separate from the web application. It may mirror feature concepts and API contracts but must not become a shared frontend monorepo.
 
+Local accounts are part of the mobile domain: `data/accounts/` owns the credential-free `Account` model, `AccountManager`, session store, `AccountsDatabase` (`accounts.db`), and `PerAccountDatabaseProvider`, which opens `notes-<accountId>.db` for the active account. AI settings are account-scoped; keys are re-entered if they are not migrated.
+
 ### Standalone-first runtime
 
 The app is built to run **without a backend**:
 
-- **Room is the source of truth** for recipients, notes, addendums, plans and medication. The
+- **Room is the source of truth** for recipients, notes, addendums, plans and medication,
+  split into `accounts.db` plus one `notes-<accountId>.db` per local account. The
   backend is optional; when a base URL is configured the app syncs through an outbox
   (`OutboxSyncWorker`) and keeps working offline.
+- **Local accounts are device-local.** The active account selects which
+  `notes-<accountId>.db` is open; upgrading legacy `caregiver-db` data requires the explicit
+  claim flow, and removing a non-active account deletes that account's data file after
+  confirmation. The database files are not encrypted.
 - **AI is bring-your-own-key.** The app holds the provider key itself, encrypted in the Android
-  Keystore through the `ApiKeyCipher` seam, in a separate slot per provider. Requests go from the
+  Keystore through the `ApiKeyCipher` seam, in a separate slot per account and provider; keys are
+  re-entered if they are not migrated. Requests go from the
   device straight to the provider — the backend is not in the path.
 - **The deterministic safety layer runs on-device**, so the app can raise a safety flag with no
   network and no key configured.
@@ -167,8 +176,9 @@ Initial foundation/setup work establishes application scaffolding first. Feature
 - Clients: TypeScript where applicable (web).
 - No Expo-based mobile workflow.
 - The web client and the backend need no local database or cache to run.
-- The Android app is local-first: Room is the source of truth on the device, and no backend
-  service is required for any of its workflows.
+- The Android app is local-first: local accounts and per-account Room databases are the source of
+  truth on the device, no backend service is required for any of its workflows, and the database
+  files are not encrypted.
 - API contracts are owned by the backend and consumed by both clients.
 - Secrets must never be committed. A user's own provider key never leaves their device and is
   never sent to our backend.

@@ -16,13 +16,15 @@ same Spring Boot REST API as the web app. No cross-platform framework.
 ## Build variants and runtime mode
 
 - `debug` / `minified`: `DEMO_BACKEND=true` (illustrative demo data, no network) and `LOCAL_MODE=true`.
-- `release`: `DEMO_BACKEND=false`, `LOCAL_MODE=true`. The official release is intentionally local-first/standalone: no backend, no login, Room is the source of truth. The demo banner is driven by `DEMO_BACKEND`, not by `LOCAL_MODE`, so production summaries are never mislabeled as demo content.
+- `release`: `DEMO_BACKEND=false`, `LOCAL_MODE=true`. The official release is intentionally local-first/standalone: no backend required, local accounts live on the device, and Room per-account databases are the source of truth. The demo banner is driven by `DEMO_BACKEND`, not by `LOCAL_MODE`, so production summaries are never mislabeled as demo content.
 
-## Standalone install (no backend, no login)
+## Standalone install (local accounts, no backend required)
 
 The app is standalone: install the APK from GitHub Releases and use it without
-any backend. AI features (summaries and plan suggestions) need
-your own API key.
+a backend. On first launch the app uses local accounts stored on the device; if
+you are upgrading from the single-user build, the claim-your-data flow moves your
+existing notes into the new owner account. AI features (summaries and plan
+suggestions) need your own API key.
 
 1. Download the latest `app-release.apk` from the GitHub Releases page.
 2. Install it (allow installing from unknown sources).
@@ -40,7 +42,23 @@ your own API key.
 - xAI: https://console.x.ai
 - OpenRouter: https://openrouter.ai/keys
 
-Each provider's key is stored encrypted in the Android Keystore and never leaves the device. Keys are kept in separate slots, so switching providers never reuses the previous provider's key.
+Each provider's key is stored encrypted in the Android Keystore and never leaves the device. Keys are kept in separate slots per account and provider, so switching providers or accounts never reuses another key.
+
+## Local accounts and data layout
+
+- `accounts.db` is the account registry and stores the active-account/session state.
+- Each account gets `notes-<accountId>.db` for recipients, notes, care plans,
+  saved summaries, and related local data; the active account selects which file
+  is open.
+- These database files are **not encrypted**. They rely on Android device storage
+  controls; AI provider keys are stored separately in the Android Keystore and are
+  scoped per account, so they are re-entered if they are not migrated.
+- Upgrading from the single-user build shows a blocking claim-your-data step:
+  existing `caregiver-db` notes are not opened under another account and move only
+  into the newly created owner account's `notes-<accountId>.db`.
+- The active account cannot be removed. Removing another account deletes its
+  account record and that account's `notes-<accountId>.db` data — recipients,
+  notes, care plans, saved summaries, AI keys, and exports — after confirmation.
 
 ## Commands (run in `android/`)
 
@@ -101,7 +119,7 @@ android/
 │   ├── core/i18n/         # Bidi isolation for mixed-direction text
 │   ├── core/network/      # bearer interceptor (configured origin only)
 │   ├── core/time/         # locale-aware dates (ar/en)
-│   ├── data/              # DataStore settings/token, Retrofit APIs, AuthRepository
+│   ├── data/              # accounts.db + notes-<accountId>.db, DataStore settings/token, APIs, AuthRepository
 │   └── presentation/      # auth, home, recipients, notes, history, summary
 ├── app/src/main/res/values/strings.xml       # en (complete)
 ├── app/src/main/res/values-ar/strings.xml     # ar (key parity enforced by test)

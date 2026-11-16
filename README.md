@@ -11,13 +11,13 @@ grounded AI summaries — in Arabic and English, offline-first on the phone, wit
 ## What this branch delivers
 
 `feat/standalone-byok-ai` is the **standalone (BYOK — bring your own key) release line**. The
-Android app is the product: it installs from an APK, works with no account and no server, and
-talks to whichever AI provider you already pay for.
+Android app is the product: it installs from an APK, uses local accounts on the device, needs
+no server for core workflows, and talks to whichever AI provider you already pay for.
 
 | | |
 |---|---|
-| **Local-first** | Room is the source of truth. No login, no backend, no network needed to record a note. |
-| **Your key, your provider** | OpenAI, Anthropic, Gemini, xAI, OpenRouter. The key is encrypted in the Android Keystore, stored in a separate slot per provider, and never leaves the device. |
+| **Local-first** | Room per-account databases are the source of truth. Local accounts live on the device; no backend or network is needed to record a note. |
+| **Your key, your provider** | OpenAI, Anthropic, Gemini, xAI, OpenRouter. The key is encrypted in the Android Keystore, stored in a separate slot per account and provider, and never leaves the device. |
 | **Consent before the first send** | A dialog states exactly what leaves the phone and to whom. Nothing is sent until you accept. |
 | **Grounded, not generated** | Every AI claim must cite a note and quote it verbatim. Unclear or conflicting observations stay unclear. |
 | **Deterministic safety** | Falls, high pain, missed medication and poor-appetite streaks are computed on-device. The model can raise urgency; it can never lower it. |
@@ -25,6 +25,11 @@ talks to whichever AI provider you already pay for.
 | **Never loses a note** | Saving a note never depends on AI. On failure you get a template summary, then “AI unavailable”. |
 | **Bilingual, RTL-first** | Arabic and English, same workflows, with proper bidi isolation and a right-to-left layout that is not a mirror of the English one. |
 | **Your data stays yours** | JSON backup/restore, CSV import/export, and a PDF summary export. |
+
+Local account databases are `accounts.db` plus one `notes-<accountId>.db` per
+account. These files are **not encrypted**; they rely on Android device storage
+controls. Upgrading from the single-user build uses the claim-your-data flow so
+existing notes move only into the new owner account.
 
 ### The AI layer
 
@@ -60,7 +65,7 @@ instruction.
 flowchart LR
   subgraph App["Android app — standalone"]
     UI["Compose UI<br/>AR / EN, RTL"]
-    Store[("Room<br/>source of truth")]
+    Store[("Room<br/>per-account DBs")]
     Layer["AI layer<br/>BYOK + safety"]
   end
   Provider["Gemini · OpenAI<br/>Anthropic · xAI · OpenRouter"]
@@ -74,7 +79,7 @@ flowchart LR
   Web -->|"HTTPS + JWT"| API
 ```
 
-- The app is **usable on its own**. The backend is optional: it is there for shared data between
+- The app is **usable on its own** with device-local accounts. The backend is optional: it is there for shared data between
   caregivers and for the web client, and the app can sync to it through an outbox.
 - The backend keeps its own AI path (`backend/…/ai/`) for the web client — Gemini primary,
   OpenRouter backup, template fallback.
@@ -202,6 +207,7 @@ cd android && ./gradlew :app:connectedDebugAndroidTest   # Compose UI tests, nee
 
 - [ARCHITECTURE.md](./ARCHITECTURE.md) — layout, domains, ownership, dependency rules
 - [android/README.md](./android/README.md) — build, runtime modes, device walkthrough
+- [android/docs/adr/001-per-account-databases.md](./android/docs/adr/001-per-account-databases.md) — per-account database decision
 - [docs/api/android-gaps.md](./docs/api/android-gaps.md) — known API gaps clients must not work around
 - [docs/ai/eval-harness.md](./docs/ai/eval-harness.md) + [docs/ai/golden/](./docs/ai/golden/) — evaluation methodology
 - [docs/android/](./docs/android/) — backup/restore, CSV transfer, language notes
