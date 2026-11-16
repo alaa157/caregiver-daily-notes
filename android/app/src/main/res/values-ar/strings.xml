@@ -816,4 +816,5 @@
     <string name="migration_claim_body">وجدنا ملاحظات موجودة على هذا الجهاز. انقلها إلى حسابك للحفاظ عليها.</string>
     <string name="migration_claim_cta">متابعة</string>
     <string name="migration_failed">تعذر نقل بياناتك الموجودة. يمكنك المحاولة لاحقًا.</string>
+    <string name="settings_account">الحساب</string>
 </resources>
