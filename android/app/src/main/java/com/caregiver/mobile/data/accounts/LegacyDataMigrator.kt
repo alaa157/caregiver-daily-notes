@@ -2,6 +2,7 @@ package com.caregiver.mobile.data.accounts
 
 import android.content.Context
 import com.caregiver.mobile.BuildConfig
+import java.io.File
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.first
 
@@ -64,5 +65,82 @@ class LegacyInstallDetector(
     companion object {
         /** The accounts credentials database, owned by #583. */
         const val ACCOUNTS_DB_NAME = "accounts.db"
+    }
+}
+
+/**
+ * Moves the legacy `caregiver-db` into the owner account (epic #581, #625).
+ *
+ * Renames the database and its `-wal`/`-shm` sidecars within the same directory
+ * ([File.renameTo], atomic on one filesystem). If any rename fails, the ones
+ * already done are rolled back in reverse order so no half-migrated state is
+ * left behind. A persisted flag makes a second run a no-op. This class lives
+ * here because the issue's `LegacyMigration.kt` path is UNOWNED by lane B.
+ *
+ * AI-key and onboarding-flag migration (#613/#616) are not on this branch, so
+ * they are injected delegates with no-op defaults. They run before any file is
+ * touched: a failing delegate aborts the move rather than leaving the data in
+ * a new account with the old settings.
+ *
+ * @return true when this call performed the move, false when it was a no-op.
+ */
+class LegacyMigration(
+    private val context: Context,
+    private val migrateAiKey: suspend (String) -> Unit = {},
+    private val migrateOnboarding: suspend (String) -> Unit = {},
+) {
+    private val prefs = context.getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE)
+
+    /** True once the move has completed (also after a no-op with no legacy file). */
+    fun isCompleted(): Boolean = prefs.getBoolean(MIGRATION_COMPLETED, false)
+
+    suspend fun migrate(ownerId: String): Boolean {
+        if (isCompleted()) return false
+        val safeId = PerAccountDatabaseProvider.sanitize(ownerId)
+
+        val legacy = context.getDatabasePath(PerAccountDatabaseProvider.LEGACY_DATABASE_NAME)
+        if (!legacy.exists()) return false
+
+        val target = context.getDatabasePath("${PerAccountDatabaseProvider.FILE_PREFIX}$safeId")
+
+        // Settings first: a failure here must not move the database.
+        migrateAiKey(safeId)
+        migrateOnboarding(safeId)
+
+        val renames = linkedMapOf(
+            legacy to target,
+            File(legacy.path + WAL) to File(target.path + WAL),
+            File(legacy.path + SHM) to File(target.path + SHM),
+        ).filter { (from, _) -> from.exists() }
+
+        val done = mutableListOf<Pair<File, File>>()
+        try {
+            for ((from, to) in renames) {
+                if (!from.renameTo(to)) throw IllegalStateException("legacy rename failed: ${from.name}")
+                done += from to to
+            }
+        } catch (failure: IllegalStateException) {
+            // Roll back in reverse order; best effort, never throw from cleanup.
+            done.reversed().forEach { (from, to) -> to.renameTo(from) }
+            throw failure
+        }
+
+        prefs.edit().putBoolean(MIGRATION_COMPLETED, true).apply()
+        return true
+    }
+
+    /** Test-only: clears the persisted flag and removes any migrated files. */
+    internal fun resetForTest(ownerId: String) {
+        prefs.edit().remove(MIGRATION_COMPLETED).apply()
+        context.getDatabasePath("${PerAccountDatabaseProvider.FILE_PREFIX}$ownerId").delete()
+        context.getDatabasePath("${PerAccountDatabaseProvider.FILE_PREFIX}$ownerId$WAL").delete()
+        context.getDatabasePath("${PerAccountDatabaseProvider.FILE_PREFIX}$ownerId$SHM").delete()
+    }
+
+    companion object {
+        private const val PREFS_NAME = "legacy_migration"
+        private const val MIGRATION_COMPLETED = "migration_completed"
+        private const val WAL = "-wal"
+        private const val SHM = "-shm"
     }
 }
