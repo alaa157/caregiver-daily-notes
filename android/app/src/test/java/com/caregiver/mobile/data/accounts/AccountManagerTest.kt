@@ -21,6 +21,7 @@ import kotlinx.coroutines.test.runTest
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
 import org.junit.Assert.assertNotEquals
+import org.junit.Assert.assertNotNull
 import org.junit.Assert.assertNull
 import org.junit.Assert.assertTrue
 import org.junit.Test
@@ -41,6 +42,7 @@ class AccountManagerTest {
         sessionStore: SessionStore? = null,
         accountsChanged: Flow<Unit> = emptyFlow(),
         failOpenFor: String? = null,
+        failCleanupOn: String? = null,
     ) {
         val activeIds = mutableListOf<String>()
         val openedIds = mutableListOf<String>()
@@ -52,8 +54,11 @@ class AccountManagerTest {
         var rehashWrites = 0
         var failRehashWrite = false
 
+        val cleanup = RecordingCleanup(events, failCleanupOn)
+
         init {
             dao.onUpdateLastUsed = { id, _ -> events += "lastUsed:$id" }
+            dao.onDeleteById = { id -> events += "delete:$id" }
         }
 
         val manager = AccountManager(
@@ -63,6 +68,7 @@ class AccountManagerTest {
             clock = clock,
             sessionStore = sessionStore,
             accountsChanged = accountsChanged,
+            cleanup = cleanup,
             openAccountDatabase = { id ->
                 events += "open:$id"
                 if (id == failOpenFor) throw IllegalStateException("cannot open account database")
@@ -99,6 +105,7 @@ class AccountManagerTest {
         /** Simulate the window between findByEmail and insert where a rival signs up. */
         var constraintOnInsert = false
         var onUpdateLastUsed: ((String, Long) -> Unit)? = null
+        var onDeleteById: ((String) -> Unit)? = null
 
         override suspend fun insert(account: AccountEntity) {
             if (constraintOnInsert) {
@@ -126,7 +133,29 @@ class AccountManagerTest {
             return 1
         }
 
-        override suspend fun deleteById(id: String): Int = if (rows.remove(id) != null) 1 else 0
+        override suspend fun deleteById(id: String): Int {
+            val removed = rows.remove(id) != null
+            if (removed) onDeleteById?.invoke(id)
+            return if (removed) 1 else 0
+        }
+    }
+
+    /** Records cleanup order and can fail one hook without resurrecting the row. */
+    private class RecordingCleanup(
+        private val events: MutableList<String>,
+        private val failOn: String? = null,
+    ) : AccountCleanup {
+        val calls = mutableListOf<String>()
+
+        private fun record(step: String) {
+            calls += step
+            events += "cleanup:$step"
+            if (step == failOn) throw IllegalStateException("$step cleanup failed")
+        }
+
+        override suspend fun deleteDatabase(accountId: String) = record("db")
+        override suspend fun deleteAiKeys(accountId: String) = record("keys")
+        override suspend fun deleteExports(accountId: String) = record("exports")
     }
 
     /** Runs the dispatched block on a named background thread so we can prove hashing left Main. */
@@ -696,6 +725,117 @@ class AccountManagerTest {
             )
             assertFalse(h.events.any { it.startsWith("lastUsed:") }) // no DB write on the failed path
             assertEquals(FIXED_NOW, h.dao.rows[target.id]!!.lastUsedAt)
+        } finally {
+            file.delete()
+        }
+    }
+
+    @OptIn(ExperimentalCoroutinesApi::class)
+    @Test
+    fun removingTheActiveAccountIsRefusedAndDeletesNothing() = runTest {
+        val file = File.createTempFile("remove-active-test", ".preferences_pb")
+        try {
+            val store = newSessionStore(file)
+            val h = Harness(sessionStore = store)
+            val active = seedAccount(h, 7, id = "acc-active")
+            store.setActiveAccountId(active.id)
+
+            assertAccountError(AccountError.CannotRemoveActive, h.manager.removeAccount(active.id).exceptionOrNull())
+
+            assertTrue(h.events.isEmpty())
+            assertTrue(h.cleanup.calls.isEmpty())
+            assertNotNull(h.dao.rows[active.id])
+        } finally {
+            file.delete()
+        }
+    }
+
+    @OptIn(ExperimentalCoroutinesApi::class)
+    @Test
+    fun removingAMissingAccountReturnsAccountNotFound() = runTest {
+        val file = File.createTempFile("remove-missing-test", ".preferences_pb")
+        try {
+            val store = newSessionStore(file)
+            val h = Harness(sessionStore = store)
+            val active = seedAccount(h, 7, id = "acc-active")
+            store.setActiveAccountId(active.id)
+
+            assertAccountError(AccountError.AccountNotFound, h.manager.removeAccount("missing").exceptionOrNull())
+
+            assertTrue(h.events.isEmpty())
+            assertTrue(h.cleanup.calls.isEmpty())
+        } finally {
+            file.delete()
+        }
+    }
+
+    @OptIn(ExperimentalCoroutinesApi::class)
+    @Test
+    fun removalDeletesTheRowBeforeEveryCleanupHook() = runTest {
+        val file = File.createTempFile("remove-order-test", ".preferences_pb")
+        try {
+            val store = newSessionStore(file)
+            val h = Harness(sessionStore = store)
+            val active = seedAccount(h, 7, id = "acc-active")
+            val target = seedAccount(h, 7, id = "acc-target", email = "target@example.com")
+            store.setActiveAccountId(active.id)
+            h.events.clear()
+
+            assertTrue(h.manager.removeAccount(target.id).isSuccess)
+
+            assertEquals(
+                listOf("delete:acc-target", "cleanup:db", "cleanup:keys", "cleanup:exports"),
+                h.events,
+            )
+            assertEquals(listOf("db", "keys", "exports"), h.cleanup.calls)
+            assertNull(h.dao.rows[target.id])
+            assertNotNull(h.dao.rows[active.id])
+        } finally {
+            file.delete()
+        }
+    }
+
+    @OptIn(ExperimentalCoroutinesApi::class)
+    @Test
+    fun aFailingCleanupHookDoesNotResurrectTheAccount() = runTest {
+        val file = File.createTempFile("remove-hookfail-test", ".preferences_pb")
+        try {
+            val store = newSessionStore(file)
+            val h = Harness(sessionStore = store, failCleanupOn = "keys")
+            val active = seedAccount(h, 7, id = "acc-active")
+            val target = seedAccount(h, 7, id = "acc-target", email = "target@example.com")
+            store.setActiveAccountId(active.id)
+
+            val result = h.manager.removeAccount(target.id)
+
+            assertTrue(result.isFailure)
+            assertFalse(result.exceptionOrNull() is AccountException) // original hook error
+            assertNull(h.dao.rows[target.id]) // still deleted — never resurrected
+            assertNotNull(h.dao.rows[active.id])
+            assertEquals(listOf("db", "keys", "exports"), h.cleanup.calls) // all hooks attempted once
+        } finally {
+            file.delete()
+        }
+    }
+
+    @OptIn(ExperimentalCoroutinesApi::class)
+    @Test
+    fun removingOneAccountLeavesOtherAccountsUntouched() = runTest {
+        val file = File.createTempFile("remove-isolation-test", ".preferences_pb")
+        try {
+            val store = newSessionStore(file)
+            val h = Harness(sessionStore = store)
+            val active = seedAccount(h, 7, id = "acc-active")
+            val target = seedAccount(h, 7, id = "acc-target", email = "target@example.com")
+            val other = seedAccount(h, 7, id = "acc-other", email = "other@example.com")
+            store.setActiveAccountId(active.id)
+
+            assertTrue(h.manager.removeAccount(target.id).isSuccess)
+
+            assertNull(h.dao.rows[target.id])
+            assertNotNull(h.dao.rows[active.id])
+            assertNotNull(h.dao.rows[other.id])
+            assertEquals(listOf("db", "keys", "exports"), h.cleanup.calls)
         } finally {
             file.delete()
         }
