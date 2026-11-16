@@ -8,6 +8,7 @@ import com.caregiver.mobile.data.accounts.Account
 import com.caregiver.mobile.data.accounts.AccountError
 import com.caregiver.mobile.data.accounts.AccountException
 import com.caregiver.mobile.data.accounts.InvalidDisplayNameException
+import com.caregiver.mobile.data.accounts.PasswordProblem
 import java.nio.charset.StandardCharsets
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.CoroutineScope
@@ -30,6 +31,7 @@ sealed interface EmailError {
 sealed interface PasswordError {
     data object Required : PasswordError
     data object TooLong : PasswordError
+    data class Policy(val problem: PasswordProblem) : PasswordError
 }
 
 sealed interface ConfirmError {
@@ -151,15 +153,18 @@ class AuthViewModel(
                 } else {
                     val failure = accountResult.exceptionOrNull()
                     val accountError = (failure as? AccountException)?.error
+                    val weakProblem = (accountError as? AccountError.WeakPassword)?.problem
                     _state.value = _state.value.copy(
                         busy = false,
                         signedIn = false,
                         nameError = if (failure is InvalidDisplayNameException) NameError.TooLong else null,
                         emailError = if (accountError == AccountError.InvalidEmail) EmailError.Invalid else null,
+                        passwordError = weakProblem?.let { PasswordError.Policy(it) },
                         formError = when (accountError) {
                             AccountError.EmailTaken -> FormError.DuplicateEmail
                             AccountError.InvalidCredentials -> FormError.InvalidCredentials
                             AccountError.InvalidEmail -> null
+                            is AccountError.WeakPassword -> null
                             else -> FormError.Generic
                         },
                     )

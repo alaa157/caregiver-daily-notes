@@ -799,4 +799,21 @@
     <string name="editor_progress">%1$d من 7 تمت الإجابة عنها</string>
     <string name="editor_add_details">إضافة تفاصيل</string>
     <string name="editor_pain_level_description">الألم %1$d من 10</string>
+    <string name="auth_password_problem_too_short">استخدم %1$d أحرف على الأقل.</string>
+    <string name="auth_password_problem_too_long">استخدم %1$d أحرف على الأكثر.</string>
+    <string name="auth_password_problem_missing_letter">ضمّن حرفًا واحدًا على الأقل.</string>
+    <string name="auth_password_problem_missing_digit">ضمّن رقمًا واحدًا على الأقل.</string>
+    <string name="auth_password_problem_only_whitespace">لا يمكن أن تكون كلمة المرور مسافات فقط.</string>
+    <string name="auth_error_throttled">محاولات كثيرة جدًا. حاول مرة أخرى بعد %1$d ثانية.</string>
+    <string name="auth_error_account_not_found">لا يوجد حساب لهذا البريد الإلكتروني.</string>
+    <string name="account_switch">تبديل الحساب</string>
+    <string name="account_add">إضافة حساب</string>
+    <string name="account_remove">إزالة الحساب</string>
+    <string name="account_remove_confirm_body">سيؤدي هذا إلى إزالة %1$s وبياناته من هذا الجهاز. لا يمكن التراجع عن ذلك.</string>
+    <string name="account_cannot_remove_active">لا يمكنك إزالة الحساب الذي تستخدمه. بدّل إلى حساب آخر أولاً.</string>
+    <string name="account_active_marker">نشط</string>
+    <string name="migration_claim_title">استرجاع بياناتك</string>
+    <string name="migration_claim_body">وجدنا ملاحظات موجودة على هذا الجهاز. انقلها إلى حسابك للحفاظ عليها.</string>
+    <string name="migration_claim_cta">متابعة</string>
+    <string name="migration_failed">تعذر نقل بياناتك الموجودة. يمكنك المحاولة لاحقًا.</string>
 </resources>
