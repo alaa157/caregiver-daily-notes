@@ -3,6 +3,8 @@ package com.caregiver.mobile.data.accounts
 import android.content.Context
 import androidx.test.core.app.ApplicationProvider
 import com.caregiver.mobile.data.local.AppDatabase
+import java.io.File
+import kotlinx.coroutines.test.runTest
 import org.junit.After
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
@@ -128,6 +130,109 @@ class PerAccountDatabaseProviderTest {
             legacy.close()
         }
     }
+
+    // ---- #612: account-removal cleanup, implemented inside this owned file ----
+
+    @Test
+    fun deleteDatabaseRemovesDbWalAndShmAndIsIdempotent() = runTest {
+        val db = provider.open("acct-delete")
+        val base = context.getDatabasePath("${PerAccountDatabaseProvider.FILE_PREFIX}acct-delete")
+        materialize(db)
+        assertTrue(base.exists())
+
+        val parent = base.parentFile!!
+        val wal = File(parent, "${base.name}-wal").also { it.writeText("wal") }
+        val shm = File(parent, "${base.name}-shm").also { it.writeText("shm") }
+
+        val cleanup = AccountCleanupImpl(context, provider)
+        cleanup.deleteDatabase("acct-delete")
+        cleanup.deleteDatabase("acct-delete") // idempotent
+
+        assertFalse(base.exists())
+        assertFalse(wal.exists())
+        assertFalse(shm.exists())
+        assertNull(provider.current())
+    }
+
+    @Test
+    fun deleteDatabaseClosesTheOpenInstanceAndAllowsReopen() = runTest {
+        val first = provider.open("acct-reopen")
+        materialize(first)
+
+        AccountCleanupImpl(context, provider).deleteDatabase("acct-reopen")
+        assertNull(provider.current())
+
+        val reopened = provider.databaseFor("acct-reopen")
+        assertNotSame(first, reopened)
+        materialize(reopened)
+    }
+
+    @Test
+    fun deleteExportsRemovesOnlyTheTargetAccountAndIsIdempotent() = runTest {
+        val oneFiles = exportDir(context.filesDir, "acct-one")
+        val twoFiles = exportDir(context.filesDir, "acct-two")
+        val oneCache = exportDir(context.cacheDir, "acct-one")
+        val twoCache = exportDir(context.cacheDir, "acct-two")
+
+        val cleanup = AccountCleanupImpl(context, provider)
+        cleanup.deleteExports("acct-one")
+        cleanup.deleteExports("acct-one") // idempotent
+
+        assertFalse(oneFiles.exists())
+        assertFalse(oneCache.exists())
+        assertTrue(twoFiles.exists())
+        assertTrue(twoCache.exists())
+    }
+
+    @Test
+    fun deleteAiKeysDelegatesWithSanitizedIdAndIsIdempotent() = runTest {
+        val deleted = mutableListOf<String>()
+        val cleanup = AccountCleanupImpl(context, provider) { deleted += it }
+
+        cleanup.deleteAiKeys("  acct-keys  ")
+        cleanup.deleteAiKeys("acct-keys")
+
+        assertEquals(listOf("acct-keys", "acct-keys"), deleted)
+        // The default no-op delegate must also be safe.
+        AccountCleanupImpl(context, provider).deleteAiKeys("acct-keys")
+    }
+
+    @Test
+    fun deleteAllRemovesOneAccountAndLeavesTheOtherAlone() = runTest {
+        val firstDb = provider.open("acct-a")
+        materialize(firstDb)
+        val secondDb = provider.databaseFor("acct-b")
+        materialize(secondDb)
+        val firstExport = exportDir(context.filesDir, "acct-a")
+        val secondExport = exportDir(context.filesDir, "acct-b")
+
+        val deleted = mutableListOf<String>()
+        val cleanup = AccountCleanupImpl(context, provider) { deleted += it }
+        cleanup.deleteAll("acct-a")
+
+        assertFalse(context.getDatabasePath("${PerAccountDatabaseProvider.FILE_PREFIX}acct-a").exists())
+        assertFalse(firstExport.exists())
+        assertTrue(context.getDatabasePath("${PerAccountDatabaseProvider.FILE_PREFIX}acct-b").exists())
+        assertTrue(secondExport.exists())
+        assertEquals(listOf("acct-a"), deleted)
+    }
+
+    @Test
+    fun cleanupRejectsTraversalIds() {
+        val cleanup = AccountCleanupImpl(context, provider)
+        for (id in listOf("", "../escape", "a/b", "a b")) {
+            assertThrows(IllegalArgumentException::class.java) { runTest { cleanup.deleteDatabase(id) } }
+            assertThrows(IllegalArgumentException::class.java) { runTest { cleanup.deleteExports(id) } }
+            assertThrows(IllegalArgumentException::class.java) { runTest { cleanup.deleteAiKeys(id) } }
+        }
+    }
+
+    /** Creates `<root>/account-<id>/export.csv` and returns that directory. */
+    private fun exportDir(root: File, accountId: String): File =
+        File(root, "${AccountCleanupImpl.ACCOUNT_DIR_PREFIX}$accountId").also { dir ->
+            assertTrue(dir.mkdirs() || dir.isDirectory)
+            File(dir, "export.csv").writeText("recipient,date\nx,2026-01-01\n")
+        }
 
     /** Opening the writable handle forces Room to create the file on disk. */
     private fun materialize(db: AppDatabase) {

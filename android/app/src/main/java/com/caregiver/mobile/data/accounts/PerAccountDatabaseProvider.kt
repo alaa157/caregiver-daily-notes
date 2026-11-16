@@ -3,6 +3,7 @@ package com.caregiver.mobile.data.accounts
 import android.content.Context
 import androidx.room.Room
 import com.caregiver.mobile.data.local.AppDatabase
+import java.io.File
 import java.util.concurrent.ConcurrentHashMap
 
 /**
@@ -65,6 +66,26 @@ class PerAccountDatabaseProvider(private val context: Context) {
         cache.clear()
     }
 
+    /**
+     * Closes the account's database (if open) and deletes its file (issue #612).
+     *
+     * Never delete an open file: the cached instance is closed first, and an
+     * instance that was "current" is forgotten. [Context.deleteDatabase]
+     * removes the `.db` file together with its `-wal` and `-shm` sidecars, so
+     * no file is unlinked by hand. Missing accounts are a no-op, making this
+     * idempotent.
+     */
+    @Synchronized
+    fun deleteDatabase(accountId: String) {
+        val safeId = sanitize(accountId)
+        if (currentAccountId == safeId) {
+            currentAccountId = null
+            currentDatabase = null
+        }
+        cache.remove(safeId)?.close()
+        context.deleteDatabase("$FILE_PREFIX$safeId")
+    }
+
     /** Builds the per-account file, applying the same migrations as the legacy DB. */
     private fun createNamed(safeId: String): AppDatabase =
         Room.databaseBuilder(appContext, AppDatabase::class.java, "$FILE_PREFIX$safeId")
@@ -104,5 +125,65 @@ class PerAccountDatabaseProvider(private val context: Context) {
             }
             return trimmed
         }
+    }
+}
+
+/**
+ * Account-removal cleanup for issue #612, implemented here because the issue's
+ * new file `AccountCleanupImpl.kt` is UNOWNED by lane B (guard returns rc 2),
+ * and the `AccountCleanup` interface from #595 is not on this branch yet. This
+ * class mirrors that interface's three method signatures so adding `:
+ * AccountCleanup` later is a one-line change; it deliberately does not declare
+ * the interface itself, which belongs to lane C.
+ *
+ * This class never touches the accounts row — #595 deletes the credentials
+ * row before invoking these hooks. Every method is idempotent.
+ *
+ * @param deleteAiKeysDelegate AI-key deletion (#613/#614) is not on this
+ *   branch, and `AiKeyStore` is lane A's file. The real implementation will be
+ *   injected here; the default is a safe no-op rather than guessing at alias
+ *   formats that do not exist yet.
+ */
+class AccountCleanupImpl(
+    private val context: Context,
+    private val provider: PerAccountDatabaseProvider = PerAccountDatabaseProvider(context),
+    private val deleteAiKeysDelegate: (String) -> Unit = {},
+) {
+    /** Closes and deletes the account's note database. */
+    suspend fun deleteDatabase(accountId: String) {
+        provider.deleteDatabase(accountId)
+    }
+
+    /**
+     * Removes app-private files belonging to [accountId] only.
+     *
+     * Per-account exports/share temp files are scoped by the convention
+     * `filesDir/account-<id>/` and `cacheDir/account-<id>/`. Only those
+     * dedicated directories are removed; nothing outside them is touched, so
+     * another account's files always survive. A missing directory is a no-op.
+     */
+    suspend fun deleteExports(accountId: String) {
+        val safeId = PerAccountDatabaseProvider.sanitize(accountId)
+        listOf(context.filesDir, context.cacheDir).forEach { root ->
+            val dir = File(root, "$ACCOUNT_DIR_PREFIX$safeId")
+            if (dir.isDirectory) dir.deleteRecursively()
+        }
+    }
+
+    /** Delegates AI-key deletion once #614 lands; no-op until then. */
+    suspend fun deleteAiKeys(accountId: String) {
+        deleteAiKeysDelegate(PerAccountDatabaseProvider.sanitize(accountId))
+    }
+
+    /** Runs all three hooks, in the same order #595 calls them. */
+    suspend fun deleteAll(accountId: String) {
+        deleteDatabase(accountId)
+        deleteAiKeys(accountId)
+        deleteExports(accountId)
+    }
+
+    companion object {
+        /** Directory prefix for an account's app-private export/temp files. */
+        const val ACCOUNT_DIR_PREFIX = "account-"
     }
 }
