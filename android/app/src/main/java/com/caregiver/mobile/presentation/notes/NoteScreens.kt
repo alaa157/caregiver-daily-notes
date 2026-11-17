@@ -305,15 +305,13 @@ fun NoteEditorScreen(recipientId: String, graph: AppGraph, navController: NavCon
             }
             SectionCard {
                 GroupLabel(OptionGroup.Appetite)
-                ChipWrap {
-                    NoteOptions.values(OptionGroup.Appetite).forEach { value ->
-                        HtmlChip(
-                            label = optionLabel(OptionGroup.Appetite, value),
-                            selected = state.appetite == value,
-                            onClick = { vm.select(OptionGroup.Appetite, value) },
-                        )
-                    }
-                }
+                // #903: one independent row of three segments. The ViewModel's
+                // toggling select clears a re-tap and writes `fair` when the
+                // stored value is the display-only alias `poor`.
+                AppetiteSegments(
+                    selected = state.appetite,
+                    onSelect = { value -> vm.select(OptionGroup.Appetite, value) },
+                )
             }
             SectionCard {
                 GroupLabel(OptionGroup.Sleep)

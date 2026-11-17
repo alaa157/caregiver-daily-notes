@@ -124,6 +124,9 @@
     <string name="editor_mood_tile_low">Low</string>
     <string name="editor_more_moods">More moods</string>
     <string name="editor_appetite">Appetite</string>
+    <string name="editor_appetite_well">Well</string>
+    <string name="editor_appetite_little">A little</string>
+    <string name="editor_appetite_refused">Refused</string>
     <string name="editor_sleep">Sleep</string>
     <string name="editor_mobility">Mobility</string>
     <string name="editor_medication">Medication</string>

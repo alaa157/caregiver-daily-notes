@@ -122,6 +122,9 @@
     <string name="editor_mood_tile_low">منخفض</string>
     <string name="editor_more_moods">المزيد من الحالات المزاجية</string>
     <string name="editor_appetite">الشهية</string>
+    <string name="editor_appetite_well">جيدة</string>
+    <string name="editor_appetite_little">قليلة</string>
+    <string name="editor_appetite_refused">رفضت</string>
     <string name="editor_sleep">النوم</string>
     <string name="editor_mobility">الحركة</string>
     <string name="editor_medication">الدواء</string>
