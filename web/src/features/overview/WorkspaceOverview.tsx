@@ -105,11 +105,11 @@ export function WorkspaceOverview() {
           ? <p className="overview-activity-empty" role="status">{t('activityFeedEmpty')}</p>
           : <ul className="overview-activity-list">
             {dashboardActivityItems.map((item) => {
-              const recipient = overviewData?.data.find((row) => row.recipient.id === item.recipientId)?.recipient;
+              const recipientName = activityFeed.recipientNames.get(item.recipientId);
               const createdAt = new Date(item.createdAt);
               return <li key={`${item.type}:${item.id}`} className="overview-activity-item">
                 <Link className="overview-activity-link" to={`/app/notes/${item.noteId}`}>
-                  <div><span className="overview-activity-kind">{item.summary}</span><span className="overview-activity-recipient"><bdi>{recipient?.name ?? t('activityFeedRecipientFallback')}</bdi></span></div>
+                  <div><span className="overview-activity-kind">{item.summary}</span><span className="overview-activity-recipient"><bdi>{recipientName ?? t('activityFeedRecipientFallback')}</bdi></span></div>
                   <time dateTime={item.createdAt} dir="auto">{formatDate(createdAt, language, { dateStyle: 'medium', timeStyle: 'short' })}</time>
                 </Link>
               </li>;

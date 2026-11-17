@@ -1,4 +1,4 @@
-import { useCallback } from 'react';
+import { useCallback, useMemo } from 'react';
 import { useNoteResource, useNotesApis } from '../notes/useNotes';
 import type { ActivityKind } from '../../api/notes';
 
@@ -41,15 +41,33 @@ export function mapDashboardActivityItem(item: ActivityItem, localizedKindLabel:
   };
 }
 
-export function useActivityFeed(): { state: ActivityFeedState; reload: () => void } {
+export function useActivityFeed(): {
+  state: ActivityFeedState;
+  reload: () => void;
+  recipientNames: ReadonlyMap<string, string>;
+} {
   const api = useNotesApis();
   const load = useCallback(async (signal: AbortSignal): Promise<ActivityItem[]> => {
     const items = await api.notes.recentActivity(ACTIVITY_FEED_LIMIT, signal);
     return items.map((item) => ({ ...item, state: 'ready' }));
   }, [api]);
   const { state, reload } = useNoteResource(load);
+  const loadRecipients = useCallback((signal: AbortSignal) => api.recipients.list(signal, 'ALL'), [api]);
+  const recipients = useNoteResource(loadRecipients);
+  const recipientNames = useMemo(() => {
+    const names = new Map<string, string>();
+    if (recipients.state.status === 'ready') {
+      for (const recipient of recipients.state.data) names.set(recipient.id, recipient.name);
+    }
+    return names;
+  }, [recipients.state]);
+  const reloadAll = useCallback(() => {
+    reload();
+    recipients.reload();
+  }, [reload, recipients.reload]);
   return {
     state: state.status === 'ready' ? { status: 'ready', items: state.data } : state,
-    reload,
+    reload: reloadAll,
+    recipientNames,
   };
 }
