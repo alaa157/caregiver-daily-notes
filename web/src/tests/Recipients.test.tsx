@@ -1761,6 +1761,34 @@ describe('care recipients screens', () => {
     expect(intakeSection.querySelector('time')).toBeNull();
   });
 
+  it('renders the newest intake first and loads older pages on demand', async () => {
+    const medication = medicationFixture(recipient.id, 'Paged history medicine');
+    const newestTime = Date.UTC(2026, 9, 22, 12, 0, 0);
+    const events = Array.from({ length: 21 }, (_, index) => intakeEventFixture(
+      medication, 'TAKEN', 'VERIFIED', new Date(newestTime - index * 3_600_000).toISOString(),
+      `00000000-0000-4000-8000-${String(index).padStart(12, '0')}`));
+    const fetcher = vi.fn().mockImplementation((path: string, init: RequestInit = {}) => {
+      if (path.includes('/intake-events') && init.method !== 'POST') {
+        return Promise.resolve(jsonResponse(path.includes('page=1') ? events.slice(20) : events.slice(0, 20)));
+      }
+      if (path === `/api/recipients/${recipient.id}/medications`) return Promise.resolve(jsonResponse([medication]));
+      return Promise.resolve(jsonResponse(recipient));
+    });
+    renderRecipients(detail, fetcher);
+    const intakeHeading = await screen.findByRole('heading', { name: 'Intake history' });
+    const intakeSection = intakeHeading.closest('section')!;
+
+    await waitFor(() => expect(intakeSection.querySelectorAll('li')).toHaveLength(20));
+    expect(intakeSection.querySelectorAll('li')[0].querySelector('time'))
+      .toHaveAttribute('dateTime', events[0].occurredAt);
+    const loadMore = await screen.findByRole('button', { name: 'Load more intake events' });
+    await userEvent.click(loadMore);
+
+    await waitFor(() => expect(intakeSection.querySelectorAll('li')).toHaveLength(21));
+    expect(intakeSection.querySelectorAll('li')[20].querySelector('time'))
+      .toHaveAttribute('dateTime', events[20].occurredAt);
+  });
+
   it('records taken missed and unsure as explicit event values', async () => {
     const medication = medicationFixture(recipient.id, 'Explicit values medicine');
     const { fetcher } = intakeServe(medication, []);

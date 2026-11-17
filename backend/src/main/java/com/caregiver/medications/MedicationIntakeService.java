@@ -12,6 +12,8 @@ import java.time.Instant;
 import java.util.List;
 import java.util.UUID;
 import org.springframework.dao.DataIntegrityViolationException;
+import org.springframework.data.domain.PageRequest;
+import org.springframework.data.domain.Sort;
 import org.springframework.http.HttpStatus;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.PlatformTransactionManager;
@@ -24,6 +26,8 @@ import org.springframework.web.server.ResponseStatusException;
 @Service
 public class MedicationIntakeService {
   private static final int MAX_IDEMPOTENCY_KEY_LENGTH = 100;
+  private static final int DEFAULT_PAGE_SIZE = 20;
+  private static final int MAX_PAGE_SIZE = 100;
   // A small allowance for clock skew between the caregiver's device and the
   // server; anything later than that has not happened yet.
   private static final Duration MAX_FUTURE_SKEW = Duration.ofMinutes(5);
@@ -147,14 +151,24 @@ public class MedicationIntakeService {
     return key;
   }
 
-  @Transactional(readOnly = true)
   public List<MedicationIntakeResponse> list(UUID recipientId, UUID medicationId) {
+    return list(recipientId, medicationId, 0, DEFAULT_PAGE_SIZE);
+  }
+
+  /** Newest first, with a descending id tie-breaker so equal times stay stable. */
+  @Transactional(readOnly = true)
+  public List<MedicationIntakeResponse> list(UUID recipientId, UUID medicationId, int page, int size) {
+    if (page < 0 || size < 1 || size > MAX_PAGE_SIZE) {
+      throw new ResponseStatusException(HttpStatus.BAD_REQUEST,
+          "page must be non-negative and size must be 1-" + MAX_PAGE_SIZE + ".");
+    }
     UUID caregiverId = AuthContext.currentCaregiverId();
     ownedRecipient(recipientId, caregiverId);
     ownedMedication(medicationId, caregiverId, recipientId);
+    var pageable = PageRequest.of(page, size,
+        Sort.by(Sort.Direction.DESC, "occurredAt").and(Sort.by(Sort.Direction.DESC, "id")));
     return intakeEvents
-        .findAllByCaregiver_IdAndRecipient_IdAndMedication_IdOrderByOccurredAtAscIdAsc(
-            caregiverId, recipientId, medicationId)
+        .findAllByCaregiver_IdAndRecipient_IdAndMedication_Id(caregiverId, recipientId, medicationId, pageable)
         .stream()
         .map(this::response)
         .toList();

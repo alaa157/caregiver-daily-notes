@@ -2,6 +2,9 @@ import { ApiError, type ApiClient } from '../lib/api';
 import { isRecipientId } from './recipients';
 import type { MessageKey } from '../i18n/translations';
 
+/** Matches the backend intake list page size; page 0 is sent without a query. */
+export const INTAKE_PAGE_SIZE = 20;
+
 export interface MedicationRecord {
   id: string;
   recipientId: string;
@@ -177,9 +180,11 @@ export function createMedicationsApi(client: ApiClient) {
       readOne(recipientId, medicationPath(recipientId, medicationId), 'PUT', signal, fields(input), medicationId),
     archive: (recipientId: string, medicationId: string, signal?: AbortSignal) =>
       readOne(recipientId, `${medicationPath(recipientId, medicationId)}/archive`, 'PATCH', signal, undefined, medicationId),
-    async listIntakeEvents(recipientId: string, medicationId: string, signal?: AbortSignal): Promise<IntakeEvent[]> {
+    async listIntakeEvents(recipientId: string, medicationId: string, signal?: AbortSignal,
+      page = 0): Promise<IntakeEvent[]> {
+      const path = `${medicationPath(recipientId, medicationId)}/intake-events`;
       const response = await client.request<unknown>({
-        path: `${medicationPath(recipientId, medicationId)}/intake-events`, signal });
+        path: page === 0 ? path : `${path}?page=${page}&size=${INTAKE_PAGE_SIZE}`, signal });
       if (!Array.isArray(response)) throw new Error('Invalid intake event list response.');
       return response.map((item) => readIntakeEvent(item, recipientId, medicationId));
     },
