@@ -73,7 +73,7 @@ class ApiDocsProfileTest {
   private String register(String email) throws Exception {
     String body = mvc.perform(post("/api/auth/register")
             .contentType(MediaType.APPLICATION_JSON)
-            .content("{\"email\":\"" + email + "\",\"password\":\"password123\"}"))
+            .content("{\"email\":\"" + email + "\",\"password\":\"password1234\"}"))
         .andExpect(status().isCreated())
         .andReturn().getResponse().getContentAsString();
     JsonNode json = mapper.readTree(body);

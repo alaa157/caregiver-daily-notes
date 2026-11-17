@@ -858,7 +858,7 @@ class PlanControllerTest {
 
     mvc.perform(post("/api/auth/login")
             .contentType(MediaType.APPLICATION_JSON)
-            .content("{\"email\":\"plan-state@example.com\",\"password\":\"password123\"}"))
+            .content("{\"email\":\"plan-state@example.com\",\"password\":\"password1234\"}"))
         .andExpect(status().isOk());
 
     assertThat(auditEventsFor(owner.id()))
@@ -1055,7 +1055,7 @@ class PlanControllerTest {
   private TestCaregiver register(String email) throws Exception {
     MvcResult result = mvc.perform(post("/api/auth/register")
             .contentType(MediaType.APPLICATION_JSON)
-            .content("{\"email\":\"" + email + "\",\"password\":\"password123\"}"))
+            .content("{\"email\":\"" + email + "\",\"password\":\"password1234\"}"))
         .andExpect(status().isCreated())
         .andReturn();
     String token = mapper.readTree(result.getResponse().getContentAsString()).get("token").asText();

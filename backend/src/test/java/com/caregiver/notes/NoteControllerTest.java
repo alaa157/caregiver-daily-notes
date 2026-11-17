@@ -742,7 +742,7 @@ class NoteControllerTest {
   private TestCaregiver register(String email) throws Exception {
     MvcResult result = mvc.perform(post("/api/auth/register")
             .contentType(MediaType.APPLICATION_JSON)
-            .content("{\"email\":\"" + email + "\",\"password\":\"password123\"}"))
+            .content("{\"email\":\"" + email + "\",\"password\":\"password1234\"}"))
         .andExpect(status().isCreated())
         .andReturn();
     JsonNode json = mapper.readTree(result.getResponse().getContentAsByteArray());

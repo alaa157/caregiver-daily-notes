@@ -3,6 +3,7 @@ package com.caregiver.common;
 import com.caregiver.ai.InvalidModelOutputException;
 import com.caregiver.auth.BadCredentialsException;
 import com.caregiver.auth.DuplicateEmailException;
+import com.caregiver.auth.FieldValidationException;
 import com.caregiver.auth.InvalidTokenException;
 import com.caregiver.auth.ValidationException;
 import com.caregiver.medications.InvalidIntakeTimeException;
@@ -72,6 +73,12 @@ public class GlobalExceptionHandler {
   @ExceptionHandler(ValidationException.class)
   public ResponseEntity<ApiError> domainValidation(ValidationException e) {
     return unprocessable(new ApiError("VALIDATION_ERROR", e.getMessage()));
+  }
+
+  @ExceptionHandler(FieldValidationException.class)
+  public ResponseEntity<ApiError> fieldValidation(FieldValidationException e) {
+    return unprocessable(new ApiError("VALIDATION_ERROR", e.getMessage(),
+        Map.of(e.field(), e.getMessage())));
   }
 
   @ExceptionHandler({ProtectedPlanException.class, InvalidModelOutputException.class})

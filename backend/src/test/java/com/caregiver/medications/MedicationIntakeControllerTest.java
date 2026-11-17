@@ -304,7 +304,7 @@ class MedicationIntakeControllerTest {
     String email = "medication-intake-" + UUID.randomUUID() + "@example.com";
     MvcResult result = mvc.perform(post("/api/auth/register")
             .contentType(MediaType.APPLICATION_JSON)
-            .content(mapper.writeValueAsBytes(Map.of("email", email, "password", "password123"))))
+            .content(mapper.writeValueAsBytes(Map.of("email", email, "password", "password1234"))))
         .andExpect(status().isCreated())
         .andReturn();
     String token = json(result).path("token").asText();

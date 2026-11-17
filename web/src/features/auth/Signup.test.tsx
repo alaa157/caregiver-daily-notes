@@ -80,6 +80,17 @@ describe('caregiver signup', () => {
     expect(fetcher).not.toHaveBeenCalled();
   });
 
+  it('rejects a password below the minimum before calling the API', async () => {
+    const user = userEvent.setup();
+    renderSignup();
+    await user.type(await screen.findByLabelText('Email address'), 'short@example.com');
+    await user.type(screen.getByLabelText('Password'), 'short');
+    await user.click(screen.getByRole('button', { name: 'Create account' }));
+
+    expect(screen.getByText('Password must be at least 12 characters.')).toBeVisible();
+    expect(fetcher).not.toHaveBeenCalled();
+  });
+
   it('shows the duplicate-email message for a 422 with DUPLICATE_EMAIL', async () => {
     fetcher.mockResolvedValue(jsonResponse({ code: 'DUPLICATE_EMAIL', message: 'Email is already registered.' }, 422));
     const user = userEvent.setup();

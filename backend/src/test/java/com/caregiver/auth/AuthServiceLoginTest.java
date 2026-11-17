@@ -11,6 +11,7 @@ import java.time.Clock;
 import java.time.Duration;
 import java.util.Optional;
 
+import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.eq;
@@ -27,6 +28,25 @@ class AuthServiceLoginTest {
         new AuthProperties("test-secret-that-is-definitely-32-bytes-long", Duration.ofHours(24)),
         Clock.systemUTC());
   }
+  @Test
+  void legacyShortPasswordStillLogsIn() {
+    // Existing accounts created before the minimum was added must not be locked out.
+    String legacy = "old";
+    PasswordEncoder encoder = mock(PasswordEncoder.class);
+    var caregiver = new Caregiver();
+    org.springframework.test.util.ReflectionTestUtils.setField(caregiver, "id", java.util.UUID.randomUUID());
+    caregiver.setEmail("legacy@example.com");
+    caregiver.setPasswordHash("legacy-hash");
+    var repository = mock(CaregiverRepository.class);
+    when(repository.findByEmail("legacy@example.com")).thenReturn(Optional.of(caregiver));
+    when(encoder.matches(legacy, "legacy-hash")).thenReturn(true);
+    var service = new AuthService(repository, encoder, jwtService(), mock(AuditService.class));
+
+    var response = service.login("legacy@example.com", legacy);
+
+    assertThat(response.token()).isNotBlank();
+  }
+
   @Test
   void unknownEmailThrowsAndVerifiesAgainstDummyHash() {
     PasswordEncoder encoder = mock(PasswordEncoder.class);

@@ -82,6 +82,15 @@ describe('caregiver authentication', () => {
     expect(Object.values(localStorage)).not.toContain(token);
   });
 
+  it('does not apply the signup password minimum to login', async () => {
+    fetcher.mockResolvedValue(jsonResponse({ token: testToken() }));
+    const user = await fillAndSubmit('caregiver@example.com', 'old');
+    await screen.findByRole('heading', { name: 'Caregiver workspace' });
+
+    expect(fetcher).toHaveBeenCalled();
+    expect(screen.queryByText('Password must be at least 12 characters.')).not.toBeInTheDocument();
+  });
+
   it('allows a single-label email domain accepted by the backend', async () => {
     fetcher.mockResolvedValue(jsonResponse({ token: testToken() }));
     renderApp();
