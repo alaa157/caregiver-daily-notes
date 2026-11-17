@@ -322,6 +322,10 @@
     <string name="editor_yes">Yes</string>
     <string name="editor_no">No</string>
     <string name="editor_hint_extra">Write any important notes about today…</string>
+    <string name="editor_anything_else">Anything else? Optional</string>
+    <string name="editor_dictate_prompt">Speak your note</string>
+    <string name="editor_dictate_cd">Dictate note</string>
+    <string name="editor_dictation_unavailable">Dictation is unavailable. You can still type your note.</string>
     <string name="note_original_locked">Original note · cannot be edited</string>
     <string name="note_attachments">Attachments</string>
     <string name="addendum_info_title">The original note is not edited</string>

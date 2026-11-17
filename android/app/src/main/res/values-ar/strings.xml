@@ -328,6 +328,10 @@
     <string name="editor_yes">نعم</string>
     <string name="editor_no">لا</string>
     <string name="editor_hint_extra">اكتب أي ملاحظات مهمة عن حالة اليوم...</string>
+    <string name="editor_anything_else">هل هناك شيء آخر؟ اختياري</string>
+    <string name="editor_dictate_prompt">تحدث بملاحظتك</string>
+    <string name="editor_dictate_cd">إملاء الملاحظة</string>
+    <string name="editor_dictation_unavailable">الإملاء غير متاح. يمكنك كتابة ملاحظتك على أي حال.</string>
     <string name="note_original_locked">ملاحظة أصلية · لا يمكن تعديلها</string>
     <string name="note_attachments">الملاحق</string>
     <string name="addendum_info_title">الملاحظة الأصلية لا يتم تعديلها</string>

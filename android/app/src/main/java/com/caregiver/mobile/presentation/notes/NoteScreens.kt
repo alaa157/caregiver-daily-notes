@@ -12,7 +12,6 @@ import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
-import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.imePadding
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
@@ -399,34 +398,14 @@ fun NoteEditorScreen(recipientId: String, graph: AppGraph, navController: NavCon
                 }
                 HelperCaption(stringResource(R.string.editor_pain_caption))
             }
-            // Free text keeps its existing disclosure behaviour; #905 will
-            // restyle this card and add the dictate button.
-            val detailsOpen = state.detailsExpanded || state.text.isNotBlank()
-            SectionCard {
-                HtmlChip(
-                    label = stringResource(R.string.editor_add_details),
-                    selected = detailsOpen,
-                    onClick = vm::toggleDetails,
-                )
-                if (detailsOpen) {
-                    OutlinedTextField(
-                        value = state.text,
-                        onValueChange = vm::onText,
-                        placeholder = {
-                            Text(stringResource(R.string.editor_hint_extra), fontFamily = PlexArabic)
-                        },
-                        minLines = 5,
-                        shape = RoundedCornerShape(AppDimens.ControlRadius),
-                        colors = OutlinedTextFieldDefaults.colors(
-                            focusedBorderColor = CaregiverColors.Primary,
-                            unfocusedBorderColor = CaregiverColors.Border,
-                            focusedContainerColor = CaregiverColors.Surface,
-                            unfocusedContainerColor = CaregiverColors.Surface,
-                        ),
-                        modifier = Modifier.fillMaxWidth().height(130.dp),
-                    )
-                }
-            }
+            // #905: always-visible optional free-text card with a dictate
+            // button. It writes to the same EditorState.text as before, so
+            // draft autosave, validation and the stored note are unchanged.
+            OptionalNotesCard(
+                value = state.text,
+                onValueChange = vm::onText,
+                modifier = Modifier.fillMaxWidth(),
+            )
 
             state.formError?.let { error ->
                 FieldError(

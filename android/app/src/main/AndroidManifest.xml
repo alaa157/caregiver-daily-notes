@@ -5,6 +5,8 @@
     <uses-permission android:name="android.permission.INTERNET" />
     <!-- Task 8d: the top-bar sync status reads the current connectivity. -->
     <uses-permission android:name="android.permission.ACCESS_NETWORK_STATE" />
+    <!-- #905: requested at runtime only when the user taps Dictate. -->
+    <uses-permission android:name="android.permission.RECORD_AUDIO" />
 
     <!-- networkSecurityConfig applies on API 24+; below that the in-code
         ApiClient policy (HTTPS except loopback/private hosts) still applies. -->
