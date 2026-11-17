@@ -12,6 +12,7 @@ import { RecipientForm } from './RecipientForm';
 import { relationshipLabel } from './relationshipOptions';
 import { RecipientCareDetailsForm } from './RecipientCareDetailsForm';
 import { MedicationListPanel } from '../medications/MedicationListPanel';
+import { RecipientSafety } from '../safety/RecipientSafety';
 import { useRecipientResource, useRecipientsApi } from './useRecipientResource';
 import { useTodayNotes } from './useTodayNotes';
 import './recipients.css';
@@ -242,6 +243,9 @@ function RecipientRecord({ id, edit }: { id: string; edit: boolean }) {
       </div>
       {!edit && <div className="recipient-surface medication-surface" id="recipient-medications" tabIndex={-1}>
         <MedicationListPanel recipientId={state.data.id} canEdit={state.data.lifecycleStatus === 'ACTIVE'} />
+      </div>}
+      {!edit && <div className="recipient-surface">
+        <RecipientSafety recipientId={state.data.id} periodEndInclusive={today} periodDays={7} />
       </div>}
       {!edit && <section className="recipient-manage" aria-labelledby="recipient-manage-title">
         <h2 id="recipient-manage-title">{t('recipientManageTitle')}</h2>

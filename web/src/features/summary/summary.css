@@ -38,6 +38,7 @@
 .summary-signals li + li { border-block-start: 1px solid currentColor; padding-block-start: 1rem; margin-block-start: 1rem; }
 .summary-severity { display: inline-block; border: 1px solid currentColor; border-radius: 5px; padding: .1rem .4rem; margin-block-end: .4rem; }
 .summary-safety-warning { font-weight: 600; }
+.safety-signals-status { margin-block: 0; color: var(--caregiver-muted); }
 .summary-notice { background: var(--caregiver-warning-container); color: var(--caregiver-ink); border-color: var(--caregiver-warning); }
 .summary-uncertainties { background: var(--caregiver-surface); color: var(--caregiver-ink); border-color: var(--caregiver-border); }
 .summary-untrusted { white-space: pre-wrap; overflow-wrap: anywhere; unicode-bidi: plaintext; isolation: isolate; max-width: 100%; }

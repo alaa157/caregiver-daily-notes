@@ -13,7 +13,8 @@ import org.springframework.web.bind.annotation.RestControllerAdvice;
 @RestControllerAdvice(assignableTypes = {
     SummaryController.class,
     PlanGenerationController.class,
-    SafetyAcknowledgementController.class
+    SafetyAcknowledgementController.class,
+    SafetySignalController.class
 })
 public class AiWebExceptionHandler {
   @ExceptionHandler(RecipientNotFoundException.class)
