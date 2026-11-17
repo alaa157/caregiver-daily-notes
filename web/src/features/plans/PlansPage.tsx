@@ -211,6 +211,8 @@ function PlanWorkspace({ recipientId, onSaving }: { recipientId: string; onSavin
   const snapshot = state.status === 'ready' ? state.data : null;
   const historyIds = new Set(snapshot?.history.map((plan) => plan.id));
   const suggestions = snapshot?.history.filter((plan) => plan.status === 'SUGGESTED') ?? [];
+  const actionableSuggestions = suggestions.filter((plan) => !plan.outdated);
+  const outdatedSuggestions = suggestions.filter((plan) => plan.outdated);
   const disabled = saving || blocked || !snapshot?.recipient.active;
   return <section className="plan-workspace" aria-busy={state.status === 'loading' || saving} aria-labelledby="plans-results">
     <div className="plan-results-heading"><h2 id="plans-results" ref={results} tabIndex={-1}>{snapshot ? <bdi>{snapshot.recipient.name}</bdi> : t('plansTitle')}</h2>
@@ -237,7 +239,9 @@ function PlanWorkspace({ recipientId, onSaving }: { recipientId: string; onSavin
       <section className="plan-suggestions" aria-labelledby="plans-suggested"><h2 id="plans-suggested">{t('plansSuggested')}</h2>
         <p>{t('plansSuggestionsHint')}</p>
         {!suggestions.length ? <EmptyState title={t('plansNoSuggestions')} description={t('plansNoSuggestionsHint')} />
-          : <ul className="plan-list" role="list">{suggestions.map((plan) => <li className="note-surface" key={plan.id}>
+          : <>
+            {!actionableSuggestions.length && <p className="note-hint">{t('plansNoActionableSuggestions')}</p>}
+            {!!actionableSuggestions.length && <ul className="plan-list" role="list">{actionableSuggestions.map((plan) => <li className="note-surface" key={plan.id}>
             <PlanCard plan={plan} historyIds={historyIds} />
             <div className="note-actions">
               {(['accept', 'dismiss'] as const).map((action) => <Button key={action} variant={action === 'accept' ? 'primary' : 'secondary'} disabled={disabled || !!confirmation || !!editing}
@@ -251,6 +255,15 @@ function PlanWorkspace({ recipientId, onSaving }: { recipientId: string; onSavin
             {editing === plan.id && <PlanEditor plan={plan} disabled={disabled} onCancel={() => { restoreFocus.current = true; setEditing(null); }}
               onConfirm={(input) => { void decide({ plan, action: 'edit-and-accept' }, input); }} />}
           </li>)}</ul>}
+            {!!outdatedSuggestions.length && <div className="plan-outdated-suggestions">
+              <h3>{t('plansOutdatedSuggestions')}</h3>
+              <p className="note-hint">{t('plansOutdatedHint')}</p>
+              <ul className="plan-list" role="list">{outdatedSuggestions.map((plan) => <li className="note-surface" key={plan.id}>
+                <PlanCard plan={plan} historyIds={historyIds} />
+                <p className="plan-outdated-badge">{t('plansOutdatedBadge')}</p>
+              </li>)}</ul>}
+            </div>}
+          </>}
       </section>
       <section className="note-surface" aria-labelledby="plans-history"><h2 id="plans-history">{t('plansHistory')}</h2>
         <p>{t('plansHistoryHint')}</p>

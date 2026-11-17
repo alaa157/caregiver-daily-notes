@@ -19,6 +19,7 @@ export interface CarePlan {
   sourceType?: string;
   structuredContent?: PlanDocument | null;
   editable?: boolean;
+  outdated?: boolean;
 }
 export type PlanAction = 'accept' | 'dismiss' | 'edit-and-accept';
 export interface PlanChange { action: string; params: Record<string, string>; reason: string; evidenceNoteIds: string[] }
@@ -89,7 +90,7 @@ export function readPlan(value: unknown, recipientId: string): CarePlan {
     id: item.id, recipientId, version: item.version as number, status: item.status,
     content: item.content, sourceSummaryId: item.sourceSummaryId as string | null,
     sourcePlanId: item.sourcePlanId as string | null, evidenceNoteIds: item.evidenceNoteIds as string | null,
-    createdAt: item.createdAt,
+    createdAt: item.createdAt, outdated: item.outdated === true,
     ...metadata,
   };
 }

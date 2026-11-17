@@ -331,6 +331,18 @@ describe('care-plan review and authoritative backend decisions', () => {
     expect(within(suggestions()).getByText(/AI authorship cannot be confirmed/)).toBeInTheDocument();
     expect(screen.getByRole('region', { name: 'Plan history' }).querySelectorAll('details')).toHaveLength(2);
   });
+  it('marks outdated suggestions without offering accept controls', async () => {
+    const outdatedSuggestion: CarePlan = { ...suggestion, id: 'c9999999-9999-4999-8999-999999999999', version: 4, outdated: true };
+    const fetcher = serve({ history: [suggestion, outdatedSuggestion, active] });
+    renderPlans(fetcher); await loaded();
+
+    const region = suggestions();
+    expect(await within(region).findByText('Outdated suggestions')).toBeVisible();
+    expect(within(region).getByText('Outdated', { exact: true })).toBeVisible();
+    expect(within(region).getAllByRole('button', { name: 'Accept suggestion' })).toHaveLength(1);
+    expect(within(region).getAllByRole('button', { name: 'Dismiss suggestion' })).toHaveLength(1);
+  });
+
   it('labels AI-generated plans and shows the educational disclaimer', async () => {
     renderPlans(serve({ history: [protectedSuggestion, active] }));
     await loaded();
