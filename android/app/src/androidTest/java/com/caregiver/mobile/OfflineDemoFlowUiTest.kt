@@ -3,11 +3,13 @@ package com.caregiver.mobile
 import android.content.Context
 import androidx.compose.ui.test.assertIsDisplayed
 import androidx.compose.ui.test.junit4.createComposeRule
+import androidx.compose.ui.test.longClick
 import androidx.compose.ui.test.onAllNodesWithText
 import androidx.compose.ui.test.onNodeWithTag
 import androidx.compose.ui.test.onNodeWithText
 import androidx.compose.ui.test.performClick
 import androidx.compose.ui.test.performTextInput
+import androidx.compose.ui.test.performTouchInput
 import androidx.test.core.app.ApplicationProvider
 import androidx.test.ext.junit.runners.AndroidJUnit4
 import com.caregiver.mobile.core.theme.CaregiverTheme
@@ -61,7 +63,9 @@ class OfflineDemoFlowUiTest {
             }
         }
 
-        // No token → auth gate with the debug-only demo entry.
+        // No token → auth gate. The demo entry is hidden until the logo is
+        // long-pressed (#872).
+        compose.onNodeWithTag("auth_logo").performTouchInput { longClick() }
         compose.onNodeWithTag("auth_demo_entry").assertIsDisplayed()
         compose.onNodeWithTag("auth_demo_entry").performClick()
 

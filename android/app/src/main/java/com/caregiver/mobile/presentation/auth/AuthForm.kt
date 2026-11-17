@@ -2,7 +2,9 @@ package com.caregiver.mobile.presentation.auth
 
 import androidx.compose.foundation.background
 import androidx.compose.foundation.focusable
+import androidx.compose.foundation.gestures.detectTapGestures
 import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
@@ -45,6 +47,7 @@ import androidx.compose.ui.autofill.AutofillType
 import androidx.compose.ui.autofill.LocalAutofill
 import androidx.compose.ui.autofill.LocalAutofillTree
 import androidx.compose.ui.focus.onFocusChanged
+import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.layout.boundsInWindow
 import androidx.compose.ui.layout.onGloballyPositioned
 import androidx.compose.ui.platform.testTag
@@ -105,6 +108,10 @@ fun AuthForm(
     // rendering; the real auth screens pass the graph from CaregiverRoot.
     graph: AppGraph? = null,
 ) {
+    // #872: the offline demo entry is hidden in the footer until the logo is
+    // long-pressed. rememberSaveable keeps the reveal across rotation.
+    var demoRevealed by rememberSaveable { mutableStateOf(false) }
+
     Column(
         modifier = modifier
             .fillMaxSize()
@@ -142,7 +149,18 @@ fun AuthForm(
                 .fillMaxWidth()
                 .padding(top = 40.dp),
         ) {
-            AuthLogo()
+            // #872: the offline demo entry lives behind a long-press on the
+            // logo. The tag sits on this wrapper because AuthLogo clears its
+            // own semantics, so UI tests can reach the gesture target.
+            Box(
+                modifier = Modifier
+                    .testTag("auth_logo")
+                    .pointerInput(Unit) {
+                        detectTapGestures(onLongPress = { demoRevealed = true })
+                    },
+            ) {
+                AuthLogo()
+            }
             Text(
                 text = stringResource(
                     if (mode == AuthMode.Login) R.string.auth_title_login
@@ -329,6 +347,9 @@ fun AuthForm(
                 )
             }
 
+            // #873: the muted coming-soon row, inserted here by #872.
+            SocialSignInRow(isRegister = mode == AuthMode.Register)
+
             if (mode == AuthMode.Login && showSwitchAccount && onSwitchAccount != null) {
                 val switchLabel = stringResource(R.string.account_switch)
                 TextButton(
@@ -370,8 +391,9 @@ fun AuthForm(
                 }
             }
             // Offline demo entry, gated on DEMO_BACKEND (debug + minified).
-            // Release uses the real backend and never shows it.
-            if (shouldShowDemoEntry(BuildConfig.DEMO_BACKEND, onDemo != null)) {
+            // Release uses the real backend and never shows it. Since #872 it
+            // is also hidden until the logo is long-pressed (demoRevealed).
+            if (shouldShowDemoEntry(BuildConfig.DEMO_BACKEND, onDemo != null) && demoRevealed) {
                 TextButton(
                     onClick = { onDemo?.invoke() },
                     modifier = Modifier.testTag("auth_demo_entry"),
