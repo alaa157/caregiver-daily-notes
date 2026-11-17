@@ -7,6 +7,30 @@ import { Button } from '../../components/Button';
 import { useI18n } from '../../i18n/I18nProvider';
 import { formatDate } from '../../lib/format';
 import { useApiClient } from '../../lib/api';
+import type { MessageKey } from '../../i18n/translations';
+
+const ruleLabels: Readonly<Record<string, MessageKey>> = {
+  FALL_DETECTED: 'safetyRuleFALL_DETECTED',
+  HIGH_PAIN: 'safetyRuleHIGH_PAIN',
+  REPEATED_MISSED_MED: 'safetyRuleREPEATED_MISSED_MED',
+  POOR_APPETITE_DAYS: 'safetyRulePOOR_APPETITE_DAYS',
+  MEDICATION_STATUS_UNCLEAR: 'safetyRuleMEDICATION_STATUS_UNCLEAR',
+  FREE_TEXT_CONCERN: 'safetyRuleFREE_TEXT_CONCERN',
+  CONFUSED_MOOD: 'safetyRuleCONFUSED_MOOD',
+};
+const ruleReasons: Readonly<Record<string, MessageKey>> = {
+  FALL_DETECTED: 'safetyReasonFALL_DETECTED',
+  HIGH_PAIN: 'safetyReasonHIGH_PAIN',
+  REPEATED_MISSED_MED: 'safetyReasonREPEATED_MISSED_MED',
+  POOR_APPETITE_DAYS: 'safetyReasonPOOR_APPETITE_DAYS',
+  MEDICATION_STATUS_UNCLEAR: 'safetyReasonMEDICATION_STATUS_UNCLEAR',
+  FREE_TEXT_CONCERN: 'safetyReasonFREE_TEXT_CONCERN',
+  CONFUSED_MOOD: 'safetyReasonCONFUSED_MOOD',
+};
+const labelKeyFor = (ruleId: string | null): MessageKey =>
+  ruleId && Object.hasOwn(ruleLabels, ruleId) ? ruleLabels[ruleId] : 'safetyRuleUnknown';
+const reasonKeyFor = (ruleId: string | null): MessageKey =>
+  ruleId && Object.hasOwn(ruleReasons, ruleId) ? ruleReasons[ruleId] : 'safetyReasonUnknown';
 
 /** Kept outside model-content containers; no dismiss/collapse control. */
 export function SummarySafety({ safety, recipientId, periodEndInclusive, periodDays }: {
@@ -126,10 +150,11 @@ export function SummarySafety({ safety, recipientId, periodEndInclusive, periodD
       const requestKey = `${contextKey}:${ruleId}`;
       const acknowledgement = context && ruleId
         ? acknowledgementState.records.find((record) => record.ruleId === ruleId) : undefined;
-      return <li key={index}>
+      const reason = language === 'ar' ? t(reasonKeyFor(ruleId)) : (signal.reason ?? t('summaryNoReason'));
+      return <li key={index} data-rule-id={ruleId ?? ''}>
         <div><strong className="summary-severity"><bdi>{signal.severity ?? t('summaryUnknownSeverity')}</bdi></strong>{' '}
-          <strong><bdi>{ruleId ?? t('summaryUnknownSignal')}</bdi></strong></div>
-        <p className="summary-untrusted" dir="auto">{signal.reason ?? t('summaryNoReason')}</p>
+          <strong><bdi>{t(labelKeyFor(ruleId))}</bdi></strong></div>
+        <p className="summary-untrusted" dir="auto" title={signal.reason ?? undefined}>{reason}</p>
         {context && ruleId && acknowledgement && <p className="summary-safety-source" role="status">
           <strong>{t('summarySafetyAckReviewed')}</strong>{' · '}
           <time dateTime={acknowledgement.acknowledgedAt}>{formatAcknowledgedAt(acknowledgement.acknowledgedAt)}</time>

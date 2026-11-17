@@ -29,10 +29,11 @@ describe('provider-free safety flags', () => {
       needsDoctorBanner: true,
     });
 
-    expect(await screen.findByText('FALL_DETECTED')).toBeInTheDocument();
-    expect(screen.getByText('HIGH_PAIN')).toBeInTheDocument();
+    expect(await screen.findByText('Fall detected')).toBeInTheDocument();
+    expect(screen.getByText('High pain recorded')).toBeInTheDocument();
     expect(screen.getByRole('heading', { name: 'Clinical review requested' })).toBeInTheDocument();
     expect(screen.getByText('Fall reported in period')).toBeInTheDocument();
+    expect(screen.queryByText('FALL_DETECTED')).not.toBeInTheDocument();
     expect(fetcher.mock.calls.some(([path]) => String(path) ===
       `/api/recipients/${recipientId}/safety-signals?periodEndInclusive=2026-10-26&periodDays=7`)).toBe(true);
     const init = fetcher.mock.calls.find(([path]) => String(path).includes('/safety-signals?'))?.[1];
@@ -47,7 +48,7 @@ describe('provider-free safety flags', () => {
       needsDoctorBanner: false,
     });
 
-    expect(await screen.findByText('FREE_TEXT_CONCERN')).toBeInTheDocument();
+    expect(await screen.findByText('Concern in note text')).toBeInTheDocument();
     expect(screen.getByText('If you suspect a medical emergency, contact your local emergency services immediately.')).toBeInTheDocument();
     expect(screen.queryByRole('heading', { name: 'Clinical review requested' })).not.toBeInTheDocument();
   });
@@ -69,5 +70,25 @@ describe('provider-free safety flags', () => {
     expect(await screen.findByText('Safety signals are unavailable right now. Review the original notes.')).toBeInTheDocument();
     expect(screen.queryByRole('alert')).not.toBeInTheDocument();
     expect(screen.queryByText(/No safety flags were returned/)).not.toBeInTheDocument();
+  });
+
+  it('renders localized labels and reasons in Arabic, never the raw rule code', async () => {
+    localStorage.setItem('caregiver-language', 'ar');
+    renderPanel({
+      signals: [
+        { ruleId: 'FALL_DETECTED', severity: 'HIGH', reason: 'Fall reported in period' },
+        { ruleId: 'FUTURE_RULE', severity: 'WATCH', reason: 'Some unreviewed reason' },
+      ],
+      needsDoctorBanner: true,
+    });
+
+    expect(await screen.findByText('تم الإبلاغ عن سقوط')).toBeInTheDocument();
+    expect(screen.getByText('تم الإبلاغ عن سقوط خلال الفترة المحددة.')).toBeInTheDocument();
+    expect(screen.getByText('إشارة سلامة')).toBeInTheDocument();
+    expect(screen.getByText('تعذّر تفسير هذه الإشارة. راجع الملاحظات الأصلية.')).toBeInTheDocument();
+    expect(screen.queryByText('FALL_DETECTED')).not.toBeInTheDocument();
+    expect(screen.queryByText('FUTURE_RULE')).not.toBeInTheDocument();
+    const fallItem = screen.getByText('تم الإبلاغ عن سقوط').closest('li');
+    expect(fallItem).toHaveAttribute('data-rule-id', 'FALL_DETECTED');
   });
 });
