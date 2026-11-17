@@ -37,7 +37,8 @@ class PlanCatalogTest {
 
   @Test
   void schemaVersion_oneIsAcceptedAndOtherVersionsAreRejected() {
-    assertThat(new PlanDocument(1, List.of(), List.of()).schemaVersion()).isEqualTo(1);
+    assertThat(document(PlanAction.SCHEDULE_CHECK_IN, Map.of("withinDays", "7")).schemaVersion()).isEqualTo(1);
+    assertThatThrownBy(() -> new PlanDocument(1, List.of(), List.of())).isInstanceOf(ProtectedPlanException.class);
     assertThatThrownBy(() -> new PlanDocument(0, List.of(), List.of())).isInstanceOf(ProtectedPlanException.class);
     assertThatThrownBy(() -> new PlanDocument(2, List.of(), List.of())).isInstanceOf(ProtectedPlanException.class);
   }

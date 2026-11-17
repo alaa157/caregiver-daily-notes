@@ -4,13 +4,16 @@ import com.caregiver.auth.Caregiver;
 import com.caregiver.config.CaregiverApplication;
 import com.caregiver.plans.CarePlan;
 import com.caregiver.plans.MedicationEntry;
+import com.caregiver.plans.PlanAction;
 import com.caregiver.plans.PlanDocument;
 import com.caregiver.plans.PlanDocumentCodec;
 import com.caregiver.plans.PlanSource;
 import com.caregiver.plans.PlanStatus;
+import com.caregiver.plans.SuggestedPlanChange;
 import com.caregiver.recipient.CareRecipient;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import java.util.List;
+import java.util.Map;
 import java.util.Set;
 import java.util.UUID;
 import java.util.stream.Collectors;
@@ -228,7 +231,10 @@ class MedicationRepositoryTest {
   @Test
   void existingPlanMedicationDocumentStillRoundTripsUnchanged() {
     MedicationEntry entry = new MedicationEntry("دواء A / Vitamin D", " ١٠ ملغ / 10 mg ", "كل يوم at 08:30");
-    PlanDocument original = new PlanDocument(1, List.of(), List.of(entry));
+    PlanDocument original = new PlanDocument(1,
+        List.of(new SuggestedPlanChange(PlanAction.SCHEDULE_CHECK_IN, Map.of("withinDays", "3"),
+            "Review recorded notes", List.of("note-1"))),
+        List.of(entry));
     String serialized = planDocuments.write(original);
     CarePlan plan = new CarePlan(null, 1, PlanStatus.SUGGESTED, serialized,
         null, null, null, PlanSource.AI_GENERATED);
