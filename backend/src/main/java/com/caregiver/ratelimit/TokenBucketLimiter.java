@@ -7,8 +7,8 @@ import java.util.function.LongSupplier;
 /**
  * Small thread-safe in-memory token bucket. One bucket per key, refilling
  * continuously at {@code capacity / window}. Intended for a single instance;
- * a distributed deployment can swap this for a Redis-backed implementation
- * without touching the filter.
+ * a distributed deployment can swap this for a shared implementation without
+ * touching the filter.
  */
 public final class TokenBucketLimiter {
 
