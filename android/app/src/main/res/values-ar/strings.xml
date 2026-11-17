@@ -820,4 +820,10 @@
     <string name="migration_claim_submit">إنشاء حساب واسترجاع البيانات</string>
     <string name="migration_failed">تعذر نقل بياناتك الموجودة. يمكنك المحاولة لاحقًا.</string>
     <string name="settings_account">الحساب</string>
+    <!-- Auth redesign #873: muted, coming-soon social sign-in row. -->
+    <string name="auth_social_divider_login">أو تابع باستخدام · قريبًا</string>
+    <string name="auth_social_divider_register">أو سجّل باستخدام · قريبًا</string>
+    <string name="auth_social_google_cd">Google، قريبًا</string>
+    <string name="auth_social_github_cd">GitHub، قريبًا</string>
+    <string name="auth_social_facebook_cd">Facebook، قريبًا</string>
 </resources>

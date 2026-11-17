@@ -808,4 +808,10 @@
     <string name="migration_claim_submit">Create account &amp; claim data</string>
     <string name="migration_failed">Could not move your existing data. You can try again later.</string>
     <string name="settings_account">Account</string>
+    <!-- Auth redesign #873: muted, coming-soon social sign-in row. -->
+    <string name="auth_social_divider_login">or continue with · coming soon</string>
+    <string name="auth_social_divider_register">or sign up with · coming soon</string>
+    <string name="auth_social_google_cd">Google, coming soon</string>
+    <string name="auth_social_github_cd">GitHub, coming soon</string>
+    <string name="auth_social_facebook_cd">Facebook, coming soon</string>
 </resources>
