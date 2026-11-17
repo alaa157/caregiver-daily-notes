@@ -82,11 +82,8 @@ public class PlanSuggestionService {
       }
     }
     for (int i = 0; i < changes.size(); i++) {
-      for (String noteId : changes.get(i).evidenceNoteIds()) {
-        if (!request.noteTextsById().containsKey(noteId)) {
-          throw new InvalidModelOutputException("Change " + i + " cites unknown note: " + noteId);
-        }
-      }
+      PlanEvidenceValidator.validateNoteIds(
+          changes.get(i).evidenceNoteIds(), request.noteTextsById().keySet(), i);
     }
     try {
       new PlanDocument(1, changes, List.of());

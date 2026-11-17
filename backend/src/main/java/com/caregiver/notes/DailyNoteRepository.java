@@ -2,6 +2,7 @@ package com.caregiver.notes;
 import jakarta.persistence.LockModeType; import org.springframework.data.domain.Page; import org.springframework.data.domain.Pageable; import org.springframework.data.jpa.repository.JpaRepository; import org.springframework.data.jpa.repository.Lock; import org.springframework.data.jpa.repository.Query; import org.springframework.data.repository.query.Param; import java.time.LocalDate; import java.util.Collection; import java.util.List; import java.util.Optional; import java.util.UUID;
 public interface DailyNoteRepository extends JpaRepository<DailyNote,UUID>{
  Optional<DailyNote> findByIdAndCaregiver_Id(UUID id,UUID caregiverId); boolean existsByIdAndCaregiver_Id(UUID id,UUID caregiverId);
+ List<DailyNote> findAllByIdInAndRecipient_Id(Collection<UUID> ids,UUID recipientId);
  @Lock(LockModeType.PESSIMISTIC_WRITE) @Query("select n from DailyNote n where n.id = :id and n.caregiver.id = :owner") Optional<DailyNote> findOwnedForUpdate(@Param("id") UUID id,@Param("owner") UUID owner);
  Optional<DailyNote> findByRecipient_IdAndCaregiver_IdAndDate(UUID recipientId,UUID caregiverId,LocalDate date);
  Optional<DailyNote> findByCaregiver_IdAndIdempotencyKey(UUID caregiverId,String key);
