@@ -15,6 +15,7 @@ class SafetyTypesTest {
     assertThat(SafetyRuleId.HIGH_PAIN.getId()).isEqualTo("HIGH_PAIN");
     assertThat(SafetyRuleId.REPEATED_MISSED_MED.getId()).isEqualTo("REPEATED_MISSED_MED");
     assertThat(SafetyRuleId.POOR_APPETITE_DAYS.getId()).isEqualTo("POOR_APPETITE_DAYS");
+    assertThat(SafetyRuleId.MEDICATION_STATUS_UNCLEAR.getId()).isEqualTo("MEDICATION_STATUS_UNCLEAR");
   }
 
   @Test

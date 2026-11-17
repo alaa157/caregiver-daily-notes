@@ -6,6 +6,8 @@ import com.caregiver.config.CaregiverApplication;
 import com.caregiver.recipient.CareRecipientRepository;
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
+import java.sql.Timestamp;
+import java.time.Instant;
 import java.util.UUID;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
@@ -24,8 +26,8 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
 
 /**
  * Signal derivation rules against a real database (issue #34): exact
- * field mapping, per-field addendum override, unverified encoding,
- * symmetric contradiction handling, absent-as-null, ordering and scoping.
+ * field mapping, per-field addendum override, chronological medication
+ * corrections, absent-as-null, ordering and scoping.
  */
 @SpringBootTest(
     classes = CaregiverApplication.class,
@@ -227,7 +229,7 @@ class NoteSignalServiceTest {
   }
 
   @Test
-  void missedReportCorrectedToTakenIsUnknownNotTaken() throws Exception {
+  void missedReportCorrectedToTakenUsesLatestMedicationValue() throws Exception {
     TestCaregiver owner = register("signal-correct1@example.com");
     String recipientId = createRecipient(owner.token());
     String noteId = createNote(owner.token(), recipientId, "2026-10-06",
@@ -239,16 +241,17 @@ class NoteSignalServiceTest {
     JsonNode note = getNote(owner.token(), noteId);
     assertThat(note.get("medicationStatus").asText()).isEqualTo("MISSED");
 
-    // The conflicting observation remains unknown without changing verification.
+    // The correction supersedes the older report without changing history.
     JsonNode day = signals(owner.token(), recipientId, "2026-10-06", "2026-10-06").get(0);
-    assertThat(day.get("missedMedication").isNull()).isTrue();
+    assertThat(day.get("medicationStatus").asText()).isEqualTo("TAKEN");
+    assertThat(day.get("missedMedication").asBoolean()).isFalse();
     assertThat(day.get("medicationUnverified").asBoolean()).isFalse();
-    assertThat(day.get("observations").get("medicationStatus").get("state").asText()).isEqualTo("UNKNOWN");
+    assertThat(day.get("observations").get("medicationStatus").get("value").asText()).isEqualTo("TAKEN");
     assertThat(day.get("observations").get("medicationVerification").asText()).isEqualTo("VERIFIED");
   }
 
   @Test
-  void takenReportCorrectedToMissedIsUnknownSymmetrically() throws Exception {
+  void takenReportCorrectedToMissedUsesLatestMedicationValue() throws Exception {
     TestCaregiver owner = register("signal-correct2@example.com");
     String recipientId = createRecipient(owner.token());
     String noteId = createNote(owner.token(), recipientId, "2026-10-07",
@@ -257,8 +260,30 @@ class NoteSignalServiceTest {
         "{\"medicationStatus\":\"MISSED\",\"medicationVerified\":true}");
 
     JsonNode day = signals(owner.token(), recipientId, "2026-10-07", "2026-10-07").get(0);
-    assertThat(day.get("missedMedication").isNull()).isTrue();
+    assertThat(day.get("medicationStatus").asText()).isEqualTo("MISSED");
+    assertThat(day.get("missedMedication").asBoolean()).isTrue();
     assertThat(day.get("medicationUnverified").asBoolean()).isFalse();
+    assertThat(day.get("observations").get("medicationStatus").get("value").asText()).isEqualTo("MISSED");
+    assertThat(day.get("observations").get("medicationVerification").asText()).isEqualTo("VERIFIED");
+  }
+
+  @Test
+  void simultaneousConflictingMedicationReportsRemainUnknown() throws Exception {
+    TestCaregiver owner = register("signal-simultaneous@example.com");
+    String recipientId = createRecipient(owner.token());
+    String noteId = createNote(owner.token(), recipientId, "2026-10-08",
+        "{\"medicationStatus\":\"TAKEN\",\"medicationVerified\":true}");
+    String addendumId = append(owner.token(), noteId,
+        "{\"medicationStatus\":\"MISSED\",\"medicationVerified\":true}");
+    Timestamp simultaneous = Timestamp.from(Instant.parse("2026-10-08T10:00:00Z"));
+    jdbcTemplate.update("update daily_notes set created_at = ? where id = ?",
+        simultaneous, UUID.fromString(noteId));
+    jdbcTemplate.update("update note_addenda set created_at = ? where id = ?",
+        simultaneous, UUID.fromString(addendumId));
+
+    JsonNode day = signals(owner.token(), recipientId, "2026-10-08", "2026-10-08").get(0);
+    assertThat(day.get("medicationStatus").asText()).isEqualTo("UNKNOWN");
+    assertThat(day.get("missedMedication").isNull()).isTrue();
     assertThat(day.get("observations").get("medicationStatus").get("state").asText()).isEqualTo("UNKNOWN");
     assertThat(day.get("observations").get("medicationVerification").asText()).isEqualTo("VERIFIED");
   }
@@ -415,12 +440,14 @@ class NoteSignalServiceTest {
     return mapper.readTree(result.getResponse().getContentAsByteArray());
   }
 
-  private void append(String token, String noteId, String fields) throws Exception {
-    mvc.perform(post(NOTES + "/" + noteId + "/addenda")
+  private String append(String token, String noteId, String fields) throws Exception {
+    MvcResult result = mvc.perform(post(NOTES + "/" + noteId + "/addenda")
             .header("Authorization", bearer(token))
             .contentType(MediaType.APPLICATION_JSON)
             .content(fields))
-        .andExpect(status().isCreated());
+        .andExpect(status().isCreated())
+        .andReturn();
+    return mapper.readTree(result.getResponse().getContentAsByteArray()).get("id").asText();
   }
 
   private TestCaregiver register(String email) throws Exception {

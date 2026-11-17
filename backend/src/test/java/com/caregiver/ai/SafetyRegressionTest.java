@@ -147,7 +147,6 @@ class SafetyRegressionTest {
   @Test
   void unknownAndNonRecordedObservationStatesDoNotBecomeSafetySignals() {
     for (ObservationState state : List.of(
-        ObservationState.UNKNOWN,
         ObservationState.NOT_RECORDED,
         ObservationState.NOT_APPLICABLE,
         ObservationState.LEGACY_AMBIGUOUS)) {
@@ -164,6 +163,19 @@ class SafetyRegressionTest {
       assertThat(evaluation.signals()).isEmpty();
       assertThat(evaluation.needsDoctorBanner()).isFalse();
     }
+  }
+
+  @Test
+  void unknownMedicationStatusRaisesWatchReviewSignal() {
+    var signals = signalsThroughProductionConversion(
+        medicationObservations(Observation.state(ObservationState.UNKNOWN), VerificationState.VERIFIED), 1);
+
+    var evaluation = safetyEvaluator.evaluate(signals, END, 7);
+    assertThat(evaluation.signals()).singleElement().satisfies(signal -> {
+      assertThat(signal.ruleId()).isEqualTo(SafetyRuleId.MEDICATION_STATUS_UNCLEAR);
+      assertThat(signal.severity()).isEqualTo(Severity.WATCH);
+    });
+    assertThat(evaluation.needsDoctorBanner()).isFalse();
   }
 
   @Test
@@ -203,8 +215,12 @@ class SafetyRegressionTest {
         medicationObservations("MISSED", VerificationState.UNVERIFIED), 2);
 
     assertThat(signals).allSatisfy(note -> assertThat(note.missedMedication()).isNull());
-    assertThat(safetyEvaluator.evaluate(signals, END, 7).signals())
-        .extracting(SafetySignal::ruleId).doesNotContain(SafetyRuleId.REPEATED_MISSED_MED);
+    var evaluation = safetyEvaluator.evaluate(signals, END, 7);
+    assertThat(evaluation.signals())
+        .extracting(SafetySignal::ruleId)
+        .containsExactly(SafetyRuleId.MEDICATION_STATUS_UNCLEAR);
+    assertThat(evaluation.signals().get(0).severity()).isEqualTo(Severity.WATCH);
+    assertThat(evaluation.needsDoctorBanner()).isFalse();
 
     var missedTrend = new TrendCalculator().computeTrends(signals, List.of()).stream()
         .filter(trend -> trend.metric().equals("MISSED_MED_COUNT"))
@@ -214,12 +230,17 @@ class SafetyRegressionTest {
   }
 
   private static NoteObservations medicationObservations(String status, VerificationState verification) {
+    return medicationObservations(Observation.recorded(status), verification);
+  }
+
+  private static NoteObservations medicationObservations(
+      Observation<String> medicationStatus, VerificationState verification) {
     return new NoteObservations(
         Observation.state(ObservationState.NOT_RECORDED),
         Observation.state(ObservationState.NOT_RECORDED),
         Observation.state(ObservationState.NOT_RECORDED),
         Observation.state(ObservationState.NOT_RECORDED),
-        Observation.recorded(status),
+        medicationStatus,
         Observation.state(ObservationState.NOT_RECORDED),
         Observation.state(ObservationState.NOT_RECORDED),
         Observation.state(ObservationState.NOT_RECORDED),
@@ -245,7 +266,7 @@ class SafetyRegressionTest {
         textObservation(state, "POOR"),
         textObservation(state, "POOR"),
         textObservation(state, "POOR"),
-        textObservation(state, "MISSED"),
+        Observation.state(ObservationState.NOT_RECORDED),
         integerObservation(state, 9),
         booleanObservation(state, true),
         textObservation(state, "legacy"),
