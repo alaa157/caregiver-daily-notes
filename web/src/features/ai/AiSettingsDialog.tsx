@@ -49,6 +49,7 @@ export function AiSettingsDialog({ open, onClose }: { open: boolean; onClose?: (
   const [customModel, setCustomModel] = useState('');
   const [apiKey, setApiKey] = useState('');
   const [dataUseAck, setDataUseAck] = useState(false);
+  const [validationAttempted, setValidationAttempted] = useState(false);
   const [testState, setTestState] = useState<ConnectionTestState>({ kind: 'idle' });
   const pending = testState.kind === 'testing';
   const modelOptions = MODEL_CATALOG[providerId];
@@ -72,6 +73,7 @@ export function AiSettingsDialog({ open, onClose }: { open: boolean; onClose?: (
     setCustomModel(preferences && !catalogHasModel ? preferences.model : '');
     setApiKey('');
     setDataUseAck(false);
+    setValidationAttempted(false);
     setTestState({ kind: 'idle' });
   }, [open]);
 
@@ -89,7 +91,9 @@ export function AiSettingsDialog({ open, onClose }: { open: boolean; onClose?: (
 
   const submit = async (event: FormEvent<HTMLFormElement>) => {
     event.preventDefault();
-    if (pending || !modelReady || ackBlocked) return;
+    // The button stays enabled so activation can explain what is missing.
+    setValidationAttempted(true);
+    if (pending || !modelReady || !apiKey || ackBlocked) return;
     setTestState({ kind: 'testing' });
     try {
       const response: unknown = await api.request({
@@ -190,7 +194,8 @@ export function AiSettingsDialog({ open, onClose }: { open: boolean; onClose?: (
         </div>
         <div className="auth-field">
           <span className="byok-field-label" id="byok-model-label">{t('byokModelLabel')}</span>
-          <div className="byok-model-picker" role="radiogroup" aria-labelledby="byok-model-label">
+          <div className="byok-model-picker" role="radiogroup" aria-labelledby="byok-model-label"
+            aria-describedby={validationAttempted && !modelReady && !customModelInvalid ? 'byok-model-required-error' : undefined}>
             {modelOptions.map((option) => (
               <label key={option.id} className="byok-model-option">
                 <input type="radio" name="byok-model-choice" value={option.id}
@@ -225,22 +230,32 @@ export function AiSettingsDialog({ open, onClose }: { open: boolean; onClose?: (
               {customModelInvalid && <p id="byok-model-error" className="byok-model-error">{t('byokModelIdInvalid')}</p>}
             </div>
           )}
+          {validationAttempted && !modelReady && !customModelInvalid
+            && <p id="byok-model-required-error" role="alert" className="byok-model-error">{t('byokModelRequired')}</p>}
           <p className="byok-provider-notice">{t(providerNotices[providerId])}</p>
           {ackRequired && (
             <label className="byok-ack">
               <input type="checkbox" checked={dataUseAck} disabled={pending}
+                aria-invalid={(validationAttempted && ackBlocked) || undefined}
+                aria-describedby={validationAttempted && ackBlocked ? 'byok-ack-error' : undefined}
                 onChange={(event) => setDataUseAck(event.target.checked)} />
               <span>{t('byokDataUseAck')}</span>
             </label>
           )}
+          {validationAttempted && ackBlocked
+            && <p id="byok-ack-error" role="alert" className="byok-model-error">{t('byokDataUseAckRequired')}</p>}
         </div>
         <div className="auth-field">
           <label htmlFor="byok-key">{t('byokKeyLabel')}</label>
           <input id="byok-key" type="password" autoComplete="off" required value={apiKey} readOnly={pending}
+            aria-invalid={(validationAttempted && !apiKey) || undefined}
+            aria-describedby={validationAttempted && !apiKey ? 'byok-key-error' : undefined}
             onChange={(event) => { setApiKey(event.target.value); clearTestStatus(); }} />
+          {validationAttempted && !apiKey
+            && <p id="byok-key-error" role="alert" className="byok-model-error">{t('byokKeyRequired')}</p>}
         </div>
         <div className="byok-actions">
-          <Button type="submit" disabled={pending || !modelReady || !apiKey || ackBlocked}>{t(pending ? 'byokTestingConnection' : 'byokTestConnection')}</Button>
+          <Button type="submit" disabled={pending}>{t(pending ? 'byokTestingConnection' : 'byokTestConnection')}</Button>
           <Button type="button" variant="secondary" disabled={pending || (!credentials && !apiKey)} onClick={removeKey}>{t('byokRemoveKey')}</Button>
         </div>
       </form>

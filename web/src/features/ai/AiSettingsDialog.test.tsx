@@ -83,7 +83,7 @@ describe('AI settings model picker', () => {
     expect(screen.getByRole('radiogroup', { name: 'Model' })).toBeInTheDocument();
     expect(screen.getAllByRole('radio').some((radio) => (radio as HTMLInputElement).checked)).toBe(false);
     expect(screen.getByText('Google may use content sent with a free-tier key to improve its products. A key from a project with billing turned on is not used this way. The model you pick does not change this.')).toBeInTheDocument();
-    expect(screen.getByRole('button', { name: 'Test connection' })).toBeDisabled();
+    expect(screen.getByRole('button', { name: 'Test connection' })).toBeEnabled();
   });
 
   it('sends the selected catalog model in credentials.model', async () => {
@@ -126,7 +126,7 @@ describe('AI settings model picker', () => {
     });
   });
 
-  it('rejects an invalid custom model ID and disables the connection test', async () => {
+  it('rejects an invalid custom model ID without calling the API', async () => {
     const user = userEvent.setup();
     const fetcher = vi.fn().mockResolvedValue(jsonResponse({ success: true }));
     vi.stubGlobal('fetch', fetcher);
@@ -138,7 +138,9 @@ describe('AI settings model picker', () => {
     await user.type(screen.getByLabelText('API key'), 'test-key');
 
     expect(screen.getByText('Use only letters, numbers and . _ : / - (up to 128 characters).')).toBeInTheDocument();
-    expect(screen.getByRole('button', { name: 'Test connection' })).toBeDisabled();
+    const testButton = screen.getByRole('button', { name: 'Test connection' });
+    expect(testButton).toBeEnabled();
+    await user.click(testButton);
     expect(fetcher).not.toHaveBeenCalled();
   });
 
@@ -155,8 +157,10 @@ describe('AI settings model picker', () => {
     expect(screen.getByText('No free tier. Usage is billed to your OpenAI account.')).toBeInTheDocument();
   });
 
-  it('keeps the connection test disabled until the data-use acknowledgement is checked', async () => {
+  it('explains the missing data-use acknowledgement when testing is attempted', async () => {
     const user = userEvent.setup();
+    const fetcher = vi.fn().mockResolvedValue(jsonResponse({ success: true }));
+    vi.stubGlobal('fetch', fetcher);
     renderDialog();
     await openDialog(user);
 
@@ -164,10 +168,34 @@ describe('AI settings model picker', () => {
     await user.type(screen.getByLabelText('API key'), 'test-key');
 
     const testButton = screen.getByRole('button', { name: 'Test connection' });
-    expect(testButton).toBeDisabled();
+    expect(testButton).toBeEnabled();
+    await user.click(testButton);
+    const reason = 'Confirm the data-use acknowledgement before testing.';
+    expect(screen.getByText(reason)).toBeInTheDocument();
+    expect(screen.getByRole('checkbox', { name: /I understand that my care notes/ })).toHaveAccessibleDescription(reason);
+    expect(fetcher).not.toHaveBeenCalled();
 
     await user.click(screen.getByRole('checkbox', { name: /I understand that my care notes/ }));
-    expect(testButton).toBeEnabled();
+    expect(screen.queryByText(reason)).not.toBeInTheDocument();
+    await user.click(testButton);
+    await waitFor(() => expect(fetcher).toHaveBeenCalledTimes(1));
+  });
+
+  it('explains a missing model and API key on an empty test attempt', async () => {
+    const user = userEvent.setup();
+    const fetcher = vi.fn().mockResolvedValue(jsonResponse({ success: true }));
+    vi.stubGlobal('fetch', fetcher);
+    renderDialog();
+    await openDialog(user);
+
+    await user.click(screen.getByRole('button', { name: 'Test connection' }));
+
+    expect(screen.getByText('Choose a model or enter a model ID.')).toBeInTheDocument();
+    expect(screen.getByRole('radiogroup', { name: 'Model' }))
+      .toHaveAccessibleDescription('Choose a model or enter a model ID.');
+    expect(screen.getByText('Enter an API key.')).toBeInTheDocument();
+    expect(screen.getByLabelText('API key')).toHaveAccessibleDescription('Enter an API key.');
+    expect(fetcher).not.toHaveBeenCalled();
   });
 
   it('unchecks the acknowledgement when the provider changes', async () => {
@@ -181,7 +209,7 @@ describe('AI settings model picker', () => {
 
     const ack = screen.getByRole('checkbox', { name: /I understand that my care notes/ });
     expect(ack).not.toBeChecked();
-    expect(screen.getByRole('button', { name: 'Test connection' })).toBeDisabled();
+    expect(screen.getByRole('button', { name: 'Test connection' })).toBeEnabled();
   });
 
   it('keeps English and Arabic translation keys in parity', () => {
