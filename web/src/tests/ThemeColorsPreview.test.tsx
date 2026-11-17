@@ -125,6 +125,15 @@ describe('ThemeColorsPreview', () => {
     expect(previewDocument).toContain('width: 100%');
   });
 
+  it('maps web aliases onto dark-aware tokens inside the preview document', () => {
+    renderPreview();
+    const previewDocument = screen.getByTitle('Theme preview').getAttribute('srcdoc') ?? '';
+
+    expect(previewDocument).toContain("[data-theme='dark'] { --web-color-background: var(--caregiver-background); --web-color-ink: var(--caregiver-ink); }");
+    expect(previewDocument).toContain('--web-color-background: var(--caregiver-background)');
+    expect(previewDocument).toContain('prefers-color-scheme: dark');
+  });
+
   it('tracks external theme changes without overwriting an active preview', async () => {
     const user = userEvent.setup();
     renderPreview({ externalModeControls: true });
