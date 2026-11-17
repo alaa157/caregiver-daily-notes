@@ -1,6 +1,5 @@
 package com.caregiver.mobile.presentation.auth
 
-import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.shape.RoundedCornerShape
@@ -21,16 +20,6 @@ import com.caregiver.mobile.core.theme.PlexArabic
 import com.caregiver.mobile.presentation.common.AppDimens
 
 private val AuthFieldMinHeight = 60.dp
-
-/**
- * Start/end (not left/right) so the field mirrors correctly in Arabic.
- */
-private val AuthFieldContentPadding = PaddingValues(
-    start = 16.dp,
-    top = 16.dp,
-    end = 16.dp,
-    bottom = 16.dp,
-)
 
 /**
  * Shared input for the redesigned Login and Register screens.
@@ -79,7 +68,6 @@ fun AuthTextField(
         trailingIcon = trailingIcon,
         singleLine = true,
         shape = RoundedCornerShape(AppDimens.AuthFieldRadius),
-        contentPadding = AuthFieldContentPadding,
         colors = OutlinedTextFieldDefaults.colors(
             focusedBorderColor = CaregiverColors.Primary,
             unfocusedBorderColor = CaregiverColors.AuthFieldBorder,
