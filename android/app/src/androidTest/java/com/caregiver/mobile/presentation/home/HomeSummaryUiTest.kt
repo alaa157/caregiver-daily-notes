@@ -15,6 +15,7 @@ import androidx.navigation.compose.rememberNavController
 import androidx.test.core.app.ApplicationProvider
 import androidx.test.ext.junit.runners.AndroidJUnit4
 import com.caregiver.mobile.AppGraph
+import com.caregiver.mobile.core.navigation.AppDestinations
 import com.caregiver.mobile.core.navigation.AppRoutes
 import com.caregiver.mobile.core.theme.CaregiverTheme
 import com.caregiver.mobile.test.WithTestOwner
@@ -71,6 +72,7 @@ class HomeSummaryUiTest {
                         composable(AppRoutes.NoteEditor.base) { backStackEntry ->
                             Text("editor:" + backStackEntry.arguments?.getString("recipientId"))
                         }
+                        composable(AppDestinations.AddRecipient.base) { Text("add-recipient") }
                     }
                 }
             }
@@ -99,6 +101,50 @@ class HomeSummaryUiTest {
         compose.onNodeWithTag("home_summary_card").assertIsDisplayed()
         compose.onNodeWithText("1 / 2 done").assertIsDisplayed()
         compose.onNodeWithTag("home_summary_write_note").assertIsDisplayed()
+    }
+
+    @Test
+    fun allNotesWrittenShowsAllDoneAndKeepsTheWriteNoteAction() {
+        val today = LocalDate.now().toString()
+        server.enqueue(
+            MockResponse().setBody(
+                """[{"id":"r1","name":"Amina","active":true},{"id":"r2","name":"Baker","active":true}]""",
+            ),
+        )
+        server.enqueue(MockResponse().setBody("[${note("r1", today)},${note("r2", today)}]"))
+
+        setHome()
+
+        compose.onNodeWithTag("home_summary_card").assertIsDisplayed()
+        compose.onNodeWithTag("home_summary_all_done").assertIsDisplayed()
+        compose.onNodeWithText("All notes written for today").assertIsDisplayed()
+        compose.onNodeWithText("2 / 2 done").assertDoesNotExist()
+
+        // "Write a note" stays available so an extra note can be written.
+        val writeNote = compose.onNodeWithTag("home_summary_write_note")
+        writeNote.assertIsDisplayed()
+        writeNote.performClick()
+        compose.waitUntil(timeoutMillis = 5_000) {
+            compose.onAllNodesWithText("Who is this note for?").fetchSemanticsNodes().isNotEmpty()
+        }
+        compose.onNodeWithText("Who is this note for?").assertIsDisplayed()
+    }
+
+    @Test
+    fun noPeopleShowsEmptyStateInsteadOfSummaryCardAndList() {
+        server.enqueue(MockResponse().setBody("[]"))
+        server.enqueue(MockResponse().setBody("[]"))
+
+        setHome()
+
+        compose.onNodeWithTag("home_summary_card").assertDoesNotExist()
+        compose.onNodeWithTag("home_summary_all_done").assertDoesNotExist()
+        compose.onNodeWithTag("home_person_card").assertDoesNotExist()
+        compose.onNodeWithText("No people yet. Add your first person.").assertIsDisplayed()
+        compose.onNodeWithText("Add your first person").assertIsDisplayed()
+
+        compose.onNodeWithText("Add your first person").performClick()
+        compose.onNodeWithText("add-recipient").assertIsDisplayed()
     }
 
     @Test

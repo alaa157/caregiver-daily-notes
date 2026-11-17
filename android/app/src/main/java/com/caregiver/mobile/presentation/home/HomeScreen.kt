@@ -181,6 +181,13 @@ internal fun noteTargets(cards: List<HomeCard>): List<HomeCard> =
 /** Exactly one active person goes straight to their editor; none or several use the picker. */
 internal fun singleNoteTarget(cards: List<HomeCard>): HomeCard? = noteTargets(cards).singleOrNull()
 
+/**
+ * #898: every person has a note for today. Pure so the "all done" card state
+ * is unit-testable without a device; zero people is NOT all-done (that is the
+ * empty state, which replaces the card entirely).
+ */
+internal fun allNotesWrittenForToday(done: Int, total: Int): Boolean = total > 0 && done >= total
+
 /** The picker only needs id + name; carry the Home card's id through unchanged. */
 internal fun notePickerRecipients(cards: List<HomeCard>): List<RecipientDto> =
     noteTargets(cards).map { RecipientDto(id = it.recipientId, name = it.name, active = true) }
@@ -321,21 +328,26 @@ private fun HomeTimeline(
                         )
                     }
                 }
-                item(key = "summary") {
-                    TodaySummaryCard(
-                        done = content.done,
-                        total = content.total,
-                        onWriteNote = {
-                            val only = singleNoteTarget(content.cards)
-                            if (only != null) {
-                                // Exactly one active person: straight to their editor.
-                                navController.navigate(AppRoutes.noteEditor(only.recipientId))
-                            } else {
-                                showNotePicker = true
-                            }
-                        },
-                        modifier = Modifier.padding(horizontal = AppDimens.ScreenHPadding),
-                    )
+                // #898: with no people the friendly add-first-person state
+                // replaces the summary card and the list, so there is no
+                // disabled "Write a note" button to explain.
+                if (content.cards.isNotEmpty()) {
+                    item(key = "summary") {
+                        TodaySummaryCard(
+                            done = content.done,
+                            total = content.total,
+                            onWriteNote = {
+                                val only = singleNoteTarget(content.cards)
+                                if (only != null) {
+                                    // Exactly one active person: straight to their editor.
+                                    navController.navigate(AppRoutes.noteEditor(only.recipientId))
+                                } else {
+                                    showNotePicker = true
+                                }
+                            },
+                            modifier = Modifier.padding(horizontal = AppDimens.ScreenHPadding),
+                        )
+                    }
                 }
                 item(key = "medications") {
                     // Medication tracker (standalone local tables): hidden
@@ -358,13 +370,15 @@ private fun HomeTimeline(
                 }
                 when {
                     content.cards.isEmpty() -> item(key = "empty-people") {
+                        // #898: one short friendly message and one action,
+                        // in place of the summary card and the people list.
                         EmptyItem {
                             AppEmptyState(
                                 icon = Icons.Filled.People,
                                 title = stringResource(R.string.people_empty),
-                                subtitle = stringResource(R.string.home_section_today),
-                                actionLabel = stringResource(R.string.people_add),
-                                onAction = { navController.navigate("people") },
+                                subtitle = stringResource(R.string.people_empty_subtitle),
+                                actionLabel = stringResource(R.string.home_add_first_person),
+                                onAction = { navController.navigate(AppDestinations.AddRecipient.base) },
                             )
                         }
                     }
@@ -458,7 +472,9 @@ private fun TabEmptyState(tab: HomeTab, onViewAll: () -> Unit) {
  * today's notes are written, with one white, full-width 56 dp button. Counts
  * come straight from [HomeContent] — the same bounded load that drives the
  * rest of the feed — so "X of Y" matches the stored notes for today and
- * refreshes when Home is resumed after saving.
+ * refreshes when Home is resumed after saving. Once every note is written
+ * (#898) the progress line becomes "All notes written for today", but the
+ * button remains available for extra notes.
  */
 @Composable
 private fun TodaySummaryCard(
@@ -485,16 +501,28 @@ private fun TodaySummaryCard(
                 fontSize = 19.sp,
                 color = Color.White,
             )
-            Text(
-                text = stringResource(R.string.home_today_progress, done, total),
-                fontFamily = PlexArabic,
-                fontSize = 15.sp,
-                color = Color.White,
-            )
+            if (allNotesWrittenForToday(done, total)) {
+                // #898: the "all done" state. The button stays enabled so a
+                // caregiver can still write an extra note for anyone.
+                Text(
+                    text = stringResource(R.string.home_all_notes_written),
+                    fontFamily = PlexArabic,
+                    fontSize = 15.sp,
+                    color = Color.White,
+                    modifier = Modifier.testTag("home_summary_all_done"),
+                )
+            } else {
+                Text(
+                    text = stringResource(R.string.home_today_progress, done, total),
+                    fontFamily = PlexArabic,
+                    fontSize = 15.sp,
+                    color = Color.White,
+                )
+            }
             Button(
                 onClick = onWriteNote,
-                // No people to write for yet: the empty-people state below
-                // offers the add-person action instead.
+                // Kept enabled when everything is written: extra notes are
+                // still allowed. With no people the card is not shown at all.
                 enabled = total > 0,
                 shape = RoundedCornerShape(AppDimens.AuthButtonRadius),
                 colors = ButtonDefaults.buttonColors(

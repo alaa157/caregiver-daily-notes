@@ -59,4 +59,14 @@ class HomeNoteActionTest {
             ),
         )
     }
+
+    @Test
+    fun allWrittenNeedsAtLeastOnePersonAndEveryNoteDone() {
+        // #898: zero people is the empty state, never "all done".
+        assertEquals(false, allNotesWrittenForToday(0, 0))
+        assertEquals(false, allNotesWrittenForToday(0, 2))
+        assertEquals(false, allNotesWrittenForToday(1, 2))
+        assertEquals(true, allNotesWrittenForToday(2, 2))
+        assertEquals(true, allNotesWrittenForToday(3, 2)) // extra notes
+    }
 }
