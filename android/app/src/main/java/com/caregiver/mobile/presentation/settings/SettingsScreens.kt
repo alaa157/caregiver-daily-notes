@@ -301,23 +301,34 @@ fun SettingsScreen(
             ),
         )
 
-        // Application-specific: Server / Logout
-        if (!com.caregiver.mobile.BuildConfig.LOCAL_MODE) {
-            CaregiverSettingsGroup(
-                items = listOf(
-                    CaregiverSettingsRow(
-                        title = stringResource(R.string.settings_server),
-                        icon = Icons.Outlined.Dns,
-                        onClick = { navController.navigate("server-url") },
-                    ),
+        // Application-specific: Server is backend-only; Logout is available
+        // in every mode. In LOCAL_MODE signOut clears the active account, so
+        // the root gate returns to Login and Back cannot re-enter (#707).
+        CaregiverSettingsGroup(
+            items = buildList {
+                if (!com.caregiver.mobile.BuildConfig.LOCAL_MODE) {
+                    add(
+                        CaregiverSettingsRow(
+                            title = stringResource(R.string.settings_server),
+                            icon = Icons.Outlined.Dns,
+                            onClick = { navController.navigate("server-url") },
+                        ),
+                    )
+                }
+                add(
                     CaregiverSettingsRow(
                         title = stringResource(R.string.settings_logout),
                         icon = Icons.Outlined.Logout,
-                        onClick = { scope.launch { graph.auth.signOut() } },
+                        onClick = {
+                            scope.launch { graph.auth.signOut() }
+                            // The root gate observes the active account id and
+                            // replaces this whole nav host with Login, so Back
+                            // cannot re-enter a signed-out workspace (#707).
+                        },
                     ),
-                ),
-            )
-        }
+                )
+            },
+        )
 
         csvState.preview?.let { plan ->
             CsvImportDialog(

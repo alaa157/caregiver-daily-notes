@@ -5,6 +5,7 @@ import android.content.res.Configuration
 import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.test.assertIsDisplayed
+import androidx.compose.ui.test.assertIsEnabled
 import androidx.compose.ui.test.assertIsNotEnabled
 import androidx.compose.ui.test.junit4.createComposeRule
 import androidx.compose.ui.test.onNodeWithTag
@@ -78,6 +79,24 @@ class AccountSettingsSectionTest {
         assertTrue(switched)
         assertTrue(added)
         assertTrue(!removed)
+    }
+
+    @Test
+    fun removeRowEnabledForNonActiveAccount() {
+        var removed = false
+        render("en") {
+            AccountSettingsSection(
+                account = account,
+                onSwitch = {},
+                onAdd = {},
+                onRemove = { removed = true },
+                canRemove = true,
+            )
+        }
+
+        compose.onNodeWithTag("Remove account").assertIsEnabled().performClick()
+
+        assertTrue(removed)
     }
 
     @Test

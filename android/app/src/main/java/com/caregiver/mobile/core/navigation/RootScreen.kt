@@ -35,3 +35,11 @@ fun rootScreenFor(
     signedIn -> RootScreen.APP
     else -> RootScreen.LOGIN
 }
+
+/**
+ * LOCAL_MODE gate on top of [rootScreenFor]: the workspace needs an active
+ * account, so sign-out — which clears it — resolves to Login, not the app.
+ * The whole nav host is replaced, so Back cannot re-enter the workspace (#707).
+ */
+fun localLoginRequired(localMode: Boolean, hasActiveAccount: Boolean): Boolean =
+    localMode && !hasActiveAccount
