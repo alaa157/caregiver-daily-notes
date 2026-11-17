@@ -9,6 +9,7 @@ import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.test.assertIsDisplayed
 import androidx.compose.ui.test.assertDoesNotExist
 import androidx.compose.ui.test.assertCountEquals
+import androidx.compose.ui.test.assertTextEquals
 import androidx.compose.ui.test.hasClickAction
 import androidx.compose.ui.test.filterToOne
 import androidx.compose.ui.test.assertIsNotEnabled
@@ -27,6 +28,7 @@ import com.caregiver.mobile.data.AuthRepository
 import com.caregiver.mobile.data.FakeAuthApi
 import com.caregiver.mobile.data.FakeBackendApis
 import com.caregiver.mobile.data.SettingsStore
+import com.caregiver.mobile.data.SignInResult
 import com.caregiver.mobile.data.accounts.Account
 import com.caregiver.mobile.data.accounts.AccountError
 import com.caregiver.mobile.data.accounts.AccountException
@@ -82,10 +84,16 @@ class AuthFormUiTest {
         registerAccount: RegisterAccount? = null,
         showSwitchAccount: Boolean = false,
         onSwitchAccount: (() -> Unit)? = null,
+        enterDemoSession: (suspend () -> SignInResult)? = null,
     ): AuthViewModel {
         val base = ApplicationProvider.getApplicationContext<Context>()
         val localized = base.withLocale(language)
-        val vm = AuthViewModel(mode, repository, registerAccount = registerAccount)
+        val vm = AuthViewModel(
+            mode,
+            repository,
+            registerAccount = registerAccount,
+            enterDemoSession = enterDemoSession,
+        )
         compose.setContent {
             CompositionLocalProvider(LocalContext provides localized) {
                 CaregiverTheme {
@@ -100,7 +108,7 @@ class AuthFormUiTest {
                         onSwitchMode = onSwitch,
                         onDisplayName = vm::onDisplayName,
                         showDisplayName = vm.requiresDisplayName,
-                        onDemo = onDemo,
+                        onDemo = onDemo ?: if (enterDemoSession != null) vm::demoSignIn else null,
                         showSwitchAccount = showSwitchAccount,
                         onSwitchAccount = onSwitchAccount,
                     )
@@ -390,5 +398,37 @@ class AuthFormUiTest {
         setForm(AuthMode.Login, "en")
 
         compose.onNodeWithTag("auth_demo_entry").assertDoesNotExist()
+    }
+
+    @Test
+    fun demoEntryEntersDemoInOneTapWithoutCredentialFormOrError() {
+        var demoCalls = 0
+        val vm = setForm(AuthMode.Login, "en", enterDemoSession = {
+            demoCalls++
+            SignInResult.SignedIn
+        })
+
+        compose.onNodeWithTag("auth_demo_entry").performClick()
+        compose.waitForIdle()
+
+        assertEquals(1, demoCalls)
+        assertTrue(vm.state.value.signedIn)
+        compose.onNodeWithTag("auth_field_email").assertTextEquals("")
+        compose.onNodeWithTag("auth_field_password").assertTextEquals("")
+        compose.onNodeWithText("Invalid email or password").assertDoesNotExist()
+        compose.onNodeWithText("Something went wrong. Please try again.").assertDoesNotExist()
+    }
+
+    @Test
+    fun demoEntryFailureNeverShowsACredentialError() {
+        setForm(AuthMode.Login, "en", enterDemoSession = {
+            SignInResult.Rejected(null, "Offline demo unavailable.")
+        })
+
+        compose.onNodeWithTag("auth_demo_entry").performClick()
+        compose.waitForIdle()
+
+        compose.onNodeWithText("Invalid email or password").assertDoesNotExist()
+        compose.onNodeWithText("Something went wrong. Please try again.").assertIsDisplayed()
     }
 }

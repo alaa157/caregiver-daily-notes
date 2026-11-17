@@ -12,6 +12,7 @@ import com.caregiver.mobile.data.api.LoginRequest
 import com.caregiver.mobile.data.api.RegisterRequest
 import java.io.IOException
 import java.util.Locale
+import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.flow.first
 import retrofit2.HttpException
 
@@ -92,6 +93,53 @@ class AuthRepository(
     /** Two-argument form delegates with a name derived from the address. */
     suspend fun signUp(email: String, password: String): SignInResult =
         signUp(deriveName(email), email, password)
+
+    /**
+     * One-tap offline demo. Seeds a local demo account on first use and
+     * activates it on every later tap — entirely on-device, with no network
+     * and no credential form. This is deliberately NOT the normal [signIn]
+     * path: it never verifies a password, so there is nothing to get wrong
+     * and no [SignInResult.InvalidCredentials] outcome to render (issue #880).
+     *
+     * Returns [SignInResult.Unreachable] when there is no local account store
+     * — a build where the offline demo cannot work and the entry is hidden.
+     */
+    suspend fun enterDemo(): SignInResult {
+        val manager = accountManager ?: return SignInResult.Unreachable
+        val normalized = normalize(DEMO_EMAIL)
+        val existing = manager.listAccounts().first().firstOrNull { it.email == normalized }
+
+        val accountId: String
+        if (existing == null) {
+            val created = try {
+                manager.signUp(DEMO_DISPLAY_NAME, DEMO_EMAIL, DEMO_SEED_PASSWORD)
+            } catch (e: CancellationException) {
+                throw e
+            } catch (e: Exception) {
+                return SignInResult.Rejected(null, "Offline demo unavailable.")
+            }
+            accountId = created.getOrNull()?.id
+                ?: return SignInResult.Rejected(null, "Offline demo unavailable.")
+        } else {
+            val swapped = try {
+                manager.switchAccount(existing.id)
+            } catch (e: CancellationException) {
+                throw e
+            } catch (e: Exception) {
+                return SignInResult.Rejected(null, "Offline demo unavailable.")
+            }
+            if (swapped.isFailure) {
+                return SignInResult.Rejected(null, "Offline demo unavailable.")
+            }
+            accountId = existing.id
+        }
+
+        // Keep the session mirrors (token + email) consistent with a normal
+        // local sign-in; accountManager already made this the active account,
+        // which is what the root gate observes to leave the login screen.
+        finishLocalSignIn(accountId, DEMO_EMAIL)
+        return SignInResult.SignedIn
+    }
 
     suspend fun signOut() {
         // In local mode this runs the account swap: clears the stored active
@@ -177,6 +225,12 @@ class AuthRepository(
     }
 
     companion object {
+        /** Identity of the on-device offline demo account (never a login credential). */
+        const val DEMO_EMAIL = "demo@example.com"
+        const val DEMO_DISPLAY_NAME = "Offline Demo"
+        /** Only satisfies the local account schema when seeding; never used to sign in. */
+        const val DEMO_SEED_PASSWORD = "DemoPass1"
+
         /** Mirrors the backend: trim + ROOT-lowercase before sending. */
         fun normalize(email: String): String = email.trim().lowercase(Locale.ROOT)
 

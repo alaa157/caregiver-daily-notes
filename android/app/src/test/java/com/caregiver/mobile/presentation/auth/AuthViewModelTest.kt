@@ -1,6 +1,7 @@
 package com.caregiver.mobile.presentation.auth
 
 import com.caregiver.mobile.data.AuthRepository
+import com.caregiver.mobile.data.SignInResult
 import com.caregiver.mobile.data.code
 import com.caregiver.mobile.data.FakeAuthApi
 import com.caregiver.mobile.data.FakeBackendApis
@@ -19,6 +20,7 @@ import kotlinx.coroutines.test.UnconfinedTestDispatcher
 import kotlinx.coroutines.test.runTest
 import org.junit.After
 import org.junit.Assert.assertEquals
+import org.junit.Assert.assertFalse
 import org.junit.Assert.assertNull
 import org.junit.Assert.assertTrue
 import org.junit.Before
@@ -379,6 +381,43 @@ class AuthViewModelTest {
             assertNull("no email error for $code", vm.state.value.emailError)
             assertNull("no password error for $code", vm.state.value.passwordError)
         }
+    }
+
+    // ── #880: one-tap offline demo ─────────────────────────────────────────
+
+    @Test
+    fun demoEntryEntersDemoWithoutTouchingCredentialsOrSignIn() = runTest {
+        var demoCalls = 0
+        val vm = AuthViewModel(AuthMode.Login, repository, this, enterDemoSession = {
+            demoCalls++
+            SignInResult.SignedIn
+        })
+        // A stale form must be ignored — the demo path never submits it.
+        vm.onEmail("someone@example.com")
+        vm.onPassword("whatever1")
+
+        vm.demoSignIn()
+
+        assertEquals(1, demoCalls)
+        assertTrue(vm.state.value.signedIn)
+        assertNull(vm.state.value.formError)
+        assertNull(fakeAuth.lastLogin)
+        assertEquals("", vm.state.value.email)
+        assertEquals("", vm.state.value.password)
+        assertFalse(vm.state.value.busy)
+    }
+
+    @Test
+    fun demoEntryFailureIsGenericNeverInvalidCredentials() = runTest {
+        val vm = AuthViewModel(AuthMode.Login, repository, this, enterDemoSession = {
+            SignInResult.Rejected(null, "Offline demo unavailable.")
+        })
+
+        vm.demoSignIn()
+
+        assertFalse(vm.state.value.signedIn)
+        assertEquals(FormError.Generic, vm.state.value.formError)
+        assertNull(fakeAuth.lastLogin)
     }
 
     private fun account(displayName: String = "Aisha"): Account = Account(
