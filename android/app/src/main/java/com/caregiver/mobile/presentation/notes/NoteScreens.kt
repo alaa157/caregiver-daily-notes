@@ -13,34 +13,46 @@ import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.heightIn
+import androidx.compose.foundation.layout.imePadding
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.grid.GridCells
 import androidx.compose.foundation.lazy.grid.LazyVerticalGrid
 import androidx.compose.foundation.lazy.grid.items
 import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.Close
 import androidx.compose.material.icons.filled.Lock
+import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.FilterChip
 import androidx.compose.material3.FilterChipDefaults
 import androidx.compose.material3.Icon
+import androidx.compose.material3.IconButton
+import androidx.compose.material3.LinearProgressIndicator
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.OutlinedTextFieldDefaults
 import androidx.compose.material3.Text
+import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.res.stringResource
 import androidx.compose.foundation.selection.selectableGroup
 import androidx.compose.ui.semantics.LiveRegionMode
@@ -77,15 +89,46 @@ import com.caregiver.mobile.presentation.common.HelperCaption
 import com.caregiver.mobile.presentation.common.InfoAlertCard
 import com.caregiver.mobile.presentation.common.PrimaryButton
 import com.caregiver.mobile.presentation.common.SecondaryButton
+import com.caregiver.mobile.presentation.common.SectionCard
 import com.caregiver.mobile.presentation.common.SectionTitle
 import com.caregiver.mobile.presentation.common.assistedViewModel
 import com.caregiver.mobile.presentation.home.LoadFailed
 import com.caregiver.mobile.presentation.home.LoadingRow
+import java.time.LocalTime
+import java.time.format.DateTimeFormatter
+
+/** The seven questions the progress bar counts; free text is not one of them. */
+internal const val EDITOR_QUESTION_COUNT = 7
+
+/** True when the form holds anything the user would lose by closing. */
+internal fun hasUnsavedChanges(state: EditorState): Boolean =
+    state.answeredCount() > 0 || state.text.isNotBlank()
 
 /**
- * Note editor (board 5, 1560px): الحالة العامة / الأدوية والسقوط / الألم /
- * ملاحظات إضافية + bottom action bar (56dp save + centered caption).
- * Same ViewModel and validation; only the presentation matches the HTML.
+ * #901 asks for confirmation only when nothing was autosaved. This build has
+ * no autosave yet, so the flag is always false; #906 will flip it once a draft
+ * is persisted. Keeping the rule here makes that hand-off explicit.
+ */
+internal fun shouldConfirmClose(state: EditorState, autosaved: Boolean = false): Boolean =
+    !autosaved && hasUnsavedChanges(state)
+
+/** The numerator always comes from [EditorState.answeredCount], never a literal. */
+internal fun editorProgressFraction(answered: Int): Float =
+    answered.coerceIn(0, EDITOR_QUESTION_COUNT).toFloat() / EDITOR_QUESTION_COUNT
+
+/** Stable, locale-neutral clock label for the "Draft saved" line. */
+internal fun draftTimeLabel(time: LocalTime): String =
+    time.format(DateTimeFormatter.ofPattern("HH:mm"))
+
+/**
+ * Note editor redesign shell (#901): a round close button, "Note for <name>",
+ * a muted line with the time and "Draft saved", a seven-step progress bar,
+ * the seven existing question groups each in a [SectionCard] in one column,
+ * and a 56 dp Save button pinned above the keyboard.
+ *
+ * Presentation only: the ViewModel, every field, every option and the
+ * validation/error flow are unchanged. The prototype's four-section layout
+ * and its extra controls are deliberately not taken.
  */
 @Composable
 fun NoteEditorScreen(recipientId: String, graph: AppGraph, navController: NavController) {
@@ -100,129 +143,284 @@ fun NoteEditorScreen(recipientId: String, graph: AppGraph, navController: NavCon
             }
         }
     }
-    val arabic = isAppArabic()
+
+    // A name lookup is best-effort: the editor must still work if it fails
+    // (offline, a deleted person, or a test backend with no get handler).
+    var recipientName by rememberSaveable { mutableStateOf<String?>(null) }
+    LaunchedEffect(recipientId) {
+        recipientName = runCatching { graph.apis.recipients().get(recipientId).name }.getOrNull()
+    }
+
+    // #901 has no autosave; #906 will set this once a draft is persisted.
+    var draftAutosaved by rememberSaveable { mutableStateOf(false) }
+    var confirmClose by rememberSaveable { mutableStateOf(false) }
+
+    fun requestClose() {
+        if (shouldConfirmClose(state, draftAutosaved)) {
+            confirmClose = true
+        } else {
+            navController.popBackStack()
+        }
+    }
+
+    if (confirmClose) {
+        AlertDialog(
+            onDismissRequest = { confirmClose = false },
+            title = {
+                Text(
+                    stringResource(R.string.unsaved_changes_title),
+                    fontFamily = PlexArabic,
+                    fontWeight = FontWeight.Bold,
+                )
+            },
+            text = {
+                Text(
+                    stringResource(R.string.unsaved_changes_message),
+                    fontFamily = PlexArabic,
+                )
+            },
+            confirmButton = {
+                TextButton(
+                    onClick = {
+                        confirmClose = false
+                        navController.popBackStack()
+                    },
+                ) {
+                    Text(stringResource(R.string.unsaved_changes_discard), fontFamily = PlexArabic)
+                }
+            },
+            dismissButton = {
+                TextButton(onClick = { confirmClose = false }) {
+                    Text(
+                        stringResource(R.string.unsaved_changes_keep_editing),
+                        fontFamily = PlexArabic,
+                    )
+                }
+            },
+        )
+    }
+
+    val draftTime = remember { draftTimeLabel(LocalTime.now()) }
     Column(Modifier.fillMaxSize()) {
         Column(
-            modifier = Modifier.weight(1f).verticalScroll(rememberScrollState())
-                .padding(horizontal = 16.dp),
+            modifier = Modifier
+                .weight(1f)
+                .verticalScroll(rememberScrollState())
+                .padding(horizontal = 16.dp, vertical = 12.dp),
             verticalArrangement = Arrangement.spacedBy(14.dp),
         ) {
-            AppTopBar(
-                title = stringResource(R.string.editor_title),
-                onBack = { navController.popBackStack() },
-            )
+            // Round close + the two-line header. "Today's note" stays as the
+            // small eyebrow so the existing screen label is not lost.
+            Row(verticalAlignment = Alignment.CenterVertically) {
+                Surface(
+                    shape = CircleShape,
+                    color = CaregiverColors.AvatarContainer,
+                    modifier = Modifier
+                        .size(48.dp)
+                        .testTag("editor_close"),
+                ) {
+                    IconButton(onClick = ::requestClose, modifier = Modifier.size(48.dp)) {
+                        Icon(
+                            Icons.Filled.Close,
+                            contentDescription = stringResource(R.string.editor_close),
+                            tint = CaregiverColors.Ink,
+                        )
+                    }
+                }
+                Spacer(Modifier.width(12.dp))
+                Column {
+                    Text(
+                        stringResource(R.string.editor_title),
+                        fontFamily = PlexArabic,
+                        fontSize = 13.sp,
+                        color = CaregiverColors.Muted,
+                    )
+                    Text(
+                        stringResource(
+                            R.string.editor_note_for,
+                            Bidi.isolate(recipientName ?: stringResource(R.string.editor_title)),
+                        ),
+                        fontFamily = PlexArabic,
+                        fontWeight = FontWeight.Bold,
+                        fontSize = 22.sp,
+                        color = CaregiverColors.Ink,
+                        modifier = Modifier.semantics { heading() },
+                    )
+                }
+            }
             Text(
-                stringResource(R.string.editor_progress, state.answeredCount()),
+                stringResource(R.string.editor_draft_status, draftTime),
                 fontFamily = PlexArabic,
                 fontSize = 13.sp,
                 color = CaregiverColors.Muted,
                 modifier = Modifier.semantics { liveRegion = LiveRegionMode.Polite },
             )
-            // Section 1: الحالة العامة — 4 chip groups.
-            SectionTitle(stringResource(R.string.editor_section_general))
-            OptionGroup.entries.filter { it != OptionGroup.Medication }.forEach { group ->
-                GroupLabel(group)
+
+            // Progress bar: seven answered questions; the free-text field is
+            // intentionally not counted (see EditorState.answeredCount()).
+            Column(verticalArrangement = Arrangement.spacedBy(6.dp)) {
+                Text(
+                    stringResource(R.string.editor_progress_done, state.answeredCount()),
+                    fontFamily = PlexArabic,
+                    fontWeight = FontWeight.Bold,
+                    fontSize = 15.sp,
+                    color = CaregiverColors.Ink,
+                )
+                LinearProgressIndicator(
+                    progress = { editorProgressFraction(state.answeredCount()) },
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .height(8.dp)
+                        .testTag("editor_progress"),
+                )
+                Text(
+                    stringResource(R.string.editor_nothing_required),
+                    fontFamily = PlexArabic,
+                    fontSize = 12.sp,
+                    color = CaregiverColors.Muted,
+                )
+            }
+
+            // The seven existing groups, one SectionCard each, in one column.
+            SectionCard {
+                GroupLabel(OptionGroup.Mood)
                 ChipWrap {
-                    NoteOptions.values(group).forEach { value ->
-                        val selected = when (group) {
-                            OptionGroup.Mood -> state.mood == value
-                            OptionGroup.Appetite -> state.appetite == value
-                            OptionGroup.Sleep -> state.sleep == value
-                            OptionGroup.Mobility -> state.mobility == value
-                            else -> false
-                        }
+                    NoteOptions.values(OptionGroup.Mood).forEach { value ->
                         HtmlChip(
-                            label = optionLabel(group, value),
-                            selected = selected,
-                            onClick = { vm.select(group, value) },
+                            label = optionLabel(OptionGroup.Mood, value),
+                            selected = state.mood == value,
+                            onClick = { vm.select(OptionGroup.Mood, value) },
                         )
                     }
                 }
             }
-            // Section 2: الأدوية والسقوط.
-            SectionTitle(stringResource(R.string.editor_section_meds_fall))
-            GroupLabel(OptionGroup.Medication)
-            ChipWrap {
-                NoteOptions.values(OptionGroup.Medication).forEach { value ->
+            SectionCard {
+                GroupLabel(OptionGroup.Appetite)
+                ChipWrap {
+                    NoteOptions.values(OptionGroup.Appetite).forEach { value ->
+                        HtmlChip(
+                            label = optionLabel(OptionGroup.Appetite, value),
+                            selected = state.appetite == value,
+                            onClick = { vm.select(OptionGroup.Appetite, value) },
+                        )
+                    }
+                }
+            }
+            SectionCard {
+                GroupLabel(OptionGroup.Sleep)
+                ChipWrap {
+                    NoteOptions.values(OptionGroup.Sleep).forEach { value ->
+                        HtmlChip(
+                            label = optionLabel(OptionGroup.Sleep, value),
+                            selected = state.sleep == value,
+                            onClick = { vm.select(OptionGroup.Sleep, value) },
+                        )
+                    }
+                }
+            }
+            SectionCard {
+                GroupLabel(OptionGroup.Mobility)
+                ChipWrap {
+                    NoteOptions.values(OptionGroup.Mobility).forEach { value ->
+                        HtmlChip(
+                            label = optionLabel(OptionGroup.Mobility, value),
+                            selected = state.mobility == value,
+                            onClick = { vm.select(OptionGroup.Mobility, value) },
+                        )
+                    }
+                }
+            }
+            SectionCard {
+                GroupLabel(OptionGroup.Medication)
+                ChipWrap {
+                    NoteOptions.values(OptionGroup.Medication).forEach { value ->
+                        HtmlChip(
+                            label = optionLabel(OptionGroup.Medication, value),
+                            selected = state.medication == value,
+                            onClick = { vm.select(OptionGroup.Medication, value) },
+                        )
+                    }
+                }
+            }
+            SectionCard {
+                GroupLabelText(stringResource(R.string.editor_fall_question))
+                ChipWrap {
                     HtmlChip(
-                        label = optionLabel(OptionGroup.Medication, value),
-                        selected = state.medication == value,
-                        onClick = { vm.select(OptionGroup.Medication, value) },
+                        label = stringResource(R.string.editor_no),
+                        selected = state.fall == false,
+                        onClick = { vm.setFall(false) },
+                    )
+                    HtmlChip(
+                        label = stringResource(R.string.editor_yes),
+                        selected = state.fall == true,
+                        onClick = { vm.setFall(true) },
                     )
                 }
             }
-            GroupLabelText(stringResource(R.string.editor_fall_question))
-            ChipWrap {
-                HtmlChip(
-                    label = stringResource(R.string.editor_no),
-                    selected = state.fall == false,
-                    onClick = { vm.setFall(false) },
-                )
-                HtmlChip(
-                    label = stringResource(R.string.editor_yes),
-                    selected = state.fall == true,
-                    onClick = { vm.setFall(true) },
-                )
-            }
-            // Section 3: الألم — 11 square 44x44 buttons.
-            SectionTitle(stringResource(R.string.editor_section_pain))
-            ChipWrap {
-                (0..10).forEach { level ->
-                    val selected = state.pain == level
-                    val painLevelDescription =
-                        stringResource(R.string.editor_pain_level_description, level)
-                    OutlinedButton(
-                        onClick = { vm.setPain(level) },
-                        shape = RoundedCornerShape(8.dp),
-                        border = BorderStroke(
-                            if (selected) 2.dp else 1.dp,
-                            if (selected) CaregiverColors.Primary else CaregiverColors.Border,
-                        ),
-                        colors = ButtonDefaults.outlinedButtonColors(
-                            containerColor = if (selected) CaregiverColors.PrimarySoft else CaregiverColors.Surface,
-                            contentColor = if (selected) CaregiverColors.Primary else CaregiverColors.Ink,
-                        ),
-                        modifier = Modifier.size(48.dp).semantics {
-                            role = Role.RadioButton
-                            this.selected = selected
-                            contentDescription = painLevelDescription
-                        },
-                        contentPadding = androidx.compose.foundation.layout.PaddingValues(0.dp),
-                    ) {
-                        Text(
-                            if (selected) "✓ $level" else "$level",
-                            fontFamily = PlexArabic,
-                            fontWeight = FontWeight.Bold,
-                        )
+            SectionCard {
+                GroupLabelText(stringResource(R.string.editor_pain))
+                ChipWrap {
+                    (0..10).forEach { level ->
+                        val selected = state.pain == level
+                        val painLevelDescription =
+                            stringResource(R.string.editor_pain_level_description, level)
+                        OutlinedButton(
+                            onClick = { vm.setPain(level) },
+                            shape = RoundedCornerShape(8.dp),
+                            border = BorderStroke(
+                                if (selected) 2.dp else 1.dp,
+                                if (selected) CaregiverColors.Primary else CaregiverColors.Border,
+                            ),
+                            colors = ButtonDefaults.outlinedButtonColors(
+                                containerColor = if (selected) CaregiverColors.PrimarySoft else CaregiverColors.Surface,
+                                contentColor = if (selected) CaregiverColors.Primary else CaregiverColors.Ink,
+                            ),
+                            modifier = Modifier.size(48.dp).semantics {
+                                role = Role.RadioButton
+                                this.selected = selected
+                                contentDescription = painLevelDescription
+                            },
+                            contentPadding = androidx.compose.foundation.layout.PaddingValues(0.dp),
+                        ) {
+                            Text(
+                                if (selected) "✓ $level" else "$level",
+                                fontFamily = PlexArabic,
+                                fontWeight = FontWeight.Bold,
+                            )
+                        }
                     }
                 }
+                HelperCaption(stringResource(R.string.editor_pain_caption))
             }
-            HelperCaption(stringResource(R.string.editor_pain_caption))
-            // Section 4: ملاحظات إضافية — hidden behind a chip until opened;
-            // once it holds text it cannot collapse.
+            // Free text keeps its existing disclosure behaviour; #905 will
+            // restyle this card and add the dictate button.
             val detailsOpen = state.detailsExpanded || state.text.isNotBlank()
-            HtmlChip(
-                label = stringResource(R.string.editor_add_details),
-                selected = detailsOpen,
-                onClick = vm::toggleDetails,
-            )
-            if (detailsOpen) {
-                SectionTitle(stringResource(R.string.editor_section_extra))
-                OutlinedTextField(
-                    value = state.text,
-                    onValueChange = vm::onText,
-                    placeholder = { Text(stringResource(R.string.editor_hint_extra), fontFamily = PlexArabic) },
-                    minLines = 5,
-                    shape = RoundedCornerShape(AppDimens.ControlRadius),
-                    colors = OutlinedTextFieldDefaults.colors(
-                        focusedBorderColor = CaregiverColors.Primary,
-                        unfocusedBorderColor = CaregiverColors.Border,
-                        focusedContainerColor = CaregiverColors.Surface,
-                        unfocusedContainerColor = CaregiverColors.Surface,
-                    ),
-                    modifier = Modifier.fillMaxWidth().height(130.dp),
+            SectionCard {
+                HtmlChip(
+                    label = stringResource(R.string.editor_add_details),
+                    selected = detailsOpen,
+                    onClick = vm::toggleDetails,
                 )
+                if (detailsOpen) {
+                    OutlinedTextField(
+                        value = state.text,
+                        onValueChange = vm::onText,
+                        placeholder = {
+                            Text(stringResource(R.string.editor_hint_extra), fontFamily = PlexArabic)
+                        },
+                        minLines = 5,
+                        shape = RoundedCornerShape(AppDimens.ControlRadius),
+                        colors = OutlinedTextFieldDefaults.colors(
+                            focusedBorderColor = CaregiverColors.Primary,
+                            unfocusedBorderColor = CaregiverColors.Border,
+                            focusedContainerColor = CaregiverColors.Surface,
+                            unfocusedContainerColor = CaregiverColors.Surface,
+                        ),
+                        modifier = Modifier.fillMaxWidth().height(130.dp),
+                    )
+                }
             }
+
             state.formError?.let { error ->
                 FieldError(
                     when (error) {
@@ -260,19 +458,23 @@ fun NoteEditorScreen(recipientId: String, graph: AppGraph, navController: NavCon
             }
             Spacer(Modifier.height(4.dp))
         }
-        // Footer action bar: primary 56dp + centered caption.
-        BottomActionBar {
-            PrimaryButton(
-                label = stringResource(R.string.editor_save),
-                onClick = vm::submit,
-                enabled = !state.busy,
-                height = 56.dp,
-                large = true,
-            )
-            HelperCaption(
-                stringResource(R.string.editor_save_note),
-                align = TextAlign.Center,
-            )
+        // Footer stays pinned while the content above scrolls; imePadding
+        // lifts it above the keyboard so Save is always reachable.
+        Column(modifier = Modifier.imePadding()) {
+            BottomActionBar {
+                PrimaryButton(
+                    label = stringResource(R.string.editor_save),
+                    onClick = vm::submit,
+                    enabled = !state.busy,
+                    height = 56.dp,
+                    large = true,
+                    modifier = Modifier.testTag("editor_save"),
+                )
+                HelperCaption(
+                    stringResource(R.string.editor_save_note),
+                    align = TextAlign.Center,
+                )
+            }
         }
     }
 }
