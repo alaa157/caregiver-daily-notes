@@ -218,6 +218,56 @@ class AuthRepositoryTest {
         )
     }
 
+    // ── #880: one-tap offline demo ─────────────────────────────────────────
+
+    @Test
+    fun enterDemoSeedsACredentialFreeLocalAccountWithoutSigningIn() = runTest {
+        val dao = InMemoryAccountDao()
+        val manager = AccountManager(dao = dao, hasher = PasswordHasher(iterations = 10))
+        val demoRepository = AuthRepository(FakeBackendApis(fakeAuth), settings, tokens, accountManager = manager)
+
+        val result = demoRepository.enterDemo()
+
+        assertEquals(SignInResult.SignedIn, result)
+        val seeded = dao.rows.values.single()
+        assertEquals(AuthRepository.normalize(AuthRepository.DEMO_EMAIL), seeded.email)
+        assertEquals(AuthRepository.DEMO_DISPLAY_NAME, seeded.displayName)
+        // No credential form, and no ordinary sign-in with hard-coded values.
+        assertNull(fakeAuth.lastLogin)
+        assertEquals(AuthRepository.localToken(seeded.id), settings.token.first())
+        assertEquals(AuthRepository.normalize(AuthRepository.DEMO_EMAIL), settings.email.first())
+    }
+
+    @Test
+    fun enterDemoReusesAnExistingDemoAccountWithoutDuplicatingIt() = runTest {
+        val dao = InMemoryAccountDao()
+        val manager = AccountManager(dao = dao, hasher = PasswordHasher(iterations = 10))
+        val demoRepository = AuthRepository(FakeBackendApis(fakeAuth), settings, tokens, accountManager = manager)
+        assertEquals(SignInResult.SignedIn, demoRepository.enterDemo())
+        val firstId = dao.rows.values.single().id
+        settings.setToken("stale")
+        tokens.token = "stale"
+
+        val result = demoRepository.enterDemo()
+
+        assertEquals(SignInResult.SignedIn, result)
+        assertEquals(1, dao.rows.size)
+        assertEquals(firstId, dao.rows.values.single().id)
+        assertNull(fakeAuth.lastLogin)
+        assertEquals(AuthRepository.localToken(firstId), settings.token.first())
+    }
+
+    @Test
+    fun enterDemoWithoutALocalStoreNeverSignsInWithHardcodedCredentials() = runTest {
+        // No accountManager: the demo cannot work in this graph, so it must
+        // not fall back to signIn("demo@example.com", ...) and show an error.
+        val result = repository.enterDemo()
+
+        assertEquals(SignInResult.Unreachable, result)
+        assertNull(fakeAuth.lastLogin)
+        assertNull(settings.token.first())
+    }
+
     /** Minimal in-memory DAO for the local-mode wiring test. */
     private class InMemoryAccountDao : AccountDao {
         val rows = linkedMapOf<String, AccountEntity>()

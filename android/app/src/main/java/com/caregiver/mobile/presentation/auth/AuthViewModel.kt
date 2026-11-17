@@ -89,6 +89,8 @@ class AuthViewModel(
     private val repository: AuthRepository,
     scope: CoroutineScope? = null,
     private val registerAccount: RegisterAccount? = null,
+    /** Injectable demo action for tests; production uses [AuthRepository.enterDemo]. */
+    private val enterDemoSession: (suspend () -> SignInResult)? = null,
 ) : ViewModel() {
     private val exec: CoroutineScope = scope ?: viewModelScope
 
@@ -116,14 +118,40 @@ class AuthViewModel(
     }
 
     /**
-     * Offline demo entry: fills fixed demo credentials and submits through
-     * the normal [submit] path. The debug demo backend accepts any
-     * credentials; production behavior is unchanged.
+     * One-tap offline demo (issue #880). Seeds and activates a local demo
+     * account through a dedicated path — it never touches the credential
+     * fields and never calls [submit]/sign-in, so there is no hard-coded
+     * login to fail with "invalid credentials". A single tap leaves the
+     * login form and lands in the local demo.
      */
     fun demoSignIn() {
-        onEmail(DEMO_EMAIL)
-        onPassword(DEMO_PASSWORD)
-        submit()
+        if (_state.value.busy) return
+        _state.value = _state.value.copy(
+            busy = true,
+            email = "",
+            password = "",
+            nameError = null,
+            emailError = null,
+            passwordError = null,
+            confirmError = null,
+            formError = null,
+            createdAccount = null,
+        )
+        exec.launch {
+            val result = try {
+                if (enterDemoSession != null) enterDemoSession() else repository.enterDemo()
+            } catch (e: CancellationException) {
+                throw e
+            } catch (e: Exception) {
+                SignInResult.Rejected(null, "Offline demo unavailable.")
+            }
+            _state.value = _state.value.copy(
+                busy = false,
+                signedIn = result == SignInResult.SignedIn,
+                // A demo failure is never rendered as a credential error.
+                formError = if (result == SignInResult.SignedIn) null else FormError.Generic,
+            )
+        }
     }
 
     fun submit() {
@@ -228,10 +256,6 @@ class AuthViewModel(
     companion object {
         /** BCrypt limit, mirrored from the backend — measured in bytes, not chars. */
         const val MAX_PASSWORD_BYTES = 72
-
-        /** Fixed credentials for the debug offline demo entry. */
-        const val DEMO_EMAIL = "demo@example.com"
-        const val DEMO_PASSWORD = "demo-pass"
 
         /** Mirrors AccountManager.signUp's display-name rule (#590). */
         fun validateDisplayName(raw: String): NameError? {
