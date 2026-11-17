@@ -2,10 +2,11 @@ package com.caregiver.mobile.presentation.history
 
 import androidx.compose.foundation.clickable
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
-import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.ExperimentalLayoutApi
+import androidx.compose.foundation.layout.FlowRow
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
@@ -19,7 +20,6 @@ import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.LazyListState
 import androidx.compose.foundation.lazy.itemsIndexed
 import androidx.compose.foundation.lazy.rememberLazyListState
-import androidx.compose.foundation.rememberScrollState
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.EventNote
 import androidx.compose.material.icons.filled.KeyboardArrowDown
@@ -337,8 +337,11 @@ private fun HistoryNoteRow(
 /**
  * Collapsible filter row: a toggle chip plus person/date chips. Each chip
  * shows its current value; tapping opens the dropdown or date picker. The
- * row scrolls horizontally when the chips outgrow a narrow screen.
+ * chips wrap onto additional lines when they outgrow the available width,
+ * so every chip stays fully visible regardless of the selected name's
+ * length, the layout direction, or the font scale.
  */
+@OptIn(ExperimentalLayoutApi::class)
 @Composable
 private fun HistoryFilterChips(
     people: List<RecipientDto>,
@@ -350,13 +353,10 @@ private fun HistoryFilterChips(
     onPickTo: (LocalDate?) -> Unit,
 ) {
     var expanded by rememberSaveable { mutableStateOf(true) }
-    Row(
-        verticalAlignment = Alignment.CenterVertically,
+    FlowRow(
         horizontalArrangement = Arrangement.spacedBy(AppDimens.GapForm),
-        modifier = Modifier
-            .fillMaxWidth()
-            .horizontalScroll(rememberScrollState())
-            .padding(end = AppDimens.ScreenHPadding),
+        verticalArrangement = Arrangement.spacedBy(AppDimens.GapForm),
+        modifier = Modifier.fillMaxWidth(),
     ) {
         AssistChip(
             onClick = { expanded = !expanded },
