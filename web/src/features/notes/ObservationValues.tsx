@@ -7,6 +7,7 @@ import type {
   VerificationValue,
 } from '../../api/observation';
 import { useI18n } from '../../i18n/I18nProvider';
+import { formatNumber } from '../../lib/format';
 import { chipFieldOptions, type ChipField } from './chipOptions';
 import { fieldLabels } from './noteForm';
 import {
@@ -38,7 +39,7 @@ export function ObservationValues({
       if (value === 'UNKNOWN') return t('notesUnknown');
     }
     if (typeof value === 'number') {
-      return new Intl.NumberFormat(language === 'ar' ? 'ar-EG' : 'en').format(value);
+      return formatNumber(value, language);
     }
     if (chipLabelFields.has(field)) {
       const option = chipFieldOptions[field as ChipField].find(

@@ -51,7 +51,7 @@ export const historyMessages = {
   ar: {
     historyTitle: 'سجل الملاحظات',
     historyDescription: 'راجع الملاحظات الأصلية وتصحيحاتها. ابحث عن السجل باستخدام المستفيد والتاريخ.',
-    historyDefaultRange: 'يعرض السجل افتراضيًا آخر ٣٠ يومًا، بما فيها اليوم.',
+    historyDefaultRange: 'يعرض السجل افتراضيًا آخر 30 يومًا، بما فيها اليوم.',
     historyFilters: 'تصفية الملاحظات',
     historyFiltersToolbar: 'تصفية السجل وطريقة عرضه',
     historyAllRecipients: 'جميع المستفيدين من الرعاية',

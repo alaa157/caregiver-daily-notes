@@ -7,6 +7,7 @@ import { ApiError, useApiClient } from '../../lib/api';
 import { Button, ButtonLink } from '../../components/Button';
 import { EmptyState, ErrorState, LoadingState } from '../../components/Feedback';
 import { useI18n } from '../../i18n/I18nProvider';
+import { formatDate, formatNumber } from '../../lib/format';
 import type { MessageKey } from '../../i18n/translations';
 import { defaultHistoryFilters } from '../history/historyFilters';
 import { PlanCard, PlanStatus } from './PlanCard';
@@ -218,7 +219,7 @@ function PlanWorkspace({ recipientId, onSaving }: { recipientId: string; onSavin
     </div>}
     {state.status === 'loading' && <LoadingState label={t('plansLoading')} />}
     {state.status === 'error' && <div ref={status} tabIndex={-1}><ErrorState description={t(state.error instanceof SnapshotChanged ? 'plansInconsistent' : planErrorMessage(state.error))} onRetry={() => reload()} /></div>}
-    {generationSafety && <div className="plan-generation-safety"><p>{t('plansGenerationSafety')}: <bdi>{generationSafety.request.periodEndInclusive}</bdi> · <bdi>{generationSafety.request.periodDays}</bdi> {t('summaryDays')}</p><SummarySafety safety={generationSafety.safety} /></div>}
+    {generationSafety && <div className="plan-generation-safety"><p>{t('plansGenerationSafety')}: <bdi>{formatDate(`${generationSafety.request.periodEndInclusive}T12:00:00Z`, language, { dateStyle: 'medium', timeZone: 'UTC' })}</bdi> · <bdi>{formatNumber(generationSafety.request.periodDays, language)}</bdi> {t('summaryDays')}</p><SummarySafety safety={generationSafety.safety} /></div>}
     {snapshot && <>
       {!snapshot.recipient.active && <p className="note-notice">{t('plansInactive')}</p>}
       <PlanGenerationForm recipientId={recipientId} disabled={disabled || !!confirmation || !!editing}
@@ -255,8 +256,8 @@ function PlanWorkspace({ recipientId, onSaving }: { recipientId: string; onSavin
         {!snapshot.history.length ? <EmptyState title={t('plansNoHistory')} description={t('plansNoHistoryHint')} />
           : <ol className="plan-list" role="list">{snapshot.history.map((plan) => <li className="plan-history-entry" key={plan.id}>
             <details id={`plan-history-${plan.id}`} className="plan-history-version"><summary>
-              <span>{t('plansVersion')} <bdi>{new Intl.NumberFormat(language === 'ar' ? 'ar-EG' : 'en').format(plan.version)}</bdi></span> <PlanStatus status={plan.status} />
-              <span>{t('plansCreated')}: <time dateTime={plan.createdAt}><bdi>{new Intl.DateTimeFormat(language === 'ar' ? 'ar-EG' : 'en', { dateStyle: 'medium', timeStyle: 'short' }).format(new Date(plan.createdAt))}</bdi></time></span>
+              <span>{t('plansVersion')} <bdi>{formatNumber(plan.version, language)}</bdi></span> <PlanStatus status={plan.status} />
+              <span>{t('plansCreated')}: <time dateTime={plan.createdAt}><bdi>{formatDate(plan.createdAt, language, { dateStyle: 'medium', timeStyle: 'short' })}</bdi></time></span>
             </summary><PlanCard plan={plan} historyIds={historyIds} /></details>
           </li>)}</ol>}
       </section>

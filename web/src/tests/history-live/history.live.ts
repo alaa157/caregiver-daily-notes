@@ -66,8 +66,8 @@ for (const language of ['en', 'ar'] as const) {
     const card = page.locator('.history-note');
     await card.getByText(ar ? 'عرض المشاهدات والنص الأصلي' : 'View original observations and text', { exact: true }).click();
     await expect(card.locator('details .note-verbatim').last()).toHaveJSProperty('textContent', text);
-    await card.getByRole('button', { name: ar ? 'عرض التصحيحات (١)' : 'Show corrections (1)', exact: true }).click();
-    await expect(card.getByRole('article', { name: ar ? 'تصحيح ١' : 'Correction 1', exact: true })).toBeVisible();
+    await card.getByRole('button', { name: ar ? 'عرض التصحيحات (1)' : 'Show corrections (1)', exact: true }).click();
+    await expect(card.getByRole('article', { name: ar ? 'تصحيح 1' : 'Correction 1', exact: true })).toBeVisible();
     await expect(card.getByText(ar ? 'لم يتم تناوله' : 'Missed', { exact: true })).toBeVisible();
     await expect(card.locator('details .note-verbatim').last()).toHaveJSProperty('textContent', text);
 

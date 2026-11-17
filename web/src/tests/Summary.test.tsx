@@ -733,7 +733,7 @@ describe('on-demand summary and safety workflow', () => {
     expect(document.documentElement).toHaveAttribute('dir', 'rtl');
     expect(screen.getByText('لا توجد بيانات مسجلة لهذه الفترة')).toBeVisible();
     const periods = screen.getByRole('region', { name: 'أعداد المشاهدات المسجلة' }).querySelectorAll('dl > div');
-    expect(renderedTrendLines(periods[1])).toEqual(['عدد الأحداث: ٣', 'الأيام التي سُجّلت فيها بيانات: ٦']);
+    expect(renderedTrendLines(periods[1])).toEqual(['عدد الأحداث: 3', 'الأيام التي سُجّلت فيها بيانات: 6']);
     expect(screen.queryByText('Previous period')).not.toBeInTheDocument(); expect(screen.queryByText('Events')).not.toBeInTheDocument();
   });
   it('uses metric-specific sampling units in English and Arabic', async () => {
@@ -748,10 +748,10 @@ describe('on-demand summary and safety workflow', () => {
     expect(trends[2].textContent).toContain('Recorded days: 6');
     await userEvent.click(screen.getByRole('button', { name: 'التغيير إلى العربية' }));
     expect(document.documentElement).toHaveAttribute('dir', 'rtl');
-    expect(trends[0].textContent).toContain('الملاحظات المسجلة: ٤');
-    expect(trends[0].textContent).toContain('الملاحظات المسجلة: ٦');
-    expect(trends[2].textContent).toContain('الأيام التي سُجّلت فيها بيانات: ٤');
-    expect(trends[2].textContent).toContain('الأيام التي سُجّلت فيها بيانات: ٦');
+    expect(trends[0].textContent).toContain('الملاحظات المسجلة: 4');
+    expect(trends[0].textContent).toContain('الملاحظات المسجلة: 6');
+    expect(trends[2].textContent).toContain('الأيام التي سُجّلت فيها بيانات: 4');
+    expect(trends[2].textContent).toContain('الأيام التي سُجّلت فيها بيانات: 6');
   });
   it('renders localized trend metric labels and never the raw metric code', async () => {
     const fixture = summaryFixture();
@@ -852,7 +852,7 @@ describe('on-demand summary and safety workflow', () => {
     const trend = screen.getByRole('region', { name: 'أعداد المشاهدات المسجلة' });
     const periods = trend.querySelectorAll<HTMLElement>('dl > div');
     expect(periods).toHaveLength(3);
-    const format = (value: number) => new Intl.NumberFormat('ar-EG').format(value);
+    const format = (value: number) => new Intl.NumberFormat('ar-EG-u-nu-latn').format(value);
     expect(within(periods[0]).getByText('الفترة السابقة', { exact: true })).toBeVisible();
     expect(Array.from(periods[0].querySelectorAll('dd bdi'), (item) => item.textContent)).toEqual([format(3), format(4)]);
     expect(within(periods[1]).getByText('الفترة المطلوبة', { exact: true })).toBeVisible();
@@ -875,7 +875,7 @@ describe('on-demand summary and safety workflow', () => {
     expect(previous.querySelector('dd bdi')).toBeNull();
     expect(within(previous).queryByText(/عدد الأحداث:/)).not.toBeInTheDocument();
     expect(Array.from(trend.querySelectorAll('dl > div')[1].querySelectorAll('dd bdi'), (item) => item.textContent))
-      .toEqual([new Intl.NumberFormat('ar-EG').format(2), new Intl.NumberFormat('ar-EG').format(3)]);
+      .toEqual([new Intl.NumberFormat('ar-EG-u-nu-latn').format(2), new Intl.NumberFormat('ar-EG-u-nu-latn').format(3)]);
   });
 });
 

@@ -107,7 +107,7 @@ for (const language of ['en', 'ar'] as const) {
       await choose(page); expect(summaryPosts(calls.requests)).toHaveLength(0);
       await accessibility(page);
       for (const [index, period] of [7, 14, 30].entries()) {
-        const number = new Intl.NumberFormat(ar ? 'ar-EG' : 'en').format(period);
+        const number = new Intl.NumberFormat(ar ? 'ar-EG-u-nu-latn' : 'en').format(period);
         await page.getByRole('radio', { name: `${number} ${ar ? 'أيام' : 'days'}`, exact: true }).check();
         await page.getByRole('button', { name: period === 7 ? text.generate : text.regenerate, exact: true }).focus();
         await page.keyboard.press('Enter');

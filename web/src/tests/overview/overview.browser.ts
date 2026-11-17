@@ -26,7 +26,7 @@ for (const language of ['en', 'ar'] as const) {
   const labels = language === 'ar'
     ? { date: 'التاريخ الميلادي', missing: 'لم تُسجل ملاحظة', record: 'تسجيل ملاحظة', recipient: 'مستفيد الرعاية', noteDate: 'تاريخ الملاحظة',
       recipients: 'المستفيدون المعروضون', recorded: 'الملاحظات المسجلة', notRecorded: 'لم تُسجل بعد', monthly: 'ملاحظات هذا الشهر',
-      monthlyTotal: '٠', todayByRecipient: 'اليوم حسب المستفيد', activity: 'النشاط الأخير' }
+      monthlyTotal: '0', todayByRecipient: 'اليوم حسب المستفيد', activity: 'النشاط الأخير' }
     : { date: 'Calendar date', missing: 'No note recorded', record: 'Record a note', recipient: 'Care recipient', noteDate: 'Observation date',
       recipients: 'Recipients shown', recorded: 'Notes recorded', notRecorded: 'Not yet recorded', monthly: 'Notes this month',
       monthlyTotal: '0', todayByRecipient: 'Today by recipient', activity: 'Recent activity' };
@@ -52,9 +52,9 @@ for (const language of ['en', 'ar'] as const) {
 
     await page.goto('/app?date=2026-10-18');
     await expect(page.getByLabel(labels.date)).toHaveValue('2026-10-18');
-    await expect(page.getByRole('heading', { name: labels.recipients }).locator('..')).toContainText(language === 'ar' ? '٢' : '2');
-    await expect(page.getByRole('heading', { name: labels.recorded }).locator('..')).toContainText(language === 'ar' ? '١' : '1');
-    await expect(page.getByRole('heading', { name: labels.notRecorded }).locator('..')).toContainText(language === 'ar' ? '١' : '1');
+    await expect(page.getByRole('heading', { name: labels.recipients }).locator('..')).toContainText(language === 'ar' ? '2' : '2');
+    await expect(page.getByRole('heading', { name: labels.recorded }).locator('..')).toContainText(language === 'ar' ? '1' : '1');
+    await expect(page.getByRole('heading', { name: labels.notRecorded }).locator('..')).toContainText(language === 'ar' ? '1' : '1');
     await expect(page.getByRole('heading', { name: labels.monthly }).locator('..')).toContainText(labels.monthlyTotal);
     await expect(page.getByRole('table', { name: labels.todayByRecipient })).toBeVisible();
     const activity = page.getByRole('complementary', { name: labels.activity });

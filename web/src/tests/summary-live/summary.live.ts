@@ -47,7 +47,7 @@ for (const language of ['en', 'ar'] as const) {
       await expect(page.getByRole('button', { name: ar ? 'إعادة إنشاء الملخص' : 'Regenerate summary', exact: true })).toBeEnabled();
     }
     for (const days of [7, 14, 30]) {
-      const count = new Intl.NumberFormat(ar ? 'ar-EG' : 'en').format(days);
+      const count = new Intl.NumberFormat(ar ? 'ar-EG-u-nu-latn' : 'en').format(days);
       await page.getByRole('radio', { name: `${count} ${ar ? 'أيام' : 'days'}`, exact: true }).check();
       await generate(days === 7 ? (ar ? 'إنشاء ملخص' : 'Generate summary') : (ar ? 'إعادة إنشاء الملخص' : 'Regenerate summary'));
       await expect(page.locator('blockquote').first()).not.toBeEmpty();

@@ -1662,11 +1662,11 @@ describe('pain score chips on the create form', () => {
     expect(submitted.observations.painScore).toEqual({ state: 'NOT_RECORDED', value: null });
   });
 
-  it('renders Arabic-Indic digits for the numeric chips in Arabic', async () => {
+  it('renders Western digits for the numeric chips in Arabic', async () => {
     renderNotes(`${root}/new`, dataFetcher(), 'ar');
-    const group = await screen.findByRole('radiogroup', { name: 'درجة الألم (٠–١٠)' });
+    const group = await screen.findByRole('radiogroup', { name: 'درجة الألم (0–10)' });
     const labels = within(group).getAllByRole('radio').map((chip) => chip.textContent);
-    expect(labels).toEqual(['٠', '١', '٢', '٣', '٤', '٥', '٦', '٧', '٨', '٩', '١٠', 'غير معروف']);
+    expect(labels).toEqual(['0', '1', '2', '3', '4', '5', '6', '7', '8', '9', '10', 'غير معروف']);
   });
 
   it('renders pain score chips with nothing selected in append mode', async () => {

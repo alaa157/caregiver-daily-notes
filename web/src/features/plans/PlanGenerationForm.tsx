@@ -3,6 +3,7 @@ import { isNoteDate } from '../../api/notes';
 import { summaryPeriods, type SummaryRequest } from '../../api/summary';
 import { Button } from '../../components/Button';
 import { useI18n } from '../../i18n/I18nProvider';
+import { formatNumber } from '../../lib/format';
 
 export function PlanGenerationForm({ recipientId, disabled, credentialsRequired, onGenerate }: {
   recipientId: string; disabled: boolean; credentialsRequired: boolean; onGenerate: (request: SummaryRequest) => void;
@@ -20,7 +21,7 @@ export function PlanGenerationForm({ recipientId, disabled, credentialsRequired,
       <div className="note-field"><label htmlFor="plan-generation-end">{t('summaryEndDate')}</label><input id="plan-generation-end" type="date" value={end} disabled={disabled} aria-invalid={invalid}
         aria-describedby={invalid ? 'plan-generation-error' : undefined} onChange={(event) => { setEnd(event.target.value); setInvalid(false); }} /></div>
       <div className="note-field"><label htmlFor="plan-generation-period">{t('summaryPeriod')}</label><select id="plan-generation-period" value={days} disabled={disabled} onChange={(event) => setDays(Number(event.target.value) as SummaryRequest['periodDays'])}>
-        {summaryPeriods.map((value) => <option value={value} key={value}>{new Intl.NumberFormat(language === 'ar' ? 'ar-EG' : 'en').format(value)} {t('summaryDays')}</option>)}
+        {summaryPeriods.map((value) => <option value={value} key={value}>{formatNumber(value, language)} {t('summaryDays')}</option>)}
       </select></div>
     </div>
     {invalid && <p id="plan-generation-error" role="alert" className="note-error">{t('summaryRequiredDate')}</p>}

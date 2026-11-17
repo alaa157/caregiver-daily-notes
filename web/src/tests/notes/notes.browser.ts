@@ -27,7 +27,7 @@ for (const language of ['en', 'ar'] as const) {
   const label = {
     create: ar ? 'تسجيل ملاحظة يومية' : 'Record a daily note', recipient: ar ? 'مستفيد الرعاية' : 'Care recipient', date: ar ? 'تاريخ الملاحظة' : 'Observation date',
     mood: ar ? 'المزاج' : 'Mood', appetite: ar ? 'الشهية' : 'Appetite', sleep: ar ? 'النوم' : 'Sleep', mobility: ar ? 'الحركة' : 'Mobility',
-    medication: ar ? 'تناول الدواء' : 'Medication taken', verified: ar ? 'تم التحقق من تقرير الدواء' : 'Medication report verified', pain: ar ? 'درجة الألم (٠–١٠)' : 'Pain score (0–10)', falls: ar ? 'سقوط مُبلَّغ عنه' : 'Fall reported', text: ar ? 'ملاحظات نصية حرة' : 'Free-text observations',
+    medication: ar ? 'تناول الدواء' : 'Medication taken', verified: ar ? 'تم التحقق من تقرير الدواء' : 'Medication report verified', pain: ar ? 'درجة الألم (0–10)' : 'Pain score (0–10)', falls: ar ? 'سقوط مُبلَّغ عنه' : 'Fall reported', text: ar ? 'ملاحظات نصية حرة' : 'Free-text observations',
     save: ar ? 'حفظ الملاحظة الأصلية' : 'Save original note', saved: ar ? 'تم حفظ الملاحظة الأصلية.' : 'Original note saved.',
     original: ar ? 'الملاحظة الأصلية — للقراءة فقط' : 'Original note — read only', correct: ar ? 'تصحيح هذا الحقل' : 'Correct this field',
     stateLabel: ar ? 'حالة الملاحظة' : 'Observation status',

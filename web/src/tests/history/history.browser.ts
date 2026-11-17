@@ -66,8 +66,8 @@ for (const language of ['en', 'ar'] as const) {
     title: ar ? 'سجل الملاحظات' : 'Notes history', recipient: ar ? 'مستفيد الرعاية' : 'Care recipient',
     from: ar ? 'من تاريخ' : 'From date', to: ar ? 'إلى تاريخ' : 'To date', day: ar ? 'يوم واحد' : 'Single date', date: ar ? 'التاريخ' : 'Date',
     apply: ar ? 'تطبيق التصفية' : 'Apply filters', reset: ar ? 'إعادة ضبط التصفية' : 'Reset filters', results: ar ? 'نتائج السجل' : 'History results',
-    fields: ar ? 'عرض المشاهدات والنص الأصلي' : 'View original observations and text', show: ar ? 'عرض التصحيحات (١)' : 'Show corrections (1)',
-    correction: ar ? 'تصحيح ١' : 'Correction 1', original: ar ? 'الملاحظة الأصلية' : 'Original note', open: ar ? 'فتح الملاحظة كاملة' : 'Open full note',
+    fields: ar ? 'عرض المشاهدات والنص الأصلي' : 'View original observations and text', show: ar ? 'عرض التصحيحات (1)' : 'Show corrections (1)',
+    correction: ar ? 'تصحيح 1' : 'Correction 1', original: ar ? 'الملاحظة الأصلية' : 'Original note', open: ar ? 'فتح الملاحظة كاملة' : 'Open full note',
     next: ar ? 'الصفحة التالية' : 'Next page', previous: ar ? 'الصفحة السابقة' : 'Previous page', size: ar ? 'عدد الملاحظات في الصفحة' : 'Notes per page',
     retry: ar ? 'إعادة المحاولة' : 'Retry', empty: ar ? 'لا توجد ملاحظات تطابق التصفية.' : 'No notes match these filters.',
   };

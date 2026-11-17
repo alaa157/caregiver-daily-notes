@@ -276,11 +276,11 @@ describe('dashboard locale-sensitive formatting', () => {
 
     const recipients = screen.getByRole('heading', { name: messages.ar.overviewKpiRecipients });
     const output = recipients.parentElement?.querySelector('output') as HTMLElement;
-    expect(output).toHaveTextContent(new Intl.NumberFormat('ar-EG').format(2));
-    expect(output.querySelector('bdi')).toHaveTextContent(new Intl.NumberFormat('ar-EG').format(2));
+    expect(output).toHaveTextContent(new Intl.NumberFormat('ar-EG-u-nu-latn').format(2));
+    expect(output.querySelector('bdi')).toHaveTextContent(new Intl.NumberFormat('ar-EG-u-nu-latn').format(2));
 
     const record = screen.getByRole('heading', { name: messages.ar.overviewKpiRecorded });
-    expect(record.parentElement?.querySelector('output')).toHaveTextContent(new Intl.NumberFormat('ar-EG').format(1));
+    expect(record.parentElement?.querySelector('output')).toHaveTextContent(new Intl.NumberFormat('ar-EG-u-nu-latn').format(1));
   });
 
   it('formats the selected date with the active locale while keeping an ISO dateTime attribute', async () => {
@@ -288,7 +288,7 @@ describe('dashboard locale-sensitive formatting', () => {
     await screen.findByRole('heading', { name: messages.ar.dashboardTitle });
     const selected = document.querySelector('.overview-date time') as HTMLTimeElement;
     expect(selected.getAttribute('datetime')).toBe('2026-10-18');
-    expect(selected.textContent).toBe(new Intl.DateTimeFormat('ar-EG', { dateStyle: 'long', timeZone: 'UTC' }).format(new Date('2026-10-18T12:00:00Z')));
+    expect(selected.textContent).toBe(new Intl.DateTimeFormat('ar-EG-u-nu-latn', { dateStyle: 'long', timeZone: 'UTC' }).format(new Date('2026-10-18T12:00:00Z')));
   });
 
   it('keeps activity timestamps machine-readable in ISO form in Arabic', async () => {
@@ -297,7 +297,7 @@ describe('dashboard locale-sensitive formatting', () => {
     await within(activity).findByText(messages.ar.activityKindNote);
     const time = activity.querySelector('time') as HTMLTimeElement;
     expect(time.getAttribute('datetime')).toBe('2026-10-18T13:00:00Z');
-    expect(time.textContent).toBe(new Intl.DateTimeFormat('ar-EG', { dateStyle: 'medium', timeStyle: 'short' }).format(new Date('2026-10-18T13:00:00Z')));
+    expect(time.textContent).toBe(new Intl.DateTimeFormat('ar-EG-u-nu-latn', { dateStyle: 'medium', timeStyle: 'short' }).format(new Date('2026-10-18T13:00:00Z')));
   });
 });
 

@@ -516,7 +516,7 @@ describe('history screen, filters and immutable records', () => {
     expect(queries(fetcher)).toHaveLength(1);
   });
   it('isolates Arabic history counts and pagination numbers while preserving accessible controls', async () => {
-    const number = new Intl.NumberFormat('ar-EG');
+    const number = new Intl.NumberFormat('ar-EG-u-nu-latn');
     const fetcher = dataFetcher((url) => {
       if (url.pathname !== '/api/notes') return undefined;
       const page = Number(url.searchParams.get('page') ?? 0);

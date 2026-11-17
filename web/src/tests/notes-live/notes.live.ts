@@ -48,7 +48,7 @@ for (const language of ['en', 'ar'] as const) {
     await page.getByLabel(ar ? 'تاريخ الملاحظة' : 'Observation date', { exact: true }).fill('2026-10-18');
     await page.getByLabel(ar ? 'تناول الدواء' : 'Medication taken', { exact: true }).selectOption('UNKNOWN');
     await page.getByLabel(ar ? 'تم التحقق من تقرير الدواء' : 'Medication report verified', { exact: true }).selectOption('false');
-    await page.getByLabel(ar ? 'درجة الألم (٠–١٠)' : 'Pain score (0–10)', { exact: true }).fill('0');
+    await page.getByLabel(ar ? 'درجة الألم (0–10)' : 'Pain score (0–10)', { exact: true }).fill('0');
     await page.getByLabel(ar ? 'الإبلاغ عن سقوط' : 'Fall reported', { exact: true }).selectOption('false');
     await page.getByLabel(ar ? 'الملاحظات النصية' : 'Free-text observations', { exact: true }).fill(text);
     await page.getByRole('button', { name: ar ? 'حفظ الملاحظة الأصلية' : 'Save original note', exact: true }).click();

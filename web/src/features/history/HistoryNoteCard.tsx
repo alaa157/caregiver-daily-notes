@@ -5,6 +5,7 @@ import type { Recipient } from '../../api/recipients';
 import { Button, ButtonLink } from '../../components/Button';
 import { ErrorState, LoadingState } from '../../components/Feedback';
 import { useI18n } from '../../i18n/I18nProvider';
+import { formatDate, formatNumber } from '../../lib/format';
 import { ObservationValues } from '../notes/ObservationValues';
 import { CorrectionHistory } from '../notes/CorrectionHistory';
 import { NoteTimelineRow } from '../notes/NoteTimelineRow';
@@ -27,10 +28,10 @@ function Corrections({ noteId }: { noteId: string }) {
       {state.data.addenda.length === 0 && state.data.corrections.events.length === 0 ? <p role="status">{t('historyNoCorrections')}</p> : null}
       {state.data.addenda.length > 0 && <section aria-labelledby={`history-text-addenda-${noteId}`}>
         <h3 id={`history-text-addenda-${noteId}`}>{t('notesAddenda')}</h3><ol className="history-corrections-list" role="list">{state.data.addenda.map((addendum, index) => {
-          const createdAt = new Intl.DateTimeFormat(language === 'ar' ? 'ar-EG' : 'en', { dateStyle: 'medium', timeStyle: 'short' }).format(new Date(addendum.createdAt));
+          const createdAt = formatDate(addendum.createdAt, language, { dateStyle: 'medium', timeStyle: 'short' });
           return <li key={addendum.id}>
             <NoteTimelineRow
-              entryLabel={<>{t('historyCorrection')} <bdi>{new Intl.NumberFormat(language === 'ar' ? 'ar-EG' : 'en').format(index + 1)}</bdi></>}
+              entryLabel={<>{t('historyCorrection')} <bdi>{formatNumber(index + 1, language)}</bdi></>}
               dateLabel={createdAt}
               dateTime={addendum.createdAt}
               provenance={<><span>{t('notesTimelineSourceId')}:</span> <bdi>{addendum.id}</bdi></>}
@@ -47,7 +48,7 @@ export function HistoryNoteCard({ note, recipient }: { note: DailyNote; recipien
   const { t, language } = useI18n();
   const [open, setOpen] = useState(false);
   const correctionCount = note.addendumCount + (note.correctionCount ?? 0);
-  const formattedCorrectionCount = new Intl.NumberFormat(language === 'ar' ? 'ar-EG' : 'en').format(correctionCount);
+  const formattedCorrectionCount = formatNumber(correctionCount, language);
   return <article className="history-note" aria-label={recipient?.name ?? t('activityFeedRecipientFallback')}>
     <NoteTimelineRow
       entryLabel={t('historyOriginal')}

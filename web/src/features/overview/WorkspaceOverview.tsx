@@ -6,6 +6,7 @@ import { ButtonLink } from '../../components/Button';
 import { EmptyState, ErrorState, LoadingState } from '../../components/Feedback';
 import { Icon } from '../../components/Icon';
 import { useI18n } from '../../i18n/I18nProvider';
+import { formatDate } from '../../lib/format';
 import { CARE_DATA_CHANGED_EVENT } from '../../lib/careDataEvents';
 import { OverviewKpis } from './OverviewKpis';
 import { useDashboardOverview } from './useDashboardOverview';
@@ -47,7 +48,7 @@ export function WorkspaceOverview() {
     return mapDashboardActivityItem(item, t(kindLabel));
   }) : [];
   const createNotePath = `/app/notes/new?date=${encodeURIComponent(date)}`;
-  const formattedDate = (value: string) => new Intl.DateTimeFormat(language === 'ar' ? 'ar-EG' : 'en', { dateStyle: 'long', timeZone: 'UTC' }).format(new Date(`${value}T12:00:00Z`));
+  const formattedDate = (value: string) => formatDate(`${value}T12:00:00Z`, language, { dateStyle: 'long', timeZone: 'UTC' });
   const changeDate = (value: string) => {
     if (!isNoteDate(value)) return;
     setParams((current) => {
@@ -109,7 +110,7 @@ export function WorkspaceOverview() {
               return <li key={`${item.type}:${item.id}`} className="overview-activity-item">
                 <Link className="overview-activity-link" to={`/app/notes/${item.noteId}`}>
                   <div><span className="overview-activity-kind">{item.summary}</span><span className="overview-activity-recipient"><bdi>{recipient?.name ?? t('activityFeedRecipientFallback')}</bdi></span></div>
-                  <time dateTime={item.createdAt} dir="auto">{new Intl.DateTimeFormat(language === 'ar' ? 'ar-EG' : 'en', { dateStyle: 'medium', timeStyle: 'short' }).format(createdAt)}</time>
+                  <time dateTime={item.createdAt} dir="auto">{formatDate(createdAt, language, { dateStyle: 'medium', timeStyle: 'short' })}</time>
                 </Link>
               </li>;
             })}
