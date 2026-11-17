@@ -23,7 +23,7 @@ const tailwindTheme = {
           warning: 'var(--caregiver-warning)', warningContainer: 'var(--caregiver-warning-container)'
         }
       },
-      fontFamily: { app: ['IBM Plex Sans Arabic', 'sans-serif'], arabic: ['IBM Plex Sans Arabic', 'sans-serif'] },
+      fontFamily: { app: ['DM Sans Variable', 'Noto Sans Arabic Variable', 'system-ui', 'sans-serif'], arabic: ['Noto Sans Arabic Variable', 'DM Sans Variable', 'system-ui', 'sans-serif'] },
       fontSize: {
         'display-large':['57px',{lineHeight:'64px',letterSpacing:'-.25px'}],
         'display-medium':['45px',{lineHeight:'52px'}], 'display-small':['36px',{lineHeight:'44px'}],

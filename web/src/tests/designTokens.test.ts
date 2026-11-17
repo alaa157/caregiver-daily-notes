@@ -16,7 +16,7 @@ const baseCssSource = read('web/src/styles/base.css');
 const tokensCssSource = read('docs/design-system/tokens.css');
 
 const aliasesInTokens: Record<string, string> = {};
-for (const match of tokensCssSource.matchAll(/--(web-[A-Za-z0-9-]+):\s*([^;]+);/g)) {
+for (const match of tokensCssSource.matchAll(/--((?:web-[A-Za-z0-9-]+|font-family-app)):\s*([^;]+);/g)) {
   aliasesInTokens[`--${match[1]}`] = match[2].trim();
 }
 
@@ -143,8 +143,9 @@ describe('design tokens', () => {
       }
     });
 
-    it('preserves font tokens unchanged', () => {
-      expect(tokensCssSource.includes("--font-family-app:'IBM Plex Sans Arabic',sans-serif;")).toBe(true);
+    it('names the shipped font stack in the app font token', () => {
+      expect(tokensCssSource.includes(
+        "--font-family-app:'DM Sans Variable','Noto Sans Arabic Variable',system-ui,sans-serif;")).toBe(true);
       expect(tokensCssSource.includes('--font-weight-regular:400;')).toBe(true);
     });
   });
@@ -243,16 +244,21 @@ describe('design tokens', () => {
       expect(mainTsxSource.includes("@fontsource-variable/noto-sans-arabic")).toBe(true);
     });
 
-    it('base.css English font-family unchanged', () => {
-      expect(baseRootBlock).toContain("font-family: 'DM Sans Variable'");
+    it('base.css consumes the app font token instead of a hardcoded stack', () => {
+      expect(baseRootProps['font-family']).toBe('var(--font-family-app)');
+      expect(aliasesInTokens['--font-family-app']).toContain("'DM Sans Variable'");
+      expect(aliasesInTokens['--font-family-app']).toContain("'Noto Sans Arabic Variable'");
     });
 
-    it('base.css Arabic font-family unchanged', () => {
-      expect(baseCssSource).toContain("font-family: 'Noto Sans Arabic Variable'");
+    it('base.css Arabic override is the Arabic-first ordering of the same families', () => {
+      expect(baseCssSource).toContain(
+        "font-family: 'Noto Sans Arabic Variable', 'DM Sans Variable', system-ui, sans-serif;");
     });
 
-    it('tokens.css IBM Plex Sans Arabic font token unchanged', () => {
-      expect(tokensCssSource).toContain("--font-family-app:'IBM Plex Sans Arabic',sans-serif;");
+    it('font token names DM Sans and Noto Sans Arabic, not IBM Plex', () => {
+      expect(tokensCssSource).toContain(
+        "--font-family-app:'DM Sans Variable','Noto Sans Arabic Variable',system-ui,sans-serif;");
+      expect(tokensCssSource).not.toContain('IBM Plex Sans Arabic');
     });
   });
 

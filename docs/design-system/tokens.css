@@ -17,7 +17,7 @@
   --caregiver-pill-gray-container:#E8EDF3; --caregiver-pill-gray-content:#34495E;
   --caregiver-pill-light-blue-container:#E4EEF8; --caregiver-pill-light-blue-content:#1F4A86;
   --caregiver-avatar-container:#DCE9F5; --caregiver-avatar-content:#24507E; --caregiver-lock-bar:#EEF1F4; --caregiver-skeleton:#E3E7EA;
-  --font-family-app:'IBM Plex Sans Arabic',sans-serif; --font-weight-regular:400; --font-weight-medium:500; --font-weight-bold:700;
+  --font-family-app:'DM Sans Variable','Noto Sans Arabic Variable',system-ui,sans-serif; --font-weight-regular:400; --font-weight-medium:500; --font-weight-bold:700;
   --font-size-display-large:57px; --font-size-display-medium:45px; --font-size-display-small:36px;
   --font-size-headline-large:32px; --font-size-headline-medium:28px; --font-size-headline-small:24px;
   --font-size-title-large:22px; --font-size-title-medium:16px; --font-size-title-small:14px;
