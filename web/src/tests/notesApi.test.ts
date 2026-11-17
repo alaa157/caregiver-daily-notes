@@ -516,3 +516,34 @@ describe('daily-note API and explicit observation values', () => {
     expect(noteErrorMessage(new TypeError('private'))).toBe('notesNetworkError');
   });
 });
+
+describe('recentActivity response validation', () => {
+  const eventId = '00000000-0000-4000-8000-000000000091';
+  const noteId = '00000000-0000-4000-8000-000000000090';
+  const recipientId = '00000000-0000-4000-8000-000000000092';
+  const createdAt = '2026-10-18T12:00:00Z';
+
+  it('accepts noteId for every kind and keeps the event id as the item id', async () => {
+    for (const kind of ['note', 'correction', 'addendum'] as const) {
+      const { api } = setup([{ id: eventId, noteId, kind, recipientId, createdAt }]);
+      await expect(api.recentActivity()).resolves.toEqual([{ id: eventId, noteId, kind, recipientId, createdAt }]);
+    }
+  });
+
+  it('accepts a parent noteId that differs from the event id', async () => {
+    const parentNoteId = '00000000-0000-4000-8000-000000000093';
+    const { api } = setup([{ id: eventId, noteId: parentNoteId, kind: 'addendum', recipientId, createdAt }]);
+    await expect(api.recentActivity()).resolves.toEqual([
+      { id: eventId, noteId: parentNoteId, kind: 'addendum', recipientId, createdAt },
+    ]);
+  });
+
+  it.each([
+    ['missing noteId', [{ id: eventId, kind: 'note', recipientId, createdAt }]],
+    ['a non-string noteId', [{ id: eventId, noteId: 42, kind: 'note', recipientId, createdAt }]],
+    ['a malformed noteId', [{ id: eventId, noteId: 'not-a-uuid', kind: 'note', recipientId, createdAt }]],
+  ])('rejects %s', async (_name, body) => {
+    const { api } = setup(body);
+    await expect(api.recentActivity()).rejects.toThrow('Invalid activity response.');
+  });
+});

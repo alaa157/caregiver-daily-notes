@@ -6,6 +6,7 @@ export const ACTIVITY_FEED_LIMIT = 10;
 
 export type ActivityItem = {
   id: string;
+  noteId: string;
   kind: ActivityKind;
   recipientId: string;
   createdAt: string;
@@ -19,6 +20,7 @@ export type ActivityFeedState =
 
 export type DashboardActivityItem = {
   id: string;
+  noteId: string;
   type: ActivityKind;
   recipientId: string;
   createdAt: string;
@@ -30,6 +32,7 @@ export type DashboardActivityItem = {
 export function mapDashboardActivityItem(item: ActivityItem, localizedKindLabel: string): DashboardActivityItem {
   return {
     id: item.id,
+    noteId: item.noteId,
     type: item.kind,
     recipientId: item.recipientId,
     createdAt: item.createdAt,

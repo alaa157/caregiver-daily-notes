@@ -39,13 +39,15 @@ public class ActivityService {
     PageRequest page = PageRequest.of(0, limit);
     List<ActivityItemResponse> items = new ArrayList<>(limit * 3);
     notes.findAllByCaregiver_IdOrderByCreatedAtDescIdDesc(caregiverId, page).forEach(note ->
-        items.add(new ActivityItemResponse(note.getId(), ActivityItemResponse.ActivityKind.note,
+        items.add(new ActivityItemResponse(note.getId(), note.getId(), ActivityItemResponse.ActivityKind.note,
             note.getRecipient().getId(), note.getCreatedAt())));
     addenda.findAllByCaregiver_IdOrderByCreatedAtDescIdDesc(caregiverId, page).forEach(addendum ->
-        items.add(new ActivityItemResponse(addendum.getId(), ActivityItemResponse.ActivityKind.addendum,
+        items.add(new ActivityItemResponse(addendum.getId(), addendum.getNote().getId(),
+            ActivityItemResponse.ActivityKind.addendum,
             addendum.getNote().getRecipient().getId(), addendum.getCreatedAt())));
     corrections.findAllByCaregiver_IdOrderByCreatedAtDescIdDesc(caregiverId, page).forEach(event ->
-        items.add(new ActivityItemResponse(event.getId(), ActivityItemResponse.ActivityKind.correction,
+        items.add(new ActivityItemResponse(event.getId(), event.getNote().getId(),
+            ActivityItemResponse.ActivityKind.correction,
             event.getNote().getRecipient().getId(), event.getCreatedAt())));
     return items.stream().sorted(NEWEST_FIRST).limit(limit).toList();
   }

@@ -43,7 +43,10 @@ export interface NoteAddendum extends LegacyObservations {
 }
 export type ActivityKind = 'note' | 'correction' | 'addendum';
 export interface RecentActivity {
+  /** The event id (note, addendum or correction id) — a stable React key. */
   id: string;
+  /** The note the event belongs to; for addenda and corrections this is the parent note. */
+  noteId: string;
   kind: ActivityKind;
   recipientId: string;
   createdAt: string;
@@ -345,12 +348,14 @@ export function createNotesApi(client: ApiClient) {
       const items = response.map((value): RecentActivity => {
         const item = object(value);
         if (typeof item.id !== 'string' || !isRecipientId(item.id)
+          || typeof item.noteId !== 'string' || !isRecipientId(item.noteId)
           || typeof item.recipientId !== 'string' || !isRecipientId(item.recipientId)
           || !(['note', 'correction', 'addendum'] as unknown[]).includes(item.kind)
           || typeof item.createdAt !== 'string' || !Number.isFinite(Date.parse(item.createdAt))) {
           throw new Error('Invalid activity response.');
         }
-        return { id: item.id, kind: item.kind as ActivityKind, recipientId: item.recipientId, createdAt: item.createdAt };
+        return { id: item.id, noteId: item.noteId, kind: item.kind as ActivityKind,
+          recipientId: item.recipientId, createdAt: item.createdAt };
       });
       if (new Set(items.map((item) => `${item.kind}:${item.id}`)).size !== items.length
         || items.some((item, index) => index > 0 && Date.parse(items[index - 1].createdAt) < Date.parse(item.createdAt))) {

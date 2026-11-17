@@ -106,8 +106,10 @@ export function WorkspaceOverview() {
               const recipient = overviewData?.data.find((row) => row.recipient.id === item.recipientId)?.recipient;
               const createdAt = new Date(item.createdAt);
               return <li key={`${item.type}:${item.id}`} className="overview-activity-item">
-                <div><span className="overview-activity-kind">{item.summary}</span><span className="overview-activity-recipient"><bdi>{recipient?.name ?? t('activityFeedRecipientFallback')}</bdi></span></div>
-                <time dateTime={item.createdAt} dir="auto">{new Intl.DateTimeFormat(language === 'ar' ? 'ar-EG' : 'en', { dateStyle: 'medium', timeStyle: 'short' }).format(createdAt)}</time>
+                <Link className="overview-activity-link" to={`/app/notes/${item.noteId}`}>
+                  <div><span className="overview-activity-kind">{item.summary}</span><span className="overview-activity-recipient"><bdi>{recipient?.name ?? t('activityFeedRecipientFallback')}</bdi></span></div>
+                  <time dateTime={item.createdAt} dir="auto">{new Intl.DateTimeFormat(language === 'ar' ? 'ar-EG' : 'en', { dateStyle: 'medium', timeStyle: 'short' }).format(createdAt)}</time>
+                </Link>
               </li>;
             })}
           </ul>)}

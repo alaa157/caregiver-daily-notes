@@ -726,6 +726,13 @@ class NoteControllerTest {
         .andExpect(jsonPath("$[?(@.kind == 'note')].recipientId").value(org.hamcrest.Matchers.hasItem(recipientId)))
         .andExpect(jsonPath("$[?(@.kind == 'addendum')].recipientId").value(org.hamcrest.Matchers.hasItem(recipientId)))
         .andExpect(jsonPath("$[?(@.kind == 'correction')].recipientId").value(org.hamcrest.Matchers.hasItem(recipientId)))
+        .andExpect(jsonPath("$[*].noteId").value(
+            org.hamcrest.Matchers.everyItem(org.hamcrest.Matchers.is(noteId))))
+        .andExpect(jsonPath("$[?(@.kind == 'note')].id").value(org.hamcrest.Matchers.hasItem(noteId)))
+        .andExpect(jsonPath("$[?(@.kind == 'addendum')].id").value(
+            org.hamcrest.Matchers.not(org.hamcrest.Matchers.hasItem(noteId))))
+        .andExpect(jsonPath("$[?(@.kind == 'correction')].id").value(
+            org.hamcrest.Matchers.not(org.hamcrest.Matchers.hasItem(noteId))))
         .andExpect(jsonPath("$[0].createdAt").exists());
     mvc.perform(get("/api/activity").header("Authorization", bearer(other.token())))
         .andExpect(status().isOk()).andExpect(jsonPath("$").isEmpty());

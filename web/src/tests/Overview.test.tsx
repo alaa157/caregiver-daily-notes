@@ -680,17 +680,17 @@ describe('overview activity feed', () => {
     ['note', 'Note'], ['correction', 'Correction'], ['addendum', 'Addendum'],
   ] as const)('maps the %s kind to the localized dashboard presentation contract', (kind, label) => {
     const activity: ActivityItem = {
-      id: id(90), kind, recipientId: recipientFixture.id, createdAt: '2026-10-18T14:00:00Z', state: 'ready',
+      id: id(90), noteId: id(91), kind, recipientId: recipientFixture.id, createdAt: '2026-10-18T14:00:00Z', state: 'ready',
     };
     expect(mapDashboardActivityItem(activity, label)).toEqual({
-      id: activity.id, type: kind, recipientId: activity.recipientId,
+      id: activity.id, noteId: activity.noteId, type: kind, recipientId: activity.recipientId,
       createdAt: activity.createdAt, summary: label, state: 'ready',
     });
   });
 
   it('renders supported kinds newest first, with recipient names and the configured cap', async () => {
     const items = Array.from({ length: 10 }, (_, index) => ({
-      id: id(index + 1), kind: (['note', 'correction', 'addendum'] as const)[index % 3],
+      id: id(index + 1), noteId: id(index + 1), kind: (['note', 'correction', 'addendum'] as const)[index % 3],
       recipientId: recipientFixture.id, createdAt: `2026-10-18T${String(14 - index).padStart(2, '0')}:00:00Z`,
     }));
     const fetcher = setup(items);
@@ -712,9 +712,9 @@ describe('overview activity feed', () => {
 
   it('keeps each activity kind paired with its authoritative timestamp in newest-first order', async () => {
     const items = [
-      { id: id(81), kind: 'correction', recipientId: recipientFixture.id, createdAt: '2026-10-18T14:00:00Z' },
-      { id: id(82), kind: 'addendum', recipientId: recipientFixture.id, createdAt: '2026-10-18T13:00:00Z' },
-      { id: id(83), kind: 'note', recipientId: recipientFixture.id, createdAt: '2026-10-18T12:00:00Z' },
+      { id: id(81), noteId: id(80), kind: 'correction', recipientId: recipientFixture.id, createdAt: '2026-10-18T14:00:00Z' },
+      { id: id(82), noteId: id(80), kind: 'addendum', recipientId: recipientFixture.id, createdAt: '2026-10-18T13:00:00Z' },
+      { id: id(83), noteId: id(83), kind: 'note', recipientId: recipientFixture.id, createdAt: '2026-10-18T12:00:00Z' },
     ];
     setup(items);
     const region = screen.getByRole('region', { name: 'Recent activity' });
@@ -725,6 +725,37 @@ describe('overview activity feed', () => {
     expect(within(rows[0]).getByText('Correction')).toBeInTheDocument();
     expect(within(rows[1]).getByText('Addendum')).toBeInTheDocument();
     expect(within(rows[2]).getByText('Note')).toBeInTheDocument();
+  });
+
+  it('links each feed item to its note, using the parent note for addenda and corrections', async () => {
+    const parentNoteId = id(84);
+    const items = [
+      { id: id(85), noteId: id(85), kind: 'note', recipientId: recipientFixture.id, createdAt: '2026-10-18T14:00:00Z' },
+      { id: id(86), noteId: parentNoteId, kind: 'addendum', recipientId: recipientFixture.id, createdAt: '2026-10-18T13:00:00Z' },
+      { id: id(87), noteId: parentNoteId, kind: 'correction', recipientId: recipientFixture.id, createdAt: '2026-10-18T12:00:00Z' },
+    ];
+    setup(items);
+    const region = screen.getByRole('region', { name: 'Recent activity' });
+    await within(region).findByText('Addendum');
+    const list = within(region).getByRole('list', { name: 'Recent activity' });
+    expect(list.tagName).toBe('UL');
+    const links = within(list).getAllByRole('link');
+    expect(links).toHaveLength(3);
+    expect(links.map((link) => link.getAttribute('href'))).toEqual([
+      `/app/notes/${id(85)}`, `/app/notes/${parentNoteId}`, `/app/notes/${parentNoteId}`,
+    ]);
+    expect(links[1].getAttribute('href')).not.toBe(`/app/notes/${id(86)}`);
+    expect(links[2].getAttribute('href')).not.toBe(`/app/notes/${id(87)}`);
+    expect(within(links[1]).getByText('Addendum')).toBeInTheDocument();
+    expect(within(links[1]).getByText(recipientFixture.name)).toBeInTheDocument();
+    expect(links[1].querySelector('time')).toHaveAttribute('datetime', '2026-10-18T13:00:00Z');
+
+    links[0].focus();
+    expect(links[0]).toHaveFocus();
+    await userEvent.tab();
+    expect(links[1]).toHaveFocus();
+    await userEvent.tab();
+    expect(links[2]).toHaveFocus();
   });
 
   it('shows neutral empty text only after a successful empty request', async () => {
@@ -760,7 +791,7 @@ describe('overview activity feed', () => {
     const fetcher = vi.fn().mockImplementation((path: string) => {
       if (path === '/api/recipients') return Promise.resolve(jsonResponse({ message: 'private failure' }, 500));
       if (path.startsWith('/api/activity?')) return Promise.resolve(jsonResponse([
-        { id: id(11), kind: 'addendum', recipientId: recipientFixture.id, createdAt: '2026-10-18T12:00:00Z' },
+        { id: id(11), noteId: id(10), kind: 'addendum', recipientId: recipientFixture.id, createdAt: '2026-10-18T12:00:00Z' },
       ]));
       return Promise.resolve(historyResponse([]));
     });
@@ -795,7 +826,7 @@ describe('overview activity feed', () => {
   });
 
   it('uses only the scoped read endpoint and renders no write controls', async () => {
-    const fetcher = setup([{ id: id(42), kind: 'correction', recipientId: recipientFixture.id, createdAt: '2026-10-18T12:00:00Z' }]);
+    const fetcher = setup([{ id: id(42), noteId: id(40), kind: 'correction', recipientId: recipientFixture.id, createdAt: '2026-10-18T12:00:00Z' }]);
     expect(await screen.findByText('Correction')).toBeInTheDocument();
     expect(fetcher.mock.calls.some(([path]) => path === '/api/activity?limit=10')).toBe(true);
     expect(fetcher.mock.calls.every(([, init]) => (init?.method ?? 'GET') === 'GET')).toBe(true);
@@ -822,9 +853,9 @@ describe('overview activity feed', () => {
     fireEvent.click(screen.getByRole('button', { name: 'Refresh activity' }));
     await waitFor(() => expect(requests).toHaveLength(2));
     expect(requests[0].signal?.aborted).toBe(true);
-    await act(async () => requests[1].resolve(jsonResponse([{ id: newerId, kind: 'note', recipientId: recipientFixture.id, createdAt: '2026-10-18T14:00:00Z' }])));
+    await act(async () => requests[1].resolve(jsonResponse([{ id: newerId, noteId: newerId, kind: 'note', recipientId: recipientFixture.id, createdAt: '2026-10-18T14:00:00Z' }])));
     expect(await screen.findByText('Note')).toBeInTheDocument();
-    await act(async () => requests[0].resolve(jsonResponse([{ id: olderId, kind: 'addendum', recipientId: recipientFixture.id, createdAt: '2026-10-18T13:00:00Z' }])));
+    await act(async () => requests[0].resolve(jsonResponse([{ id: olderId, noteId: id(62), kind: 'addendum', recipientId: recipientFixture.id, createdAt: '2026-10-18T13:00:00Z' }])));
     expect(screen.getByRole('region', { name: 'Recent activity' }).querySelector('ul')).toHaveTextContent('Note');
     expect(screen.queryByText('Addendum')).not.toBeInTheDocument();
     expect(screen.getByTestId('location')).toHaveTextContent(selectedDateLocation!);
@@ -846,6 +877,8 @@ describe('overview activity feed', () => {
   it.each([
     ['HTTP failure', () => Promise.resolve(jsonResponse({ message: 'private diagnostics' }, 503))],
     ['malformed response', () => Promise.resolve(jsonResponse([{ id: 'invalid', kind: 'note', recipientId: recipientFixture.id, createdAt: '2026-10-18T12:00:00Z' }]))],
+    ['missing noteId', () => Promise.resolve(jsonResponse([{ id: id(1), kind: 'note', recipientId: recipientFixture.id, createdAt: '2026-10-18T12:00:00Z' }]))],
+    ['malformed noteId', () => Promise.resolve(jsonResponse([{ id: id(1), noteId: 'not-a-uuid', kind: 'note', recipientId: recipientFixture.id, createdAt: '2026-10-18T12:00:00Z' }]))],
     ['network failure', () => Promise.reject(new TypeError('network unavailable'))],
   ])('keeps %s distinct from an empty activity feed', async (_name, fail) => {
     setup([], () => fail());
@@ -859,7 +892,7 @@ describe('overview activity feed', () => {
     let failed = true;
     setup([], () => failed
       ? Promise.reject(new TypeError('network unavailable'))
-      : Promise.resolve(jsonResponse([{ id: id(70), kind: 'correction', recipientId: recipientFixture.id, createdAt: '2026-10-18T13:00:00Z' }])));
+      : Promise.resolve(jsonResponse([{ id: id(70), noteId: id(69), kind: 'correction', recipientId: recipientFixture.id, createdAt: '2026-10-18T13:00:00Z' }])));
 
     expect(await screen.findByText('Recent activity is unavailable right now.')).toBeInTheDocument();
     expect(screen.queryByText('No recent activity.')).not.toBeInTheDocument();
@@ -873,7 +906,7 @@ describe('overview activity feed', () => {
     const activityId = id(71);
     const fetcher = vi.fn().mockImplementation((path: string) => {
       if (path.startsWith('/api/activity?')) return Promise.resolve(jsonResponse([
-        { id: activityId, kind: 'note', recipientId: recipientFixture.id, createdAt: '2026-10-18T13:00:00Z' },
+        { id: activityId, noteId: activityId, kind: 'note', recipientId: recipientFixture.id, createdAt: '2026-10-18T13:00:00Z' },
       ]));
       if (path === '/api/recipients') return Promise.resolve(jsonResponse({ message: 'private diagnostics' }, 500));
       return Promise.resolve(historyResponse([]));
@@ -887,7 +920,7 @@ describe('overview activity feed', () => {
   });
 
   it('keeps activity independent of the selected date query parameter', async () => {
-    const fetcher = setup([{ id: id(72), kind: 'note', recipientId: recipientFixture.id, createdAt: '2026-10-18T13:00:00Z' }]);
+    const fetcher = setup([{ id: id(72), noteId: id(72), kind: 'note', recipientId: recipientFixture.id, createdAt: '2026-10-18T13:00:00Z' }]);
     expect(await screen.findByText('Note')).toBeInTheDocument();
     fireEvent.change(screen.getByLabelText('Calendar date'), { target: { value: '2026-10-19' } });
 
@@ -899,7 +932,7 @@ describe('overview activity feed', () => {
   it('renders the current Arabic failure and activity labels while bidi-isolating recipient names', async () => {
     const fetcher = vi.fn().mockImplementation((path: string) => {
       if (path.startsWith('/api/activity?')) return Promise.resolve(jsonResponse([
-        { id: id(73), kind: 'note', recipientId: recipientFixture.id, createdAt: '2026-10-18T13:00:00Z' },
+        { id: id(73), noteId: id(73), kind: 'note', recipientId: recipientFixture.id, createdAt: '2026-10-18T13:00:00Z' },
       ]));
       if (path === '/api/recipients') return Promise.resolve(jsonResponse([recipientFixture]));
       if (path.startsWith('/api/notes?')) {

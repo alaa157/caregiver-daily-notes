@@ -76,7 +76,7 @@ function renderDashboard({
   return { view, fetcher };
 }
 
-const arActivity = [{ id: activityId, kind: 'note', recipientId: recipientFixture.id, createdAt: '2026-10-18T13:00:00Z' }];
+const arActivity = [{ id: activityId, noteId: activityId, kind: 'note', recipientId: recipientFixture.id, createdAt: '2026-10-18T13:00:00Z' }];
 
 describe('dashboard translation key parity', () => {
   it('has every dashboard key in both English and Arabic', () => {
@@ -195,7 +195,7 @@ describe('dashboard mixed-direction isolation', () => {
 
   it('isolates an Arabic recipient name inside English UI', async () => {
     const arabicRecipient = { ...recipientFixture, name: 'سامر حسن', relationship: 'الأب' };
-    const activity = [{ id: activityId, kind: 'note', recipientId: arabicRecipient.id, createdAt: '2026-10-18T13:00:00Z' }];
+    const activity = [{ id: activityId, noteId: activityId, kind: 'note', recipientId: arabicRecipient.id, createdAt: '2026-10-18T13:00:00Z' }];
     renderDashboard({ language: 'en', recipients: [arabicRecipient], activity });
     const feed = screen.getByRole('region', { name: messages.en.activityFeedTitle });
     await within(feed).findByText(messages.en.activityKindNote);
