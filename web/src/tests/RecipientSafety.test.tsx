@@ -39,6 +39,25 @@ describe('provider-free safety flags', () => {
     expect(new Headers(init?.headers).has('Authorization')).toBe(false);
   });
 
+  it('shows emergency guidance for a watch-level free-text flag without a doctor banner', async () => {
+    renderPanel({
+      signals: [
+        { ruleId: 'FREE_TEXT_CONCERN', severity: 'WATCH', reason: 'Possible fall mentioned in note text — please review' },
+      ],
+      needsDoctorBanner: false,
+    });
+
+    expect(await screen.findByText('FREE_TEXT_CONCERN')).toBeInTheDocument();
+    expect(screen.getByText('If you suspect a medical emergency, contact your local emergency services immediately.')).toBeInTheDocument();
+    expect(screen.queryByRole('heading', { name: 'Clinical review requested' })).not.toBeInTheDocument();
+  });
+
+  it('shows no emergency guidance when no flags are present', async () => {
+    renderPanel({ signals: [], needsDoctorBanner: false });
+    expect(await screen.findByText(/No safety flags were returned for this period/)).toBeInTheDocument();
+    expect(screen.queryByText(/emergency services/)).not.toBeInTheDocument();
+  });
+
   it('keeps a clean evaluation explicitly neutral', async () => {
     renderPanel({ signals: [], needsDoctorBanner: false });
     expect(await screen.findByText(/No safety flags were returned for this period/)).toBeInTheDocument();
