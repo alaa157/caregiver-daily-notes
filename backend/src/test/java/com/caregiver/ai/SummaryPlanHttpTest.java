@@ -21,6 +21,7 @@ import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.boot.test.mock.mockito.MockBean;
 import org.springframework.http.MediaType;
 import org.springframework.jdbc.core.JdbcTemplate;
+import org.springframework.test.context.ActiveProfiles;
 import org.springframework.test.web.servlet.MockMvc;
 import org.springframework.test.web.servlet.ResultActions;
 import static org.assertj.core.api.Assertions.assertThat;
@@ -34,6 +35,7 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
     "spring.datasource.driver-class-name=org.h2.Driver", "spring.datasource.username=sa", "spring.datasource.password=",
     "spring.flyway.enabled=true", "spring.jpa.hibernate.ddl-auto=validate", "auth.jwt.secret=synthetic-summary-plan-test-secret-32-bytes"})
 @AutoConfigureMockMvc
+@ActiveProfiles("dev")
 class SummaryPlanHttpTest {
   @Autowired MockMvc mvc;
   @Autowired ObjectMapper mapper;
