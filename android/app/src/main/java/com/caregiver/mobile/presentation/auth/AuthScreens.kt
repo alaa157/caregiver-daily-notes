@@ -20,6 +20,12 @@ fun LoginScreen(
     navController: NavController,
     localAccounts: LocalAccountDirectory? = null,
     onSwitchAccount: (() -> Unit)? = null,
+    // Issue #878: only wire the server-settings link when the host actually
+    // registers the `server-url` destination. In standalone/local-login
+    // builds that destination is absent, so offering the link crashes with
+    // an uncaught IllegalArgumentException. AuthForm hides the link when the
+    // callback is null, so passing null is the whole fix.
+    showServerSettings: Boolean = true,
 ) {
     val vm: AuthViewModel = authViewModel(AuthMode.Login, repository)
     val state by vm.state.collectAsStateWithLifecycle()
@@ -44,7 +50,9 @@ fun LoginScreen(
                 launchSingleTop = true
             }
         },
-        onServerSettings = { navController.navigate(AppDestinations.ServerUrl.base) },
+        onServerSettings = if (showServerSettings) {
+            { navController.navigate(AppDestinations.ServerUrl.base) }
+        } else null,
         // Demo builds (debug + minified) show the offline demo entry
         // (gated inside AuthForm by BuildConfig.DEMO_BACKEND); release
         // never sees it.
