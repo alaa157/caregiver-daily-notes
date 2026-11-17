@@ -14,10 +14,14 @@ import java.util.List;
 import java.util.UUID;
 import java.util.concurrent.atomic.AtomicReference;
 import java.util.stream.Collectors;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.springframework.stereotype.Service;
 
 @Service
 public class PlanGenerationService {
+  private static final Logger log = LoggerFactory.getLogger(PlanGenerationService.class);
+
   private final SummaryApplicationService summaries;
   private final PlanService plans;
   private final ProviderDeadline provider;
@@ -52,7 +56,15 @@ public class PlanGenerationService {
           last, baseline == null ? List.of() : baseline.medications(), summaryRequest.language()), credentials);
       return result.aiUnavailable() ? unavailable(summary.safety())
           : new PlanGenerationController.Result(saved.get(), false, summary.safety(), result.removedUnsafeChanges());
-    } catch (InvalidModelOutputException | ProtectedPlanException invalidSuggestion) {
+    } catch (ProtectedPlanException protectedPlan) {
+      log.warn("plan_generation_failed reason={} recipientId={}",
+          PlanFailureCodes.PROTECTED_PLAN, summaryRequest.recipientId());
+      return unavailable(summary.safety());
+    } catch (InvalidModelOutputException invalidSuggestion) {
+      // Log only the stable reason code and the recipient identifier. The
+      // exception message may contain plan or note content and is never logged.
+      log.warn("plan_generation_failed reason={} recipientId={}",
+          invalidSuggestion.reasonCode(), summaryRequest.recipientId());
       return unavailable(summary.safety());
     }
   }

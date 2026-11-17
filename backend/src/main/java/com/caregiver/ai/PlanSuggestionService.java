@@ -74,7 +74,8 @@ public class PlanSuggestionService {
     }
     if (!rawChanges.isEmpty() && changes.isEmpty()) {
       // Every generated change carried unsafe text: there is no usable plan left.
-      throw new InvalidModelOutputException("All generated changes contain unsafe plan text");
+      throw new InvalidModelOutputException(
+          "All generated changes contain unsafe plan text", PlanFailureCodes.TEXT_SAFETY);
     }
     List<MedicationEntry> proposed =
         parsed.proposedMedications() != null ? parsed.proposedMedications() : List.of();
@@ -90,12 +91,19 @@ public class PlanSuggestionService {
     try {
       new PlanDocument(1, changes, List.of());
     } catch (ProtectedPlanException invalidDocument) {
-      throw new InvalidModelOutputException("Generated plan contains invalid catalog actions", invalidDocument);
+      throw new InvalidModelOutputException(
+          "Generated plan contains invalid catalog actions", PlanFailureCodes.PROTECTED_PLAN, invalidDocument);
     }
     String basedOn = request.lastAccepted() != null ? request.lastAccepted().versionId() : null;
     SuggestedPlan plan =
         new SuggestedPlan(changes, request.currentMedications(), proposed, basedOn);
-    MedicationHardLock.checkUnchanged(request.currentMedications(), plan.proposedMedications());
+    try {
+      MedicationHardLock.checkUnchanged(request.currentMedications(), plan.proposedMedications());
+    } catch (InvalidModelOutputException lockFailure) {
+      // Keep the check itself unchanged; only annotate the reason for logging.
+      throw new InvalidModelOutputException(
+          lockFailure.getMessage(), PlanFailureCodes.MEDICATION_LOCK, lockFailure);
+    }
     return new PlanSuggestionResult(store.save(request.recipientId(), plan), false, removedUnsafeChanges);
   }
 
