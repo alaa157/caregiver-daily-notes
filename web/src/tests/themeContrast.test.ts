@@ -42,6 +42,7 @@ const webRootBlock = baseBlocks.find(({ selector }) => selector === ':root')!;
 const primaryButtonBlock = baseBlocks.find(({ selector }) => selector === '.button--primary')!;
 const recipientFilterBlock = recipientBlocks.find(({ selector }) => selector === '.recipient-filter')!;
 const rootBlock = blocks.find(({ selector }) => selector === ':root')!;
+const darkPaletteBlock = blocks.find(({ declarations }) => '--dark-color-primary' in declarations);
 const webBorderThemeBlock = blocks.find(({ selector }) => selector === ':root[data-theme]')!;
 const darkBlock = blocks.find(({ selector }) => /^\[data-theme=['"]dark['"]\]$/.test(selector))!;
 const systemDarkBlock = blocks.find(({ selector }) => selector.includes("[data-theme='system']"))!;
@@ -84,7 +85,7 @@ const effectiveModes = [
 ];
 
 function effectiveTokens(palette: PaletteBlock, mode: (typeof effectiveModes)[number]): Record<string, string> {
-  return Object.assign(
+  const merged = Object.assign(
     {},
     rootBlock.declarations,
     ...mode.beforePalette.map(({ declarations }) => declarations),
@@ -94,6 +95,15 @@ function effectiveTokens(palette: PaletteBlock, mode: (typeof effectiveModes)[nu
       : {},
     ...mode.afterPalette.map(({ declarations }) => declarations),
   );
+  for (const [token, value] of Object.entries(merged)) {
+    const reference = value.match(/^var\((--dark-[\w-]+)\)$/);
+    if (reference) {
+      const resolved = darkPaletteBlock?.declarations[reference[1]];
+      if (!resolved) throw new Error(`tokens.css dark palette is missing ${reference[1]}.`);
+      merged[token] = resolved;
+    }
+  }
+  return merged;
 }
 
 function colorChannels(hex: string): [number, number, number] {
