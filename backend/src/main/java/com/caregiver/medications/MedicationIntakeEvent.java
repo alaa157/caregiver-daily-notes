@@ -16,7 +16,6 @@ import jakarta.persistence.ManyToOne;
 import jakarta.persistence.Table;
 import jakarta.persistence.UniqueConstraint;
 import org.hibernate.annotations.CreationTimestamp;
-import org.hibernate.annotations.Immutable;
 import org.hibernate.annotations.UuidGenerator;
 
 import java.time.Instant;
@@ -25,7 +24,6 @@ import java.util.UUID;
 
 /** A caregiver-reported medication intake event tied to a specific medication record. */
 @Entity
-@Immutable
 @Table(name = "medication_intake_events",
     indexes = @Index(
         name = "idx_medication_intake_events_caregiver_recipient_medication_time",
@@ -84,6 +82,17 @@ public class MedicationIntakeEvent {
   @CreationTimestamp
   @Column(name = "created_at", nullable = false, updatable = false)
   private Instant createdAt;
+
+  @Column(name = "voided_at")
+  private Instant voidedAt;
+
+  @ManyToOne(fetch = FetchType.LAZY)
+  @JoinColumn(name = "voided_by",
+      foreignKey = @ForeignKey(name = "fk_medication_intake_events_voided_by"))
+  private Caregiver voidedBy;
+
+  @Column(name = "void_reason", length = 500)
+  private String voidReason;
 
   protected MedicationIntakeEvent() {
   }
@@ -158,5 +167,31 @@ public class MedicationIntakeEvent {
 
   public Instant getCreatedAt() {
     return createdAt;
+  }
+
+  public Instant getVoidedAt() {
+    return voidedAt;
+  }
+
+  public Caregiver getVoidedBy() {
+    return voidedBy;
+  }
+
+  public String getVoidReason() {
+    return voidReason;
+  }
+
+  public boolean isVoided() {
+    return voidedAt != null;
+  }
+
+  /** Marks this event as retracted without deleting or rewriting what happened. */
+  public void markVoided(Instant at, Caregiver actor, String reason) {
+    if (isVoided()) {
+      throw new IntakeAlreadyVoidedException();
+    }
+    this.voidedAt = java.util.Objects.requireNonNull(at, "voidedAt");
+    this.voidedBy = java.util.Objects.requireNonNull(actor, "voidedBy");
+    this.voidReason = reason;
   }
 }

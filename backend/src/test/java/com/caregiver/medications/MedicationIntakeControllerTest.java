@@ -21,6 +21,7 @@ import org.springframework.test.web.servlet.MockMvc;
 import org.springframework.test.web.servlet.MvcResult;
 
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.delete;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.patch;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
@@ -314,6 +315,65 @@ class MedicationIntakeControllerTest {
             .content(mapper.writeValueAsBytes(request("MISSED", "2026-10-22T08:30:00Z", "VERIFIED"))))
         .andExpect(status().isConflict())
         .andExpect(jsonPath("$.code").value("IDEMPOTENCY_CONFLICT"));
+
+    assertThat(eventCount(fixture)).isEqualTo(1);
+  }
+
+  @Test
+  void voidingKeepsTheRowAddsProvenanceAndAppearsInHistoryWithMetadata() throws Exception {
+    Fixture fixture = fixture();
+    String token = bearer(fixture.caregiver().token());
+    String id = json(mvc.perform(post(path(fixture))
+            .header("Authorization", token).contentType(MediaType.APPLICATION_JSON)
+            .content(mapper.writeValueAsBytes(request("TAKEN", "2026-10-22T08:30:00Z", "VERIFIED"))))
+        .andExpect(status().isCreated()).andReturn()).path("id").asText();
+
+    JsonNode voided = json(mvc.perform(delete(path(fixture) + "/" + id)
+            .header("Authorization", token).param("reason", "Wrong medication"))
+        .andExpect(status().isOk())
+        .andExpect(jsonPath("$.voided").value(true))
+        .andExpect(jsonPath("$.voidedAt").isNotEmpty())
+        .andExpect(jsonPath("$.voidedBy").value(fixture.caregiver().id().toString()))
+        .andExpect(jsonPath("$.voidReason").value("Wrong medication"))
+        .andReturn());
+
+    assertThat(voided.path("id").asText()).isEqualTo(id);
+    assertThat(eventCount(fixture)).isEqualTo(1);
+    assertThat(jdbc.queryForObject(
+        "select count(*) from medication_intake_events where id = ? and voided_at is not null",
+        Integer.class, UUID.fromString(id))).isEqualTo(1);
+    assertThat(jdbc.queryForObject(
+        "select count(*) from audit_events where event_type = 'MEDICATION_INTAKE_VOIDED' and target_id = ?",
+        Integer.class, id)).isEqualTo(1);
+
+    JsonNode listed = json(mvc.perform(get(path(fixture))
+            .header("Authorization", token))
+        .andExpect(status().isOk()).andReturn());
+    assertThat(listed).hasSize(1);
+    assertThat(listed.get(0).path("voided").asBoolean()).isTrue();
+    assertThat(listed.get(0).path("voidReason").asText()).isEqualTo("Wrong medication");
+  }
+
+  @Test
+  void secondVoidIsConflictAndForeignOrMissingEventsAreNotFound() throws Exception {
+    Fixture fixture = fixture();
+    String token = bearer(fixture.caregiver().token());
+    String id = json(mvc.perform(post(path(fixture))
+            .header("Authorization", token).contentType(MediaType.APPLICATION_JSON)
+            .content(mapper.writeValueAsBytes(request("TAKEN", "2026-10-22T08:30:00Z", "VERIFIED"))))
+        .andExpect(status().isCreated()).andReturn()).path("id").asText();
+
+    mvc.perform(delete(path(fixture) + "/" + id).header("Authorization", token))
+        .andExpect(status().isOk());
+    mvc.perform(delete(path(fixture) + "/" + id).header("Authorization", token))
+        .andExpect(status().isConflict())
+        .andExpect(jsonPath("$.code").value("INTAKE_ALREADY_VOIDED"));
+
+    Fixture foreign = fixture();
+    mvc.perform(delete(path(foreign) + "/" + id).header("Authorization", bearer(foreign.caregiver().token())))
+        .andExpect(status().isNotFound());
+    mvc.perform(delete(path(fixture) + "/" + UUID.randomUUID()).header("Authorization", token))
+        .andExpect(status().isNotFound());
 
     assertThat(eventCount(fixture)).isEqualTo(1);
   }
