@@ -52,7 +52,16 @@ export function ThemeColorsPreview() {
     <meta charset="utf-8">
     <meta name="viewport" content="width=device-width, initial-scale=1">
     <style>${tokensStyles}
-${baseStyles}</style>
+${baseStyles}
+/* The --web-* aliases only define light values; map them onto dark-aware
+   tokens inside the preview so the frame background follows the theme. */
+[data-theme='dark'] { --web-color-background: var(--caregiver-background); --web-color-ink: var(--caregiver-ink); }
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme='light']):not([data-theme='dark']), [data-theme='system'] {
+    --web-color-background: var(--caregiver-background);
+    --web-color-ink: var(--caregiver-ink);
+  }
+}</style>
   </head>
   <body class="theme-preview-frame-document">
     <main class="theme-preview-frame-content">
