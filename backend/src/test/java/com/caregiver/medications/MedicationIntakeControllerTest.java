@@ -290,6 +290,34 @@ class MedicationIntakeControllerTest {
     assertThat(eventCount(fixture)).isZero();
   }
 
+  @Test
+  void sameKeyReplaysIdenticalPayloadAndConflictsOnADifferentOne() throws Exception {
+    Fixture fixture = fixture();
+    String token = bearer(fixture.caregiver().token());
+    String key = "http-dose-key";
+    byte[] original = mapper.writeValueAsBytes(request("TAKEN", "2026-10-22T08:30:00Z", "VERIFIED"));
+
+    String firstId = json(mvc.perform(post(path(fixture))
+            .header("Authorization", token).header("Idempotency-Key", key)
+            .contentType(MediaType.APPLICATION_JSON).content(original))
+        .andExpect(status().isCreated()).andReturn()).path("id").asText();
+
+    String replayId = json(mvc.perform(post(path(fixture))
+            .header("Authorization", token).header("Idempotency-Key", key)
+            .contentType(MediaType.APPLICATION_JSON).content(original))
+        .andExpect(status().isCreated()).andReturn()).path("id").asText();
+    assertThat(replayId).isEqualTo(firstId);
+
+    mvc.perform(post(path(fixture))
+            .header("Authorization", token).header("Idempotency-Key", key)
+            .contentType(MediaType.APPLICATION_JSON)
+            .content(mapper.writeValueAsBytes(request("MISSED", "2026-10-22T08:30:00Z", "VERIFIED"))))
+        .andExpect(status().isConflict())
+        .andExpect(jsonPath("$.code").value("IDEMPOTENCY_CONFLICT"));
+
+    assertThat(eventCount(fixture)).isEqualTo(1);
+  }
+
   private Fixture fixture() throws Exception {
     return fixture(register());
   }
