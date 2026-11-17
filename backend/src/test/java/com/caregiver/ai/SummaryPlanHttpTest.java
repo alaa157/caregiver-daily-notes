@@ -340,7 +340,7 @@ class SummaryPlanHttpTest {
         Map.of("providerId", "UNSUPPORTED", "model", "synthetic-model", "apiKey", secret));
 
     var response = call("/api/plans/generate/byok", owner, invalid)
-        .andExpect(status().isUnprocessableEntity());
+        .andExpect(status().isBadRequest());
 
     assertThat(response.andReturn().getResponse().getContentAsString()).doesNotContain(secret);
     verifyNoInteractions(llm);
@@ -433,7 +433,7 @@ class SummaryPlanHttpTest {
     call("/api/summaries/byok", other, summaryByok(7)).andExpect(status().isNotFound());
     call("/api/plans/generate/byok", other, planByok(7)).andExpect(status().isNotFound());
     call("/api/summaries/byok", owner, summaryByok(9)).andExpect(status().isBadRequest());
-    call("/api/summaries/byok", owner, summaryByok(Map.of("recipientId", "invalid", "periodEndInclusive", "2026-10-26", "periodDays", 7))).andExpect(status().isUnprocessableEntity());
+    call("/api/summaries/byok", owner, summaryByok(Map.of("recipientId", "invalid", "periodEndInclusive", "2026-10-26", "periodDays", 7))).andExpect(status().isBadRequest());
     call("/api/summaries/byok", owner, summaryByok(Map.of("recipientId", recipientId, "periodEndInclusive", "2026-09-01", "periodDays", 7)))
         .andExpect(status().isOk())
         .andExpect(jsonPath("$.summary.aiUnavailable").value(false))
@@ -500,7 +500,7 @@ class SummaryPlanHttpTest {
   @ParameterizedTest @ValueSource(strings = {"0", "-1", "366", "text", "20mg"})
   void invalidActionParameterValuesCannotCreateAnEditedVersion(String value) throws Exception {
     JsonNode original = generate();
-    call(path(original, "edit-and-accept"), owner, edit(original, value)).andExpect(status().isUnprocessableEntity());
+    call(path(original, "edit-and-accept"), owner, edit(original, value)).andExpect(status().isBadRequest());
     assertThat(history().size()).isEqualTo(1);
     assertThat(history().get(0).path("status").asText()).isEqualTo("SUGGESTED");
   }

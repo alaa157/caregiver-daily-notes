@@ -116,7 +116,6 @@ class NoteControllerTest {
 
     mvc.perform(get(NOTES + "/" + missing).header("Authorization", bearer(owner.token())))
         .andExpect(status().isNotFound())
-        .andExpect(jsonPath("$.status").value(404))
         .andExpect(jsonPath("$.code").value("NOT_FOUND"));
 
     String recipientId = createRecipient(owner.token());
@@ -143,7 +142,6 @@ class NoteControllerTest {
             .contentType(MediaType.APPLICATION_JSON)
             .content(noteJson(recipientId, "2026-10-02")))
         .andExpect(status().isConflict())
-        .andExpect(jsonPath("$.status").value(409))
         .andExpect(jsonPath("$.code").value("NOTE_CONFLICT"));
 
     assertThat(notes.count()).isEqualTo(1);
@@ -179,8 +177,7 @@ class NoteControllerTest {
             .header("Authorization", bearer(owner.token()))
             .contentType(MediaType.APPLICATION_JSON)
             .content("{\"mood\":\"good\"}"))
-        .andExpect(status().isBadRequest())
-        .andExpect(jsonPath("$.status").value(400))
+        .andExpect(status().isUnprocessableEntity())
         .andExpect(jsonPath("$.code").value("VALIDATION_ERROR"))
         .andExpect(jsonPath("$.fields.recipientId").exists())
         .andExpect(jsonPath("$.fields.date").exists());
@@ -190,7 +187,7 @@ class NoteControllerTest {
             .header("Authorization", bearer(owner.token()))
             .contentType(MediaType.APPLICATION_JSON)
             .content(noteJson(recipientId, "2026-10-03").replace("\"painScore\":3", "\"painScore\":11")))
-        .andExpect(status().isBadRequest())
+        .andExpect(status().isUnprocessableEntity())
         .andExpect(jsonPath("$.code").value("VALIDATION_ERROR"));
 
     // Unknown medication enum.
@@ -198,7 +195,7 @@ class NoteControllerTest {
             .header("Authorization", bearer(owner.token()))
             .contentType(MediaType.APPLICATION_JSON)
             .content(noteJson(recipientId, "2026-10-03").replace("TAKEN", "MAYBE")))
-        .andExpect(status().isBadRequest())
+        .andExpect(status().isUnprocessableEntity())
         .andExpect(jsonPath("$.code").value("VALIDATION_ERROR"));
 
     // Malformed JSON body.
@@ -207,7 +204,7 @@ class NoteControllerTest {
             .contentType(MediaType.APPLICATION_JSON)
             .content("{not json"))
         .andExpect(status().isBadRequest())
-        .andExpect(jsonPath("$.code").value("INVALID_REQUEST"));
+        .andExpect(jsonPath("$.code").value("VALIDATION_ERROR"));
 
     assertThat(notes.count()).isZero();
   }
@@ -403,7 +400,7 @@ class NoteControllerTest {
             .header("Authorization", bearer(owner.token()))
             .contentType(MediaType.APPLICATION_JSON)
             .content("{\"painScore\":99}"))
-        .andExpect(status().isBadRequest())
+        .andExpect(status().isUnprocessableEntity())
         .andExpect(jsonPath("$.code").value("VALIDATION_ERROR"));
 
     // Unknown note.
@@ -675,7 +672,7 @@ class NoteControllerTest {
     mvc.perform(post(NOTES + "/" + noteId + "/corrections")
             .header("Authorization", bearer(owner.token())).contentType(MediaType.APPLICATION_JSON)
             .content("{\"corrections\":[{\"field\":\"medicationStatus\",\"operation\":\"SET\",\"value\":\"UNKNOWN\"}]}"))
-        .andExpect(status().isBadRequest());
+        .andExpect(status().isUnprocessableEntity());
 
     mvc.perform(get(NOTES + "/" + noteId + "/corrections").header("Authorization", bearer(owner.token())))
         .andExpect(status().isOk()).andExpect(jsonPath("$.originalNote.observations.medicationStatus.state").value("RECORDED"))
@@ -693,7 +690,7 @@ class NoteControllerTest {
         + "{\"field\":\"fallReported\",\"operation\":\"SET\",\"value\":\"false\"}]}";
     mvc.perform(post(NOTES + "/" + noteId + "/corrections")
             .header("Authorization", bearer(owner.token())).contentType(MediaType.APPLICATION_JSON).content(invalid))
-        .andExpect(status().isBadRequest());
+        .andExpect(status().isUnprocessableEntity());
     assertThat(jdbcTemplate.queryForObject("select count(*) from note_correction_events", Integer.class)).isZero();
 
     mvc.perform(post(NOTES + "/" + noteId + "/corrections")

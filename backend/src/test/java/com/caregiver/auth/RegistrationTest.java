@@ -166,9 +166,10 @@ class RegistrationTest {
       "not-json-at-all{"
     };
     for (String bad : badBodies) {
+      boolean malformed = bad.startsWith("not-json");
       mvc.perform(
               post("/api/auth/register").contentType(MediaType.APPLICATION_JSON).content(bad))
-          .andExpect(status().isUnprocessableEntity())
+          .andExpect(malformed ? status().isBadRequest() : status().isUnprocessableEntity())
           .andExpect(jsonPath("$.code").value("VALIDATION_ERROR"));
     }
   }

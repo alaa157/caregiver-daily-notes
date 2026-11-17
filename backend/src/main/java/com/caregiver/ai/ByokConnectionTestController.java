@@ -1,9 +1,6 @@
 package com.caregiver.ai;
 
-import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
-import org.springframework.http.converter.HttpMessageNotReadableException;
-import org.springframework.web.bind.annotation.ExceptionHandler;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
@@ -50,11 +47,5 @@ public class ByokConnectionTestController {
       case RATE_LIMIT -> "rate_limit";
       case TIMEOUT, PROVIDER_UNAVAILABLE, INVALID_OUTPUT -> "provider_unavailable";
     };
-  }
-
-  @ExceptionHandler(HttpMessageNotReadableException.class)
-  public ResponseEntity<ByokConnectionTestResponse> malformedRequest() {
-    return ResponseEntity.status(HttpStatus.BAD_REQUEST).body(
-        new ByokConnectionTestResponse(false, null, null, "invalid_provider"));
   }
 }

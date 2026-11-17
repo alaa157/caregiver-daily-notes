@@ -55,7 +55,7 @@ class OpenApiTest {
         .andExpect(jsonPath("$.components.schemas.RegisterRequest").exists())
         .andExpect(jsonPath("$.components.schemas.LoginRequest").exists())
         .andExpect(jsonPath("$.components.schemas.AuthResponse").exists())
-        .andExpect(jsonPath("$.components.schemas.ErrorResponse").exists());
+        .andExpect(jsonPath("$.components.schemas.ApiError").exists());
   }
 
   @Test

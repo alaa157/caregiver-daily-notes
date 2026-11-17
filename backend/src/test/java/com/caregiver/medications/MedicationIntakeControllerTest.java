@@ -245,7 +245,7 @@ class MedicationIntakeControllerTest {
             .header("Authorization", bearer(fixture.caregiver().token()))
             .contentType(MediaType.APPLICATION_JSON)
             .content(mapper.writeValueAsBytes(request("NOT_RECORDED", "2026-10-22T08:30:00Z", "VERIFIED"))))
-        .andExpect(status().isBadRequest());
+        .andExpect(status().isUnprocessableEntity());
 
     assertThat(eventCount(fixture)).isZero();
   }
@@ -284,7 +284,7 @@ class MedicationIntakeControllerTest {
               .header("Authorization", bearer(fixture.caregiver().token()))
               .contentType(MediaType.APPLICATION_JSON)
               .content(mapper.writeValueAsBytes(invalidRequest)))
-          .andExpect(status().isBadRequest());
+          .andExpect(status().isUnprocessableEntity());
     }
 
     assertThat(eventCount(fixture)).isZero();

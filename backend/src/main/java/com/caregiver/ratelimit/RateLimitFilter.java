@@ -1,7 +1,7 @@
 package com.caregiver.ratelimit;
 
 import com.caregiver.auth.AuthContext;
-import com.caregiver.auth.ErrorResponse;
+import com.caregiver.common.ApiError;
 import com.caregiver.config.RateLimitProperties;
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
@@ -99,7 +99,7 @@ public final class RateLimitFilter extends OncePerRequestFilter {
     response.setHeader("X-RateLimit-Limit", Integer.toString(limit));
     response.setContentType(MediaType.APPLICATION_JSON_VALUE);
     objectMapper.writeValue(response.getWriter(),
-        new ErrorResponse(ERROR_CODE, "Too many requests. Please try again later."));
+        new ApiError(ERROR_CODE, "Too many requests. Please try again later."));
   }
 
   /** Verified caregiver id when present, otherwise the source IP as a fallback. */

@@ -58,18 +58,13 @@ class AuthErrorsTest {
   }
 
   @Test
-  void nonAuthControllerBypassesAuthAdvice() {
-    // Outside com.caregiver.auth, so the scoped advice must not convert this:
-    // MockMvc propagates the raw failure instead of returning an envelope.
-    assertThatThrownBy(
-            () ->
-                mvc.perform(
-                    get("/api/test/other-boom")
-                        .header(
-                            "Authorization",
-                            "Bearer " + jwtService.issue(UUID.randomUUID()))))
-        .rootCause()
-        .isInstanceOf(IllegalStateException.class)
-        .hasMessage("other-domain-failure");
+  void nonAuthControllerErrorsUseTheSharedEnvelope() throws Exception {
+    // The single global advice now covers every domain, including test-only ones.
+    mvc.perform(
+            get("/api/test/other-boom")
+                .header("Authorization", "Bearer " + jwtService.issue(UUID.randomUUID())))
+        .andExpect(status().isInternalServerError())
+        .andExpect(jsonPath("$.code").value("SERVER_ERROR"))
+        .andExpect(jsonPath("$.message").value("Something went wrong."));
   }
 }
