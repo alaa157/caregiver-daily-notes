@@ -5,8 +5,10 @@ import android.content.res.Configuration
 import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.test.assertCountEquals
+import androidx.compose.ui.test.assertHasClickAction
 import androidx.compose.ui.test.assertIsDisplayed
 import androidx.compose.ui.test.junit4.createComposeRule
+import androidx.compose.ui.test.onAllNodesWithTag
 import androidx.compose.ui.test.onAllNodesWithText
 import androidx.compose.ui.test.onNodeWithTag
 import androidx.compose.ui.test.onNodeWithText
@@ -94,8 +96,8 @@ class HomeUiTest {
         }
 
         compose.onNodeWithText("1 / 1 مكتملة").assertIsDisplayed()
-        compose.onNodeWithText("تم اليوم").assertIsDisplayed()
-        compose.onNodeWithText("آخر ملاحظة: جيدة · متقطع").assertIsDisplayed()
+        compose.onNodeWithText("تم").assertIsDisplayed()
+        compose.onNodeWithText("آخر ملاحظة: اليوم").assertIsDisplayed()
         compose.onNodeWithText(Bidi.isolate("ليلى Layla")).assertIsDisplayed()
         compose.onNodeWithText("تنبيه سقوط").assertIsDisplayed()
         compose.onNodeWithText("سقوط مبلغ عنه — " + Bidi.isolate("ليلى Layla")).assertIsDisplayed()
@@ -144,6 +146,47 @@ class HomeUiTest {
         compose.onNodeWithTag("home_tab_all").performClick()
         compose.onNodeWithText(Bidi.isolate("ليلى")).assertIsDisplayed()
         compose.onNodeWithText(Bidi.isolate("سارة")).assertIsDisplayed()
+    }
+
+    @Test
+    fun redesignedPeopleListShowsStatusChipsLastNoteAndAddPersonRow() {
+        val today = LocalDate.now().toString()
+        val yesterday = LocalDate.now().minusDays(1).toString()
+        server.enqueue(
+            MockResponse().setBody(
+                """[{"id":"r1","name":"Aisha","active":true},{"id":"r2","name":"Sara","active":true}]""",
+            ),
+        )
+        server.enqueue(
+            MockResponse().setBody(
+                """[{"id":"n1","recipientId":"r1","date":"$today","mood":"good","appetite":"good","sleep":"good","mobility":"walks","medicationTaken":"taken","pain":1,"fall":false,"text":"t"},
+                    {"id":"n2","recipientId":"r2","date":"$yesterday","mood":"bad","appetite":"poor","sleep":"poor","mobility":"bed","medicationTaken":"missed","pain":2,"fall":false,"text":"t"}]"""
+                    .replace("\n", ""),
+            ),
+        )
+        val base = ApplicationProvider.getApplicationContext<Context>()
+        val localized = base.withLocale("en")
+        compose.setContent {
+            CompositionLocalProvider(LocalContext provides localized) {
+                WithTestOwner {
+                    CaregiverTheme {
+                        HomeScreen(graph, rememberNavController())
+                    }
+                }
+            }
+        }
+
+        // The All tab shows both people; the default Today tab would filter
+        // out the one with only a yesterday note.
+        compose.onNodeWithTag("home_tab_all").performClick()
+
+        compose.onAllNodesWithTag("home_person_card").assertCountEquals(2)
+        compose.onAllNodesWithTag("home_person_card")[0].assertHasClickAction()
+        compose.onNodeWithText("Done").assertIsDisplayed()
+        compose.onNodeWithText("Not yet").assertIsDisplayed()
+        compose.onNodeWithText("Last note: today").assertIsDisplayed()
+        compose.onNodeWithText("Last note: yesterday").assertIsDisplayed()
+        compose.onNodeWithTag("home_add_person").assertIsDisplayed().assertHasClickAction()
     }
 
     @Test
