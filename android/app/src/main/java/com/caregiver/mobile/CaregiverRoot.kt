@@ -10,6 +10,7 @@ import com.caregiver.mobile.core.navigation.AppDestinations
 import com.caregiver.mobile.core.navigation.RootScreen
 import com.caregiver.mobile.core.navigation.rootScreenFor
 import com.caregiver.mobile.presentation.auth.LoginScreen
+import com.caregiver.mobile.presentation.auth.RegisterAccount
 import com.caregiver.mobile.presentation.auth.RegisterScreen
 import com.caregiver.mobile.presentation.onboarding.OnboardingScreen
 import com.caregiver.mobile.presentation.settings.ServerUrlScreen
@@ -37,6 +38,15 @@ fun CaregiverRoot(graph: AppGraph) {
         }
     }
     val localMode = com.caregiver.mobile.BuildConfig.LOCAL_MODE
+    // Wire local registration to the graph's single AccountManager (#704):
+    // that makes the form ask for a Name and lets PasswordPolicy failures
+    // reach the UI as specific messages. Server/demo graphs have no manager,
+    // so their two-argument register path is unchanged.
+    val registerAccount: RegisterAccount? = graph.accountManager?.let { manager ->
+        { displayName: String, email: String, password: String ->
+            manager.signUp(displayName, email, password)
+        }
+    }
     // The token is only read when the app is not standalone: the local build
     // never signs in, and reading it would build the API stack for nothing.
     val signedIn by produceState<Boolean?>(initialValue = null) {
@@ -78,7 +88,7 @@ fun CaregiverRoot(graph: AppGraph) {
                     LoginScreen(graph.auth, navController)
                 }
                 composable(AppDestinations.Register.base) {
-                    RegisterScreen(graph.auth, navController)
+                    RegisterScreen(graph.auth, navController, registerAccount)
                 }
                 composable(AppDestinations.ServerUrl.base) {
                     ServerUrlScreen(graph, navController)
@@ -94,7 +104,7 @@ fun CaregiverRoot(graph: AppGraph) {
                         LoginScreen(graph.auth, navController)
                     }
                     composable(AppDestinations.Register.base) {
-                        RegisterScreen(graph.auth, navController)
+                        RegisterScreen(graph.auth, navController, registerAccount)
                     }
                 }
             } else {
