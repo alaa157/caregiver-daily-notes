@@ -105,13 +105,17 @@ export function validateRecipient(input: RecipientInput): Partial<Record<keyof R
   if (value.relationship && value.relationship.length > 80) errors.relationship = 'recipientRelationshipTooLong';
   return errors;
 }
+/** Mirrors RecipientCareDetailsRequest.MIN_PHONE_DIGITS. */
+const MIN_PHONE_DIGITS = 3;
 export function validateCareDetails(input: RecipientCareDetailsInput): Partial<Record<keyof RecipientCareDetailsInput, MessageKey>> {
   const value = careDetailsFields(input); const errors: Partial<Record<keyof RecipientCareDetailsInput, MessageKey>> = {};
   if (value.dateOfBirth && !isDateOnly(value.dateOfBirth)) errors.dateOfBirth = 'historyInvalidDate';
   if (value.allergies && value.allergies.length > 500) errors.allergies = 'medicationTextTooLong';
   if (value.conditions && value.conditions.length > 500) errors.conditions = 'medicationTextTooLong';
   if (value.emergencyContactName && value.emergencyContactName.length > 120) errors.emergencyContactName = 'recipientNameTooLong';
-  if (value.emergencyContactPhone && !/^[0-9+() -]{3,30}$/.test(value.emergencyContactPhone)) {
+  // Mirrors RecipientCareDetailsRequest: permitted separators plus at least three digits.
+  if (value.emergencyContactPhone && (!/^[0-9+() -]{3,30}$/.test(value.emergencyContactPhone)
+    || value.emergencyContactPhone.replace(/\D/g, '').length < MIN_PHONE_DIGITS)) {
     errors.emergencyContactPhone = 'recipientValidationError';
   }
   return errors;

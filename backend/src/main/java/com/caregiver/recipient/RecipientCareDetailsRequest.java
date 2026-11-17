@@ -22,6 +22,8 @@ public record RecipientCareDetailsRequest(
         String emergencyContactPhone) {
 
   private static final java.util.regex.Pattern PHONE = java.util.regex.Pattern.compile("^[0-9+()\\- ]{3,30}$");
+  /** Separators are not a phone number; require at least this many digits. */
+  private static final int MIN_PHONE_DIGITS = 3;
   private static final LocalDate EARLIEST_BIRTH_DATE = LocalDate.of(1900, 1, 1);
 
   public RecipientCareDetailsRequest {
@@ -51,7 +53,9 @@ public record RecipientCareDetailsRequest(
         || emergencyContactPhone != null && emergencyContactPhone.length() > 30) {
       throw new IllegalArgumentException("Care detail exceeds the allowed length.");
     }
-    if (emergencyContactPhone != null && !PHONE.matcher(emergencyContactPhone).matches()) {
+    if (emergencyContactPhone != null
+        && (!PHONE.matcher(emergencyContactPhone).matches()
+            || emergencyContactPhone.replaceAll("\\D", "").length() < MIN_PHONE_DIGITS)) {
       throw new IllegalArgumentException("emergencyContactPhone has an invalid format.");
     }
   }

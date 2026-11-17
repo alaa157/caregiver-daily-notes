@@ -233,6 +233,14 @@ describe('recipient API contract', () => {
     expect(validateCareDetails({ ...valid, emergencyContactPhone: 'not a phone' })).toMatchObject({
       emergencyContactPhone: 'recipientValidationError',
     });
+    for (const punctuationOnly of ['+++', '---', '( ) -', '++ (+)']) {
+      expect(validateCareDetails({ ...valid, emergencyContactPhone: punctuationOnly })).toMatchObject({
+        emergencyContactPhone: 'recipientValidationError',
+      });
+    }
+    expect(validateCareDetails({ ...valid, emergencyContactPhone: '+20 (100) 123-4567' })).toEqual({});
+    expect(validateCareDetails({ ...valid, emergencyContactPhone: null })).toEqual({});
+    expect(validateCareDetails({ ...valid, emergencyContactPhone: '   ' })).toEqual({});
   });
 
   it.each([
