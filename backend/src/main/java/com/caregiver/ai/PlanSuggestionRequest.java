@@ -10,7 +10,8 @@ import java.util.Objects;
 /**
  * Input for one suggestion call: the grounded summary, authoritative
  * safety, citable note texts, the previously accepted version (or null for
- * a first plan), and the current medication section for hard-locking.
+ * a first plan), and the server-owned current medication section that is
+ * copied onto the saved suggestion (issue #751).
  */
 public record PlanSuggestionRequest(
     String recipientId,

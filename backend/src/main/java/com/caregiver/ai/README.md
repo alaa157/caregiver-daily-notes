@@ -76,6 +76,15 @@ transactional archive/version workflow. Accepting a structured suggestion also
 rechecks its baseline and medications. Invalid/repeated/stale transitions return
 409. Protected/invalid edits return 422 without changing the original.
 
+**Medication hard lock scope (issue #751):** `MedicationHardLock` is a hard guard
+over server-owned medication values on plan documents and suggestions. It is
+**reserved for future use** and is **not connected to the recipient's real
+medication records**. AI generation no longer instructs the model to echo the
+medication list, does not validate any echo it still returns (whitespace or
+otherwise), and always saves the baseline medication list. A differing echo
+therefore no longer fails generation. The lock remains a hard failure, never a
+warning, wherever it is applied to server-owned values.
+
 **Intentional API change:** unrestricted `content` replacement at edit-and-accept
 is rejected. Other clients must adopt the protected payload above. Opaque legacy
 plans stay readable and can use their existing lifecycle, but cannot be edited

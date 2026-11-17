@@ -308,6 +308,7 @@ This is confusing in a demo and looks unfinished.
 
 ## Not tested / limitations
 
+- **Medication hard lock scope (issue #751):** `MedicationHardLock` is a hard guard over server-owned medication values on plan documents and suggestions. It is **reserved for future use** and is **not connected to the recipient's real medication records**. AI generation no longer asks the model to echo the medication list, ignores any echo it still returns, and saves the baseline medication list; a differing echo (including whitespace) no longer fails generation. The lock itself remains a hard failure, never a warning.
 - **AI summary and AI plan generation with a real provider key** — no API key available. With a fake key the app degrades gracefully ("The provider is temporarily unavailable", "These credentials were not saved or activated"; `aiUnavailable: true` from the API). The safety-alerts path could not be exercised end-to-end.
 - **Vision-based visual review** was unavailable in this environment, so layout was assessed programmatically (computed widths, overflow, DOM structure) rather than by eye. Screenshots for issues #1–#3 are in `screenshots/` for you to review.
 - **Mobile** was checked at 390 px and 320 px only for horizontal overflow, not full touch-target/contrast auditing.

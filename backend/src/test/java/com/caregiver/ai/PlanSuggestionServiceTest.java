@@ -186,18 +186,60 @@ class PlanSuggestionServiceTest {
   }
 
   @Test
-  void medicationDoseChange_rejectedBeforeStore() {
+  void medicationEchoDifferencesAreIgnoredAndBaselineIsStored() {
     var store = new InMemorySuggestedPlanStore();
+    var baseline = List.of(med("Aspirin", "5mg", "daily"));
     var svc = service(store, new LlmResult(LlmStatus.OK,
         suggestionJson(
             changeJson("SCHEDULE_CHECK_IN", "\"withinDays\":\"3\"", "check soon", "\"n1\""),
             medJson("Aspirin", "10mg", "daily")),
         null));
 
-    assertThatThrownBy(() -> svc.suggest(
-        request(Map.of("n1", "ate well"), null, List.of(med("Aspirin", "5mg", "daily")))))
-        .isInstanceOf(InvalidModelOutputException.class);
-    assertThat(store.saves()).isEqualTo(0);
+    var result = svc.suggest(request(Map.of("n1", "ate well"), null, baseline));
+
+    assertThat(result.aiUnavailable()).isFalse();
+    assertThat(store.saves()).isEqualTo(1);
+    assertThat(result.stored().plan().currentMedications()).isEqualTo(baseline);
+    assertThat(result.stored().plan().proposedMedications()).isEqualTo(baseline);
+  }
+
+  @Test
+  void medicationEchoWithWhitespaceDoesNotFailGeneration() {
+    var store = new InMemorySuggestedPlanStore();
+    var baseline = List.of(med("Aspirin", "5mg", "daily"));
+    var svc = service(store, new LlmResult(LlmStatus.OK,
+        suggestionJson(
+            changeJson("SCHEDULE_CHECK_IN", "\"withinDays\":\"3\"", "check soon", "\"n1\""),
+            medJson(" Aspirin ", "5mg ", " daily")),
+        null));
+
+    var result = svc.suggest(request(Map.of("n1", "ate well"), null, baseline));
+
+    assertThat(result.aiUnavailable()).isFalse();
+    assertThat(store.saves()).isEqualTo(1);
+    assertThat(result.stored().plan().proposedMedications()).isEqualTo(baseline);
+  }
+
+  @Test
+  void medicationEchoIsNotRequiredByTheStrictParser() {
+    var store = new InMemorySuggestedPlanStore();
+    var svc = service(store, new LlmResult(LlmStatus.OK,
+        "{\"changes\":[" + changeJson("SCHEDULE_CHECK_IN", "\"withinDays\":\"3\"", "check soon", "\"n1\"") + "]}",
+        null));
+
+    var result = svc.suggest(
+        request(Map.of("n1", "ate well"), null, List.of(med("Aspirin", "5mg", "daily"))));
+
+    assertThat(result.aiUnavailable()).isFalse();
+    assertThat(store.saves()).isEqualTo(1);
+  }
+
+  @Test
+  void systemPromptDoesNotRequireMedicationEcho() {
+    assertThat(PlanSuggestionService.PLAN_SYSTEM_PROMPT)
+        .doesNotContain("repeat the")
+        .doesNotContain("current medication section exactly")
+        .doesNotContain("medication values");
   }
 
   @Test

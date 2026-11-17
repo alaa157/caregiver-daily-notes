@@ -61,13 +61,17 @@ class PlanGenerationServiceTest {
 
   @Test
   void medicationLockFailureIsLoggedWithItsOwnReasonCode() {
-    // The provider proposes a changed medication, so the hard lock rejects it.
+    // A model-supplied medication echo is ignored since #751, so a lock
+    // rejection is simulated at the server-side save boundary instead.
     String planJson = "{\"changes\":[{\"actionId\":\"SCHEDULE_CHECK_IN\",\"params\":{\"withinDays\":\"7\"},"
         + "\"reason\":\"Review logged observations.\",\"evidenceNoteIds\":[\"" + NOTE_ID + "\"]}],"
         + "\"proposedMedications\":[{\"name\":\"" + HEALTH_DATA + "\",\"dose\":\"10 mg\",\"schedule\":\"daily\"}]}";
     PlanGenerationService service = serviceReturning(new LlmResult(LlmStatus.OK, planJson, ""));
     when(summaries.generate(any(SummaryRequest.class), any(ProviderCredentials.class)))
         .thenAnswer(invocation -> generated());
+    when(plans.saveGenerated(any(), any(), any()))
+        .thenThrow(new InvalidModelOutputException(
+            "Medication section changed", PlanFailureCodes.MEDICATION_LOCK));
 
     var result = service.generate(request());
 
