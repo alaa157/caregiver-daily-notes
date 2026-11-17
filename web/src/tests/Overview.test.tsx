@@ -147,7 +147,7 @@ describe('month-to-date notes metric', () => {
     await userEvent.click(screen.getByRole('button', { name: 'Notes this month Retry' }));
     expect(await screen.findByText('1', { selector: '.overview-mtd strong' })).toBeInTheDocument();
     expect(monthRequests).toBe(3);
-    expect(fetcher.mock.calls.filter(([path]) => path === '/api/recipients')).toHaveLength(1);
+    expect(fetcher.mock.calls.filter(([path]) => path === '/api/recipients')).toHaveLength(2);
   });
 
   it('retries the overview without reloading the successful month-to-date widget', async () => {
@@ -287,7 +287,7 @@ describe('authenticated workspace overview', () => {
     act(() => notifyCareDataChanged());
 
     await waitFor(() => {
-      expect(fetcher.mock.calls.filter(([path]) => path === '/api/recipients')).toHaveLength(1);
+      expect(fetcher.mock.calls.filter(([path]) => path === '/api/recipients')).toHaveLength(2);
       expect(fetcher.mock.calls.filter(([path]) => path === '/api/notes?from=2026-10-18&to=2026-10-18&page=0&size=100')).toHaveLength(1);
       expect(fetcher.mock.calls.filter(([path]) => path === '/api/notes?from=2026-10-01&to=2026-10-18&page=0&size=100')).toHaveLength(1);
       expect(fetcher.mock.calls.filter(([path]) => path === '/api/activity?limit=10')).toHaveLength(1);
@@ -825,6 +825,23 @@ describe('overview activity feed', () => {
     expect(within(section).getByRole('list', { name: 'Recent activity' })).toBeInTheDocument();
     expect(section.querySelector('bdi')).toHaveTextContent('Recipient');
     expect(within(section).queryByText('No recent activity.')).not.toBeInTheDocument();
+  });
+
+  it('renders recipient names while the dashboard table is still loading', async () => {
+    const fetcher = vi.fn().mockImplementation((path: string) => {
+      if (path === '/api/recipients') return Promise.resolve(jsonResponse([recipientFixture]));
+      if (path.startsWith('/api/activity?')) return Promise.resolve(jsonResponse([
+        { id: id(80), noteId: id(79), kind: 'note', recipientId: recipientFixture.id, createdAt: '2026-10-18T13:00:00Z' },
+      ]));
+      if (path.startsWith('/api/notes?')) return new Promise<Response>(() => {});
+      return Promise.resolve(historyResponse([]));
+    });
+    renderOverview('/app?date=2026-10-18', fetcher, 'en', false);
+
+    const activity = screen.getByRole('region', { name: 'Recent activity' });
+    expect(await within(activity).findByText('Note')).toBeInTheDocument();
+    expect(activity.querySelector('bdi')).toHaveTextContent(recipientFixture.name);
+    expect(within(activity).queryByText('Recipient', { exact: true })).not.toBeInTheDocument();
   });
 
   it('exposes loading before the feed response resolves and aborts on unmount', async () => {
