@@ -396,6 +396,17 @@ describe('on-demand summary and safety workflow', () => {
     expect(screen.queryByText('Model-generated text')).not.toBeInTheDocument();
     expect(fetcher.mock.calls.some(([path]) => path === '/api/summaries')).toBe(false);
   });
+  it('shows a localized notice when unsafe medical text was removed', async () => {
+    const fixture = summaryFixture();
+    show(dataFetcher((path) => path === byokSummaryPath ? jsonResponse({
+      ...fixture,
+      summary: { ...fixture.summary, droppedContentCount: 2, droppedContentReason: 'UNSAFE_CONTENT' },
+    }) : undefined));
+    await generate();
+
+    expect(await screen.findByText('2 items removed (contained medical advice).')).toBeVisible();
+  });
+
   it('shows a localized notice when observations were dropped for failed grounding', async () => {
     const fixture = summaryFixture();
     show(dataFetcher((path) => path === byokSummaryPath ? jsonResponse({

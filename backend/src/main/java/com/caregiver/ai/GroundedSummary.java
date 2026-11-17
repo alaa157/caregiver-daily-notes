@@ -24,7 +24,11 @@ public record GroundedSummary(
     /** Observations dropped because their quote could not be verified. */
     int droppedObservationCount,
     @JsonInclude(JsonInclude.Include.NON_NULL)
-    String droppedReason) {
+    String droppedReason,
+    /** Observations or uncertainties dropped because their text was unsafe. */
+    int droppedContentCount,
+    @JsonInclude(JsonInclude.Include.NON_NULL)
+    String droppedContentReason) {
 
   public GroundedSummary {
     observations = observations == null ? List.of() : List.copyOf(observations);
@@ -33,12 +37,19 @@ public record GroundedSummary(
 
   public GroundedSummary(
       List<SummaryObservation> observations, List<SummaryUncertainty> uncertainties, boolean aiUnavailable) {
-    this(observations, uncertainties, aiUnavailable, null, 0, null);
+    this(observations, uncertainties, aiUnavailable, null, 0, null, 0, null);
   }
 
   public GroundedSummary(
       List<SummaryObservation> observations, List<SummaryUncertainty> uncertainties, boolean aiUnavailable,
       String unavailableReason) {
-    this(observations, uncertainties, aiUnavailable, unavailableReason, 0, null);
+    this(observations, uncertainties, aiUnavailable, unavailableReason, 0, null, 0, null);
+  }
+
+  public GroundedSummary(
+      List<SummaryObservation> observations, List<SummaryUncertainty> uncertainties, boolean aiUnavailable,
+      String unavailableReason, int droppedObservationCount, String droppedReason) {
+    this(observations, uncertainties, aiUnavailable, unavailableReason, droppedObservationCount, droppedReason,
+        0, null);
   }
 }

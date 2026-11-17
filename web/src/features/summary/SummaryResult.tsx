@@ -115,6 +115,11 @@ export function SummaryResult({ view }: { view: SummaryView }) {
         {t('summaryDroppedObservations').replace('{count}', format(response.summary.droppedObservationCount))}
       </p>
       : null}
+    {response.summary?.droppedContentCount
+      ? <p className="summary-notice" role="status">
+        {t('summaryRemovedContent').replace('{count}', format(response.summary.droppedContentCount))}
+      </p>
+      : null}
     {canPresentAiSuccess && <section className="summary-surface summary-ai" aria-labelledby="summary-observations-heading">
       <div className="summary-ai-heading">
         <h3 id="summary-observations-heading">{t('summaryObservations')}</h3>

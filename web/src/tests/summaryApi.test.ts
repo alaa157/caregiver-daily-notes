@@ -133,6 +133,17 @@ describe('safety survives invalid generated content', () => {
     expect(result.safety).toEqual({ ...fixture.safety, incomplete: false });
   });
 
+  it('carries the unsafe-content removal count and reason without invalidating the response', () => {
+    const fixture = summaryFixture();
+    const result = readSummaryResponse({
+      ...fixture,
+      summary: { ...fixture.summary, droppedContentCount: 2, droppedContentReason: 'UNSAFE_CONTENT' },
+    });
+    expect(result.invalidContent).toBe(false);
+    expect(result.summary?.droppedContentCount).toBe(2);
+    expect(result.summary?.droppedContentReason).toBe('UNSAFE_CONTENT');
+  });
+
   it('carries the dropped-observation count and reason without invalidating the response', () => {
     const fixture = summaryFixture();
     const result = readSummaryResponse({

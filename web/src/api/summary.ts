@@ -12,11 +12,14 @@ export interface SummaryObservation { text: string; noteId: string; quote: strin
 export interface SummaryUncertainty { topic: string; detail: string }
 export type SummaryUnavailableReason = 'INVALID_KEY' | 'INVALID_MODEL' | 'RATE_LIMIT' | 'TIMEOUT' | 'PROVIDER_UNAVAILABLE' | 'INVALID_OUTPUT';
 export type SummaryDroppedReason = 'UNVERIFIED_QUOTE';
+export type SummaryDroppedContentReason = 'UNSAFE_CONTENT';
 export interface SummaryContent {
   observations: SummaryObservation[]; uncertainties: SummaryUncertainty[]; aiUnavailable: boolean;
   unavailableReason?: SummaryUnavailableReason;
   droppedObservationCount?: number;
   droppedReason?: SummaryDroppedReason;
+  droppedContentCount?: number;
+  droppedContentReason?: SummaryDroppedContentReason;
 }
 export interface SafetySignal { ruleId: string | null; severity: string | null; reason: string | null }
 export interface SummarySafety { signals: SafetySignal[]; needsDoctorBanner: boolean; incomplete: boolean }
@@ -89,6 +92,8 @@ export function readSummaryResponse(value: unknown): SummaryResponse {
     const unavailableReason = raw.unavailableReason;
     const droppedCount = raw.droppedObservationCount;
     const droppedReason = raw.droppedReason;
+    const droppedContentCount = raw.droppedContentCount;
+    const droppedContentReason = raw.droppedContentReason;
     summary = {
       observations,
       uncertainties,
@@ -97,6 +102,9 @@ export function readSummaryResponse(value: unknown): SummaryResponse {
       ...(Number.isSafeInteger(droppedCount) && (droppedCount as number) >= 0
         ? { droppedObservationCount: droppedCount as number } : {}),
       ...(droppedReason === 'UNVERIFIED_QUOTE' ? { droppedReason } : {}),
+      ...(Number.isSafeInteger(droppedContentCount) && (droppedContentCount as number) >= 0
+        ? { droppedContentCount: droppedContentCount as number } : {}),
+      ...(droppedContentReason === 'UNSAFE_CONTENT' ? { droppedContentReason } : {}),
     };
   } catch { invalidContent = true; }
   try {
