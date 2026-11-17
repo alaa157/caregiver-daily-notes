@@ -249,12 +249,18 @@ internal fun RecipientsContent(
             state = pullRefreshState,
             isRefreshing = refreshing,
             onRefresh = onRefresh,
+            // Only mount the spinner while a refresh is in flight. The stock
+            // M3 Indicator just fades its alpha when isRefreshing is false,
+            // leaving a ProgressBar node in the hierarchy after the refresh
+            // completes, which makes the control look stuck (#927).
             indicator = {
-                Indicator(
-                    isRefreshing = refreshing,
-                    state = pullRefreshState,
-                    modifier = Modifier.align(Alignment.TopCenter),
-                )
+                if (refreshing) {
+                    Indicator(
+                        isRefreshing = refreshing,
+                        state = pullRefreshState,
+                        modifier = Modifier.align(Alignment.TopCenter),
+                    )
+                }
             },
         ) {
             Column(
