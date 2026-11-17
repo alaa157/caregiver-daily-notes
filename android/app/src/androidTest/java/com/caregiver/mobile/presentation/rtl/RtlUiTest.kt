@@ -222,7 +222,7 @@ class RtlUiTest {
         assertEquals(LayoutDirection.Rtl, capturedDirection)
         compose.onNodeWithText(Bidi.isolate("Omar عمر")).assertIsDisplayed()
         compose.onNodeWithText("تم اليوم").assertIsDisplayed()
-        compose.onNodeWithText("آخر ملاحظة").assertIsDisplayed()
+        compose.onNodeWithText("الملاحظات الأخيرة").assertIsDisplayed()
         compose.onNodeWithText("إضافة ملاحظة").assertIsDisplayed()
     }
 

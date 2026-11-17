@@ -91,6 +91,8 @@ import com.caregiver.mobile.core.navigation.MainTab
 import com.caregiver.mobile.core.navigation.ScrollToTop
 import com.caregiver.mobile.core.theme.CaregiverColors
 import com.caregiver.mobile.core.theme.PlexArabic
+import com.caregiver.mobile.core.time.DateFormats
+import com.caregiver.mobile.core.util.appLocale
 import com.caregiver.mobile.data.api.NoteDto
 import com.caregiver.mobile.data.api.RecipientDto
 import com.caregiver.mobile.data.local.RecipientAdmin
@@ -1147,6 +1149,9 @@ fun RecipientDetailScreen(
                 onViewToday = {
                     s.detail.todayNoteId?.let { navController.navigate(AppRoutes.noteDetail(it)) }
                 },
+                onOpenNote = { noteId ->
+                    navController.navigate(AppRoutes.noteDetail(noteId))
+                },
                 onAddCorrection = {
                     s.detail.todayNoteId?.let { navController.navigate(AppRoutes.addendum(it)) }
                 },
@@ -1388,6 +1393,108 @@ private fun DetailShortcutGrid(
     }
 }
 
+/**
+ * Recent notes section (#909): the three newest notes as cards with the day,
+ * the mood, and a one-line ellipsized preview. Tapping a card opens Note
+ * Detail; "See all" opens History. With no notes, a short message points back
+ * to the main write action above.
+ */
+@Composable
+private fun RecentNotesSection(
+    notes: List<NoteDto>,
+    onOpenNote: (String) -> Unit,
+    onSeeAll: () -> Unit,
+) {
+    SectionTitle(stringResource(R.string.detail_recent_notes))
+    if (notes.isEmpty()) {
+        SectionCard(modifier = Modifier.fillMaxWidth()) {
+            Text(
+                text = stringResource(R.string.detail_recent_empty_title),
+                fontFamily = PlexArabic,
+                fontWeight = FontWeight.Bold,
+                fontSize = 14.sp,
+                color = CaregiverColors.Ink,
+            )
+            Spacer(Modifier.height(AppDimens.GapTight))
+            Text(
+                text = stringResource(R.string.detail_recent_empty_body),
+                fontFamily = PlexArabic,
+                fontSize = 13.sp,
+                color = CaregiverColors.Muted,
+            )
+        }
+        return
+    }
+    Column(verticalArrangement = Arrangement.spacedBy(AppDimens.GapForm)) {
+        notes.take(3).forEach { note ->
+            RecentNoteCard(note = note, onClick = { onOpenNote(note.id) })
+        }
+        TextButton(
+            onClick = onSeeAll,
+            modifier = Modifier.align(Alignment.End),
+        ) {
+            Text(
+                text = stringResource(R.string.detail_see_all),
+                fontFamily = PlexArabic,
+                fontWeight = FontWeight.Bold,
+                color = CaregiverColors.Primary,
+            )
+            ForwardChevron()
+        }
+    }
+}
+
+@Composable
+private fun RecentNoteCard(note: NoteDto, onClick: () -> Unit) {
+    val date = DateFormats.parseIsoDate(note.date)
+    val day = date?.let { DateFormats.dayMonth(it, appLocale()) } ?: note.date
+    val mood = optionLabel(OptionGroup.Mood, note.mood)
+    // Collapse line breaks so one stored note can never wrap the card or
+    // push the mood/day out; softWrap=false + maxLines=1 guarantees ellipsis.
+    val preview = note.text.trim().lines().joinToString(" ").ifBlank {
+        stringResource(R.string.detail_recent_no_text)
+    }
+    Box(
+        modifier = Modifier
+            .fillMaxWidth()
+            .heightIn(min = 48.dp)
+            .clip(RoundedCornerShape(AppDimens.SectionCardRadius))
+            .clickable(onClick = onClick)
+            .semantics { role = Role.Button }
+            .testTag("detail_recent_note_${note.id}"),
+    ) {
+        SectionCard(modifier = Modifier.fillMaxWidth()) {
+            Row(verticalAlignment = Alignment.CenterVertically) {
+                Column(modifier = Modifier.weight(1f)) {
+                    Text(
+                        text = Bidi.isolate(day),
+                        fontFamily = PlexArabic,
+                        fontWeight = FontWeight.Bold,
+                        fontSize = 13.sp,
+                        color = CaregiverColors.Ink,
+                    )
+                    Text(
+                        text = mood,
+                        fontFamily = PlexArabic,
+                        fontSize = 13.sp,
+                        color = CaregiverColors.Muted,
+                    )
+                    Text(
+                        text = preview,
+                        fontFamily = PlexArabic,
+                        fontSize = 14.sp,
+                        color = CaregiverColors.Ink,
+                        maxLines = 1,
+                        softWrap = false,
+                        overflow = TextOverflow.Ellipsis,
+                    )
+                }
+                ForwardChevron()
+            }
+        }
+    }
+}
+
 @Composable
 internal fun DetailContent(
     detail: RecipientDetail,
@@ -1410,6 +1517,7 @@ internal fun DetailContent(
     onAddCorrection: () -> Unit = {},
     onCareDetails: () -> Unit = {},
     onSavedSummaries: () -> Unit = {},
+    onOpenNote: (String) -> Unit = {},
 ) {
     var confirmingDelete by remember { mutableStateOf(false) }
     Column(
@@ -1538,39 +1646,14 @@ internal fun DetailContent(
                 modifier = Modifier.testTag("detail_care_edit"),
             )
         }
-        // The status card above covers the no-notes empty state.
-        detail.lastNote?.let { note ->
-            val items = lastNoteItems(note)
-            if (items.isNotEmpty()) {
-                SectionTitle(stringResource(R.string.person_last_note))
-                Text(
-                    text = stringResource(
-                        R.string.person_last_note_date,
-                        Bidi.isolate(note.date),
-                    ),
-                    fontFamily = PlexArabic,
-                    fontSize = 13.sp,
-                    color = CaregiverColors.Muted,
-                )
-                val labels = mutableListOf<String>()
-                for (item in items) {
-                    labels += when (item) {
-                        is LastNoteItem.Option -> optionLabel(item.group, item.value)
-                        is LastNoteItem.Pain -> stringResource(
-                            R.string.person_last_note_pain,
-                            item.value,
-                        )
-                        LastNoteItem.FallReported -> stringResource(R.string.person_last_note_fall)
-                    }
-                }
-                Text(
-                    text = labels.joinToString(" · "),
-                    fontFamily = PlexArabic,
-                    fontSize = 15.sp,
-                    color = CaregiverColors.Ink,
-                )
-            }
-        }
+        // Recent notes (#909) replaces the old single "Last note" block: the
+        // three newest notes as tappable cards plus a See all link, or an
+        // empty message that points at the main write action.
+        RecentNotesSection(
+            notes = detail.recentNotes,
+            onOpenNote = onOpenNote,
+            onSeeAll = onHistory,
+        )
         // History / care plan / summary / care details now live in the 2x2
         // shortcut grid above (#908). The remaining button opens the saved
         // summaries for this person.

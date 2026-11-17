@@ -208,7 +208,7 @@ class RecipientsFlowUiTest {
         compose.onNodeWithText("Aisha").performClick()
 
         compose.onNodeWithText("Done today").assertIsDisplayed()
-        compose.onNodeWithText("Last note").assertIsDisplayed()
+        compose.onNodeWithText("Recent notes").assertIsDisplayed()
         compose.onNodeWithText("Accepted").assertDoesNotExist()
     }
 

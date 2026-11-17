@@ -31,6 +31,8 @@ data class RecipientDetail(
     val todayNoteId: String? = null,
     val relationship: String? = null,
     val careDetails: CareDetails = CareDetails(),
+    /** Most recent notes for the Recent notes section (#909), newest first. */
+    val recentNotes: List<NoteDto> = emptyList(),
 )
 
 sealed interface DetailState {
@@ -204,6 +206,7 @@ class RecipientDetailViewModel(
                     name = recipient.name,
                     active = recipient.active,
                     lastNote = notes.maxByOrNull { it.date },
+                    recentNotes = notes.sortedByDescending { it.date }.take(3),
                     archived = recipient.archivedAt != null,
                     todayNoteId = notes.firstOrNull { it.date == todayDate }?.id,
                     relationship = recipient.relationship,

@@ -66,6 +66,11 @@
     <string name="detail_add_note">إضافة ملاحظة</string>
     <string name="detail_write_today_note">كتابة ملاحظة اليوم</string>
     <string name="detail_edit_today_note">تعديل ملاحظة اليوم</string>
+    <string name="detail_recent_notes">الملاحظات الأخيرة</string>
+    <string name="detail_see_all">عرض الكل</string>
+    <string name="detail_recent_empty_title">لا توجد ملاحظات بعد</string>
+    <string name="detail_recent_empty_body">استخدم الزر أعلاه لكتابة ملاحظة اليوم.</string>
+    <string name="detail_recent_no_text">لا يوجد نص مكتوب</string>
     <string name="detail_history">عرض السجل</string>
     <string name="detail_plan">خطة الرعاية</string>
     <string name="detail_summary">ملخص ذكي</string>
