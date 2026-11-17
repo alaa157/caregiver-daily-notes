@@ -2,6 +2,17 @@
 <html lang="en" dir="ltr">
   <head>
     <meta charset="UTF-8" />
+    <script>
+      (function () {
+        try {
+          var language = localStorage.getItem('caregiver-language');
+          if (language === 'ar') {
+            document.documentElement.lang = 'ar';
+            document.documentElement.dir = 'rtl';
+          }
+        } catch (e) { /* Storage can be blocked; keep the default LTR document. */ }
+      })();
+    </script>
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <link rel="icon" type="image/svg+xml" href="/caregiver-notes-preview.svg" />
     <meta name="theme-color" content="#fafaf6" />
