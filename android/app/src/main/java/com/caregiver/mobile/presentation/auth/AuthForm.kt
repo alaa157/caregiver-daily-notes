@@ -424,7 +424,9 @@ private fun Modifier.authAutofill(
     }
     DisposableEffect(tree, node) {
         tree += node
-        onDispose { tree -= node }
+        // AutofillTree in Compose 1.7 has only += (keyed by node.id); there
+        // is no -= operator, so remove by key explicitly.
+        onDispose { tree.children.remove(node.id) }
     }
     return this
         .onGloballyPositioned { node.boundingBox = it.boundsInWindow() }
