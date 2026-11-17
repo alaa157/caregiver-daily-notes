@@ -122,3 +122,9 @@ export const summaryMessages = {
     summaryInvalidSummaryTitle: 'تعذّر التحقق من معلومات الملخص بالكامل',
   },
 } as const;
+
+/** Word forms for a counted "day(s)" label, selected by `pluralForm`. */
+export const summaryDayForms = {
+  en: { one: 'day', two: 'days', few: 'days', many: 'days', other: 'days' },
+  ar: { zero: 'يوم', one: 'يوم', two: 'يومان', few: 'أيام', many: 'يومًا', other: 'يوم' },
+} as const;

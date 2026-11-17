@@ -6,6 +6,7 @@ import { createSummaryApi, readSummarySafety, retainSafety, summaryErrorMessage,
 import { Button, ButtonLink } from '../../components/Button';
 import { ErrorState, FieldError, LoadingState } from '../../components/Feedback';
 import { useI18n } from '../../i18n/I18nProvider';
+import { dayCountLabel } from '../../i18n/dayCount';
 import { formatNumber } from '../../lib/format';
 import type { MessageKey } from '../../i18n/translations';
 import { ApiError, useApiClient } from '../../lib/api';
@@ -135,7 +136,7 @@ export function SummaryPage({ scopedRecipientId }: { scopedRecipientId?: string 
         </div>
       </div>
       <fieldset className="summary-periods" disabled={pending}><legend>{t('summaryPeriod')}</legend>
-        {summaryPeriods.map((period) => <label key={period} data-selected={periodDays === period}><input type="radio" name="summary-period" value={period} checked={periodDays === period} onChange={() => setPeriodDays(period)} />{format(period)} {t('summaryDays')}</label>)}
+        {summaryPeriods.map((period) => <label key={period} data-selected={periodDays === period}><input type="radio" name="summary-period" value={period} checked={periodDays === period} onChange={() => setPeriodDays(period)} />{dayCountLabel(period, language)}</label>)}
       </fieldset>
       <div className="summary-actions"><Button type="submit" disabled={pending || !available}>{t(view ? 'summaryRegenerate' : 'summaryGenerate')}</Button>
         {pending && <Button variant="secondary" onClick={cancel}>{t('summaryCancel')}</Button>}</div>
