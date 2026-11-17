@@ -284,12 +284,17 @@ private fun HomeTimeline(
             // Metrolist keeps the stock M3 spinner, just re-anchored to the
             // content top (their player-aware inset padding has no
             // mini-player counterpart here, so no padding is needed).
+            // Mount it only while refreshing: the M3 Indicator merely fades
+            // its alpha when isRefreshing is false, so an always-composed one
+            // leaves a ProgressBar node behind that looks stuck (#927).
             indicator = {
-                Indicator(
-                    isRefreshing = refreshing,
-                    state = pullRefreshState,
-                    modifier = Modifier.align(Alignment.TopCenter),
-                )
+                if (refreshing) {
+                    Indicator(
+                        isRefreshing = refreshing,
+                        state = pullRefreshState,
+                        modifier = Modifier.align(Alignment.TopCenter),
+                    )
+                }
             },
         ) {
             val cards = homeCardsForTab(content.cards, selectedTab)

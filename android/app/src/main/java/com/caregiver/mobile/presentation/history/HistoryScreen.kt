@@ -257,12 +257,17 @@ private fun HistoryFeed(
         onRefresh = onRefresh,
         modifier = Modifier.fillMaxSize(),
         // Metrolist idiom: stock M3 spinner re-anchored to the content top.
+        // Compose it only while refreshing — the M3 Indicator only fades its
+        // alpha otherwise, leaving a ProgressBar node behind after refresh
+        // completes (#927).
         indicator = {
-            Indicator(
-                isRefreshing = refreshing,
-                state = pullRefreshState,
-                modifier = Modifier.align(Alignment.TopCenter),
-            )
+            if (refreshing) {
+                Indicator(
+                    isRefreshing = refreshing,
+                    state = pullRefreshState,
+                    modifier = Modifier.align(Alignment.TopCenter),
+                )
+            }
         },
     ) {
         LazyColumn(
