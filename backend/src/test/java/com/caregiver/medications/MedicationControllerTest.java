@@ -469,7 +469,7 @@ class MedicationControllerTest {
   private TestCaregiver register() throws Exception {
     String email = "medication-api-" + UUID.randomUUID() + "@example.com";
     MvcResult result = mvc.perform(post("/api/auth/register").contentType(MediaType.APPLICATION_JSON)
-            .content(mapper.writeValueAsBytes(Map.of("email", email, "password", "password123"))))
+            .content(mapper.writeValueAsBytes(Map.of("email", email, "password", "password1234"))))
         .andExpect(status().isCreated()).andReturn();
     String token = mapper.readTree(result.getResponse().getContentAsByteArray()).get("token").asText();
     return new TestCaregiver(token, jwtService.parse(token).caregiverId());

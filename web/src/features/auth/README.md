@@ -8,12 +8,14 @@ JwtService and SecurityConfig at commit cff5ecd3945c98cdf4ca3a991513811e38c27c40
 - POST /api/auth/login with JSON { "email": "...", "password": "..." }.
 - Success: { "token": "<HS256 JWT>" }, with a UUID subject and numeric expiry.
   Email is trimmed and lowercased; the password is preserved exactly. Validation
-  follows the 320-character email and 72-byte UTF-8 password limits, without
-  inventing a password length minimum.
+  follows the 320-character email and 72-byte UTF-8 password limits. Login
+  deliberately does NOT apply the signup minimum, so older accounts still work.
 - POST /api/auth/register with the same JSON body. Success is 201 with the same
   `{ "token": "..." }` shape as login, so both paths share one post-success
   handler in AuthProvider (`completeSignIn`). Validation is identical: 320-char
-  email, 72-byte UTF-8 password, no minimum length.
+  email, 72-byte UTF-8 password, and a 12-character minimum (`MIN_PASSWORD_LENGTH`
+  in `passwordRules.ts`, mirroring `AuthService.MIN_PASSWORD_CHARS`). A short
+  password returns 422 `VALIDATION_ERROR` with `fields.password`.
 - Registration has two distinct 422 responses and they must not be conflated:
   `{ "code": "DUPLICATE_EMAIL" }` for a taken email, and
   `{ "code": "VALIDATION_ERROR" }` for anything else. Both are 422 — the UI
@@ -86,7 +88,7 @@ cancellation, stale-response races, Arabic and RTL. Browser tests cover keyboard
 navigation, validation/error focus, tab reload, logout/history, expiry, responsive
 layout and axe WCAG 2.1 A/AA scans in both languages at desktop, tablet, mobile
 and 320px widths. Signup adds its own component suite (success, 422 validation,
-duplicate email, local field validation including the 72-byte limit) and a
+duplicate email, local field validation including the 12-character minimum and 72-byte limit) and a
 browser spec covering form submission, duplicate-email messaging, keyboard
 reachability from /login, and axe scans in both languages.
 

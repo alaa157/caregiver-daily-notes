@@ -10,6 +10,7 @@ import type { MessageKey } from '../../i18n/translations';
 import { ApiError } from '../../lib/api';
 import { safeReturnPath } from '../../routes/authRedirect';
 import { useAuth } from './AuthProvider';
+import { MIN_PASSWORD_LENGTH } from './passwordRules';
 import './auth.css';
 
 type FieldErrors = { email?: MessageKey; password?: MessageKey };
@@ -62,6 +63,7 @@ export function SignupPage() {
     if (!normalizedEmail) next.email = 'authEmailRequired';
     else if (normalizedEmail.length > 320 || !/^[^\s@]+@[^\s@]+$/.test(normalizedEmail)) next.email = 'authEmailInvalid';
     if (!password.trim()) next.password = 'authPasswordRequired';
+    else if (password.length < MIN_PASSWORD_LENGTH) next.password = 'authPasswordTooShort';
     else if (new TextEncoder().encode(password).length > 72) next.password = 'authPasswordTooLong';
     setErrors(next);
     setError(null);

@@ -45,13 +45,13 @@ class LoginTest {
     mvc.perform(
             post("/api/auth/register")
                 .contentType(MediaType.APPLICATION_JSON)
-                .content("{\"email\":\"Sam@Example.COM\",\"password\":\"password123\"}"))
+                .content("{\"email\":\"Sam@Example.COM\",\"password\":\"password1234\"}"))
         .andExpect(status().isCreated());
 
     String token = mvc.perform(
             post("/api/auth/login")
                 .contentType(MediaType.APPLICATION_JSON)
-                .content("{\"email\":\"sam@example.com\",\"password\":\"password123\"}"))
+                .content("{\"email\":\"sam@example.com\",\"password\":\"password1234\"}"))
         .andExpect(status().isOk())
         .andExpect(jsonPath("$.token").isString())
         .andReturn()
@@ -69,14 +69,14 @@ class LoginTest {
     mvc.perform(
             post("/api/auth/register")
                 .contentType(MediaType.APPLICATION_JSON)
-                .content("{\"email\":\"pad@example.com\",\"password\":\"password123\"}"))
+                .content("{\"email\":\"pad@example.com\",\"password\":\"password1234\"}"))
         .andExpect(status().isCreated());
 
     String token =
         mvc.perform(
                 post("/api/auth/login")
                     .contentType(MediaType.APPLICATION_JSON)
-                    .content("{\"email\":\"  PAD@example.com  \",\"password\":\"password123\"}"))
+                    .content("{\"email\":\"  PAD@example.com  \",\"password\":\"password1234\"}"))
             .andExpect(status().isOk())
             .andExpect(jsonPath("$.token").isString())
             .andReturn()
@@ -94,7 +94,7 @@ class LoginTest {
     mvc.perform(
             post("/api/auth/register")
                 .contentType(MediaType.APPLICATION_JSON)
-                .content("{\"email\":\"sam3@example.com\",\"password\":\"password123\"}"))
+                .content("{\"email\":\"sam3@example.com\",\"password\":\"password1234\"}"))
         .andExpect(status().isCreated());
 
     String wrong =
@@ -129,7 +129,7 @@ class LoginTest {
     mvc.perform(
             post("/api/auth/register")
                 .contentType(MediaType.APPLICATION_JSON)
-                .content("{\"email\":\"sam2@example.com\",\"password\":\"password123\"}"))
+                .content("{\"email\":\"sam2@example.com\",\"password\":\"password1234\"}"))
         .andExpect(status().isCreated());
 
     String wrong =

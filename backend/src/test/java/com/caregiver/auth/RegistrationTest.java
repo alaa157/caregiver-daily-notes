@@ -54,7 +54,7 @@ class RegistrationTest {
 
   @Test
   void validRegistrationReturnsTokenForSavedCaregiver() throws Exception {
-    String body = "{\"email\":\"New@Example.COM\",\"password\":\"password123\"}";
+    String body = "{\"email\":\"New@Example.COM\",\"password\":\"password1234\"}";
 
     String token = mvc.perform(
             post("/api/auth/register").contentType(MediaType.APPLICATION_JSON).content(body))
@@ -68,8 +68,8 @@ class RegistrationTest {
     var stored = repository.findByEmail("new@example.com");
     assertThat(stored).isPresent();
     assertThat(jwtService.parse(token).caregiverId()).isEqualTo(stored.get().getId());
-    assertThat(stored.get().getPasswordHash()).isNotEqualTo("password123");
-    assertThat(encoder.matches("password123", stored.get().getPasswordHash())).isTrue();
+    assertThat(stored.get().getPasswordHash()).isNotEqualTo("password1234");
+    assertThat(encoder.matches("password1234", stored.get().getPasswordHash())).isTrue();
   }
 
   @Test
@@ -77,7 +77,7 @@ class RegistrationTest {
     mvc.perform(
             post("/api/auth/register")
                 .contentType(MediaType.APPLICATION_JSON)
-                .content("{\"email\":\"  Pad@Example.COM  \",\"password\":\"password123\"}"))
+                .content("{\"email\":\"  Pad@Example.COM  \",\"password\":\"password1234\"}"))
         .andExpect(status().isCreated())
         .andExpect(jsonPath("$.token").isString());
 
@@ -86,7 +86,7 @@ class RegistrationTest {
     mvc.perform(
             post("/api/auth/register")
                 .contentType(MediaType.APPLICATION_JSON)
-                .content("{\"email\":\"pad@example.com\",\"password\":\"password123\"}"))
+                .content("{\"email\":\"pad@example.com\",\"password\":\"password1234\"}"))
         .andExpect(status().isUnprocessableEntity())
         .andExpect(jsonPath("$.code").value("DUPLICATE_EMAIL"));
   }
@@ -107,7 +107,7 @@ class RegistrationTest {
                           post("/api/auth/register")
                               .contentType(MediaType.APPLICATION_JSON)
                               .content(
-                                  "{\"email\":\"race-burst@example.com\",\"password\":\"password123\"}"))
+                                  "{\"email\":\"race-burst@example.com\",\"password\":\"password1234\"}"))
                       .andReturn()
                       .getResponse()
                       .getStatus();
@@ -127,7 +127,7 @@ class RegistrationTest {
 
   @Test
   void duplicateEmailMapsTo422() throws Exception {
-    String body = "{\"email\":\"dup@example.com\",\"password\":\"password123\"}";
+    String body = "{\"email\":\"dup@example.com\",\"password\":\"password1234\"}";
     mvc.perform(
             post("/api/auth/register").contentType(MediaType.APPLICATION_JSON).content(body))
         .andExpect(status().isCreated());
@@ -144,13 +144,13 @@ class RegistrationTest {
     mvc.perform(
             post("/api/auth/register")
                 .contentType(MediaType.APPLICATION_JSON)
-                .content("{\"email\":\"Case@Example.COM\",\"password\":\"password123\"}"))
+                .content("{\"email\":\"Case@Example.COM\",\"password\":\"password1234\"}"))
         .andExpect(status().isCreated());
 
     mvc.perform(
             post("/api/auth/register")
                 .contentType(MediaType.APPLICATION_JSON)
-                .content("{\"email\":\"case@example.com\",\"password\":\"password123\"}"))
+                .content("{\"email\":\"case@example.com\",\"password\":\"password1234\"}"))
         .andExpect(status().isUnprocessableEntity())
         .andExpect(jsonPath("$.code").value("DUPLICATE_EMAIL"));
   }
@@ -158,10 +158,10 @@ class RegistrationTest {
   @Test
   void invalidBodiesMapTo422() throws Exception {
     String[] badBodies = {
-      "{\"email\":\"not-an-email\",\"password\":\"password123\"}",
+      "{\"email\":\"not-an-email\",\"password\":\"password1234\"}",
       "{\"email\":\"ok@example.com\",\"password\":\"\"}",
       "{\"email\":\"ok@example.com\"}",
-      "{\"password\":\"password123\"}",
+      "{\"password\":\"password1234\"}",
       "{}",
       "not-json-at-all{"
     };
@@ -172,6 +172,20 @@ class RegistrationTest {
           .andExpect(malformed ? status().isBadRequest() : status().isUnprocessableEntity())
           .andExpect(jsonPath("$.code").value("VALIDATION_ERROR"));
     }
+  }
+
+  @Test
+  void shortPasswordReturnsFieldLevelValidationError() throws Exception {
+    mvc.perform(
+            post("/api/auth/register")
+                .contentType(MediaType.APPLICATION_JSON)
+                .content("{\"email\":\"short@example.com\",\"password\":\"short\"}"))
+        .andExpect(status().isUnprocessableEntity())
+        .andExpect(jsonPath("$.code").value("VALIDATION_ERROR"))
+        .andExpect(jsonPath("$.fields.password").value(
+            "Password must be at least " + AuthService.MIN_PASSWORD_CHARS + " characters."))
+        .andExpect(jsonPath("$.message").value(
+            "Password must be at least " + AuthService.MIN_PASSWORD_CHARS + " characters."));
   }
 
   @Test

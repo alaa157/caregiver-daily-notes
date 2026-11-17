@@ -53,6 +53,17 @@ class GlobalExceptionHandlerTest {
   }
 
   @Test
+  void fieldValidationNamesTheField() {
+    var response = handler.fieldValidation(
+        new com.caregiver.auth.FieldValidationException("password", "Password must be at least 12 characters."));
+
+    assertThat(response.getStatusCode()).isEqualTo(HttpStatus.UNPROCESSABLE_ENTITY);
+    assertThat(response.getBody().code()).isEqualTo("VALIDATION_ERROR");
+    assertThat(response.getBody().fields())
+        .containsEntry("password", "Password must be at least 12 characters.");
+  }
+
+  @Test
   void apiErrorHasOneShapeWithOptionalParts() {
     var minimal = new ApiError("CODE", "message");
     assertThat(minimal.code()).isEqualTo("CODE");

@@ -17,6 +17,9 @@ public class AuthService {
   /** BCrypt truncates past 72 bytes — reject instead of silently truncating. */
   static final int MAX_PASSWORD_BYTES = 72;
 
+  /** Minimum password length for NEW registrations. Login never applies this. */
+  public static final int MIN_PASSWORD_CHARS = 12;
+
   private final CaregiverRepository repository;
   private final PasswordEncoder encoder;
   private final JwtService jwtService;
@@ -42,6 +45,10 @@ public class AuthService {
     }
     if (password == null || password.isEmpty()) {
       throw new ValidationException("Password is required.");
+    }
+    if (password.length() < MIN_PASSWORD_CHARS) {
+      throw new FieldValidationException("password",
+          "Password must be at least " + MIN_PASSWORD_CHARS + " characters.");
     }
     if (password.getBytes(StandardCharsets.UTF_8).length > MAX_PASSWORD_BYTES) {
       throw new ValidationException("Password must be at most 72 bytes.");
