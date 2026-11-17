@@ -2,6 +2,14 @@
   color: var(--caregiver-ink);
   background: var(--caregiver-background);
   min-height: 100dvh;
+  /* Landing Arabic copy uses its own small subset; Latin text falls through
+     to DM Sans, so the English page never downloads an Arabic face. */
+  font-family: 'Noto Sans Arabic Landing', 'DM Sans Variable', system-ui, sans-serif;
+}
+/* Keep the app-wide :lang(ar) stack from overriding the landing subset. App
+   copy outside .landing-page still resolves to the Fontsource face only. */
+:lang(ar) .landing-page {
+  font-family: 'Noto Sans Arabic Landing', 'Noto Sans Arabic Variable', 'DM Sans Variable', system-ui, sans-serif;
 }
 .landing-header {
   position: sticky;
@@ -168,6 +176,8 @@
   box-shadow: var(--ui-shadow);
   display: grid;
   gap: 13px;
+  /* Decorative mock strings come from the tiny mock subset, not the full face. */
+  font-family: 'Noto Sans Arabic Mock', 'Noto Sans Arabic Variable', 'DM Sans Variable', system-ui, sans-serif;
 }
 .screen-top {
   display: flex;
