@@ -12,7 +12,8 @@ public class ObservationInputValidator
       return true;
     }
     String invalidProperty = null;
-    if (input.state() == ObservationState.RECORDED && input.value() == null) {
+    if (input.state() == ObservationState.RECORDED
+        && (input.value() == null || ObservationRequestValidation.isWhitespaceOnly(input.value()))) {
       invalidProperty = "value";
     } else if (input.state() != ObservationState.RECORDED && input.value() != null) {
       invalidProperty = "value";

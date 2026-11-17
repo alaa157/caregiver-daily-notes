@@ -67,8 +67,12 @@ function validateObservation<K extends keyof ObservationValues>(
     return value === 'TAKEN' || value === 'MISSED' ? undefined : 'notesChooseValue';
   }
   if (typeof value !== 'string') return 'obsRecordedValueRequired';
+  // Whitespace-only text with actual characters is no observation; an empty
+  // string stays the long-standing explicit value accepted by the server.
+  if (value.length > 0 && value.trim().length === 0) return 'obsRecordedValueRequired';
+  const trimmed = value.trim();
   const max = field === 'freeText' ? 20000 : 40;
-  return value.length <= max ? undefined : field === 'freeText' ? 'notesFreeTextLimit' : 'notesTextLimit';
+  return trimmed.length <= max ? undefined : field === 'freeText' ? 'notesFreeTextLimit' : 'notesTextLimit';
 }
 
 export function validateNoteValues(values: NoteValues, corrections?: Corrections): NoteErrors {
