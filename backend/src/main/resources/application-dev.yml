@@ -1,0 +1,8 @@
+# Development only: publish the generated OpenAPI document and Swagger UI.
+# Outside this profile the base application.yml keeps springdoc disabled, so
+# the documentation endpoints are absent in production.
+springdoc:
+  api-docs:
+    enabled: true
+  swagger-ui:
+    enabled: true

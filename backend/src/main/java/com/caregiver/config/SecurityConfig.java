@@ -4,6 +4,7 @@ import com.caregiver.auth.AuthErrorResponseFactory;
 import com.caregiver.auth.JwtAuthenticationFilter;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import jakarta.servlet.http.HttpServletResponse;
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.boot.web.servlet.FilterRegistrationBean;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
@@ -49,19 +50,26 @@ public class SecurityConfig {
   public SecurityFilterChain securityFilterChain(
       HttpSecurity http,
       JwtAuthenticationFilter jwtAuthenticationFilter,
-      AuthenticationEntryPoint authenticationEntryPoint)
+      AuthenticationEntryPoint authenticationEntryPoint,
+      @Value("${springdoc.api-docs.enabled:false}") boolean apiDocsEnabled)
       throws Exception {
     http.csrf(AbstractHttpConfigurer::disable)
         .sessionManagement(
             sessions -> sessions.sessionCreationPolicy(SessionCreationPolicy.STATELESS))
-        .authorizeHttpRequests(
-            authorize -> authorize
-                .requestMatchers(HttpMethod.POST, "/api/auth/register", "/api/auth/login")
-                .permitAll()
-                .requestMatchers("/v3/api-docs/**", "/swagger-ui/**", "/swagger-ui.html")
-                .permitAll()
-                .anyRequest()
-                .authenticated())
+        .authorizeHttpRequests(authorize -> {
+          var rules = authorize
+              .requestMatchers(HttpMethod.POST, "/api/auth/register", "/api/auth/login")
+              .permitAll();
+          // Docs paths are public only when springdoc is explicitly enabled by
+          // the dev profile. Elsewhere they fall under the authenticated
+          // catch-all (and the endpoints themselves are disabled in config).
+          // No other authorization rule is changed.
+          if (apiDocsEnabled) {
+            rules.requestMatchers("/v3/api-docs/**", "/swagger-ui/**", "/swagger-ui.html")
+                .permitAll();
+          }
+          rules.anyRequest().authenticated();
+        })
         .addFilterBefore(jwtAuthenticationFilter, UsernamePasswordAuthenticationFilter.class)
         .exceptionHandling(
             exceptions -> exceptions.authenticationEntryPoint(authenticationEntryPoint));

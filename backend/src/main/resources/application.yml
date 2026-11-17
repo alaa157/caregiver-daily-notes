@@ -1,3 +1,14 @@
+# API documentation is a development-only convenience. springdoc is disabled
+# in the base configuration so /v3/api-docs and /swagger-ui do not exist in
+# production (including the BYOK and AI endpoints they would advertise).
+# The dev profile switches both back on (see application-dev.yml); the
+# annotations stay on the controllers for development and client generation.
+springdoc:
+  api-docs:
+    enabled: false
+  swagger-ui:
+    enabled: false
+
 # Auth/JWT configuration (Member 3 — Task 1 foundation).
 # Signing secret comes from the environment only. Never commit a real secret.
 auth:
