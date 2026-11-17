@@ -20,6 +20,7 @@ import org.springframework.test.web.servlet.MvcResult;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.patch;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.content;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
@@ -71,6 +72,41 @@ class MedicationIntakeControllerTest {
     assertThat(jdbc.queryForObject(
         "select caregiver_id from medication_intake_events where id = ?",
         UUID.class, UUID.fromString(response.path("id").asText()))).isEqualTo(fixture.caregiver().id());
+  }
+
+  @Test
+  void archivedMedicationRejectsIntakeWithTheExistingConflictShape() throws Exception {
+    Fixture fixture = fixture();
+    mvc.perform(patch("/api/recipients/" + fixture.recipientId() + "/medications/"
+            + fixture.medicationId() + "/archive")
+            .header("Authorization", bearer(fixture.caregiver().token())))
+        .andExpect(status().isOk());
+
+    mvc.perform(post(path(fixture))
+            .header("Authorization", bearer(fixture.caregiver().token()))
+            .contentType(MediaType.APPLICATION_JSON)
+            .content(mapper.writeValueAsBytes(
+                request("TAKEN", "2026-11-01T08:30:00Z", "UNVERIFIED"))))
+        .andExpect(status().isConflict())
+        .andExpect(jsonPath("$.code").value("MEDICATION_CONFLICT"));
+    assertThat(eventCount(fixture)).isZero();
+  }
+
+  @Test
+  void archivedRecipientRejectsIntakeWithTheInactiveRecipientShape() throws Exception {
+    Fixture fixture = fixture();
+    mvc.perform(patch("/api/recipients/" + fixture.recipientId() + "/archive")
+            .header("Authorization", bearer(fixture.caregiver().token())))
+        .andExpect(status().isOk());
+
+    mvc.perform(post(path(fixture))
+            .header("Authorization", bearer(fixture.caregiver().token()))
+            .contentType(MediaType.APPLICATION_JSON)
+            .content(mapper.writeValueAsBytes(
+                request("TAKEN", "2026-11-01T08:30:00Z", "UNVERIFIED"))))
+        .andExpect(status().isConflict())
+        .andExpect(jsonPath("$.code").value("INACTIVE_RECIPIENT"));
+    assertThat(eventCount(fixture)).isZero();
   }
 
   @Test

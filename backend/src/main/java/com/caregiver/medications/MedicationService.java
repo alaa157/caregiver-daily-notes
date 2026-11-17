@@ -3,7 +3,6 @@ package com.caregiver.medications;
 import com.caregiver.auth.AuthContext;
 import com.caregiver.recipient.CareRecipient;
 import com.caregiver.recipient.CareRecipientRepository;
-import com.caregiver.recipient.InactiveRecipientException;
 import com.caregiver.recipient.RecipientNotFoundException;
 import jakarta.persistence.EntityManager;
 import java.util.List;
@@ -31,7 +30,7 @@ public class MedicationService {
   public MedicationResponse create(UUID recipientId, MedicationRequest request) {
     UUID caregiverId = AuthContext.currentCaregiverId();
     CareRecipient recipient = ownedRecipientForUpdate(recipientId, caregiverId);
-    requireActiveRecipient(recipient);
+    MedicationLifecycle.requireActiveRecipient(recipient);
     MedicationRecord record = medications.save(new MedicationRecord(recipient.getCaregiver(), recipient,
         request.displayName(), request.doseText(), request.scheduleText()));
     entityManager.flush();
@@ -59,12 +58,10 @@ public class MedicationService {
   public MedicationResponse update(UUID recipientId, UUID medicationId, MedicationRequest request) {
     UUID caregiverId = AuthContext.currentCaregiverId();
     CareRecipient recipient = ownedRecipientForUpdate(recipientId, caregiverId);
-    requireActiveRecipient(recipient);
+    MedicationLifecycle.requireActiveRecipient(recipient);
     MedicationRecord record = ownedMedication(medicationId, caregiverId, recipient.getId())
         .orElseThrow(MedicationService::medicationNotFound);
-    if (!record.isActive()) {
-      throw new ResponseStatusException(HttpStatus.CONFLICT, "Archived medication records cannot be updated.");
-    }
+    MedicationLifecycle.requireActiveMedication(record, "updated");
     record.updateDetails(request.displayName(), request.doseText(), request.scheduleText());
     entityManager.flush();
     return MedicationResponse.from(record);
@@ -74,7 +71,7 @@ public class MedicationService {
   public MedicationResponse archive(UUID recipientId, UUID medicationId) {
     UUID caregiverId = AuthContext.currentCaregiverId();
     CareRecipient recipient = ownedRecipientForUpdate(recipientId, caregiverId);
-    requireActiveRecipient(recipient);
+    MedicationLifecycle.requireActiveRecipient(recipient);
     MedicationRecord record = ownedMedication(medicationId, caregiverId, recipient.getId())
         .orElseThrow(MedicationService::medicationNotFound);
     record.archive();
@@ -90,12 +87,6 @@ public class MedicationService {
   private CareRecipient ownedRecipientForUpdate(UUID recipientId, UUID caregiverId) {
     return recipients.findOwnedForUpdate(recipientId, caregiverId)
         .orElseThrow(RecipientNotFoundException::new);
-  }
-
-  private void requireActiveRecipient(CareRecipient recipient) {
-    if (!recipient.isActive()) {
-      throw new InactiveRecipientException();
-    }
   }
 
   private java.util.Optional<MedicationRecord> ownedMedication(UUID medicationId, UUID caregiverId,
