@@ -26,6 +26,8 @@ const safetyRuleIds = new Set([
   'REPEATED_MISSED_MED',
   'POOR_APPETITE_DAYS',
   'MEDICATION_STATUS_UNCLEAR',
+  'FREE_TEXT_CONCERN',
+  'CONFUSED_MOOD',
 ]);
 const instantPattern = /^\d{4}-\d{2}-\d{2}T(?:[01]\d|2[0-3]):[0-5]\d:[0-5]\d(?:\.\d+)?(?:Z|[+-](?:(?:0\d|1[0-3]):[0-5]\d|14:00))$/;
 

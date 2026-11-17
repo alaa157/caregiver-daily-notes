@@ -182,6 +182,76 @@ class SafetySignalEvaluatorTest {
     assertThat(evaluation.needsDoctorBanner()).isFalse();
   }
 
+  private static NoteSignals noteWithMood(String mood, String freeText) {
+    return new NoteSignals("r1", END, mood, null, null, null, null,
+        false, null, null, false, null, freeText);
+  }
+
+  private static SafetySignal freeTextSignal(SafetyEvaluation evaluation) {
+    return evaluation.signals().stream()
+        .filter(signal -> signal.ruleId() == SafetyRuleId.FREE_TEXT_CONCERN)
+        .findFirst().orElseThrow();
+  }
+
+  @Test
+  void freeTextFallMentionRaisesWatchEvenWhenCheckboxUnticked() {
+    var evaluation = evaluator.evaluate(List.of(
+        note("r1", END, false, null, null, false, null, "She fell in the bathroom.")), END, 7);
+
+    SafetySignal signal = freeTextSignal(evaluation);
+    assertThat(signal.severity()).isEqualTo(Severity.WATCH);
+    assertThat(signal.reason()).contains("fall").contains("please review");
+    assertThat(hasRule(evaluation, SafetyRuleId.FALL_DETECTED)).isFalse();
+    assertThat(evaluation.needsDoctorBanner()).isFalse();
+  }
+
+  @Test
+  void freeTextArabicFallMentionRaisesWatch() {
+    var evaluation = evaluator.evaluate(List.of(
+        note("r1", END, false, null, null, false, null, "سقطت في الحمام أثناء الليل.")), END, 7);
+
+    assertThat(hasRule(evaluation, SafetyRuleId.FREE_TEXT_CONCERN)).isTrue();
+    assertThat(freeTextSignal(evaluation).severity()).isEqualTo(Severity.WATCH);
+    assertThat(evaluation.needsDoctorBanner()).isFalse();
+  }
+
+  @Test
+  void freeTextEmergencyVocabularyRaisesWatch() {
+    for (String text : List.of(
+        "He complained of chest pain this morning.",
+        "She said she can't breathe properly.",
+        "He is unresponsive this morning.",
+        "There was bleeding from the cut.",
+        "She seemed confused about where she was.",
+        "ألم في الصدر منذ الصباح.",
+        "لا يستطيع التنفس بشكل جيد.",
+        "لا يستجيب لأي شيء.")) {
+      var evaluation = evaluator.evaluate(List.of(
+          note("r1", END, false, null, null, false, null, text)), END, 7);
+      assertThat(hasRule(evaluation, SafetyRuleId.FREE_TEXT_CONCERN))
+          .as("expected FREE_TEXT_CONCERN for %s", text).isTrue();
+      assertThat(evaluation.needsDoctorBanner()).isFalse();
+    }
+  }
+
+  @Test
+  void benignFreeTextRaisesNoConcern() {
+    var evaluation = evaluator.evaluate(List.of(
+        note("r1", END, false, null, null, false, null, "A calm day with a good appetite.")), END, 7);
+    assertThat(hasRule(evaluation, SafetyRuleId.FREE_TEXT_CONCERN)).isFalse();
+  }
+
+  @Test
+  void confusedMoodRaisesWatchSignal() {
+    var evaluation = evaluator.evaluate(List.of(
+        noteWithMood("Confused", null), noteWithMood("OK", null)), END, 7);
+
+    var signal = evaluation.signals().stream()
+        .filter(value -> value.ruleId() == SafetyRuleId.CONFUSED_MOOD).findFirst().orElseThrow();
+    assertThat(signal.severity()).isEqualTo(Severity.WATCH);
+    assertThat(evaluation.needsDoctorBanner()).isFalse();
+  }
+
   @Test
   void nullAndEmptyInputReturnEmptyWithoutBanner() {
     var fromNull = evaluator.evaluate(null, END, 7);

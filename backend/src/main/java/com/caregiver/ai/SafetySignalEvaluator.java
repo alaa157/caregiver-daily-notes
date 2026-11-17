@@ -8,6 +8,9 @@ import com.caregiver.common.VerificationState;
 import java.time.LocalDate;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Map;
+import java.util.Locale;
+import java.util.Objects;
 
 /**
  * Deterministic red-flag decision table over note signals.
@@ -72,8 +75,47 @@ public class SafetySignalEvaluator {
           "Poor appetite on " + appetiteDates + " days in period"));
     }
 
+    window.stream()
+        .map(SafetySignalEvaluator::freeTextConcerns)
+        .flatMap(List::stream)
+        .distinct()
+        .forEach(topic -> signals.add(new SafetySignal(
+            SafetyRuleId.FREE_TEXT_CONCERN, Severity.WATCH,
+            "Possible " + topic + " mentioned in note text — please review")));
+
+    if (window.stream().map(NoteSignals::mood).filter(Objects::nonNull)
+        .anyMatch(mood -> mood.toLowerCase(Locale.ROOT).contains("confus"))) {
+      signals.add(new SafetySignal(
+          SafetyRuleId.CONFUSED_MOOD, Severity.WATCH,
+          "Confused mood recorded in period — please review"));
+    }
+
     boolean needsDoctorBanner = signals.stream().anyMatch(s -> s.severity() == Severity.HIGH);
     return new SafetyEvaluation(signals, needsDoctorBanner);
+  }
+
+  private static final Map<String, List<String>> FREE_TEXT_KEYWORDS = Map.of(
+      "fall", List.of("fell", "fall", "fallen", "سقط", "سقوط", "وقعت"),
+      "chest pain", List.of("chest pain", "chest pains", "pain in his chest", "pain in her chest",
+          "pain in their chest", "crushing chest", "ألم في الصدر", "وجع في الصدر"),
+      "breathing difficulty", List.of("can't breathe", "cannot breathe", "couldn't breathe",
+          "difficulty breathing", "shortness of breath", "gasping", "choking",
+          "صعوبة في التنفس", "لا أستطيع التنفس", "لا يستطيع التنفس", "لا تستطيع التنفس",
+          "ضيق التنفس", "يختنق", "تختنق"),
+      "unresponsiveness", List.of("unresponsive", "unconscious", "not responding", "passed out",
+          "collapsed", "fainted", "لا يستجيب", "لا تستجيب", "فاقد الوعي", "فقدان الوعي",
+          "إغماء", "اغماء", "انهار", "انهارت"),
+      "bleeding", List.of("bleeding", "bled", "blood loss", "hemorrhage", "نزيف", "ينزف", "تنزف", "فقدان دم", "فقد دم"),
+      "confusion", List.of("confused", "confusion", "disoriented", "doesn't know where",
+          "does not know where", "مرتبك", "تشوش", "لا يعرف أين", "لا تعرف أين", "هذيان"));
+
+  private static List<String> freeTextConcerns(String freeText) {
+    if (freeText == null || freeText.isBlank()) return List.of();
+    String text = freeText.toLowerCase(Locale.ROOT);
+    return FREE_TEXT_KEYWORDS.entrySet().stream()
+        .filter(entry -> entry.getValue().stream().anyMatch(text::contains))
+        .map(Map.Entry::getKey)
+        .toList();
   }
 
   private static boolean medicationNeedsReview(NoteSignals note) {

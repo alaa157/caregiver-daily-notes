@@ -120,6 +120,7 @@ export function SummarySafety({ safety, recipientId, periodEndInclusive, periodD
       <p>{t('summarySafetyAckLoadError')}</p>
       <Button variant="secondary" onClick={() => setRevision((value) => value + 1)}>{t('summarySafetyAckRetry')}</Button>
     </div>}
+    {safety.signals.length > 0 && <p className="summary-safety-emergency">{t('summaryEmergencyGuidance')}</p>}
     {safety.signals.length > 0 && <ul className="summary-signals">{safety.signals.map((signal, index) => {
       const ruleId = signal.ruleId;
       const requestKey = `${contextKey}:${ruleId}`;
