@@ -59,41 +59,70 @@
 /* Theme-aware web control borders use the shared accessible outline role. */
 :root[data-theme] { --color-border:var(--color-outline); }
 
+/* Dark palette — single source of truth consumed by explicit Dark and System-on-dark. */
+:root {
+  --dark-color-primary:#00897B;   --dark-color-on-primary:#000000;   --dark-color-primary-container:#00897B;   --dark-color-on-primary-container:#000000;   --dark-color-secondary:#CCC2DC;   --dark-color-on-secondary:#332D41;   --dark-color-secondary-container:#2A3336;   --dark-color-on-secondary-container:#E3E7EA;   --dark-color-tertiary:#EFB8C8;   --dark-color-on-tertiary:#492532;   --dark-color-tertiary-container:#633B48;   --dark-color-on-tertiary-container:#FFD8E4;   --dark-color-background:#121616;   --dark-color-on-background:#E3E7EA;   --dark-color-surface:#1A1F1F;   --dark-color-on-surface:#E3E7EA;   --dark-color-surface-container:#1A1F1F;   --dark-color-surface-variant:#2A3336;   --dark-color-on-surface-variant:#B0BEC5;   --dark-color-outline:#78868B;   --dark-color-error:#EF9A9A;   --dark-color-on-error:#2E1412;   --dark-color-error-container:#5C1A1A;   --dark-color-on-error-container:#EF9A9A;   --dark-caregiver-primary:#4DB6AC;   --dark-caregiver-primary-soft:#1A3A38;   --dark-caregiver-ink:#E3E7EA;   --dark-caregiver-muted:#B0BEC5;   --dark-caregiver-background:#121616;   --dark-caregiver-surface:#1A1F1F;   --dark-caregiver-border:#3A4548;   --dark-caregiver-border-soft:#2A3336;   --dark-caregiver-danger:#EF9A9A;   --dark-caregiver-danger-container:#5C1A1A;   --dark-caregiver-danger-border:#8B2B25;   --dark-caregiver-success:#81C784;   --dark-caregiver-success-container:#1B3A24;   --dark-caregiver-info:#90CAF9;   --dark-caregiver-info-container:#1A2F4A;   --dark-caregiver-info-border:#24507E;   --dark-caregiver-warning:#FFB74D;   --dark-caregiver-warning-container:#3A2A0A;   --dark-caregiver-pill-gray-container:#2A3336;   --dark-caregiver-pill-gray-content:#B0BEC5;   --dark-caregiver-pill-light-blue-container:#1A2F4A;   --dark-caregiver-pill-light-blue-content:#90CAF9;   --dark-caregiver-avatar-container:#1A2F4A;   --dark-caregiver-avatar-content:#90CAF9;   --dark-caregiver-lock-bar:#1A1F1F;   --dark-caregiver-skeleton:#2A3336;
+}
+
 [data-theme='dark'] {
   color-scheme: dark;
-  --color-primary:#00897B; --color-on-primary:#000000; --color-primary-container:#00897B; --color-on-primary-container:#000000;
-  --color-secondary:#CCC2DC; --color-on-secondary:#332D41; --color-secondary-container:#2A3336; --color-on-secondary-container:#E3E7EA;
-  --color-tertiary:#EFB8C8; --color-on-tertiary:#492532; --color-tertiary-container:#633B48; --color-on-tertiary-container:#FFD8E4;
-  --color-background:#121616; --color-on-background:#E3E7EA; --color-surface:#1A1F1F; --color-on-surface:#E3E7EA;
-  --color-surface-container:#1A1F1F; --color-surface-variant:#2A3336; --color-on-surface-variant:#B0BEC5; --color-outline:#78868B;
-  --color-error:#EF9A9A; --color-on-error:#2E1412; --color-error-container:#5C1A1A; --color-on-error-container:#EF9A9A;
-  --caregiver-primary:#4DB6AC; --caregiver-primary-soft:#1A3A38; --caregiver-ink:#E3E7EA; --caregiver-muted:#B0BEC5;
-  --caregiver-background:#121616; --caregiver-surface:#1A1F1F; --caregiver-border:#3A4548; --caregiver-border-soft:#2A3336;
-  --caregiver-danger:#EF9A9A; --caregiver-danger-container:#5C1A1A; --caregiver-danger-border:#8B2B25;
-  --caregiver-success:#81C784; --caregiver-success-container:#1B3A24;
-  --caregiver-info:#90CAF9; --caregiver-info-container:#1A2F4A; --caregiver-info-border:#24507E;
-  --caregiver-warning:#FFB74D; --caregiver-warning-container:#3A2A0A;
-  --caregiver-pill-gray-container:#2A3336; --caregiver-pill-gray-content:#B0BEC5;
-  --caregiver-pill-light-blue-container:#1A2F4A; --caregiver-pill-light-blue-content:#90CAF9;
-  --caregiver-avatar-container:#1A2F4A; --caregiver-avatar-content:#90CAF9; --caregiver-lock-bar:#1A1F1F; --caregiver-skeleton:#2A3336;
+  --color-primary:var(--dark-color-primary);   --color-on-primary:var(--dark-color-on-primary);   --color-primary-container:var(--dark-color-primary-container);   --color-on-primary-container:var(--dark-color-on-primary-container);   --color-secondary:var(--dark-color-secondary);   --color-on-secondary:var(--dark-color-on-secondary);   --color-secondary-container:var(--dark-color-secondary-container);   --color-on-secondary-container:var(--dark-color-on-secondary-container);   --color-tertiary:var(--dark-color-tertiary);   --color-on-tertiary:var(--dark-color-on-tertiary);   --color-tertiary-container:var(--dark-color-tertiary-container);   --color-on-tertiary-container:var(--dark-color-on-tertiary-container);   --color-background:var(--dark-color-background);   --color-on-background:var(--dark-color-on-background);   --color-surface:var(--dark-color-surface);   --color-on-surface:var(--dark-color-on-surface);   --color-surface-container:var(--dark-color-surface-container);   --color-surface-variant:var(--dark-color-surface-variant);   --color-on-surface-variant:var(--dark-color-on-surface-variant);   --color-outline:var(--dark-color-outline);   --color-error:var(--dark-color-error);   --color-on-error:var(--dark-color-on-error);   --color-error-container:var(--dark-color-error-container);   --color-on-error-container:var(--dark-color-on-error-container);   --caregiver-primary:var(--dark-caregiver-primary);   --caregiver-primary-soft:var(--dark-caregiver-primary-soft);   --caregiver-ink:var(--dark-caregiver-ink);   --caregiver-muted:var(--dark-caregiver-muted);   --caregiver-background:var(--dark-caregiver-background);   --caregiver-surface:var(--dark-caregiver-surface);   --caregiver-border:var(--dark-caregiver-border);   --caregiver-border-soft:var(--dark-caregiver-border-soft);   --caregiver-danger:var(--dark-caregiver-danger);   --caregiver-danger-container:var(--dark-caregiver-danger-container);   --caregiver-danger-border:var(--dark-caregiver-danger-border);   --caregiver-success:var(--dark-caregiver-success);   --caregiver-success-container:var(--dark-caregiver-success-container);   --caregiver-info:var(--dark-caregiver-info);   --caregiver-info-container:var(--dark-caregiver-info-container);   --caregiver-info-border:var(--dark-caregiver-info-border);   --caregiver-warning:var(--dark-caregiver-warning);   --caregiver-warning-container:var(--dark-caregiver-warning-container);   --caregiver-pill-gray-container:var(--dark-caregiver-pill-gray-container);   --caregiver-pill-gray-content:var(--dark-caregiver-pill-gray-content);   --caregiver-pill-light-blue-container:var(--dark-caregiver-pill-light-blue-container);   --caregiver-pill-light-blue-content:var(--dark-caregiver-pill-light-blue-content);   --caregiver-avatar-container:var(--dark-caregiver-avatar-container);   --caregiver-avatar-content:var(--dark-caregiver-avatar-content);   --caregiver-lock-bar:var(--dark-caregiver-lock-bar);   --caregiver-skeleton:var(--dark-caregiver-skeleton);
 }
 
 /* System mode follows OS dark unless Light or Dark was explicitly selected. */
 @media (prefers-color-scheme:dark) {
   :root:not([data-theme='light']):not([data-theme='dark']), [data-theme='system'] {
     color-scheme:dark;
-    --color-background:#121616; --color-on-background:#E3E7EA; --color-surface:#1A1F1F; --color-on-surface:#E3E7EA;
-    --color-surface-container:#1A1F1F; --color-surface-variant:#2A3336; --color-on-surface-variant:#B0BEC5; --color-outline:#78868B;
-    --color-error:#EF9A9A; --color-error-container:#5C1A1A; --color-on-error-container:#EF9A9A;
-    --caregiver-primary:#4DB6AC; --caregiver-primary-soft:#1A3A38; --caregiver-ink:#E3E7EA; --caregiver-muted:#B0BEC5;
-    --caregiver-background:#121616; --caregiver-surface:#1A1F1F; --caregiver-border:#3A4548; --caregiver-border-soft:#2A3336;
-    --caregiver-danger:#EF9A9A; --caregiver-danger-container:#5C1A1A; --caregiver-danger-border:#8B2B25;
-    --caregiver-success:#81C784; --caregiver-success-container:#1B3A24;
-    --caregiver-info:#90CAF9; --caregiver-info-container:#1A2F4A; --caregiver-info-border:#24507E;
-    --caregiver-warning:#FFB74D; --caregiver-warning-container:#3A2A0A;
-    --caregiver-pill-gray-container:#2A3336; --caregiver-pill-gray-content:#B0BEC5;
-    --caregiver-pill-light-blue-container:#1A2F4A; --caregiver-pill-light-blue-content:#90CAF9;
-    --caregiver-avatar-container:#1A2F4A; --caregiver-avatar-content:#90CAF9; --caregiver-lock-bar:#1A1F1F; --caregiver-skeleton:#2A3336;
+    --color-primary:var(--dark-color-primary);
+    --color-on-primary:var(--dark-color-on-primary);
+    --color-primary-container:var(--dark-color-primary-container);
+    --color-on-primary-container:var(--dark-color-on-primary-container);
+    --color-secondary:var(--dark-color-secondary);
+    --color-on-secondary:var(--dark-color-on-secondary);
+    --color-secondary-container:var(--dark-color-secondary-container);
+    --color-on-secondary-container:var(--dark-color-on-secondary-container);
+    --color-tertiary:var(--dark-color-tertiary);
+    --color-on-tertiary:var(--dark-color-on-tertiary);
+    --color-tertiary-container:var(--dark-color-tertiary-container);
+    --color-on-tertiary-container:var(--dark-color-on-tertiary-container);
+    --color-background:var(--dark-color-background);
+    --color-on-background:var(--dark-color-on-background);
+    --color-surface:var(--dark-color-surface);
+    --color-on-surface:var(--dark-color-on-surface);
+    --color-surface-container:var(--dark-color-surface-container);
+    --color-surface-variant:var(--dark-color-surface-variant);
+    --color-on-surface-variant:var(--dark-color-on-surface-variant);
+    --color-outline:var(--dark-color-outline);
+    --color-error:var(--dark-color-error);
+    --color-on-error:var(--dark-color-on-error);
+    --color-error-container:var(--dark-color-error-container);
+    --color-on-error-container:var(--dark-color-on-error-container);
+    --caregiver-primary:var(--dark-caregiver-primary);
+    --caregiver-primary-soft:var(--dark-caregiver-primary-soft);
+    --caregiver-ink:var(--dark-caregiver-ink);
+    --caregiver-muted:var(--dark-caregiver-muted);
+    --caregiver-background:var(--dark-caregiver-background);
+    --caregiver-surface:var(--dark-caregiver-surface);
+    --caregiver-border:var(--dark-caregiver-border);
+    --caregiver-border-soft:var(--dark-caregiver-border-soft);
+    --caregiver-danger:var(--dark-caregiver-danger);
+    --caregiver-danger-container:var(--dark-caregiver-danger-container);
+    --caregiver-danger-border:var(--dark-caregiver-danger-border);
+    --caregiver-success:var(--dark-caregiver-success);
+    --caregiver-success-container:var(--dark-caregiver-success-container);
+    --caregiver-info:var(--dark-caregiver-info);
+    --caregiver-info-container:var(--dark-caregiver-info-container);
+    --caregiver-info-border:var(--dark-caregiver-info-border);
+    --caregiver-warning:var(--dark-caregiver-warning);
+    --caregiver-warning-container:var(--dark-caregiver-warning-container);
+    --caregiver-pill-gray-container:var(--dark-caregiver-pill-gray-container);
+    --caregiver-pill-gray-content:var(--dark-caregiver-pill-gray-content);
+    --caregiver-pill-light-blue-container:var(--dark-caregiver-pill-light-blue-container);
+    --caregiver-pill-light-blue-content:var(--dark-caregiver-pill-light-blue-content);
+    --caregiver-avatar-container:var(--dark-caregiver-avatar-container);
+    --caregiver-avatar-content:var(--dark-caregiver-avatar-content);
+    --caregiver-lock-bar:var(--dark-caregiver-lock-bar);
+    --caregiver-skeleton:var(--dark-caregiver-skeleton);
   }
 }
 

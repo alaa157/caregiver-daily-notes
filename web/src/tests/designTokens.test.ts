@@ -106,21 +106,41 @@ describe('design tokens', () => {
       expect(lightBlock.includes('--caregiver-border:#C5CDD1;')).toBe(true);
     });
 
-    it('preserves dark theme values', () => {
+    it('preserves dark theme values through the shared dark palette', () => {
+      const paletteStart = tokensCssSource.indexOf('/* Dark palette');
       const darkStart = tokensCssSource.indexOf('[data-theme=\'dark\'] {');
       const systemStart = tokensCssSource.indexOf('/* System mode follows OS dark');
+      const paletteBlock = tokensCssSource.slice(paletteStart, darkStart);
       const darkBlock = tokensCssSource.slice(darkStart, systemStart);
-      expect(darkBlock.includes('--color-background:#121616;')).toBe(true);
-      expect(darkBlock.includes('--color-surface:#1A1F1F;')).toBe(true);
-      expect(darkBlock.includes('--caregiver-border:#3A4548;')).toBe(true);
+      expect(paletteBlock.includes('--dark-color-background:#121616;')).toBe(true);
+      expect(paletteBlock.includes('--dark-color-surface:#1A1F1F;')).toBe(true);
+      expect(paletteBlock.includes('--dark-caregiver-border:#3A4548;')).toBe(true);
+      expect(darkBlock.includes('--color-background:var(--dark-color-background);')).toBe(true);
+      expect(darkBlock.includes('--caregiver-border:var(--dark-caregiver-border);')).toBe(true);
     });
 
-    it('preserves system mode media query values', () => {
+    it('preserves system mode media query values through the shared dark palette', () => {
       const systemStart = tokensCssSource.indexOf('@media (prefers-color-scheme:dark)');
       const paletteStart = tokensCssSource.indexOf('/* Selected accent palettes');
       const systemBlock = tokensCssSource.slice(systemStart, paletteStart);
-      expect(systemBlock.includes('--color-background:#121616;')).toBe(true);
-      expect(systemBlock.includes('--color-surface:#1A1F1F;')).toBe(true);
+      expect(systemBlock.includes('--color-background:var(--dark-color-background);')).toBe(true);
+      expect(systemBlock.includes('--color-surface:var(--dark-color-surface);')).toBe(true);
+    });
+
+    it('defines dark values once and keeps both theme paths in sync', () => {
+      const darkStart = tokensCssSource.indexOf('[data-theme=\'dark\'] {');
+      const systemStart = tokensCssSource.indexOf('/* System mode follows OS dark');
+      const paletteStart = tokensCssSource.indexOf('/* Selected accent palettes');
+      const tokenNames = (block: string) => new Set(
+        [...block.matchAll(/(--(?:color|caregiver)-[a-z0-9-]+)\s*:/g)].map((match) => match[1]),
+      );
+      const darkTokens = tokenNames(tokensCssSource.slice(darkStart, systemStart));
+      const systemTokens = tokenNames(tokensCssSource.slice(systemStart, paletteStart));
+      expect(darkTokens.size).toBeGreaterThan(0);
+      expect(systemTokens).toEqual(darkTokens);
+      for (const name of darkTokens) {
+        expect(tokensCssSource).toContain(`--dark-${name.slice(2)}:`);
+      }
     });
 
     it('preserves font tokens unchanged', () => {
