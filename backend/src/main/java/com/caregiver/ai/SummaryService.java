@@ -54,7 +54,7 @@ public class SummaryService {
     SafetyEvaluation safety = evaluator.evaluate(safeSignals, end, days);
     List<TrendResult> trendResults = TrendWindows.compute(trends, safeSignals, end, days);
 
-    LlmResult result = llm.complete(new LlmRequest(SummaryPrompts.SYSTEM_PROMPT, block, credentials));
+    LlmResult result = llm.complete(new LlmRequest(SummaryPrompts.systemPrompt(request.language()), block, credentials));
     if (result.status() == LlmStatus.FALLBACK) {
       String unavailableReason = result.failureReason() == null
           ? FailureReason.PROVIDER_UNAVAILABLE.name()

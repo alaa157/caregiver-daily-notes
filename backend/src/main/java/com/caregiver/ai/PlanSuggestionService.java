@@ -26,11 +26,12 @@ import java.util.Set;
  */
 public class PlanSuggestionService {
 
-  static final String PLAN_SYSTEM_PROMPT =
+  private static final String PLAN_SYSTEM_PROMPT_PREFIX =
       "You suggest care-plan updates from grounded summaries. Select ONLY actions from the fixed catalog "
           + "with its exact parameter names. Cite evidenceNoteIds from the supplied notes for every change "
           + "and give a reason. NEVER add, remove, or change medications, doses, or schedules; repeat the "
-          + "current medication section exactly. NEVER diagnose or prescribe. Return ONLY valid JSON.";
+          + "current medication section exactly. NEVER diagnose or prescribe. Return ONLY valid JSON. ";
+  static final String PLAN_SYSTEM_PROMPT = systemPrompt(AiOutputLanguage.NOTES);
 
   static record RawChange(String actionId, Map<String, String> params, String reason, List<String> evidenceNoteIds) {
   }
@@ -54,7 +55,8 @@ public class PlanSuggestionService {
     if (request == null) {
       throw new IllegalArgumentException("request");
     }
-    LlmResult result = llm.complete(new LlmRequest(PLAN_SYSTEM_PROMPT, renderInput(request), credentials));
+    LlmResult result = llm.complete(new LlmRequest(
+        systemPrompt(request.language()), renderInput(request), credentials));
     if (result.status() == LlmStatus.FALLBACK) {
       return new PlanSuggestionResult(null, true);
     }
@@ -173,5 +175,13 @@ public class PlanSuggestionService {
       input.append("- ").append(action.getId()).append("(").append(String.join(",", action.allowedParams())).append(")\n");
     }
     return input.toString();
+  }
+
+  static String systemPrompt(String language) {
+    return PLAN_SYSTEM_PROMPT_PREFIX
+        + "Write each change reason and every human-readable parameter value in "
+        + AiOutputLanguage.promptLanguage(language)
+        + ". Keep catalog action IDs, parameter names, evidence note IDs, numbers, times, and medication values "
+        + "unchanged.";
   }
 }

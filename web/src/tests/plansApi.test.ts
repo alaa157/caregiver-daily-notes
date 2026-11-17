@@ -135,14 +135,15 @@ describe('plan contract and scoped transport', () => {
       request: <TResponse, TBody = unknown>(request: ApiRequest<TBody>) =>
         transport.request<TResponse, TBody>({ ...request, accessToken: 'synthetic-access-token' }),
     };
-    const result = await createPlansApi(authenticatedClient).generateByok(summaryRequest, byokCredentials);
+    const result = await createPlansApi(authenticatedClient).generateByok(
+      { ...summaryRequest, language: 'ar' }, byokCredentials);
 
     expect(fetcher).toHaveBeenCalledTimes(1);
     expect(fetcher.mock.calls[0][0]).toBe('/api/plans/generate/byok');
     expect(fetcher.mock.calls[0][1].method).toBe('POST');
     expect(new Headers(fetcher.mock.calls[0][1].headers).get('Authorization')).toBe('Bearer synthetic-access-token');
     expect(JSON.parse(fetcher.mock.calls[0][1].body as string)).toEqual({
-      summary: { recipientId, periodEndInclusive: '2026-10-22', periodDays: 7 },
+      summary: { recipientId, periodEndInclusive: '2026-10-22', periodDays: 7, language: 'ar' },
       credentials: byokCredentials,
     });
     expect(result).toEqual({
@@ -174,6 +175,7 @@ describe('plan contract and scoped transport', () => {
       { ...summaryRequest, recipientId: '../other' },
       { ...summaryRequest, periodEndInclusive: '2026-02-30' },
       { ...summaryRequest, periodDays: 8 },
+      { ...summaryRequest, language: 'fr' },
     ];
 
     for (const request of invalidRequests) {

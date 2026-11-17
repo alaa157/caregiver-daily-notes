@@ -49,7 +49,7 @@ public class PlanGenerationService {
     try {
       var result = pipeline.suggest(new PlanSuggestionRequest(summaryRequest.recipientId(), summary.summary(),
           summary.safety(), generated.notes().stream().collect(Collectors.toMap(SummaryNote::noteId, SummaryNote::text)),
-          last, baseline == null ? List.of() : baseline.medications()), credentials);
+          last, baseline == null ? List.of() : baseline.medications(), summaryRequest.language()), credentials);
       return result.aiUnavailable() ? unavailable(summary.safety())
           : new PlanGenerationController.Result(saved.get(), false, summary.safety(), result.removedUnsafeChanges());
     } catch (InvalidModelOutputException | ProtectedPlanException invalidSuggestion) {

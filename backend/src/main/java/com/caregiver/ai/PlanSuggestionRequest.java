@@ -18,7 +18,18 @@ public record PlanSuggestionRequest(
     SafetyEvaluation safety,
     Map<String, String> noteTextsById,
     StoredPlanVersion lastAccepted,
-    List<MedicationEntry> currentMedications) {
+    List<MedicationEntry> currentMedications,
+    String language) {
+
+  public PlanSuggestionRequest(
+      String recipientId,
+      GroundedSummary summary,
+      SafetyEvaluation safety,
+      Map<String, String> noteTextsById,
+      StoredPlanVersion lastAccepted,
+      List<MedicationEntry> currentMedications) {
+    this(recipientId, summary, safety, noteTextsById, lastAccepted, currentMedications, null);
+  }
 
   public PlanSuggestionRequest {
     if (recipientId == null || recipientId.isBlank()) {
@@ -30,5 +41,6 @@ public record PlanSuggestionRequest(
     noteTextsById = Map.copyOf(noteTextsById);
     Objects.requireNonNull(currentMedications, "currentMedications");
     currentMedications = List.copyOf(currentMedications);
+    language = AiOutputLanguage.normalize(language);
   }
 }

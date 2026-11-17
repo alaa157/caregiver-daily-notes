@@ -1,12 +1,17 @@
 import { ApiError, type ApiClient } from '../lib/api';
 import { isNoteDate } from './notes';
 import { isRecipientId } from './recipients';
-import type { MessageKey } from '../i18n/translations';
+import type { Language, MessageKey } from '../i18n/translations';
 import type { ByokCredentials } from '../features/ai/ByokContext';
 
 /** Matches the Java SummaryRequest/Result records; generation always carries BYOK credentials. */
 export const summaryPeriods = [7, 14, 30] as const;
-export interface SummaryRequest { recipientId: string; periodEndInclusive: string; periodDays: 7 | 14 | 30 }
+export interface SummaryRequest {
+  recipientId: string;
+  periodEndInclusive: string;
+  periodDays: 7 | 14 | 30;
+  language?: Language;
+}
 export interface ByokSummaryRequest { summary: SummaryRequest; credentials: ByokCredentials }
 export interface SummaryObservation { text: string; noteId: string; quote: string }
 export interface SummaryUncertainty { topic: string; detail: string }
@@ -130,7 +135,8 @@ const supportedProviderIds: ReadonlySet<string> = new Set(['OPENAI', 'GEMINI', '
 function isValidSummaryRequest(input: SummaryRequest): boolean {
   return isRecipientId(input?.recipientId)
     && isNoteDate(input?.periodEndInclusive)
-    && summaryPeriods.includes(input?.periodDays);
+    && summaryPeriods.includes(input?.periodDays)
+    && (input.language === undefined || input.language === 'ar' || input.language === 'en');
 }
 
 function isUsableCredentials(credentials: ByokCredentials): boolean {
@@ -169,6 +175,7 @@ export function createSummaryApi(client: ApiClient) {
           recipientId: input.summary.recipientId,
           periodEndInclusive: input.summary.periodEndInclusive,
           periodDays: input.summary.periodDays,
+          ...(input.summary.language ? { language: input.summary.language } : {}),
         },
         credentials: {
           providerId: input.credentials.providerId,

@@ -17,7 +17,8 @@ import './summary.css';
 
 export const SUMMARY_TIMEOUT_MS = 120_000;
 function today() { const now = new Date(); return `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}-${String(now.getDate()).padStart(2, '0')}`; }
-const sameRequest = (a: SummaryRequest, b: SummaryRequest) => a.recipientId === b.recipientId && a.periodDays === b.periodDays && a.periodEndInclusive === b.periodEndInclusive;
+const sameRequest = (a: SummaryRequest, b: SummaryRequest) => a.recipientId === b.recipientId
+  && a.periodDays === b.periodDays && a.periodEndInclusive === b.periodEndInclusive && a.language === b.language;
 
 export function SummaryPage({ scopedRecipientId }: { scopedRecipientId?: string }) {
   const { t, language } = useI18n();
@@ -63,7 +64,7 @@ export function SummaryPage({ scopedRecipientId }: { scopedRecipientId?: string 
     // The provider/model that actually produced this result is fixed when
     // the request starts; later credential changes must not rewrite it.
     const usedCredentials = credentials;
-    const request = { recipientId, periodDays, periodEndInclusive };
+    const request = { recipientId, periodDays, periodEndInclusive, language };
     const controller = new AbortController();
     active.current = controller;
     setPending(true); setError(undefined); setCancelled(false);

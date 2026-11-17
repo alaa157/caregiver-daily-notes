@@ -14,7 +14,7 @@ export function PlanGenerationForm({ recipientId, disabled, credentialsRequired,
   const [invalid, setInvalid] = useState(false);
   return <form className="note-surface plan-generation" aria-labelledby="plan-generation-title" noValidate onSubmit={(event) => {
     event.preventDefault(); if (disabled) return;
-    setInvalid(!isNoteDate(end)); if (isNoteDate(end)) onGenerate({ recipientId, periodDays: days, periodEndInclusive: end });
+    setInvalid(!isNoteDate(end)); if (isNoteDate(end)) onGenerate({ recipientId, periodDays: days, periodEndInclusive: end, language });
   }}>
     <h2 id="plan-generation-title">{t('plansGenerateTitle')}</h2><p>{t('plansGenerateHint')}</p>
     <div className="note-grid">
