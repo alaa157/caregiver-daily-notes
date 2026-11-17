@@ -70,6 +70,9 @@ private fun LocalLoginNavHost(
                 navController,
                 localAccounts = directory,
                 onSwitchAccount = { showPicker = true },
+                // #878: the destination is only registered when this flag is
+                // true, so hide the link in the same condition.
+                showServerSettings = includeServerUrl,
             )
         }
         composable(AppDestinations.Register.base) {
