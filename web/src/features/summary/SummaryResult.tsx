@@ -19,6 +19,14 @@ const sampleSizeKey = (metric: string) => {
   if (metric === 'FALL_COUNT' || metric === 'HIGH_PAIN_COUNT') return 'summarySampleSizeObservations';
   return 'summarySampleSize';
 };
+const trendMetricKeys = {
+  FALL_COUNT: 'summaryTrendMetricFallCount',
+  HIGH_PAIN_COUNT: 'summaryTrendMetricHighPainCount',
+  MISSED_MED_COUNT: 'summaryTrendMetricMissedMedCount',
+  POOR_APPETITE_COUNT: 'summaryTrendMetricPoorAppetiteCount',
+} as const;
+const trendMetricKey = (metric: string) =>
+  trendMetricKeys[metric as keyof typeof trendMetricKeys] ?? 'summaryTrendMetricUnknown';
 const summaryTextLanguage = (text: string): 'ar' | 'en' => /[\u0600-\u06FF]/u.test(text) ? 'ar' : 'en';
 const unavailableReasonKeys = {
   INVALID_KEY: 'summaryUnavailableInvalidKey',
@@ -37,7 +45,7 @@ function SummaryTrend({ trend, format }: { trend: SummaryResponse['trends'][numb
   const previousWidth = trend.previousSampleSize ? Math.round((trend.previousCount / maxCount) * 100) : 0;
   const currentWidth = trend.currentSampleSize ? Math.round((trend.currentCount / maxCount) * 100) : 0;
   return <li>
-    <h4 id={`${id}-heading`} className="summary-untrusted" dir="auto">{trend.metric}</h4>
+    <h4 id={`${id}-heading`} className="summary-untrusted" dir="auto" data-metric={trend.metric}>{t(trendMetricKey(trend.metric))}</h4>
     <figure className="summary-trend-chart" aria-labelledby={`${id}-heading`} aria-describedby={dataId}>
       <figcaption className="summary-visually-hidden">{t('summaryTrendChart')}</figcaption>
       <div className="summary-trend-bars" aria-hidden="true">
