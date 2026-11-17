@@ -9,6 +9,9 @@ import org.springframework.data.repository.Repository;
 public interface MedicationIntakeEventRepository extends Repository<MedicationIntakeEvent, UUID> {
   MedicationIntakeEvent save(MedicationIntakeEvent intakeEvent);
 
+  Optional<MedicationIntakeEvent> findByCaregiver_IdAndIdempotencyKey(
+      UUID caregiverId, String idempotencyKey);
+
   Optional<MedicationIntakeEvent> findByIdAndCaregiver_IdAndRecipient_IdAndMedication_Id(
       UUID eventId, UUID caregiverId, UUID recipientId, UUID medicationId);
 

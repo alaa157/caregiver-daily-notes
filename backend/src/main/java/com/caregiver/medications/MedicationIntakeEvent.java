@@ -14,6 +14,7 @@ import jakarta.persistence.Index;
 import jakarta.persistence.JoinColumn;
 import jakarta.persistence.ManyToOne;
 import jakarta.persistence.Table;
+import jakarta.persistence.UniqueConstraint;
 import org.hibernate.annotations.CreationTimestamp;
 import org.hibernate.annotations.Immutable;
 import org.hibernate.annotations.UuidGenerator;
@@ -25,9 +26,13 @@ import java.util.UUID;
 /** A caregiver-reported medication intake event tied to a specific medication record. */
 @Entity
 @Immutable
-@Table(name = "medication_intake_events", indexes = @Index(
-    name = "idx_medication_intake_events_caregiver_recipient_medication_time",
-    columnList = "caregiver_id, recipient_id, medication_id, occurred_at, id"))
+@Table(name = "medication_intake_events",
+    indexes = @Index(
+        name = "idx_medication_intake_events_caregiver_recipient_medication_time",
+        columnList = "caregiver_id, recipient_id, medication_id, occurred_at, id"),
+    uniqueConstraints = @UniqueConstraint(
+        name = "uk_medication_intake_events_owner_key",
+        columnNames = {"caregiver_id", "idempotency_key"}))
 public class MedicationIntakeEvent {
   public enum IntakeState {
     TAKEN,
@@ -73,6 +78,9 @@ public class MedicationIntakeEvent {
   @Column(name = "verification_state", nullable = false, length = 32, updatable = false)
   private VerificationState verificationState;
 
+  @Column(name = "idempotency_key", length = 100, updatable = false)
+  private String idempotencyKey;
+
   @CreationTimestamp
   @Column(name = "created_at", nullable = false, updatable = false)
   private Instant createdAt;
@@ -83,12 +91,19 @@ public class MedicationIntakeEvent {
   public MedicationIntakeEvent(Caregiver caregiver, CareRecipient recipient,
       MedicationRecord medication, IntakeState intakeState,
       Instant occurredAt, VerificationState verificationState) {
+    this(caregiver, recipient, medication, intakeState, occurredAt, verificationState, null);
+  }
+
+  public MedicationIntakeEvent(Caregiver caregiver, CareRecipient recipient,
+      MedicationRecord medication, IntakeState intakeState,
+      Instant occurredAt, VerificationState verificationState, String idempotencyKey) {
     this.caregiver = Objects.requireNonNull(caregiver, "caregiver");
     this.recipient = Objects.requireNonNull(recipient, "recipient");
     this.medication = Objects.requireNonNull(medication, "medication");
     this.intakeState = Objects.requireNonNull(intakeState, "intakeState");
     this.occurredAt = Objects.requireNonNull(occurredAt, "occurredAt");
     this.verificationState = Objects.requireNonNull(verificationState, "verificationState");
+    this.idempotencyKey = idempotencyKey;
 
     Caregiver recipientCaregiver = Objects.requireNonNull(recipient.getCaregiver(), "recipient.caregiver");
     if (caregiver != recipientCaregiver
@@ -135,6 +150,10 @@ public class MedicationIntakeEvent {
 
   public VerificationState getVerificationState() {
     return verificationState;
+  }
+
+  public String getIdempotencyKey() {
+    return idempotencyKey;
   }
 
   public Instant getCreatedAt() {
