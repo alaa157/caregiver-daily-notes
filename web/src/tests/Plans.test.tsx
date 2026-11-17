@@ -236,6 +236,21 @@ describe('care-plan review and authoritative backend decisions', () => {
     expect(fetcher.mock.calls.filter(([path]) => path.endsWith('/history'))).toHaveLength(1);
     expect(fetcher.mock.calls.filter(([path]) => path === '/api/plans/generate/byok')).toHaveLength(1);
   });
+  it('formats the generation safety period date and day count instead of raw values', async () => {
+    const fetcher = serve({
+      history: [active],
+      generationResult: { plan: null, aiUnavailable: true, safety: generationSafety },
+    });
+    renderPlansWithByok(fetcher, byokCredentials); await loaded();
+
+    await requestPlan(14);
+
+    const safety = await screen.findByText(/Safety returned for the requested period/);
+    expect(safety).toBeVisible();
+    expect(safety.querySelector('bdi')).toHaveTextContent('Oct 22, 2026');
+    expect(safety.textContent).toContain('14');
+    expect(safety.textContent).not.toContain('2026-10-22');
+  });
   it('does not save or display a plan from invalid provider content', async () => {
     const fetcher = serve({
       history: [active],

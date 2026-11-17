@@ -1,16 +1,18 @@
 import { observationFields, type CorrectionEvent, type CorrectionHistory as CorrectionHistoryData, type EffectiveObservation, type ObservationField } from '../../api/notes';
 import { useI18n } from '../../i18n/I18nProvider';
+import type { Language } from '../../i18n/translations';
+import { formatDate, formatNumber } from '../../lib/format';
 import { fieldLabels } from './noteForm';
 import { NoteTimelineRow } from './NoteTimelineRow';
 
-function scalarText(field: ObservationField, value: string | number | boolean, t: ReturnType<typeof useI18n>['t'], language: string) {
+function scalarText(field: ObservationField, value: string | number | boolean, t: ReturnType<typeof useI18n>['t'], language: Language) {
   if (value === '') return t('notesEmptyValue');
   if (typeof value === 'boolean') return t(value ? 'notesYes' : 'notesNo');
   if (field === 'medicationStatus') return t(value === 'TAKEN' ? 'notesTaken' : 'notesMissed');
-  if (typeof value === 'number') return new Intl.NumberFormat(language === 'ar' ? 'ar-EG' : 'en').format(value);
+  if (typeof value === 'number') return formatNumber(value, language);
   return value;
 }
-function valueText(field: ObservationField, observation: EffectiveObservation, t: ReturnType<typeof useI18n>['t'], language: string) {
+function valueText(field: ObservationField, observation: EffectiveObservation, t: ReturnType<typeof useI18n>['t'], language: Language) {
   if (observation.lastOperation === 'CLEAR') return t('notesCorrectionCleared');
   if (observation.state === 'UNKNOWN') return t('notesUnknown');
   if (observation.state === 'NOT_RECORDED') return observation.lastOperation === 'NOT_RECORDED' ? t('notesCorrectionMarkedNotRecorded') : t('notesNotRecorded');
@@ -20,7 +22,7 @@ function valueText(field: ObservationField, observation: EffectiveObservation, t
   const value = observation.value;
   return value === null ? t('notesNotRecorded') : scalarText(field, value, t, language);
 }
-function operationText(event: CorrectionEvent, t: ReturnType<typeof useI18n>['t'], language: string) {
+function operationText(event: CorrectionEvent, t: ReturnType<typeof useI18n>['t'], language: Language) {
   if (event.operation === 'CLEAR') return t('notesCorrectionCleared');
   if (event.operation === 'UNKNOWN') return t('notesCorrectionMarkedUnknown');
   if (event.operation === 'SET') return `${t('notesCorrectionSetAs')} ${valueText(event.field, event.effectiveAfter, t, language)}`;
@@ -31,9 +33,9 @@ export function CorrectionEventRow({ event, idPrefix, entryLabel }: {
   event: CorrectionEvent; idPrefix: string; entryLabel?: React.ReactNode;
 }) {
   const { t, language } = useI18n();
-  const timeLabel = new Intl.DateTimeFormat(language === 'ar' ? 'ar-EG' : 'en', { dateStyle: 'medium', timeStyle: 'short' }).format(new Date(event.createdAt));
+  const timeLabel = formatDate(event.createdAt, language, { dateStyle: 'medium', timeStyle: 'short' });
   return <NoteTimelineRow
-    entryLabel={entryLabel ?? <>{t('notesCorrectionEvent')} <bdi>{new Intl.NumberFormat(language === 'ar' ? 'ar-EG' : 'en').format(event.sequenceNo)}</bdi> · {t(fieldLabels[event.field])}</>}
+    entryLabel={entryLabel ?? <>{t('notesCorrectionEvent')} <bdi>{formatNumber(event.sequenceNo, language)}</bdi> · {t(fieldLabels[event.field])}</>}
     dateLabel={timeLabel}
     dateTime={event.createdAt}
     metadata={<>{t('notesCorrectionActor')}: <bdi>{event.actorId}</bdi></>}

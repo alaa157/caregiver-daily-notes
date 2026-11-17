@@ -2,6 +2,7 @@ import { useId } from 'react';
 import type { CarePlan } from '../../api/plans';
 import { isRecipientId } from '../../api/recipients';
 import { useI18n } from '../../i18n/I18nProvider';
+import { formatDate, formatNumber } from '../../lib/format';
 import type { MessageKey } from '../../i18n/translations';
 import { Link } from 'react-router-dom';
 import { actionLabel, parameterLabel } from './PlanEditor';
@@ -30,14 +31,14 @@ export function revealPlanHistory(id: string) {
 export function PlanCard({ plan, historyIds }: { plan: CarePlan; historyIds: ReadonlySet<string> }) {
   const { t, language } = useI18n();
   const headingId = useId();
-  const number = new Intl.NumberFormat(language === 'ar' ? 'ar-EG' : 'en').format(plan.version);
+  const number = formatNumber(plan.version, language);
   const evidence = plan.evidenceNoteIds?.split(',').filter((item) => item.length > 0) ?? [];
   return <article className="plan-card" aria-labelledby={headingId}>
     <header className="plan-card-heading">
       <h3 id={headingId}>{t('plansVersion')} <bdi>{number}</bdi></h3>
       <PlanStatus status={plan.status} />
     </header>
-    <p className="note-hint">{t('plansCreated')}: <time dateTime={plan.createdAt}><bdi>{new Intl.DateTimeFormat(language === 'ar' ? 'ar-EG' : 'en', { dateStyle: 'medium', timeStyle: 'short' }).format(new Date(plan.createdAt))}</bdi></time></p>
+    <p className="note-hint">{t('plansCreated')}: <time dateTime={plan.createdAt}><bdi>{formatDate(plan.createdAt, language, { dateStyle: 'medium', timeStyle: 'short' })}</bdi></time></p>
     {plan.structuredContent ? <div className="plan-structured">
       <h4>{t('plansActions')}</h4><ol>{plan.structuredContent.changes.map((change, index) => <li key={index}>
         <strong>{t(actionLabel(change.action))}</strong><dl className="plan-references">{Object.entries(change.params).map(([key, value]) => <div key={key}><dt>{t(parameterLabel(key))}</dt><dd dir="auto" className="note-verbatim">{value}</dd></div>)}</dl>

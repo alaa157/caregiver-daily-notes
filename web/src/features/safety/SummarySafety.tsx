@@ -5,6 +5,7 @@ import { createSafetyAcknowledgementsApi, type SafetyAcknowledgement } from '../
 import type { SummarySafety as Safety } from '../../api/summary';
 import { Button } from '../../components/Button';
 import { useI18n } from '../../i18n/I18nProvider';
+import { formatDate } from '../../lib/format';
 import { useApiClient } from '../../lib/api';
 
 /** Kept outside model-content containers; no dismiss/collapse control. */
@@ -106,9 +107,9 @@ export function SummarySafety({ safety, recipientId, periodEndInclusive, periodD
 
   const acknowledgementState = acknowledgements.contextKey === contextKey
     ? acknowledgements : { contextKey, status: 'loading' as const, records: [] };
-  const formatAcknowledgedAt = (value: string) => new Intl.DateTimeFormat(language === 'ar' ? 'ar-EG' : 'en', {
+  const formatAcknowledgedAt = (value: string) => formatDate(value, language, {
     dateStyle: 'medium', timeStyle: 'short',
-  }).format(new Date(value));
+  });
   const urgent = safety.needsDoctorBanner || safety.incomplete || safety.signals.some((signal) => signal.severity !== 'INFO' && signal.severity !== 'WATCH');
   return <section className={`summary-safety${urgent ? ' summary-safety--urgent' : ''}`} aria-label={t('summarySafety')}>
     <h3>{t(safety.needsDoctorBanner ? 'summaryClinicalReview' : 'summarySafety')}</h3>

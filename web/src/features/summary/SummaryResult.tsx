@@ -3,6 +3,7 @@ import { Link } from 'react-router-dom';
 import { isRecipientId } from '../../api/recipients';
 import type { SummaryRequest, SummaryResponse } from '../../api/summary';
 import { useI18n } from '../../i18n/I18nProvider';
+import { formatNumber } from '../../lib/format';
 import type { ByokProviderId } from '../ai/ByokContext';
 import { providerLabelKey } from '../ai/providers';
 import { SummarySafety } from '../safety/SummarySafety';
@@ -68,7 +69,7 @@ export function SummaryResult({ view }: { view: SummaryView }) {
   const { response, request } = view;
   const from = new Date(`${request.periodEndInclusive}T00:00:00Z`);
   from.setUTCDate(from.getUTCDate() - request.periodDays + 1);
-  const format = (value: number) => new Intl.NumberFormat(language === 'ar' ? 'ar-EG' : 'en').format(value);
+  const format = (value: number) => formatNumber(value, language);
   const canPresentAiSuccess = response.summary !== null && !response.summary.aiUnavailable
     && !response.invalidContent && !view.failed && response.summary.observations.length > 0;
   const canPresentUncertainty = response.summary !== null && !response.invalidContent && !view.failed;

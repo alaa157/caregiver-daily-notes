@@ -7,6 +7,7 @@ import type { Recipient } from '../../api/recipients';
 import { Button } from '../../components/Button';
 import { FieldError } from '../../components/Feedback';
 import { useI18n } from '../../i18n/I18nProvider';
+import { formatNumber } from '../../lib/format';
 import type { MessageKey } from '../../i18n/translations';
 import { createInput, emptyNoteValues, fieldLabels, observationInput, todayDate, validateNoteValues, type Corrections, type NoteErrors, type NoteValues } from './noteForm';
 import { ObservationStateField } from './ObservationStateField';
@@ -156,7 +157,7 @@ export function NoteForm(props: Props) {
     return chipFieldOptions[field as ChipField].map((option) => ({
       key: option.key,
       label: field === 'painScore' && typeof option.value === 'number'
-        ? new Intl.NumberFormat(language === 'ar' ? 'ar-EG' : 'en').format(option.value)
+        ? formatNumber(option.value, language)
         : t(option.labelKey),
     }));
   }

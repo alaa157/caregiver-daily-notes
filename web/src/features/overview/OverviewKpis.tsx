@@ -1,6 +1,7 @@
 import type { OverviewState } from './useDashboardOverview';
 import { getDashboardKpis } from './dashboardKpis';
 import { useI18n } from '../../i18n/I18nProvider';
+import { formatNumber } from '../../lib/format';
 import type { MonthToDateMetric } from './useMonthToDateNotes';
 
 export function OverviewKpis({ state, monthToDate, onRetryMonthToDate }: {
@@ -9,8 +10,8 @@ export function OverviewKpis({ state, monthToDate, onRetryMonthToDate }: {
   onRetryMonthToDate?: () => void;
 }) {
   const { t, language } = useI18n();
-  // Counts are formatted with the active locale so Arabic renders Arabic-Indic digits.
-  const number = (value: number) => new Intl.NumberFormat(language === 'ar' ? 'ar-EG' : 'en').format(value);
+  // Counts are formatted with the active locale so Arabic uses Western digits like the rest of the UI.
+  const number = (value: number) => formatNumber(value, language);
   const kpis = getDashboardKpis(state, {
     recipients: t('overviewKpiRecipients'),
     recorded: t('overviewKpiRecorded'),

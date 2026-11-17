@@ -5,6 +5,7 @@ import type { Recipient } from '../../api/recipients';
 import { Button, ButtonLink } from '../../components/Button';
 import { EmptyState, ErrorState, LoadingState } from '../../components/Feedback';
 import { useI18n } from '../../i18n/I18nProvider';
+import { formatDate, formatNumber } from '../../lib/format';
 import { useNoteResource, useNotesApis } from '../notes/useNotes';
 import { HistoryFilterForm } from './HistoryFilterForm';
 import { HistoryNoteCard } from './HistoryNoteCard';
@@ -27,7 +28,7 @@ function HistoryResults({ filters: { recipientId, from, to }, page, size, recipi
     if (state.status === 'ready' && pageSizeChanged) onPageSizeResolved(page === 0 || page < state.data.totalPages);
   }, [state, page, pageSizeChanged, onPageSizeResolved]);
   useEffect(() => { if (state.status === 'ready' && focusResults && !pageSizeOutOfRange) heading.current?.focus(); }, [state.status, focusResults, pageSizeOutOfRange]);
-  const number = (value: number) => new Intl.NumberFormat(language === 'ar' ? 'ar-EG' : 'en').format(value);
+  const number = (value: number) => formatNumber(value, language);
   return <section className="history-results" aria-labelledby="history-results-title" aria-busy={state.status === 'loading' || pageSizeOutOfRange}>
     <h2 ref={heading} id="history-results-title" tabIndex={-1}>{t('historyResults')}</h2>
     {state.status === 'loading' && <LoadingState label={t('historyLoading')} />}
@@ -48,7 +49,7 @@ function HistoryResults({ filters: { recipientId, from, to }, page, size, recipi
         </tr></thead>
         <tbody>{state.data.content.map((note) => {
           const recipient = recipients.find((item) => item.id === note.recipientId);
-          const date = new Intl.DateTimeFormat(language === 'ar' ? 'ar-EG' : 'en', { dateStyle: 'medium' }).format(new Date(`${note.date}T12:00:00`));
+          const date = formatDate(`${note.date}T12:00:00`, language, { dateStyle: 'medium' });
           return <tr key={note.id}>
             <td data-label={t('historyDate')}><time dateTime={note.date}><bdi>{date}</bdi></time></td>
             <td data-label={t('notesRecipient')}><bdi>{recipient?.name ?? t('activityFeedRecipientFallback')}</bdi>{recipient?.active === false && <> · {t('historyInactive')}</>}</td>
@@ -101,7 +102,7 @@ export function HistoryPage({ scopedRecipientId }: { scopedRecipientId?: string 
         onApply={(next) => update(next)} onReset={() => update(scopedDefaults, 0, 20)} />
       <div className="note-field history-page-size"><label htmlFor="history-page-size">{t('historyPageSize')}</label>
         <select id="history-page-size" value={size} onChange={(event) => update(filters, page, Number(event.target.value), true)}>
-          {historyPageSizes.map((value) => <option key={value} value={value}>{new Intl.NumberFormat(language === 'ar' ? 'ar-EG' : 'en').format(value)}</option>)}
+          {historyPageSizes.map((value) => <option key={value} value={value}>{formatNumber(value, language)}</option>)}
         </select>
       </div>
     </div>

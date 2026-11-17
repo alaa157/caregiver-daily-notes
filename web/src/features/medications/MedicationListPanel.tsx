@@ -4,6 +4,7 @@ import { createMedicationsApi, intakeStates, medicationErrorMessage, validateMed
 import { Button } from '../../components/Button';
 import { EmptyState, ErrorState, FieldError, LoadingState } from '../../components/Feedback';
 import { useI18n } from '../../i18n/I18nProvider';
+import { formatDate } from '../../lib/format';
 import type { MessageKey } from '../../i18n/translations';
 
 type ListState = { recipientId: string; status: 'loading' }
@@ -308,8 +309,7 @@ function IntakeHistory({ recipientId, medication, canRecord }: {
     }
   }
 
-  const formatDate = (value: string) => new Intl.DateTimeFormat(
-    language === 'ar' ? 'ar-EG' : 'en', { dateStyle: 'medium', timeStyle: 'short' }).format(new Date(value));
+  const formatIntakeDate = (value: string) => formatDate(value, language, { dateStyle: 'medium', timeStyle: 'short' });
   const intakeId = `intake-state-${medication.id}`;
   const verificationId = `verification-state-${medication.id}`;
 
@@ -324,7 +324,7 @@ function IntakeHistory({ recipientId, medication, canRecord }: {
         <dl className="recipient-details medication-details">
           <div><dt>{t('medicationIntakeState')}</dt><dd>{t(intakeLabel[item.intakeState])}</dd></div>
           <div><dt>{t('medicationIntakeOccurredAt')}</dt>
-            <dd><time dateTime={item.occurredAt}>{formatDate(item.occurredAt)}</time></dd></div>
+            <dd><time dateTime={item.occurredAt}>{formatIntakeDate(item.occurredAt)}</time></dd></div>
           <div><dt>{t('medicationVerificationState')}</dt><dd>{t(verificationLabel[item.verificationState])}</dd></div>
         </dl>
       </li>)}

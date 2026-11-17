@@ -5,6 +5,7 @@ import { isRecipientId } from '../../api/recipients';
 import { Button, ButtonLink } from '../../components/Button';
 import { EmptyState, ErrorState, LoadingState } from '../../components/Feedback';
 import { useI18n } from '../../i18n/I18nProvider';
+import { formatDate, formatNumber } from '../../lib/format';
 import { notifyCareDataChanged } from '../../lib/careDataEvents';
 import { NoteForm } from './NoteForm';
 import { ObservationValues } from './ObservationValues';
@@ -187,7 +188,7 @@ function NoteChangesTimeline({
       item.kind === 'addendum'
         ? <li key={`addendum:${item.id}`}>
           <NoteTimelineRow
-            entryLabel={<>{t('notesAppend')} <bdi>{new Intl.NumberFormat(language === 'ar' ? 'ar-EG' : 'en').format(addendumNumber.get(item.id) ?? 0)}</bdi></>}
+            entryLabel={<>{t('notesAppend')} <bdi>{formatNumber(addendumNumber.get(item.id) ?? 0, language)}</bdi></>}
             dateLabel={date(item.createdAt, true)}
             dateTime={item.createdAt}
             provenance={<>{t('notesTimelineSourceId')}: <bdi>{item.id}</bdi></>}
@@ -197,7 +198,7 @@ function NoteChangesTimeline({
         </li>
         : <li key={`correction:${item.id}`}>
           <CorrectionEventRow event={item.event} idPrefix={id}
-            entryLabel={<>{t('notesCorrectionEvent')} <bdi>{new Intl.NumberFormat(language === 'ar' ? 'ar-EG' : 'en').format(item.event.sequenceNo)}</bdi> · {t(fieldLabels[item.event.field])}</>} />
+            entryLabel={<>{t('notesCorrectionEvent')} <bdi>{formatNumber(item.event.sequenceNo, language)}</bdi> · {t(fieldLabels[item.event.field])}</>} />
         </li>
     ))}</ol>}
     {timeline.length === 0 && addendaState.status === 'ready' && correctionState.status === 'ready'
@@ -221,8 +222,8 @@ function NoteRecord({ id, append }: { id: string; append: boolean }) {
   const noticeKey = notice === 'created' ? 'notesSaved' : notice === 'appended' ? 'notesAppendSaved' : notice === 'correctionSaved' ? 'notesCorrectionSaved' : null;
   const noticeRef = useRef<HTMLParagraphElement>(null);
   useEffect(() => { if (state.status === 'ready' && noticeKey) noticeRef.current?.focus(); }, [state.status, noticeKey]);
-  const date = (value: string, instant = false) => new Intl.DateTimeFormat(language === 'ar' ? 'ar-EG' : 'en',
-    { dateStyle: 'medium', ...(instant ? { timeStyle: 'short' as const } : {}) }).format(new Date(instant ? value : `${value}T12:00:00`));
+  const date = (value: string, instant = false) => formatDate(instant ? value : `${value}T12:00:00`, language,
+    { dateStyle: 'medium', ...(instant ? { timeStyle: 'short' as const } : {}) });
   return <NotesLayout title={t(append ? 'notesAppend' : 'notesDetails')} description={t(append ? 'notesAppendHint' : 'notesImmutableDescription')}
     action={<ButtonLink variant="secondary" to={append ? `${notesPath}/${id}` : `${notesPath}/new`}>{t(append ? 'notesBack' : 'notesNew')}</ButtonLink>}>
     {state.status === 'loading' && <LoadingState label={t('notesLoading')} />}

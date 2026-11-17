@@ -6,6 +6,7 @@ import { Button, ButtonLink } from '../../components/Button';
 import { EmptyState, ErrorState, LoadingState } from '../../components/Feedback';
 import { Icon } from '../../components/Icon';
 import { useI18n } from '../../i18n/I18nProvider';
+import { formatDate } from '../../lib/format';
 import type { MessageKey } from '../../i18n/translations';
 import { RecipientLifecycleDialog } from './RecipientLifecycleDialog';
 import { RecipientForm } from './RecipientForm';
@@ -185,9 +186,9 @@ function RecipientRecord({ id, edit }: { id: string; edit: boolean }) {
     section?.focus({ preventScroll: true });
   };
   const date = (value: string, timeZone?: Intl.DateTimeFormatOptions['timeZone']) =>
-    new Intl.DateTimeFormat(language === 'ar' ? 'ar-EG' : 'en', {
+    formatDate(value, language, {
       dateStyle: 'medium', ...(timeZone ? { timeZone } : {}),
-    }).format(new Date(value));
+    });
   return <RecipientLayout title={t(edit ? 'recipientEdit' : 'recipientDetails')} description={t(edit ? 'recipientEditDescription' : 'recipientDetailsDescription')}
     action={<ButtonLink variant="secondary" to={listPath}><Icon name="arrow-left" className="directional-icon" />{t('recipientsBack')}</ButtonLink>}>
     {state.status === 'loading' && <LoadingState label={t('recipientLoading')} />}
