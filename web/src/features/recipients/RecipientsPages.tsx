@@ -168,7 +168,7 @@ export function CreateRecipientPage() {
   </RecipientLayout>;
 }
 function RecipientRecord({ id, edit }: { id: string; edit: boolean }) {
-  const { t, language } = useI18n(); const api = useRecipientsApi(); const navigate = useNavigate(); const location = useLocation();
+  const { t, language } = useI18n(); const api = useRecipientsApi(); const location = useLocation();
   const load = useCallback((signal: AbortSignal) => api.get(id, signal), [api, id]);
   const { state, reload, replace } = useRecipientResource<Recipient>(load);
   const [confirming, setConfirming] = useState<'archive' | 'restore' | 'resolve-archived' | 'resolve-active' | null>(null);
@@ -210,8 +210,14 @@ function RecipientRecord({ id, edit }: { id: string; edit: boolean }) {
         </section>}
         {edit && state.data.lifecycleStatus === 'ACTIVE' ? <>
           <RecipientForm initial={state.data} cancelTo={`${listPath}/${id}`} onReload={reload} onSave={async (input, _key, signal) => {
-            await api.update(id, input, signal);
-            if (!signal.aborted) navigate(`${listPath}/${id}`, { replace: true, state: { recipientNotice: 'updated' } });
+            const updated = await api.update(id, input, signal);
+            if (!signal.aborted) {
+              // Stay on the edit page and swap the record in place. Navigating
+              // away — or even reloading through the loading state — would
+              // unmount the care-details form and discard its unsaved edits.
+              setNotice('recipientUpdated');
+              replace(updated);
+            }
           }} />
           <RecipientCareDetailsForm initial={state.data} onSave={(input, signal) => api.updateCareDetails(id, input, signal)} />
         </> : <>

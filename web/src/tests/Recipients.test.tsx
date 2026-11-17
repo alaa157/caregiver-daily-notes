@@ -425,6 +425,30 @@ describe('care recipients screens', () => {
     expect(await screen.findByRole('heading', { name: updated.name })).toBeInTheDocument();
   });
 
+  it('keeps unsaved care details when the name form is saved', async () => {
+    const updated = { ...recipient, name: 'Samir Updated' };
+    const fetcher = vi.fn().mockImplementation((path: string, options: RequestInit = {}) => {
+      if (path === `/api/recipients/${recipient.id}`) {
+        return Promise.resolve(jsonResponse(options.method === 'PUT' ? updated : recipient));
+      }
+      return Promise.resolve(jsonResponse([]));
+    });
+    renderRecipients(`${detail}/edit`, fetcher);
+    const careForm = await screen.findByRole('form', { name: 'Care details' });
+    await userEvent.type(within(careForm).getByLabelText('Allergies'), 'Penicillin');
+
+    await userEvent.clear(screen.getByLabelText('Name'));
+    await userEvent.type(screen.getByLabelText('Name'), updated.name);
+    await userEvent.click(screen.getByRole('button', { name: 'Save changes' }));
+
+    expect(await screen.findByText('Recipient details updated.')).toBeInTheDocument();
+    // Still on the edit page, with the other form's unsaved edit intact.
+    expect(await screen.findByRole('heading', { name: updated.name })).toBeInTheDocument();
+    expect(within(await screen.findByRole('form', { name: 'Care details' })).getByLabelText('Allergies'))
+      .toHaveValue('Penicillin');
+    expect(fetcher.mock.calls.some(([path]) => path === `/api/recipients/${recipient.id}/care-details`)).toBe(false);
+  });
+
   it('saves all care details with PATCH and shows a saved notice', async () => {
     const updated = { ...recipient, ...fullCareDetails };
     const fetcher = vi.fn().mockImplementation((path: string, options: RequestInit = {}) =>
