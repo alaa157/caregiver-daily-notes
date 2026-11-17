@@ -1,5 +1,7 @@
 package com.caregiver.mobile.presentation.auth
 
+import androidx.activity.compose.BackHandler
+import androidx.activity.compose.LocalOnBackPressedDispatcherOwner
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
@@ -52,6 +54,13 @@ fun AccountPicker(
     modifier: Modifier = Modifier,
 ) {
     var accountToRemove by remember { mutableStateOf<Account?>(null) }
+    // #912: the picker is hosted in a Popup, which — unlike Dialog — does not
+    // consume system Back. Claim Back for as long as the picker is composed so
+    // only it is dismissed and NavController cannot pop Settings underneath.
+    // The owner guard keeps headless JVM tests (no dispatcher) renderable.
+    if (LocalOnBackPressedDispatcherOwner.current != null) {
+        BackHandler { onDismiss() }
+    }
     val title = stringResource(R.string.account_switch)
     Box(modifier = modifier) {
     Surface(
