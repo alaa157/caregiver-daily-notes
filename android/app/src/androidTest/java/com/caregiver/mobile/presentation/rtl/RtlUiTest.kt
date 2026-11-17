@@ -2,9 +2,12 @@ package com.caregiver.mobile.presentation.rtl
 
 import android.content.Context
 import android.content.res.Configuration
+import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.width
 import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
+import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.platform.LocalLayoutDirection
@@ -12,15 +15,20 @@ import androidx.compose.ui.test.assertCountEquals
 import androidx.compose.ui.test.assertIsDisplayed
 import androidx.compose.ui.test.junit4.createComposeRule
 import androidx.compose.ui.test.onAllNodesWithText
+import androidx.compose.ui.test.onNodeWithContentDescription
 import androidx.compose.ui.test.onNodeWithTag
 import androidx.compose.ui.test.onNodeWithText
+import androidx.compose.ui.test.performClick
+import androidx.compose.ui.test.performScrollTo
 import androidx.compose.ui.test.performTextInput
 import androidx.compose.ui.unit.Density
 import androidx.compose.ui.unit.LayoutDirection
+import androidx.compose.ui.unit.dp
 import androidx.navigation.compose.rememberNavController
 import androidx.test.core.app.ApplicationProvider
 import androidx.test.ext.junit.runners.AndroidJUnit4
 import com.caregiver.mobile.AppGraph
+import com.caregiver.mobile.R
 import com.caregiver.mobile.core.i18n.Bidi
 import com.caregiver.mobile.core.network.TokenHolder
 import com.caregiver.mobile.core.theme.CaregiverTheme
@@ -28,6 +36,7 @@ import com.caregiver.mobile.data.AuthRepository
 import com.caregiver.mobile.data.FakeAuthApi
 import com.caregiver.mobile.data.FakeBackendApis
 import com.caregiver.mobile.data.SettingsStore
+import com.caregiver.mobile.data.accounts.PasswordPolicy
 import com.caregiver.mobile.presentation.auth.AuthForm
 import com.caregiver.mobile.presentation.auth.AuthMode
 import com.caregiver.mobile.presentation.auth.AuthViewModel
@@ -105,7 +114,7 @@ class RtlUiTest {
     @Test
     fun loginArabicRtl() {
         var switched = false
-        renderAuth(AuthMode.Login, "ar") { switched = true }
+        renderAuth(AuthMode.Login, "ar", onSwitch = { switched = true })
 
         assertEquals(LayoutDirection.Rtl, capturedDirection)
         compose.onNodeWithText("مرحبًا بعودتك").assertIsDisplayed()
@@ -115,11 +124,52 @@ class RtlUiTest {
 
     @Test
     fun loginEnglishLtr() {
-        renderAuth(AuthMode.Login, "en") {}
+        renderAuth(AuthMode.Login, "en", onSwitch = {})
 
         assertEquals(LayoutDirection.Ltr, capturedDirection)
         compose.onNodeWithText("Welcome back").assertIsDisplayed()
         compose.onNodeWithText("Email").assertIsDisplayed()
+    }
+
+    @Test
+    fun registerArabicRtlKeepsBackArrowHintAndFooterVisible() {
+        var backs = 0
+        renderAuth(AuthMode.Register, "ar", {}, onBack = { backs++ }, widthDp = 320)
+
+        assertEquals(LayoutDirection.Rtl, capturedDirection)
+        compose.onNodeWithText("أنشئ حسابك").assertIsDisplayed()
+        // AutoMirrored.Filled.ArrowBack mirrors with the composition's RTL
+        // direction; the accessible name is localized.
+        compose.onNodeWithContentDescription("رجوع").assertIsDisplayed().performClick()
+        assertEquals(1, backs)
+        val hint = ApplicationProvider.getApplicationContext<Context>()
+            .withLocale("ar")
+            .getString(R.string.auth_password_hint, PasswordPolicy.MIN_LENGTH)
+        compose.onNodeWithText(hint).assertIsDisplayed()
+        compose.onNodeWithText("لديك حساب بالفعل؟ سجّل الدخول")
+            .performScrollTo().assertIsDisplayed()
+    }
+
+    @Test
+    fun largeFontScaleKeepsArabicRegisterFieldsAndSubmitVisibleOnNarrowScreen() {
+        renderAuth(AuthMode.Register, "ar", {}, largeFont = true, widthDp = 320)
+
+        assertEquals(LayoutDirection.Rtl, capturedDirection)
+        compose.onNodeWithText("أنشئ حسابك").assertIsDisplayed()
+        compose.onNodeWithTag("auth_field_email").performScrollTo().assertIsDisplayed()
+        compose.onNodeWithTag("auth_field_password").performScrollTo().assertIsDisplayed()
+        compose.onNodeWithTag("auth_primary_button").performScrollTo().assertIsDisplayed()
+        compose.onNodeWithText("إنشاء الحساب").performScrollTo().assertIsDisplayed()
+    }
+
+    @Test
+    fun largeFontScaleKeepsArabicLoginSubmitVisibleOnNarrowScreen() {
+        renderAuth(AuthMode.Login, "ar", {}, largeFont = true, widthDp = 320)
+
+        assertEquals(LayoutDirection.Rtl, capturedDirection)
+        compose.onNodeWithTag("auth_field_email").performScrollTo().assertIsDisplayed()
+        compose.onNodeWithTag("auth_primary_button").performScrollTo().assertIsDisplayed()
+        compose.onNodeWithText("دخول").performScrollTo().assertIsDisplayed()
     }
 
     @Test
@@ -287,7 +337,7 @@ class RtlUiTest {
 
     @Test
     fun mixedEmailInputStaysVisible() {
-        renderAuth(AuthMode.Login, "ar") {}
+        renderAuth(AuthMode.Login, "ar", onSwitch = {})
 
         compose.onNodeWithTag("auth_field_email").performTextInput("عمر@example.com")
 
@@ -328,7 +378,14 @@ class RtlUiTest {
         """{"id":"s1","recipientId":"r1","periodDays":7,"text":"تمت مراجعة 3 أيام من الملاحظات.","redFlags":[],"""" +
             """"evidence":[{"noteId":"n1","quote":"rest Matters"}],"uncertainties":[]}"""
 
-    private fun renderAuth(mode: AuthMode, language: String, onSwitch: () -> Unit) {
+    private fun renderAuth(
+        mode: AuthMode,
+        language: String,
+        onSwitch: () -> Unit,
+        onBack: (() -> Unit)? = null,
+        largeFont: Boolean = false,
+        widthDp: Int? = null,
+    ) {
         val base = ApplicationProvider.getApplicationContext<Context>()
         val localized = base.withLocale(language)
         val vm = AuthViewModel(
@@ -339,7 +396,7 @@ class RtlUiTest {
                 TokenHolder(),
             ),
         )
-        render(language) {
+        val form: @Composable () -> Unit = {
             val state by vm.state.collectAsState()
             AuthForm(
                 state = state,
@@ -348,8 +405,16 @@ class RtlUiTest {
                 onPassword = vm::onPassword,
                 onSubmit = vm::submit,
                 onSwitchMode = onSwitch,
+                onBack = onBack,
             )
         }
+        // #876: a 320dp Box plus 200% font scale exercises the narrow-screen
+        // and large-text cases without relying on the emulator's real width.
+        val width = widthDp
+        val content: @Composable () -> Unit = if (width != null) {
+            { Box(Modifier.width(width.dp)) { form() } }
+        } else form
+        if (largeFont) renderLarge(language, content) else render(language, content)
     }
 
     private fun render(language: String, content: @androidx.compose.runtime.Composable () -> Unit) {

@@ -1,5 +1,9 @@
 package com.caregiver.mobile.presentation.auth
 
+import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.width
+import androidx.compose.runtime.CompositionLocalProvider
+import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.test.assertDoesNotExist
 import androidx.compose.ui.test.assertIsDisplayed
 import androidx.compose.ui.test.assertIsEnabled
@@ -7,9 +11,12 @@ import androidx.compose.ui.test.assertIsNotEnabled
 import androidx.compose.ui.test.junit4.createComposeRule
 import androidx.compose.ui.test.onNodeWithTag
 import androidx.compose.ui.test.performClick
+import androidx.compose.ui.unit.Density
+import androidx.compose.ui.unit.dp
 import androidx.test.ext.junit.runners.AndroidJUnit4
 import com.caregiver.mobile.core.theme.CaregiverTheme
 import org.junit.Assert.assertEquals
+import org.junit.Assert.assertTrue
 import org.junit.Rule
 import org.junit.Test
 import org.junit.runner.RunWith
@@ -60,5 +67,32 @@ class AuthPrimaryButtonTest {
 
         compose.onNodeWithTag(AuthPrimaryButtonTestTag).assertIsDisplayed()
         compose.onNodeWithTag(AuthSubmitProgressTestTag).assertIsDisplayed()
+    }
+
+    /**
+     * #876: a fixed 56dp height cut the wrapped label off at 200% font scale.
+     * Density 1 makes the measured px equal dp, so the growth check reads in dp.
+     */
+    @Test
+    fun buttonGrowsPastItsMinimumAtDoubledFontScale() {
+        compose.setContent {
+            CompositionLocalProvider(LocalDensity provides Density(density = 1f, fontScale = 2f)) {
+                CaregiverTheme {
+                    Box(Modifier.width(320.dp)) {
+                        AuthPrimaryButton(
+                            text = "Already have an account? Sign in",
+                            onClick = {},
+                        )
+                    }
+                }
+            }
+        }
+
+        val height = compose.onNodeWithTag(AuthPrimaryButtonTestTag)
+            .fetchSemanticsNode().boundsInRoot.height
+        assertTrue(
+            "auth button must grow past its 56dp minimum instead of clipping at 200% text (height=$height px)",
+            height > 56f,
+        )
     }
 }
