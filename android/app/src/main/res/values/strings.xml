@@ -131,6 +131,10 @@
     <string name="editor_sleep">Sleep</string>
     <string name="editor_mobility">Mobility</string>
     <string name="editor_medication">Medication</string>
+    <!-- #904: three medication segments; no per-drug expansion. -->
+    <string name="editor_medication_all_taken">All taken</string>
+    <string name="editor_medication_something_missed">Something missed</string>
+    <string name="editor_medication_not_sure">Not sure</string>
     <string name="editor_fall">Fall</string>
     <string name="editor_pain">Pain</string>
     <string name="editor_pain_caption">0 = no pain · 10 = worst pain</string>
