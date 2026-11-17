@@ -13,7 +13,8 @@
  * - metrolist's "own-route child" rule (route + "route/" prefixes) is
  *   extended with a per-tab child-ownership table, because this app's
  *   detail routes (`recipient/…`, `note/…`, `summary/…`, …) do not nest
- *   under their tab's route path.
+ *   under their tab's route path. Detail routes reachable from several
+ *   tabs instead follow the tab the user came from (see [originTab]).
  * - Search long-click special case dropped (no search screen here).
  * - An [itemModifier] hook lets the shell attach its `tab_*` test tags
  *   without the component knowing the tag contract.
@@ -72,7 +73,7 @@ data class AppTabItem(
  * truth and are normalized to plain prefixes before matching.
  */
 @Stable
-private fun tabOwnership(): Map<String, List<String>> = mapOf(
+internal fun tabOwnership(): Map<String, List<String>> = mapOf(
     MainTab.Home.route to listOf(
         AppDestinations.Settings.base,
         AppDestinations.AiSettings.base,
@@ -103,18 +104,42 @@ private fun tabOwnership(): Map<String, List<String>> = mapOf(
 }
 
 /**
+ * Detail routes that can be opened from more than one tab. A note detail
+ * reached from Notes must keep Notes highlighted (#917), one reached from
+ * History must keep History highlighted, and the "Saved" confirmation after
+ * a save started from a recipient must not claim Notes. The prefixes are
+ * derived from [AppDestinations] so the registration templates stay the
+ * single source of truth; matching on `prefix/` keeps `note/…` distinct from
+ * `note-editor/…`.
+ */
+private val originDrivenPrefixes = listOf(
+    AppDestinations.NoteDetail,
+    AppDestinations.Addendum,
+    AppDestinations.NoteSaved,
+).map { it.base.substringBefore('{').removeSuffix("/") }
+
+private fun isOriginDrivenRoute(route: String): Boolean =
+    originDrivenPrefixes.any { prefix -> route == prefix || route.startsWith("$prefix/") }
+
+/**
  * Metrolist's selection template, adapted: exact tab match, or any owned
- * child prefix (distinct roots stay unambiguous — `note/…` never collides
- * with `note-editor/…` or `note-saved/…`).
+ * child prefix. For the shared detail routes above, the tab the user came
+ * from ([originTab]) wins over the static ownership table; when there is no
+ * known origin (a cold-start deep link), the table still decides so an
+ * existing highlight is never lost.
  */
 @Stable
-private fun isRouteSelected(
+internal fun isRouteSelected(
     currentRoute: String?,
     item: AppTabItem,
     ownership: Map<String, List<String>>,
+    originTab: String? = null,
 ): Boolean {
     if (currentRoute == null) return false
     if (currentRoute == item.route) return true
+    if (originTab != null && isOriginDrivenRoute(currentRoute)) {
+        return item.route == originTab
+    }
     return ownership[item.route]?.any { prefix ->
         currentRoute == prefix || currentRoute.startsWith("$prefix/")
     } == true
@@ -127,6 +152,8 @@ fun AppNavigationRail(
     onItemClick: (AppTabItem, Boolean) -> Unit,
     modifier: Modifier = Modifier,
     pureBlack: Boolean = false,
+    /** Tab the user came from; only shared detail routes read it (#917). */
+    originTab: String? = null,
     onHomeLongHold: (() -> Unit)? = null,
 ) {
     val containerColor = if (pureBlack) Color.Black else MaterialTheme.colorScheme.surface
@@ -138,8 +165,8 @@ fun AppNavigationRail(
         containerColor = containerColor,
     ) {
         navigationItems.forEach { item ->
-            val isSelected = remember(currentRoute, item.route) {
-                isRouteSelected(currentRoute, item, ownership)
+            val isSelected = remember(currentRoute, item.route, originTab) {
+                isRouteSelected(currentRoute, item, ownership, originTab)
             }
             val currentIsSelected by rememberUpdatedState(isSelected)
             val icon = remember(isSelected, item) {
@@ -205,6 +232,8 @@ fun AppNavigationBar(
     slimNav: Boolean = false,
     windowInsets: WindowInsets = WindowInsets(0, 0, 0, 0),
     showIndicator: Boolean = false,
+    /** Tab the user came from; only shared detail routes read it (#917). */
+    originTab: String? = null,
     itemModifier: (AppTabItem) -> Modifier = { Modifier },
     onHomeLongHold: (() -> Unit)? = null,
 ) {
@@ -220,8 +249,8 @@ fun AppNavigationBar(
         windowInsets = windowInsets,
     ) {
         navigationItems.forEach { item ->
-            val isSelected = remember(currentRoute, item.route) {
-                isRouteSelected(currentRoute, item, ownership)
+            val isSelected = remember(currentRoute, item.route, originTab) {
+                isRouteSelected(currentRoute, item, ownership, originTab)
             }
             val currentIsSelected by rememberUpdatedState(isSelected)
             val icon = remember(isSelected, item) {
