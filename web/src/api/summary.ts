@@ -38,6 +38,8 @@ export interface SummaryResponse {
   daysWithNotes: number;
   /** Requested window length in days. */
   periodDays: number;
+  /** Notes omitted or shortened to fit the model input budget. */
+  truncatedNoteCount?: number;
 }
 
 const object = (value: unknown): Record<string, unknown> | null => value !== null && typeof value === 'object' && !Array.isArray(value)
@@ -127,7 +129,12 @@ export function readSummaryResponse(value: unknown): SummaryResponse {
         previousSampleSize: trend.previousSampleSize as number, currentSampleSize: trend.currentSampleSize as number };
     });
   } catch { invalidContent = true; }
-  return { safety, summary, trends, invalidContent, daysWithNotes, periodDays };
+  const truncated = item?.truncatedNoteCount;
+  return {
+    safety, summary, trends, invalidContent, daysWithNotes, periodDays,
+    ...(Number.isSafeInteger(truncated) && (truncated as number) >= 0
+      ? { truncatedNoteCount: truncated as number } : {}),
+  };
 }
 
 /** An incomplete/error response can add warnings, but cannot clear previously returned warnings. */

@@ -408,6 +408,15 @@ describe('on-demand summary and safety workflow', () => {
     expect(screen.queryByText('Model-generated text')).not.toBeInTheDocument();
     expect(fetcher.mock.calls.some(([path]) => path === '/api/summaries')).toBe(false);
   });
+  it('shows a localized notice when note text was truncated for the model', async () => {
+    show(dataFetcher((path) => path === byokSummaryPath ? jsonResponse({
+      ...summaryFixture(), truncatedNoteCount: 2,
+    }) : undefined));
+    await generate();
+
+    expect(await screen.findByText('2 notes were omitted or shortened to fit the summary.')).toBeVisible();
+  });
+
   it('shows a localized notice when unsafe medical text was removed', async () => {
     const fixture = summaryFixture();
     show(dataFetcher((path) => path === byokSummaryPath ? jsonResponse({

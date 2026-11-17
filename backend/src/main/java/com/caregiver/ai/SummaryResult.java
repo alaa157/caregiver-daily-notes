@@ -8,7 +8,7 @@ import java.util.List;
  * text never alters the safety or coverage result.
  */
 public record SummaryResult(GroundedSummary summary, SafetyEvaluation safety, List<TrendResult> trends,
-                            int daysWithNotes, int periodDays) {
+                            int daysWithNotes, int periodDays, int truncatedNoteCount) {
 
   public SummaryResult {
     if (summary == null) {
@@ -22,6 +22,11 @@ public record SummaryResult(GroundedSummary summary, SafetyEvaluation safety, Li
 
   /** Convenience for callers that have no deterministic coverage to report. */
   public SummaryResult(GroundedSummary summary, SafetyEvaluation safety, List<TrendResult> trends) {
-    this(summary, safety, trends, 0, 0);
+    this(summary, safety, trends, 0, 0, 0);
+  }
+
+  public SummaryResult(GroundedSummary summary, SafetyEvaluation safety, List<TrendResult> trends,
+      int daysWithNotes, int periodDays) {
+    this(summary, safety, trends, daysWithNotes, periodDays, 0);
   }
 }

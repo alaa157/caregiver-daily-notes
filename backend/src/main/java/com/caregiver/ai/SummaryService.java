@@ -42,13 +42,17 @@ public class SummaryService {
     LocalDate end = request.periodEndInclusive();
     int days = request.periodDays();
     List<SummaryNote> windowed = windowed(notes, end, days);
+    // Cap the untrusted note text before the request and only ground quotes in
+    // what was actually sent. Coverage still describes the full window.
+    SummaryInputBudget.Result budget = SummaryInputBudget.apply(windowed, end, days);
+    List<SummaryNote> sent = budget.notes();
 
     Map<String, String> noteTextsById = new LinkedHashMap<>();
-    for (SummaryNote note : windowed) {
+    for (SummaryNote note : sent) {
       noteTextsById.putIfAbsent(note.noteId(), note.text());
     }
     int daysWithNotes = (int) windowed.stream().map(SummaryNote::date).distinct().count();
-    String block = SummaryDataBuilder.build(windowed, end, days);
+    String block = budget.block();
 
     List<NoteSignals> safeSignals = signals == null ? List.of() : signals;
     SafetyEvaluation safety = evaluator.evaluate(safeSignals, end, days);
@@ -68,7 +72,8 @@ public class SummaryService {
           safety,
           trendResults,
           daysWithNotes,
-          days);
+          days,
+          budget.truncatedNoteCount());
     }
     ModelSummary parsed =
         StrictJsonParser.parse(result.text(), ModelSummary.class, Set.of("observations", "uncertainties"));
@@ -89,11 +94,11 @@ public class SummaryService {
       // explicit state rather than presenting an empty summary as a success.
       return new SummaryResult(new GroundedSummary(List.of(), List.of(), true,
           FailureReason.INVALID_OUTPUT.name(), droppedEvidence, evidenceReason, droppedContent, contentReason),
-          safety, trendResults, daysWithNotes, days);
+          safety, trendResults, daysWithNotes, days, budget.truncatedNoteCount());
     }
     GroundedSummary grounded = new GroundedSummary(screened.observations(), screened.uncertainties(), false,
         null, droppedEvidence, evidenceReason, droppedContent, contentReason);
-    return new SummaryResult(grounded, safety, trendResults, daysWithNotes, days);
+    return new SummaryResult(grounded, safety, trendResults, daysWithNotes, days, budget.truncatedNoteCount());
   }
 
   /** The model's permitted JSON shape; provider status is owned by this service. */

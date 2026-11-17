@@ -80,6 +80,22 @@ class SummaryServiceTest {
   }
 
   @Test
+  void overBudgetNotesAreCappedAndReported() {
+    var requests = new ArrayList<LlmRequest>();
+    var svc = capturing(requests, "{\"observations\":[],\"uncertainties\":[]}");
+    var notes = List.of(
+        new SummaryNote("n0", END, "x".repeat(25_000)),
+        new SummaryNote("n1", END.minusDays(1), "y".repeat(25_000)),
+        new SummaryNote("n2", END.minusDays(2), "z".repeat(25_000)));
+
+    var result = svc.summarize(new SummaryRequest("r1", END, 7), notes, List.of());
+
+    assertThat(requests.get(0).dataBlock().length())
+        .isLessThanOrEqualTo(SummaryInputBudget.MAX_NOTE_TEXT_CHARACTERS);
+    assertThat(result.truncatedNoteCount()).isEqualTo(1);
+  }
+
+  @Test
   void inventedQuote_isDroppedWithAnExplicitUnavailableState() {
     var svc = service(ok("{\"observations\":[{\"text\":\"slept\",\"noteId\":\"n1\",\"quote\":\"slept ten hours\"}],\"uncertainties\":[]}"));
     var notes = List.of(new SummaryNote("n1", END, "ate well"));
