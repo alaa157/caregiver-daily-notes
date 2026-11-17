@@ -89,6 +89,7 @@ import com.caregiver.mobile.presentation.auth.navigateAfterAccountSwitch
 import com.caregiver.mobile.presentation.settings.AddAccountFlow
 import com.caregiver.mobile.presentation.common.AppCenterTopBar
 import com.caregiver.mobile.presentation.common.AppDimens
+import com.caregiver.mobile.presentation.common.LocalDataStatusIndicator
 import com.caregiver.mobile.presentation.common.assistedViewModel
 import com.caregiver.mobile.presentation.common.rememberTopBarHideState
 import com.caregiver.mobile.presentation.common.selectableRecipients
@@ -302,12 +303,19 @@ fun MainScaffold(graph: AppGraph) {
                                 .offset { IntOffset(0, topBarHide.offsetPx.roundToInt()) }
                                 .onSizeChanged { topBarHide.updateBarHeight(it.height.toFloat()) },
                             actions = {
-                                // Task 8d: the end slot mirrors the outbox — synced,
-                                // syncing, offline, or failed (tap to retry).
-                                SyncStatusIndicator(
-                                    status = syncStatus,
-                                    onRetry = syncStatusVm::retry,
-                                )
+                                // #918: a standalone build has no cloud to sync
+                                // with, so show an honest, non-clickable local
+                                // data marker instead of an inert cloud glyph.
+                                if (graph.isLocalMode) {
+                                    LocalDataStatusIndicator()
+                                } else {
+                                    // Task 8d: the end slot mirrors the outbox —
+                                    // synced, syncing, offline, or failed (tap to retry).
+                                    SyncStatusIndicator(
+                                        status = syncStatus,
+                                        onRetry = syncStatusVm::retry,
+                                    )
+                                }
                             },
                         )
                     }

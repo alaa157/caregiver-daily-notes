@@ -383,6 +383,7 @@
     <string name="sync_status_syncing">جارٍ المزامنة</string>
     <string name="sync_status_offline">غير متصل</string>
     <string name="sync_status_failed">فشلت المزامنة — اضغط لإعادة المحاولة</string>
+    <string name="sync_status_local_only">جميع بياناتك مخزّنة على هذا الجهاز — لا توجد مزامنة سحابية</string>
     <!-- المهمة 5: علامات تبويب الصفحة الرئيسية وحالات الفراغ. -->
     <string name="home_tab_today">اليوم</string>
     <string name="home_tab_attention">تحتاج إلى الانتباه</string>
