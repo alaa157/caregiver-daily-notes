@@ -75,6 +75,27 @@ class MedicationIntakeServiceIdempotencyTest {
   }
 
   @Test
+  void recordingIntakeWritesOneIdentifierOnlyAuditEventAndReplayDoesNotDuplicateIt() {
+    Fixture fixture = fixture();
+    authenticate(fixture.caregiverId());
+    MedicationIntakeRequest request = request(Instant.parse("2026-11-01T08:30:00Z"));
+
+    MedicationIntakeResponse first = service.create(
+        fixture.recipientId(), fixture.medicationId(), request, "dose-key");
+    service.create(fixture.recipientId(), fixture.medicationId(), request, "dose-key");
+
+    String auditQuery = "from audit_events where event_type = 'MEDICATION_INTAKE_RECORDED' and target_id = ?";
+    assertThat(jdbc.queryForObject("select count(*) " + auditQuery,
+        Integer.class, first.id().toString())).isEqualTo(1);
+    assertThat(jdbc.queryForObject("select actor_caregiver_id " + auditQuery,
+        UUID.class, first.id().toString())).isEqualTo(fixture.caregiverId());
+    String metadata = jdbc.queryForObject("select safe_metadata " + auditQuery,
+        String.class, first.id().toString());
+    assertThat(metadata).contains("medicationId=" + fixture.medicationId())
+        .doesNotContain("TAKEN", "UNVERIFIED", "2026-11-01");
+  }
+
+  @Test
   void differentKeysCreateSeparateRowsAtTheSameTimestamp() {
     Fixture fixture = fixture();
     authenticate(fixture.caregiverId());
