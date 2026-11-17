@@ -1,6 +1,7 @@
 package com.caregiver.plans;
 
 import com.caregiver.auth.ErrorResponse;
+import com.caregiver.recipient.InactiveRecipientException;
 import com.caregiver.recipient.RecipientNotFoundException;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
@@ -35,5 +36,13 @@ public class PlanExceptionHandler {
   public ResponseEntity<ErrorResponse> illegalTransition(IllegalPlanTransitionException ex) {
     return ResponseEntity.status(HttpStatus.CONFLICT)
         .body(new ErrorResponse("INVALID_PLAN_TRANSITION", ex.getMessage()));
+  }
+
+  /** Same 409 envelope the notes and medications domains use for archived recipients. */
+  @ExceptionHandler(InactiveRecipientException.class)
+  public ResponseEntity<ErrorResponse> inactiveRecipient(InactiveRecipientException ex) {
+    return ResponseEntity.status(HttpStatus.CONFLICT)
+        .body(new ErrorResponse("INACTIVE_RECIPIENT",
+            "Archived or legacy-review recipients cannot be changed in ordinary workflows."));
   }
 }
