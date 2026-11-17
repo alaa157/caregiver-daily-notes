@@ -24,6 +24,11 @@ function normalizePathname(pathname: string) {
   return pathname.length > 1 ? pathname.replace(/\/+$/, '') : pathname;
 }
 
+/** Focuses the page's single main landmark, wherever that route renders it. */
+function focusMainContent() {
+  document.getElementById('main-content')?.focus();
+}
+
 function isHistoryRoute(pathname: string) {
   pathname = normalizePathname(pathname);
   if (pathname === '/app/notes' || pathname === '/app/notes/history') return true;
@@ -44,7 +49,6 @@ export function AppShell({ children }: { children: ReactNode }) {
   const { mode, setMode } = useTheme();
   const location = useLocation();
   const pathname = normalizePathname(location.pathname);
-  const mainRef = useRef<HTMLElement>(null);
   const previousPath = useRef(pathname);
   const mounted = useRef(false);
 
@@ -74,13 +78,13 @@ export function AppShell({ children }: { children: ReactNode }) {
       // marks that case; a fresh page load keeps idx === 0 and is left alone.
       const idx = (window.history.state as { idx?: number } | null)?.idx;
       if (typeof idx === 'number' && idx > 0) {
-        mainRef.current?.focus();
+        focusMainContent();
         window.scrollTo({ top: 0, behavior: 'instant' });
       }
       return;
     }
     if (previousPath.current !== pathname) {
-      mainRef.current?.focus();
+      focusMainContent();
       window.scrollTo({ top: 0, behavior: 'instant' });
       previousPath.current = pathname;
     }
@@ -91,7 +95,7 @@ export function AppShell({ children }: { children: ReactNode }) {
 
   return (
     <div className="site-shell">
-      <a className="skip-link" href="#main-content" onClick={() => mainRef.current?.focus()}>{t('skipToContent')}</a>
+      <a className="skip-link" href="#main-content" onClick={() => focusMainContent()}>{t('skipToContent')}</a>
       {!isWorkspace && <header className={`site-header${auth.status === 'authenticated' ? ' site-header--workspace' : ''}`}>
         <div className="header-inner container">
           <Link className="brand" to={auth.status === 'authenticated' ? '/app' : '/'}>
@@ -138,9 +142,9 @@ export function AppShell({ children }: { children: ReactNode }) {
           </nav>
         </div>
       </header>}
-      <main id="main-content" ref={mainRef} tabIndex={-1} className={`main-content${pathname === '/app' ? ' main-content--dashboard' : ''}`}>
+      {!isWorkspace ? <main id="main-content" tabIndex={-1} className="main-content">
         {auth.status === 'authenticated' ? <ByokProvider>{children}</ByokProvider> : children}
-      </main>
+      </main> : (auth.status === 'authenticated' ? <ByokProvider>{children}</ByokProvider> : children)}
       <footer className="site-footer">
         <div className="container footer-inner">
           <span className="footer-brand"><Icon name="leaf" size={18} />{t('footer')}</span>
@@ -374,7 +378,7 @@ export function AppLayout() {
           </div>
         </details>
       </header>
-      <div className="app-view"><Outlet /></div>
+      <main id="main-content" tabIndex={-1} className="app-view"><Outlet /></main>
     </div>
   </div>;
 }

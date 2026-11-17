@@ -682,3 +682,35 @@ describe('application foundation', () => {
   });
 
 });
+
+describe('workspace skip link and landmarks', () => {
+  it('keeps exactly one main landmark on the content region, outside the chrome', () => {
+    renderAuthenticatedRoute('/app', vi.fn().mockResolvedValue(jsonResponse([])));
+
+    const mains = screen.getAllByRole('main');
+    expect(mains).toHaveLength(1);
+    expect(mains[0]).toHaveAttribute('id', 'main-content');
+    expect(mains[0]).toHaveAttribute('tabindex', '-1');
+    expect(mains[0]).toHaveClass('app-view');
+    expect(screen.getByRole('banner')).toBeInTheDocument();
+    expect(screen.getAllByRole('banner')).toHaveLength(1);
+    expect(mains[0].querySelector('.app-sidebar, .app-topbar')).toBeNull();
+  });
+
+  it('moves focus past the chrome when the skip link is activated', async () => {
+    const user = userEvent.setup();
+    renderAuthenticatedRoute('/app', vi.fn().mockResolvedValue(jsonResponse([])));
+    const skip = screen.getByRole('link', { name: 'Skip to content' });
+    expect(skip).toHaveAttribute('href', '#main-content');
+
+    await user.click(skip);
+
+    const main = screen.getByRole('main');
+    expect(main).toHaveFocus();
+    await user.tab();
+    expect(main).not.toHaveFocus();
+    expect(main.contains(document.activeElement)).toBe(true);
+    expect(document.getElementById('app-sidebar-panel')?.contains(document.activeElement)).toBe(false);
+    expect(document.querySelector('.app-topbar')?.contains(document.activeElement)).toBe(false);
+  });
+});
