@@ -1,32 +1,39 @@
 package com.caregiver.plans;
 
+import com.caregiver.ai.PlanEvidenceValidator;
 import com.caregiver.audit.AuditService;
 import com.caregiver.auth.AuthContext;
+import com.caregiver.notes.DailyNote;
+import com.caregiver.notes.DailyNoteRepository;
 import com.caregiver.recipient.CareRecipient;
 import com.caregiver.recipient.CareRecipientRepository;
-import com.caregiver.recipient.RecipientNotFoundException;
 import com.caregiver.recipient.InactiveRecipientException;
+import com.caregiver.recipient.RecipientNotFoundException;
+import org.springframework.http.HttpStatus;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
-import org.springframework.http.HttpStatus;
 import org.springframework.web.server.ResponseStatusException;
 
-import java.util.List;
 import java.util.ArrayList;
 import java.util.HashSet;
+import java.util.List;
 import java.util.Objects;
+import java.util.Set;
 import java.util.UUID;
 import java.util.stream.Collectors;
 
 @Service
 public class PlanService {
   private final CarePlanRepository plans;
+  private final DailyNoteRepository notes;
   private final CareRecipientRepository recipients;
   private final AuditService audit;
   private final PlanDocumentCodec documents;
 
-  public PlanService(CarePlanRepository plans, CareRecipientRepository recipients, AuditService audit, PlanDocumentCodec documents) {
+  public PlanService(CarePlanRepository plans, DailyNoteRepository notes, CareRecipientRepository recipients,
+      AuditService audit, PlanDocumentCodec documents) {
     this.plans = plans;
+    this.notes = notes;
     this.recipients = recipients;
     this.audit = audit;
     this.documents = documents;
@@ -35,6 +42,7 @@ public class PlanService {
   @Transactional
   public PlanResponse saveSuggested(UUID recipientId, PlanRequest request) {
     CareRecipient recipient = ownedRecipientForUpdate(recipientId);
+    validateEvidence(recipient.getId(), request);
     String content;
     UUID sourcePlanId = null;
     if (request.structuredContent() != null) {
@@ -226,5 +234,36 @@ public class PlanService {
 
   private String encodeIds(List<String> ids) {
     return ids == null || ids.isEmpty() ? null : ids.stream().collect(Collectors.joining(","));
+  }
+
+  private void validateEvidence(UUID recipientId, PlanRequest request) {
+    List<List<String>> evidenceGroups = new ArrayList<>();
+    List<Integer> changeIndexes = new ArrayList<>();
+    if (!request.evidenceNoteIds().isEmpty()) {
+      evidenceGroups.add(request.evidenceNoteIds());
+      changeIndexes.add(-1);
+    }
+    if (request.structuredContent() != null) {
+      for (int i = 0; i < request.structuredContent().changes().size(); i++) {
+        evidenceGroups.add(request.structuredContent().changes().get(i).evidenceNoteIds());
+        changeIndexes.add(i);
+      }
+    }
+    if (evidenceGroups.isEmpty()) return;
+
+    Set<UUID> requestedIds = new HashSet<>();
+    for (int i = 0; i < evidenceGroups.size(); i++) {
+      int changeIndex = changeIndexes.get(i);
+      for (String noteId : evidenceGroups.get(i)) {
+        requestedIds.add(PlanEvidenceValidator.parseNoteId(noteId, changeIndex));
+      }
+    }
+    Set<UUID> validNoteIds = notes.findAllByIdInAndRecipient_Id(requestedIds, recipientId).stream()
+        .map(DailyNote::getId)
+        .collect(Collectors.toSet());
+    for (int i = 0; i < evidenceGroups.size(); i++) {
+      PlanEvidenceValidator.validateRecipientNoteIds(
+          evidenceGroups.get(i), validNoteIds, changeIndexes.get(i));
+    }
   }
 }

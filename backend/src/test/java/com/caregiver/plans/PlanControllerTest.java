@@ -65,6 +65,7 @@ class PlanControllerTest {
   void cleanDatabase() {
     jdbcTemplate.update("delete from care_plan_versions");
     jdbcTemplate.update("delete from audit_events");
+    jdbcTemplate.update("delete from daily_notes");
     recipients.deleteAll();
     caregivers.deleteAll();
   }
@@ -133,7 +134,7 @@ class PlanControllerTest {
     MvcResult createdResult = mvc.perform(post(PLANS + recipientId + "/plans/suggestions")
             .header("Authorization", bearer(owner.token()))
             .contentType(MediaType.APPLICATION_JSON)
-            .content(mapper.writeValueAsBytes(Map.of("content", legacyContent, "evidenceNoteIds", List.of("note-1")))))
+            .content(mapper.writeValueAsBytes(Map.of("content", legacyContent))))
         .andExpect(status().isCreated())
         .andReturn();
     JsonNode created = mapper.readTree(createdResult.getResponse().getContentAsByteArray());
@@ -214,24 +215,25 @@ class PlanControllerTest {
   void createsCaregiverStructuredDraftWithSuggestedStatus() throws Exception {
     TestCaregiver owner = register("plan-structured-draft@example.com");
     String recipientId = createRecipient(owner.token());
+    String noteId = createEvidenceNote(owner.token(), recipientId);
     suggest(owner.token(), recipientId, "Earlier draft", null);
     String request = """
         {
           "content": "",
           "sourceSummaryId": "summary-structured",
-          "evidenceNoteIds": ["outer-note"],
+          "evidenceNoteIds": ["%s"],
           "structuredContent": {
             "schemaVersion": 1,
             "changes": [{
               "action": "SCHEDULE_CHECK_IN",
               "params": {"withinDays": "3"},
               "reason": "Review recorded notes",
-              "evidenceNoteIds": ["note-1"]
+              "evidenceNoteIds": ["%s"]
             }],
             "medications": []
           }
         }
-        """;
+        """.formatted(noteId, noteId);
 
     MvcResult result = mvc.perform(post(PLANS + recipientId + "/plans/suggestions")
             .header("Authorization", bearer(owner.token()))
@@ -259,14 +261,39 @@ class PlanControllerTest {
         .isEmpty();
     assertThat(documents.read(stored)).isEqualTo(new PlanDocument(1,
         List.of(new SuggestedPlanChange(PlanAction.SCHEDULE_CHECK_IN, Map.of("withinDays", "3"),
-            "Review recorded notes", List.of("note-1"))), List.of()));
+            "Review recorded notes", List.of(noteId))), List.of()));
+  }
+
+  @Test
+  void rejectsManualPlanEvidenceThatIsMissingOrBelongsToAnotherRecipient() throws Exception {
+    TestCaregiver owner = register("plan-invalid-evidence@example.com");
+    String recipientId = createRecipient(owner.token());
+    String otherRecipientId = createRecipient(owner.token());
+    String foreignNoteId = createEvidenceNote(owner.token(), otherRecipientId);
+    String unknownNoteId = UUID.randomUUID().toString();
+
+    List<Map<String, Object>> requests = List.of(
+        Map.of("content", "Legacy plan", "evidenceNoteIds", List.of(unknownNoteId)),
+        Map.of("content", "", "structuredContent", planDocument(List.of(), unknownNoteId)),
+        Map.of("content", "", "structuredContent", planDocument(List.of(), foreignNoteId)));
+    for (Map<String, Object> request : requests) {
+      mvc.perform(post(PLANS + recipientId + "/plans/suggestions")
+              .header("Authorization", bearer(owner.token()))
+              .contentType(MediaType.APPLICATION_JSON)
+              .content(mapper.writeValueAsBytes(request)))
+          .andExpect(status().isUnprocessableEntity());
+    }
+
+    assertThat(plans.findAllByRecipient_IdOrderByVersionNumberDesc(UUID.fromString(recipientId))).isEmpty();
   }
 
   @Test
   void structuredDraftCapturesAcceptedBaselineWithoutChangingIt() throws Exception {
     TestCaregiver owner = register("plan-structured-baseline@example.com");
     String recipientId = createRecipient(owner.token());
-    PlanDocument baselineDocument = planDocument(List.of(new MedicationEntry("Medication A", "10 mg", "daily")));
+    String noteId = createEvidenceNote(owner.token(), recipientId);
+    PlanDocument baselineDocument = planDocument(
+        List.of(new MedicationEntry("Medication A", "10 mg", "daily")), noteId);
     CarePlan baseline = saveAcceptedBaseline(recipientId, 1, baselineDocument);
     String originalContent = baseline.getContent();
 
@@ -286,9 +313,10 @@ class PlanControllerTest {
   void acceptsStructuredDraftAgainstTheAcceptedBaseline() throws Exception {
     TestCaregiver owner = register("plan-structured-accept@example.com");
     String recipientId = createRecipient(owner.token());
-    CarePlan baseline = saveAcceptedBaseline(recipientId, 1, planDocument(List.of()));
+    String noteId = createEvidenceNote(owner.token(), recipientId);
+    CarePlan baseline = saveAcceptedBaseline(recipientId, 1, planDocument(List.of(), noteId));
     String originalContent = baseline.getContent();
-    JsonNode draft = submitStructured(owner.token(), recipientId, planDocument(List.of()));
+    JsonNode draft = submitStructured(owner.token(), recipientId, planDocument(List.of(), noteId));
 
     mvc.perform(post(path(recipientId, draft.get("id").asText(), "accept"))
             .header("Authorization", bearer(owner.token())))
@@ -312,9 +340,10 @@ class PlanControllerTest {
   void staleStructuredDraftCannotReplaceANewerAcceptedBaseline() throws Exception {
     TestCaregiver owner = register("plan-structured-stale@example.com");
     String recipientId = createRecipient(owner.token());
-    CarePlan baseline = saveAcceptedBaseline(recipientId, 1, planDocument(List.of()));
-    JsonNode staleDraft = submitStructured(owner.token(), recipientId, planDocument(List.of()));
-    JsonNode newerDraft = submitStructured(owner.token(), recipientId, planDocument(List.of()));
+    String noteId = createEvidenceNote(owner.token(), recipientId);
+    CarePlan baseline = saveAcceptedBaseline(recipientId, 1, planDocument(List.of(), noteId));
+    JsonNode staleDraft = submitStructured(owner.token(), recipientId, planDocument(List.of(), noteId));
+    JsonNode newerDraft = submitStructured(owner.token(), recipientId, planDocument(List.of(), noteId));
     assertThat(staleDraft.get("sourcePlanId").asText()).isEqualTo(baseline.getId().toString());
     assertThat(newerDraft.get("sourcePlanId").asText()).isEqualTo(baseline.getId().toString());
     String staleContent = plans.findById(UUID.fromString(staleDraft.get("id").asText()))
@@ -368,11 +397,13 @@ class PlanControllerTest {
 
     for (MedicationDraftCase scenario : cases) {
       String recipientId = createRecipient(owner.token());
+      String noteId = createEvidenceNote(owner.token(), recipientId);
       CarePlan baseline = scenario.hasBaseline()
-          ? saveAcceptedBaseline(recipientId, 1, planDocument(scenario.baseline()))
+          ? saveAcceptedBaseline(recipientId, 1, planDocument(scenario.baseline(), noteId))
           : null;
       long suggestionAuditsBefore = suggestionAuditCount(owner.id());
-      MvcResult result = submitStructuredRequest(owner.token(), recipientId, planDocument(scenario.proposed()));
+      MvcResult result = submitStructuredRequest(
+          owner.token(), recipientId, planDocument(scenario.proposed(), noteId));
 
       if (scenario.name().equals("unchanged") || scenario.name().equals("same-entries-reordered")) {
         assertThat(result.getResponse().getStatus()).as(scenario.name()).isEqualTo(201);
@@ -398,13 +429,14 @@ class PlanControllerTest {
   void rejectsStructuredDraftWhenAcceptedBaselineCannotBeDecoded() throws Exception {
     TestCaregiver owner = register("plan-undecodable-baseline@example.com");
     String recipientId = createRecipient(owner.token());
+    String noteId = createEvidenceNote(owner.token(), recipientId);
     CareRecipient recipient = recipients.findById(UUID.fromString(recipientId)).orElseThrow();
     String malformedContent = "{\"schemaVersion\":1,\"changes\":[}";
     CarePlan baseline = plans.saveAndFlush(new CarePlan(recipient, 1, PlanStatus.ACCEPTED,
         malformedContent, null, null, null, PlanSource.CAREGIVER_SUBMITTED));
     long suggestionAuditsBefore = suggestionAuditCount(owner.id());
 
-    MvcResult result = submitStructuredRequest(owner.token(), recipientId, planDocument(List.of()));
+    MvcResult result = submitStructuredRequest(owner.token(), recipientId, planDocument(List.of(), noteId));
 
     assertThat(result.getResponse().getStatus()).isEqualTo(422);
     assertThat(result.getResponse().getContentAsString()).doesNotContain("JsonParseException", "schemaVersion");
@@ -420,12 +452,13 @@ class PlanControllerTest {
   void rejectsUnsupportedStructuredDraftAction() throws Exception {
     TestCaregiver owner = register("plan-unsupported-action@example.com");
     String recipientId = createRecipient(owner.token());
+    String noteId = createEvidenceNote(owner.token(), recipientId);
     String request = """
         {"content":"","structuredContent":{"schemaVersion":1,"changes":[
           {"action":"PRESCRIBE_MEDICATION","params":{"drug":"medicine"},
-           "reason":"Review medication","evidenceNoteIds":["note-1"]}
+           "reason":"Review medication","evidenceNoteIds":["%s"]}
         ],"medications":[]}}
-        """;
+        """.formatted(noteId);
 
     mvc.perform(post(PLANS + recipientId + "/plans/suggestions")
             .header("Authorization", bearer(owner.token()))
@@ -440,12 +473,13 @@ class PlanControllerTest {
   void rejectsStructuredDraftWithInvalidActionParameters() throws Exception {
     TestCaregiver owner = register("plan-invalid-structured-param@example.com");
     String recipientId = createRecipient(owner.token());
+    String noteId = createEvidenceNote(owner.token(), recipientId);
     String request = """
         {"content":"","structuredContent":{"schemaVersion":1,"changes":[
           {"action":"SCHEDULE_CHECK_IN","params":{"withinDays":"0"},
-           "reason":"Review recorded notes","evidenceNoteIds":["note-1"]}
+           "reason":"Review recorded notes","evidenceNoteIds":["%s"]}
         ],"medications":[]}}
-        """;
+        """.formatted(noteId);
 
     mvc.perform(post(PLANS + recipientId + "/plans/suggestions")
             .header("Authorization", bearer(owner.token()))
@@ -478,12 +512,13 @@ class PlanControllerTest {
   void rejectsNonBlankContentWhenStructuredContentIsAlsoProvided() throws Exception {
     TestCaregiver owner = register("plan-conflicting-content@example.com");
     String recipientId = createRecipient(owner.token());
+    String noteId = createEvidenceNote(owner.token(), recipientId);
     String request = """
         {"content":"legacy text","structuredContent":{"schemaVersion":1,"changes":[
           {"action":"SCHEDULE_CHECK_IN","params":{"withinDays":"3"},
-           "reason":"Review recorded notes","evidenceNoteIds":["note-1"]}
+           "reason":"Review recorded notes","evidenceNoteIds":["%s"]}
         ],"medications":[]}}
-        """;
+        """.formatted(noteId);
 
     mvc.perform(post(PLANS + recipientId + "/plans/suggestions")
             .header("Authorization", bearer(owner.token()))
@@ -525,8 +560,7 @@ class PlanControllerTest {
             .contentType(MediaType.APPLICATION_JSON)
             .content(mapper.writeValueAsBytes(Map.of(
                 "content", originalContent,
-                "sourceSummaryId", "summary-text",
-                "evidenceNoteIds", List.of("note-1")))))
+                "sourceSummaryId", "summary-text"))))
         .andExpect(status().isCreated())
         .andReturn();
     JsonNode created = mapper.readTree(result.getResponse().getContentAsByteArray());
@@ -893,10 +927,10 @@ class PlanControllerTest {
     }
   }
 
-  private PlanDocument planDocument(List<MedicationEntry> medications) {
+  private PlanDocument planDocument(List<MedicationEntry> medications, String noteId) {
     return new PlanDocument(1,
         List.of(new SuggestedPlanChange(PlanAction.SCHEDULE_CHECK_IN, Map.of("withinDays", "3"),
-            "Review recorded notes", List.of("note-1"))),
+            "Review recorded notes", List.of(noteId))),
         medications);
   }
 
@@ -953,7 +987,7 @@ class PlanControllerTest {
     MvcResult result = mvc.perform(post(PLANS + recipientId + "/plans/suggestions")
             .header("Authorization", bearer(token))
             .contentType(MediaType.APPLICATION_JSON)
-            .content("{\"content\":\"" + content + "\"" + summary + ",\"evidenceNoteIds\":[\"note-1\"]}"))
+            .content("{\"content\":\"" + content + "\"" + summary + "}"))
         .andExpect(status().isCreated())
         .andReturn();
     return mapper.readTree(result.getResponse().getContentAsString());
@@ -963,10 +997,23 @@ class PlanControllerTest {
     MvcResult result = mvc.perform(post(PLANS + recipientId + "/plans/suggestions")
             .header("Authorization", bearer(token))
             .contentType(MediaType.APPLICATION_JSON)
-            .content(mapper.writeValueAsBytes(Map.of("content", content, "evidenceNoteIds", List.of("note-1")))))
+            .content(mapper.writeValueAsBytes(Map.of("content", content))))
         .andExpect(status().isCreated())
         .andReturn();
     return mapper.readTree(result.getResponse().getContentAsString());
+  }
+
+  private String createEvidenceNote(String token, String recipientId) throws Exception {
+    MvcResult result = mvc.perform(post("/api/notes")
+            .header("Authorization", bearer(token))
+            .contentType(MediaType.APPLICATION_JSON)
+            .content(mapper.writeValueAsBytes(Map.of(
+                "recipientId", recipientId,
+                "date", "2026-10-24",
+                "mood", "steady"))))
+        .andExpect(status().isCreated())
+        .andReturn();
+    return mapper.readTree(result.getResponse().getContentAsString()).get("id").asText();
   }
 
   private String createRecipient(String token) throws Exception {
