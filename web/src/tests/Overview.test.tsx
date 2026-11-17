@@ -310,6 +310,58 @@ describe('authenticated workspace overview', () => {
     }
   });
 
+  it('advances the dashboard and shell dates past midnight without a reload', async () => {
+    vi.stubEnv('TZ', 'UTC');
+    vi.useFakeTimers({ toFake: ['Date', 'setTimeout', 'clearTimeout'] });
+    vi.setSystemTime(new Date('2026-10-19T23:30:00Z'));
+    const newNoteHrefs = () => screen.getAllByRole('link', { name: 'Record a daily note' })
+      .map((link) => link.getAttribute('href')).sort();
+    try {
+      renderOverview('/app', serving());
+      await act(async () => { await Promise.resolve(); });
+      expect(screen.getByLabelText('Calendar date')).toHaveValue('2026-10-19');
+      expect(screen.getByLabelText('Selected date')).toHaveValue('2026-10-19');
+      expect(newNoteHrefs()).toEqual([
+        '/app/notes/new?date=2026-10-19', '/app/notes/new?date=2026-10-19',
+      ]);
+
+      await act(async () => {
+        vi.setSystemTime(new Date('2026-10-20T00:05:00Z'));
+        await vi.advanceTimersByTimeAsync(60_000);
+      });
+
+      expect(screen.getByLabelText('Calendar date')).toHaveValue('2026-10-20');
+      expect(screen.getByLabelText('Selected date')).toHaveValue('2026-10-20');
+      expect(newNoteHrefs()).toEqual([
+        '/app/notes/new?date=2026-10-20', '/app/notes/new?date=2026-10-20',
+      ]);
+      expect(screen.getByTestId('location')).toHaveTextContent('/app');
+    } finally {
+      vi.unstubAllEnvs();
+    }
+  });
+
+  it('keeps an explicit date when the calendar day changes', async () => {
+    vi.stubEnv('TZ', 'UTC');
+    vi.useFakeTimers({ toFake: ['Date', 'setTimeout', 'clearTimeout'] });
+    vi.setSystemTime(new Date('2026-10-19T23:30:00Z'));
+    try {
+      renderOverview('/app?date=2026-10-15', serving());
+      await act(async () => { await Promise.resolve(); });
+
+      await act(async () => {
+        vi.setSystemTime(new Date('2026-10-20T00:05:00Z'));
+        await vi.advanceTimersByTimeAsync(60_000);
+      });
+
+      expect(screen.getByLabelText('Calendar date')).toHaveValue('2026-10-15');
+      expect(screen.getByLabelText('Selected date')).toHaveValue('2026-10-15');
+      expect(screen.getByTestId('location')).toHaveTextContent('/app?date=2026-10-15');
+    } finally {
+      vi.unstubAllEnvs();
+    }
+  });
+
   it('renders recipient table rows with semantic headings and status-specific actions', async () => {
     const fetcher = serving();
     renderOverview('/app?date=2026-10-18', fetcher);

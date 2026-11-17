@@ -12,6 +12,7 @@ import {
   type VerificationValue,
 } from '../../api/observation';
 import type { MessageKey } from '../../i18n/translations';
+import { localToday } from '../../lib/localToday';
 
 export type NoteValues = {
   recipientId: string;
@@ -42,8 +43,7 @@ function observationSet(): ObservationSet {
 
 /** Today as a local YYYY-MM-DD calendar date, for defaults, `max` and validation. */
 export function todayDate(): string {
-  const today = new Date();
-  return [today.getFullYear(), String(today.getMonth() + 1).padStart(2, '0'), String(today.getDate()).padStart(2, '0')].join('-');
+  return localToday();
 }
 
 export function emptyNoteValues(): NoteValues {
