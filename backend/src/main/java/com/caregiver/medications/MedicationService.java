@@ -1,5 +1,6 @@
 package com.caregiver.medications;
 
+import com.caregiver.audit.AuditService;
 import com.caregiver.auth.AuthContext;
 import com.caregiver.recipient.CareRecipient;
 import com.caregiver.recipient.CareRecipientRepository;
@@ -18,12 +19,14 @@ public class MedicationService {
   private final MedicationRepository medications;
   private final CareRecipientRepository recipients;
   private final EntityManager entityManager;
+  private final AuditService audit;
 
   public MedicationService(MedicationRepository medications, CareRecipientRepository recipients,
-      EntityManager entityManager) {
+      EntityManager entityManager, AuditService audit) {
     this.medications = medications;
     this.recipients = recipients;
     this.entityManager = entityManager;
+    this.audit = audit;
   }
 
   @Transactional
@@ -34,6 +37,7 @@ public class MedicationService {
     MedicationRecord record = medications.save(new MedicationRecord(recipient.getCaregiver(), recipient,
         request.displayName(), request.doseText(), request.scheduleText()));
     entityManager.flush();
+    audit.record("MEDICATION_CREATED", "MEDICATION", record.getId().toString(), null);
     return MedicationResponse.from(record);
   }
 
@@ -64,6 +68,7 @@ public class MedicationService {
     MedicationLifecycle.requireActiveMedication(record, "updated");
     record.updateDetails(request.displayName(), request.doseText(), request.scheduleText());
     entityManager.flush();
+    audit.record("MEDICATION_UPDATED", "MEDICATION", record.getId().toString(), null);
     return MedicationResponse.from(record);
   }
 
@@ -74,8 +79,12 @@ public class MedicationService {
     MedicationLifecycle.requireActiveRecipient(recipient);
     MedicationRecord record = ownedMedication(medicationId, caregiverId, recipient.getId())
         .orElseThrow(MedicationService::medicationNotFound);
+    boolean wasActive = record.isActive();
     record.archive();
     entityManager.flush();
+    if (wasActive) {
+      audit.record("MEDICATION_ARCHIVED", "MEDICATION", record.getId().toString(), null);
+    }
     return MedicationResponse.from(record);
   }
 

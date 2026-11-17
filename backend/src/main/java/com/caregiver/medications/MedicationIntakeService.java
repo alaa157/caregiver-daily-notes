@@ -1,5 +1,6 @@
 package com.caregiver.medications;
 
+import com.caregiver.audit.AuditService;
 import com.caregiver.auth.AuthContext;
 import com.caregiver.recipient.CareRecipient;
 import com.caregiver.recipient.CareRecipientRepository;
@@ -33,17 +34,19 @@ public class MedicationIntakeService {
   private final MedicationRepository medications;
   private final MedicationIntakeEventRepository intakeEvents;
   private final EntityManager entityManager;
+  private final AuditService audit;
   private final Clock clock;
   private final TransactionTemplate writeTx;
   private final TransactionTemplate readTx;
 
   public MedicationIntakeService(CareRecipientRepository recipients, MedicationRepository medications,
-      MedicationIntakeEventRepository intakeEvents, EntityManager entityManager, Clock clock,
-      PlatformTransactionManager transactionManager) {
+      MedicationIntakeEventRepository intakeEvents, EntityManager entityManager, AuditService audit,
+      Clock clock, PlatformTransactionManager transactionManager) {
     this.recipients = recipients;
     this.medications = medications;
     this.intakeEvents = intakeEvents;
     this.entityManager = entityManager;
+    this.audit = audit;
     this.clock = clock;
     this.writeTx = new TransactionTemplate(transactionManager);
     this.writeTx.setPropagationBehavior(TransactionDefinition.PROPAGATION_REQUIRES_NEW);
@@ -89,6 +92,9 @@ public class MedicationIntakeService {
             recipient.getCaregiver(), recipient, medication, request.intakeState(),
             request.occurredAt(), request.verificationState(), idempotencyKey));
         entityManager.flush();
+        // Identifiers only: never copy the dose, state or time into the audit payload.
+        audit.record("MEDICATION_INTAKE_RECORDED", "MEDICATION_INTAKE_EVENT", event.getId().toString(),
+            "medicationId=" + medication.getId());
         return response(event);
       });
     } catch (DataIntegrityViolationException e) {
