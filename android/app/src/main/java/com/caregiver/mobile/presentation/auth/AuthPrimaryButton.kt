@@ -2,7 +2,7 @@ package com.caregiver.mobile.presentation.auth
 
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxWidth
-import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.Button
@@ -38,6 +38,10 @@ const val AuthSubmitProgressTestTag = "auth_submit_progress"
  * [busy] is a parameter rather than a read of `AuthUiState`, keeping the
  * composable previewable and testable on its own. It is used by both Login and
  * Register; wiring it into the form is #874.
+ *
+ * #876: height is a **minimum**, not a fixed size. At 200% font scale a long
+ * label wraps, and a fixed height would cut the second line off (the same
+ * rule the shared buttons in `ButtonScaleUiTest` follow).
  */
 @Composable
 fun AuthPrimaryButton(
@@ -56,7 +60,7 @@ fun AuthPrimaryButton(
         ),
         modifier = modifier
             .fillMaxWidth()
-            .height(56.dp)
+            .heightIn(min = 56.dp)
             .testTag(AuthPrimaryButtonTestTag),
     ) {
         Row(verticalAlignment = Alignment.CenterVertically) {
