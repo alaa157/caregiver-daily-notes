@@ -448,9 +448,9 @@
     <string name="ai_consent_body_model">Care notes are sent to %1$s using the model %2$s. This app is not a medical device and is not HIPAA-compliant.</string>
     <string name="ai_consent_accept">I understand</string>
     <string name="common_cancel">Cancel</string>
-    <string name="unsaved_changes_title">Discard unsaved changes?</string>
-    <string name="unsaved_changes_message">Your changes have not been saved. Discard them?</string>
-    <string name="unsaved_changes_discard">Discard</string>
+    <string name="unsaved_changes_title">Leave this note?</string>
+    <string name="unsaved_changes_message">Your answers are saved as a draft on this device and will be here when you return.</string>
+    <string name="unsaved_changes_discard">Leave note</string>
     <string name="unsaved_changes_keep_editing">Keep editing</string>
     <string name="settings_ai_provider">Provider</string>
     <string name="settings_ai_api_key">API key</string>

@@ -118,19 +118,33 @@ class NoteEditorShellUiTest {
 
         compose.onNode(hasContentDescription("Close editor")).performClick()
 
-        compose.onNodeWithText("Discard unsaved changes?").assertDoesNotExist()
+        compose.onNodeWithText("Leave this note?").assertDoesNotExist()
         compose.onNodeWithText("left screen").assertIsDisplayed()
     }
 
     @Test
-    fun closingWithChangesLeavesWithoutAskingBecauseTheDraftIsAutosaved() {
+    fun closingWithChangesAsksBeforeLeaving() {
         openEditor()
         compose.onAllNodesWithText("Good")[0].performClick()
 
         compose.onNode(hasContentDescription("Close editor")).performClick()
 
-        // #906: the change was persisted locally, so there is nothing to lose.
-        compose.onNodeWithText("Discard unsaved changes?").assertDoesNotExist()
-        compose.onNodeWithText("left screen").assertIsDisplayed()
+        compose.onNodeWithText("Leave this note?").assertIsDisplayed()
+        compose.onNodeWithTag("editor_exit_dialog").assertIsDisplayed()
+        // Keep editing stays on the form with the answer intact.
+        compose.onNodeWithText("Keep editing").performClick()
+        compose.onNodeWithText("1 of 7 done").assertIsDisplayed()
+        compose.onNodeWithText("left screen").assertDoesNotExist()
+    }
+
+    @Test
+    fun systemBackWithChangesAsksBeforeLeaving() {
+        openEditor()
+        compose.onAllNodesWithText("Good")[0].performClick()
+
+        compose.activity.onBackPressedDispatcher.onBackPressed()
+
+        compose.onNodeWithTag("editor_exit_dialog").assertIsDisplayed()
+        compose.onNodeWithText("left screen").assertDoesNotExist()
     }
 }

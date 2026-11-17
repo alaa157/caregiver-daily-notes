@@ -458,9 +458,9 @@
     <string name="ai_consent_body_model">تُرسل ملاحظات الرعاية إلى %1$s باستخدام النموذج %2$s. هذا التطبيق ليس جهازًا طبيًا ولا يتوافق مع HIPAA.</string>
     <string name="ai_consent_accept">أتفهم</string>
     <string name="common_cancel">إلغاء</string>
-    <string name="unsaved_changes_title">تجاهل التغييرات غير المحفوظة؟</string>
-    <string name="unsaved_changes_message">لم يتم حفظ تغييراتك. هل تريد تجاهلها؟</string>
-    <string name="unsaved_changes_discard">تجاهل</string>
+    <string name="unsaved_changes_title">مغادرة هذه الملاحظة؟</string>
+    <string name="unsaved_changes_message">تم حفظ إجاباتك كمسودة على هذا الجهاز وستكون هنا عند عودتك.</string>
+    <string name="unsaved_changes_discard">مغادرة الملاحظة</string>
     <string name="unsaved_changes_keep_editing">متابعة التحرير</string>
     <string name="settings_ai_provider">المزود</string>
     <string name="settings_ai_api_key">مفتاح API</string>

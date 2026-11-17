@@ -1,6 +1,8 @@
 package com.caregiver.mobile.presentation.notes
 
 import androidx.activity.ComponentActivity
+import androidx.activity.compose.BackHandler
+import androidx.activity.compose.LocalOnBackPressedDispatcherOwner
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.background
@@ -74,6 +76,7 @@ import com.caregiver.mobile.AppGraph
 import com.caregiver.mobile.R
 import com.caregiver.mobile.core.navigation.AppRoutes
 import com.caregiver.mobile.core.navigation.MainTab
+import com.caregiver.mobile.core.navigation.markUnsavedChanges
 import com.caregiver.mobile.data.NoteDraftStore
 import com.caregiver.mobile.data.api.NoteDetailDto
 import com.caregiver.mobile.core.i18n.Bidi
@@ -107,12 +110,14 @@ internal fun hasUnsavedChanges(state: EditorState): Boolean =
     state.answeredCount() > 0 || state.text.isNotBlank()
 
 /**
- * #901 asks for confirmation only when nothing was autosaved. This build has
- * no autosave yet, so the flag is always false; #906 will flip it once a draft
- * is persisted. Keeping the rule here makes that hand-off explicit.
+ * #915: a form holding answers always asks before any exit is allowed, even
+ * though #906 autosaves the draft. The autosaved flag no longer suppresses
+ * the prompt — the dialog now explains that the draft is kept, so this is a
+ * question about intent, not about losing work. The parameter stays so
+ * existing call sites/tests keep the same shape.
  */
 internal fun shouldConfirmClose(state: EditorState, autosaved: Boolean = false): Boolean =
-    !autosaved && hasUnsavedChanges(state)
+    hasUnsavedChanges(state)
 
 /** The numerator always comes from [EditorState.answeredCount], never a literal. */
 internal fun editorProgressFraction(answered: Int): Float =
@@ -148,6 +153,16 @@ fun NoteEditorScreen(recipientId: String, graph: AppGraph, navController: NavCon
         }
     }
 
+    // #915: advertise the dirty state on this destination so the shell's
+    // existing bottom-nav tab guard asks before navigating away (Path B).
+    // Reuse the shared flag — no shell changes are needed. Once saved, the
+    // editor is about to leave, so it must not block a tab tap.
+    val dirty = state.savedId == null && hasUnsavedChanges(state)
+    val editorEntry = navController.currentBackStackEntry
+    LaunchedEffect(editorEntry, dirty) {
+        editorEntry?.markUnsavedChanges(dirty)
+    }
+
     // A name lookup is best-effort: the editor must still work if it fails
     // (offline, a deleted person, or a test backend with no get handler).
     var recipientName by rememberSaveable { mutableStateOf<String?>(null) }
@@ -158,17 +173,26 @@ fun NoteEditorScreen(recipientId: String, graph: AppGraph, navController: NavCon
     var confirmClose by rememberSaveable { mutableStateOf(false) }
 
     fun requestClose() {
-        // #906 persists a draft after every change, so the only case that
-        // needs confirmation is a form that has never been autosaved.
-        if (shouldConfirmClose(state, autosaved = state.draftSavedAt != null)) {
+        // #915: every exit path goes through here. #906 keeps the draft, so
+        // the prompt is about whether the user means to leave — not a warning
+        // that answers will be lost. A clean form still leaves immediately.
+        if (shouldConfirmClose(state)) {
             confirmClose = true
         } else {
             navController.popBackStack()
         }
     }
 
+    // #915: system Back is an exit too. Disabled while the dialog is up so the
+    // dialog's own back handling dismisses it first (keep editing). The owner
+    // guard keeps headless Compose renders without an activity working.
+    if (LocalOnBackPressedDispatcherOwner.current != null) {
+        BackHandler(enabled = !confirmClose) { requestClose() }
+    }
+
     if (confirmClose) {
         AlertDialog(
+            modifier = Modifier.testTag("editor_exit_dialog"),
             onDismissRequest = { confirmClose = false },
             title = {
                 Text(

@@ -30,12 +30,14 @@ class NoteEditorShellTest {
     }
 
     @Test
-    fun confirmationIsSkippedOnlyWhenEverythingWasAutosaved() {
-        val dirty = EditorState(mood = "happy", text = "draft")
+    fun dirtyFormConfirmsCloseEvenWhenTheDraftWasAutosaved() {
+        val dirty = EditorState(mood = "happy", text = "draft", draftSavedAt = 123L)
+        // #915: #906's autosave no longer suppresses the prompt.
         assertTrue(shouldConfirmClose(dirty, autosaved = false))
-        assertFalse(shouldConfirmClose(dirty, autosaved = true))
-        // #901 has no autosave, so the default flag must confirm.
+        assertTrue(shouldConfirmClose(dirty, autosaved = true))
         assertTrue(shouldConfirmClose(dirty))
+        // A clean form never asks, whatever the flag says.
+        assertFalse(shouldConfirmClose(EditorState(), autosaved = true))
     }
 
     @Test
