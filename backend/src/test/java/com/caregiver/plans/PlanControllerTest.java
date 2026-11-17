@@ -30,6 +30,7 @@ import java.util.concurrent.TimeUnit;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.patch;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
@@ -98,6 +99,27 @@ class PlanControllerTest {
 
     assertThat(plans.findAllByRecipient_IdOrderByVersionNumberDesc(UUID.fromString(recipientId)))
         .filteredOn(p -> p.getStatus().isActiveAccepted()).hasSize(1);
+  }
+
+  @Test
+  void actionsOnArchivedRecipientReturnConflictNotServerError() throws Exception {
+    TestCaregiver owner = register("plan-archived@example.com");
+    String recipientId = createRecipient(owner.token());
+    String planId = suggest(owner.token(), recipientId, "Archived recipient plan", null)
+        .get("id").asText();
+
+    mvc.perform(patch("/api/recipients/" + recipientId + "/archive")
+            .header("Authorization", bearer(owner.token())))
+        .andExpect(status().isOk());
+
+    for (String action : new String[] {"accept", "dismiss"}) {
+      mvc.perform(post(path(recipientId, planId, action))
+              .header("Authorization", bearer(owner.token())))
+          .andExpect(status().isConflict())
+          .andExpect(jsonPath("$.code").value("INACTIVE_RECIPIENT"))
+          .andExpect(jsonPath("$.message")
+              .value("Archived or legacy-review recipients cannot be changed in ordinary workflows."));
+    }
   }
 
   @Test
