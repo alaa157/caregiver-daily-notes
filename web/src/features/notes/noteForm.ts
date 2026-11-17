@@ -40,10 +40,14 @@ function observationSet(): ObservationSet {
   };
 }
 
-export function emptyNoteValues(): NoteValues {
+/** Today as a local YYYY-MM-DD calendar date, for defaults, `max` and validation. */
+export function todayDate(): string {
   const today = new Date();
-  const date = [today.getFullYear(), String(today.getMonth() + 1).padStart(2, '0'), String(today.getDate()).padStart(2, '0')].join('-');
-  return { recipientId: '', date, observations: observationSet(), medicationVerification: 'NOT_ASSERTED' };
+  return [today.getFullYear(), String(today.getMonth() + 1).padStart(2, '0'), String(today.getDate()).padStart(2, '0')].join('-');
+}
+
+export function emptyNoteValues(): NoteValues {
+  return { recipientId: '', date: todayDate(), observations: observationSet(), medicationVerification: 'NOT_ASSERTED' };
 }
 
 function validateObservation<K extends keyof ObservationValues>(
@@ -72,6 +76,9 @@ export function validateNoteValues(values: NoteValues, corrections?: Corrections
   if (!corrections) {
     if (!isRecipientId(values.recipientId)) errors.recipientId = 'notesRequiredRecipient';
     if (!isNoteDate(values.date)) errors.date = 'notesRequiredDate';
+    // YYYY-MM-DD sorts chronologically; "today" is local and matches the
+    // picker's max, while the server applies the same rule in its explicit zone.
+    else if (values.date > todayDate()) errors.date = 'notesDateFuture';
   } else if (!observationFields.some((field) => corrections[field]) && !corrections.medicationVerification) {
     errors.form = 'notesSelectCorrection';
   }
