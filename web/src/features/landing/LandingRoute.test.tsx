@@ -34,6 +34,49 @@ describe('public landing page', () => {
     expect(document.documentElement.dir).toBe('rtl');
     expect(screen.getByText(/بيانات الملف الشخصي المنظمة.*الملاحظات المكتوبة بحرية فتُرسل كما كُتبت/)).toBeInTheDocument();
   });
+  it('marks the brand name as English in the header, hero and footer on both pages', () => {
+    const { container } = setup();
+    const brandSpans = () => Array.from(container.querySelectorAll<HTMLElement>(
+      '.landing-brand span, .landing-hero .eyebrow span, .landing-footer span[lang="en"]',
+    ));
+
+    expect(brandSpans()).toHaveLength(3);
+    expect(brandSpans().every((span) => span.getAttribute('lang') === 'en')).toBe(true);
+    expect(brandSpans().every((span) => span.textContent === 'Caregiver Daily Notes')).toBe(true);
+
+    fireEvent.click(within(screen.getByRole('navigation')).getByRole('button', { name: /التبديل إلى العربية/ }));
+
+    expect(brandSpans()).toHaveLength(3);
+    expect(brandSpans().every((span) => span.getAttribute('lang') === 'en')).toBe(true);
+    expect(brandSpans().every((span) => span.textContent === 'Caregiver Daily Notes')).toBe(true);
+  });
+
+  it('marks the language toggle label with the language it is written in', () => {
+    const { container } = setup();
+    const toggles = () => Array.from(container.querySelectorAll<HTMLButtonElement>('.language-toggle'));
+
+    // English page: the label reads "AR — التبديل إلى العربية" (Arabic).
+    expect(toggles()).toHaveLength(2);
+    expect(toggles().every((button) => button.getAttribute('lang') === 'ar')).toBe(true);
+
+    fireEvent.click(toggles()[0]);
+
+    // Arabic page: the label reads "EN — Switch to English" (English).
+    expect(toggles().every((button) => button.getAttribute('lang') === 'en')).toBe(true);
+  });
+
+  it('marks the tech-stack product names as English on both pages', () => {
+    const { container } = setup();
+    const badges = () => Array.from(container.querySelectorAll<HTMLElement>('.landing-badges span'));
+
+    expect(badges()).toHaveLength(8);
+    expect(badges().every((badge) => badge.getAttribute('lang') === 'en')).toBe(true);
+
+    fireEvent.click(within(screen.getByRole('navigation')).getByRole('button', { name: /التبديل إلى العربية/ }));
+
+    expect(badges().every((badge) => badge.getAttribute('lang') === 'en')).toBe(true);
+  });
+
   it('closes the mobile menu on Escape and on navigation link clicks', () => {
     const { container } = setup();
     const menuButton = container.querySelector<HTMLButtonElement>('.landing-menu');
