@@ -5,6 +5,7 @@ import android.content.res.Configuration
 import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.test.assertCountEquals
+import androidx.compose.ui.test.assertDoesNotExist
 import androidx.compose.ui.test.assertHasClickAction
 import androidx.compose.ui.test.assertIsDisplayed
 import androidx.compose.ui.test.junit4.createComposeRule
@@ -205,8 +206,13 @@ class HomeUiTest {
             }
         }
 
+        // #898: the summary card and list are replaced by one friendly
+        // message and a single "Add your first person" action.
+        compose.onNodeWithTag("home_summary_card").assertDoesNotExist()
         compose.onNodeWithText("No people yet. Add your first person.").assertIsDisplayed()
-        compose.onNodeWithText("Add person").assertIsDisplayed()
+        compose.onNodeWithText("Add the person you care for to start taking daily notes.")
+            .assertIsDisplayed()
+        compose.onNodeWithText("Add your first person").assertIsDisplayed().assertHasClickAction()
     }
 
     @Test
