@@ -141,7 +141,10 @@ internal fun draftTimeLabel(time: LocalTime): String =
 @Composable
 fun NoteEditorScreen(recipientId: String, graph: AppGraph, navController: NavController) {
     // SharedPreferences-backed so an in-progress note survives app restarts.
-    val drafts = remember { NoteDraftStore.create(LocalContext.current.applicationContext) }
+    // Read LocalContext outside the remember lambda: it is a composable call
+    // and cannot run inside a non-composable remembered calculation.
+    val context = LocalContext.current
+    val drafts = remember { NoteDraftStore.create(context.applicationContext) }
     val vm: NoteEditorViewModel = assistedViewModel("editor-$recipientId") {
         NoteEditorViewModel(recipientId, graph.apis, graph.auth, drafts = drafts)
     }
