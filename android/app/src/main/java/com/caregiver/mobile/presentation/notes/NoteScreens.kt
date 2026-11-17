@@ -339,15 +339,13 @@ fun NoteEditorScreen(recipientId: String, graph: AppGraph, navController: NavCon
             }
             SectionCard {
                 GroupLabel(OptionGroup.Medication)
-                ChipWrap {
-                    NoteOptions.values(OptionGroup.Medication).forEach { value ->
-                        HtmlChip(
-                            label = optionLabel(OptionGroup.Medication, value),
-                            selected = state.medication == value,
-                            onClick = { vm.select(OptionGroup.Medication, value) },
-                        )
-                    }
-                }
+                // #904: one row, three segments. No per-medication
+                // "which one was missed" expansion — that would require a
+                // new note-model field, which this UI issue must not add.
+                MedicationSegments(
+                    selected = state.medication,
+                    onSelect = { value -> vm.select(OptionGroup.Medication, value) },
+                )
             }
             SectionCard {
                 GroupLabelText(stringResource(R.string.editor_fall_question))

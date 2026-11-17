@@ -129,6 +129,10 @@
     <string name="editor_sleep">النوم</string>
     <string name="editor_mobility">الحركة</string>
     <string name="editor_medication">الدواء</string>
+    <!-- #904: three medication segments; no per-drug expansion. -->
+    <string name="editor_medication_all_taken">تم تناول كل الجرعات</string>
+    <string name="editor_medication_something_missed">فاتت جرعة</string>
+    <string name="editor_medication_not_sure">غير متأكد</string>
     <string name="editor_fall">سقوط</string>
     <string name="editor_pain">الألم</string>
     <string name="editor_pain_caption">0 = لا ألم · 10 = أسوأ ألم</string>
