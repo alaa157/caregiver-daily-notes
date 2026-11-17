@@ -112,6 +112,7 @@
     <string name="editor_title">Today\'s note</string>
     <string name="editor_note_for">Note for %1$s</string>
     <string name="editor_draft_status">%1$s · Draft saved</string>
+    <string name="editor_draft_saved">Draft saved</string>
     <string name="editor_nothing_required">Nothing is required</string>
     <string name="editor_progress_done">%1$d of 7 done</string>
     <string name="editor_close">Close editor</string>

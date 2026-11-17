@@ -5,12 +5,15 @@ import androidx.lifecycle.viewModelScope
 import com.caregiver.mobile.R
 import com.caregiver.mobile.data.AuthRepository
 import com.caregiver.mobile.data.LoggedOutException
+import com.caregiver.mobile.data.NoteDraftStore
 import com.caregiver.mobile.data.api.ApiErrors
 import com.caregiver.mobile.data.api.BackendApis
 import com.caregiver.mobile.data.api.CreateNoteRequest
 import com.caregiver.mobile.data.local.ArchivedRecipientException
 import com.caregiver.mobile.data.local.DuplicateNoteDayException
 import java.io.IOException
+import java.time.Clock
+import java.time.LocalDate
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -52,6 +55,8 @@ data class EditorState(
     val busy: Boolean = false,
     val savedId: String? = null,
     val detailsExpanded: Boolean = false,
+    /** Epoch millis of the last local draft write, or null when none exists. */
+    val draftSavedAt: Long? = null,
 )
 
 /** How many of the seven questions have an answer; free text does not count. */
@@ -67,40 +72,77 @@ class NoteEditorViewModel(
     private val apis: BackendApis,
     private val repository: AuthRepository,
     scope: CoroutineScope? = null,
+    private val drafts: NoteDraftStore = NoteDraftStore.inMemory(),
+    private val clock: Clock = Clock.systemDefaultZone(),
 ) : ViewModel() {
     private val exec: CoroutineScope = scope ?: viewModelScope
 
     private val _state = MutableStateFlow(EditorState())
     val state: StateFlow<EditorState> = _state.asStateFlow()
 
+    // One draft per person per calendar day. The clock is injectable so a
+    // test can prove yesterday's draft never leaks into today's editor.
+    private val draftKey: String
+        get() = NoteDraftStore.key(recipientId, LocalDate.now(clock).toString())
+
+    init {
+        drafts.load(draftKey)?.let { draft ->
+            _state.value = _state.value.copy(
+                mood = draft.mood,
+                appetite = draft.appetite,
+                sleep = draft.sleep,
+                mobility = draft.mobility,
+                medication = draft.medication,
+                pain = draft.pain,
+                fall = draft.fall,
+                text = draft.text,
+                draftSavedAt = draft.savedAt.takeIf { it > 0 },
+            )
+        }
+    }
+
+    /** Persist after every change, then expose the time the draft was saved. */
+    private fun commit(next: EditorState) {
+        val savedAt = clock.millis()
+        val clean = next.copy(formError = null)
+        drafts.save(draftKey, clean.toDraft(savedAt))
+        _state.value = clean.copy(draftSavedAt = savedAt)
+    }
+
+    private fun EditorState.toDraft(savedAt: Long) = NoteDraftStore.Draft(
+        mood = mood,
+        appetite = appetite,
+        sleep = sleep,
+        mobility = mobility,
+        medication = medication,
+        pain = pain,
+        fall = fall,
+        text = text,
+        savedAt = savedAt,
+    )
+
     fun select(group: OptionGroup, value: String) {
         val current = _state.value.current(group)
         val next = if (current == value) null else value
-        _state.value = _state.value.with(group, next).copy(formError = null)
+        commit(_state.value.with(group, next))
     }
 
     fun setPain(value: Int) {
         val clamped = value.coerceIn(MIN_PAIN, MAX_PAIN)
         val current = _state.value
-        _state.value = current.copy(
-            pain = if (current.pain == clamped) null else clamped,
-            formError = null,
-        )
+        commit(current.copy(pain = if (current.pain == clamped) null else clamped))
     }
 
     fun setFall(value: Boolean) {
         val current = _state.value
-        _state.value = current.copy(
-            fall = if (current.fall == value) null else value,
-            formError = null,
-        )
+        commit(current.copy(fall = if (current.fall == value) null else value))
     }
 
     fun onText(value: String) {
-        _state.value = _state.value.copy(text = value, formError = null)
+        commit(_state.value.copy(text = value))
     }
 
-    /** The details field cannot collapse while it holds text. */
+    /** The details field cannot collapse while it holds text, and is UI-only. */
     fun toggleDetails() {
         val current = _state.value
         if (current.text.isNotBlank()) return
@@ -140,7 +182,13 @@ class NoteEditorViewModel(
                         ),
                     )
                 }
-                _state.value = _state.value.copy(busy = false, savedId = created.id)
+                // A saved note must never leave a stale draft behind.
+                drafts.clear(draftKey)
+                _state.value = _state.value.copy(
+                    busy = false,
+                    savedId = created.id,
+                    draftSavedAt = null,
+                )
             } catch (e: LoggedOutException) {
                 _state.value = _state.value.copy(busy = false)
             } catch (e: ArchivedRecipientException) {
