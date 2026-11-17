@@ -76,6 +76,15 @@ class SettingsStoreTest {
     }
 
     @Test
+    fun storedLanguageIsNullUntilSetAndRoundTrips() = runTest {
+        // The post-attach cold-start restore distinguishes "never saved" from
+        // a real choice so a missing value cannot reset the mirror to Arabic.
+        assertNull(store.storedLanguage.first())
+        store.setLanguage("en")
+        assertEquals("en", store.storedLanguage.first())
+    }
+
+    @Test
     fun languageSwitchPreservesServerUrlAndToken() = runTest {
         store.setBaseUrl("https://care.example:8443/")
         store.setToken("jwt-token")

@@ -12,7 +12,9 @@ import java.io.File
  * through here, so the `settings` file never gets two competing stores.
  * The producer runs at most once per name; the key is the file name, never
  * the calling context, so base-context and application-context callers share
- * the instance without touching `applicationContext` before attach.
+ * the instance. The producer resolves the file from the passed Context's own
+ * `filesDir`, never through `applicationContext`, so an early caller before
+ * attach cannot hit the #879 `getFilesDir()`-on-null crash.
  *
  * A corrupt preferences file is replaced with empty settings. Only
  * reconstructible configuration lives here: losing it resets the backend
