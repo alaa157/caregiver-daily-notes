@@ -118,6 +118,11 @@ object AppDimens {
     val AuthFieldRadius = 16.dp
     val AuthButtonRadius = 16.dp
     val AuthSocialButtonRadius = 14.dp
+
+    // Home / Recipient Detail / Note Editor redesign (#893): 20-dp cards,
+    // kept separate from the 14-dp CardRadius every existing screen uses so
+    // adding it changes no current appearance.
+    val SectionCardRadius = 20.dp
 }
 
 /**

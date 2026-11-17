@@ -50,6 +50,18 @@ data class CaregiverColorScheme(
     val AuthDivider: Color,
     val AuthDisabledFill: Color,
     val AuthDisabledIcon: Color,
+
+    // Home / Recipient Detail / Note Editor redesign (#893). Dedicated names
+    // so restyling those screens cannot change any token an existing screen
+    // reads. SectionCard is white with a 1-dp soft border; the two status
+    // chips keep their exact specified container/content pairs in both modes
+    // so the contrast guarantee holds everywhere.
+    val SectionCardSurface: Color,
+    val SectionCardBorder: Color,
+    val DoneChipContainer: Color,
+    val DoneChipContent: Color,
+    val NotYetChipContainer: Color,
+    val NotYetChipContent: Color,
 )
 
 object CaregiverColors {
@@ -96,6 +108,12 @@ object CaregiverColors {
     val AuthDivider get() = _current.value.AuthDivider
     val AuthDisabledFill get() = _current.value.AuthDisabledFill
     val AuthDisabledIcon get() = _current.value.AuthDisabledIcon
+    val SectionCardSurface get() = _current.value.SectionCardSurface
+    val SectionCardBorder get() = _current.value.SectionCardBorder
+    val DoneChipContainer get() = _current.value.DoneChipContainer
+    val DoneChipContent get() = _current.value.DoneChipContent
+    val NotYetChipContainer get() = _current.value.NotYetChipContainer
+    val NotYetChipContent get() = _current.value.NotYetChipContent
 
     fun update(darkTheme: Boolean, palette: String) {
         _current.value = caregiverScheme(darkTheme, palette)
@@ -143,6 +161,12 @@ fun caregiverScheme(dark: Boolean, palette: String): CaregiverColorScheme {
             AuthDivider = Color(0xFF2A3336),
             AuthDisabledFill = Color(0xFF232C2A),
             AuthDisabledIcon = Color(0xFF6E7C78),
+            SectionCardSurface = Color(0xFF1A1F1F),
+            SectionCardBorder = Color(0xFF2A3336),
+            DoneChipContainer = Color(0xFFDDF1EE),
+            DoneChipContent = Color(0xFF0A524E),
+            NotYetChipContainer = Color(0xFFFFF0D6),
+            NotYetChipContent = Color(0xFF7A4A00),
         )
     } else {
         CaregiverColorScheme(
@@ -178,6 +202,12 @@ fun caregiverScheme(dark: Boolean, palette: String): CaregiverColorScheme {
             AuthDivider = Color(0xFFE3E7EA),
             AuthDisabledFill = Color(0xFFF0F3F2),
             AuthDisabledIcon = Color(0xFFA3AEAD),
+            SectionCardSurface = Color(0xFFFFFFFF),
+            SectionCardBorder = Color(0xFFE3E7EA),
+            DoneChipContainer = Color(0xFFDDF1EE),
+            DoneChipContent = Color(0xFF0A524E),
+            NotYetChipContainer = Color(0xFFFFF0D6),
+            NotYetChipContent = Color(0xFF7A4A00),
         )
     }
 }
