@@ -47,6 +47,26 @@ describe('public landing page', () => {
     expect(sessionStorage.getItem('caregiver-auth-session-v1')).not.toBeNull();
   });
 
+  it('names the mobile menu button with the label only, in both languages', () => {
+    const { container } = setup();
+    const menuButton = container.querySelector<HTMLButtonElement>('.landing-menu');
+    if (!menuButton) throw new Error('Landing menu button not found');
+
+    expect(screen.getByRole('button', { name: 'Menu', exact: true })).toBe(menuButton);
+    expect(menuButton).toHaveAttribute('aria-controls', 'landing-nav');
+    expect(menuButton).toHaveAttribute('aria-expanded', 'false');
+    expect(menuButton.textContent).not.toMatch(/[☰×]/);
+    expect(menuButton.querySelector('svg')).toHaveAttribute('aria-hidden', 'true');
+
+    fireEvent.click(menuButton);
+    expect(menuButton).toHaveAttribute('aria-expanded', 'true');
+    expect(screen.getByRole('button', { name: 'Menu', exact: true })).toBe(menuButton);
+
+    fireEvent.click(within(screen.getByRole('navigation')).getByRole('button', { name: /التبديل إلى العربية/ }));
+    expect(screen.getByRole('button', { name: 'القائمة', exact: true })).toBe(menuButton);
+    expect(menuButton.textContent).not.toMatch(/[☰×]/);
+  });
+
   it('closes the mobile menu on Escape and on navigation link clicks', () => {
     const { container } = setup();
     const menuButton = container.querySelector<HTMLButtonElement>('.landing-menu');
