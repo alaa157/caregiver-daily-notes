@@ -17,14 +17,18 @@ import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.imePadding
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.selection.selectableGroup
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.automirrored.filled.ArrowBack
+import androidx.compose.material.icons.filled.Edit
 import androidx.compose.material.icons.filled.MoreVert
 import androidx.compose.material.icons.filled.PersonAdd
 import androidx.compose.material3.AlertDialog
@@ -38,6 +42,7 @@ import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.OutlinedTextFieldDefaults
 import androidx.compose.material3.SnackbarDuration
 import androidx.compose.material3.SnackbarResult
+import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.material3.pulltorefresh.PullToRefreshBox
@@ -53,16 +58,19 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalLayoutDirection
+import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.semantics.Role
+import androidx.compose.ui.semantics.heading
 import androidx.compose.ui.semantics.role
 import androidx.compose.ui.semantics.semantics
-import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.res.pluralStringResource
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.KeyboardType
+import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.LayoutDirection
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
@@ -96,8 +104,12 @@ import com.caregiver.mobile.presentation.common.Avatar
 import com.caregiver.mobile.presentation.common.ForwardChevron
 import com.caregiver.mobile.presentation.common.GrayPill
 import com.caregiver.mobile.presentation.common.GreenPill
+import com.caregiver.mobile.presentation.common.PersonAvatar
+import com.caregiver.mobile.presentation.common.PersonAvatarSize
 import com.caregiver.mobile.presentation.common.PrimaryButton
 import com.caregiver.mobile.presentation.common.SectionTitle
+import com.caregiver.mobile.presentation.common.StatusChip
+import com.caregiver.mobile.presentation.common.StatusChipVariant
 import com.caregiver.mobile.presentation.common.SecondaryButton
 import com.caregiver.mobile.presentation.common.SmartToastHost
 import com.caregiver.mobile.presentation.common.assistedViewModel
@@ -1185,6 +1197,103 @@ internal fun careDetailLines(details: CareDetails): List<CareDetailLine> = build
     addLine(CareDetailsField.EmergencyContactPhone, details.emergencyContactPhone)
 }
 
+/**
+ * Recipient Detail header (#899): a round 48-dp back button at the start, a
+ * 72-dp avatar, the name as the single heading with today's status chip, and
+ * a round 48-dp edit button at the end.
+ *
+ * The row and its buttons are start/end-relative, so the whole header swaps
+ * sides in Arabic; the back icon is `AutoMirrored`, so it points back in the
+ * reading direction instead of always pointing left. All sizes and test tags
+ * are local to this redesigned header — the shared AppTopBar and its 12-dp
+ * rounded back button are unchanged for every other screen.
+ */
+@Composable
+private fun DetailHeader(
+    name: String,
+    doneToday: Boolean,
+    onBack: () -> Unit,
+    onEdit: () -> Unit,
+) {
+    Row(
+        verticalAlignment = Alignment.CenterVertically,
+        horizontalArrangement = Arrangement.spacedBy(AppDimens.GapForm),
+        modifier = Modifier
+            .fillMaxWidth()
+            .padding(top = AppDimens.GapForm)
+            .testTag("detail_header"),
+    ) {
+        RoundDetailIconButton(
+            icon = Icons.AutoMirrored.Filled.ArrowBack,
+            contentDescription = stringResource(R.string.action_back),
+            onClick = onBack,
+            modifier = Modifier.testTag("detail_header_back"),
+        )
+        PersonAvatar(
+            initial = RecipientNameRules.initial(name),
+            size = PersonAvatarSize.Large,
+        )
+        Column(modifier = Modifier.weight(1f)) {
+            Text(
+                text = Bidi.isolate(name),
+                fontFamily = PlexArabic,
+                fontWeight = FontWeight.Bold,
+                fontSize = 22.sp,
+                lineHeight = 28.sp,
+                color = CaregiverColors.Ink,
+                maxLines = 2,
+                overflow = TextOverflow.Ellipsis,
+                modifier = Modifier.semantics { heading() },
+            )
+            Spacer(Modifier.height(AppDimens.GapTight))
+            StatusChip(
+                label = stringResource(
+                    if (doneToday) {
+                        R.string.redesign_chip_done
+                    } else {
+                        R.string.redesign_chip_not_yet
+                    },
+                ),
+                variant = if (doneToday) {
+                    StatusChipVariant.Done
+                } else {
+                    StatusChipVariant.NotYet
+                },
+            )
+        }
+        RoundDetailIconButton(
+            icon = Icons.Filled.Edit,
+            contentDescription = stringResource(R.string.detail_edit_person),
+            onClick = onEdit,
+            modifier = Modifier.testTag("detail_header_edit"),
+        )
+    }
+}
+
+/** The circular 48-dp icon button used at both ends of the detail header. */
+@Composable
+private fun RoundDetailIconButton(
+    icon: ImageVector,
+    contentDescription: String,
+    onClick: () -> Unit,
+    modifier: Modifier = Modifier,
+) {
+    Surface(
+        shape = CircleShape,
+        color = CaregiverColors.AvatarContainer,
+        modifier = modifier.size(AppDimens.BackSize),
+    ) {
+        IconButton(onClick = onClick, modifier = Modifier.size(AppDimens.BackSize)) {
+            Icon(
+                imageVector = icon,
+                contentDescription = contentDescription,
+                tint = CaregiverColors.AvatarContent,
+                modifier = Modifier.size(22.dp),
+            )
+        }
+    }
+}
+
 @Composable
 internal fun DetailContent(
     detail: RecipientDetail,
@@ -1213,9 +1322,11 @@ internal fun DetailContent(
         modifier = Modifier.fillMaxSize().verticalScroll(rememberScrollState()),
         verticalArrangement = Arrangement.spacedBy(AppDimens.SectionGap),
     ) {
-        AppTopBar(
-            title = Bidi.isolate(detail.name),
+        DetailHeader(
+            name = detail.name,
+            doneToday = detail.todayNoteId != null,
             onBack = onBack,
+            onEdit = onEdit,
         )
         if (!detail.relationship.isNullOrBlank()) {
             Text(
