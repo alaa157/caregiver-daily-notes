@@ -37,7 +37,8 @@ public record ObservationSetRequest(
   private static <T> Observation<T> toDomain(ObservationInput<T> input) {
     return input == null
         ? Observation.state(ObservationState.NOT_RECORDED)
-        : new Observation<>(input.state(), input.value(), input.rawValue());
+        : new Observation<>(input.state(),
+            ObservationRequestValidation.trim(input.value()), input.rawValue());
   }
 
   private static <T> Observation<T> legacy(T value) {

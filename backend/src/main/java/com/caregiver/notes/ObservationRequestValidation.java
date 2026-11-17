@@ -8,6 +8,21 @@ import java.util.List;
 final class ObservationRequestValidation {
   private ObservationRequestValidation() {}
 
+  /**
+   * A non-empty string made entirely of whitespace carries no observation
+   * content. An already-empty string is a distinct, long-standing explicit
+   * value and stays valid, so only non-empty blank strings are rejected.
+   */
+  static boolean isWhitespaceOnly(Object value) {
+    return value instanceof String text && !text.isEmpty() && text.isBlank();
+  }
+
+  /** Trims only the ends; internal whitespace is meaningful and preserved. */
+  @SuppressWarnings("unchecked")
+  static <T> T trim(T value) {
+    return value instanceof String text ? (T) text.trim() : value;
+  }
+
   static List<String> validateSet(ObservationSetRequest set, boolean requireAll) {
     if (set == null) {
       return List.of();
@@ -64,9 +79,9 @@ final class ObservationRequestValidation {
     }
     if (input.state() == ObservationState.RECORDED) {
       Object value = input.value();
-      if (value == null) {
+      if (value == null || isWhitespaceOnly(value)) {
         errors.add("observations." + name + ".value");
-      } else if (value instanceof String text && text.length() > maxOrMin) {
+      } else if (value instanceof String text && trim(text).length() > maxOrMin) {
         errors.add("observations." + name + ".value");
       } else if (value instanceof Integer number
           && (number < maxOrMin || number > max)) {

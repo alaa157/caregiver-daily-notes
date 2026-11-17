@@ -45,3 +45,33 @@ describe('daily note date validation (issue #737)', () => {
     expect(messages.en.notesDateFuture).not.toBe(messages.ar.notesDateFuture);
   });
 });
+
+describe('whitespace-only observation validation (issue #738)', () => {
+  function withFreeText(value: string) {
+    const values = valuesOn(todayDate());
+    values.observations.freeText = { state: 'RECORDED', value };
+    return values;
+  }
+
+  it('rejects spaces-only recorded free text before submit', () => {
+    expect(validateNoteValues(withFreeText('   ')).freeText).toBe('obsRecordedValueRequired');
+    expect(validateNoteValues(withFreeText(' \t \n ')).freeText).toBe('obsRecordedValueRequired');
+  });
+
+  it('accepts content surrounded by whitespace and an already-empty value', () => {
+    expect(validateNoteValues(withFreeText('  real note  ')).freeText).toBeUndefined();
+    expect(validateNoteValues(withFreeText('')).freeText).toBeUndefined();
+  });
+
+  it('still accepts NOT_RECORDED with no value', () => {
+    const values = valuesOn(todayDate());
+    values.observations.freeText = { state: 'NOT_RECORDED', value: null };
+    expect(validateNoteValues(values).freeText).toBeUndefined();
+  });
+
+  it('rejects whitespace-only text in short observation fields too', () => {
+    const values = valuesOn(todayDate());
+    values.observations.mood = { state: 'RECORDED', value: '   ' };
+    expect(validateNoteValues(values).mood).toBe('obsRecordedValueRequired');
+  });
+});
