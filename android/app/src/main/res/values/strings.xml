@@ -11,7 +11,6 @@
     <string name="auth_name">Name</string>
     <string name="auth_email">Email</string>
     <string name="auth_password">Password</string>
-    <string name="auth_confirm">Confirm password</string>
     <string name="auth_submit_login">Sign in</string>
     <string name="auth_submit_register">Create account</string>
     <string name="auth_no_account">No account? Create one</string>
@@ -23,7 +22,6 @@
     <string name="auth_error_email_invalid">Enter a valid email address</string>
     <string name="auth_error_password_required">Password is required</string>
     <string name="auth_error_password_long">Password must be at most 72 bytes</string>
-    <string name="auth_error_confirm_mismatch">Passwords do not match</string>
     <string name="auth_error_invalid_credentials">Invalid email or password</string>
     <string name="auth_error_duplicate_email">This email is already registered</string>
     <string name="auth_error_generic">Something went wrong. Please try again.</string>

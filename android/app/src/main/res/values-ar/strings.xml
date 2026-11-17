@@ -11,7 +11,6 @@
     <string name="auth_name">الاسم</string>
     <string name="auth_email">البريد الإلكتروني</string>
     <string name="auth_password">كلمة المرور</string>
-    <string name="auth_confirm">تأكيد كلمة المرور</string>
     <string name="auth_submit_login">دخول</string>
     <string name="auth_submit_register">إنشاء الحساب</string>
     <string name="auth_no_account">ليس لديك حساب؟ أنشئ حساباً</string>
@@ -23,7 +22,6 @@
     <string name="auth_error_email_invalid">أدخل بريداً إلكترونياً صحيحاً</string>
     <string name="auth_error_password_required">كلمة المرور مطلوبة</string>
     <string name="auth_error_password_long">يجب ألا تتجاوز كلمة المرور 72 بايت</string>
-    <string name="auth_error_confirm_mismatch">كلمتا المرور غير متطابقتين</string>
     <string name="auth_error_invalid_credentials">بيانات الدخول غير صحيحة</string>
     <string name="auth_error_duplicate_email">هذا البريد مسجل بالفعل</string>
     <string name="auth_error_generic">حدث خطأ ما. حاول مرة أخرى.</string>
