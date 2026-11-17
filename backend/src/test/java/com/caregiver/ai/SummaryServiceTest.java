@@ -109,6 +109,35 @@ class SummaryServiceTest {
   }
 
   @Test
+  void medicalAdviceObservationIsRemovedAndReported() {
+    var svc = service(ok("{\"observations\":["
+        + "{\"text\":\"ate well\",\"noteId\":\"n1\",\"quote\":\"ate well\"},"
+        + "{\"text\":\"increase the dose\",\"noteId\":\"n1\",\"quote\":\"slept well\"}],\"uncertainties\":[]}"));
+    var notes = List.of(new SummaryNote("n1", END, "she ate well today and slept well"));
+
+    var result = svc.summarize(new SummaryRequest("r1", END, 7), notes, List.of());
+
+    assertThat(result.summary().aiUnavailable()).isFalse();
+    assertThat(result.summary().observations()).extracting(SummaryObservation::text).containsExactly("ate well");
+    assertThat(result.summary().droppedContentCount()).isEqualTo(1);
+    assertThat(result.summary().droppedContentReason()).isEqualTo("UNSAFE_CONTENT");
+  }
+
+  @Test
+  void arabicMedicalAdviceObservationIsRemovedAndReported() {
+    var svc = service(ok("{\"observations\":["
+        + "{\"text\":\"زيد الجرعة\",\"noteId\":\"n1\",\"quote\":\"ate well\"},"
+        + "{\"text\":\"المزاج هادئ\",\"noteId\":\"n1\",\"quote\":\"slept well\"}],\"uncertainties\":[]}"));
+    var notes = List.of(new SummaryNote("n1", END, "she ate well today and slept well"));
+
+    var result = svc.summarize(new SummaryRequest("r1", END, 7), notes, List.of());
+
+    assertThat(result.summary().observations()).extracting(SummaryObservation::text).containsExactly("المزاج هادئ");
+    assertThat(result.summary().droppedContentCount()).isEqualTo(1);
+    assertThat(result.summary().droppedContentReason()).isEqualTo("UNSAFE_CONTENT");
+  }
+
+  @Test
   void fallbackResult_carriesUnavailableWithAuthoritativeSafety() {
     var svc = service(new LlmResult(LlmStatus.FALLBACK, "", "AI_UNAVAILABLE: HTTP 500"));
     var notes = List.of(new SummaryNote("n1", END, "routine day"));
