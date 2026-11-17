@@ -1,7 +1,8 @@
-import type { ReactNode } from 'react';
+import { useEffect, type ReactNode } from 'react';
 import { useI18n } from '../i18n/I18nProvider';
 import { Button } from './Button';
 import { Icon } from './Icon';
+import { useStatusAnnouncer } from './StatusAnnouncer';
 
 type FeedbackVariant = 'loading' | 'empty' | 'error';
 
@@ -9,8 +10,7 @@ function FeedbackFrame({ variant, children }: { variant: FeedbackVariant; childr
   return (
     <div
       className={`feedback feedback--${variant}`}
-      role={variant === 'error' ? 'alert' : 'status'}
-      aria-live={variant === 'loading' ? 'polite' : undefined}
+      role={variant === 'error' ? 'alert' : undefined}
     >
       <span className="feedback-icon" aria-hidden="true">
         {variant === 'loading' ? (
@@ -26,19 +26,26 @@ function FeedbackFrame({ variant, children }: { variant: FeedbackVariant; childr
 
 export function LoadingState({ label }: { label?: string }) {
   const { t } = useI18n();
+  const announce = useStatusAnnouncer();
+  const message = label ?? t('loading');
+  useEffect(() => { announce(message); }, [announce, message]);
   return (
     <FeedbackFrame variant="loading">
-      <span className="feedback-label">{label ?? t('loading')}</span>
+      <span className="feedback-label">{message}</span>
     </FeedbackFrame>
   );
 }
 
 export function EmptyState({ title, description }: { title?: string; description?: string }) {
   const { t } = useI18n();
+  const titleText = title ?? t('emptyTitle');
+  const descriptionText = description ?? t('emptyDescription');
+  const announce = useStatusAnnouncer();
+  useEffect(() => { announce(`${titleText}. ${descriptionText}`); }, [announce, titleText, descriptionText]);
   return (
     <FeedbackFrame variant="empty">
-      <strong className="feedback-title">{title ?? t('emptyTitle')}</strong>
-      <p className="feedback-description">{description ?? t('emptyDescription')}</p>
+      <strong className="feedback-title">{titleText}</strong>
+      <p className="feedback-description">{descriptionText}</p>
     </FeedbackFrame>
   );
 }

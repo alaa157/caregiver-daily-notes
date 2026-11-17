@@ -84,7 +84,7 @@ describe('authenticated grouped settings page', () => {
     await user.type(within(dialog).getByLabelText('Model'), 'gpt-test');
     await user.type(within(dialog).getByLabelText('API key'), 'settings-test-secret');
     await user.click(within(dialog).getByRole('button', { name: 'Test connection' }));
-    expect(await within(dialog).findByRole('status')).toHaveTextContent('Connection test succeeded');
+    await waitFor(() => expect(within(dialog).getByRole('status')).toHaveTextContent('Connection test succeeded'));
 
     await user.click(within(dialog).getByRole('button', { name: 'Close' }));
     expect(document.body).not.toHaveTextContent('settings-test-secret');

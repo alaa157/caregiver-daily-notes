@@ -139,8 +139,8 @@ describe('summary unavailable reason display', () => {
     await choose();
     await userEvent.click(screen.getByRole('button', { name: 'Generate summary' }));
 
-    const status = await screen.findByRole('status');
-    expect(status?.textContent).toBe(`${summaryMessages.en.summaryFallback} ${summaryMessages.en[key]}`);
+    const status = await screen.findByText(`${summaryMessages.en.summaryFallback} ${summaryMessages.en[key]}`);
+    expect(status).toHaveAttribute('role', 'status');
     expect(screen.getByText('HIGH')).toBeVisible();
   });
 
@@ -151,8 +151,8 @@ describe('summary unavailable reason display', () => {
     await choose();
     await userEvent.click(screen.getByRole('button', { name: 'Generate summary' }));
 
-    const status = await screen.findByRole('status');
-    expect(status?.textContent).toBe(summaryMessages.en.summaryFallback);
+    const status = await screen.findByText(summaryMessages.en.summaryFallback);
+    expect(status).toHaveAttribute('role', 'status');
     expect(screen.getByText('HIGH')).toBeVisible();
   });
 
@@ -165,9 +165,9 @@ describe('summary unavailable reason display', () => {
     fireEvent.change(screen.getByLabelText('تاريخ النهاية (شامل)'), { target: { value: '2026-10-24' } });
     await userEvent.click(screen.getByRole('button', { name: 'إنشاء ملخص' }));
 
-    const status = await screen.findByRole('status');
+    const status = await screen.findByText(`${summaryMessages.ar.summaryFallback} ${summaryMessages.ar.summaryUnavailableInvalidKey}`);
     expect(document.documentElement).toHaveAttribute('dir', 'rtl');
-    expect(status?.textContent).toBe(`${summaryMessages.ar.summaryFallback} ${summaryMessages.ar.summaryUnavailableInvalidKey}`);
+    expect(status).toHaveAttribute('role', 'status');
     expect(screen.getByText('HIGH')).toBeVisible();
   });
 });
@@ -511,7 +511,7 @@ describe('on-demand summary and safety workflow', () => {
     fixture.summary.observations[0].text = 'stray unavailable model text';
     show(dataFetcher((path) => path === byokSummaryPath ? jsonResponse(fixture) : undefined));
     await choose(); await userEvent.click(screen.getByRole('button', { name: 'Generate summary' }));
-    await screen.findByRole('status');
+    await screen.findByText(/AI is unavailable/);
     expect(screen.getByText(/AI is unavailable/)).toBeVisible();
     expect(screen.queryByRole('heading', { name: 'Requested summary' })).not.toBeInTheDocument();
     expect(screen.queryByText('Model-generated text')).not.toBeInTheDocument();
@@ -615,7 +615,7 @@ describe('on-demand summary and safety workflow', () => {
     const fixture = summaryFixture(); fixture.summary.aiUnavailable = true;
     show(dataFetcher((path) => path === byokSummaryPath ? jsonResponse(fixture) : undefined));
     await choose(); await userEvent.click(screen.getByRole('button', { name: 'Generate summary' }));
-    await screen.findByRole('status');
+    await screen.findByText(/AI is unavailable/);
     expect(screen.getByText(/AI is unavailable/)).toBeInTheDocument(); expect(screen.getByText('HIGH')).toBeVisible();
     expect(screen.queryByRole('heading', { name: 'Summary observations' })).not.toBeInTheDocument();
     expect(screen.getByRole('heading', { name: 'Unclear or conflicting information' })).toBeInTheDocument();
@@ -907,7 +907,7 @@ describe('generated-with attribution', () => {
     show(dataFetcher((path) => path === byokSummaryPath ? jsonResponse(response) : undefined));
     await choose();
     await userEvent.click(screen.getByRole('button', { name: 'Generate summary' }));
-    await screen.findByRole('status');
+    await screen.findByText(/AI is unavailable/);
 
     expect(screen.queryByText(/Generated with/)).not.toBeInTheDocument();
     expect(screen.queryByText('gemini-test-model')).not.toBeInTheDocument();

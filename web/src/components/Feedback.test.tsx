@@ -1,10 +1,11 @@
-import { render, screen } from '@testing-library/react';
+import { render, screen, waitFor } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import type { FormEvent } from 'react';
 import { describe, expect, it, vi } from 'vitest';
 import { I18nProvider } from '../i18n/I18nProvider';
 import { Button } from './Button';
-import { ErrorState, FieldError, LoadingState } from './Feedback';
+import { StatusAnnouncerProvider } from './StatusAnnouncer';
+import { EmptyState, ErrorState, FieldError, LoadingState } from './Feedback';
 
 describe('error feedback', () => {
   it('retries through its callback without submitting a surrounding form', async () => {
@@ -28,18 +29,29 @@ describe('error feedback', () => {
     expect(screen.queryByRole('button')).not.toBeInTheDocument();
   });
 
-  it('announces loading as a status', () => {
-    const { container } = render(
-      <I18nProvider><LoadingState label="Loading recipient details" /></I18nProvider>,
+  it('writes loading and empty messages into the persistent live region', async () => {
+    const renderFeedback = (empty: boolean) => (
+      <StatusAnnouncerProvider><I18nProvider>
+        {empty
+          ? <EmptyState title="No recipients yet" description="Add a recipient to continue." />
+          : <LoadingState label="Loading recipient details" />}
+      </I18nProvider></StatusAnnouncerProvider>
     );
+    const view = render(renderFeedback(false));
     const status = screen.getByRole('status');
-    const decoration = container.querySelector('.feedback-icon');
+    const decoration = view.container.querySelector('.feedback-icon');
 
     expect(status).toHaveAttribute('aria-live', 'polite');
+    expect(status).toBeEmptyDOMElement();
     expect(screen.getByText('Loading recipient details')).toBeVisible();
-    expect(status.textContent?.trim()).toBe('Loading recipient details');
+    await waitFor(() => expect(status).toHaveTextContent('Loading recipient details'));
     expect(decoration).toHaveAttribute('aria-hidden', 'true');
     expect(decoration?.querySelector('.spinner')).not.toBeNull();
+
+    view.rerender(renderFeedback(true));
+    expect(screen.getByRole('status')).toBe(status);
+    expect(screen.getByText('No recipients yet')).toBeVisible();
+    await waitFor(() => expect(status).toHaveTextContent('No recipients yet. Add a recipient to continue.'));
   });
 
   it('announces errors as alerts', () => {
