@@ -431,14 +431,14 @@ describe('care-plan review and authoritative backend decisions', () => {
 
     await userEvent.click(within(suggestions()).getByRole('button', { name: 'Accept suggestion' }));
     await userEvent.click(screen.getByRole('button', { name: 'Confirm acceptance' }));
-    expect(await screen.findByText('The server accepted the suggestion. The latest saved plans are shown below.')).toBeVisible();
+    expect(await screen.findByText('Suggestion accepted. The latest saved plans are shown below.')).toBeVisible();
     expect(writes(fetcher)).toHaveLength(1);
   });
   it.each(['accept', 'dismiss'])('confirms %s using one bodyless POST then reloads the committed snapshot', async (action) => {
     const fetcher = serve(); renderPlans(fetcher); await loaded();
     await begin(action === 'accept' ? 'Accept suggestion' : 'Dismiss suggestion');
     await userEvent.click(screen.getByRole('button', { name: action === 'accept' ? 'Confirm acceptance' : 'Confirm dismissal' }));
-    const status = await screen.findByText(action === 'accept' ? /The server accepted the suggestion/ : /The server dismissed the suggestion/);
+    const status = await screen.findByText(action === 'accept' ? /Suggestion accepted/ : /Suggestion dismissed/);
     expect(status.closest('[role=status]')).toHaveFocus();
     expect(writes(fetcher)).toHaveLength(1); expect(writes(fetcher)[0][0]).toBe(`/api/recipients/${recipient.id}/plans/${suggestion.id}/${action}`);
     expect(writes(fetcher)[0][1].body).toBeUndefined();
@@ -664,7 +664,7 @@ describe('care-plan review and authoritative backend decisions', () => {
     expect(screen.getByRole('group', { name: 'Confirm acceptance' })).toBeInTheDocument();
     expect(writes(fetcher)).toHaveLength(0);
     await userEvent.click(screen.getByRole('button', { name: 'Confirm acceptance' }));
-    await screen.findByText(/The server accepted the suggestion/);
+    await screen.findByText(/Suggestion accepted/);
     expect(writes(fetcher)).toHaveLength(1);
     expect(writes(fetcher)[0][0]).toBe(`/api/recipients/${recipient.id}/plans/${suggestion.id}/accept`);
     expect(writes(fetcher)[0][1].method).toBe('POST');
@@ -715,7 +715,7 @@ describe('care-plan review and authoritative backend decisions', () => {
     // Test D: after confirm, GET active+history are re-run and backend state is shown.
     const fetcher = serve(); renderPlans(fetcher); await loaded(); await begin();
     await userEvent.click(screen.getByRole('button', { name: 'Confirm acceptance' }));
-    await screen.findByText(/The server accepted the suggestion/);
+    await screen.findByText(/Suggestion accepted/);
     const current = screen.getByRole('region', { name: 'Active accepted plan' });
     expect(within(current).getByText(/مُراجعة notes/)).toBeInTheDocument();
     expect(fetcher.mock.calls.filter(([path]) => path.endsWith('/history'))).toHaveLength(2);
@@ -733,7 +733,7 @@ describe('care-plan review and authoritative backend decisions', () => {
     expect(screen.getByRole('group', { name: 'Confirm dismissal' })).toBeInTheDocument();
     expect(writes(fetcher)).toHaveLength(0);
     await userEvent.click(screen.getByRole('button', { name: 'Confirm dismissal' }));
-    await screen.findByText(/The server dismissed the suggestion/);
+    await screen.findByText(/Suggestion dismissed/);
     expect(writes(fetcher)).toHaveLength(1);
     expect(writes(fetcher)[0][0]).toBe(`/api/recipients/${recipient.id}/plans/${suggestion.id}/dismiss`);
     expect(writes(fetcher)[0][1].method).toBe('POST');
