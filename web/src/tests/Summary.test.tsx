@@ -753,6 +753,26 @@ describe('on-demand summary and safety workflow', () => {
     expect(trends[2].textContent).toContain('الأيام التي سُجّلت فيها بيانات: ٤');
     expect(trends[2].textContent).toContain('الأيام التي سُجّلت فيها بيانات: ٦');
   });
+  it('renders localized trend metric labels and never the raw metric code', async () => {
+    const fixture = summaryFixture();
+    fixture.trends = ['FALL_COUNT', 'HIGH_PAIN_COUNT', 'MISSED_MED_COUNT', 'POOR_APPETITE_COUNT', 'FUTURE_METRIC'].map((metric) => ({ ...fixture.trends[0], metric }));
+    show(dataFetcher((path) => path === byokSummaryPath ? jsonResponse(fixture) : undefined)); await generate();
+    const trends = screen.getByRole('region', { name: 'Recorded observation counts' }).querySelectorAll('li');
+    expect(trends).toHaveLength(5);
+    expect(trends[0].querySelector('h4')).toHaveTextContent('Falls recorded');
+    expect(trends[1].querySelector('h4')).toHaveTextContent('High pain observations');
+    expect(trends[2].querySelector('h4')).toHaveTextContent('Missed medication days');
+    expect(trends[3].querySelector('h4')).toHaveTextContent('Poor appetite days');
+    expect(trends[4].querySelector('h4')).toHaveTextContent('Recorded observation');
+    expect(trends[4].querySelector('h4')).toHaveAttribute('data-metric', 'FUTURE_METRIC');
+    for (const code of ['FALL_COUNT', 'HIGH_PAIN_COUNT', 'MISSED_MED_COUNT', 'POOR_APPETITE_COUNT', 'FUTURE_METRIC']) {
+      expect(screen.queryByText(code)).not.toBeInTheDocument();
+    }
+    await userEvent.click(screen.getByRole('button', { name: 'التغيير إلى العربية' }));
+    expect(trends[0].querySelector('h4')).toHaveTextContent('حالات السقوط المسجلة');
+    expect(trends[2].querySelector('h4')).toHaveTextContent('أيام تفويت الأدوية');
+    expect(trends[4].querySelector('h4')).toHaveTextContent('مشاهدات مسجلة');
+  });
   it.each([
     { previousSampleSize: 4, currentSampleSize: 0, previousCount: 1, currentCount: 0, delta: -1 },
     { previousSampleSize: 0, currentSampleSize: 0, previousCount: 0, currentCount: 0, delta: 0 },
