@@ -109,6 +109,12 @@
     <string name="editor_progress_done">%1$d من 7 مكتملة</string>
     <string name="editor_close">إغلاق المحرر</string>
     <string name="editor_mood">الحالة المزاجية</string>
+    <!-- #902: headline mood tiles (wire codes happy/calm/sad) and the
+         disclosure that keeps anxious/agitated/confused writable. -->
+    <string name="editor_mood_tile_good">جيد</string>
+    <string name="editor_mood_tile_okay">حسنًا</string>
+    <string name="editor_mood_tile_low">منخفض</string>
+    <string name="editor_more_moods">المزيد من الحالات المزاجية</string>
     <string name="editor_appetite">الشهية</string>
     <string name="editor_sleep">النوم</string>
     <string name="editor_mobility">الحركة</string>
