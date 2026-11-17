@@ -90,7 +90,6 @@ class AccountScreensLocaleTest {
             mode = mode,
             onEmail = {},
             onPassword = {},
-            onConfirm = {},
             onSubmit = {},
             onSwitchMode = {},
             showDisplayName = showName,
@@ -116,7 +115,7 @@ class AccountScreensLocaleTest {
         assertDirection("Ltr")
         compose.onNodeWithText("Create your account").assertIsDisplayed()
         compose.onNodeWithText("Name").assertIsDisplayed()
-        compose.onNodeWithText("Confirm password").assertIsDisplayed()
+        compose.onNodeWithText("Already have an account? Sign in").assertIsDisplayed()
     }
 
     @Test
@@ -135,7 +134,7 @@ class AccountScreensLocaleTest {
         assertDirection("Rtl")
         compose.onNodeWithText("إنشاء الحساب").assertIsDisplayed()
         compose.onNodeWithText("الاسم").assertIsDisplayed()
-        compose.onNodeWithText("تأكيد كلمة المرور").assertIsDisplayed()
+        compose.onNodeWithText("لديك حساب بالفعل؟ سجّل الدخول").assertIsDisplayed()
     }
 
     @Test

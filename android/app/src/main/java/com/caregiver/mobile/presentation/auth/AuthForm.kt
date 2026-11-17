@@ -10,26 +10,18 @@ import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
-import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.imePadding
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.rememberScrollState
-import androidx.compose.foundation.shape.RoundedCornerShape
-import androidx.compose.foundation.text.KeyboardActions
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Visibility
 import androidx.compose.material.icons.filled.VisibilityOff
-import androidx.compose.material3.Button
-import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
-import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.OutlinedTextField
-import androidx.compose.material3.OutlinedTextFieldDefaults
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
@@ -68,16 +60,19 @@ import com.caregiver.mobile.R
 import com.caregiver.mobile.core.theme.CaregiverColors
 import com.caregiver.mobile.core.theme.PlexArabic
 import com.caregiver.mobile.data.SettingsStore
+import com.caregiver.mobile.data.accounts.PasswordPolicy
 import com.caregiver.mobile.presentation.common.AppBackButton
 import com.caregiver.mobile.presentation.common.AppDimens
 
 /**
- * Shared login/register form in the design language (board 1): hero logo,
- * bordered 52dp inputs, teal 56dp primary button, inline field errors.
- * Renders [AuthUiState] only — all decisions live in [AuthViewModel].
+ * Shared login/register form: hero logo, one heading, a stack of shared
+ * [AuthTextField] inputs, the shared teal [AuthPrimaryButton], a muted social
+ * row and the footer links. Renders [AuthUiState] only — all decisions live
+ * in [AuthViewModel]. The outer column scrolls and applies `imePadding`, so
+ * the fields remain reachable on small phones with the keyboard open.
  *
- * HTML: logo 52x52 radius 16 teal, h1 28sp Bold, subtitle 15sp muted,
- * labels 14sp Bold, inputs 52dp border #C5CDD1 radius 12, CTA 56dp 17sp.
+ * Design tokens: logo 52x52 radius 16 teal, h1 28sp Bold, subtitle 15sp
+ * muted, inputs at least 60dp with a 16dp radius, CTA 56dp 17sp (#864/#867).
  * The hero carries the single heading (#866): "Welcome back" / "Create your
  * account" with its matching subtitle. Callers that can supply [graph] get
  * the working EN | عربي switch; headless previews/tests fall back to a
@@ -85,6 +80,12 @@ import com.caregiver.mobile.presentation.common.AppDimens
  *
  * [onBack] adds the shared back control to the header. Register passes it
  * because it is reached from Login; Login is the root and leaves it null.
+ *
+ * #874: the form body is now the shared [AuthTextField] stack plus the shared
+ * [AuthPrimaryButton]. The private `LabeledField` and the confirm field are
+ * gone — #869 removed the confirm state and strings, so keeping either here
+ * no longer compiled. The Register password hint reads its minimum from
+ * [PasswordPolicy.MIN_LENGTH] rather than hardcoding a number.
  */
 @Composable
 fun AuthForm(
@@ -92,7 +93,6 @@ fun AuthForm(
     mode: AuthMode,
     onEmail: (String) -> Unit,
     onPassword: (String) -> Unit,
-    onConfirm: (String) -> Unit,
     onSubmit: () -> Unit,
     onSwitchMode: () -> Unit,
     onDisplayName: (String) -> Unit = {},
@@ -111,6 +111,10 @@ fun AuthForm(
     // #872: the offline demo entry is hidden in the footer until the logo is
     // long-pressed. rememberSaveable keeps the reveal across rotation.
     var demoRevealed by rememberSaveable { mutableStateOf(false) }
+
+    // #874: the Register hint comes from the one real password policy, so a
+    // future policy change cannot leave stale "8 characters" copy behind.
+    val passwordHint = stringResource(R.string.auth_password_hint, PasswordPolicy.MIN_LENGTH)
 
     Column(
         modifier = modifier
@@ -191,7 +195,7 @@ fun AuthForm(
                 .padding(top = 24.dp, bottom = 24.dp),
         ) {
             if (mode == AuthMode.Register && showDisplayName) {
-                LabeledField(
+                AuthTextField(
                     label = stringResource(R.string.auth_name),
                     value = state.displayName,
                     onValueChange = onDisplayName,
@@ -210,7 +214,7 @@ fun AuthForm(
                 )
             }
 
-            LabeledField(
+            AuthTextField(
                 label = stringResource(R.string.auth_email),
                 value = state.email,
                 onValueChange = onEmail,
@@ -245,7 +249,8 @@ fun AuthForm(
                 value = state.password,
                 onValueChange = onPassword,
                 isError = state.passwordError != null,
-                supporting = state.passwordError?.let { passwordErrorText(it) },
+                supporting = state.passwordError?.let { passwordErrorText(it) }
+                    ?: if (mode == AuthMode.Register) passwordHint else null,
                 visualTransformation = if (passwordVisible) {
                     VisualTransformation.None
                 } else {
@@ -296,27 +301,6 @@ fun AuthForm(
                 },
             )
 
-            if (mode == AuthMode.Register) {
-                LabeledField(
-                    label = stringResource(R.string.auth_confirm),
-                    value = state.confirm,
-                    onValueChange = onConfirm,
-                    isError = state.confirmError != null,
-                    supporting = if (state.confirmError != null) {
-                        stringResource(R.string.auth_error_confirm_mismatch)
-                    } else {
-                        null
-                    },
-                    visual = true,
-                    keyboardOptions = KeyboardOptions(
-                        keyboardType = KeyboardType.Password,
-                        imeAction = ImeAction.Done,
-                    ),
-                    onDone = onSubmit,
-                    testTag = "auth_field_confirm",
-                )
-            }
-
             state.formError?.let {
                 Text(
                     text = formErrorText(it),
@@ -326,26 +310,14 @@ fun AuthForm(
                 )
             }
 
-            Button(
-                onClick = onSubmit,
-                enabled = !state.busy,
-                shape = RoundedCornerShape(AppDimens.ControlRadius),
-                colors = ButtonDefaults.buttonColors(
-                    containerColor = CaregiverColors.Primary,
-                    contentColor = CaregiverColors.Surface,
+            AuthPrimaryButton(
+                text = stringResource(
+                    if (mode == AuthMode.Login) R.string.auth_submit_login
+                    else R.string.auth_submit_register,
                 ),
-                modifier = Modifier.fillMaxWidth().heightIn(min = 56.dp).height(56.dp),
-            ) {
-                Text(
-                    stringResource(
-                        if (mode == AuthMode.Login) R.string.auth_submit_login
-                        else R.string.auth_submit_register,
-                    ),
-                    fontFamily = PlexArabic,
-                    fontWeight = FontWeight.Bold,
-                    fontSize = 17.sp,
-                )
-            }
+                onClick = onSubmit,
+                busy = state.busy,
+            )
 
             // #873: the muted coming-soon row, inserted here by #872.
             SocialSignInRow(isRegister = mode == AuthMode.Register)
@@ -461,49 +433,6 @@ private fun Modifier.authAutofill(
                 autofill?.cancelAutofillForNode(node)
             }
         }
-}
-
-@Composable
-private fun LabeledField(
-    label: String,
-    value: String,
-    onValueChange: (String) -> Unit,
-    isError: Boolean,
-    supporting: String?,
-    keyboardOptions: KeyboardOptions,
-    testTag: String,
-    visual: Boolean = false,
-    onDone: (() -> Unit)? = null,
-    modifier: Modifier = Modifier,
-) {
-    Column(verticalArrangement = Arrangement.spacedBy(6.dp)) {
-        Text(
-            label,
-            fontFamily = PlexArabic,
-            fontWeight = FontWeight.Bold,
-            fontSize = 14.sp,
-            color = CaregiverColors.Ink,
-        )
-        OutlinedTextField(
-            value = value,
-            onValueChange = onValueChange,
-            isError = isError,
-            supportingText = { supporting?.let { Text(it, fontFamily = PlexArabic) } },
-            visualTransformation = if (visual) PasswordVisualTransformation() else androidx.compose.ui.text.input.VisualTransformation.None,
-            keyboardOptions = keyboardOptions,
-            keyboardActions = KeyboardActions(onDone = { onDone?.invoke() }),
-            singleLine = true,
-            shape = RoundedCornerShape(AppDimens.ControlRadius),
-            colors = OutlinedTextFieldDefaults.colors(
-                focusedBorderColor = CaregiverColors.Primary,
-                unfocusedBorderColor = CaregiverColors.Border,
-                errorBorderColor = CaregiverColors.Danger,
-                focusedContainerColor = CaregiverColors.Surface,
-                unfocusedContainerColor = CaregiverColors.Surface,
-            ),
-            modifier = modifier.fillMaxWidth().heightIn(min = 52.dp),
-        )
-    }
 }
 
 @Composable

@@ -8,6 +8,7 @@ import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.test.assertIsDisplayed
 import androidx.compose.ui.test.junit4.createComposeRule
 import androidx.compose.ui.test.onNodeWithContentDescription
+import androidx.compose.ui.test.onNodeWithTag
 import androidx.compose.ui.test.onNodeWithText
 import androidx.test.core.app.ApplicationProvider
 import androidx.test.ext.junit.runners.AndroidJUnit4
@@ -119,7 +120,7 @@ class AccountScreensArabicTest {
         compose.onNodeWithText("الاسم").assertIsDisplayed()
         compose.onNodeWithText("البريد الإلكتروني").assertIsDisplayed()
         compose.onNodeWithText("كلمة المرور").assertIsDisplayed()
-        compose.onNodeWithText("تأكيد كلمة المرور").assertIsDisplayed()
+        compose.onNodeWithTag("auth_primary_button").assertIsDisplayed()
         compose.onNodeWithText("إنشاء الحساب").assertIsDisplayed()
     }
 
