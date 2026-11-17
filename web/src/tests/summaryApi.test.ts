@@ -146,6 +146,12 @@ describe('safety survives invalid generated content', () => {
     expect(result.safety).toEqual({ ...fixture.safety, incomplete: false });
   });
 
+  it('carries the input truncation count from the backend', () => {
+    const result = readSummaryResponse({ ...summaryFixture(), truncatedNoteCount: 3 });
+    expect(result.invalidContent).toBe(false);
+    expect(result.truncatedNoteCount).toBe(3);
+  });
+
   it('carries the unsafe-content removal count and reason without invalidating the response', () => {
     const fixture = summaryFixture();
     const result = readSummaryResponse({
