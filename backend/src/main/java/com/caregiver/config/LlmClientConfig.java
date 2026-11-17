@@ -8,12 +8,6 @@ import org.springframework.boot.context.properties.EnableConfigurationProperties
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 
-import java.io.IOException;
-import java.net.URI;
-import java.net.http.HttpClient;
-import java.net.http.HttpRequest;
-import java.net.http.HttpResponse;
-
 /**
  * Production LLM wiring: one chat-completions client with no configured
  * provider. Every request must carry request-scoped BYOK credentials; calls
@@ -26,19 +20,10 @@ public class LlmClientConfig {
 
   @Bean
   public HttpExchange httpExchange() {
-    var http = HttpClient.newHttpClient();
-    return (url, headers, jsonBody, timeout) -> {
-      var builder = HttpRequest.newBuilder(URI.create(url))
-          .timeout(timeout)
-          .POST(HttpRequest.BodyPublishers.ofString(jsonBody));
-      headers.forEach(builder::header);
-      HttpResponse<String> response =
-          http.send(builder.build(), HttpResponse.BodyHandlers.ofString());
-      if (response.statusCode() < 200 || response.statusCode() >= 300) {
-        throw new IOException("LLM HTTP " + response.statusCode());
-      }
-      return response.body();
-    };
+    // Reuse the single exchange implementation: it throws ProviderHttpException
+    // for non-2xx responses so the client can classify the failure. A local
+    // copy that threw a plain IOException made every status look like an outage.
+    return HttpExchange.defaultExchange();
   }
 
   @Bean
