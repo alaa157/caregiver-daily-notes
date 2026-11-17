@@ -52,3 +52,25 @@ export function restoreSession(baseUrl: string): SessionState {
     return { session: null, reason: 'expired' };
   }
 }
+
+/**
+ * Config-free view of whether a usable session is stored, for public pages that
+ * must render before the runtime config is known. Unlike `restoreSession` this
+ * never clears storage and does not bind to a `baseUrl` we cannot know yet; it
+ * only answers whether a non-expired token is present so the landing CTA can
+ * point at the app instead of the sign-in form. The real, config-bound decision
+ * still happens in `AuthProvider` on every route that touches the API.
+ */
+export function hasStoredSession(now = Date.now()): boolean {
+  let raw: string | null;
+  try { raw = sessionStorage.getItem(SESSION_STORAGE_KEY); } catch { return false; }
+  if (!raw) return false;
+  try {
+    const value: unknown = JSON.parse(raw);
+    if (typeof value !== 'object' || value === null || !('token' in value)) return false;
+    parseSession(value.token, now);
+    return true;
+  } catch {
+    return false;
+  }
+}

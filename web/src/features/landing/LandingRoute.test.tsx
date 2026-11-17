@@ -5,6 +5,7 @@ import { AuthProvider } from '../auth/AuthProvider';
 import { I18nProvider } from '../../i18n/I18nProvider';
 import { ApiProvider } from '../../lib/api';
 import { LandingRoute } from '../../routes/LandingRoute';
+import { testToken } from '../../tests/authFixtures';
 
 function setup() {
   return render(<I18nProvider><ApiProvider config={{ apiBaseUrl: '' }}><AuthProvider><MemoryRouter><LandingRoute /></MemoryRouter></AuthProvider></ApiProvider></I18nProvider>);
@@ -66,6 +67,18 @@ describe('public landing page', () => {
     expect(document.documentElement.dir).toBe('rtl');
     expect(screen.getByText(/بيانات الملف الشخصي المنظمة.*الملاحظات المكتوبة بحرية فتُرسل كما كُتبت/)).toBeInTheDocument();
   });
+  it('renders without API/auth providers and points a stored-session visitor at the app', () => {
+    sessionStorage.setItem('caregiver-auth-session-v1', JSON.stringify({ token: testToken(), baseUrl: 'https://api.example.test' }));
+
+    render(<I18nProvider><MemoryRouter><LandingRoute /></MemoryRouter></I18nProvider>);
+
+    expect(screen.getByRole('heading', { level: 1, name: /clearer picture/i })).toBeVisible();
+    expect(screen.getAllByRole('link', { name: 'Open app' })[0]).toHaveAttribute('href', '/app');
+    expect(screen.queryByRole('link', { name: 'Create an account' })).not.toBeInTheDocument();
+    // Reading the session for the CTA must not consume it before config loads.
+    expect(sessionStorage.getItem('caregiver-auth-session-v1')).not.toBeNull();
+  });
+
   it('closes the mobile menu on Escape and on navigation link clicks', () => {
     const { container } = setup();
     const menuButton = container.querySelector<HTMLButtonElement>('.landing-menu');
