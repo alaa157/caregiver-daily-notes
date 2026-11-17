@@ -158,7 +158,9 @@ This modifies `dist/config.json`, not the built JS bundle; repeating that step r
 VITE_SITE_URL=https://your-domain.example npm run build
 ```
 
-Set the origin or base path **without a trailing slash**; the template appends `/` for the page URL and `/caregiver-notes-preview.svg` for the image. `vite.config.ts` provides a concrete, placeholder-free default so a plain `npm run build` never emits a broken URL. `src/tests/metadata.test.ts` fails if the old placeholder returns or if a metadata image points at a missing public asset; the equivalent post-build check is `grep -r "REPLACE-WITH-PRODUCTION-DOMAIN" dist/`.
+Set the origin or base path **without a trailing slash**; the template appends `/` for the page URL and `/caregiver-notes-preview.png` for both `og:image` and `twitter:image`. `vite.config.ts` provides a concrete, placeholder-free default so a plain `npm run build` never emits a broken URL. The preview PNG lives in `public/caregiver-notes-preview.png` at the safe 1200×630 card size; the SVG favicon is unchanged.
+
+`src/tests/metadata.test.ts` fails if the old placeholder returns, if a metadata image is not an absolute URL to a real PNG in `public/`, or if the build guard is removed. Every `npm run build` automatically runs `postbuild` (`scripts/check-metadata.mjs`), which fails the build if any `REPLACE-WITH-` placeholder survives into `dist/index.html` or if a social image no longer points at a PNG present in `dist/`. Using an npm lifecycle hook keeps `npm run build -- --mode e2e` forwarding its flag to Vite. The equivalent manual check is `grep -rn "REPLACE-WITH" dist/index.html`.
 
 Arabic decision: this is a single-page app with no server-side rendering, so crawlers cannot choose a per-language title or description. The metadata stays deliberately neutral English ("Arabic and English support") rather than shipping untranslated UI copy or pretending to localize at runtime. Runtime i18n is unchanged.
 
