@@ -371,6 +371,7 @@
     <string name="sync_status_syncing">Syncing</string>
     <string name="sync_status_offline">Offline</string>
     <string name="sync_status_failed">Sync failed — tap to retry</string>
+    <string name="sync_status_local_only">All data is stored on this device — no cloud sync</string>
     <!-- Task 5: Home timeline sub-tabs and per-tab empty states. -->
     <string name="home_tab_today">Today</string>
     <string name="home_tab_attention">Needs attention</string>
