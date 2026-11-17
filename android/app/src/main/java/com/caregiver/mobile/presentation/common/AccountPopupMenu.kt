@@ -69,6 +69,7 @@ fun AccountPopupMenu(
                         text = accountName ?: stringResource(R.string.app_name),
                         style = MaterialTheme.typography.titleMedium,
                         color = CaregiverColors.Ink,
+                        modifier = Modifier.testTag("account_menu_name"),
                     )
                     Text(
                         text = stringResource(R.string.account_menu_subtitle),

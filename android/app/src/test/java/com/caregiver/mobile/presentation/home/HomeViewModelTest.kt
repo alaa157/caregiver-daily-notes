@@ -20,6 +20,7 @@ import java.time.LocalDate
 import java.time.ZoneOffset
 import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.flow.first
+import kotlinx.coroutines.flow.flowOf
 import kotlinx.coroutines.test.TestScope
 import kotlinx.coroutines.test.UnconfinedTestDispatcher
 import kotlinx.coroutines.test.runTest
@@ -102,6 +103,35 @@ class HomeViewModelTest {
         val c = content(vm(scope = this))
 
         assertEquals(Greeting(morning = true, name = "Ahmed"), c.greeting)
+    }
+
+    @Test
+    fun storedDisplayNameWinsOverEmailDerivation() = runTest {
+        settings.setEmail("am.ahmed@example.com")
+
+        val c = content(
+            HomeViewModel(
+                repository,
+                settings,
+                morning,
+                this,
+                activeDisplayName = flowOf("أم أحمد"),
+            ),
+        )
+
+        assertEquals(Greeting(morning = true, name = "أم أحمد"), c.greeting)
+    }
+
+    @Test
+    fun resolvedDisplayNameFallsBackToEmailWhenNoAccount() {
+        assertEquals(
+            "Am",
+            HomeViewModel.resolvedDisplayName(null, "am.ahmed@example.com"),
+        )
+        assertEquals(
+            "أم أحمد",
+            HomeViewModel.resolvedDisplayName("أم أحمد", "am.ahmed@example.com"),
+        )
     }
 
     @Test

@@ -14,7 +14,9 @@ import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
+import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.first
+import kotlinx.coroutines.flow.flowOf
 import kotlinx.coroutines.launch
 import retrofit2.HttpException
 
@@ -90,6 +92,8 @@ class HomeViewModel(
     private val settings: SettingsStore,
     private val clock: Clock = Clock.systemDefaultZone(),
     scope: CoroutineScope? = null,
+    /** Active local account's stored name (#706); empty in server/demo mode. */
+    private val activeDisplayName: Flow<String?> = flowOf(null),
 ) : ViewModel() {
     // Production uses viewModelScope; tests inject their TestScope.
     private val execScope: CoroutineScope = scope ?: viewModelScope
@@ -158,7 +162,7 @@ class HomeViewModel(
                 HomeContent(
                     greeting = Greeting(
                         morning = LocalTime.now(clock).hour < NOON_HOUR,
-                        name = displayName(email),
+                        name = resolvedDisplayName(activeDisplayName.first(), email),
                     ),
                     done = done,
                     total = active.size,
@@ -200,5 +204,12 @@ class HomeViewModel(
             }
             return local.replaceFirstChar { it.uppercase() }
         }
+
+        /**
+         * The local account's stored name wins (#706); the email-derived name
+         * is only the fallback for server/demo mode, where no account exists.
+         */
+        fun resolvedDisplayName(stored: String?, email: String?): String? =
+            stored?.takeIf { it.isNotBlank() } ?: displayName(email)
     }
 }
