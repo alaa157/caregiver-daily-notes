@@ -188,8 +188,7 @@ class ByokConnectionTestControllerTest {
             .contentType(MediaType.APPLICATION_JSON)
             .content("{\"credentials\":\"synthetic-secret-123\"}"))
         .andExpect(status().isBadRequest())
-        .andExpect(jsonPath("$.success").value(false))
-        .andExpect(jsonPath("$.errorCode").value("invalid_provider"))
+        .andExpect(jsonPath("$.code").value("VALIDATION_ERROR"))
         .andReturn().getResponse().getContentAsString();
 
     assertThat(body).doesNotContain("synthetic-secret-123");

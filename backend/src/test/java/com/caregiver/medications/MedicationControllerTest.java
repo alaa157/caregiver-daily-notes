@@ -282,7 +282,7 @@ class MedicationControllerTest {
     mvc.perform(post(collection(fixture.caregiver().token(), fixture.recipientId()))
             .header("Authorization", bearer(fixture.caregiver().token()))
             .contentType(MediaType.APPLICATION_JSON).content(request("  ", "dose", "schedule")))
-        .andExpect(status().isBadRequest());
+        .andExpect(status().isUnprocessableEntity());
     assertThat(list(fixture)).isEmpty();
   }
 
@@ -457,7 +457,7 @@ class MedicationControllerTest {
     mvc.perform(post(collection(fixture.caregiver().token(), fixture.recipientId()))
             .header("Authorization", bearer(fixture.caregiver().token()))
             .contentType(MediaType.APPLICATION_JSON).content(body))
-        .andExpect(status().isBadRequest());
+        .andExpect(status().isUnprocessableEntity());
     assertThat(list(fixture)).isEmpty();
   }
 

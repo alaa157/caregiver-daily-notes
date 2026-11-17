@@ -96,7 +96,6 @@ class NoteIdempotencyTest {
         .andExpect(status().isCreated());
     mvc.perform(idempotentCreate(owner.token(), "key-2", noteJson(recipientId, "2026-10-02", "Second")))
         .andExpect(status().isConflict())
-        .andExpect(jsonPath("$.status").value(409))
         .andExpect(jsonPath("$.code").value("IDEMPOTENCY_CONFLICT"));
 
     assertThat(notes.count()).isEqualTo(1);

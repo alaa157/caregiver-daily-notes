@@ -1,5 +1,7 @@
 package com.caregiver.auth;
 
+import com.caregiver.common.ApiError;
+
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.media.Content;
 import io.swagger.v3.oas.annotations.media.Schema;
@@ -28,7 +30,7 @@ public class AuthController {
   @ApiResponse(
       responseCode = "422",
       description = "Validation or duplicate email",
-      content = @Content(schema = @Schema(implementation = ErrorResponse.class)))
+      content = @Content(schema = @Schema(implementation = ApiError.class)))
   @PostMapping("/register")
   @ResponseStatus(HttpStatus.CREATED)
   public AuthResponse register(@Valid @RequestBody RegisterRequest request) {
@@ -40,11 +42,11 @@ public class AuthController {
   @ApiResponse(
       responseCode = "401",
       description = "Invalid credentials",
-      content = @Content(schema = @Schema(implementation = ErrorResponse.class)))
+      content = @Content(schema = @Schema(implementation = ApiError.class)))
   @ApiResponse(
       responseCode = "422",
       description = "Validation failure",
-      content = @Content(schema = @Schema(implementation = ErrorResponse.class)))
+      content = @Content(schema = @Schema(implementation = ApiError.class)))
   @PostMapping("/login")
   public AuthResponse login(@Valid @RequestBody LoginRequest request) {
     return service.login(request.email(), request.password());

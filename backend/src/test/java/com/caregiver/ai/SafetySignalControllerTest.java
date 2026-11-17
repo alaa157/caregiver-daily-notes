@@ -97,7 +97,7 @@ class SafetySignalControllerTest {
             .header("Authorization", bearer(owner))
             .param("periodEndInclusive", PERIOD_END)
             .param("periodDays", "5"))
-        .andExpect(status().isUnprocessableEntity());
+        .andExpect(status().isBadRequest());
     verifyNoInteractions(llm);
   }
 

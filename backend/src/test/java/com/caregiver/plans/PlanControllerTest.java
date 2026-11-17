@@ -281,7 +281,7 @@ class PlanControllerTest {
               .header("Authorization", bearer(owner.token()))
               .contentType(MediaType.APPLICATION_JSON)
               .content(mapper.writeValueAsBytes(request)))
-          .andExpect(status().isUnprocessableEntity());
+          .andExpect(status().isBadRequest());
     }
 
     assertThat(plans.findAllByRecipient_IdOrderByVersionNumberDesc(UUID.fromString(recipientId))).isEmpty();
@@ -490,7 +490,7 @@ class PlanControllerTest {
             .header("Authorization", bearer(owner.token()))
             .contentType(MediaType.APPLICATION_JSON)
             .content(request))
-        .andExpect(status().isUnprocessableEntity());
+        .andExpect(status().isBadRequest());
 
     assertThat(plans.findAllByRecipient_IdOrderByVersionNumberDesc(UUID.fromString(recipientId))).isEmpty();
   }
@@ -511,7 +511,7 @@ class PlanControllerTest {
             .header("Authorization", bearer(owner.token()))
             .contentType(MediaType.APPLICATION_JSON)
             .content(request))
-        .andExpect(status().isUnprocessableEntity());
+        .andExpect(status().isBadRequest());
 
     assertThat(plans.findAllByRecipient_IdOrderByVersionNumberDesc(UUID.fromString(recipientId))).isEmpty();
   }
@@ -550,7 +550,7 @@ class PlanControllerTest {
             .header("Authorization", bearer(owner.token()))
             .contentType(MediaType.APPLICATION_JSON)
             .content(request))
-        .andExpect(status().isUnprocessableEntity());
+        .andExpect(status().isBadRequest());
 
     assertThat(plans.findAllByRecipient_IdOrderByVersionNumberDesc(UUID.fromString(recipientId))).isEmpty();
   }
@@ -571,7 +571,7 @@ class PlanControllerTest {
             .header("Authorization", bearer(owner.token()))
             .contentType(MediaType.APPLICATION_JSON)
             .content(request))
-        .andExpect(status().isUnprocessableEntity());
+        .andExpect(status().isBadRequest());
 
     assertThat(plans.findAllByRecipient_IdOrderByVersionNumberDesc(UUID.fromString(recipientId))).isEmpty();
   }

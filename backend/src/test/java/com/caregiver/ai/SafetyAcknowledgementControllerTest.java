@@ -197,7 +197,7 @@ class SafetyAcknowledgementControllerTest {
     call(acknowledgementPath(recipientId), owner, Map.of(
         "ruleId", "FALL_DETECTED",
         "periodEndInclusive", PERIOD_END,
-        "periodDays", 9)).andExpect(status().isUnprocessableEntity());
+        "periodDays", 9)).andExpect(status().isBadRequest());
 
     assertThat(jdbc.queryForObject(
         "select count(*) from safety_acknowledgements where recipient_id = ?",

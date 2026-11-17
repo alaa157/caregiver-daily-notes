@@ -1,72 +1,76 @@
 package com.caregiver.notes;
 
+import com.caregiver.auth.InvalidTokenException;
+import com.caregiver.common.ApiError;
+import com.caregiver.common.GlobalExceptionHandler;
 import org.junit.jupiter.api.Test;
 import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
+import org.springframework.mock.web.MockHttpServletRequest;
 import org.springframework.security.access.AccessDeniedException;
-import org.springframework.web.method.annotation.MethodArgumentTypeMismatchException;
-import com.caregiver.auth.InvalidTokenException;
 import org.springframework.web.bind.MissingServletRequestParameterException;
-
-import java.util.Map;
+import org.springframework.web.method.annotation.MethodArgumentTypeMismatchException;
 
 import static org.assertj.core.api.Assertions.assertThat;
 
 /**
- * Direct contract tests for defensive handler branches that normal
- * request flows cannot reach (raw integrity violations, broken
- * authentication, denied access, unexpected failures).
+ * Direct contract tests for the defensive branches of the single shared
+ * handler that normal request flows cannot easily reach.
  */
 class NoteApiExceptionHandlerTest {
 
-  private final NoteApiExceptionHandler handler = new NoteApiExceptionHandler();
+  private final GlobalExceptionHandler handler = new GlobalExceptionHandler();
+
+  private static MockHttpServletRequest notesRequest() {
+    var request = new MockHttpServletRequest("POST", "/api/notes");
+    return request;
+  }
 
   @Test
   void integrityFallbackIsConflictWithoutInternals() {
-    ResponseEntity<Map<String, Object>> response =
-        handler.conflict(new DataIntegrityViolationException("constraint [uk_x]"));
+    ResponseEntity<ApiError> response =
+        handler.conflict(new DataIntegrityViolationException("constraint [uk_x]"), notesRequest());
     assertThat(response.getStatusCode()).isEqualTo(HttpStatus.CONFLICT);
-    assertThat(response.getBody()).containsEntry("status", 409);
-    assertThat(response.getBody()).containsEntry("code", "NOTE_CONFLICT");
-    assertThat(response.getBody().get("message").toString()).doesNotContain("uk_x");
+    assertThat(response.getBody().code()).isEqualTo("NOTE_CONFLICT");
+    assertThat(response.getBody().message()).doesNotContain("uk_x");
   }
 
   @Test
   void authenticationFailureStaysUnauthorized() {
-    ResponseEntity<Map<String, Object>> response =
+    ResponseEntity<ApiError> response =
         handler.unauthorized(new InvalidTokenException("Authentication required."));
     assertThat(response.getStatusCode()).isEqualTo(HttpStatus.UNAUTHORIZED);
-    assertThat(response.getBody()).containsEntry("code", "UNAUTHORIZED");
+    assertThat(response.getBody().code()).isEqualTo("UNAUTHORIZED");
   }
 
   @Test
   void deniedAccessIsForbidden() {
-    ResponseEntity<Map<String, Object>> response =
-        handler.forbidden(new AccessDeniedException("denied"));
+    ResponseEntity<ApiError> response = handler.forbidden(new AccessDeniedException("denied"));
     assertThat(response.getStatusCode()).isEqualTo(HttpStatus.FORBIDDEN);
-    assertThat(response.getBody()).containsEntry("code", "FORBIDDEN");
+    assertThat(response.getBody().code()).isEqualTo("FORBIDDEN");
   }
 
   @Test
   void unexpectedFailureIsServerErrorWithoutInternals() {
-    ResponseEntity<Map<String, Object>> response =
+    ResponseEntity<ApiError> response =
         handler.unexpected(new IllegalStateException("s3cr3t stack detail"));
     assertThat(response.getStatusCode()).isEqualTo(HttpStatus.INTERNAL_SERVER_ERROR);
-    assertThat(response.getBody()).containsEntry("code", "SERVER_ERROR");
-    assertThat(response.getBody().get("message").toString()).doesNotContain("s3cr3t");
+    assertThat(response.getBody().code()).isEqualTo("SERVER_ERROR");
+    assertThat(response.getBody().message()).doesNotContain("s3cr3t");
   }
 
   @Test
   void missingAndMismatchedParametersAreMachineReadable() {
-    ResponseEntity<Map<String, Object>> missing =
+    ResponseEntity<ApiError> missing =
         handler.missingParameter(new MissingServletRequestParameterException("from", "LocalDate"));
     assertThat(missing.getStatusCode()).isEqualTo(HttpStatus.BAD_REQUEST);
-    assertThat(missing.getBody()).containsEntry("code", "MISSING_PARAMETER");
+    assertThat(missing.getBody().code()).isEqualTo("MISSING_PARAMETER");
 
-    ResponseEntity<Map<String, Object>> mismatch = handler.invalidParameter(
-        new MethodArgumentTypeMismatchException("x", String.class, "id", null, new IllegalArgumentException()));
+    ResponseEntity<ApiError> mismatch = handler.invalidParameter(
+        new MethodArgumentTypeMismatchException("x", String.class, "id", null, new IllegalArgumentException()),
+        notesRequest());
     assertThat(mismatch.getStatusCode()).isEqualTo(HttpStatus.BAD_REQUEST);
-    assertThat(mismatch.getBody()).containsEntry("code", "INVALID_PARAMETER");
+    assertThat(mismatch.getBody().code()).isEqualTo("INVALID_PARAMETER");
   }
 }

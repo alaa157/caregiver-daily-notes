@@ -71,7 +71,6 @@ class DailyNoteServiceTest {
 
     mvc.perform(create(owner.token(), recipientId, tomorrow))
         .andExpect(status().isBadRequest())
-        .andExpect(jsonPath("$.status").value(400))
         .andExpect(jsonPath("$.code").value("INVALID_REQUEST"))
         .andExpect(jsonPath("$.message").value("A note cannot be dated after today."));
 
