@@ -200,7 +200,7 @@ describe('month-to-date notes metric', () => {
     await act(async () => pending.get('2026-10-01/2026-10-18')?.resolve(historyResponse([noteListFixture])));
     expect(await screen.findByText('1', { selector: '.overview-mtd strong' })).toBeInTheDocument();
 
-    fireEvent.change(screen.getByLabelText('Calendar date'), { target: { value: '2026-11-12' } });
+    fireEvent.change(screen.getByLabelText('Selected date'), { target: { value: '2026-11-12' } });
     expect(mtdValue()).toBe('Loading…');
     await waitFor(() => expect(pending.has('2026-11-01/2026-11-12')).toBe(true));
     expect(pending.get('2026-10-01/2026-10-18')?.signal?.aborted).toBe(true);
@@ -295,6 +295,17 @@ describe('authenticated workspace overview', () => {
     });
   });
 
+  it('renders exactly one date control and keeps the formatted date on the dashboard', async () => {
+    renderOverview('/app?date=2026-10-18', serving());
+
+    expect(await screen.findByLabelText('Selected date')).toHaveValue('2026-10-18');
+    expect(screen.getAllByLabelText('Selected date')).toHaveLength(1);
+    expect(document.querySelectorAll('input[type="date"]')).toHaveLength(1);
+    const formatted = document.querySelector('.workspace-overview .overview-date time');
+    expect(formatted).toHaveAttribute('dateTime', '2026-10-18');
+    expect(formatted?.textContent).toBeTruthy();
+  });
+
   it('defaults to the caregiver local calendar date', async () => {
     vi.stubEnv('TZ', 'America/Los_Angeles');
     vi.useFakeTimers({ toFake: ['Date'] });
@@ -304,7 +315,7 @@ describe('authenticated workspace overview', () => {
         ? Promise.resolve(jsonResponse([recipientFixture]))
         : Promise.resolve(historyResponse([])));
       renderOverview('/app', fetcher);
-      expect(await screen.findByLabelText('Calendar date')).toHaveValue('2026-10-18');
+      expect(await screen.findByLabelText('Selected date')).toHaveValue('2026-10-18');
       expect(fetcher.mock.calls.some(([path]) => path === '/api/notes?from=2026-10-18&to=2026-10-18&page=0&size=100')).toBe(true);
     } finally {
       vi.unstubAllEnvs();
@@ -320,7 +331,6 @@ describe('authenticated workspace overview', () => {
     try {
       renderOverview('/app', serving());
       await act(async () => { await Promise.resolve(); });
-      expect(screen.getByLabelText('Calendar date')).toHaveValue('2026-10-19');
       expect(screen.getByLabelText('Selected date')).toHaveValue('2026-10-19');
       expect(newNoteHrefs()).toEqual([
         '/app/notes/new?date=2026-10-19', '/app/notes/new?date=2026-10-19',
@@ -331,7 +341,6 @@ describe('authenticated workspace overview', () => {
         await vi.advanceTimersByTimeAsync(60_000);
       });
 
-      expect(screen.getByLabelText('Calendar date')).toHaveValue('2026-10-20');
       expect(screen.getByLabelText('Selected date')).toHaveValue('2026-10-20');
       expect(newNoteHrefs()).toEqual([
         '/app/notes/new?date=2026-10-20', '/app/notes/new?date=2026-10-20',
@@ -355,7 +364,6 @@ describe('authenticated workspace overview', () => {
         await vi.advanceTimersByTimeAsync(60_000);
       });
 
-      expect(screen.getByLabelText('Calendar date')).toHaveValue('2026-10-15');
       expect(screen.getByLabelText('Selected date')).toHaveValue('2026-10-15');
       expect(screen.getByTestId('location')).toHaveTextContent('/app?date=2026-10-15');
     } finally {
@@ -382,7 +390,7 @@ describe('authenticated workspace overview', () => {
     const fetcher = serving();
     renderOverview('/app?date=2026-10-18', fetcher);
     expect(await screen.findByRole('link', { name: `${recipientFixture.name} Open note` })).toHaveAttribute('href', `/app/notes/${noteFixture.id}`);
-    expect(screen.getByLabelText('Calendar date')).toHaveValue('2026-10-18');
+    expect(screen.getByLabelText('Selected date')).toHaveValue('2026-10-18');
     expect(screen.getAllByText('No note recorded')).toHaveLength(2);
     expect(screen.getByText(/A missing note means no note was found/)).toBeInTheDocument();
     expect(kpiValue('Recipients shown')).toBe('3');
@@ -475,11 +483,11 @@ describe('authenticated workspace overview', () => {
   it('keeps selected date in the URL', async () => {
     const fetcher = serving();
     renderOverview('/app?date=2026-10-18', fetcher);
-    await screen.findByLabelText('Calendar date');
-    fireEvent.change(screen.getByLabelText('Calendar date'), { target: { value: '2026-10-19' } });
+    await screen.findByLabelText('Selected date');
+    fireEvent.change(screen.getByLabelText('Selected date'), { target: { value: '2026-10-19' } });
 
     await waitFor(() => expect(screen.getByTestId('location')).toHaveTextContent('/app?date=2026-10-19'));
-    expect(screen.getByLabelText('Calendar date')).toHaveValue('2026-10-19');
+    expect(screen.getByLabelText('Selected date')).toHaveValue('2026-10-19');
     await waitFor(() => expect(fetcher.mock.calls.some(([path]) => path === '/api/notes?from=2026-10-19&to=2026-10-19&page=0&size=100')).toBe(true));
   });
 
@@ -493,7 +501,7 @@ describe('authenticated workspace overview', () => {
     const view = renderOverview('/app?date=2026-10-18', fetcher);
 
     await waitFor(() => expect(pending.has('2026-10-18')).toBe(true));
-    fireEvent.change(screen.getByLabelText('Calendar date'), { target: { value: '2026-10-19' } });
+    fireEvent.change(screen.getByLabelText('Selected date'), { target: { value: '2026-10-19' } });
     await waitFor(() => expect(pending.has('2026-10-19')).toBe(true));
     expect(pending.get('2026-10-18')?.signal?.aborted).toBe(true);
     expect(kpiValue('Recipients shown')).toBe('Loading…');
@@ -543,7 +551,7 @@ describe('authenticated workspace overview', () => {
   it('does not send an invalid URL date to the API', async () => {
     const fetcher = serving();
     renderOverview('/app?date=2026-02-31', fetcher);
-    const input = await screen.findByLabelText('Calendar date');
+    const input = await screen.findByLabelText('Selected date');
 
     expect(input).not.toHaveValue('2026-02-31');
     const historyUrl = fetcher.mock.calls.map(([path]) => path).find((path: string) => {
@@ -606,9 +614,9 @@ describe('authenticated workspace overview', () => {
     const view = renderOverview('/app?date=2026-10-18', fetcher);
     expect(await screen.findAllByText('Note status unavailable')).toHaveLength(2);
     expect(await screen.findByText('Some note statuses could not be loaded. Retry those rows to refresh the overview.')).toBeInTheDocument();
-    fireEvent.change(screen.getByLabelText('Calendar date'), { target: { value: '2026-10-19' } });
+    fireEvent.change(screen.getByLabelText('Selected date'), { target: { value: '2026-10-19' } });
     expect(view.container.querySelector('h1')).toHaveTextContent('Caregiver workspace');
-    expect(await screen.findByLabelText('Calendar date')).toHaveValue('2026-10-19');
+    expect(await screen.findByLabelText('Selected date')).toHaveValue('2026-10-19');
     await waitFor(() => expect(fetcher.mock.calls.some(([path]) => path.includes('from=2026-10-19&to=2026-10-19'))).toBe(true));
   });
 
@@ -661,7 +669,7 @@ describe('dashboard accessibility', () => {
     expect(screen.getByRole('region', { name: 'Selected date summary' })).toBeInTheDocument();
     expect(screen.getByRole('region', { name: 'Notes this month' })).toBeInTheDocument();
     expect(screen.getByRole('navigation', { name: 'More caregiver workflows' })).toBeInTheDocument();
-    expect(screen.getByLabelText('Calendar date')).toHaveValue('2026-10-18');
+    expect(screen.getByLabelText('Selected date')).toHaveValue('2026-10-18');
 
     expect(screen.getByRole('link', { name: `${recipientFixture.name} Open note` }))
       .toHaveAttribute('href', `/app/notes/${noteFixture.id}`);
@@ -1015,7 +1023,7 @@ describe('overview activity feed', () => {
   it('keeps activity independent of the selected date query parameter', async () => {
     const fetcher = setup([{ id: id(72), noteId: id(72), kind: 'note', recipientId: recipientFixture.id, createdAt: '2026-10-18T13:00:00Z' }]);
     expect(await screen.findByText('Note')).toBeInTheDocument();
-    fireEvent.change(screen.getByLabelText('Calendar date'), { target: { value: '2026-10-19' } });
+    fireEvent.change(screen.getByLabelText('Selected date'), { target: { value: '2026-10-19' } });
 
     await waitFor(() => expect(screen.getByTestId('location')).toHaveTextContent('/app?date=2026-10-19'));
     expect(await screen.findByText('Note')).toBeInTheDocument();

@@ -92,7 +92,7 @@ for (const initial of ['en', 'ar'] as const) {
     await page.getByRole('button', { name: t.recipientSave, exact: true }).click();
     await expect(page.locator('.recipient-success')).toHaveText(t.recipientUpdated);
     await navigation().getByRole('link', { name: t.dashboard, exact: true }).click();
-    await page.getByLabel(t.overviewDateLabel, { exact: true }).fill(date);
+    await page.getByLabel(t.appDateLabel, { exact: true }).fill(date);
     await expect(page.getByText(t.overviewNoNote, { exact: true })).toBeVisible();
     await page.getByRole('link', { name: t.overviewRecordNote, exact: true }).click();
     await expect(page.getByLabel(t.notesRecipient, { exact: true })).toHaveValue(recipientId);
