@@ -17,6 +17,7 @@ const glyphs = {
   logout: <><path d="M9 4H5a2 2 0 0 0-2 2v12a2 2 0 0 0 2 2h4m6-13 5 5-5 5m-7-5h12" /></>,
   'arrow-right': <path d="M5 12h14m-6-6 6 6-6 6" />,
   'arrow-left': <path d="M19 12H5m6-6-6 6 6 6" />,
+  external: <><path d="M14 4h6v6" /><path d="m20 4-9 9" /><path d="M19 14v5a1 1 0 0 1-1 1H5a1 1 0 0 1-1-1V6a1 1 0 0 1 1-1h5" /></>,
   globe: <><circle cx="12" cy="12" r="9" /><path d="M3 12h18M12 3c5 5 5 13 0 18-5-5-5-13 0-18Z" /></>,
   leaf: <><path d="M20 4c-9-2-16 3-16 9a6 6 0 0 0 6 6c6 0 11-6 10-15Z" /><path d="m4 21 12-12" /></>,
   journal: <><rect x="5" y="3" width="15" height="18" rx="3" /><path d="M9 3v18M3 7h4m-4 5h4m-4 5h4m6-9h4m-4 4h4" /></>,
