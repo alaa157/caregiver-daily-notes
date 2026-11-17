@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { Link } from 'react-router-dom';
 import { useI18n } from '../i18n/I18nProvider';
-import { useAuthStatus } from '../features/auth/AuthProvider';
+import { hasStoredSession } from '../features/auth/session';
 import { Icon } from '../components/Icon';
 import '../features/landing/landing.css';
 
@@ -31,7 +31,10 @@ function MockScreen({ rtl = false }: { rtl?: boolean }) {
 
 export function LandingRoute() {
   const { language, setLanguage } = useI18n();
-  const authStatus = useAuthStatus();
+  // The public page must render before runtime config (and therefore
+  // AuthProvider) is available. Read the stored session directly for the CTA;
+  // the config-bound auth decision still happens on the API routes.
+  const [authenticated, setAuthenticated] = useState(hasStoredSession);
   const c = copy[language];
   const { t } = useI18n();
   const [menuOpen, setMenuOpen] = useState(false);
@@ -47,6 +50,15 @@ export function LandingRoute() {
     document.title = `${t('home')} · ${t('brand')}`;
   }, [t]);
   useEffect(() => {
+    const refresh = () => setAuthenticated(hasStoredSession());
+    window.addEventListener('storage', refresh);
+    window.addEventListener('focus', refresh);
+    return () => {
+      window.removeEventListener('storage', refresh);
+      window.removeEventListener('focus', refresh);
+    };
+  }, []);
+  useEffect(() => {
     if (!menuOpen) return;
     menuRef.current?.querySelector<HTMLElement>('a, button')?.focus();
   }, [menuOpen]);
@@ -58,8 +70,8 @@ export function LandingRoute() {
     document.addEventListener('keydown', onKeyDown);
     return () => document.removeEventListener('keydown', onKeyDown);
   }, [menuOpen, closeMenu]);
-  const cta = authStatus === 'authenticated' ? c.open : c.sign;
-  const target = authStatus === 'authenticated' ? '/app' : '/login';
+  const cta = authenticated ? c.open : c.sign;
+  const target = authenticated ? '/app' : '/login';
   return <div className="landing-page">
     <a className="skip-link" href="#main-content" onClick={(event) => { event.preventDefault(); document.getElementById('main-content')?.focus(); }}>{t('skipToContent')}</a>
     <header className="landing-header"><Link className="landing-brand" to="/">Caregiver Daily Notes</Link><button ref={menuButtonRef} className="landing-menu" aria-expanded={menuOpen} aria-controls="landing-nav" onClick={() => setMenuOpen(!menuOpen)}>{menuOpen ? '×' : '☰'}<span className="visually-hidden">{language === 'ar' ? 'القائمة' : 'Menu'}</span></button><nav ref={menuRef} id="landing-nav" aria-label={language === 'ar' ? 'التنقل الرئيسي' : 'Main navigation'} className={menuOpen ? 'is-open' : ''}>{c.nav.map((label, i) => <a key={label} href={['#how-it-works', '#safety', '#languages', '#reviewers'][i]} onClick={closeMenu}>{label}</a>)}<button
@@ -68,7 +80,7 @@ export function LandingRoute() {
       onClick={() => setLanguage(language === 'ar' ? 'en' : 'ar')}
     >{language === 'ar' ? 'EN' : 'AR'}</button><Link className="button button--primary" to={target}>{cta}</Link></nav></header>
     <main id="main-content" tabIndex={-1} className="landing-content">
-      <section className="landing-hero"><div><p className="eyebrow">Caregiver Daily Notes</p><h1>{c.hero}</h1><p>{c.sub}</p><div className="landing-ctas"><Link className="button button--primary" to={target}>{cta}</Link>{authStatus !== 'authenticated' && (<Link className="button button--secondary" to="/signup">{c.createAccount}</Link>)}<a className="button button--secondary" href={APK} target="_blank" rel="noopener noreferrer">{c.apk}</a></div><p className="landing-disclaimer">{c.disclaimer}</p></div><MockScreen rtl={language === 'ar'} /></section>
+      <section className="landing-hero"><div><p className="eyebrow">Caregiver Daily Notes</p><h1>{c.hero}</h1><p>{c.sub}</p><div className="landing-ctas"><Link className="button button--primary" to={target}>{cta}</Link>{!authenticated && (<Link className="button button--secondary" to="/signup">{c.createAccount}</Link>)}<a className="button button--secondary" href={APK} target="_blank" rel="noopener noreferrer">{c.apk}</a></div><p className="landing-disclaimer">{c.disclaimer}</p></div><MockScreen rtl={language === 'ar'} /></section>
       <section id="how-it-works" className="landing-section"><h2>{c.how}</h2><div className="landing-grid">{c.steps.map(([title, text], i) => <article className="landing-card" key={title}><span className="step-number">{i + 1}</span><h3>{title}</h3><p>{text}</p></article>)}</div><article className="landing-card"><h3>{c.record}</h3><p>{c.recordBody}</p></article></section>
       <section id="safety" className="landing-section landing-safety"><h2>{c.safety}</h2><ul>{c.safetyItems.map(text => <li key={text}><Icon name="shield" />{text}</li>)}</ul></section>
       <section id="languages" className="landing-section"><h2>{c.languages}</h2><p>{c.langBody}</p><div className="landing-grid language-screens"><figure><MockScreen rtl /><figcaption>{c.ar}</figcaption></figure><figure><MockScreen /><figcaption>{c.en}</figcaption></figure></div></section>

@@ -83,7 +83,9 @@ for (const language of ['en', 'ar'] as const) {
       });
 
       await page.emulateMedia({ reducedMotion: 'reduce' });
-      await page.goto('/');
+      // The public landing page no longer waits on config; the loading state
+      // belongs to routes that need the API.
+      await page.goto('/login');
       await configRequested;
       try {
         const status = page.getByRole('status');
