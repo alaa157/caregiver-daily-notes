@@ -5,6 +5,7 @@ import { describe, expect, it, vi } from 'vitest';
 import { App } from '../app/App';
 import { AuthProvider } from '../features/auth/AuthProvider';
 import { OverviewKpis } from '../features/overview/OverviewKpis';
+import { assertUniqueNotesForDate } from '../features/overview/useDashboardOverview';
 import { mapDashboardActivityItem, type ActivityItem } from '../features/overview/useActivityFeed';
 import { I18nProvider } from '../i18n/I18nProvider';
 import { notifyCareDataChanged } from '../lib/careDataEvents';
@@ -1121,5 +1122,32 @@ describe('dashboard regression coverage gaps', () => {
 
     expect(screen.getByRole('heading', { name: 'Caregiver sign in' })).toBeVisible();
     expect(fetcher).not.toHaveBeenCalled();
+  });
+});
+
+describe('one original note per recipient per date', () => {
+  it('accepts distinct recipients and distinct dates', () => {
+    const anotherRecipient = { ...noteFixture, id: 'aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa', recipientId: inactive.id };
+    const anotherDate = { ...noteFixture, id: 'bbbbbbbb-bbbb-4bbb-8bbb-bbbbbbbbbbbb', date: '2026-10-19' };
+    expect(() => assertUniqueNotesForDate([noteFixture, anotherRecipient, anotherDate])).not.toThrow();
+  });
+
+  it('throws on a duplicate recipient/date pair', () => {
+    const duplicate = { ...noteFixture, id: 'cccccccc-cccc-4ccc-8ccc-cccccccccccc' };
+    expect(() => assertUniqueNotesForDate([noteFixture, duplicate]))
+      .toThrow(/Duplicate original note/);
+  });
+
+  it('surfaces a duplicate in the dashboard response as an error, not a dropped row', async () => {
+    const duplicate = { ...noteFixture, id: 'dddddddd-dddd-4ddd-8ddd-dddddddddddd' };
+    const fetcher = vi.fn().mockImplementation((path: string) => {
+      if (path === '/api/recipients') return Promise.resolve(jsonResponse([recipientFixture]));
+      if (path.startsWith('/api/notes?')) return Promise.resolve(historyResponse([noteFixture, duplicate]));
+      return Promise.resolve(jsonResponse({}, 404));
+    });
+    renderOverview('/app?date=2026-10-18', fetcher);
+
+    expect(await screen.findByText('We couldn’t complete this request. Please try again.')).toBeVisible();
+    expect(screen.queryByRole('heading', { name: recipientFixture.name, level: 3 })).not.toBeInTheDocument();
   });
 });

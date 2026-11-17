@@ -20,6 +20,22 @@ type DateScopedOverview = {
   state: Exclude<OverviewState, { status: 'loading' }>;
 };
 
+/**
+ * The backend enforces one original note per recipient and date
+ * (`uk_daily_note_recipient_date`). Fail loudly if a response ever violates
+ * that contract instead of letting the recipient-keyed table drop a row.
+ */
+export function assertUniqueNotesForDate(notes: readonly DailyNote[]): void {
+  const seen = new Set<string>();
+  for (const note of notes) {
+    const key = `${note.recipientId}\u0000${note.date}`;
+    if (seen.has(key)) {
+      throw new Error(`Duplicate original note for recipient ${note.recipientId} on ${note.date}.`);
+    }
+    seen.add(key);
+  }
+}
+
 export function useDashboardOverview(date: string): {
   state: OverviewState;
   reload: () => void;
@@ -48,6 +64,7 @@ export function useDashboardOverview(date: string): {
       });
     };
 
+    let historyError: unknown = null;
     try {
       let page = await api.notes.history({ from: date, to: date, page: 0, size: 100 }, signal);
       notes.push(...page.content);
@@ -55,11 +72,21 @@ export function useDashboardOverview(date: string): {
         page = await api.notes.history({ from: date, to: date, page: number, size: 100 }, signal);
         notes.push(...page.content);
       }
-      return { date, state: { status: 'ready', data: rows('missing') } };
     } catch (error) {
       if (signal.aborted) throw error;
-      return { date, state: { status: 'partial', data: rows('error'), error } };
+      historyError = error;
     }
+
+    // Runs on everything received, including partial pages, and throws out of
+    // `load` so a contract violation reaches the error state rather than being
+    // hidden by the recipient-keyed map in `rows`.
+    assertUniqueNotesForDate(notes);
+    return {
+      date,
+      state: historyError === null
+        ? { status: 'ready', data: rows('missing') }
+        : { status: 'partial', data: rows('error'), error: historyError },
+    };
   }, [api, date]);
 
   const { state: resource, reload } = useNoteResource(load);
