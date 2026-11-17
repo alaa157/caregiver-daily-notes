@@ -2,6 +2,7 @@ package com.caregiver.medications;
 
 import com.caregiver.auth.ErrorResponse;
 import com.caregiver.auth.InvalidTokenException;
+import com.caregiver.recipient.InactiveRecipientException;
 import com.caregiver.recipient.RecipientNotFoundException;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.tags.Tag;
@@ -60,6 +61,13 @@ public class MedicationIntakeController {
         .body(new ErrorResponse("RECIPIENT_NOT_FOUND", "Recipient not found."));
   }
 
+  @ExceptionHandler(InactiveRecipientException.class)
+  public ResponseEntity<ErrorResponse> inactiveRecipient(InactiveRecipientException exception) {
+    return ResponseEntity.status(HttpStatus.CONFLICT)
+        .body(new ErrorResponse("INACTIVE_RECIPIENT",
+            "Archived or legacy-review recipients cannot be changed in ordinary workflows."));
+  }
+
   @ExceptionHandler(InvalidTokenException.class)
   public ResponseEntity<ErrorResponse> unauthorized(InvalidTokenException exception) {
     return ResponseEntity.status(HttpStatus.UNAUTHORIZED).body(ErrorResponse.unauthorized());
@@ -87,7 +95,8 @@ public class MedicationIntakeController {
   public ResponseEntity<ErrorResponse> medicationFailure(ResponseStatusException exception) {
     HttpStatus status = HttpStatus.valueOf(exception.getStatusCode().value());
     String message = exception.getReason() == null ? status.getReasonPhrase() : exception.getReason();
-    String code = status == HttpStatus.NOT_FOUND ? "MEDICATION_NOT_FOUND" : "MEDICATION_ERROR";
+    String code = status == HttpStatus.NOT_FOUND ? "MEDICATION_NOT_FOUND"
+        : status == HttpStatus.CONFLICT ? "MEDICATION_CONFLICT" : "MEDICATION_ERROR";
     return ResponseEntity.status(status).body(new ErrorResponse(code, message));
   }
 }

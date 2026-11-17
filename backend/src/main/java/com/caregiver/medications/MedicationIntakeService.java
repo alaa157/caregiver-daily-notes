@@ -72,6 +72,8 @@ public class MedicationIntakeService {
         }
         CareRecipient recipient = ownedRecipient(recipientId, caregiverId);
         MedicationRecord medication = ownedMedication(medicationId, caregiverId, recipientId);
+        MedicationLifecycle.requireActiveRecipient(recipient);
+        MedicationLifecycle.requireActiveMedication(medication, "used for intake");
         MedicationIntakeEvent event = intakeEvents.save(new MedicationIntakeEvent(
             recipient.getCaregiver(), recipient, medication, request.intakeState(),
             request.occurredAt(), request.verificationState(), idempotencyKey));
