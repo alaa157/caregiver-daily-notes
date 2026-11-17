@@ -624,6 +624,14 @@ class RecipientControllerTest {
             .content("{\"emergencyContactPhone\":\"abc\"}"))
         .andExpect(status().isBadRequest())
         .andExpect(jsonPath("$.code").value("VALIDATION_ERROR"));
+    for (String punctuationOnly : new String[] {"+++", "---", "( ) -", "++ (+)"}) {
+      mvc.perform(patch(path)
+              .header("Authorization", bearer(owner.token()))
+              .contentType(MediaType.APPLICATION_JSON)
+              .content("{\"emergencyContactPhone\":\"" + punctuationOnly + "\"}"))
+          .andExpect(status().isBadRequest())
+          .andExpect(jsonPath("$.code").value("VALIDATION_ERROR"));
+    }
     mvc.perform(patch(path)
             .header("Authorization", bearer(owner.token()))
             .contentType(MediaType.APPLICATION_JSON)
