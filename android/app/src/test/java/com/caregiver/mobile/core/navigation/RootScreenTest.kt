@@ -1,6 +1,8 @@
 package com.caregiver.mobile.core.navigation
 
 import org.junit.Assert.assertEquals
+import org.junit.Assert.assertFalse
+import org.junit.Assert.assertTrue
 import org.junit.Test
 
 /**
@@ -39,5 +41,15 @@ class RootScreenTest {
         assertEquals(RootScreen.PENDING, rootScreenFor(true, localMode = false, signedIn = null))
         assertEquals(RootScreen.LOGIN, rootScreenFor(true, localMode = false, signedIn = false))
         assertEquals(RootScreen.APP, rootScreenFor(true, localMode = false, signedIn = true))
+    }
+
+    @Test
+    fun signOutReturnsLocalModeToLoginNotTheWorkspace() {
+        // signOut clears the active account id. The gate must then show Login
+        // (not MainScaffold), and Back cannot re-enter the workspace (#707).
+        assertTrue(localLoginRequired(localMode = true, hasActiveAccount = false))
+        assertFalse(localLoginRequired(localMode = true, hasActiveAccount = true))
+        // Server/demo mode has no local-account gate.
+        assertFalse(localLoginRequired(localMode = false, hasActiveAccount = false))
     }
 }

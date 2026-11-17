@@ -19,6 +19,7 @@ import com.caregiver.mobile.data.RecipientRepository
 import com.caregiver.mobile.data.RoomBackedBackendApis
 import com.caregiver.mobile.data.SampleDataLoader
 import com.caregiver.mobile.data.SettingsStore
+import com.caregiver.mobile.data.accounts.Account
 import com.caregiver.mobile.data.accounts.AccountError
 import com.caregiver.mobile.data.accounts.AccountException
 import com.caregiver.mobile.data.accounts.AccountManager
@@ -349,6 +350,16 @@ class AppGraph(
      */
     val activeAccountDisplayName: Flow<String?> by lazy {
         accountManager?.activeAccount?.map { it?.displayName } ?: flowOf(null)
+    }
+
+    /** The active local account, or null when signed out / not local (#707). */
+    val activeAccount: Flow<Account?> by lazy {
+        accountManager?.activeAccount ?: flowOf(null)
+    }
+
+    /** Local accounts in recency order; empty in server/demo graphs (#707). */
+    val accounts: Flow<List<Account>> by lazy {
+        accountManager?.listAccounts() ?: flowOf(emptyList())
     }
 
     /** Local sign-in/up keep the active-id flow in sync with the session store. */

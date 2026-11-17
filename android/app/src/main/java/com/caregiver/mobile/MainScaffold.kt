@@ -81,6 +81,12 @@ import com.caregiver.mobile.core.navigation.hasUnsavedChanges
 import com.caregiver.mobile.core.network.networkAvailabilityFlow
 import com.caregiver.mobile.core.theme.CaregiverColors
 import com.caregiver.mobile.data.OutboxSyncWorker
+import com.caregiver.mobile.data.accounts.Account
+import com.caregiver.mobile.presentation.auth.AccountPicker
+import com.caregiver.mobile.presentation.auth.RegisterAccount
+import com.caregiver.mobile.presentation.auth.RemoveAccountDialog
+import com.caregiver.mobile.presentation.auth.navigateAfterAccountSwitch
+import com.caregiver.mobile.presentation.settings.AddAccountFlow
 import com.caregiver.mobile.presentation.common.AppCenterTopBar
 import com.caregiver.mobile.presentation.common.AppDimens
 import com.caregiver.mobile.presentation.common.assistedViewModel
@@ -180,6 +186,16 @@ fun MainScaffold(graph: AppGraph) {
     // Account pop-up: opened from the top-bar avatar; dismissed by tapping
     // outside or choosing an item. (Replaces the old left drawer.)
     var showAccountMenu by remember { mutableStateOf(false) }
+
+    // Local account actions (#707). The picker/remove dialog/add flow are
+    // overlays so Settings can stay a plain nav destination.
+    val scope = rememberCoroutineScope()
+    var showAccountPicker by remember { mutableStateOf(false) }
+    var showAddAccount by remember { mutableStateOf(false) }
+    var accountToRemove by remember { mutableStateOf<Account?>(null) }
+    val registerAccount: RegisterAccount? = graph.accountManager?.let(::registerAccountFor)
+    val activeAccount by graph.activeAccount.collectAsState(initial = null)
+    val localAccounts by graph.accounts.collectAsState(initial = emptyList())
 
     // Session identity: the stored local account name wins, with the
     // email-derived name only as the server/demo fallback. The same resolver
@@ -548,7 +564,16 @@ fun MainScaffold(graph: AppGraph) {
                     PlanVersionsScreen(AppRoutes.arg(entry, "planId"), graph, navController)
                 }
                 composable(AppDestinations.Settings.base) {
-                    SettingsScreen(graph, navController)
+                    SettingsScreen(
+                        graph = graph,
+                        navController = navController,
+                        activeAccount = activeAccount,
+                        onSwitchAccount = { showAccountPicker = true },
+                        onAddAccount = { showAddAccount = true },
+                        onRemoveAccount = { accountToRemove = activeAccount },
+                        registerAccount = registerAccount,
+                        onAccountCreated = { showAddAccount = false },
+                    )
                 }
                 composable(AppDestinations.AiSettings.base) { entry ->
                     com.caregiver.mobile.presentation.settings.AiSettingsScreen(graph, navController, entry)
@@ -620,6 +645,67 @@ fun MainScaffold(graph: AppGraph) {
                     navController.navigate(AppDestinations.Settings.base) {
                         launchSingleTop = true
                     }
+                },
+            )
+        }
+    }
+
+    // Local account overlays (#707): picker, remove confirmation and the
+    // add-account form. All callback-driven; no new account data path.
+    if (showAccountPicker) {
+        Box(
+            modifier = Modifier
+                .fillMaxSize()
+                .background(Color.Black.copy(alpha = 0.32f))
+                .clickable { showAccountPicker = false },
+        )
+        Popup(alignment = Alignment.Center, onDismissRequest = { showAccountPicker = false }) {
+            AccountPicker(
+                accounts = localAccounts,
+                activeAccountId = activeAccount?.id,
+                onSelect = { account ->
+                    showAccountPicker = false
+                    scope.launch {
+                        graph.accountManager?.switchAccount(account.id)
+                        navController.navigateAfterAccountSwitch()
+                    }
+                },
+                onAddAccount = {
+                    showAccountPicker = false
+                    showAddAccount = true
+                },
+                onDismiss = { showAccountPicker = false },
+                onRemoveAccount = { account ->
+                    graph.accountManager?.removeAccount(account.id)
+                        ?: Result.failure(IllegalStateException("No local accounts"))
+                },
+            )
+        }
+    }
+    accountToRemove?.let { account ->
+        RemoveAccountDialog(
+            account = account,
+            isActive = account.id == activeAccount?.id,
+            onDismiss = { accountToRemove = null },
+            onConfirm = { target ->
+                graph.accountManager?.removeAccount(target.id)
+                    ?: Result.failure(IllegalStateException("No local accounts"))
+            },
+        )
+    }
+    if (showAddAccount && registerAccount != null) {
+        Box(
+            modifier = Modifier
+                .fillMaxSize()
+                .background(MaterialTheme.colorScheme.background),
+        ) {
+            AddAccountFlow(
+                repository = graph.auth,
+                registerAccount = registerAccount,
+                onCancel = { showAddAccount = false },
+                onCreated = {
+                    showAddAccount = false
+                    navController.navigateAfterAccountSwitch()
                 },
             )
         }

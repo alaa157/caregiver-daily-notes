@@ -17,6 +17,8 @@ fun AccountSettingsSection(
     onSwitch: () -> Unit,
     onAdd: () -> Unit,
     onRemove: () -> Unit,
+    /** The active account can never be removed; a listed non-active one can. */
+    canRemove: Boolean = false,
     modifier: Modifier = Modifier,
 ) {
     val sectionTitle = stringResource(R.string.settings_account)
@@ -41,9 +43,9 @@ fun AccountSettingsSection(
             ),
             CaregiverSettingsRow(
                 title = stringResource(R.string.account_remove),
-                description = cannotRemove,
-                enabled = false,
-                onClick = null,
+                description = if (canRemove) null else cannotRemove,
+                enabled = canRemove,
+                onClick = if (canRemove) onRemove else null,
             ),
         ),
     )
