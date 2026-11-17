@@ -146,6 +146,8 @@
     <string name="editor_duplicate_view">View today’s note</string>
     <string name="editor_error_generic">Could not save the note. Please try again.</string>
     <string name="saved_title">Saved</string>
+    <string name="saved_success_message">Note saved for %1$s</string>
+    <string name="saved_back_home">Back to Home</string>
     <string name="saved_view">View note</string>
     <string name="saved_summarize">Create summary</string>
     <string name="detail_corrections">Corrections</string>
