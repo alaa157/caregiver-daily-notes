@@ -28,6 +28,7 @@ import org.springframework.web.server.ResponseStatusException;
 @Service
 public class MedicationIntakeService {
   private static final int MAX_IDEMPOTENCY_KEY_LENGTH = 100;
+  private static final int MAX_VOID_REASON_LENGTH = 500;
   private static final int DEFAULT_PAGE_SIZE = 20;
   private static final int MAX_PAGE_SIZE = 100;
   // A small allowance for clock skew between the caregiver's device and the
@@ -198,6 +199,46 @@ public class MedicationIntakeService {
         .toList();
   }
 
+  /**
+   * Voids an event they recorded. The row is never deleted: the original dose
+   * record stays visible with a reason, actor and timestamp so readers can tell
+   * a retraction from a second dose. Ownership is derived from the JWT, not input.
+   */
+  @Transactional
+  public MedicationIntakeResponse voidEvent(UUID recipientId, UUID medicationId, UUID eventId,
+      String reason) {
+    UUID caregiverId = AuthContext.currentCaregiverId();
+    String normalizedReason = normalizeReason(reason);
+    ownedRecipient(recipientId, caregiverId);
+    ownedMedication(medicationId, caregiverId, recipientId);
+    MedicationIntakeEvent event = intakeEvents
+        .findByIdAndCaregiver_IdAndRecipient_IdAndMedication_Id(
+            eventId, caregiverId, recipientId, medicationId)
+        .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "Intake event not found."));
+    if (event.isVoided()) {
+      throw new IntakeAlreadyVoidedException();
+    }
+    event.markVoided(Instant.now(clock), event.getCaregiver(), normalizedReason);
+    intakeEvents.saveAndFlush(event);
+    audit.record("MEDICATION_INTAKE_VOIDED", "MEDICATION_INTAKE_EVENT", event.getId().toString(),
+        "medicationId=" + medication.getId());
+    return response(event);
+  }
+
+  private static String normalizeReason(String reason) {
+    if (reason == null) {
+      return null;
+    }
+    String trimmed = reason.trim();
+    if (trimmed.isEmpty()) {
+      return null;
+    }
+    if (trimmed.length() > MAX_VOID_REASON_LENGTH) {
+      throw new IllegalArgumentException("Void reason must be at most " + MAX_VOID_REASON_LENGTH + " characters.");
+    }
+    return trimmed;
+  }
+
   private CareRecipient ownedRecipient(UUID recipientId, UUID caregiverId) {
     return recipients.findByIdAndCaregiver_Id(recipientId, caregiverId)
         .orElseThrow(RecipientNotFoundException::new);
@@ -209,6 +250,16 @@ public class MedicationIntakeService {
   }
 
   private MedicationIntakeResponse response(MedicationIntakeEvent event) {
+    if (!event.isVoided()) {
+      return new MedicationIntakeResponse(
+          event.getId(),
+          event.getMedication().getId(),
+          event.getRecipient().getId(),
+          event.getIntakeState(),
+          event.getOccurredAt(),
+          event.getVerificationState(),
+          event.getCreatedAt());
+    }
     return new MedicationIntakeResponse(
         event.getId(),
         event.getMedication().getId(),
@@ -216,6 +267,10 @@ public class MedicationIntakeService {
         event.getIntakeState(),
         event.getOccurredAt(),
         event.getVerificationState(),
-        event.getCreatedAt());
+        event.getCreatedAt(),
+        true,
+        event.getVoidedAt(),
+        event.getVoidedBy() == null ? null : event.getVoidedBy().getId(),
+        event.getVoidReason());
   }
 }

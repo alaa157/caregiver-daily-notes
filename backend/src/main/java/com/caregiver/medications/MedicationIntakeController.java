@@ -6,6 +6,7 @@ import jakarta.validation.Valid;
 import java.util.List;
 import java.util.UUID;
 import org.springframework.http.HttpStatus;
+import org.springframework.web.bind.annotation.DeleteMapping;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PostMapping;
@@ -46,5 +47,15 @@ public class MedicationIntakeController {
       @RequestParam(defaultValue = "0") int page,
       @RequestParam(defaultValue = "20") int size) {
     return service.list(recipientId, medicationId, page, size);
+  }
+
+  @DeleteMapping("/{eventId}")
+  @Operation(summary = "Void an intake event; the original row is retained with provenance")
+  public MedicationIntakeResponse voidEvent(
+      @PathVariable UUID recipientId,
+      @PathVariable UUID medicationId,
+      @PathVariable UUID eventId,
+      @RequestParam(value = "reason", required = false) String reason) {
+    return service.voidEvent(recipientId, medicationId, eventId, reason);
   }
 }

@@ -189,6 +189,11 @@ public class GlobalExceptionHandler {
     return status(HttpStatus.CONFLICT, new ApiError("INVALID_PLAN_TRANSITION", e.getMessage()));
   }
 
+  @ExceptionHandler(com.caregiver.medications.IntakeAlreadyVoidedException.class)
+  public ResponseEntity<ApiError> alreadyVoided(RuntimeException e) {
+    return status(HttpStatus.CONFLICT, new ApiError("INTAKE_ALREADY_VOIDED", e.getMessage()));
+  }
+
   @ExceptionHandler(DataIntegrityViolationException.class)
   public ResponseEntity<ApiError> conflict(DataIntegrityViolationException e, HttpServletRequest request) {
     log.warn("Unhandled data integrity violation on {} {}", request.getMethod(), request.getRequestURI());
