@@ -16,6 +16,7 @@ import androidx.compose.ui.test.assertIsNotEnabled
 import androidx.compose.ui.test.junit4.createComposeRule
 import androidx.compose.ui.test.longClick
 import androidx.compose.ui.test.onAllNodesWithText
+import androidx.compose.ui.test.onNodeWithContentDescription
 import androidx.compose.ui.test.onNodeWithTag
 import androidx.compose.ui.test.onNodeWithText
 import androidx.compose.ui.test.performClick
@@ -24,6 +25,7 @@ import androidx.compose.ui.test.performTextInput
 import androidx.compose.ui.test.performTouchInput
 import androidx.test.core.app.ApplicationProvider
 import androidx.test.ext.junit.runners.AndroidJUnit4
+import com.caregiver.mobile.R
 import com.caregiver.mobile.core.network.TokenHolder
 import com.caregiver.mobile.core.theme.CaregiverTheme
 import com.caregiver.mobile.data.AuthRepository
@@ -82,6 +84,7 @@ class AuthFormUiTest {
         mode: AuthMode,
         language: String,
         onSwitch: () -> Unit = {},
+        onBack: (() -> Unit)? = null,
         onDemo: (() -> Unit)? = null,
         registerAccount: RegisterAccount? = null,
         showSwitchAccount: Boolean = false,
@@ -105,9 +108,9 @@ class AuthFormUiTest {
                         mode = mode,
                         onEmail = vm::onEmail,
                         onPassword = vm::onPassword,
-                        onConfirm = vm::onConfirm,
                         onSubmit = vm::submit,
                         onSwitchMode = onSwitch,
+                        onBack = onBack,
                         onDisplayName = vm::onDisplayName,
                         showDisplayName = vm.requiresDisplayName,
                         onDemo = onDemo ?: if (enterDemoSession != null) vm::demoSignIn else null,
@@ -141,9 +144,18 @@ class AuthFormUiTest {
     fun registerLabelsArabic() {
         setForm(AuthMode.Register, "ar")
 
-        listOf("أنشئ حسابك", "البريد الإلكتروني", "كلمة المرور", "تأكيد كلمة المرور").forEach {
+        listOf("أنشئ حسابك", "البريد الإلكتروني", "كلمة المرور").forEach {
             compose.onNodeWithText(it).assertIsDisplayed()
         }
+        // #874: the hint replaces the removed confirm field.
+        compose.onNodeWithText(hintText("ar")).assertIsDisplayed()
+    }
+
+    /** The Register hint is derived from the same policy value as the UI. */
+    private fun hintText(language: String): String {
+        val context = ApplicationProvider.getApplicationContext<Context>()
+            .withLocale(language)
+        return context.getString(R.string.auth_password_hint, PasswordPolicy.MIN_LENGTH)
     }
 
     @Test
@@ -179,15 +191,35 @@ class AuthFormUiTest {
     }
 
     @Test
-    fun registerMismatchErrorInline() {
+    fun registerUsesSharedFieldsButtonAndPolicyHint() {
         setForm(AuthMode.Register, "en")
 
-        compose.onNodeWithTag("auth_field_email").performTextInput("a@b.c")
-        compose.onNodeWithTag("auth_field_password").performTextInput("pw")
-        compose.onNodeWithTag("auth_field_confirm").performTextInput("other")
-        submitButton("Create account").performClick()
+        // #874: every field is the shared AuthTextField and the CTA is the
+        // shared AuthPrimaryButton with a stable test tag.
+        compose.onNodeWithTag("auth_field_name").assertDoesNotExist()
+        compose.onNodeWithTag("auth_field_email").assertIsDisplayed()
+        compose.onNodeWithTag("auth_field_password").assertIsDisplayed()
+        compose.onNodeWithTag("auth_primary_button").assertIsDisplayed()
+        compose.onNodeWithText(hintText("en")).assertIsDisplayed()
+        // The confirm field was removed with its state in #869.
+        compose.onNodeWithTag("auth_field_confirm").assertDoesNotExist()
+    }
 
-        compose.onNodeWithText("Passwords do not match").assertIsDisplayed()
+    @Test
+    fun registerBackButtonKeepsExistingBehavior() {
+        var backs = 0
+        setForm(AuthMode.Register, "en", onBack = { backs++ })
+
+        compose.onNodeWithContentDescription("Back").assertIsDisplayed().performClick()
+
+        assertEquals(1, backs)
+    }
+
+    @Test
+    fun loginDoesNotShowRegisterHint() {
+        setForm(AuthMode.Login, "en")
+
+        compose.onNodeWithText(hintText("en")).assertDoesNotExist()
     }
 
     @Test
@@ -211,7 +243,6 @@ class AuthFormUiTest {
 
         compose.onNodeWithTag("auth_field_email").performTextInput("a@b.c")
         compose.onNodeWithTag("auth_field_password").performTextInput("pw")
-        compose.onNodeWithTag("auth_field_confirm").performTextInput("pw")
         compose.onAllNodesWithText("إنشاء الحساب").filterToOne(hasClickAction()).performClick()
 
         compose.onNodeWithText("هذا البريد مسجل بالفعل").assertIsDisplayed()
@@ -320,7 +351,6 @@ class AuthFormUiTest {
         compose.onNodeWithTag("auth_field_name").assertIsDisplayed()
         compose.onNodeWithTag("auth_field_email").performTextInput("a@b.c")
         compose.onNodeWithTag("auth_field_password").performTextInput("Password1")
-        compose.onNodeWithTag("auth_field_confirm").performTextInput("Password1")
 
         submitButton("إنشاء الحساب").performClick()
         compose.onNodeWithText("الاسم مطلوب").assertIsDisplayed()
@@ -346,7 +376,6 @@ class AuthFormUiTest {
         compose.onNodeWithTag("auth_field_name").performTextInput("  Aisha  ")
         compose.onNodeWithTag("auth_field_email").performTextInput("a@b.c")
         compose.onNodeWithTag("auth_field_password").performTextInput("Password1")
-        compose.onNodeWithTag("auth_field_confirm").performTextInput("Password1")
 
         submitButton("Create account").performClick()
         compose.waitForIdle()
@@ -374,7 +403,6 @@ class AuthFormUiTest {
         compose.onNodeWithTag("auth_field_name").performTextInput("Aisha")
         compose.onNodeWithTag("auth_field_email").performTextInput("a@b.c")
         compose.onNodeWithTag("auth_field_password").performTextInput("abcd")
-        compose.onNodeWithTag("auth_field_confirm").performTextInput("abcd")
 
         submitButton("Create account").performClick()
         compose.waitForIdle()

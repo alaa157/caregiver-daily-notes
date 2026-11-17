@@ -123,7 +123,6 @@ class AuthViewModel(
             nameError = null,
             emailError = null,
             passwordError = null,
-            confirmError = null,
             formError = null,
             createdAccount = null,
         )

@@ -85,7 +85,6 @@ class AddAccountFlowTest {
         compose.onNodeWithTag("auth_field_name").performTextInput("New")
         compose.onNodeWithTag("auth_field_email").performTextInput("new@example.com")
         compose.onNodeWithTag("auth_field_password").performTextInput("password1")
-        compose.onNodeWithTag("auth_field_confirm").performTextInput("password1")
     }
 
     private fun submitButton(label: String) =

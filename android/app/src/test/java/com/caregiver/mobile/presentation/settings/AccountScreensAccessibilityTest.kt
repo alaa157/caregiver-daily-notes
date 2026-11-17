@@ -157,7 +157,7 @@ class AccountScreensAccessibilityTest {
         compose.onNodeWithTag("auth_field_name").assertIsDisplayed()
         compose.onNodeWithTag("auth_field_email").assertIsDisplayed()
         compose.onNodeWithTag("auth_field_password").assertIsDisplayed()
-        compose.onNodeWithTag("auth_field_confirm").assertIsDisplayed()
+        compose.onNodeWithTag("auth_primary_button").assertIsDisplayed()
     }
 
     private fun Context.withLocale(language: String): Context {

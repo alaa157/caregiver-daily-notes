@@ -13,12 +13,16 @@
     <string name="auth_name">Name</string>
     <string name="auth_email">Email</string>
     <string name="auth_password">Password</string>
+    <!-- #874: the minimum is injected from PasswordPolicy.MIN_LENGTH; the
+         rest of the rule (letter + digit) is already covered by the typed
+         policy-error strings below. -->
+    <string name="auth_password_hint">Use at least %1$d characters, including a letter and a digit.</string>
     <string name="auth_show_password">Show password</string>
     <string name="auth_hide_password">Hide password</string>
     <string name="auth_submit_login">Sign in</string>
     <string name="auth_submit_register">Create account</string>
     <string name="auth_no_account">No account? Create one</string>
-    <string name="auth_have_account">Have an account? Sign in</string>
+    <string name="auth_have_account">Already have an account? Sign in</string>
     <string name="auth_demo">Explore the demo (offline)</string>
     <string name="auth_error_name_required">Name is required</string>
     <string name="auth_error_name_long">Use a name of up to 80 characters.</string>

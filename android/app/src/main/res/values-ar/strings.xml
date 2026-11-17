@@ -13,12 +13,14 @@
     <string name="auth_name">الاسم</string>
     <string name="auth_email">البريد الإلكتروني</string>
     <string name="auth_password">كلمة المرور</string>
+    <!-- #874: انظر التعليق في values/strings.xml — الحد الأدنى يُقرأ من PasswordPolicy. -->
+    <string name="auth_password_hint">استخدم %1$d أحرف على الأقل، بما فيها حرف ورقم.</string>
     <string name="auth_show_password">إظهار كلمة المرور</string>
     <string name="auth_hide_password">إخفاء كلمة المرور</string>
     <string name="auth_submit_login">دخول</string>
     <string name="auth_submit_register">إنشاء الحساب</string>
     <string name="auth_no_account">ليس لديك حساب؟ أنشئ حساباً</string>
-    <string name="auth_have_account">لديك حساب؟ سجّل الدخول</string>
+    <string name="auth_have_account">لديك حساب بالفعل؟ سجّل الدخول</string>
     <string name="auth_demo">استكشف العرض التجريبي (دون اتصال)</string>
     <string name="auth_error_name_required">الاسم مطلوب</string>
     <string name="auth_error_name_long">استخدم اسمًا لا يتجاوز 80 حرفًا.</string>

@@ -76,7 +76,6 @@ class ClaimExistingDataScreenTest {
         compose.onNodeWithTag("auth_field_name").performTextInput("Owner")
         compose.onNodeWithTag("auth_field_email").performTextInput("owner@example.com")
         compose.onNodeWithTag("auth_field_password").performTextInput("password1")
-        compose.onNodeWithTag("auth_field_confirm").performTextInput("password1")
     }
 
     private fun submitButton(label: String) =
@@ -93,7 +92,7 @@ class ClaimExistingDataScreenTest {
         compose.onNodeWithTag("auth_field_name").assertIsDisplayed()
         compose.onNodeWithTag("auth_field_email").assertIsDisplayed()
         compose.onNodeWithTag("auth_field_password").assertIsDisplayed()
-        compose.onNodeWithTag("auth_field_confirm").assertIsDisplayed()
+        compose.onNodeWithTag("auth_primary_button").assertIsDisplayed()
         compose.onNodeWithContentDescription("Back").assertDoesNotExist()
     }
 

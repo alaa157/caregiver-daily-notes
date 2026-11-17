@@ -54,7 +54,6 @@ fun ClaimExistingDataScreen(
         mode = AuthMode.Register,
         onEmail = viewModel::onEmail,
         onPassword = viewModel::onPassword,
-        onConfirm = viewModel::onConfirm,
         onSubmit = viewModel::submit,
         onSwitchMode = {},
         showDisplayName = viewModel.requiresDisplayName,

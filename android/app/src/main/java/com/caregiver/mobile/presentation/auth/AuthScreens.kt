@@ -46,7 +46,6 @@ fun LoginScreen(
         mode = AuthMode.Login,
         onEmail = vm::onEmail,
         onPassword = vm::onPassword,
-        onConfirm = vm::onConfirm,
         onSubmit = vm::submit,
         onSwitchMode = {
             navController.navigate(AppDestinations.Register.base) {
@@ -67,7 +66,7 @@ fun LoginScreen(
     )
 }
 
-/** Register (missing-page spec): mirrors login plus the confirm field. */
+/** Register: the redesigned form wired to its ViewModel, with a working back control. */
 @Composable
 fun RegisterScreen(
     repository: AuthRepository,
@@ -87,7 +86,6 @@ fun RegisterScreen(
         mode = AuthMode.Register,
         onEmail = vm::onEmail,
         onPassword = vm::onPassword,
-        onConfirm = vm::onConfirm,
         onSubmit = vm::submit,
         onSwitchMode = backToLogin,
         onDisplayName = vm::onDisplayName,

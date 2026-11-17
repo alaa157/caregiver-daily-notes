@@ -346,7 +346,6 @@ class RtlUiTest {
                 mode = mode,
                 onEmail = vm::onEmail,
                 onPassword = vm::onPassword,
-                onConfirm = vm::onConfirm,
                 onSubmit = vm::submit,
                 onSwitchMode = onSwitch,
             )
