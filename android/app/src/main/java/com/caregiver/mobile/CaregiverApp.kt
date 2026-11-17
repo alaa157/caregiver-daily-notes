@@ -105,8 +105,11 @@ class CaregiverApp : Application() {
         // missing stored value never erases the cold-start mirror. This is
         // best-effort — a settings read failure must never break startup or
         // pollute the Language log with an exception.
+        // Capture the Application before entering runBlocking: inside its
+        // lambda `this` is the CoroutineScope, not a Context.
+        val appContext = this
         val stored = try {
-            runBlocking { SettingsStore.create(this).storedLanguage.first() }
+            runBlocking { SettingsStore.create(appContext).storedLanguage.first() }
         } catch (e: Exception) {
             null
         }
