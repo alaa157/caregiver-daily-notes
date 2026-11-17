@@ -21,8 +21,10 @@ import androidx.test.core.app.ApplicationProvider
 import androidx.test.ext.junit.runners.AndroidJUnit4
 import com.caregiver.mobile.AppGraph
 import com.caregiver.mobile.core.theme.CaregiverTheme
+import com.caregiver.mobile.data.NoteDraftStore
 import com.caregiver.mobile.presentation.common.SectionCardTestTag
 import com.caregiver.mobile.test.WithTestOwner
+import java.time.LocalDate
 import org.junit.Before
 import org.junit.Rule
 import org.junit.Test
@@ -46,6 +48,9 @@ class NoteEditorShellUiTest {
     fun setUp() {
         val context = ApplicationProvider.getApplicationContext<Context>()
         graph = AppGraph(context)
+        // Tests share one app process; start from a clean draft each time.
+        NoteDraftStore.create(context)
+            .clear(NoteDraftStore.key("r1", LocalDate.now().toString()))
     }
 
     private fun openEditor() {
@@ -118,15 +123,14 @@ class NoteEditorShellUiTest {
     }
 
     @Test
-    fun closingWithChangesAsksAndKeepEditingStays() {
+    fun closingWithChangesLeavesWithoutAskingBecauseTheDraftIsAutosaved() {
         openEditor()
         compose.onAllNodesWithText("Good")[0].performClick()
 
         compose.onNode(hasContentDescription("Close editor")).performClick()
 
-        compose.onNodeWithText("Discard unsaved changes?").assertIsDisplayed()
-        compose.onNodeWithText("Keep editing").performClick()
+        // #906: the change was persisted locally, so there is nothing to lose.
         compose.onNodeWithText("Discard unsaved changes?").assertDoesNotExist()
-        compose.onNodeWithText("1 of 7 done").assertIsDisplayed()
+        compose.onNodeWithText("left screen").assertIsDisplayed()
     }
 }

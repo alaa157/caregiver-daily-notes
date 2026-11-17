@@ -73,6 +73,7 @@ import androidx.compose.ui.unit.sp
 import androidx.navigation.NavController
 import com.caregiver.mobile.AppGraph
 import com.caregiver.mobile.R
+import com.caregiver.mobile.data.NoteDraftStore
 import com.caregiver.mobile.data.api.NoteDetailDto
 import com.caregiver.mobile.core.i18n.Bidi
 import com.caregiver.mobile.core.theme.CaregiverColors
@@ -132,8 +133,10 @@ internal fun draftTimeLabel(time: LocalTime): String =
  */
 @Composable
 fun NoteEditorScreen(recipientId: String, graph: AppGraph, navController: NavController) {
+    // SharedPreferences-backed so an in-progress note survives app restarts.
+    val drafts = remember { NoteDraftStore.create(LocalContext.current.applicationContext) }
     val vm: NoteEditorViewModel = assistedViewModel("editor-$recipientId") {
-        NoteEditorViewModel(recipientId, graph.apis, graph.auth)
+        NoteEditorViewModel(recipientId, graph.apis, graph.auth, drafts = drafts)
     }
     val state by vm.state.collectAsStateWithLifecycle()
     state.savedId?.let { noteId ->
@@ -151,12 +154,12 @@ fun NoteEditorScreen(recipientId: String, graph: AppGraph, navController: NavCon
         recipientName = runCatching { graph.apis.recipients().get(recipientId).name }.getOrNull()
     }
 
-    // #901 has no autosave; #906 will set this once a draft is persisted.
-    var draftAutosaved by rememberSaveable { mutableStateOf(false) }
     var confirmClose by rememberSaveable { mutableStateOf(false) }
 
     fun requestClose() {
-        if (shouldConfirmClose(state, draftAutosaved)) {
+        // #906 persists a draft after every change, so the only case that
+        // needs confirmation is a form that has never been autosaved.
+        if (shouldConfirmClose(state, autosaved = state.draftSavedAt != null)) {
             confirmClose = true
         } else {
             navController.popBackStack()
@@ -200,7 +203,15 @@ fun NoteEditorScreen(recipientId: String, graph: AppGraph, navController: NavCon
         )
     }
 
-    val draftTime = remember { draftTimeLabel(LocalTime.now()) }
+    val draftLine = state.draftSavedAt?.let { savedAt ->
+        stringResource(
+            R.string.editor_draft_status,
+            draftTimeLabel(
+                java.time.Instant.ofEpochMilli(savedAt)
+                    .atZone(java.time.ZoneId.systemDefault()).toLocalTime(),
+            ),
+        )
+    } ?: stringResource(R.string.editor_draft_saved)
     Column(Modifier.fillMaxSize()) {
         Column(
             modifier = Modifier
@@ -249,7 +260,7 @@ fun NoteEditorScreen(recipientId: String, graph: AppGraph, navController: NavCon
                 }
             }
             Text(
-                stringResource(R.string.editor_draft_status, draftTime),
+                draftLine,
                 fontFamily = PlexArabic,
                 fontSize = 13.sp,
                 color = CaregiverColors.Muted,
