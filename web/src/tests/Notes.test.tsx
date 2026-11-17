@@ -7,6 +7,7 @@ import { AuthProvider } from '../features/auth/AuthProvider';
 import { NoteTimelineRow } from '../features/notes/NoteTimelineRow';
 import { I18nProvider } from '../i18n/I18nProvider';
 import { ApiProvider } from '../lib/api';
+import { CARE_DATA_CHANGED_EVENT } from '../lib/careDataEvents';
 import { jsonResponse, testToken } from './authFixtures';
 import { addendumFixture, noteDetailFixture, noteFixture, noteListFixture, noteObservations, structuredObservations } from './noteFixtures';
 import { observationFields, type FieldCorrection } from '../api/notes';
@@ -857,6 +858,8 @@ describe('daily-note creation and immutable corrections', () => {
   });
   it('records only selected correction fields and leaves the original immutable', async () => {
     const writes: RequestInit[] = [];
+    const careDataChanged = vi.fn();
+    window.addEventListener(CARE_DATA_CHANGED_EVENT, careDataChanged);
     let appended = false;
     const fetcher = dataFetcher((path, init) => {
       if (path.endsWith('/addenda') && init.method === 'POST') { appended = true; writes.push(init); return jsonResponse(addendumFixture, 201); }
@@ -876,6 +879,8 @@ describe('daily-note creation and immutable corrections', () => {
     fireEvent.change(screen.getByRole('textbox', { name: 'Free-text observations' }), { target: { value: addendumFixture.freeText } });
     await userEvent.click(screen.getByRole('button', { name: 'Save addendum' }));
     expect(await screen.findByText('Addendum saved. The original note is unchanged.')).toHaveFocus();
+    expect(careDataChanged).toHaveBeenCalledTimes(1);
+    window.removeEventListener(CARE_DATA_CHANGED_EVENT, careDataChanged);
     expect(JSON.parse(writes[0].body as string)).toEqual({
       observations: {
         medicationStatus: { state: 'RECORDED', value: 'MISSED' },
