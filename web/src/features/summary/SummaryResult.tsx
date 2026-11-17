@@ -3,6 +3,7 @@ import { Link } from 'react-router-dom';
 import { isRecipientId } from '../../api/recipients';
 import type { SummaryRequest, SummaryResponse } from '../../api/summary';
 import { useI18n } from '../../i18n/I18nProvider';
+import { dayCountLabel } from '../../i18n/dayCount';
 import { formatNumber } from '../../lib/format';
 import type { ByokProviderId } from '../ai/ByokContext';
 import { providerLabelKey } from '../ai/providers';
@@ -89,7 +90,7 @@ export function SummaryResult({ view }: { view: SummaryView }) {
   return <section className="summary-result" aria-labelledby="summary-result-heading">
     <header className="summary-result-heading"><h2 id="summary-result-heading">{t(headingKey)}</h2>
       <p className="summary-recipient"><bdi>{view.recipientName}</bdi></p>
-      <p>{t('summaryCoverage')}: <bdi>{from.toISOString().slice(0, 10)}</bdi> – <bdi>{request.periodEndInclusive}</bdi> (<bdi>{format(request.periodDays)}</bdi> {t('summaryDays')})</p>
+      <p>{t('summaryCoverage')}: <bdi>{from.toISOString().slice(0, 10)}</bdi> – <bdi>{request.periodEndInclusive}</bdi> (<bdi>{dayCountLabel(request.periodDays, language)}</bdi>)</p>
       {view.generatedWith && !response.summary?.aiUnavailable && <p>{t('summaryGeneratedWith')}: {t(providerLabelKey(view.generatedWith.providerId))} · <bdi>{view.generatedWith.model}</bdi></p>}
     </header>
     <SummarySafety safety={response.safety} recipientId={request.recipientId}

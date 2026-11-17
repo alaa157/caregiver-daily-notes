@@ -7,6 +7,7 @@ import { ApiError, useApiClient } from '../../lib/api';
 import { Button, ButtonLink } from '../../components/Button';
 import { EmptyState, ErrorState, LoadingState } from '../../components/Feedback';
 import { useI18n } from '../../i18n/I18nProvider';
+import { dayCountLabel } from '../../i18n/dayCount';
 import { formatDate, formatNumber } from '../../lib/format';
 import type { MessageKey } from '../../i18n/translations';
 import { defaultHistoryFilters } from '../history/historyFilters';
@@ -219,7 +220,7 @@ function PlanWorkspace({ recipientId, onSaving }: { recipientId: string; onSavin
     </div>}
     {state.status === 'loading' && <LoadingState label={t('plansLoading')} />}
     {state.status === 'error' && <div ref={status} tabIndex={-1}><ErrorState description={t(state.error instanceof SnapshotChanged ? 'plansInconsistent' : planErrorMessage(state.error))} onRetry={() => reload()} /></div>}
-    {generationSafety && <div className="plan-generation-safety"><p>{t('plansGenerationSafety')}: <bdi>{formatDate(`${generationSafety.request.periodEndInclusive}T12:00:00Z`, language, { dateStyle: 'medium', timeZone: 'UTC' })}</bdi> · <bdi>{formatNumber(generationSafety.request.periodDays, language)}</bdi> {t('summaryDays')}</p><SummarySafety safety={generationSafety.safety} /></div>}
+    {generationSafety && <div className="plan-generation-safety"><p>{t('plansGenerationSafety')}: <bdi>{formatDate(`${generationSafety.request.periodEndInclusive}T12:00:00Z`, language, { dateStyle: 'medium', timeZone: 'UTC' })}</bdi> · <bdi>{dayCountLabel(generationSafety.request.periodDays, language)}</bdi></p><SummarySafety safety={generationSafety.safety} /></div>}
     {snapshot && <>
       {!snapshot.recipient.active && <p className="note-notice">{t('plansInactive')}</p>}
       <PlanGenerationForm recipientId={recipientId} disabled={disabled || !!confirmation || !!editing}
