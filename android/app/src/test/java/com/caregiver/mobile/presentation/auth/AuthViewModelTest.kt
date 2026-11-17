@@ -1,6 +1,7 @@
 package com.caregiver.mobile.presentation.auth
 
 import com.caregiver.mobile.data.AuthRepository
+import com.caregiver.mobile.data.code
 import com.caregiver.mobile.data.FakeAuthApi
 import com.caregiver.mobile.data.FakeBackendApis
 import com.caregiver.mobile.data.SettingsStore
@@ -318,6 +319,89 @@ class AuthViewModelTest {
 
             assertEquals("expected $problem", PasswordError.Policy(problem), vm.state.value.passwordError)
             assertNull("no form error for $problem", vm.state.value.formError)
+        }
+    }
+
+    @Test
+    fun repositoryEmailTakenMapsToDuplicateEmail() = runTest {
+        fakeAuth.registerHandler = {
+            throw FakeAuthApi.httpError(422, "EMAIL_TAKEN", "Email is already registered.")
+        }
+        val vm = AuthViewModel(AuthMode.Register, repository, this)
+        vm.onEmail("a@b.c")
+        vm.onPassword("Password1")
+        vm.onConfirm("Password1")
+
+        vm.submit()
+        vm.state.first { it.formError != null }
+
+        assertEquals(FormError.DuplicateEmail, vm.state.value.formError)
+        assertNull(vm.state.value.emailError)
+        assertNull(vm.state.value.passwordError)
+    }
+
+    @Test
+    fun repositoryWeakPasswordCodeMapsBackToTypedPolicyError() = runTest {
+        listOf(
+            PasswordProblem.TooShort,
+            PasswordProblem.TooLong,
+            PasswordProblem.MissingLetter,
+            PasswordProblem.MissingDigit,
+            PasswordProblem.OnlyWhitespace,
+        ).forEach { problem ->
+            // The producer puts problem.code() in Rejected's message field.
+            fakeAuth.registerHandler = {
+                throw FakeAuthApi.httpError(422, "WEAK_PASSWORD", problem.code())
+            }
+            val vm = AuthViewModel(AuthMode.Register, repository, this)
+            vm.onEmail("a@b.c")
+            vm.onPassword("Password1")
+            vm.onConfirm("Password1")
+
+            vm.submit()
+            vm.state.first { it.passwordError != null }
+
+            assertEquals("problem $problem", PasswordError.Policy(problem), vm.state.value.passwordError)
+            assertNull("no form error for $problem", vm.state.value.formError)
+        }
+    }
+
+    @Test
+    fun repositoryInvalidEmailCodeMapsToEmailError() = runTest {
+        // The address is shape-valid so the client check lets it through and
+        // the rejection code is the only signal, as on the local path.
+        fakeAuth.registerHandler = {
+            throw FakeAuthApi.httpError(422, "INVALID_EMAIL", "Enter a valid email address.")
+        }
+        val vm = AuthViewModel(AuthMode.Register, repository, this)
+        vm.onEmail("a@b.c")
+        vm.onPassword("Password1")
+        vm.onConfirm("Password1")
+
+        vm.submit()
+        vm.state.first { it.emailError != null }
+
+        assertEquals(EmailError.Invalid, vm.state.value.emailError)
+        assertNull(vm.state.value.formError)
+    }
+
+    @Test
+    fun repositoryUnmappedCodesFallBackToGeneric() = runTest {
+        listOf("ACCOUNT_NOT_FOUND", "CANNOT_REMOVE_ACTIVE", "SOME_FUTURE_CODE").forEach { code ->
+            fakeAuth.registerHandler = {
+                throw FakeAuthApi.httpError(422, code, "A human-readable message that is never rendered.")
+            }
+            val vm = AuthViewModel(AuthMode.Register, repository, this)
+            vm.onEmail("a@b.c")
+            vm.onPassword("Password1")
+            vm.onConfirm("Password1")
+
+            vm.submit()
+            vm.state.first { it.formError != null }
+
+            assertEquals("code $code", FormError.Generic, vm.state.value.formError)
+            assertNull("no email error for $code", vm.state.value.emailError)
+            assertNull("no password error for $code", vm.state.value.passwordError)
         }
     }
 

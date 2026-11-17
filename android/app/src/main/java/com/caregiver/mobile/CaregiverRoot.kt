@@ -9,12 +9,19 @@ import androidx.navigation.compose.rememberNavController
 import com.caregiver.mobile.core.navigation.AppDestinations
 import com.caregiver.mobile.core.navigation.RootScreen
 import com.caregiver.mobile.core.navigation.rootScreenFor
+import com.caregiver.mobile.data.accounts.AccountManager
 import com.caregiver.mobile.presentation.auth.LoginScreen
 import com.caregiver.mobile.presentation.auth.RegisterAccount
 import com.caregiver.mobile.presentation.auth.RegisterScreen
 import com.caregiver.mobile.presentation.onboarding.OnboardingScreen
 import com.caregiver.mobile.presentation.settings.ServerUrlScreen
 import kotlinx.coroutines.flow.collect
+
+/** Adapts the graph's single AccountManager to the register form callback. */
+private fun registerAccountFor(manager: AccountManager): RegisterAccount =
+    { displayName, email, password ->
+        manager.signUp(displayName, email, password)
+    }
 
 /**
  * Root gate. In LOCAL_MODE the app is standalone with local accounts:
@@ -42,11 +49,7 @@ fun CaregiverRoot(graph: AppGraph) {
     // that makes the form ask for a Name and lets PasswordPolicy failures
     // reach the UI as specific messages. Server/demo graphs have no manager,
     // so their two-argument register path is unchanged.
-    val registerAccount: RegisterAccount? = graph.accountManager?.let { manager ->
-        { displayName: String, email: String, password: String ->
-            manager.signUp(displayName, email, password)
-        }
-    }
+    val registerAccount: RegisterAccount? = graph.accountManager?.let(::registerAccountFor)
     // The token is only read when the app is not standalone: the local build
     // never signs in, and reading it would build the API stack for nothing.
     val signedIn by produceState<Boolean?>(initialValue = null) {
