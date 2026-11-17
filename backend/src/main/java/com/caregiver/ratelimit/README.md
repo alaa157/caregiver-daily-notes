@@ -27,6 +27,6 @@ rebuild:
 
 Buckets refill continuously at `capacity / window`. Keys are bounded to keep
 memory usage predictable. This is intentionally single-instance; the
-`TokenBucketLimiter` can be replaced with a Redis-backed implementation later
-without changing the filter. Account lockout, CAPTCHA, WAF and gateway changes
+`TokenBucketLimiter` can be replaced with a shared, distributed implementation
+later without changing the filter. Account lockout, CAPTCHA, WAF and gateway changes
 are out of scope.

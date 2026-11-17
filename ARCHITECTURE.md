@@ -110,7 +110,6 @@ The mobile application is separate from the web application. It may mirror featu
   backend base URL from a single runtime-editable setting, never a build-time constant.
 - Web hosting: Cloudflare.
 - Database: Supabase PostgreSQL.
-- Cache: Upstash Redis.
 - LLM providers: caregiver-supplied keys (OpenAI, Gemini, xAI, OpenRouter) over OpenAI-compatible chat completions; the backend stores no provider keys.
 - CI/CD: GitHub Actions.
 - Android distribution: GitHub Releases.
@@ -152,7 +151,7 @@ Initial foundation/setup work establishes application scaffolding first. Feature
 - Clients: TypeScript where applicable.
 - No Gradle for the backend.
 - No Expo-based mobile workflow.
-- No local database or Redis requirement for normal project work.
+- No local database requirement for normal project work.
 - API contracts are owned by the backend and consumed by both clients.
 - Secrets must never be committed.
 - Notes are treated as data, not instructions, by AI components.

@@ -58,18 +58,11 @@ The web and mobile clients are not separate backends and do not maintain separat
                     │   REST + JWT Auth    │
                     └───────┬───────┬──────┘
                             │       │
-               ┌────────────┘       └──────────────┐
-               ▼                                   ▼
-      ┌──────────────────┐                ┌──────────────────┐
-      │ Supabase         │                │ Upstash Redis    │
-      │ PostgreSQL       │                │ Cache            │
-      └──────────────────┘                └──────────────────┘
-                            │
-                            ▼
-                  ┌──────────────────┐
-                  │ LLM Provider     │
-                  │ (user's own key) │
-                  └──────────────────┘
+                            ▼       ▼
+               ┌──────────────────┐  ┌──────────────────┐
+               │ Supabase         │  │ LLM Provider     │
+               │ PostgreSQL       │  │ (user's own key) │
+               └──────────────────┘  └──────────────────┘
 ```
 
 The backend is the central application layer. Business rules, authorization, deterministic safety rules, AI validation, plan versioning, and audit logging are enforced by the backend rather than trusted to the clients.
@@ -82,7 +75,6 @@ All application infrastructure is hosted online. Team members do not need to ins
 |---|---|
 | Source code | GitHub |
 | PostgreSQL database | Supabase |
-| Redis cache | Upstash Redis |
 | Spring Boot API | Local JVM (+ Cloudflare Tunnel for shared/demo access) |
 | Web application | Cloudflare |
 | AI providers | Bring-your-own-key (OpenAI, Gemini, xAI, OpenRouter) |
@@ -106,21 +98,6 @@ Application data stored in PostgreSQL includes:
 - Related metadata
 
 Database changes must be implemented through versioned migrations.
-
-### Upstash Redis
-
-Upstash Redis is used for temporary/cache data rather than permanent application data.
-
-Primary uses include:
-
-- LLM result caching
-- Regeneration limiting
-- Short-lived cached data
-- Other explicitly temporary application state when required
-
-Redis must never be treated as the source of truth for application records.
-
-The application should continue to behave safely when cached data is unavailable.
 
 ### Backend runtime (local + tunnel)
 
@@ -201,7 +178,6 @@ The repository should provide a clear release artifact for evaluators to downloa
 ### Infrastructure
 
 - Supabase PostgreSQL
-- Upstash Redis
 - Local JVM runtime + Cloudflare Tunnel (dev/demo backend access)
 - Cloudflare
 - GitHub Actions
@@ -262,8 +238,6 @@ The exact variable names will be defined by the implementation, but the deployme
 DATABASE_URL
 DATABASE_USERNAME
 DATABASE_PASSWORD
-
-REDIS_URL
 
 JWT_SECRET
 JWT_ALGORITHM
@@ -460,11 +434,9 @@ The LLM receives a pseudonymous identifier rather than unnecessary identifying i
 
 Names and dates of birth must not be sent to the LLM.
 
-### Caching
+### Rate limiting
 
-LLM results are cached using an input hash.
-
-Regeneration is rate-limited to avoid unnecessary repeated model calls.
+BYOK AI calls are rate-limited per caregiver with an in-memory token bucket, so repeated regeneration attempts cannot amplify provider cost. Auth endpoints are limited per IP and per account. See `backend/src/main/java/com/caregiver/ratelimit/README.md`.
 
 ## Testing Strategy
 
@@ -662,7 +634,6 @@ Deployment targets:
 - Web → Cloudflare
 - Backend → local JVM; shared over HTTPS via Cloudflare Tunnel
 - Database → Supabase
-- Redis → Upstash
 
 ## Deployment
 
@@ -683,10 +654,6 @@ rebuild.
 ### Database
 
 PostgreSQL is hosted by Supabase.
-
-### Cache
-
-Redis is hosted by Upstash.
 
 ### AI
 
