@@ -48,7 +48,7 @@ export function HistoryFilterForm({ filters, defaults, recipients, recipientsLoa
         onChange={(event) => { setDraft({ ...draft, recipientId: event.target.value }); setErrors({}); }}>
         <option value="">{t('historyAllRecipients')}</option>
         {draft.recipientId && !recipients.some((recipient) => recipient.id === draft.recipientId)
-          && <option value={draft.recipientId}>{draft.recipientId}</option>}
+          && <option value={draft.recipientId}>{t('activityFeedRecipientFallback')}</option>}
         {recipients.map((recipient) => <option key={recipient.id} value={recipient.id} dir="auto">
           {recipient.name}{recipient.active ? '' : ` (${t('historyInactive')})`}
         </option>)}

@@ -465,15 +465,31 @@ describe('history screen, filters and immutable records', () => {
     expect(within(correction).getByRole('time')).toHaveAttribute('dateTime', addendumFixture.createdAt);
     expect(within(correction).getByText(/تصحيح 1/).textContent).toBe(longText);
   });
-  it('keeps history available if recipient names cannot load, then retries metadata', async () => {
+  it('shows a neutral label instead of recipient IDs when names cannot load, then retries metadata', async () => {
     let failed = true;
     const fetcher = dataFetcher((url) => url.pathname === '/api/recipients' && failed ? jsonResponse({}, 500) : undefined);
-    renderHistory(fetcher);
-    expect(await screen.findByRole('article', { name: recipientFixture.id })).toBeInTheDocument();
+    renderHistory(fetcher, `${range}&recipientId=${recipientFixture.id}`);
+    expect(await screen.findByRole('article', { name: 'Recipient' })).toBeInTheDocument();
+    const table = screen.getByRole('table');
+    expect(within(table).getByText('Recipient')).toBeInTheDocument();
+    expect(table).not.toHaveTextContent(recipientFixture.id);
+    expect(screen.getByRole('option', { name: 'Recipient' })).toBeInTheDocument();
     expect(screen.getByRole('alert')).toHaveTextContent('names could not be loaded');
     failed = false;
-    await userEvent.click(screen.getByRole('button', { name: 'Retry' })); await loaded();
+    await userEvent.click(screen.getByRole('button', { name: 'Retry' }));
+    expect(await screen.findByRole('article', { name: recipientFixture.name })).toBeInTheDocument();
+    expect(within(screen.getByRole('table')).getByText(recipientFixture.name)).toBeInTheDocument();
+    expect(screen.queryByRole('option', { name: 'Recipient' })).not.toBeInTheDocument();
     expect(queries(fetcher)).toHaveLength(1);
+  });
+  it('localizes the missing-recipient label in Arabic when names cannot load', async () => {
+    const fetcher = dataFetcher((url) => url.pathname === '/api/recipients' ? jsonResponse({}, 500) : undefined);
+    renderHistory(fetcher, `${range}&recipientId=${recipientFixture.id}`, 'ar');
+    expect(await screen.findByRole('article', { name: 'مستفيد' })).toBeInTheDocument();
+    const table = screen.getByRole('table');
+    expect(within(table).getByText('مستفيد')).toBeInTheDocument();
+    expect(table).not.toHaveTextContent(recipientFixture.id);
+    expect(screen.getByRole('option', { name: 'مستفيد' })).toBeInTheDocument();
   });
   it('blocks invalid URL dates before history requests and allows recovery using reset', async () => {
     const fetcher = dataFetcher(); renderHistory(fetcher, `${root}?from=2026-02-30&to=2026-10-22`);
