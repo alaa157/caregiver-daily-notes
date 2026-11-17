@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useRef, useState, type FormEvent } from 'react';
 import { ApiError, useApiClient } from '../../lib/api';
-import { createMedicationsApi, intakeStates, medicationErrorMessage, validateMedication, verificationStates, type CreateIntakeEventInput, type IntakeEvent, type IntakeState, type MedicationFieldErrors, type MedicationInput, type MedicationRecord, type VerificationState } from '../../api/medications';
+import { createMedicationsApi, intakeStates, isInvalidIntakeTime, medicationErrorMessage, validateMedication, verificationStates, type CreateIntakeEventInput, type IntakeEvent, type IntakeState, type MedicationFieldErrors, type MedicationInput, type MedicationRecord, type VerificationState } from '../../api/medications';
 import { Button } from '../../components/Button';
 import { EmptyState, ErrorState, FieldError, LoadingState } from '../../components/Feedback';
 import { useI18n } from '../../i18n/I18nProvider';
@@ -12,6 +12,14 @@ type ListState = { recipientId: string; status: 'loading' }
   | { recipientId: string; status: 'ready'; data: MedicationRecord[] };
 type Editor = { medicationId: string | null; input: MedicationInput };
 const emptyInput = (): MedicationInput => ({ displayName: '', doseText: '', scheduleText: '' });
+
+/** A `datetime-local` value for now, so the common case stays one click. */
+function localDateTimeNow(): string {
+  const now = new Date();
+  const pad = (value: number) => String(value).padStart(2, '0');
+  return `${now.getFullYear()}-${pad(now.getMonth() + 1)}-${pad(now.getDate())}`
+    + `T${pad(now.getHours())}:${pad(now.getMinutes())}`;
+}
 
 export function MedicationListPanel({ recipientId, canEdit }: { recipientId: string; canEdit: boolean }) {
   const { t } = useI18n();
@@ -246,6 +254,7 @@ function IntakeHistory({ recipientId, medication, canRecord }: {
   const [revision, setRevision] = useState(0);
   const [intakeState, setIntakeState] = useState<'' | IntakeState>('');
   const [verificationState, setVerificationState] = useState<'' | VerificationState>('');
+  const [occurredAt, setOccurredAt] = useState(localDateTimeNow);
   const [saving, setSaving] = useState(false);
   const [formError, setFormError] = useState<MessageKey | null>(null);
   const [notice, setNotice] = useState<MessageKey | null>(null);
@@ -264,7 +273,8 @@ function IntakeHistory({ recipientId, medication, canRecord }: {
 
   useEffect(() => {
     attempt.current = null;
-    setIntakeState(''); setVerificationState(''); setFormError(null); setNotice(null); setSaving(false);
+    setIntakeState(''); setVerificationState(''); setOccurredAt(localDateTimeNow());
+    setFormError(null); setNotice(null); setSaving(false);
   }, [recipientId, medication.id]);
 
   async function submit(event: FormEvent<HTMLFormElement>) {
@@ -275,6 +285,10 @@ function IntakeHistory({ recipientId, medication, canRecord }: {
       setFormError('medicationIntakeInvalid');
       return;
     }
+    if (!occurredAt || Number.isNaN(Date.parse(occurredAt))) {
+      setFormError('medicationIntakeTimeInvalid');
+      return;
+    }
     // Generate one key per submission. A retry after a lost response reuses it
     // so the server replays the original event instead of recording a second dose.
     if (!attempt.current) {
@@ -283,7 +297,7 @@ function IntakeHistory({ recipientId, medication, canRecord }: {
         key: Array.from(bytes, (byte) => byte.toString(16).padStart(2, '0')).join(''),
         input: {
           intakeState: intakeState as IntakeState,
-          occurredAt: new Date().toISOString(),
+          occurredAt: new Date(occurredAt).toISOString(),
           verificationState: verificationState as VerificationState,
         },
       };
@@ -300,10 +314,13 @@ function IntakeHistory({ recipientId, medication, canRecord }: {
       attempt.current = null;
       setIntakeState('');
       setVerificationState('');
+      setOccurredAt(localDateTimeNow());
       setNotice('medicationIntakeRecorded');
       setRevision((value) => value + 1);
-    } catch {
-      if (!controller.signal.aborted) setFormError('medicationIntakeRecordError');
+    } catch (error) {
+      if (!controller.signal.aborted) {
+        setFormError(isInvalidIntakeTime(error) ? 'medicationIntakeTimeInvalid' : 'medicationIntakeRecordError');
+      }
     } finally {
       if (!controller.signal.aborted) { mutation.current = null; setSaving(false); }
     }
@@ -312,6 +329,7 @@ function IntakeHistory({ recipientId, medication, canRecord }: {
   const formatIntakeDate = (value: string) => formatDate(value, language, { dateStyle: 'medium', timeStyle: 'short' });
   const intakeId = `intake-state-${medication.id}`;
   const verificationId = `verification-state-${medication.id}`;
+  const occurredAtId = `intake-time-${medication.id}`;
 
   return <section className="medication-intake" aria-label={t('medicationIntakeHistory')}>
     <h4>{t('medicationIntakeHistory')}</h4>
@@ -348,6 +366,12 @@ function IntakeHistory({ recipientId, medication, canRecord }: {
           <option value="">{t('medicationIntakeSelect')}</option>
           {verificationStates.map((value) => <option key={value} value={value}>{t(verificationLabel[value])}</option>)}
         </select>
+      </div>
+      <div className="recipient-field">
+        <label htmlFor={occurredAtId}>{t('medicationIntakeTime')}</label>
+        <input id={occurredAtId} name="occurredAt" type="datetime-local" required disabled={saving}
+          value={occurredAt}
+          onChange={(event) => { attempt.current = null; setOccurredAt(event.target.value); setFormError(null); }} />
       </div>
       <div className="recipient-actions">
         <Button type="submit" disabled={saving}>{saving ? t('medicationIntakeSaving') : t('medicationIntakeSave')}</Button>
