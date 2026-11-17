@@ -132,6 +132,17 @@ describe('safety survives invalid generated content', () => {
     expect(result.trends).toEqual(fixture.trends);
     expect(result.safety).toEqual({ ...fixture.safety, incomplete: false });
   });
+
+  it('carries the dropped-observation count and reason without invalidating the response', () => {
+    const fixture = summaryFixture();
+    const result = readSummaryResponse({
+      ...fixture,
+      summary: { ...fixture.summary, droppedObservationCount: 2, droppedReason: 'UNVERIFIED_QUOTE' },
+    });
+    expect(result.invalidContent).toBe(false);
+    expect(result.summary?.droppedObservationCount).toBe(2);
+    expect(result.summary?.droppedReason).toBe('UNVERIFIED_QUOTE');
+  });
   it.each([null, {}, { observations: [], uncertainties: [] }, { observations: [], uncertainties: [], aiUnavailable: 'false' }, { observations: [{ text: 'unsupported', noteId: 'n', quote: '' }], uncertainties: [], aiUnavailable: false }, { observations: [], uncertainties: [{ topic: '', detail: 'missing topic' }], aiUnavailable: false }])('retains HIGH warnings when model content is malformed: %j', (summary) => {
     const result = readSummaryResponse({ ...summaryFixture(), summary });
     expect(result.summary).toBeNull(); expect(result.invalidContent).toBe(true);

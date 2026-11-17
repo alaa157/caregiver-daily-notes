@@ -12,10 +12,12 @@ import java.util.Set;
 
 /**
  * Orchestrates grounded summarization: builds the delimited data block,
- * calls the provider, parses strictly, and validates evidence fail-closed.
- * Safety and trends always come from deterministic backend code. A provider
- * fallback yields an explicit unavailable summary with safety intact —
- * never an invented one.
+ * calls the provider, parses strictly, and checks evidence fail-closed per
+ * observation: unverifiable quotes are dropped individually and counted, while
+ * structural failures still fail the whole request. Safety and trends always
+ * come from deterministic backend code. A provider fallback or a response with
+ * no surviving observations yields an explicit unavailable summary with safety
+ * intact — never an invented one.
  */
 public class SummaryService {
 
@@ -67,8 +69,18 @@ public class SummaryService {
     }
     ModelSummary parsed =
         StrictJsonParser.parse(result.text(), ModelSummary.class, Set.of("observations", "uncertainties"));
-    GroundedSummary summary = new GroundedSummary(parsed.observations(), parsed.uncertainties(), false);
-    return new SummaryResult(EvidenceValidator.validate(summary, noteTextsById), safety, trendResults);
+    EvidenceValidation validation = EvidenceValidator.validatePartial(
+        new GroundedSummary(parsed.observations(), parsed.uncertainties(), false), noteTextsById);
+    int dropped = validation.rejected().size();
+    if (validation.accepted().isEmpty() && !parsed.observations().isEmpty()) {
+      // No observation survived verification: fail cleanly with an explicit
+      // state rather than presenting an empty summary as a success.
+      return new SummaryResult(new GroundedSummary(List.of(), parsed.uncertainties(), true,
+          FailureReason.INVALID_OUTPUT.name(), dropped, validation.reason()), safety, trendResults);
+    }
+    GroundedSummary grounded = new GroundedSummary(validation.accepted(), parsed.uncertainties(), false,
+        null, dropped, dropped == 0 ? null : validation.reason());
+    return new SummaryResult(grounded, safety, trendResults);
   }
 
   /** The model's permitted JSON shape; provider status is owned by this service. */

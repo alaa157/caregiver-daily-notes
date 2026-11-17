@@ -1,5 +1,6 @@
 package com.caregiver.ai;
 
+import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.HashSet;
 import java.util.List;
@@ -9,13 +10,17 @@ import java.util.Set;
 
 /**
  * Fail-closed evidence gate. Every observation must cite a supplied note id
- * and carry a substantive quote; violations throw
- * {@link InvalidModelOutputException} naming the observation index. The
- * normalized-substring quote check remains the final gate, but a quote must
- * first clear a length floor and must not be made only of the serialization
- * scaffolding that appears in the note text (field keys, state markers and
- * structural keys). Cross-note pattern claims must cite at least two distinct
- * notes, each with its own quote.
+ * and carry a substantive quote. The normalized-substring quote check remains
+ * the final gate, but a quote must first clear a length floor and must not be
+ * made only of the serialization scaffolding that appears in the note text
+ * (field keys, state markers and structural keys). Cross-note pattern claims
+ * must cite at least two distinct notes, each with its own quote.
+ *
+ * <p>{@link #validatePartial} keeps the gate strict per observation but returns
+ * the surviving ones alongside the rejected ones, so one cosmetic mismatch
+ * cannot discard the whole summary. A structurally unusable response still
+ * fails. {@link #validate} preserves the original all-or-nothing contract for
+ * callers that require every observation to verify.</p>
  */
 public final class EvidenceValidator {
 
@@ -34,7 +39,23 @@ public final class EvidenceValidator {
   private EvidenceValidator() {
   }
 
+  /** All-or-nothing contract retained for callers that require full grounding. */
   public static GroundedSummary validate(GroundedSummary summary, Map<String, String> noteTextsById) {
+    EvidenceValidation result = validatePartial(summary, noteTextsById);
+    if (!result.rejected().isEmpty()) {
+      throw new InvalidModelOutputException(result.rejected().getFirst().detail());
+    }
+    return summary;
+  }
+
+  /**
+   * Checks each observation independently. A quote that is not in its cited
+   * note is still rejected — only the granularity of failure changes. The
+   * returned result carries the surviving observations and every rejection
+   * with its index and detail.
+   */
+  public static EvidenceValidation validatePartial(GroundedSummary summary,
+      Map<String, String> noteTextsById) {
     if (summary == null || noteTextsById == null) {
       throw new IllegalArgumentException("summary and noteTextsById must be non-null");
     }
@@ -43,15 +64,26 @@ public final class EvidenceValidator {
     for (Map.Entry<String, String> entry : noteTextsById.entrySet()) {
       normalized.put(entry.getKey(), ArabicNormalizer.normalize(entry.getValue()));
     }
+    List<SummaryObservation> accepted = new ArrayList<>();
+    List<EvidenceValidation.Rejected> rejected = new ArrayList<>();
     for (int i = 0; i < observations.size(); i++) {
       SummaryObservation observation = observations.get(i);
-      if (observation.hasPatternCitations()) {
-        validatePattern(i, observation, normalized);
-      } else {
-        validateCitation(i, observation.noteId(), observation.quote(), normalized);
+      if (observation == null) {
+        // A missing observation makes the response structurally unusable.
+        throw new InvalidModelOutputException("Observation " + i + " is missing");
+      }
+      try {
+        if (observation.hasPatternCitations()) {
+          validatePattern(i, observation, normalized);
+        } else {
+          validateCitation(i, observation.noteId(), observation.quote(), normalized);
+        }
+        accepted.add(observation);
+      } catch (InvalidModelOutputException violation) {
+        rejected.add(new EvidenceValidation.Rejected(i, violation.getMessage()));
       }
     }
-    return summary;
+    return new EvidenceValidation(accepted, rejected, EvidenceValidation.REASON_UNVERIFIED_QUOTE);
   }
 
   private static void validatePattern(int index, SummaryObservation observation,

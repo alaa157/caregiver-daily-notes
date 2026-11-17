@@ -53,21 +53,45 @@ class SummaryServiceTest {
   }
 
   @Test
-  void inventedQuote_throwsAndReturnsNothing() {
+  void inventedQuote_isDroppedWithAnExplicitUnavailableState() {
     var svc = service(ok("{\"observations\":[{\"text\":\"slept\",\"noteId\":\"n1\",\"quote\":\"slept ten hours\"}],\"uncertainties\":[]}"));
     var notes = List.of(new SummaryNote("n1", END, "ate well"));
 
-    assertThatThrownBy(() -> svc.summarize(new SummaryRequest("r1", END, 7), notes, List.of()))
-        .isInstanceOf(InvalidModelOutputException.class);
+    var result = svc.summarize(new SummaryRequest("r1", END, 7), notes, List.of());
+
+    assertThat(result.summary().observations()).isEmpty();
+    assertThat(result.summary().aiUnavailable()).isTrue();
+    assertThat(result.summary().unavailableReason()).isEqualTo("INVALID_OUTPUT");
+    assertThat(result.summary().droppedObservationCount()).isEqualTo(1);
+    assertThat(result.summary().droppedReason()).isEqualTo("UNVERIFIED_QUOTE");
   }
 
   @Test
-  void wrongEvidenceId_throwsAndReturnsNothing() {
+  void wrongEvidenceId_isDroppedWithAnExplicitUnavailableState() {
     var svc = service(ok("{\"observations\":[{\"text\":\"ate\",\"noteId\":\"n9\",\"quote\":\"ate\"}],\"uncertainties\":[]}"));
     var notes = List.of(new SummaryNote("n1", END, "ate well"));
 
-    assertThatThrownBy(() -> svc.summarize(new SummaryRequest("r1", END, 7), notes, List.of()))
-        .isInstanceOf(InvalidModelOutputException.class);
+    var result = svc.summarize(new SummaryRequest("r1", END, 7), notes, List.of());
+
+    assertThat(result.summary().observations()).isEmpty();
+    assertThat(result.summary().aiUnavailable()).isTrue();
+    assertThat(result.summary().unavailableReason()).isEqualTo("INVALID_OUTPUT");
+    assertThat(result.summary().droppedObservationCount()).isEqualTo(1);
+  }
+
+  @Test
+  void oneUnverifiableQuoteKeepsTheVerifiedObservations() {
+    var svc = service(ok("{\"observations\":["
+        + "{\"text\":\"ate well\",\"noteId\":\"n1\",\"quote\":\"ate well\"},"
+        + "{\"text\":\"slept\",\"noteId\":\"n1\",\"quote\":\"slept ten hours\"}],\"uncertainties\":[]}"));
+    var notes = List.of(new SummaryNote("n1", END, "she ate well today"));
+
+    var result = svc.summarize(new SummaryRequest("r1", END, 7), notes, List.of());
+
+    assertThat(result.summary().aiUnavailable()).isFalse();
+    assertThat(result.summary().observations()).extracting(SummaryObservation::text).containsExactly("ate well");
+    assertThat(result.summary().droppedObservationCount()).isEqualTo(1);
+    assertThat(result.summary().droppedReason()).isEqualTo("UNVERIFIED_QUOTE");
   }
 
   @Test
