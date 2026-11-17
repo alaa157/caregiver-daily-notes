@@ -24,8 +24,9 @@ Recording a note remains at `/app/notes/new`.
   the changed fields, in the backend's chronological order. They never replace
   the original observations.
 - Loading, no matches, errors/retry and unavailable corrections have explicit
-  states. Recipient metadata failure does not prevent viewing notes: owned
-  note recipient IDs remain visible until names can be retried.
+  states. Recipient metadata failure does not prevent viewing notes: a neutral
+  localized label replaces unknown names until they can be retried, and raw
+  recipient IDs are never shown as user-facing text.
 - Superseded/unmounted reads are aborted and late responses are ignored.
   Existing auth handling clears a rejected session and protects deep links.
 - All new copy is English/Arabic. Names use `bdi`, observation text uses

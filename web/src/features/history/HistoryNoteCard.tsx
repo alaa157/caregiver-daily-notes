@@ -48,7 +48,7 @@ export function HistoryNoteCard({ note, recipient }: { note: DailyNote; recipien
   const [open, setOpen] = useState(false);
   const correctionCount = note.addendumCount + (note.correctionCount ?? 0);
   const formattedCorrectionCount = new Intl.NumberFormat(language === 'ar' ? 'ar-EG' : 'en').format(correctionCount);
-  return <article className="history-note" aria-label={recipient?.name ?? note.recipientId}>
+  return <article className="history-note" aria-label={recipient?.name ?? t('activityFeedRecipientFallback')}>
     <NoteTimelineRow
       entryLabel={t('historyOriginal')}
       provenance={<><span>{t('notesTimelineSourceId')}:</span> <bdi>{note.id}</bdi></>}

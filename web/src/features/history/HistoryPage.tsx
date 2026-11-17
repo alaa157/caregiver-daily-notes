@@ -51,7 +51,7 @@ function HistoryResults({ filters: { recipientId, from, to }, page, size, recipi
           const date = new Intl.DateTimeFormat(language === 'ar' ? 'ar-EG' : 'en', { dateStyle: 'medium' }).format(new Date(`${note.date}T12:00:00`));
           return <tr key={note.id}>
             <td data-label={t('historyDate')}><time dateTime={note.date}><bdi>{date}</bdi></time></td>
-            <td data-label={t('notesRecipient')}><bdi>{recipient?.name ?? note.recipientId}</bdi>{recipient?.active === false && <> · {t('historyInactive')}</>}</td>
+            <td data-label={t('notesRecipient')}><bdi>{recipient?.name ?? t('activityFeedRecipientFallback')}</bdi>{recipient?.active === false && <> · {t('historyInactive')}</>}</td>
             <td data-label={t('historyRecordColumn')}><HistoryNoteCard note={note} recipient={recipient} /></td>
           </tr>;
         })}</tbody>
