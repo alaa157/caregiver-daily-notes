@@ -162,7 +162,6 @@ export function AppLayout() {
   const navigate = useNavigate();
   const [search, setSearch] = useSearchParams();
   const [recipients, setRecipients] = useState<RecipientState>({ status: 'idle' });
-  const [recipientRequested, setRecipientRequested] = useState(false);
   const [recipientRevision, setRecipientRevision] = useState(0);
   const [drawerOpen, setDrawerOpen] = useState(false);
   const [mobile, setMobile] = useState(false);
@@ -181,9 +180,11 @@ export function AppLayout() {
     ...(selectedRecipientId ? { recipientId: selectedRecipientId } : {}), date,
   }).toString()}`;
 
+  // Load as soon as the picker is rendered. A route-selected recipient must be
+  // resolvable without waiting for a focus/click, and this fetches once rather
+  // than once on mount and again when the select is first focused.
   useEffect(() => {
     if (!canChooseRecipient) { setRecipients({ status: 'idle' }); return; }
-    if (!recipientRequested) return;
     const controller = new AbortController();
     setRecipients({ status: 'loading' });
     void recipientsApi.list(controller.signal, 'ALL').then(
@@ -191,7 +192,7 @@ export function AppLayout() {
       (error: unknown) => { if (!controller.signal.aborted) setRecipients({ status: 'error', error }); },
     );
     return () => controller.abort();
-  }, [canChooseRecipient, recipientRequested, recipientsApi, recipientRevision]);
+  }, [canChooseRecipient, recipientsApi, recipientRevision]);
 
   useEffect(() => {
     const media = typeof window.matchMedia === 'function' ? window.matchMedia('(min-width: 769px)') : null;
@@ -331,10 +332,15 @@ export function AppLayout() {
           <select id="app-recipient" dir="auto" value={selectedRecipientId}
             disabled={recipients.status === 'ready' && !recipients.data.length}
             aria-describedby={recipients.status === 'error' ? 'app-recipient-error' : undefined}
-            onFocus={() => { if (recipients.status === 'idle') setRecipientRequested(true); }}
             onChange={(event) => changeRecipient(event.target.value)}>
             <option value="">{recipients.status === 'loading' ? t('appLoadingRecipients')
               : recipients.status === 'ready' && !recipients.data.length ? t('appNoRecipients') : t('appChooseRecipient')}</option>
+            {/* While the list is unresolved the selected id still needs a
+                matching option, otherwise the browser shows the placeholder.
+                This is loading, not "unavailable" — that is decided below once
+                the full list is ready. */}
+            {selectedRecipientId && recipients.status !== 'ready'
+              && <option value={selectedRecipientId}>{t('appLoadingRecipients')}</option>}
             {selectedRecipientId && recipients.status === 'ready' && !recipients.data.some((recipient) => recipient.id === selectedRecipientId)
               && <option value={selectedRecipientId}>{t('appRecipientUnavailable')}</option>}
             {recipients.status === 'ready' && recipients.data.map((recipient) => <option key={recipient.id} value={recipient.id}>
