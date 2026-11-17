@@ -116,7 +116,7 @@ export function AppShell({ children }: { children: ReactNode }) {
               onClick={() => setLanguage(nextLanguage)}>
               <Icon name="globe" size={17} />{t('switchLanguage')}
             </button>
-            {auth.status === 'authenticated' && <button type="button" className="nav-link auth-logout" onClick={auth.logout}><Icon name="logout" size={18} /><span>{t('authSignOut')}</span></button>}
+            {auth.status === 'authenticated' && <button type="button" className="nav-link auth-logout" onClick={() => auth.logout()}><Icon name="logout" size={18} /><span>{t('authSignOut')}</span></button>}
           </div>
           <nav className={'site-nav' + (auth.status === 'authenticated' ? ' site-nav--authenticated' : '')} aria-label={t('mainNavigation')}>
             <div className="nav-links">
@@ -374,7 +374,7 @@ export function AppLayout() {
               onClick={() => { if (accountRef.current) accountRef.current.open = false; }}>
               <Icon name="info" />{t('settingsNavigation')}
             </Link>
-            <button type="button" onClick={auth.logout}><Icon name="logout" />{t('authSignOut')}</button>
+            <button type="button" onClick={() => auth.logout()}><Icon name="logout" />{t('authSignOut')}</button>
           </div>
         </details>
       </header>
