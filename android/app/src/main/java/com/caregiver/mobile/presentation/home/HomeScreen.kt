@@ -16,6 +16,7 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
+import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.lazy.itemsIndexed
 import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.material.icons.Icons
@@ -23,9 +24,12 @@ import androidx.compose.material.icons.filled.Add
 import androidx.compose.material.icons.filled.Check
 import androidx.compose.material.icons.filled.DateRange
 import androidx.compose.material.icons.filled.People
+import androidx.compose.material3.Button
+import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.Icon
 import androidx.compose.material3.PrimaryTabRow
+import androidx.compose.material3.Surface
 import androidx.compose.material3.Tab
 import androidx.compose.material3.Text
 import androidx.compose.material3.pulltorefresh.PullToRefreshBox
@@ -38,6 +42,8 @@ import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
+import androidx.lifecycle.Lifecycle
+import androidx.lifecycle.compose.LifecycleEventEffect
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.drawBehind
@@ -65,8 +71,8 @@ import com.caregiver.mobile.core.time.DateFormats
 import com.caregiver.mobile.core.theme.CaregiverColors
 import com.caregiver.mobile.core.theme.PlexArabic
 import com.caregiver.mobile.core.util.appLocale
+import com.caregiver.mobile.data.api.RecipientDto
 import com.caregiver.mobile.data.recipient.RecipientNameRules
-import com.caregiver.mobile.presentation.common.AppCard
 import com.caregiver.mobile.presentation.common.AppDimens
 import com.caregiver.mobile.presentation.common.AppEmptyState
 import com.caregiver.mobile.presentation.common.AppErrorState
@@ -78,12 +84,15 @@ import com.caregiver.mobile.presentation.common.SectionCard
 import com.caregiver.mobile.presentation.common.StatusChip
 import com.caregiver.mobile.presentation.common.StatusChipVariant
 import com.caregiver.mobile.presentation.common.assistedViewModel
+import com.caregiver.mobile.presentation.notes.OptionGroup
+import com.caregiver.mobile.presentation.notes.RecipientPickerSheet
+import com.caregiver.mobile.presentation.notes.optionLabel
 import java.time.LocalDate
 
 /**
- * Home timeline: greeting, compact stats, then one redesigned person card
- * (#897) per care recipient, filtered by the Today / Needs attention / All
- * sub-tabs.
+ * Home timeline: greeting, the teal "today's notes" summary card with its
+ * one main action, then one redesigned person card (#897) per care
+ * recipient, filtered by the Today / Needs attention / All sub-tabs.
  *
  * The fall-safety banner is pinned OUTSIDE the feed (Rule 6): it sits under
  * the shared top bar and above the sub-tabs, so scrolling can never hide it.
@@ -100,6 +109,18 @@ fun HomeScreen(graph: AppGraph, navController: NavController) {
         )
     }
     val state by vm.state.collectAsStateWithLifecycle()
+    // Returning from the Note Editor leaves this ViewModel alive with a stale
+    // "written today" count. Refresh on later resumes; skip the first one
+    // because the ViewModel's init already loaded (and UI tests enqueue
+    // exactly one recipients + one notes response).
+    var resumedOnce by rememberSaveable { mutableStateOf(false) }
+    LifecycleEventEffect(Lifecycle.Event.ON_RESUME) {
+        if (resumedOnce) {
+            vm.refresh()
+        } else {
+            resumedOnce = true
+        }
+    }
     // A swap does not recreate the "home" ViewModel, so follow the stored name
     // here as well: the greeting must change immediately on registration and
     // account switches, not only on the next reload (#706).
@@ -149,6 +170,21 @@ private val HomeTab.labelRes: Int
         HomeTab.All -> R.string.home_tab_all
     }
 
+/**
+ * People who still need a note today come first; name breaks ties so the
+ * picker order is deterministic (#896). Kept pure and top-level to be
+ * JVM-unit-testable without a device.
+ */
+internal fun noteTargets(cards: List<HomeCard>): List<HomeCard> =
+    cards.sortedWith(compareBy<HomeCard>({ RecipientChip.DoneToday in it.chips }, { it.name }))
+
+/** Exactly one active person goes straight to their editor; none or several use the picker. */
+internal fun singleNoteTarget(cards: List<HomeCard>): HomeCard? = noteTargets(cards).singleOrNull()
+
+/** The picker only needs id + name; carry the Home card's id through unchanged. */
+internal fun notePickerRecipients(cards: List<HomeCard>): List<RecipientDto> =
+    noteTargets(cards).map { RecipientDto(id = it.recipientId, name = it.name, active = true) }
+
 @Composable
 private fun HomeLoadingRows() {
     Column(modifier = Modifier.fillMaxSize()) {
@@ -188,6 +224,7 @@ private fun HomeTimeline(
     medications: MedicationViewModel?,
 ) {
     var selectedTab by rememberSaveable { mutableStateOf(HomeTab.Today) }
+    var showNotePicker by rememberSaveable { mutableStateOf(false) }
     val listState = rememberLazyListState()
     val pullRefreshState = rememberPullToRefreshState()
     // Task 2 contract: re-tapping the active Home tab publishes "home";
@@ -284,11 +321,20 @@ private fun HomeTimeline(
                         )
                     }
                 }
-                item(key = "stats") {
-                    HomeStatsRow(
+                item(key = "summary") {
+                    TodaySummaryCard(
                         done = content.done,
                         total = content.total,
-                        attention = content.cards.count(::needsAttention),
+                        onWriteNote = {
+                            val only = singleNoteTarget(content.cards)
+                            if (only != null) {
+                                // Exactly one active person: straight to their editor.
+                                navController.navigate(AppRoutes.noteEditor(only.recipientId))
+                            } else {
+                                showNotePicker = true
+                            }
+                        },
+                        modifier = Modifier.padding(horizontal = AppDimens.ScreenHPadding),
                     )
                 }
                 item(key = "medications") {
@@ -351,6 +397,24 @@ private fun HomeTimeline(
             }
         }
     }
+    // "Write a note" with several people: reuse the app's recipient sheet,
+    // seeded from the same Home cards in undone-first order. The picked id is
+    // the card's id — never a re-derived or guessed one (#896).
+    if (showNotePicker) {
+        RecipientPickerSheet(
+            recipients = notePickerRecipients(content.cards),
+            loading = false,
+            onPick = { recipientId ->
+                showNotePicker = false
+                navController.navigate(AppRoutes.noteEditor(recipientId))
+            },
+            onAddPerson = {
+                showNotePicker = false
+                navController.navigate(AppDestinations.AddRecipient.base)
+            },
+            onDismiss = { showNotePicker = false },
+        )
+    }
 }
 
 @Composable
@@ -389,48 +453,67 @@ private fun TabEmptyState(tab: HomeTab, onViewAll: () -> Unit) {
     }
 }
 
+/**
+ * The redesign's main Home action (#896): a teal card showing how many of
+ * today's notes are written, with one white, full-width 56 dp button. Counts
+ * come straight from [HomeContent] — the same bounded load that drives the
+ * rest of the feed — so "X of Y" matches the stored notes for today and
+ * refreshes when Home is resumed after saving.
+ */
 @Composable
-private fun HomeStatsRow(done: Int, total: Int, attention: Int) {
-    Row(
-        horizontalArrangement = Arrangement.spacedBy(AppDimens.GapCard),
-        modifier = Modifier
+private fun TodaySummaryCard(
+    done: Int,
+    total: Int,
+    onWriteNote: () -> Unit,
+    modifier: Modifier = Modifier,
+) {
+    Surface(
+        shape = RoundedCornerShape(AppDimens.SectionCardRadius),
+        color = CaregiverColors.Primary,
+        modifier = modifier
             .fillMaxWidth()
-            .padding(
-                start = AppDimens.ScreenHPadding,
-                top = AppDimens.GapCard,
-                end = AppDimens.ScreenHPadding,
-                bottom = AppDimens.GapCard,
-            ),
+            .testTag("home_summary_card"),
     ) {
-        AppCard(modifier = Modifier.weight(1f), padding = AppDimens.GapCard) {
+        Column(
+            verticalArrangement = Arrangement.spacedBy(AppDimens.GapCard),
+            modifier = Modifier.padding(AppDimens.SectionPadding),
+        ) {
             Text(
-                stringResource(R.string.home_notes_today),
-                fontFamily = PlexArabic,
-                fontSize = 13.sp,
-                color = CaregiverColors.Muted,
-            )
-            Text(
-                stringResource(R.string.home_today_progress, done, total),
+                text = stringResource(R.string.home_notes_today),
                 fontFamily = PlexArabic,
                 fontWeight = FontWeight.Bold,
-                fontSize = 18.sp,
-                color = CaregiverColors.Ink,
-            )
-        }
-        AppCard(modifier = Modifier.weight(1f), padding = AppDimens.GapCard) {
-            Text(
-                stringResource(R.string.home_needs_attention),
-                fontFamily = PlexArabic,
-                fontSize = 13.sp,
-                color = CaregiverColors.Muted,
+                fontSize = 19.sp,
+                color = Color.White,
             )
             Text(
-                "$attention",
+                text = stringResource(R.string.home_today_progress, done, total),
                 fontFamily = PlexArabic,
-                fontWeight = FontWeight.Bold,
-                fontSize = 18.sp,
-                color = CaregiverColors.Ink,
+                fontSize = 15.sp,
+                color = Color.White,
             )
+            Button(
+                onClick = onWriteNote,
+                // No people to write for yet: the empty-people state below
+                // offers the add-person action instead.
+                enabled = total > 0,
+                shape = RoundedCornerShape(AppDimens.AuthButtonRadius),
+                colors = ButtonDefaults.buttonColors(
+                    containerColor = Color.White,
+                    contentColor = CaregiverColors.Primary,
+                    disabledContainerColor = Color.White.copy(alpha = 0.6f),
+                ),
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .heightIn(min = 56.dp)
+                    .testTag("home_summary_write_note"),
+            ) {
+                Text(
+                    text = stringResource(R.string.home_write_note),
+                    fontFamily = PlexArabic,
+                    fontWeight = FontWeight.Bold,
+                    fontSize = 17.sp,
+                )
+            }
         }
     }
 }

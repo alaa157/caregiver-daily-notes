@@ -35,6 +35,7 @@
     <string name="home_greeting_evening">مساء الخير، %1$s</string>
     <string name="home_greeting_welcome">مرحبًا</string>
     <string name="home_today_progress">%1$d / %2$d مكتملة</string>
+    <string name="home_write_note">اكتب ملاحظة</string>
     <string name="home_safety_title">تنبيه رعاية</string>
     <string name="home_safety_fall">سقوط مبلغ عنه — %1$s</string>
     <string name="people_add">إضافة شخص</string>
