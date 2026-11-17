@@ -126,7 +126,7 @@ class MedicationIntakeControllerTest {
   }
 
   @Test
-  void listsIntakeEventsInChronologicalOrder() throws Exception {
+  void listsIntakeEventsNewestFirst() throws Exception {
     Fixture fixture = fixture();
     JsonNode later = createEvent(fixture, "TAKEN", "2026-10-22T10:00:00Z", "VERIFIED");
     JsonNode earlier = createEvent(fixture, "UNSURE", "2026-10-22T08:00:00Z", "NOT_ASSERTED");
@@ -137,10 +137,35 @@ class MedicationIntakeControllerTest {
         .andReturn());
 
     assertThat(events).hasSize(2);
-    assertThat(events.get(0).path("id").asText()).isEqualTo(earlier.path("id").asText());
-    assertThat(events.get(0).path("occurredAt").asText()).isEqualTo("2026-10-22T08:00:00Z");
-    assertThat(events.get(1).path("id").asText()).isEqualTo(later.path("id").asText());
-    assertThat(events.get(1).path("occurredAt").asText()).isEqualTo("2026-10-22T10:00:00Z");
+    assertThat(events.get(0).path("id").asText()).isEqualTo(later.path("id").asText());
+    assertThat(events.get(0).path("occurredAt").asText()).isEqualTo("2026-10-22T10:00:00Z");
+    assertThat(events.get(1).path("id").asText()).isEqualTo(earlier.path("id").asText());
+    assertThat(events.get(1).path("occurredAt").asText()).isEqualTo("2026-10-22T08:00:00Z");
+  }
+
+  @Test
+  void intakeHistoryIsBoundedByPageSizeAndUsesIdAsTieBreaker() throws Exception {
+    Fixture fixture = fixture();
+    String token = fixture.caregiver().token();
+    for (int day = 20; day <= 22; day++) {
+      createEvent(fixture, "TAKEN", "2026-10-" + day + "T08:00:00Z", "VERIFIED");
+    }
+    createEvent(fixture, "TAKEN", "2026-10-22T08:00:00Z", "NOT_ASSERTED");
+
+    JsonNode firstPage = json(mvc.perform(get(path(fixture) + "?page=0&size=2")
+            .header("Authorization", bearer(token)))
+        .andExpect(status().isOk()).andReturn());
+    JsonNode secondPage = json(mvc.perform(get(path(fixture) + "?page=1&size=2")
+            .header("Authorization", bearer(token)))
+        .andExpect(status().isOk()).andReturn());
+
+    assertThat(firstPage).hasSize(2);
+    assertThat(secondPage).hasSize(2);
+    // The two events sharing a timestamp are ordered by descending id.
+    assertThat(firstPage.get(0).path("occurredAt").asText()).isEqualTo("2026-10-22T08:00:00Z");
+    assertThat(firstPage.get(1).path("occurredAt").asText()).isEqualTo("2026-10-22T08:00:00Z");
+    assertThat(firstPage.get(0).path("id").asText())
+        .isGreaterThan(firstPage.get(1).path("id").asText());
   }
 
   @Test

@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useRef, useState, type FormEvent } from 'react';
 import { ApiError, useApiClient } from '../../lib/api';
-import { createMedicationsApi, intakeStates, isInvalidIntakeTime, medicationErrorMessage, validateMedication, verificationStates, type CreateIntakeEventInput, type IntakeEvent, type IntakeState, type MedicationFieldErrors, type MedicationInput, type MedicationRecord, type VerificationState } from '../../api/medications';
+import { createMedicationsApi, INTAKE_PAGE_SIZE, intakeStates, isInvalidIntakeTime, medicationErrorMessage, validateMedication, verificationStates, type CreateIntakeEventInput, type IntakeEvent, type IntakeState, type MedicationFieldErrors, type MedicationInput, type MedicationRecord, type VerificationState } from '../../api/medications';
 import { Button } from '../../components/Button';
 import { EmptyState, ErrorState, FieldError, LoadingState } from '../../components/Feedback';
 import { useI18n } from '../../i18n/I18nProvider';
@@ -233,7 +233,7 @@ export function MedicationListPanel({ recipientId, canEdit }: { recipientId: str
 
 type IntakeHistoryState = { status: 'loading' }
   | { status: 'error'; error: unknown }
-  | { status: 'ready'; data: IntakeEvent[] };
+  | { status: 'ready'; data: IntakeEvent[]; page: number };
 type IntakeAttempt = { key: string; input: CreateIntakeEventInput };
 
 const intakeLabel: Record<IntakeState, MessageKey> = {
@@ -251,6 +251,8 @@ function IntakeHistory({ recipientId, medication, canRecord }: {
   const client = useApiClient();
   const api = useMemo(() => createMedicationsApi(client), [client]);
   const [state, setState] = useState<IntakeHistoryState>({ status: 'loading' });
+  const [loadingMore, setLoadingMore] = useState(false);
+  const [loadMoreFailed, setLoadMoreFailed] = useState(false);
   const [revision, setRevision] = useState(0);
   const [intakeState, setIntakeState] = useState<'' | IntakeState>('');
   const [verificationState, setVerificationState] = useState<'' | VerificationState>('');
@@ -264,8 +266,10 @@ function IntakeHistory({ recipientId, medication, canRecord }: {
   useEffect(() => {
     const controller = new AbortController();
     setState({ status: 'loading' });
-    void api.listIntakeEvents(recipientId, medication.id, controller.signal).then(
-      (data) => { if (!controller.signal.aborted) setState({ status: 'ready', data }); },
+    setLoadMoreFailed(false);
+    setLoadingMore(false);
+    void api.listIntakeEvents(recipientId, medication.id, controller.signal, 0).then(
+      (data) => { if (!controller.signal.aborted) setState({ status: 'ready', data, page: 0 }); },
       (error: unknown) => { if (!controller.signal.aborted) setState({ status: 'error', error }); },
     );
     return () => { controller.abort(); mutation.current?.abort(); mutation.current = null; };
@@ -326,6 +330,23 @@ function IntakeHistory({ recipientId, medication, canRecord }: {
     }
   }
 
+  async function loadMore() {
+    if (state.status !== 'ready' || loadingMore || mutation.current) return;
+    const nextPage = state.page + 1;
+    setLoadingMore(true);
+    setLoadMoreFailed(false);
+    try {
+      const data = await api.listIntakeEvents(recipientId, medication.id, undefined, nextPage);
+      setState((current) => current.status === 'ready'
+        ? { ...current, data: [...current.data, ...data], page: nextPage }
+        : current);
+    } catch {
+      setLoadMoreFailed(true);
+    } finally {
+      setLoadingMore(false);
+    }
+  }
+
   const formatIntakeDate = (value: string) => formatDate(value, language, { dateStyle: 'medium', timeStyle: 'short' });
   const intakeId = `intake-state-${medication.id}`;
   const verificationId = `verification-state-${medication.id}`;
@@ -337,6 +358,11 @@ function IntakeHistory({ recipientId, medication, canRecord }: {
     {state.status === 'error' && <ErrorState description={t('medicationIntakeError')}
       onRetry={() => setRevision((value) => value + 1)} />}
     {state.status === 'ready' && state.data.length === 0 && <p>{t('medicationNotRecorded')}</p>}
+    {state.status === 'ready' && state.data.length === INTAKE_PAGE_SIZE
+      && <Button type="button" variant="secondary" disabled={loadingMore} onClick={() => { void loadMore(); }}>
+        {t(loadingMore ? 'medicationIntakeLoading' : 'medicationIntakeLoadMore')}
+      </Button>}
+    {loadMoreFailed && <p role="alert" className="recipient-error">{t('medicationIntakeError')}</p>}
     {state.status === 'ready' && state.data.length > 0 && <ul className="medication-intake-list">
       {state.data.map((item) => <li key={item.id}>
         <dl className="recipient-details medication-details">

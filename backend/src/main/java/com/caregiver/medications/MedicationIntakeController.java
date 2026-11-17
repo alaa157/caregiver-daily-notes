@@ -20,6 +20,7 @@ import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestHeader;
 import org.springframework.web.bind.annotation.RequestMapping;
+import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.ResponseStatus;
 import org.springframework.web.bind.annotation.RestController;
 import org.springframework.web.method.annotation.MethodArgumentTypeMismatchException;
@@ -48,11 +49,13 @@ public class MedicationIntakeController {
   }
 
   @GetMapping
-  @Operation(summary = "List explicit intake events for an owned medication in chronological order")
+  @Operation(summary = "List explicit intake events for an owned medication, newest first, paged")
   public List<MedicationIntakeResponse> list(
       @PathVariable UUID recipientId,
-      @PathVariable UUID medicationId) {
-    return service.list(recipientId, medicationId);
+      @PathVariable UUID medicationId,
+      @RequestParam(defaultValue = "0") int page,
+      @RequestParam(defaultValue = "20") int size) {
+    return service.list(recipientId, medicationId, page, size);
   }
 
   @ExceptionHandler(RecipientNotFoundException.class)
