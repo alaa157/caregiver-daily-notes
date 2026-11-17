@@ -873,8 +873,9 @@ describe('on-demand summary and safety workflow', () => {
     expect(uncertaintyDetail.parentElement).toHaveAttribute('dir', 'auto');
     const safety = screen.getByRole('region', { name: 'معلومات السلامة' });
     expect(within(safety).getByText('HIGH', { exact: true }).tagName).toBe('BDI');
-    expect(within(safety).getByText('FALL_DETECTED', { exact: true }).tagName).toBe('BDI');
-    expect(within(safety).getByText('تنبيه FALL_DETECTED — review 2 notes.', { exact: true })).toHaveAttribute('dir', 'auto');
+    expect(within(safety).getByText('تم الإبلاغ عن سقوط', { exact: true }).tagName).toBe('BDI');
+    expect(within(safety).getByText('تم الإبلاغ عن سقوط خلال الفترة المحددة.', { exact: true })).toHaveAttribute('dir', 'auto');
+    expect(within(safety).getByText('تم الإبلاغ عن سقوط', { exact: true }).closest('li')).toHaveAttribute('data-rule-id', 'FALL_DETECTED');
   });
   it('keeps trend values readable in Arabic RTL', async () => {
     const fixture = summaryFixture();

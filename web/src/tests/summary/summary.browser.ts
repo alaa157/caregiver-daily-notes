@@ -171,8 +171,8 @@ for (const language of ['en', 'ar'] as const) {
       await page.getByRole('button', { name: text.regenerate, exact: true }).click();
       await expect(page.getByRole('alert')).toContainText(text.timeout);
       await expect(page.getByText('HIGH', { exact: true })).toHaveCount(2);
-      await expect(page.getByText('FALL_DETECTED', { exact: true })).toBeVisible();
-      await expect(page.getByText('PROVIDER_FAILURE_SAFETY', { exact: true })).toBeVisible();
+      await expect(page.getByText(ar ? 'تم الإبلاغ عن سقوط' : 'Fall detected', { exact: true })).toBeVisible();
+      await expect(page.getByText(ar ? 'إشارة سلامة' : 'Safety signal', { exact: true })).toBeVisible();
       await expect(page.getByText('Safety alert retained after provider failure.', { exact: true })).toBeVisible();
       await expect(page.getByText(testCredentials.apiKey, { exact: false })).toHaveCount(0);
       await expect(page.getByText('raw response', { exact: false })).toHaveCount(0);
