@@ -95,14 +95,14 @@ export function WorkspaceOverview() {
           </section>)}
       </div>
       <aside className="overview-activity" aria-labelledby="overview-activity-title" aria-busy={activityFeed.state.status === 'loading'}>
-        <section role="region" aria-labelledby="overview-activity-title">
+        <section>
           <div className="overview-activity-heading"><h2 id="overview-activity-title" className="overview-section-title">{t('activityFeedTitle')}</h2>
           <button type="button" className="overview-retry" onClick={activityFeed.reload}>{t('activityFeedRefresh')}</button></div>
         {activityFeed.state.status === 'loading' && <LoadingState label={t('activityFeedLoading')} />}
         {activityFeed.state.status === 'error' && <ErrorState description={t('activityFeedError')} onRetry={activityFeed.reload} />}
         {activityFeed.state.status === 'ready' && (activityFeed.state.items.length === 0
           ? <p className="overview-activity-empty" role="status">{t('activityFeedEmpty')}</p>
-          : <ul className="overview-activity-list" aria-label={t('activityFeedTitle')}>
+          : <ul className="overview-activity-list">
             {dashboardActivityItems.map((item) => {
               const recipient = overviewData?.data.find((row) => row.recipient.id === item.recipientId)?.recipient;
               const createdAt = new Date(item.createdAt);
