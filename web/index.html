@@ -16,6 +16,25 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <link rel="icon" type="image/svg+xml" href="/caregiver-notes-preview.svg" />
     <meta name="theme-color" content="#fafaf6" />
+    <script>
+      // Apply the stored theme before first paint. This only covers the window
+      // before React mounts (including the config-error screen); ThemeProvider
+      // remains the runtime source of truth and updates the same attributes.
+      (function () {
+        var mode = null;
+        try { mode = window.localStorage.getItem('caregiver-theme-mode'); } catch (e) {}
+        if (mode !== 'light' && mode !== 'dark' && mode !== 'system') mode = 'system';
+        document.documentElement.dataset.theme = mode;
+
+        var prefersDark = false;
+        try {
+          prefersDark = !!(window.matchMedia && window.matchMedia('(prefers-color-scheme: dark)').matches);
+        } catch (e) {}
+        var resolved = mode === 'dark' || (mode !== 'light' && prefersDark) ? 'dark' : 'light';
+        var meta = document.querySelector('meta[name="theme-color"]');
+        if (meta) meta.setAttribute('content', resolved === 'dark' ? '#121616' : '#fafaf6');
+      })();
+    </script>
     <meta name="description" content="Record daily care notes, review clear summaries, and stay in control of suggested plans. Arabic and English support. Not medical advice." />
     <meta property="og:title" content="Caregiver Daily Notes" />
     <meta property="og:description" content="A calm place to record daily notes and review care-support summaries in Arabic or English." />

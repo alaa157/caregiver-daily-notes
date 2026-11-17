@@ -13,6 +13,14 @@ interface ThemeContextValue {
 const STORAGE_KEY = 'caregiver-theme-mode';
 const SYSTEM_COLOR_SCHEME_QUERY = '(prefers-color-scheme: dark)';
 
+/** Browser-chrome colours, mirrored by the pre-paint bootstrap in index.html. */
+export const THEME_COLORS = { light: '#fafaf6', dark: '#121616' } as const;
+
+export function applyThemeColor(resolved: ResolvedTheme) {
+  document.querySelector('meta[name="theme-color"]')
+    ?.setAttribute('content', THEME_COLORS[resolved]);
+}
+
 const ThemeContext = createContext<ThemeContextValue | null>(null);
 
 function readStoredMode(): ThemeMode {
@@ -68,6 +76,12 @@ export function ThemeProvider({ children }: { children: ReactNode }) {
     mediaQuery.addEventListener('change', handleChange);
     return () => mediaQuery.removeEventListener('change', handleChange);
   }, [mode]);
+
+  // Keep mobile browser chrome in sync with the resolved theme on every switch,
+  // including changes to the OS preference while in system mode.
+  useLayoutEffect(() => {
+    applyThemeColor(mode === 'system' ? systemTheme : mode);
+  }, [mode, systemTheme]);
 
   return (
     <ThemeContext.Provider value={{ mode, setMode, resolvedTheme: mode === 'system' ? systemTheme : mode }}>

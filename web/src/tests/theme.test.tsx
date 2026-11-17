@@ -1,7 +1,7 @@
 import { act, cleanup, fireEvent, render, screen } from '@testing-library/react';
 import { useEffect } from 'react';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
-import { ThemeProvider, useTheme } from '../app/ThemeProvider';
+import { THEME_COLORS, ThemeProvider, useTheme } from '../app/ThemeProvider';
 
 type MediaChangeListener = (event: MediaQueryListEvent) => void;
 
@@ -58,9 +58,20 @@ function renderThemeProvider(onPassiveTheme?: (theme: string | undefined) => voi
   return render(<ThemeProvider><ThemeProbe onPassiveTheme={onPassiveTheme} /></ThemeProvider>);
 }
 
+function themeColor(): string | null {
+  return document.querySelector('meta[name="theme-color"]')?.getAttribute('content') ?? null;
+}
+
 beforeEach(() => {
   window.localStorage.clear();
   delete document.documentElement.dataset.theme;
+  let meta = document.querySelector('meta[name="theme-color"]');
+  if (!meta) {
+    meta = document.createElement('meta');
+    meta.setAttribute('name', 'theme-color');
+    document.head.appendChild(meta);
+  }
+  meta.setAttribute('content', THEME_COLORS.light);
   configureMatchMedia();
 });
 
@@ -78,6 +89,35 @@ describe('ThemeProvider', () => {
 
     expect(screen.getByTestId('theme-state')).toHaveTextContent('system:light');
     expect(document.documentElement.dataset.theme).toBe('system');
+  });
+
+  it('sets the browser theme colour from the stored mode on mount', () => {
+    window.localStorage.setItem('caregiver-theme-mode', 'dark');
+    renderThemeProvider();
+
+    expect(themeColor()).toBe(THEME_COLORS.dark);
+  });
+
+  it('updates the browser theme colour on runtime switches', () => {
+    renderThemeProvider();
+    expect(themeColor()).toBe(THEME_COLORS.light);
+
+    fireEvent.click(screen.getByRole('button', { name: 'Set dark' }));
+    expect(themeColor()).toBe(THEME_COLORS.dark);
+
+    fireEvent.click(screen.getByRole('button', { name: 'Set light' }));
+    expect(themeColor()).toBe(THEME_COLORS.light);
+  });
+
+  it('updates the browser theme colour with the OS preference in system mode', () => {
+    renderThemeProvider();
+    expect(themeColor()).toBe(THEME_COLORS.light);
+
+    setSystemPreference(true);
+    expect(themeColor()).toBe(THEME_COLORS.dark);
+
+    setSystemPreference(false);
+    expect(themeColor()).toBe(THEME_COLORS.light);
   });
 
   it('follows operating system changes in system mode', () => {
