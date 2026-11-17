@@ -32,6 +32,10 @@ after review and explicit confirmation. The payload contains only:
 {"expectedVersion":2,"changes":[{"index":0,"params":{"withinDays":"10"}}]}
 ```
 
+Care plans are generated from the summary, deterministic flags and the last
+accepted plan; medication intake events are **not** an input, so a plan never
+reconciles or asserts a dose from them.
+
 Medication names/doses/schedules, action types, reasons, evidence, source metadata
 and version numbers are not writable fields. The server retains them, validates
 catalog parameters, rechecks the accepted baseline under lock, applies the

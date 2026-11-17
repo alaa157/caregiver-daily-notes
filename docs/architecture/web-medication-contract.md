@@ -186,6 +186,24 @@ specify a database schema. In particular:
   events.
 - This issue defines no database schema or migration.
 
+### Daily-note `medicationStatus` and intake events are separate reports
+
+A daily note carries one coarse `medicationStatus` (`TAKEN`, `MISSED`, or
+`UNKNOWN`) describing the caregiver's per-day report. Medication intake events
+are per-medication, timestamped records with their own reported and verification
+states. These are distinct sources of truth: no backend code derives a note's
+status from intake events, feeds intake events into summaries or care plans, or
+changes intake events to agree with a note. The note's `MISSED` therefore does
+not prove a dose was not taken, and an intake `TAKEN` does not override the
+note.
+
+Because the sources are unreconciled they can disagree for the same day. When
+that happens the note detail page shows an informational, display-only warning
+so the caregiver can review both; it changes neither record and makes no
+clinical claim. The warning is best-effort: if the intake data cannot be loaded,
+the note remains fully readable and no warning is shown. Summaries and care
+plans read daily notes only and exclude medication intake events entirely.
+
 ## H. Existing PlanDocument MedicationEntry
 
 The existing
