@@ -87,12 +87,25 @@ export function SummaryResult({ view }: { view: SummaryView }) {
   const headingKey = view.failed ? 'summaryFailureSafety'
     : response.invalidContent ? 'summaryInvalidSummaryTitle'
       : response.summary?.aiUnavailable ? 'summaryUnavailable' : 'summaryResult';
+  const header = <header className="summary-result-heading"><h2 id="summary-result-heading">{t(headingKey)}</h2>
+    <p className="summary-recipient"><bdi>{view.recipientName}</bdi></p>
+    <p>{t('summaryCoverage')}: <bdi>{from.toISOString().slice(0, 10)}</bdi> – <bdi>{request.periodEndInclusive}</bdi> (<bdi>{dayCountLabel(request.periodDays, language)}</bdi>)</p>
+    {response.periodDays > 0 && <p className="summary-coverage-notes">{t('summaryCoverageDays')
+      .replace('{covered}', format(response.daysWithNotes))
+      .replace('{total}', format(response.periodDays))}</p>}
+    {view.generatedWith && !response.summary?.aiUnavailable && <p>{t('summaryGeneratedWith')}: {t(providerLabelKey(view.generatedWith.providerId))} · <bdi>{view.generatedWith.model}</bdi></p>}
+  </header>;
+  const emptyPeriod = !view.failed && response.periodDays > 0 && response.daysWithNotes === 0;
+  if (emptyPeriod) {
+    return <section className="summary-result" aria-labelledby="summary-result-heading">
+      {header}
+      <SummarySafety safety={response.safety} recipientId={request.recipientId}
+        periodEndInclusive={request.periodEndInclusive} periodDays={request.periodDays} />
+      <p className="summary-notice" role="status">{t('summaryEmptyPeriod')}</p>
+    </section>;
+  }
   return <section className="summary-result" aria-labelledby="summary-result-heading">
-    <header className="summary-result-heading"><h2 id="summary-result-heading">{t(headingKey)}</h2>
-      <p className="summary-recipient"><bdi>{view.recipientName}</bdi></p>
-      <p>{t('summaryCoverage')}: <bdi>{from.toISOString().slice(0, 10)}</bdi> – <bdi>{request.periodEndInclusive}</bdi> (<bdi>{dayCountLabel(request.periodDays, language)}</bdi>)</p>
-      {view.generatedWith && !response.summary?.aiUnavailable && <p>{t('summaryGeneratedWith')}: {t(providerLabelKey(view.generatedWith.providerId))} · <bdi>{view.generatedWith.model}</bdi></p>}
-    </header>
+    {header}
     <SummarySafety safety={response.safety} recipientId={request.recipientId}
       periodEndInclusive={request.periodEndInclusive} periodDays={request.periodDays} />
     {response.invalidContent && <p className="summary-notice" role="alert">{t('summaryInvalidContent')}</p>}

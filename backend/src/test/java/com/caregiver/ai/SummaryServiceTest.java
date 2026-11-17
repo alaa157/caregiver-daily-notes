@@ -53,6 +53,20 @@ class SummaryServiceTest {
   }
 
   @Test
+  void coverageCountsDistinctNoteDatesInTheRequestedWindow() {
+    var svc = service(ok("{\"observations\":[{\"text\":\"she ate well today\",\"noteId\":\"n1\",\"quote\":\"she ate well today\"}],\"uncertainties\":[]}"));
+    var notes = List.of(
+        new SummaryNote("n1", END, "she ate well today"),
+        new SummaryNote("n2", END, "she ate well today"),
+        new SummaryNote("n3", END.minusDays(2), "she ate well today"));
+
+    var result = svc.summarize(new SummaryRequest("r1", END, 7), notes, List.of());
+
+    assertThat(result.daysWithNotes()).isEqualTo(2);
+    assertThat(result.periodDays()).isEqualTo(7);
+  }
+
+  @Test
   void inventedQuote_isDroppedWithAnExplicitUnavailableState() {
     var svc = service(ok("{\"observations\":[{\"text\":\"slept\",\"noteId\":\"n1\",\"quote\":\"slept ten hours\"}],\"uncertainties\":[]}"));
     var notes = List.of(new SummaryNote("n1", END, "ate well"));
