@@ -1,6 +1,7 @@
 package com.caregiver.mobile.presentation.auth
 
 import androidx.compose.foundation.background
+import androidx.compose.foundation.focusable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
@@ -30,12 +31,22 @@ import androidx.compose.material3.OutlinedTextFieldDefaults
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
+import androidx.compose.ui.ExperimentalComposeUiApi
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.autofill.AutofillNode
+import androidx.compose.ui.autofill.AutofillType
+import androidx.compose.ui.autofill.LocalAutofill
+import androidx.compose.ui.autofill.LocalAutofillTree
+import androidx.compose.ui.focus.onFocusChanged
+import androidx.compose.ui.layout.boundsInWindow
+import androidx.compose.ui.layout.onGloballyPositioned
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.semantics.contentDescription
@@ -173,6 +184,11 @@ fun AuthForm(
                         imeAction = ImeAction.Next,
                     ),
                     testTag = "auth_field_name",
+                    // #870: next field → Next; name is autofillable.
+                    modifier = Modifier.authAutofill(
+                        listOf(AutofillType.PersonFullName),
+                        onDisplayName,
+                    ),
                 )
             }
 
@@ -184,9 +200,20 @@ fun AuthForm(
                 supporting = state.emailError?.let { emailErrorText(it) },
                 keyboardOptions = KeyboardOptions(
                     keyboardType = KeyboardType.Email,
+                    // #870: email → password, so Next.
                     imeAction = ImeAction.Next,
                 ),
                 testTag = "auth_field_email",
+                // #870: Login accepts a username or an email address;
+                // Register is strictly an email address.
+                modifier = Modifier.authAutofill(
+                    if (mode == AuthMode.Login) {
+                        listOf(AutofillType.Username, AutofillType.EmailAddress)
+                    } else {
+                        listOf(AutofillType.EmailAddress)
+                    },
+                    onEmail,
+                ),
             )
 
             // #868: the eye toggle occupies AuthTextField's trailing slot.
@@ -208,10 +235,21 @@ fun AuthForm(
                 },
                 keyboardOptions = KeyboardOptions(
                     keyboardType = KeyboardType.Password,
+                    // #870: after #869 removed the confirm field, password is
+                    // the last field on both screens — Done submits.
                     imeAction = ImeAction.Done,
                 ),
                 onDone = onSubmit,
                 testTag = "auth_field_password",
+                // #870: sign-in credentials vs. a new password on Register.
+                modifier = Modifier.authAutofill(
+                    if (mode == AuthMode.Login) {
+                        listOf(AutofillType.Password)
+                    } else {
+                        listOf(AutofillType.NewPassword)
+                    },
+                    onPassword,
+                ),
                 trailingIcon = {
                     IconButton(
                         onClick = { passwordVisible = !passwordVisible },
@@ -359,6 +397,50 @@ fun AuthForm(
 internal fun shouldShowDemoEntry(demoBackendEnabled: Boolean, hasDemoHandler: Boolean): Boolean =
     demoBackendEnabled && hasDemoHandler
 
+/**
+ * #870: register each field with the platform's autofill framework so a
+ * password manager can offer to save and fill credentials. Call sites pass
+ * the roles that fit the screen (Login uses Username/EmailAddress + Password,
+ * Register uses EmailAddress + NewPassword, the name field uses
+ * PersonFullName). The filled String is forwarded to the field's existing
+ * change handler.
+ *
+ * Compose 1.7 (BOM 2024.10.00) has neither `ContentType` nor the public
+ * `Modifier.autofill` (both landed in 1.8), so this uses the long-standing
+ * AutofillNode/LocalAutofill primitives that are present in 1.7. They are
+ * deprecated in favour of the newer API, but they are the correct choice for
+ * this project's Compose version. The node is registered on composition,
+ * positioned so the framework can anchor its popup, and asked to fill when
+ * the field takes or loses focus. Purely additive — no visual structure
+ * changes.
+ */
+@OptIn(ExperimentalComposeUiApi::class)
+@Composable
+private fun Modifier.authAutofill(
+    types: List<AutofillType>,
+    onValue: (String) -> Unit,
+): Modifier {
+    val autofill = LocalAutofill.current
+    val tree = LocalAutofillTree.current
+    val node = remember(types, onValue) {
+        AutofillNode(autofillTypes = types, onFill = onValue)
+    }
+    DisposableEffect(tree, node) {
+        tree += node
+        onDispose { tree -= node }
+    }
+    return this
+        .onGloballyPositioned { node.boundingBox = it.boundsInWindow() }
+        .focusable()
+        .onFocusChanged { state ->
+            if (state.isFocused) {
+                autofill?.requestAutofillForNode(node)
+            } else {
+                autofill?.cancelAutofillForNode(node)
+            }
+        }
+}
+
 @Composable
 private fun LabeledField(
     label: String,
@@ -370,6 +452,7 @@ private fun LabeledField(
     testTag: String,
     visual: Boolean = false,
     onDone: (() -> Unit)? = null,
+    modifier: Modifier = Modifier,
 ) {
     Column(verticalArrangement = Arrangement.spacedBy(6.dp)) {
         Text(
@@ -396,7 +479,7 @@ private fun LabeledField(
                 focusedContainerColor = CaregiverColors.Surface,
                 unfocusedContainerColor = CaregiverColors.Surface,
             ),
-            modifier = Modifier.fillMaxWidth().heightIn(min = 52.dp),
+            modifier = modifier.fillMaxWidth().heightIn(min = 52.dp),
         )
     }
 }
