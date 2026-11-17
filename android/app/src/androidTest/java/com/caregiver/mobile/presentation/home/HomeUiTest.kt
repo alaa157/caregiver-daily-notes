@@ -301,4 +301,59 @@ class HomeUiTest {
         compose.onNodeWithText("Fall alert").assertIsDisplayed()
         compose.onNodeWithText("Reported fall — " + Bidi.isolate("Sara")).assertIsDisplayed()
     }
+
+    // #914: the redesigned Home recipient card never emits a bare " · "
+    // after the name — in either locale — and the last-note / status lines
+    // keep their established copy.
+    @Test
+    fun englishRecipientCardNeverEndsWithABareSeparator() {
+        val today = LocalDate.now().toString()
+        server.enqueue(MockResponse().setBody("""[{"id":"r1","name":"Sarah","active":true}]"""))
+        server.enqueue(
+            MockResponse().setBody(
+                """[{"id":"n1","recipientId":"r1","date":"$today","mood":"good","appetite":"good","sleep":"good","mobility":"walks","medicationTaken":"taken","pain":1,"fall":false,"text":"t"}]""",
+            ),
+        )
+        val base = ApplicationProvider.getApplicationContext<Context>()
+        compose.setContent {
+            CompositionLocalProvider(LocalContext provides base.withLocale("en")) {
+                WithTestOwner {
+                    CaregiverTheme {
+                        HomeScreen(graph, rememberNavController())
+                    }
+                }
+            }
+        }
+
+        compose.onNodeWithText(Bidi.isolate("Sarah")).assertIsDisplayed()
+        compose.onAllNodesWithText(" · ").assertCountEquals(0)
+        compose.onNodeWithText("Last note: today").assertIsDisplayed()
+        compose.onNodeWithText("Done").assertIsDisplayed()
+    }
+
+    @Test
+    fun arabicRecipientCardNeverEndsWithABareSeparator() {
+        val today = LocalDate.now().toString()
+        server.enqueue(MockResponse().setBody("""[{"id":"r1","name":"سارة","active":true}]"""))
+        server.enqueue(
+            MockResponse().setBody(
+                """[{"id":"n1","recipientId":"r1","date":"$today","mood":"good","appetite":"good","sleep":"good","mobility":"walks","medicationTaken":"taken","pain":1,"fall":false,"text":"t"}]""",
+            ),
+        )
+        val base = ApplicationProvider.getApplicationContext<Context>()
+        compose.setContent {
+            CompositionLocalProvider(LocalContext provides base.withLocale("ar")) {
+                WithTestOwner {
+                    CaregiverTheme {
+                        HomeScreen(graph, rememberNavController())
+                    }
+                }
+            }
+        }
+
+        compose.onNodeWithText(Bidi.isolate("سارة")).assertIsDisplayed()
+        compose.onAllNodesWithText(" · ").assertCountEquals(0)
+        compose.onNodeWithText("آخر ملاحظة: اليوم").assertIsDisplayed()
+        compose.onNodeWithText("تم").assertIsDisplayed()
+    }
 }

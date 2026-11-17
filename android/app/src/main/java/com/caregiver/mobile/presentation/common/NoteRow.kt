@@ -51,7 +51,8 @@ import com.caregiver.mobile.core.theme.PlexArabic
  * Plain values plus composable slots — no view model, DTO, or UI state type
  * crosses this API, so any screen can feed it. Names and relative times are
  * wrapped in [Bidi.isolate] exactly like HomeScreen, so mixed Arabic/Latin
- * content cannot reorder under RTL.
+ * content cannot reorder under RTL. The " · time" suffix is emitted only
+ * when a time is supplied, so a name never ends in a bare separator (#914).
  */
 
 /** Clock glyph marking a note still waiting to sync (Task 8b). */
@@ -116,13 +117,21 @@ fun NoteRow(
                         overflow = TextOverflow.Ellipsis,
                         modifier = Modifier.weight(1f, fill = false),
                     )
-                    Text(
-                        text = " · " + Bidi.isolate(time),
-                        fontFamily = PlexArabic,
-                        fontSize = 13.sp,
-                        color = CaregiverColors.Muted,
-                        maxLines = 1,
-                    )
+                    // #914: the separator belongs to the suffix, never to
+                    // the name. Emitting it unconditionally left a bare
+                    // " · " whenever a caller had no date to show (the QA
+                    // report's "Sarah ·" on Home). Home, Notes and History
+                    // now share this one rule: no value, no separator.
+                    if (time.isNotBlank()) {
+                        Text(
+                            text = " · " + Bidi.isolate(time),
+                            fontFamily = PlexArabic,
+                            fontSize = 13.sp,
+                            color = CaregiverColors.Muted,
+                            maxLines = 1,
+                            modifier = Modifier.testTag("note_row_time"),
+                        )
+                    }
                     if (pending) {
                         Icon(
                             imageVector = Icons.Outlined.Schedule,

@@ -6,8 +6,11 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalLayoutDirection
+import androidx.compose.ui.test.assertCountEquals
+import androidx.compose.ui.test.assertDoesNotExist
 import androidx.compose.ui.test.assertIsDisplayed
 import androidx.compose.ui.test.junit4.createComposeRule
+import androidx.compose.ui.test.onAllNodesWithText
 import androidx.compose.ui.test.onNodeWithTag
 import androidx.compose.ui.test.onNodeWithText
 import androidx.compose.ui.unit.LayoutDirection
@@ -71,6 +74,57 @@ class NoteRowUiTest {
         compose.onNodeWithTag("note_row").assertIsDisplayed()
         compose.onNodeWithText(Bidi.isolate("Sara")).assertIsDisplayed()
         compose.onNodeWithText("Slept well and ate breakfast.").assertIsDisplayed()
+    }
+
+    /**
+     * #914: a caller without a date (the old Home card passed an empty time)
+     * must never produce a standalone " · " node — in LTR or RTL.
+     */
+    @Test
+    fun blankTimeNeverEmitsABareSeparatorInEitherLanguage() {
+        render("en") {
+            NoteRow(
+                avatarLetter = "S",
+                name = "Sarah",
+                time = "",
+                body = "Slept well",
+                onClick = {},
+            )
+        }
+        assertEquals(LayoutDirection.Ltr, capturedDirection)
+        compose.onNodeWithText(Bidi.isolate("Sarah")).assertIsDisplayed()
+        compose.onNodeWithTag("note_row_time").assertDoesNotExist()
+        compose.onAllNodesWithText(" · ").assertCountEquals(0)
+
+        render("ar") {
+            NoteRow(
+                avatarLetter = "س",
+                name = "سارة",
+                time = "",
+                body = "نامت جيدًا",
+                onClick = {},
+            )
+        }
+        assertEquals(LayoutDirection.Rtl, capturedDirection)
+        compose.onNodeWithText(Bidi.isolate("سارة")).assertIsDisplayed()
+        compose.onNodeWithTag("note_row_time").assertDoesNotExist()
+        compose.onAllNodesWithText(" · ").assertCountEquals(0)
+    }
+
+    /** #914: with a date, the shared name-dot-date formatting is intact. */
+    @Test
+    fun dateSuffixStillUsesTheNameDotDateFormat() {
+        render("en") {
+            NoteRow(
+                avatarLetter = "S",
+                name = "Sarah",
+                time = "Nov 17, 2026",
+                body = "Slept well",
+                onClick = {},
+            )
+        }
+        compose.onNodeWithTag("note_row_time").assertIsDisplayed()
+        compose.onNodeWithText(" · " + Bidi.isolate("Nov 17, 2026")).assertIsDisplayed()
     }
 
     private fun render(language: String, content: @Composable () -> Unit) {
