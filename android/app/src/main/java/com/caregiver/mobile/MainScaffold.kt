@@ -135,6 +135,19 @@ fun MainScaffold(graph: AppGraph) {
     val backStack by navController.currentBackStackEntryAsState()
     val currentRoute = backStack?.destination?.route
 
+    // #917: note detail, its addendum and the "Saved" confirmation can be
+    // reached from several tabs. Their highlight must follow the tab the
+    // user actually came from, not a fixed owner in the nav component (a
+    // note opened from Notes used to light up History). Each tab destination
+    // refreshes this as it becomes current; detail routes keep the last tab
+    // until the user returns to a tab, so Back also lands with the right
+    // highlight. Null only on a cold-start deep link, where the ownership
+    // table in AppNavigation still decides.
+    var originTab by remember { mutableStateOf<String?>(null) }
+    LaunchedEffect(currentRoute) {
+        if (MainTab.isTabRoute(currentRoute)) originTab = currentRoute
+    }
+
     // Tab order for the NavHost transitions below: each tab route maps to its
     // bottom-bar index, every other destination reads as -1 ("deeper than a
     // tab"), and comparing the two indices picks the slide direction —
@@ -322,6 +335,7 @@ fun MainScaffold(graph: AppGraph) {
                     AppNavigationBar(
                         navigationItems = navigationItems,
                         currentRoute = currentRoute,
+                        originTab = originTab,
                         onItemClick = { item, _ ->
                             if (currentRoute == item.route) {
                                 // Re-tapping the tab that is already the
