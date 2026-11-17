@@ -20,7 +20,16 @@ describe('public landing page', () => {
     expect(screen.getByRole('heading', { name: 'Safety comes first' })).toBeInTheDocument();
     expect(screen.getByText(/capstone project/i)).toBeInTheDocument();
     expect(screen.getByText(/structured recipient profile fields.*excluded from AI requests.*free-text notes are sent as written/i)).toBeInTheDocument();
-    expect(screen.getAllByRole('link', { name: /download android apk/i })[0]).toHaveAttribute('href', 'https://github.com/alaa157/caregiver-daily-notes/releases/download/v0.1.1/app-minified.apk');
+    const apkLinks = screen.getAllByRole('link', { name: /download android apk/i });
+    expect(apkLinks).toHaveLength(2);
+    const hrefs = apkLinks.map((link) => link.getAttribute('href'));
+    expect(hrefs[1]).toBe(hrefs[0]); // hero and Android card share one source of truth
+    const url = new URL(hrefs[0]!);
+    expect(url.origin).toBe('https://github.com');
+    // The permanent `apk-latest` tag is replaced by the build, so no version
+    // segment can go stale the way a `v0.1.1`-style URL would.
+    expect(url.pathname).toBe('/alaa157/caregiver-daily-notes/releases/download/apk-latest/app-minified.apk');
+    expect(url.pathname).not.toMatch(/v\d|android-standalone/i);
   });
   it('announces every new-tab link to assistive technology in English', () => {
     const { container } = setup();

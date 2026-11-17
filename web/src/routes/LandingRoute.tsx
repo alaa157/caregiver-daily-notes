@@ -24,7 +24,10 @@ const copy = {
   },
 } as const;
 
-const APK = 'https://github.com/alaa157/caregiver-daily-notes/releases/download/v0.1.1/app-minified.apk';
+// `apk-latest` is a permanent, rolling release tag whose app-minified.apk asset
+// is replaced by the Android build. Pointing at it keeps the download current
+// without a source edit (and without a version-pinned tag going stale).
+const APK = 'https://github.com/alaa157/caregiver-daily-notes/releases/download/apk-latest/app-minified.apk';
 const repo = 'https://github.com/alaa157/caregiver-daily-notes';
 
 function MockScreen({ rtl = false }: { rtl?: boolean }) {
