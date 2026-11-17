@@ -135,7 +135,7 @@ Each family defines `size`, `line-height`, `line-height-ar`, and `weight` custom
 
 ## Public runtime configuration (important for rotating tunnel URLs)
 
-Every page load fetches `config.json` using `cache: 'no-store'` **before** mounting the app. The *only* backend URL setting is `apiBaseUrl` in this file, not `import.meta.env` / `VITE_*` / compiled JavaScript. The checked-in `public/config.json` contains `{"apiBaseUrl":""}` for a same-origin proxy. To call the current HTTPS backend tunnel, set:
+Routes that call the API fetch `config.json` using `cache: 'no-store'` and show a retryable loading/error state until it resolves. The public landing page at `/` renders immediately from static content without fetching config. The *only* backend URL setting is `apiBaseUrl` in this file, not `import.meta.env` / `VITE_*` / compiled JavaScript. The checked-in `public/config.json` contains `{"apiBaseUrl":""}` for a same-origin proxy. To call the current HTTPS backend tunnel, set:
 
 ```json
 { "apiBaseUrl": "https://current-backend.trycloudflare.com" }
