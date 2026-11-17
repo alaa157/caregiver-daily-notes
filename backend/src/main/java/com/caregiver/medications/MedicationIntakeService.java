@@ -4,12 +4,14 @@ import com.caregiver.audit.AuditService;
 import com.caregiver.auth.AuthContext;
 import com.caregiver.recipient.CareRecipient;
 import com.caregiver.recipient.CareRecipientRepository;
+import com.caregiver.recipient.IdempotencyConflictException;
 import com.caregiver.recipient.RecipientNotFoundException;
 import jakarta.persistence.EntityManager;
 import java.time.Clock;
 import java.time.Duration;
 import java.time.Instant;
 import java.util.List;
+import java.util.Objects;
 import java.util.UUID;
 import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.data.domain.PageRequest;
@@ -74,7 +76,7 @@ public class MedicationIntakeService {
     if (idempotencyKey != null) {
       MedicationIntakeResponse replay = readTx.execute(status -> intakeEvents
           .findByCaregiver_IdAndIdempotencyKey(caregiverId, idempotencyKey)
-          .map(this::response)
+          .map(existing -> replay(recipientId, medicationId, request, existing))
           .orElse(null));
       if (replay != null) {
         return replay;
@@ -85,7 +87,7 @@ public class MedicationIntakeService {
         if (idempotencyKey != null) {
           var existing = intakeEvents.findByCaregiver_IdAndIdempotencyKey(caregiverId, idempotencyKey);
           if (existing.isPresent()) {
-            return response(existing.get());
+            return replay(recipientId, medicationId, request, existing.get());
           }
         }
         CareRecipient recipient = ownedRecipient(recipientId, caregiverId);
@@ -102,21 +104,43 @@ public class MedicationIntakeService {
         return response(event);
       });
     } catch (DataIntegrityViolationException e) {
-      return recoverCreate(caregiverId, idempotencyKey, e);
+      return recoverCreate(caregiverId, recipientId, medicationId, request, idempotencyKey, e);
     }
+  }
+
+  /**
+   * Replays the original event only when the request is identical. A reused key
+   * with different recipient, medication, state, time or verification is a
+   * conflict, never a silent overwrite of the first dose record.
+   */
+  private MedicationIntakeResponse replay(UUID recipientId, UUID medicationId,
+      MedicationIntakeRequest request, MedicationIntakeEvent existing) {
+    if (!sameRequest(recipientId, medicationId, request, existing)) {
+      throw new IdempotencyConflictException();
+    }
+    return response(existing);
+  }
+
+  private static boolean sameRequest(UUID recipientId, UUID medicationId,
+      MedicationIntakeRequest request, MedicationIntakeEvent existing) {
+    return Objects.equals(recipientId, existing.getRecipient().getId())
+        && Objects.equals(medicationId, existing.getMedication().getId())
+        && existing.getIntakeState() == request.intakeState()
+        && Objects.equals(existing.getOccurredAt(), request.occurredAt())
+        && existing.getVerificationState() == request.verificationState();
   }
 
   /**
    * Resolves a write that lost the unique-constraint race. Runs in a fresh read
    * transaction so it always observes the winner's committed row.
    */
-  private MedicationIntakeResponse recoverCreate(UUID caregiverId, String idempotencyKey,
-      DataIntegrityViolationException failure) {
+  private MedicationIntakeResponse recoverCreate(UUID caregiverId, UUID recipientId, UUID medicationId,
+      MedicationIntakeRequest request, String idempotencyKey, DataIntegrityViolationException failure) {
     return readTx.execute(status -> {
       if (idempotencyKey != null) {
         var existing = intakeEvents.findByCaregiver_IdAndIdempotencyKey(caregiverId, idempotencyKey);
         if (existing.isPresent()) {
-          return response(existing.get());
+          return replay(recipientId, medicationId, request, existing.get());
         }
       }
       throw failure;

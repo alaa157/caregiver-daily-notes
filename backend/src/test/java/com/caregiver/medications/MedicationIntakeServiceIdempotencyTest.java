@@ -7,6 +7,7 @@ import com.caregiver.common.VerificationState;
 import com.caregiver.config.CaregiverApplication;
 import com.caregiver.recipient.CareRecipient;
 import com.caregiver.recipient.CareRecipientRepository;
+import com.caregiver.recipient.IdempotencyConflictException;
 import java.time.Instant;
 import java.util.List;
 import java.util.UUID;
@@ -19,6 +20,7 @@ import org.springframework.security.authentication.UsernamePasswordAuthenticatio
 import org.springframework.security.core.context.SecurityContextHolder;
 
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
 /** Service-level idempotency contract for medication intake writes. */
 @SpringBootTest(
@@ -55,10 +57,10 @@ class MedicationIntakeServiceIdempotencyTest {
 
     MedicationIntakeResponse first = service.create(
         fixture.recipientId(), fixture.medicationId(), request, "dose-key");
-    // A retry after a lost response may even carry a different occurred-at; the
-    // replay must still return the original record.
+    // A retry after a lost response carries the same payload and returns the
+    // original record without writing a second event.
     MedicationIntakeResponse retry = service.create(
-        fixture.recipientId(), fixture.medicationId(), request(Instant.parse("2026-11-02T09:00:00Z")), "dose-key");
+        fixture.recipientId(), fixture.medicationId(), request(occurredAt), "dose-key");
 
     assertThat(retry.id()).isEqualTo(first.id());
     assertThat(retry.medicationId()).isEqualTo(first.medicationId());
@@ -72,6 +74,25 @@ class MedicationIntakeServiceIdempotencyTest {
     assertThat(jdbc.queryForObject(
         "select idempotency_key from medication_intake_events where id = ?",
         String.class, first.id())).isEqualTo("dose-key");
+  }
+
+  @Test
+  void sameKeyWithDifferentPayloadIsRejected() {
+    Fixture fixture = fixture();
+    authenticate(fixture.caregiverId());
+    service.create(fixture.recipientId(), fixture.medicationId(),
+        request(Instant.parse("2026-11-01T08:30:00Z")), "dose-key");
+
+    assertThatThrownBy(() -> service.create(fixture.recipientId(), fixture.medicationId(),
+        new MedicationIntakeRequest(MedicationIntakeEvent.IntakeState.MISSED,
+            Instant.parse("2026-11-01T08:30:00Z"), VerificationState.UNVERIFIED), "dose-key"))
+        .isInstanceOf(IdempotencyConflictException.class);
+    assertThatThrownBy(() -> service.create(fixture.recipientId(), fixture.medicationId(),
+        request(Instant.parse("2026-11-02T09:00:00Z")), "dose-key"))
+        .isInstanceOf(IdempotencyConflictException.class);
+    assertThat(intakeEvents.findAllByCaregiver_IdAndRecipient_IdAndMedication_IdOrderByOccurredAtAscIdAsc(
+        fixture.caregiverId(), fixture.recipientId(), fixture.medicationId()))
+        .hasSize(1);
   }
 
   @Test
