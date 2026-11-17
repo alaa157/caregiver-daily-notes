@@ -1,7 +1,9 @@
 package com.caregiver.ai;
 
 import com.caregiver.common.NoteSignals;
+import com.caregiver.common.ObservationState;
 import com.caregiver.common.Severity;
+import com.caregiver.common.VerificationState;
 
 import java.time.LocalDate;
 import java.util.ArrayList;
@@ -53,6 +55,12 @@ public class SafetySignalEvaluator {
           "Missed medication on " + missedDates + " days in period"));
     }
 
+    if (window.stream().anyMatch(SafetySignalEvaluator::medicationNeedsReview)) {
+      signals.add(new SafetySignal(
+          SafetyRuleId.MEDICATION_STATUS_UNCLEAR, Severity.WATCH,
+          "Medication status unclear or unverified in period"));
+    }
+
     long appetiteDates = window.stream()
         .filter(n -> Boolean.TRUE.equals(n.poorAppetite()))
         .map(NoteSignals::date)
@@ -66,5 +74,12 @@ public class SafetySignalEvaluator {
 
     boolean needsDoctorBanner = signals.stream().anyMatch(s -> s.severity() == Severity.HIGH);
     return new SafetyEvaluation(signals, needsDoctorBanner);
+  }
+
+  private static boolean medicationNeedsReview(NoteSignals note) {
+    return note.medicationUnverified()
+        || "UNKNOWN".equals(note.medicationStatus())
+        || note.observations().medicationStatus().state() == ObservationState.UNKNOWN
+        || note.observations().medicationVerification() == VerificationState.UNVERIFIED;
   }
 }

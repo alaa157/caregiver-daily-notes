@@ -12,6 +12,7 @@ import com.caregiver.recipient.RecipientNotFoundException;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
+import java.time.Instant;
 import java.time.LocalDate;
 import java.util.ArrayList;
 import java.util.Collection;
@@ -68,8 +69,9 @@ public class NoteSignalService {
    * prior effective value; an explicit {@code NOT_RECORDED} is therefore
    * different from omission. Conflicting recorded medication reports produce
    * an effective {@code UNKNOWN} observation without rewriting history or
-   * changing verification. Only an explicit {@code UNVERIFIED} verification
-   * state sets the compatibility {@code medicationUnverified} projection.
+   * changing verification. Later medication reports supersede earlier ones;
+   * conflicting reports created at the same instant remain unknown. Explicit
+   * {@code UNVERIFIED} verification is retained for safety review.
    */
   private NoteSignalResponse merge(DailyNote note, List<NoteAddendum> addendaForNote) {
     NoteObservations original = note.observations();
@@ -80,6 +82,9 @@ public class NoteSignalService {
     Observation<Boolean> fall = original.fallReported();
     Observation<Integer> pain = original.painScore();
     Observation<String> medication = original.medicationStatus();
+    Instant latestMedicationReportAt = note.getCreatedAt();
+    List<String> statusesAtLatestReportTime = new ArrayList<>();
+    addRecordedMedication(statusesAtLatestReportTime, medication);
     Observation<String> freeText = original.freeText();
     VerificationState medicationVerification = original.medicationVerification();
 
@@ -95,6 +100,11 @@ public class NoteSignalService {
       if (provided.painScore()) pain = correction.painScore();
       if (provided.medicationStatus()) {
         medication = correction.medicationStatus();
+        if (!addendum.getCreatedAt().equals(latestMedicationReportAt)) {
+          latestMedicationReportAt = addendum.getCreatedAt();
+          statusesAtLatestReportTime.clear();
+        }
+        addRecordedMedication(statusesAtLatestReportTime, medication);
         if (!addendum.isMedicationVerificationProvided()) {
           medicationVerification = VerificationState.NOT_ASSERTED;
         }
@@ -105,13 +115,9 @@ public class NoteSignalService {
       }
     }
 
-    // Conflicting explicit reports are unknown; they do not alter verification.
-    List<String> reportedStatuses = new ArrayList<>();
-    addRecordedMedication(reportedStatuses, original.medicationStatus());
-    for (NoteAddendum addendum : addendaForNote) {
-      addRecordedMedication(reportedStatuses, addendum.observations().medicationStatus());
-    }
-    boolean contradictory = reportedStatuses.contains("TAKEN") && reportedStatuses.contains("MISSED");
+    // Only reports at the same point in the timeline contradict each other.
+    boolean contradictory = statusesAtLatestReportTime.contains("TAKEN")
+        && statusesAtLatestReportTime.contains("MISSED");
     if (contradictory) {
       medication = Observation.state(ObservationState.UNKNOWN);
     }
