@@ -7,6 +7,7 @@ import com.caregiver.mobile.data.SettingsStore
 import com.caregiver.mobile.data.accounts.Account
 import com.caregiver.mobile.data.accounts.AccountError
 import com.caregiver.mobile.data.accounts.AccountException
+import com.caregiver.mobile.data.accounts.PasswordProblem
 import com.caregiver.mobile.core.network.TokenHolder
 import androidx.datastore.preferences.core.PreferenceDataStoreFactory
 import java.io.File
@@ -276,6 +277,48 @@ class AuthViewModelTest {
 
         assertEquals(FormError.DuplicateEmail, vm.state.value.formError)
         assertTrue(!vm.state.value.signedIn)
+    }
+
+    @Test
+    fun localRegisterWeakPasswordSurfacesPolicyErrorWithoutFormError() = runTest {
+        val vm = AuthViewModel(AuthMode.Register, repository, this) { _, _, _ ->
+            Result.failure(AccountException(AccountError.WeakPassword(PasswordProblem.TooShort)))
+        }
+        vm.onDisplayName("Aisha")
+        vm.onEmail("a@b.c")
+        vm.onPassword("short")
+        vm.onConfirm("short")
+
+        vm.submit()
+        vm.state.first { it.passwordError != null }
+
+        assertEquals(PasswordError.Policy(PasswordProblem.TooShort), vm.state.value.passwordError)
+        assertNull(vm.state.value.formError)
+    }
+
+    @Test
+    fun localRegisterMapsEveryPasswordPolicyProblem() = runTest {
+        listOf(
+            PasswordProblem.TooShort,
+            PasswordProblem.TooLong,
+            PasswordProblem.MissingLetter,
+            PasswordProblem.MissingDigit,
+            PasswordProblem.OnlyWhitespace,
+        ).forEach { problem ->
+            val vm = AuthViewModel(AuthMode.Register, repository, this) { _, _, _ ->
+                Result.failure(AccountException(AccountError.WeakPassword(problem)))
+            }
+            vm.onDisplayName("Aisha")
+            vm.onEmail("a@b.c")
+            vm.onPassword("Password1")
+            vm.onConfirm("Password1")
+
+            vm.submit()
+            vm.state.first { it.passwordError != null }
+
+            assertEquals("expected $problem", PasswordError.Policy(problem), vm.state.value.passwordError)
+            assertNull("no form error for $problem", vm.state.value.formError)
+        }
     }
 
     private fun account(displayName: String = "Aisha"): Account = Account(

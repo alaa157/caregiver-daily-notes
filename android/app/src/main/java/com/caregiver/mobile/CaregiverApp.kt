@@ -330,6 +330,14 @@ class AppGraph(
         }
     }
 
+    /**
+     * The single local [AccountManager] in this graph — the same instance
+     * handed to [auth] and the local auth API. Exposed so the register screen
+     * can pass its `signUp` as `registerAccount` (#704); server/demo graphs
+     * have no manager, so their register path stays unchanged.
+     */
+    val accountManager: AccountManager? get() = localAccountManager
+
     /** Local sign-in/up keep the active-id flow in sync with the session store. */
     private val localAccountManager: AccountManager? by lazy {
         if (!localMode) null else AccountManager(

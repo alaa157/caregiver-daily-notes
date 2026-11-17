@@ -28,6 +28,10 @@ import com.caregiver.mobile.data.FakeAuthApi
 import com.caregiver.mobile.data.FakeBackendApis
 import com.caregiver.mobile.data.SettingsStore
 import com.caregiver.mobile.data.accounts.Account
+import com.caregiver.mobile.data.accounts.AccountError
+import com.caregiver.mobile.data.accounts.AccountException
+import com.caregiver.mobile.data.accounts.PasswordPolicy
+import com.caregiver.mobile.data.accounts.PasswordProblem
 import com.caregiver.mobile.data.api.AuthResponse
 import java.util.Locale
 import kotlinx.coroutines.CompletableDeferred
@@ -35,6 +39,8 @@ import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.runBlocking
 import org.junit.After
 import org.junit.Assert.assertEquals
+import org.junit.Assert.assertFalse
+import org.junit.Assert.assertNull
 import org.junit.Assert.assertTrue
 import org.junit.Before
 import org.junit.Rule
@@ -331,6 +337,38 @@ class AuthFormUiTest {
         compose.waitForIdle()
 
         assertEquals(listOf(Triple("Aisha", "a@b.c", "Password1")), calls)
+    }
+
+    @Test
+    fun localRegisterTooShortPasswordShowsPolicyMessageAndCreatesNoAccount() {
+        var signUpCalls = 0
+        val vm = setForm(
+            AuthMode.Register,
+            "en",
+            registerAccount = { _, _, password ->
+                signUpCalls++
+                val problem = PasswordPolicy.validate(password)
+                if (problem == null) {
+                    Result.success(Account("a1", "a@b.c", "Aisha", 1L, 1L))
+                } else {
+                    Result.failure(AccountException(AccountError.WeakPassword(problem)))
+                }
+            },
+        )
+        compose.onNodeWithTag("auth_field_name").assertIsDisplayed()
+        compose.onNodeWithTag("auth_field_name").performTextInput("Aisha")
+        compose.onNodeWithTag("auth_field_email").performTextInput("a@b.c")
+        compose.onNodeWithTag("auth_field_password").performTextInput("abcd")
+        compose.onNodeWithTag("auth_field_confirm").performTextInput("abcd")
+
+        submitButton("Create account").performClick()
+        compose.waitForIdle()
+
+        compose.onNodeWithText("Use at least 8 characters.").assertIsDisplayed()
+        compose.onAllNodesWithText("Something went wrong. Please try again.").assertCountEquals(0)
+        assertEquals(1, signUpCalls)
+        assertNull(vm.state.value.createdAccount)
+        assertFalse(vm.state.value.signedIn)
     }
 
     private fun Context.withLocale(language: String): Context {
