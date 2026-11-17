@@ -23,6 +23,20 @@ enum class AuthMode { Login, Register }
 typealias RegisterAccount =
     suspend (displayName: String, email: String, password: String) -> Result<Account>
 
+/**
+ * Reverse of `PasswordProblem.code()` in AuthRepository (#705). A rejected
+ * result only carries the code as a string, so the consumer maps it back to
+ * the typed problem the form already knows how to localize.
+ */
+private fun passwordProblemFromCode(code: String): PasswordProblem? = when (code) {
+    "TOO_SHORT" -> PasswordProblem.TooShort
+    "TOO_LONG" -> PasswordProblem.TooLong
+    "MISSING_LETTER" -> PasswordProblem.MissingLetter
+    "MISSING_DIGIT" -> PasswordProblem.MissingDigit
+    "ONLY_WHITESPACE" -> PasswordProblem.OnlyWhitespace
+    else -> null
+}
+
 sealed interface EmailError {
     data object Required : EmailError
     data object Invalid : EmailError
@@ -182,15 +196,27 @@ class AuthViewModel(
                 AuthMode.Login -> repository.signIn(current.email, current.password)
                 AuthMode.Register -> repository.signUp(current.email, current.password)
             }
+            // The codes below are emitted by AuthRepository.toSignInResult —
+            // keep this mapping in sync with that producer (#705).
+            val rejected = result as? SignInResult.Rejected
+            val weakProblem = rejected
+                ?.takeIf { it.code == "WEAK_PASSWORD" }
+                ?.let { passwordProblemFromCode(it.message) }
             _state.value = _state.value.copy(
                 busy = false,
                 signedIn = result == SignInResult.SignedIn,
+                emailError = if (rejected?.code == "INVALID_EMAIL") EmailError.Invalid else null,
+                passwordError = weakProblem?.let { PasswordError.Policy(it) },
                 formError = when (result) {
                     SignInResult.SignedIn -> null
                     SignInResult.InvalidCredentials -> FormError.InvalidCredentials
                     is SignInResult.Rejected -> when (result.code) {
-                        "DUPLICATE_EMAIL" -> FormError.DuplicateEmail
+                        // Local accounts emit EMAIL_TAKEN; the server still
+                        // sends DUPLICATE_EMAIL. Both mean the same to the UI.
+                        "EMAIL_TAKEN", "DUPLICATE_EMAIL" -> FormError.DuplicateEmail
                         "INVALID_CREDENTIALS" -> FormError.InvalidCredentials
+                        "INVALID_EMAIL" -> null
+                        "WEAK_PASSWORD" -> if (weakProblem == null) FormError.Generic else null
                         else -> FormError.Generic
                     }
                     SignInResult.Unreachable -> FormError.Unreachable
