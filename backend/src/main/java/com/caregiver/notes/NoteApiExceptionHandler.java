@@ -65,6 +65,11 @@ public class NoteApiExceptionHandler {
     return error(HttpStatus.BAD_REQUEST, "INVALID_REQUEST", "Request contains invalid or inconsistent values.");
   }
 
+  @ExceptionHandler(FutureNoteDateException.class)
+  public ResponseEntity<Map<String, Object>> futureNoteDate(FutureNoteDateException e) {
+    return error(HttpStatus.BAD_REQUEST, "INVALID_REQUEST", e.getMessage());
+  }
+
   @ExceptionHandler(MissingServletRequestParameterException.class)
   public ResponseEntity<Map<String, Object>> missingParameter(MissingServletRequestParameterException e) {
     return error(HttpStatus.BAD_REQUEST, "MISSING_PARAMETER",

@@ -8,7 +8,7 @@ import { Button } from '../../components/Button';
 import { FieldError } from '../../components/Feedback';
 import { useI18n } from '../../i18n/I18nProvider';
 import type { MessageKey } from '../../i18n/translations';
-import { createInput, emptyNoteValues, fieldLabels, observationInput, validateNoteValues, type Corrections, type NoteErrors, type NoteValues } from './noteForm';
+import { createInput, emptyNoteValues, fieldLabels, observationInput, todayDate, validateNoteValues, type Corrections, type NoteErrors, type NoteValues } from './noteForm';
 import { ObservationStateField } from './ObservationStateField';
 import { ChipGroup } from '../../components/ChipGroup';
 import { chipFieldOptions, type ChipField } from './chipOptions';
@@ -49,6 +49,7 @@ export function NoteForm(props: Props) {
   const pending = activity !== 'idle';
   const locked = pending || uncertain;
   const recipient = props.mode === 'create' ? props.recipients.find(({ id }) => id === values.recipientId) : null;
+  const maxDate = todayDate();
   useEffect(() => () => request.current?.abort(), []);
   useEffect(() => {
     if (props.mode !== 'create') return;
@@ -401,7 +402,7 @@ export function NoteForm(props: Props) {
           </select>{errors.recipientId && <FieldError id="note-recipientId-error" message={t(errors.recipientId)} />}
         </div>
         <div className="note-field"><label htmlFor="note-date">{t('notesDate')}</label>
-          <input id="note-date" name="date" type="date" dir="ltr" value={values.date} disabled={locked} required aria-invalid={!!errors.date}
+          <input id="note-date" name="date" type="date" dir="ltr" max={maxDate} value={values.date} disabled={locked} required aria-invalid={!!errors.date}
             aria-describedby={'note-date-hint' + (errors.date ? ' note-date-error' : '')} onChange={(event) => changeMetadata('date', event.target.value)} />
           <p id="note-date-hint" className="note-hint">{t('notesDateHint')}</p>{errors.date && <FieldError id="note-date-error" message={t(errors.date)} />}
         </div>

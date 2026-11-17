@@ -6,6 +6,7 @@ import com.caregiver.auth.CaregiverRepository;
 import com.caregiver.recipient.CareRecipientRepository;
 import com.caregiver.recipient.RecipientNotFoundException;
 import com.caregiver.recipient.InactiveRecipientException;
+import java.time.Clock;
 import java.time.LocalDate;
 import java.util.HashMap;
 import java.util.List;
@@ -60,6 +61,7 @@ public class DailyNoteService {
   private final CareRecipientRepository recipients;
   private final CaregiverRepository caregivers;
   private final AuditService audit;
+  private final Clock clock;
   private final TransactionTemplate writeTx;
   private final TransactionTemplate readTx;
 
@@ -69,13 +71,15 @@ public class DailyNoteService {
       CareRecipientRepository recipients,
       CaregiverRepository caregivers,
       AuditService audit,
-      PlatformTransactionManager transactionManager) {
+      PlatformTransactionManager transactionManager,
+      Clock clock) {
     this.notes = notes;
     this.addenda = addenda;
     this.corrections = corrections;
     this.recipients = recipients;
     this.caregivers = caregivers;
     this.audit = audit;
+    this.clock = clock;
     this.writeTx = new TransactionTemplate(transactionManager);
     this.writeTx.setPropagationBehavior(TransactionDefinition.PROPAGATION_REQUIRES_NEW);
     this.readTx = new TransactionTemplate(transactionManager);
@@ -84,6 +88,7 @@ public class DailyNoteService {
 
   public NoteResponse create(NoteRequest request, String key) {
     UUID owner = AuthContext.currentCaregiverId();
+    validateNoteDate(request.date());
     String idempotencyKey = normalizeKey(key);
     if (idempotencyKey != null) {
       NoteResponse replay = readTx.execute(status -> notes
@@ -363,6 +368,23 @@ public class DailyNoteService {
       throw new IllegalArgumentException("Idempotency-Key must be 1-100 characters.");
     }
     return key;
+  }
+
+  /**
+   * Rejects a note dated after today. "Today" is read from the injected clock,
+   * which is configured as UTC ({@code SecurityBeans.systemClock()}) instead of
+   * the JVM's default zone: note dates are calendar dates rendered in UTC by
+   * the web client, so the rule is identical wherever the server runs. That
+   * explicit zone is the time-zone allowance — comparing against the host's
+   * local zone is precisely what would block a caregiver whose clock is set
+   * differently. There is deliberately no extra day of grace: a note dated
+   * tomorrow does not describe care that has happened yet, so it is always a
+   * 400. Backdated notes remain valid.
+   */
+  private void validateNoteDate(LocalDate date) {
+    if (date == null || date.isAfter(LocalDate.now(clock))) {
+      throw new FutureNoteDateException();
+    }
   }
 
   private void requireAddendumContent(AddendumRequest request) {
