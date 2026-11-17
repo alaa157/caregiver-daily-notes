@@ -13,8 +13,8 @@ public class ByokConnectionTestService {
     this.providerDeadline = providerDeadline;
   }
 
-  public boolean test(ProviderCredentials credentials) {
-    LlmResult result = providerDeadline.complete(new LlmRequest(SYSTEM_PROMPT, PROBE_DATA, credentials));
-    return result.status() == LlmStatus.OK || result.status() == LlmStatus.REPAIRED;
+  /** Returns the full result so the caller can report why the probe failed. */
+  public LlmResult test(ProviderCredentials credentials) {
+    return providerDeadline.complete(new LlmRequest(SYSTEM_PROMPT, PROBE_DATA, credentials));
   }
 }

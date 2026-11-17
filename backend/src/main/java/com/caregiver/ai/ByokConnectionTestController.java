@@ -26,12 +26,30 @@ public class ByokConnectionTestController {
           false, request.providerId(), request.model(), request.errorCode()));
     }
 
-    boolean success = service.test(request.credentials());
+    LlmResult result = service.test(request.credentials());
+    String errorCode = errorCode(result);
     return ResponseEntity.ok(new ByokConnectionTestResponse(
-        success,
+        errorCode == null,
         request.providerId(),
         request.model(),
-        success ? null : "provider_unavailable"));
+        errorCode));
+  }
+
+  /** Maps the provider's failure reason to the codes the settings dialog understands. */
+  private static String errorCode(LlmResult result) {
+    if (result.status() == LlmStatus.OK || result.status() == LlmStatus.REPAIRED) {
+      return null;
+    }
+    FailureReason reason = result.failureReason();
+    if (reason == null) {
+      return "provider_unavailable";
+    }
+    return switch (reason) {
+      case INVALID_KEY -> "invalid_key";
+      case INVALID_MODEL -> "invalid_model";
+      case RATE_LIMIT -> "rate_limit";
+      case TIMEOUT, PROVIDER_UNAVAILABLE, INVALID_OUTPUT -> "provider_unavailable";
+    };
   }
 
   @ExceptionHandler(HttpMessageNotReadableException.class)

@@ -94,6 +94,52 @@ class ByokConnectionTestControllerTest {
   }
 
   @Test
+  void returnsInvalidKeyWhenProviderRejectsTheKey() throws Exception {
+    when(llm.complete(any())).thenReturn(failure(FailureReason.INVALID_KEY));
+
+    String body = call(caregiverToken, credentials("synthetic-secret-123"))
+        .andExpect(status().isOk())
+        .andExpect(jsonPath("$.success").value(false))
+        .andExpect(jsonPath("$.errorCode").value("invalid_key"))
+        .andReturn().getResponse().getContentAsString();
+
+    assertThat(body).doesNotContain("private provider diagnostic", "synthetic-secret-123");
+  }
+
+  @Test
+  void returnsInvalidModelWhenProviderRejectsTheModel() throws Exception {
+    when(llm.complete(any())).thenReturn(failure(FailureReason.INVALID_MODEL));
+
+    call(caregiverToken, credentials("synthetic-secret-123"))
+        .andExpect(status().isOk())
+        .andExpect(jsonPath("$.success").value(false))
+        .andExpect(jsonPath("$.errorCode").value("invalid_model"));
+  }
+
+  @Test
+  void returnsRateLimitWhenProviderThrottles() throws Exception {
+    when(llm.complete(any())).thenReturn(failure(FailureReason.RATE_LIMIT));
+
+    call(caregiverToken, credentials("synthetic-secret-123"))
+        .andExpect(status().isOk())
+        .andExpect(jsonPath("$.success").value(false))
+        .andExpect(jsonPath("$.errorCode").value("rate_limit"));
+  }
+
+  @Test
+  void returnsProviderUnavailableForOutageAndInvalidOutput() throws Exception {
+    for (FailureReason reason : new FailureReason[] {
+        FailureReason.TIMEOUT, FailureReason.PROVIDER_UNAVAILABLE, FailureReason.INVALID_OUTPUT}) {
+      when(llm.complete(any())).thenReturn(failure(reason));
+
+      call(caregiverToken, credentials("synthetic-secret-123"))
+          .andExpect(status().isOk())
+          .andExpect(jsonPath("$.success").value(false))
+          .andExpect(jsonPath("$.errorCode").value("provider_unavailable"));
+    }
+  }
+
+  @Test
   void doesNotIncludeKeyOrProviderResponseInErrorBody() throws Exception {
     when(llm.complete(any())).thenReturn(
         new LlmResult(LlmStatus.FALLBACK, "", "synthetic-provider-response: key rejected"));
@@ -148,6 +194,10 @@ class ByokConnectionTestControllerTest {
 
     assertThat(body).doesNotContain("synthetic-secret-123");
     verifyNoInteractions(llm);
+  }
+
+  private LlmResult failure(FailureReason reason) {
+    return new LlmResult(LlmStatus.FALLBACK, "", "private provider diagnostic", reason);
   }
 
   private Map<String, Object> credentials(String apiKey) {

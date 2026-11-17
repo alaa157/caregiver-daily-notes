@@ -331,3 +331,25 @@ describe('AI preferences in dialog', () => {
     expect(screen.getByText('When you generate a summary, the note text for that care recipient is sent to the provider you chose.')).toBeVisible();
   });
 });
+
+describe('AI settings connection test messages', () => {
+  it.each([
+    ['invalid_key', 'The provider rejected this key. Check it and try again.'],
+    ['invalid_model', 'The provider does not recognize this model. Check it and try again.'],
+    ['rate_limit', 'The provider is rate limiting requests. Try again later.'],
+    ['provider_unavailable', 'The provider is temporarily unavailable. Try again later.'],
+  ])('shows the specific message for %s', async (code, message) => {
+    const user = userEvent.setup();
+    const fetcher = vi.fn().mockResolvedValue(jsonResponse({ success: false, errorCode: code }));
+    vi.stubGlobal('fetch', fetcher);
+    renderDialog();
+    await openDialog(user);
+
+    await user.click(screen.getByRole('radio', { name: /Gemini 3\.8 Flash/ }));
+    await user.type(screen.getByLabelText('API key'), 'test-key');
+    await user.click(screen.getByRole('checkbox', { name: /I understand that my care notes/ }));
+    await user.click(screen.getByRole('button', { name: 'Test connection' }));
+
+    expect(await screen.findByRole('alert')).toHaveTextContent(message);
+  });
+});
