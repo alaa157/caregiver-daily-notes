@@ -89,6 +89,8 @@ This register records product and implementation direction for web parity with t
 
 **Rationale:** Android uses one IBM Plex Sans Arabic family for both Latin and Arabic glyphs. A shared family provides closer cross-platform typography parity.
 
+**Current status:** Not adopted. The web app ships DM Sans Variable for Latin text and Noto Sans Arabic Variable for Arabic text; IBM Plex Sans Arabic is not loaded anywhere. `--font-family-app` names the shipped stack (issue #856).
+
 **Follow-up:** Verify the font license and confirm the self-hosting approach before distributing font assets. This check is not represented as completed by this decision.
 
 **Status:** Proposed

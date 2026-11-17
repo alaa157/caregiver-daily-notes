@@ -23,7 +23,7 @@
 
 **Scope:**
 - Import tokens.css into the web application's global styling entry point.
-- Use IBM Plex Sans Arabic for both English and Arabic, following DS-06; remove DM Sans and Noto Sans Arabic from the active web font stack.
+- Use the font stack the app actually ships: DM Sans Variable for Latin text and Noto Sans Arabic Variable for Arabic text. DS-06 (IBM Plex Sans Arabic for both languages) is a proposed parity decision that was never adopted.
 - Verify the font license and document the self-hosting decision before shipping the font assets.
 - Expose and consistently consume the existing spacing and radius tokens. Do not invent replacement values.
 
@@ -32,8 +32,8 @@
 **Acceptance criteria:**
 - The global web stylesheet loads tokens.css exactly once.
 - A runtime style check confirms the documented semantic CSS variables are available on representative application screens.
-- Computed font-family for both English and Arabic content resolves to IBM Plex Sans Arabic.
-- DM Sans and Noto Sans Arabic are no longer selected by active application styles.
+- Computed font-family resolves to DM Sans Variable for English content and Noto Sans Arabic Variable for Arabic content.
+- DM Sans and Noto Sans Arabic remain the fonts selected by active application styles; no IBM Plex Sans Arabic font is bundled.
 - Shared spacing and radius references resolve to the extracted token variables rather than duplicated component-specific values.
 - The font license and self-hosting check is recorded before the font assets are released.
 
