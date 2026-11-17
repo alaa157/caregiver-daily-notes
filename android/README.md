@@ -91,8 +91,9 @@ Each provider's key is stored encrypted in the Android Keystore and never leaves
 `DemoBackendApis` (`data/demo/`) instead of Retrofit: no backend, no
 network, no registration needed.
 
-- On the login screen, tap **“Explore the demo (offline)”** — or sign in
-  with any credentials; the demo backend accepts everything.
+- On the login screen, long-press the logo to reveal **“Explore the demo
+  (offline)”**, then tap it — or sign in with any credentials; the demo backend
+  accepts everything.
 - Recipients, notes, addenda, summaries, and plan accept/dismiss/edit all
   work against canned bilingual data dated relative to today. Mutations
   live only in memory and are never uploaded.
@@ -188,9 +189,16 @@ too). Start/end layouts only — no left/right paddings.
 
 ## Device walkthrough (do in both العربية and English)
 
-1. Login footer → server URL → save → back (once Settings UI lands; today the
-   stored URL is used silently).
-2. Register → Home greeting (`صباح الخير، <name>` / `Good morning, <name>`).
+1. Login: the server URL is no longer in the footer — it is set in Settings
+   and is absent from the Login footer in standalone builds. In debug/minified
+   builds, long-press the logo to reveal **Explore the demo (offline)**; the
+   release build never shows it.
+2. Register: use the 48dp back control (pop back, or go to Login), the
+   EN | عربي switch, and the single heading with its subtitle. Local accounts
+   also ask for a display name; the password hint is derived from the account
+   policy. The muted "coming soon" social row is not clickable, and the footer
+   reads **Already have an account? Sign in** / **لديك حساب بالفعل؟ سجّل الدخول**.
+   Then check the Home greeting (`صباح الخير، <name>` / `Good morning, <name>`).
 3. People → Add person (Arabic + English names) → person detail shows today’s
    note status, relationship and care details; Add note / history / care plan /
    summary all navigate.
