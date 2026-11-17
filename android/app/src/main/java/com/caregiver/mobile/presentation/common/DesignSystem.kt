@@ -110,6 +110,14 @@ object AppDimens {
     val IconMd = AppSpacing.lg
     val IconLg = 30.dp
     val PillRadius = 999.dp
+
+    // Auth redesign (#864): the new Login/Register surfaces use a 16-dp
+    // radius for fields and the primary button, and 14 dp for the muted
+    // social buttons. Kept separate from ControlRadius/CardRadius so no
+    // existing screen changes appearance.
+    val AuthFieldRadius = 16.dp
+    val AuthButtonRadius = 16.dp
+    val AuthSocialButtonRadius = 14.dp
 }
 
 /**

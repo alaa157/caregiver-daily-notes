@@ -37,6 +37,19 @@ data class CaregiverColorScheme(
     val AvatarContent: Color,
     val LockBar: Color,
     val Skeleton: Color,
+
+    // Auth redesign (issues #864-#877). Dedicated roles so the new Login and
+    // Register screens can be restyled without touching the tokens other
+    // screens share. AuthMuted / AuthFieldBorder / AuthDivider deliberately
+    // carry the same values as Muted / Border / BorderSoft so dark mode stays
+    // consistent; the auth-specific names keep the redesign decoupled from a
+    // generic role whose meaning may change later.
+    val AuthBackground: Color,
+    val AuthMuted: Color,
+    val AuthFieldBorder: Color,
+    val AuthDivider: Color,
+    val AuthDisabledFill: Color,
+    val AuthDisabledIcon: Color,
 )
 
 object CaregiverColors {
@@ -77,6 +90,12 @@ object CaregiverColors {
     val AvatarContent get() = _current.value.AvatarContent
     val LockBar get() = _current.value.LockBar
     val Skeleton get() = _current.value.Skeleton
+    val AuthBackground get() = _current.value.AuthBackground
+    val AuthMuted get() = _current.value.AuthMuted
+    val AuthFieldBorder get() = _current.value.AuthFieldBorder
+    val AuthDivider get() = _current.value.AuthDivider
+    val AuthDisabledFill get() = _current.value.AuthDisabledFill
+    val AuthDisabledIcon get() = _current.value.AuthDisabledIcon
 
     fun update(darkTheme: Boolean, palette: String) {
         _current.value = caregiverScheme(darkTheme, palette)
@@ -118,6 +137,12 @@ fun caregiverScheme(dark: Boolean, palette: String): CaregiverColorScheme {
             AvatarContent = Color(0xFF90CAF9),
             LockBar = Color(0xFF1A1F1F),
             Skeleton = Color(0xFF2A3336),
+            AuthBackground = Color(0xFF121616),
+            AuthMuted = Color(0xFFB0BEC5),
+            AuthFieldBorder = Color(0xFF3A4548),
+            AuthDivider = Color(0xFF2A3336),
+            AuthDisabledFill = Color(0xFF232C2A),
+            AuthDisabledIcon = Color(0xFF6E7C78),
         )
     } else {
         CaregiverColorScheme(
@@ -147,6 +172,12 @@ fun caregiverScheme(dark: Boolean, palette: String): CaregiverColorScheme {
             AvatarContent = Color(0xFF24507E),
             LockBar = Color(0xFFEEF1F4),
             Skeleton = Color(0xFFE3E7EA),
+            AuthBackground = Color(0xFFF6F8F7),
+            AuthMuted = Color(0xFF5B6B70),
+            AuthFieldBorder = Color(0xFFC5CDD1),
+            AuthDivider = Color(0xFFE3E7EA),
+            AuthDisabledFill = Color(0xFFF0F3F2),
+            AuthDisabledIcon = Color(0xFFA3AEAD),
         )
     }
 }
