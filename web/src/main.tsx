@@ -4,6 +4,7 @@ import { BrowserRouter } from 'react-router-dom';
 import { App } from './app/App';
 import { AuthProvider } from './app/AuthContext';
 import { ErrorState, LoadingState } from './components/Feedback';
+import { StatusAnnouncerProvider } from './components/StatusAnnouncer';
 import { I18nProvider, useI18n } from './i18n/I18nProvider';
 import { ApiProvider } from './lib/api';
 import { loadRuntimeConfig, type RuntimeConfig } from './lib/config';
@@ -32,7 +33,7 @@ function Bootstrap() {
   }, [attempt]);
 
   return <I18nProvider>
-    {status.kind === 'loading' && <LoadingState />}
+    {status.kind === 'loading' && <StatusAnnouncerProvider><LoadingState /></StatusAnnouncerProvider>}
     {status.kind === 'error' && <ConfigError retry={() => { setStatus({ kind: 'loading' }); setAttempt((value) => value + 1); }} />}
     {status.kind === 'ready' && <ApiProvider config={status.config}><AuthProvider><BrowserRouter future={{ v7_startTransition: true, v7_relativeSplatPath: true }}><App /></BrowserRouter></AuthProvider></ApiProvider>}
   </I18nProvider>;
