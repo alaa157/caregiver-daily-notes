@@ -44,6 +44,13 @@
     <string name="person_last_note_pain">Pain %1$d out of 10</string>
     <string name="person_last_note_fall">Fall reported</string>
     <string name="chip_done">Done today</string>
+    <!-- Redesigned Home people list (#897): day-precision last-note labels
+         and the two status-chip labels. No time is shown: note storage has
+         no timestamp, so a wall-clock time is never invented. -->
+    <string name="home_last_note_today">Last note: today</string>
+    <string name="home_last_note_yesterday">Last note: yesterday</string>
+    <string name="redesign_chip_done">Done</string>
+    <string name="redesign_chip_not_yet">Not yet</string>
     <string name="detail_today_done">Today’s note is recorded</string>
     <string name="detail_today_missing">No note today</string>
     <string name="chip_missed">No note today</string>

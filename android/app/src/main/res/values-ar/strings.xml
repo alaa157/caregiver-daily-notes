@@ -44,6 +44,13 @@
     <string name="person_last_note_pain">الألم %1$d من 10</string>
     <string name="person_last_note_fall">تم الإبلاغ عن سقوط</string>
     <string name="chip_done">تم اليوم</string>
+    <!-- Redesigned Home people list (#897): day-precision last-note labels
+         and the two status-chip labels. No time is shown: note storage has
+         no timestamp, so a wall-clock time is never invented. -->
+    <string name="home_last_note_today">آخر ملاحظة: اليوم</string>
+    <string name="home_last_note_yesterday">آخر ملاحظة: أمس</string>
+    <string name="redesign_chip_done">تم</string>
+    <string name="redesign_chip_not_yet">لم بعد</string>
     <string name="detail_today_done">تم تسجيل ملاحظة اليوم</string>
     <string name="detail_today_missing">لا توجد ملاحظة اليوم</string>
     <string name="chip_missed">لا ملاحظة اليوم</string>

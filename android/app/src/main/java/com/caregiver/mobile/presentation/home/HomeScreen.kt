@@ -1,5 +1,6 @@
 package com.caregiver.mobile.presentation.home
 
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.compose.foundation.layout.Box
@@ -10,6 +11,7 @@ import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
@@ -26,7 +28,6 @@ import androidx.compose.material3.Icon
 import androidx.compose.material3.PrimaryTabRow
 import androidx.compose.material3.Tab
 import androidx.compose.material3.Text
-import androidx.compose.material3.TextButton
 import androidx.compose.material3.pulltorefresh.PullToRefreshBox
 import androidx.compose.material3.pulltorefresh.PullToRefreshDefaults.Indicator
 import androidx.compose.material3.pulltorefresh.rememberPullToRefreshState
@@ -39,17 +40,24 @@ import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.drawBehind
+import androidx.compose.ui.geometry.CornerRadius
+import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.PathEffect
+import androidx.compose.ui.graphics.Stroke
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.semantics.heading
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.navigation.NavController
 import com.caregiver.mobile.AppGraph
 import com.caregiver.mobile.R
 import com.caregiver.mobile.core.i18n.Bidi
+import com.caregiver.mobile.core.navigation.AppDestinations
 import com.caregiver.mobile.core.navigation.AppRoutes
 import com.caregiver.mobile.core.navigation.MainTab
 import com.caregiver.mobile.core.navigation.ScrollToTop
@@ -63,19 +71,19 @@ import com.caregiver.mobile.presentation.common.AppDimens
 import com.caregiver.mobile.presentation.common.AppEmptyState
 import com.caregiver.mobile.presentation.common.AppErrorState
 import com.caregiver.mobile.presentation.common.AppLoadingSkeleton
-import com.caregiver.mobile.presentation.common.GrayPill
-import com.caregiver.mobile.presentation.common.GreenPill
-import com.caregiver.mobile.presentation.common.NoteRow
 import com.caregiver.mobile.presentation.common.NoteRowSkeleton
-import com.caregiver.mobile.presentation.common.RedPill
+import com.caregiver.mobile.presentation.common.PersonAvatar
 import com.caregiver.mobile.presentation.common.SafetyAlertCard
+import com.caregiver.mobile.presentation.common.SectionCard
+import com.caregiver.mobile.presentation.common.StatusChip
+import com.caregiver.mobile.presentation.common.StatusChipVariant
 import com.caregiver.mobile.presentation.common.assistedViewModel
-import com.caregiver.mobile.presentation.notes.OptionGroup
-import com.caregiver.mobile.presentation.notes.optionLabel
+import java.time.LocalDate
 
 /**
- * Home timeline (Task 5): greeting, compact stats, then one [NoteRow] per
- * care recipient, filtered by the Today / Needs attention / All sub-tabs.
+ * Home timeline: greeting, compact stats, then one redesigned person card
+ * (#897) per care recipient, filtered by the Today / Needs attention / All
+ * sub-tabs.
  *
  * The fall-safety banner is pinned OUTSIDE the feed (Rule 6): it sits under
  * the shared top bar and above the sub-tabs, so scrolling can never hide it.
@@ -319,14 +327,25 @@ private fun HomeTimeline(
                             TabEmptyState(selectedTab) { selectedTab = HomeTab.All }
                         }
                     }
-                    else -> itemsIndexed(cards, key = { _, card -> card.recipientId }) { index, card ->
-                        RecipientRow(
-                            card = card,
-                            showDivider = index != cards.lastIndex,
-                            onOpen = {
-                                navController.navigate(AppRoutes.recipientDetail(card.recipientId))
-                            },
-                        )
+                    else -> {
+                        // #897: one card per person, people without today's
+                        // note first, then a dashed "Add person" row.
+                        val ordered = peopleWithoutTodayNoteFirst(cards)
+                        itemsIndexed(ordered, key = { _, card -> card.recipientId }) { _, card ->
+                            PersonCard(
+                                card = card,
+                                onOpen = {
+                                    navController.navigate(AppRoutes.recipientDetail(card.recipientId))
+                                },
+                                modifier = Modifier.padding(horizontal = AppDimens.ScreenHPadding),
+                            )
+                        }
+                        item(key = "add-person") {
+                            AddPersonRow(
+                                onClick = { navController.navigate(AppDestinations.AddRecipient.base) },
+                                modifier = Modifier.padding(horizontal = AppDimens.ScreenHPadding),
+                            )
+                        }
                     }
                 }
             }
@@ -417,48 +436,94 @@ private fun HomeStatsRow(done: Int, total: Int, attention: Int) {
 }
 
 /**
- * One care recipient as a timeline row (Task 5): the chips and last-note
- * summary come from the dashboard's single bounded load.
+ * One care recipient as a redesigned card (#897): avatar, name, a muted
+ * day-precision last-note line and a "Done"/"Not yet" status chip for today.
+ * The whole card is the tap target that opens Recipient Detail. Values come
+ * from the dashboard's single bounded load — no extra request per row.
+ *
+ * No wall-clock time is shown: note storage carries only a day-precision
+ * date, so the prototype's "9:40" would be invented data.
  */
 @Composable
-private fun RecipientRow(card: HomeCard, showDivider: Boolean, onOpen: () -> Unit) {
-    NoteRow(
-        avatarLetter = RecipientNameRules.initial(card.name),
-        name = card.name,
-        // TODO(api-gap): the API carries only a day-precision note date, no
-        // timestamp, so the row's time slot stays empty — the client must
-        // not invent one. A note timestamp field would close this gap.
-        time = "",
-        body = card.lastNote?.let { note ->
-            val labels = listOf(
-                optionLabel(OptionGroup.Appetite, note.appetite),
-                optionLabel(OptionGroup.Sleep, note.sleep),
-            ).filter { it.isNotBlank() }
-            if (labels.isEmpty()) {
-                ""
-            } else {
-                stringResource(R.string.person_last_note) + ": " + labels.joinToString(" · ")
-            }
-        } ?: "",
-        onClick = onOpen,
-        showDivider = showDivider,
-        pills = { card.chips.forEach { ChipView(it) } },
-        actions = {
-            if (card.chips.contains(RecipientChip.MissedToday) ||
-                card.chips.contains(RecipientChip.NoNote)
+private fun PersonCard(
+    card: HomeCard,
+    onOpen: () -> Unit,
+    modifier: Modifier = Modifier,
+) {
+    val doneToday = RecipientChip.DoneToday in card.chips
+    // The tag/click live on an outer Box: SectionCard sets its own test tag
+    // on its Surface, which would otherwise overwrite ours.
+    Box(
+        modifier = modifier
+            .fillMaxWidth()
+            .heightIn(min = 48.dp)
+            .clickable(onClick = onOpen)
+            .testTag("home_person_card"),
+    ) {
+        SectionCard(modifier = Modifier.fillMaxWidth()) {
+            Row(
+                verticalAlignment = Alignment.CenterVertically,
+                horizontalArrangement = Arrangement.spacedBy(AppDimens.GapCard),
             ) {
-                AddNoteAction(onClick = onOpen)
+                PersonAvatar(initial = RecipientNameRules.initial(card.name))
+                Column(modifier = Modifier.weight(1f)) {
+                    Text(
+                        text = Bidi.isolate(card.name),
+                        fontFamily = PlexArabic,
+                        fontWeight = FontWeight.Bold,
+                        fontSize = 15.sp,
+                        color = CaregiverColors.Ink,
+                    )
+                    val noteLabel = lastNoteLabel(card)
+                    if (noteLabel.isNotBlank()) {
+                        Text(
+                            text = noteLabel,
+                            fontFamily = PlexArabic,
+                            fontSize = 13.sp,
+                            color = CaregiverColors.Muted,
+                        )
+                    }
+                }
+                StatusChip(
+                    label = stringResource(
+                        if (doneToday) R.string.redesign_chip_done else R.string.redesign_chip_not_yet,
+                    ),
+                    variant = if (doneToday) StatusChipVariant.Done else StatusChipVariant.NotYet,
+                )
             }
-        },
-    )
+        }
+    }
 }
 
-/** Compact X-style action row entry for recipients missing today's note. */
+/** Muted "Last note: today / yesterday / <date>" line for one person. */
 @Composable
-private fun AddNoteAction(onClick: () -> Unit) {
-    TextButton(
-        onClick = onClick,
-        modifier = Modifier.testTag("home_add_note"),
+private fun lastNoteLabel(card: HomeCard): String {
+    val note = card.lastNote ?: return ""
+    return when (lastNoteWhen(note.date, LocalDate.now())) {
+        LastNoteWhen.Today -> stringResource(R.string.home_last_note_today)
+        LastNoteWhen.Yesterday -> stringResource(R.string.home_last_note_yesterday)
+        LastNoteWhen.Older -> stringResource(
+            R.string.person_last_note_date,
+            Bidi.isolate(
+                DateFormats.historyDay(note.date, appLocale().language == "ar"),
+            ),
+        )
+        null -> stringResource(R.string.person_last_note_date, note.date)
+    }
+}
+
+/** Dashed "Add person" row that ends the people list and opens Add Recipient. */
+@Composable
+private fun AddPersonRow(onClick: () -> Unit, modifier: Modifier = Modifier) {
+    Row(
+        verticalAlignment = Alignment.CenterVertically,
+        horizontalArrangement = Arrangement.Center,
+        modifier = modifier
+            .fillMaxWidth()
+            .heightIn(min = 48.dp)
+            .dashedBorder(1.dp, CaregiverColors.AuthFieldBorder, AppDimens.ControlRadius)
+            .clickable(onClick = onClick)
+            .testTag("home_add_person"),
     ) {
         Icon(
             Icons.Filled.Add,
@@ -468,13 +533,31 @@ private fun AddNoteAction(onClick: () -> Unit) {
         )
         Spacer(Modifier.width(AppDimens.GapTight))
         Text(
-            stringResource(R.string.detail_add_note),
+            text = stringResource(R.string.people_add),
             fontFamily = PlexArabic,
             fontWeight = FontWeight.Bold,
             fontSize = 14.sp,
             color = CaregiverColors.Primary,
         )
     }
+}
+
+/** A rounded dashed outline. Compose has no dashed BorderStroke, so draw it. */
+private fun Modifier.dashedBorder(
+    width: Dp,
+    color: Color,
+    radius: Dp,
+): Modifier = drawBehind {
+    val stroke = Stroke(
+        width = width.toPx(),
+        pathEffect = PathEffect.dashPathEffect(floatArrayOf(8f, 6f), 0f),
+    )
+    drawRoundRect(
+        color = color,
+        size = size,
+        cornerRadius = CornerRadius(radius.toPx()),
+        style = stroke,
+    )
 }
 
 /**
@@ -493,22 +576,6 @@ private fun SafetyBanner(flags: List<SafetyFlag>) {
             ""
         },
     )
-}
-
-@Composable
-private fun ChipView(chip: RecipientChip) {
-    val label = when (chip) {
-        RecipientChip.DoneToday -> stringResource(R.string.chip_done)
-        RecipientChip.MissedToday -> stringResource(R.string.chip_missed)
-        RecipientChip.HighPain -> stringResource(R.string.chip_high_pain)
-        RecipientChip.FallFlag -> stringResource(R.string.chip_fall)
-        RecipientChip.NoNote -> stringResource(R.string.chip_no_note)
-    }
-    when (chip) {
-        RecipientChip.DoneToday -> GreenPill(label)
-        RecipientChip.HighPain, RecipientChip.FallFlag -> RedPill(label)
-        RecipientChip.NoNote, RecipientChip.MissedToday -> GrayPill(label)
-    }
 }
 
 @Composable
