@@ -178,11 +178,12 @@ class RecipientDetailArchiveUiTest {
             fall = false,
             text = "Steady day.",
         )
-        render(archivedDetail.copy(lastNote = note))
+        render(archivedDetail.copy(lastNote = note, recentNotes = listOf(note)))
 
-        compose.onNodeWithText(context.getString(R.string.person_last_note))
+        compose.onNodeWithText(context.getString(R.string.detail_recent_notes))
             .performScrollTo()
             .assertIsDisplayed()
+        compose.onNodeWithText("Steady day.").assertIsDisplayed()
         compose.onNodeWithText(context.getString(R.string.people_archived))
             .performScrollTo()
             .assertIsDisplayed()
