@@ -73,6 +73,8 @@ import androidx.compose.ui.unit.sp
 import androidx.navigation.NavController
 import com.caregiver.mobile.AppGraph
 import com.caregiver.mobile.R
+import com.caregiver.mobile.core.navigation.AppRoutes
+import com.caregiver.mobile.core.navigation.MainTab
 import com.caregiver.mobile.data.NoteDraftStore
 import com.caregiver.mobile.data.api.NoteDetailDto
 import com.caregiver.mobile.core.i18n.Bidi
@@ -560,8 +562,13 @@ private fun GroupLabelText(text: String) {
 }
 
 /**
- * Saved confirmation (board 6): centered 72dp success circle + 24sp title
- * + secondary view + primary summarize (56dp).
+ * Saved confirmation (#907): a clear success message naming the person, one
+ * primary "Back to Home" action, and a secondary link to the saved note. The
+ * existing summary destination is kept as another secondary action.
+ *
+ * Home and Recipient Detail already refresh on ON_RESUME (#896 / existing
+ * detail reload), so returning here updates their "Done" state without a
+ * manual refresh — no extra wiring is needed in those screens.
  */
 @Composable
 fun NoteSavedScreen(noteId: String, graph: AppGraph, navController: NavController) {
@@ -571,6 +578,14 @@ fun NoteSavedScreen(noteId: String, graph: AppGraph, navController: NavControlle
     }
     val detail by vm.state.collectAsStateWithLifecycle()
     val recipientId = (detail as? NoteDetailState.Content)?.content?.note?.recipientId
+
+    // Best-effort name lookup: the confirmation is still useful if it fails.
+    var recipientName by rememberSaveable { mutableStateOf<String?>(null) }
+    LaunchedEffect(recipientId) {
+        val id = recipientId ?: return@LaunchedEffect
+        recipientName = runCatching { graph.apis.recipients().get(id).name }.getOrNull()
+    }
+
     Column(
         modifier = Modifier.fillMaxSize().padding(horizontal = 16.dp),
         verticalArrangement = Arrangement.spacedBy(12.dp),
@@ -597,28 +612,47 @@ fun NoteSavedScreen(noteId: String, graph: AppGraph, navController: NavControlle
             Text("✓", fontSize = 36.sp, color = CaregiverColors.Success)
         }
         Text(
-            text = stringResource(R.string.saved_title),
+            text = stringResource(
+                R.string.saved_success_message,
+                Bidi.isolate(recipientName ?: stringResource(R.string.saved_title)),
+            ),
             fontFamily = PlexArabic,
             fontWeight = FontWeight.Bold,
             fontSize = 24.sp,
             textAlign = TextAlign.Center,
             color = CaregiverColors.Ink,
+            modifier = Modifier.testTag("saved_success_message"),
         )
         Column(
             verticalArrangement = Arrangement.spacedBy(10.dp),
             modifier = Modifier.fillMaxWidth().padding(top = 16.dp),
         ) {
-            SecondaryButton(
-                label = stringResource(R.string.saved_view),
-                onClick = { navController.navigate("note/$noteId") },
-                height = 56.dp,
-            )
             PrimaryButton(
-                label = stringResource(R.string.saved_summarize),
-                onClick = { recipientId?.let { navController.navigate("summary/$it") } },
-                enabled = recipientId != null,
+                label = stringResource(R.string.saved_back_home),
+                onClick = {
+                    // Pop everything above Home so it resumes and refreshes
+                    // its "Done" state immediately after saving.
+                    val home = AppRoutes.tab(MainTab.Home)
+                    navController.navigate(home) {
+                        popUpTo(home) { inclusive = false }
+                        launchSingleTop = true
+                    }
+                },
                 height = 56.dp,
                 large = true,
+                modifier = Modifier.testTag("saved_back_home"),
+            )
+            SecondaryButton(
+                label = stringResource(R.string.saved_view),
+                onClick = { navController.navigate(AppRoutes.noteDetail(noteId)) },
+                height = 56.dp,
+                modifier = Modifier.testTag("saved_view"),
+            )
+            SecondaryButton(
+                label = stringResource(R.string.saved_summarize),
+                onClick = { recipientId?.let { navController.navigate(AppRoutes.summary(it)) } },
+                enabled = recipientId != null,
+                height = 56.dp,
             )
         }
     }

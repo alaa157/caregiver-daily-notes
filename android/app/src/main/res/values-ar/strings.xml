@@ -144,6 +144,8 @@
     <string name="editor_duplicate_view">عرض ملاحظة اليوم</string>
     <string name="editor_error_generic">تعذر حفظ الملاحظة. حاول مرة أخرى.</string>
     <string name="saved_title">تم الحفظ</string>
+    <string name="saved_success_message">تم حفظ الملاحظة لـ %1$s</string>
+    <string name="saved_back_home">العودة إلى الرئيسية</string>
     <string name="saved_view">عرض الملاحظة</string>
     <string name="saved_summarize">إنشاء ملخص</string>
     <string name="detail_corrections">تصحيحات</string>
