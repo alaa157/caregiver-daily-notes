@@ -36,7 +36,7 @@ public class PlanGenerationService {
     PlanResponse accepted = null;
     try { accepted = plans.latestAcceptedForAi(recipientId); } catch (PlanNotFoundException noAcceptedPlan) { /* First plan. */ }
     if (accepted != null && accepted.structuredContent() == null) return unavailable(summary.safety());
-    PlanDocument baseline = accepted == null ? new PlanDocument(1, List.of(), List.of()) : accepted.structuredContent();
+    PlanDocument baseline = accepted == null ? null : accepted.structuredContent();
     StoredPlanVersion last = accepted == null ? null : new StoredPlanVersion(accepted.id().toString(),
         new SuggestedPlan(baseline.changes(), baseline.medications(), baseline.medications(), null));
     String reference = fingerprint(summary);
@@ -49,7 +49,7 @@ public class PlanGenerationService {
     try {
       var result = pipeline.suggest(new PlanSuggestionRequest(summaryRequest.recipientId(), summary.summary(),
           summary.safety(), generated.notes().stream().collect(Collectors.toMap(SummaryNote::noteId, SummaryNote::text)),
-          last, baseline.medications()), credentials);
+          last, baseline == null ? List.of() : baseline.medications()), credentials);
       return result.aiUnavailable() ? unavailable(summary.safety())
           : new PlanGenerationController.Result(saved.get(), false, summary.safety(), result.removedUnsafeChanges());
     } catch (InvalidModelOutputException | ProtectedPlanException invalidSuggestion) {
