@@ -305,15 +305,13 @@ fun NoteEditorScreen(recipientId: String, graph: AppGraph, navController: NavCon
             }
             SectionCard {
                 GroupLabel(OptionGroup.Appetite)
-                ChipWrap {
-                    NoteOptions.values(OptionGroup.Appetite).forEach { value ->
-                        HtmlChip(
-                            label = optionLabel(OptionGroup.Appetite, value),
-                            selected = state.appetite == value,
-                            onClick = { vm.select(OptionGroup.Appetite, value) },
-                        )
-                    }
-                }
+                // #903: one row, three segments. The legacy `poor` code is
+                // folded to "A little" for display only — stored notes are
+                // not migrated, and tapping that segment writes `fair`.
+                AppetiteSegments(
+                    selected = state.appetite,
+                    onSelect = { value -> vm.select(OptionGroup.Appetite, value) },
+                )
             }
             SectionCard {
                 GroupLabel(OptionGroup.Sleep)
