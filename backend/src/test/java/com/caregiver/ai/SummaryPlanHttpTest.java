@@ -488,9 +488,19 @@ class SummaryPlanHttpTest {
     assertThat(history().get(0).path("status").asText()).isEqualTo("SUGGESTED");
   }
 
-  @ParameterizedTest @ValueSource(strings = {"remove", "add", "dose", "schedule", "unknown"})
-  void invalidAiMedicationOrCatalogChangesNeverPersist(String mode) throws Exception {
+  @ParameterizedTest @ValueSource(strings = {"remove", "add", "dose", "schedule"})
+  void aiMedicationEchoDifferencesDoNotBlockGenerationAndBaselineIsPreserved(String mode) throws Exception {
     seedAccepted(); planMode = mode;
+    JsonNode plan = json(call("/api/plans/generate/byok", owner, planByok(7)).andExpect(status().isOk())
+        .andExpect(jsonPath("$.aiUnavailable").value(false))
+        .andExpect(jsonPath("$.plan").isNotEmpty())).get("plan");
+    assertThat(plan.path("structuredContent").path("medications"))
+        .isEqualTo(mapper.valueToTree(medications));
+    assertThat(history().size()).isEqualTo(2);
+  }
+
+  @Test void invalidAiCatalogChangeNeverPersists() throws Exception {
+    seedAccepted(); planMode = "unknown";
     call("/api/plans/generate/byok", owner, planByok(7)).andExpect(status().isOk())
         .andExpect(jsonPath("$.aiUnavailable").value(true)).andExpect(jsonPath("$.plan").isEmpty())
         .andExpect(jsonPath("$.safety.needsDoctorBanner").value(true));

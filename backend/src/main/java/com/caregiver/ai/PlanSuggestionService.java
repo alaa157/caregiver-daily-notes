@@ -1,7 +1,6 @@
 package com.caregiver.ai;
 
 import com.caregiver.plans.MedicationEntry;
-import com.caregiver.plans.MedicationHardLock;
 import com.caregiver.plans.PlanAction;
 import com.caregiver.plans.PlanDocument;
 import com.caregiver.plans.PlanTextSafety;
@@ -19,23 +18,33 @@ import java.util.Set;
 
 /**
  * Fail-closed plan suggestion orchestration: renders grounded input, calls
- * the provider, strictly parses, resolves catalog actions, checks evidence
- * and the medication hard lock, and only then persists. Any failure throws
- * {@link InvalidModelOutputException} before the store is touched; provider
- * fallback yields an explicit unavailable result with zero store calls.
+ * the provider, strictly parses, resolves catalog actions, checks evidence,
+ * and only then persists. Any failure throws {@link InvalidModelOutputException}
+ * before the store is touched; provider fallback yields an explicit unavailable
+ * result with zero store calls.
+ *
+ * <p>Medication values are server-owned. A model-supplied medication echo is
+ * accepted for parser tolerance but is never validated or persisted: the saved
+ * suggestion always carries the baseline medication list (issue #751).</p>
  */
 public class PlanSuggestionService {
 
   private static final String PLAN_SYSTEM_PROMPT_PREFIX =
       "You suggest care-plan updates from grounded summaries. Select ONLY actions from the fixed catalog "
           + "with its exact parameter names. Cite evidenceNoteIds from the supplied notes for every change "
-          + "and give a reason. NEVER add, remove, or change medications, doses, or schedules; repeat the "
-          + "current medication section exactly. NEVER diagnose or prescribe. Return ONLY valid JSON. ";
+          + "and give a reason. NEVER add, remove, or change medications, doses, or schedules. "
+          + "NEVER diagnose or prescribe. Return ONLY valid JSON. ";
   static final String PLAN_SYSTEM_PROMPT = systemPrompt(AiOutputLanguage.NOTES);
 
   static record RawChange(String actionId, Map<String, String> params, String reason, List<String> evidenceNoteIds) {
   }
 
+  /**
+   * Shape of model output. {@code proposedMedications} is retained only so the
+   * strict parser still tolerates models that echo the medication list; its
+   * value is never read. Medications on the saved plan always come from the
+   * server-owned baseline (issue #751).
+   */
   static record ParsedSuggestion(List<RawChange> changes, List<MedicationEntry> proposedMedications) {
   }
 
@@ -60,8 +69,10 @@ public class PlanSuggestionService {
     if (result.status() == LlmStatus.FALLBACK) {
       return new PlanSuggestionResult(null, true);
     }
+    // The medication echo is no longer required: the model is not asked to
+    // produce one and its value is ignored. "changes" stays required.
     ParsedSuggestion parsed = StrictJsonParser.parse(
-        result.text(), ParsedSuggestion.class, Set.of("changes", "proposedMedications"));
+        result.text(), ParsedSuggestion.class, Set.of("changes"));
     List<SuggestedPlanChange> changes = new ArrayList<>();
     List<RawChange> rawChanges = parsed.changes() != null ? parsed.changes() : List.of();
     int removedUnsafeChanges = 0;
@@ -77,13 +88,6 @@ public class PlanSuggestionService {
       throw new InvalidModelOutputException(
           "All generated changes contain unsafe plan text", PlanFailureCodes.TEXT_SAFETY);
     }
-    List<MedicationEntry> proposed =
-        parsed.proposedMedications() != null ? parsed.proposedMedications() : List.of();
-    for (int i = 0; i < proposed.size(); i++) {
-      if (proposed.get(i) == null) {
-        throw new InvalidModelOutputException("Medication entry " + i + " is missing");
-      }
-    }
     for (int i = 0; i < changes.size(); i++) {
       PlanEvidenceValidator.validateNoteIds(
           changes.get(i).evidenceNoteIds(), request.noteTextsById().keySet(), i);
@@ -95,15 +99,10 @@ public class PlanSuggestionService {
           "Generated plan contains invalid catalog actions", PlanFailureCodes.PROTECTED_PLAN, invalidDocument);
     }
     String basedOn = request.lastAccepted() != null ? request.lastAccepted().versionId() : null;
+    // Both medication fields come from the server-owned baseline. The model's
+    // echo is discarded, so it can no longer fail generation (issue #751).
     SuggestedPlan plan =
-        new SuggestedPlan(changes, request.currentMedications(), proposed, basedOn);
-    try {
-      MedicationHardLock.checkUnchanged(request.currentMedications(), plan.proposedMedications());
-    } catch (InvalidModelOutputException lockFailure) {
-      // Keep the check itself unchanged; only annotate the reason for logging.
-      throw new InvalidModelOutputException(
-          lockFailure.getMessage(), PlanFailureCodes.MEDICATION_LOCK, lockFailure);
-    }
+        new SuggestedPlan(changes, request.currentMedications(), request.currentMedications(), basedOn);
     return new PlanSuggestionResult(store.save(request.recipientId(), plan), false, removedUnsafeChanges);
   }
 
@@ -189,7 +188,6 @@ public class PlanSuggestionService {
     return PLAN_SYSTEM_PROMPT_PREFIX
         + "Write each change reason and every human-readable parameter value in "
         + AiOutputLanguage.promptLanguage(language)
-        + ". Keep catalog action IDs, parameter names, evidence note IDs, numbers, times, and medication values "
-        + "unchanged.";
+        + ". Keep catalog action IDs, parameter names, evidence note IDs, numbers, and times unchanged.";
   }
 }

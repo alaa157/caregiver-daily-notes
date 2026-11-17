@@ -368,11 +368,16 @@ The LLM must not invent arbitrary medical advice.
 
 ### Medication Hard Lock
 
-The AI cannot add, remove, or modify medications or medication doses.
+The AI cannot add, remove, or modify medications or medication doses: a saved
+plan's medication list is always copied from the server-owned baseline, not from
+model output. Generation no longer asks the model to echo the medication list,
+and a differing echo (including whitespace differences) no longer fails a
+generation.
 
-The backend compares the medication section before and after AI generation.
-
-Any violation causes the generated result to be rejected.
+The `MedicationHardLock` guard remains a hard check over server-owned values on
+plan documents and suggestions. It is **reserved for future use** and is **not
+currently connected to the recipient's real medication records**; it is not a
+warning and never has been. (Issue #751.)
 
 ### Grounding
 

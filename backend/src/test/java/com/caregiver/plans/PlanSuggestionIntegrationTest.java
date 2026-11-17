@@ -72,14 +72,28 @@ class PlanSuggestionIntegrationTest {
   @Test
   void rejectedSuggestion_leavesNoVersion() {
     var store = new InMemorySuggestedPlanStore();
+    var rejectedChange =
+        "{\"actionId\":\"PRESCRIBE_MEDICATION\",\"params\":{\"drug\":\"x\"},\"reason\":\"review\",\"evidenceNoteIds\":[\"n1\"]}";
     var svc = service(store,
         new LlmResult(LlmStatus.OK, suggestionJson(CHANGE, MEDS), null),
-        new LlmResult(LlmStatus.OK,
-            suggestionJson(CHANGE, "{\"name\":\"Aspirin\",\"dose\":\"10mg\",\"schedule\":\"daily\"}"), null));
+        new LlmResult(LlmStatus.OK, suggestionJson(rejectedChange, MEDS), null));
 
     svc.suggest(request(Map.of("n1", "ate well"), null));
     assertThatThrownBy(() -> svc.suggest(request(Map.of("n1", "ate well"), null)))
         .isInstanceOf(InvalidModelOutputException.class);
+    assertThat(store.saves()).isEqualTo(1);
+  }
+
+  @Test
+  void medicationEchoDifferenceIsIgnoredAndBaselineIsKept() {
+    var store = new InMemorySuggestedPlanStore();
+    var svc = service(store, new LlmResult(LlmStatus.OK,
+        suggestionJson(CHANGE, "{\"name\":\"Aspirin\",\"dose\":\"10mg\",\"schedule\":\"daily\"}"), null));
+
+    var result = svc.suggest(request(Map.of("n1", "ate well"), null));
+
+    assertThat(result.stored().plan().proposedMedications())
+        .containsExactly(new MedicationEntry("Aspirin", "5mg", "daily"));
     assertThat(store.saves()).isEqualTo(1);
   }
 }
