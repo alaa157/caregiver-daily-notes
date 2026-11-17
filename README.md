@@ -279,6 +279,22 @@ Notes are append-only.
 
 Corrections are represented by addendum notes rather than modifying the original note.
 
+#### Medication status vs. medication intake events
+
+The daily note's `medicationStatus` (`TAKEN` / `MISSED` / `UNKNOWN`) is a coarse,
+per-day value recorded on that note. Medication intake events are separate,
+per-medication, timestamped records. The two are distinct caregiver reports and
+are **not** automatically reconciled: the note is not derived from intake events
+and intake events are not changed by the note. When a note's status and the
+intake events for the same day disagree (for example, the note says `MISSED`
+while an intake event says `TAKEN`), the note detail page shows an informational
+warning so the caregiver can review both. The warning changes neither record and
+its absence does not confirm that a dose was or was not taken. See
+[`docs/architecture/web-medication-contract.md`](docs/architecture/web-medication-contract.md).
+
+AI summaries and suggested care plans are built from daily notes only. They
+**do not** include medication intake events.
+
 ### Notes History
 
 Notes can be filtered by:
@@ -296,7 +312,8 @@ The caregiver can request a summary covering:
 - Last 14 days
 - Last 30 days
 
-Summaries are generated on demand.
+Summaries are generated on demand. They are built from daily notes and their
+corrections only; medication intake events are not an input to summaries.
 
 ### AI Suggested Plans
 
@@ -305,6 +322,8 @@ A suggested plan is generated from:
 - The generated summary
 - Deterministic flags
 - The last accepted plan
+
+Medication intake events are not an input to care plans.
 
 The caregiver can:
 

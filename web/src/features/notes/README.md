@@ -73,6 +73,21 @@ interpretations, AI output, or medical recommendations. Supported state/value
 rules and correction operation semantics are defined by the backend API
 contract, not duplicated in React.
 
+### Medication status vs intake events
+
+A note's `medicationStatus` is a coarse, per-day caregiver report. Medication
+intake events are separate per-medication, timestamped records with their own
+reported and verification states. The two are **not** automatically reconciled
+by the backend or by the browser; neither is derived from the other. The note
+detail page therefore shows a display-only warning when a recorded `TAKEN` or
+`MISSED` status disagrees with an intake event on the same local day. The warning
+never edits either record, makes no clinical claim, and is best-effort: if
+intake data cannot be loaded the note stays fully readable. See
+[`docs/architecture/web-medication-contract.md`](../../../../docs/architecture/web-medication-contract.md).
+
+AI summaries and suggested care plans read daily notes only; medication intake
+events are not part of their input.
+
 ## Save state and response loss
 
 The form generates one cryptographically random key per valid submission and

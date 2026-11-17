@@ -14,6 +14,7 @@ import { NoteTimelineRow } from './NoteTimelineRow';
 import { CorrectionEffectiveValues, CorrectionEventRow } from './CorrectionHistory';
 import { fieldLabels } from './noteForm';
 import { useNoteResource, useNotesApis } from './useNotes';
+import { useMedicationIntakeConflict } from './useMedicationIntakeConflict';
 import { RecipientSafety } from '../safety/RecipientSafety';
 import './notes.css';
 
@@ -218,6 +219,7 @@ function NoteRecord({ id, append }: { id: string; append: boolean }) {
     return { note, recipient };
   }, [api, id]);
   const { state, reload } = useNoteResource(load);
+  const intakeConflict = useMedicationIntakeConflict(state.status === 'ready' ? state.data.note : null);
   const notice = (location.state as { noteNotice?: unknown } | null)?.noteNotice;
   const noticeKey = notice === 'created' ? 'notesSaved' : notice === 'appended' ? 'notesAppendSaved' : notice === 'correctionSaved' ? 'notesCorrectionSaved' : null;
   const noticeRef = useRef<HTMLParagraphElement>(null);
@@ -230,6 +232,7 @@ function NoteRecord({ id, append }: { id: string; append: boolean }) {
     {state.status === 'error' && <ErrorState description={t(noteErrorMessage(state.error))} onRetry={reload} />}
     {state.status === 'ready' && <>
       {!append && noticeKey && <p ref={noticeRef} tabIndex={-1} role="status" className="note-success">{t(noticeKey)}</p>}
+      {intakeConflict && <p className="note-notice" role="status">{t('notesMedicationConflict')}</p>}
       <div className="note-detail-grid">
         <section className="note-surface note-detail-original" aria-label={t('notesImmutable')}>
           <p className="note-readonly-lock">

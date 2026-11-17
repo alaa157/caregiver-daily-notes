@@ -31,7 +31,9 @@ credentials.
   stays visible with incomplete-safety feedback.
 - The disclaimer remains visible. Unclear/conflicting information stays marked
   as uncertainty; no diagnosis, medical inference or clinical trend calculation
-  is performed in the browser.
+  is performed in the browser. Summaries are generated from daily notes and their
+  corrections only — medication intake events are **not** an input, so a summary
+  cannot confirm or contradict a recorded dose from those events.
 - Generation, cancellation, timeout, unavailable, provider fallback, malformed
   output and regeneration states are explicit. In-flight duplicate requests and
   automatic retries are prevented; abandoned responses are ignored.

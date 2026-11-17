@@ -2083,3 +2083,73 @@ describe('chip labels for saved values', () => {
     expect(within(article).getByText('نام جيدًا')).toBeVisible();
   });
 });
+
+describe('note medication status vs intake events', () => {
+  const medication = {
+    id: 'c3333333-3333-4333-8333-333333333333', recipientId: recipientFixture.id,
+    displayName: 'Vitamin D', doseText: '1 tablet', scheduleText: 'once daily', active: true,
+    createdAt: '2026-10-01T10:00:00Z', updatedAt: '2026-10-01T10:00:00Z',
+  };
+  // Noon local time keeps the event on the note's calendar day in any timezone.
+  const sameDay = new Date(`${noteFixture.date}T12:00:00`).toISOString();
+  const event = (intakeState: 'TAKEN' | 'MISSED', id: string) => ({
+    id, medicationId: medication.id, recipientId: recipientFixture.id, intakeState,
+    occurredAt: sameDay, verificationState: 'VERIFIED', createdAt: sameDay,
+  });
+
+  function renderWith(noteStatus: 'TAKEN' | 'MISSED' | 'UNKNOWN', events: unknown[], language = 'en') {
+    const fetcher = dataFetcher((path) => {
+      if (path === `/api/notes/${noteFixture.id}`) return jsonResponse({
+        ...noteDetailFixture,
+        observations: {
+          ...structuredObservations,
+          medicationStatus: noteStatus === 'UNKNOWN'
+            ? { state: 'UNKNOWN' }
+            : { state: 'RECORDED', value: noteStatus },
+        },
+      });
+      if (path === `/api/recipients/${recipientFixture.id}/medications`) return jsonResponse([medication]);
+      if (path === `/api/recipients/${recipientFixture.id}/medications/${medication.id}/intake-events`) {
+        return jsonResponse(events);
+      }
+      return undefined;
+    });
+    renderNotes(detail, fetcher, language);
+  }
+
+  it('warns when a MISSED note status disagrees with a TAKEN intake event that day', async () => {
+    renderWith('MISSED', [event('TAKEN', 'e1111111-1111-4111-8111-111111111111')]);
+
+    expect(await screen.findByText(/Medication reports disagree/i)).toBeVisible();
+    // The warning is informational: the recorded status is still shown unchanged.
+    expect(await screen.findByText('Missed')).toBeVisible();
+  });
+
+  it('warns in Arabic when a TAKEN note status disagrees with a MISSED intake event', async () => {
+    renderWith('TAKEN', [event('MISSED', 'e2222222-2222-4222-8222-222222222222')], 'ar');
+
+    expect(await screen.findByText(/تتعارض سجلات الدواء/)).toBeVisible();
+  });
+
+  it('does not warn when the note status agrees with the intake events', async () => {
+    renderWith('TAKEN', [event('TAKEN', 'e3333333-3333-4333-8333-333333333333')]);
+
+    await screen.findByRole('article', {}, { timeout: 5000 });
+    expect(screen.queryByText(/Medication reports disagree/i)).not.toBeInTheDocument();
+  });
+
+  it('does not warn when the note status is not a recorded TAKEN/MISSED value', async () => {
+    renderWith('UNKNOWN', [event('TAKEN', 'e4444444-4444-4444-8444-444444444444')]);
+
+    await screen.findByRole('article', {}, { timeout: 5000 });
+    expect(screen.queryByText(/Medication reports disagree/i)).not.toBeInTheDocument();
+  });
+
+  it('does not warn for an intake event on a different day', async () => {
+    const otherDay = { ...event('TAKEN', 'e5555555-5555-4555-8555-555555555555'), occurredAt: new Date('2020-01-01T12:00:00').toISOString() };
+    renderWith('MISSED', [otherDay]);
+
+    await screen.findByRole('article', {}, { timeout: 5000 });
+    expect(screen.queryByText(/Medication reports disagree/i)).not.toBeInTheDocument();
+  });
+});
