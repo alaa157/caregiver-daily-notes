@@ -21,6 +21,38 @@ describe('public landing page', () => {
     expect(screen.getByText(/structured recipient profile fields.*excluded from AI requests.*free-text notes are sent as written/i)).toBeInTheDocument();
     expect(screen.getAllByRole('link', { name: /download android apk/i })[0]).toHaveAttribute('href', 'https://github.com/alaa157/caregiver-daily-notes/releases/download/v0.1.1/app-minified.apk');
   });
+  it('announces every new-tab link to assistive technology in English', () => {
+    const { container } = setup();
+
+    const external = Array.from(container.querySelectorAll<HTMLAnchorElement>('a[target="_blank"]'));
+    expect(external).toHaveLength(6);
+    expect(external.every((link) => link.getAttribute('rel') === 'noopener noreferrer')).toBe(true);
+    // The notice is present in the accessible name but visually hidden.
+    expect(external.every((link) => link.querySelector('.visually-hidden')?.textContent === ' (opens in a new tab)')).toBe(true);
+    expect(screen.getAllByRole('link', { name: /opens in a new tab/i })).toHaveLength(6);
+  });
+
+  it('translates the new-tab announcement when the page switches to Arabic', () => {
+    const { container } = setup();
+    fireEvent.click(within(screen.getByRole('navigation')).getByRole('button', { name: /التبديل إلى العربية/ }));
+
+    const external = Array.from(container.querySelectorAll<HTMLAnchorElement>('a[target="_blank"]'));
+    expect(external).toHaveLength(6);
+    expect(external.every((link) => link.querySelector('.visually-hidden')?.textContent === ' (يفتح في علامة تبويب جديدة)')).toBe(true);
+    expect(external.every((link) => link.getAttribute('rel') === 'noopener noreferrer')).toBe(true);
+  });
+
+  it('marks both APK download links with a visible external-link icon', () => {
+    const { container } = setup();
+
+    const apkLinks = screen.getAllByRole('link', { name: /download android apk/i });
+    expect(apkLinks).toHaveLength(2);
+    expect(apkLinks.every((link) => link.querySelector('svg.external') !== null)).toBe(true);
+    const heroIcon = apkLinks[0].querySelector('svg.external');
+    expect(heroIcon).toHaveAttribute('aria-hidden', 'true');
+    expect(container.querySelectorAll('svg.external')).toHaveLength(2);
+  });
+
   it('switches language and document direction using the existing i18n provider', () => {
     setup();
     const navigation = screen.getByRole('navigation', { name: 'Main navigation' });
