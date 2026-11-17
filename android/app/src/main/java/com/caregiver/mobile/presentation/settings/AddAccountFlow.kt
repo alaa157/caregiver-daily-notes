@@ -1,5 +1,7 @@
 package com.caregiver.mobile.presentation.settings
 
+import androidx.activity.compose.BackHandler
+import androidx.activity.compose.LocalOnBackPressedDispatcherOwner
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
@@ -41,6 +43,13 @@ fun AddAccountFlow(
         )
     }
     val state by viewModel.state.collectAsState()
+
+    // #912: this full-screen overlay sits above the nav destination, so system
+    // Back must cancel the flow instead of popping the screen underneath it.
+    // Guard the owner so headless JVM tests (no dispatcher) still render.
+    if (LocalOnBackPressedDispatcherOwner.current != null) {
+        BackHandler(onBack = onCancel)
+    }
 
     LaunchedEffect(state.createdAccount) {
         state.createdAccount?.let(onCreated)
