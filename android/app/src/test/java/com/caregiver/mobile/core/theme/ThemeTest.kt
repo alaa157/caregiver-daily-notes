@@ -1,6 +1,7 @@
 package com.caregiver.mobile.core.theme
 
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.unit.dp
 import com.caregiver.mobile.presentation.common.AppDimens
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertTrue
@@ -99,5 +100,40 @@ class ThemeTest {
         assertEquals(AppSpacing.sm, AppDimens.GapForm)
         assertEquals(AppSpacing.lg, AppDimens.PagePad)
         assertEquals(AppSpacing.lg, AppDimens.IconMd)
+    }
+
+    @Test
+    fun authRedesignColorTokensMatchDesign() {
+        // Issue #864: dedicated tokens for the new Login/Register screens.
+        // Muted / field border / divider intentionally match the shared
+        // roles; the three specified new values are the page background and
+        // the disabled-social fill and icon tint.
+        assertEquals(Color(0xFFF6F8F7), CaregiverColors.AuthBackground)
+        assertEquals(Color(0xFF5B6B70), CaregiverColors.AuthMuted)
+        assertEquals(Color(0xFFC5CDD1), CaregiverColors.AuthFieldBorder)
+        assertEquals(Color(0xFFE3E7EA), CaregiverColors.AuthDivider)
+        assertEquals(Color(0xFFF0F3F2), CaregiverColors.AuthDisabledFill)
+        assertEquals(Color(0xFFA3AEAD), CaregiverColors.AuthDisabledIcon)
+        // The primary teal is reused, never redefined.
+        assertEquals(Color(0xFF0E6B66), CaregiverColors.Primary)
+    }
+
+    @Test
+    fun authRedesignColorTokensFollowDarkMode() {
+        val dark = caregiverScheme(dark = true, palette = "teal")
+        assertEquals(Color(0xFF121616), dark.AuthBackground)
+        assertEquals(Color(0xFFB0BEC5), dark.AuthMuted)
+        assertEquals(Color(0xFF3A4548), dark.AuthFieldBorder)
+        assertEquals(Color(0xFF2A3336), dark.AuthDivider)
+        assertEquals(Color(0xFF232C2A), dark.AuthDisabledFill)
+        assertEquals(Color(0xFF6E7C78), dark.AuthDisabledIcon)
+    }
+
+    @Test
+    fun authRedesignRadiusTokensMatchDesign() {
+        // 16 dp for fields and the primary button, 14 dp for social buttons.
+        assertEquals(16.dp, AppDimens.AuthFieldRadius)
+        assertEquals(16.dp, AppDimens.AuthButtonRadius)
+        assertEquals(14.dp, AppDimens.AuthSocialButtonRadius)
     }
 }
