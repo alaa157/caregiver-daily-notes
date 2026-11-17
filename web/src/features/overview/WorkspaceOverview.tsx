@@ -1,4 +1,4 @@
-import { useEffect, useMemo } from 'react';
+import { useEffect } from 'react';
 import { Link, useLocation, useSearchParams } from 'react-router-dom';
 import { isNoteDate } from '../../api/notes';
 import { recipientErrorMessage } from '../../api/recipients';
@@ -7,6 +7,7 @@ import { EmptyState, ErrorState, LoadingState } from '../../components/Feedback'
 import { Icon } from '../../components/Icon';
 import { useI18n } from '../../i18n/I18nProvider';
 import { formatDate } from '../../lib/format';
+import { useLocalToday } from '../../lib/localToday';
 import { CARE_DATA_CHANGED_EVENT } from '../../lib/careDataEvents';
 import { OverviewKpis } from './OverviewKpis';
 import { useDashboardOverview } from './useDashboardOverview';
@@ -14,11 +15,6 @@ import { RecipientRow } from './RecipientCard';
 import { useMonthToDateNotes } from './useMonthToDateNotes';
 import { mapDashboardActivityItem, useActivityFeed } from './useActivityFeed';
 import './overview.css';
-
-function localToday() {
-  const now = new Date();
-  return [now.getFullYear(), String(now.getMonth() + 1).padStart(2, '0'), String(now.getDate()).padStart(2, '0')].join('-');
-}
 
 const workflows = [
   ['people', '/app/recipients', 'recipientsTitle', 'overviewPeopleHint'],
@@ -31,7 +27,7 @@ export function WorkspaceOverview() {
   const { t, language } = useI18n();
   const location = useLocation();
   const [params, setParams] = useSearchParams();
-  const today = useMemo(localToday, []);
+  const today = useLocalToday();
   const rawDate = params.get('date');
   const date = rawDate && isNoteDate(rawDate) ? rawDate : today;
   const { state, reload } = useDashboardOverview(date);

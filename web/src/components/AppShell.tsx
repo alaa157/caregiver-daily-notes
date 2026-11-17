@@ -4,6 +4,7 @@ import { isNoteDate } from '../api/notes';
 import { createRecipientsApi, isRecipientId, recipientErrorMessage, type Recipient } from '../api/recipients';
 import { useI18n } from '../i18n/I18nProvider';
 import { useApiClient } from '../lib/api';
+import { useLocalToday } from '../lib/localToday';
 import { Icon } from './Icon';
 import { useAuth } from '../features/auth/AuthProvider';
 import { useTheme, type ThemeMode } from '../app/ThemeProvider';
@@ -14,11 +15,6 @@ type RecipientState =
   | { status: 'idle' | 'loading' }
   | { status: 'error'; error: unknown }
   | { status: 'ready'; data: Recipient[] };
-
-function localToday() {
-  const now = new Date();
-  return [now.getFullYear(), String(now.getMonth() + 1).padStart(2, '0'), String(now.getDate()).padStart(2, '0')].join('-');
-}
 
 function normalizePathname(pathname: string) {
   return pathname.length > 1 ? pathname.replace(/\/+$/, '') : pathname;
@@ -174,7 +170,8 @@ export function AppLayout() {
   const accountRef = useRef<HTMLDetailsElement>(null);
   const nextLanguage = language === 'en' ? 'ar' : 'en';
   const rawDate = search.get('date');
-  const date = rawDate && isNoteDate(rawDate) ? rawDate : localToday();
+  const today = useLocalToday();
+  const date = rawDate && isNoteDate(rawDate) ? rawDate : today;
   const recipientRoute = pathname.match(/^\/app\/recipients\/([^/]+)(\/(?:edit|notes|summaries|plans))?$/);
   const routeRecipientId = recipientRoute && isRecipientId(recipientRoute[1]) ? recipientRoute[1] : '';
   const queryRecipientRoutes = ['/app/notes', '/app/notes/history', '/app/notes/summary', '/app/notes/plans'];
