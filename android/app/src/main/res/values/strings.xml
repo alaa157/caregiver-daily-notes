@@ -62,6 +62,8 @@
     <string name="chip_fall">Fall</string>
     <string name="chip_no_note">No notes yet</string>
     <string name="detail_add_note">Add note</string>
+    <string name="detail_write_today_note">Write today's note</string>
+    <string name="detail_edit_today_note">Edit today's note</string>
     <string name="detail_history">View history</string>
     <string name="detail_plan">Care plan</string>
     <string name="detail_summary">Smart summary</string>

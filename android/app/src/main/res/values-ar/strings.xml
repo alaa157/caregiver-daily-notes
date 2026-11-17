@@ -62,6 +62,8 @@
     <string name="chip_fall">سقوط</string>
     <string name="chip_no_note">لا ملاحظات بعد</string>
     <string name="detail_add_note">إضافة ملاحظة</string>
+    <string name="detail_write_today_note">كتابة ملاحظة اليوم</string>
+    <string name="detail_edit_today_note">تعديل ملاحظة اليوم</string>
     <string name="detail_history">عرض السجل</string>
     <string name="detail_plan">خطة الرعاية</string>
     <string name="detail_summary">ملخص ذكي</string>

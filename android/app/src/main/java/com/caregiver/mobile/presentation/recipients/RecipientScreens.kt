@@ -31,6 +31,10 @@ import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.filled.Edit
 import androidx.compose.material.icons.filled.MoreVert
 import androidx.compose.material.icons.filled.PersonAdd
+import androidx.compose.material.icons.outlined.Article
+import androidx.compose.material.icons.outlined.Description
+import androidx.compose.material.icons.outlined.History
+import androidx.compose.material.icons.outlined.Person
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.DropdownMenu
 import androidx.compose.material3.DropdownMenuItem
@@ -58,6 +62,7 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalLayoutDirection
@@ -99,6 +104,7 @@ import com.caregiver.mobile.data.recipient.RelationshipOptions
 import com.caregiver.mobile.presentation.common.AppCard
 import com.caregiver.mobile.presentation.common.AppDimens
 import com.caregiver.mobile.presentation.common.AppEmptyState
+import com.caregiver.mobile.presentation.auth.AuthPrimaryButton
 import com.caregiver.mobile.presentation.common.AppTopBar
 import com.caregiver.mobile.presentation.common.Avatar
 import com.caregiver.mobile.presentation.common.ForwardChevron
@@ -107,6 +113,7 @@ import com.caregiver.mobile.presentation.common.GreenPill
 import com.caregiver.mobile.presentation.common.PersonAvatar
 import com.caregiver.mobile.presentation.common.PersonAvatarSize
 import com.caregiver.mobile.presentation.common.PrimaryButton
+import com.caregiver.mobile.presentation.common.SectionCard
 import com.caregiver.mobile.presentation.common.SectionTitle
 import com.caregiver.mobile.presentation.common.StatusChip
 import com.caregiver.mobile.presentation.common.StatusChipVariant
@@ -1294,6 +1301,93 @@ private fun RoundDetailIconButton(
     }
 }
 
+/** One shortcut in the 2x2 grid below the main action (#908). */
+private data class DetailShortcut(
+    val labelRes: Int,
+    val icon: ImageVector,
+    val tag: String,
+    val onClick: () -> Unit,
+)
+
+/**
+ * Recipient Detail shortcuts (#908): a 2x2 grid of SectionCards for this
+ * person's history, care plan, summary and care details. Two weighted rows
+ * are used instead of a grid API, so it works on the module's Compose
+ * version. Every card is at least 48 dp tall; click and test tag live on the
+ * outer Box because SectionCard tags its own Surface.
+ */
+@Composable
+private fun DetailShortcutGrid(
+    onHistory: () -> Unit,
+    onPlan: () -> Unit,
+    onSummary: () -> Unit,
+    onCareDetails: () -> Unit,
+) {
+    val shortcuts = listOf(
+        DetailShortcut(
+            R.string.detail_history,
+            Icons.Outlined.History,
+            "detail_shortcut_history",
+            onHistory,
+        ),
+        DetailShortcut(
+            R.string.detail_plan,
+            Icons.Outlined.Article,
+            "detail_shortcut_plan",
+            onPlan,
+        ),
+        DetailShortcut(
+            R.string.detail_summary,
+            Icons.Outlined.Description,
+            "detail_shortcut_summary",
+            onSummary,
+        ),
+        DetailShortcut(
+            R.string.care_details_title,
+            Icons.Outlined.Person,
+            "detail_shortcut_care_details",
+            onCareDetails,
+        ),
+    )
+    Column(verticalArrangement = Arrangement.spacedBy(AppDimens.GapForm)) {
+        shortcuts.chunked(2).forEach { row ->
+            Row(
+                horizontalArrangement = Arrangement.spacedBy(AppDimens.GapForm),
+                modifier = Modifier.fillMaxWidth(),
+            ) {
+                row.forEach { shortcut ->
+                    Box(
+                        modifier = Modifier
+                            .weight(1f)
+                            .heightIn(min = 48.dp)
+                            .clip(RoundedCornerShape(AppDimens.SectionCardRadius))
+                            .clickable(onClick = shortcut.onClick)
+                            .semantics { role = Role.Button }
+                            .testTag(shortcut.tag),
+                    ) {
+                        SectionCard(modifier = Modifier.fillMaxWidth()) {
+                            Icon(
+                                imageVector = shortcut.icon,
+                                contentDescription = null,
+                                tint = CaregiverColors.Primary,
+                                modifier = Modifier.size(AppDimens.IconMd),
+                            )
+                            Spacer(Modifier.height(AppDimens.GapTight))
+                            Text(
+                                text = stringResource(shortcut.labelRes),
+                                fontFamily = PlexArabic,
+                                fontWeight = FontWeight.Bold,
+                                fontSize = 14.sp,
+                                color = CaregiverColors.Ink,
+                            )
+                        }
+                    }
+                }
+            }
+        }
+    }
+}
+
 @Composable
 internal fun DetailContent(
     detail: RecipientDetail,
@@ -1339,8 +1433,30 @@ internal fun DetailContent(
                 color = CaregiverColors.Muted,
             )
         }
-        // Status card: pill + primary add-note 52dp. Archived records are
-        // read-only, so the write action is absent instead of disabled.
+        // Main action (#908): full-width 56dp, directly under the header.
+        // Archived records are read-only, so the write action is absent.
+        if (!detail.archived) {
+            AuthPrimaryButton(
+                text = stringResource(
+                    if (detail.todayNoteId == null) {
+                        R.string.detail_write_today_note
+                    } else {
+                        R.string.detail_edit_today_note
+                    },
+                ),
+                onClick = onAddNote,
+                busy = busy,
+            )
+        }
+        // 2x2 shortcuts (#908), below the main action.
+        DetailShortcutGrid(
+            onHistory = onHistory,
+            onPlan = onPlan,
+            onSummary = onSummary,
+            onCareDetails = onCareDetails,
+        )
+        // Status card: today's pill and today-note-specific actions. The
+        // write button now lives above the grid, so it is not repeated here.
         AppCard {
             Row(
                 horizontalArrangement = Arrangement.spacedBy(8.dp),
@@ -1362,28 +1478,19 @@ internal fun DetailContent(
                     fontSize = 13.sp,
                     color = CaregiverColors.Muted,
                 )
-            } else {
-                if (detail.todayNoteId != null) {
-                    SecondaryButton(
-                        label = stringResource(R.string.editor_duplicate_view),
-                        onClick = onViewToday,
-                        enabled = !busy,
-                        modifier = Modifier.testTag("detail_view_today"),
-                    )
-                    SecondaryButton(
-                        label = stringResource(R.string.detail_add_correction),
-                        onClick = onAddCorrection,
-                        enabled = !busy,
-                        modifier = Modifier.testTag("detail_add_correction"),
-                    )
-                } else {
-                    PrimaryButton(
-                        label = stringResource(R.string.detail_add_note),
-                        onClick = onAddNote,
-                        enabled = !busy,
-                        height = 52.dp,
-                    )
-                }
+            } else if (detail.todayNoteId != null) {
+                SecondaryButton(
+                    label = stringResource(R.string.editor_duplicate_view),
+                    onClick = onViewToday,
+                    enabled = !busy,
+                    modifier = Modifier.testTag("detail_view_today"),
+                )
+                SecondaryButton(
+                    label = stringResource(R.string.detail_add_correction),
+                    onClick = onAddCorrection,
+                    enabled = !busy,
+                    modifier = Modifier.testTag("detail_add_correction"),
+                )
             }
         }
         SectionTitle(stringResource(R.string.care_details_title))
@@ -1464,16 +1571,9 @@ internal fun DetailContent(
                 )
             }
         }
-        // No plan/summary status cards: this screen loads only the recipient
-        // and their note history, so plan acceptance and summary existence
-        // are unverified here. The actions below navigate to the screens
-        // that load that real data.
-        // Archived recipients keep read surfaces but lose every write path.
-        ActionButton(R.string.detail_history, onHistory)
-        ActionButton(R.string.detail_summary, onSummary)
-        if (!detail.archived) {
-            ActionButton(R.string.detail_plan, onPlan)
-        }
+        // History / care plan / summary / care details now live in the 2x2
+        // shortcut grid above (#908). The remaining button opens the saved
+        // summaries for this person.
         SecondaryButton(
             label = stringResource(R.string.detail_saved_summaries),
             onClick = onSavedSummaries,
@@ -1548,29 +1648,3 @@ internal fun DetailContent(
     }
 }
 
-@Composable
-private fun ActionButton(label: Int, onClick: () -> Unit) {
-    androidx.compose.material3.OutlinedButton(
-        onClick = onClick,
-        shape = RoundedCornerShape(AppDimens.ControlRadius),
-        border = androidx.compose.foundation.BorderStroke(1.dp, CaregiverColors.Border),
-        colors = androidx.compose.material3.ButtonDefaults.outlinedButtonColors(
-            containerColor = CaregiverColors.Surface,
-            contentColor = CaregiverColors.Ink,
-        ),
-        modifier = Modifier.fillMaxWidth().height(48.dp),
-    ) {
-        Row(
-            verticalAlignment = Alignment.CenterVertically,
-            modifier = Modifier.fillMaxWidth(),
-        ) {
-            Text(
-                stringResource(label),
-                fontFamily = PlexArabic,
-                fontWeight = FontWeight.Bold,
-                modifier = Modifier.weight(1f),
-            )
-            ForwardChevron()
-        }
-    }
-}
