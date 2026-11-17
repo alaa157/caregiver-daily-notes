@@ -95,7 +95,7 @@ h2 { max-width: 470px; font-size: clamp(27px, 3vw, 37px); font-weight: 550; line
 :lang(ar) h2 { line-height: 1.65; letter-spacing: 0; font-size: clamp(25px, 2.6vw, 33px); }
 :lang(ar) h3 { line-height: 1.7; letter-spacing: 0; font-size: 17px; }
 :lang(ar) .brand-text { font-size: 15px; line-height: 1.5; letter-spacing: 0; }
-:lang(ar) .brand-tagline { font-size: 10px; }
+:lang(ar) .brand-tagline { font-size: 10px; letter-spacing: 0; }
 :lang(ar) .eyebrow { letter-spacing: 0; }
 :lang(ar) .panel-description { line-height: 2.1; }
 :lang(ar) .panel-card h1 { font-size: clamp(27px, 3vw, 37px); line-height: 1.7; }
