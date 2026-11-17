@@ -6,6 +6,7 @@ import { ButtonLink } from '../../components/Button';
 import { EmptyState, ErrorState, LoadingState } from '../../components/Feedback';
 import { Icon } from '../../components/Icon';
 import { useI18n } from '../../i18n/I18nProvider';
+import { CARE_DATA_CHANGED_EVENT } from '../../lib/careDataEvents';
 import { OverviewKpis } from './OverviewKpis';
 import { useDashboardOverview } from './useDashboardOverview';
 import { RecipientRow } from './RecipientCard';
@@ -37,8 +38,8 @@ export function WorkspaceOverview() {
   const activityFeed = useActivityFeed();
   useEffect(() => {
     const refresh = () => { reload(); reloadMonthToDate(); activityFeed.reload(); };
-    window.addEventListener('care-note-created', refresh);
-    return () => window.removeEventListener('care-note-created', refresh);
+    window.addEventListener(CARE_DATA_CHANGED_EVENT, refresh);
+    return () => window.removeEventListener(CARE_DATA_CHANGED_EVENT, refresh);
   }, [reload, reloadMonthToDate, activityFeed.reload]);
   const overviewData = state.status === 'ready' || state.status === 'partial' ? state : null;
   const dashboardActivityItems = activityFeed.state.status === 'ready' ? activityFeed.state.items.map((item) => {

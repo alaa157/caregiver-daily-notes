@@ -5,6 +5,7 @@ import { isRecipientId } from '../../api/recipients';
 import { Button, ButtonLink } from '../../components/Button';
 import { EmptyState, ErrorState, LoadingState } from '../../components/Feedback';
 import { useI18n } from '../../i18n/I18nProvider';
+import { notifyCareDataChanged } from '../../lib/careDataEvents';
 import { NoteForm } from './NoteForm';
 import { ObservationValues } from './ObservationValues';
 import { CorrectionEditor } from './CorrectionEditor';
@@ -100,7 +101,7 @@ export function CreateNotePage() {
       }}><NoteForm key={formKeyParams.toString()} mode="create" recipients={state.data} initialRecipientId={initialRecipientId} initialDate={initialDate} cancelTo={cancelTo} onSave={async (input, key, signal) => {
         const note = await api.notes.create(input as CreateNoteInput, key, signal);
         if (!signal.aborted) {
-          window.dispatchEvent(new Event('care-note-created'));
+          notifyCareDataChanged();
           navigate(`${notesPath}/${note.id}`, { replace: true, state: { noteNotice: 'created' } });
         }
       }} onOpen={async (recipientId, date, signal) => {
@@ -176,6 +177,7 @@ function NoteChangesTimeline({
     {editing && <CorrectionEditor onCancel={onCancel} onSave={async (entries: FieldCorrection[], key, signal) => {
       await api.notes.correct(id, entries, key, signal);
       if (!signal.aborted) {
+        notifyCareDataChanged();
         reloadCorrections();
         onSaved();
       }
@@ -251,7 +253,10 @@ function NoteRecord({ id, append }: { id: string; append: boolean }) {
             ? <p className="note-notice" role="status">{t(state.data.recipient.lifecycleStatus === 'ARCHIVED' ? 'recipientArchivedReadonly' : 'recipientLegacyReviewDescription')}</p>
             : append ? <div className="note-surface"><NoteForm mode="append" cancelTo={`${notesPath}/${id}`} onSave={async (input, key, signal) => {
               await api.notes.append(id, input as AddendumInput, key, signal);
-              if (!signal.aborted) navigate(`${notesPath}/${id}`, { replace: true, state: { noteNotice: 'appended' } });
+              if (!signal.aborted) {
+                notifyCareDataChanged();
+                navigate(`${notesPath}/${id}`, { replace: true, state: { noteNotice: 'appended' } });
+              }
             }} /></div> : <NoteChangesTimeline
               id={id}
               recipientActive={state.data.recipient.active}

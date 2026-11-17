@@ -7,6 +7,7 @@ import { AuthProvider } from '../features/auth/AuthProvider';
 import { OverviewKpis } from '../features/overview/OverviewKpis';
 import { mapDashboardActivityItem, type ActivityItem } from '../features/overview/useActivityFeed';
 import { I18nProvider } from '../i18n/I18nProvider';
+import { notifyCareDataChanged } from '../lib/careDataEvents';
 import { ApiProvider } from '../lib/api';
 import { jsonResponse, testToken } from './authFixtures';
 import { recipientFixture } from './recipientFixtures';
@@ -269,6 +270,28 @@ describe('authenticated workspace overview', () => {
     expect(screen.getByRole('table', { name: 'Today by recipient' })).toBeInTheDocument();
     expect(screen.getByRole('complementary', { name: 'Recent activity' })).toHaveTextContent(recipientFixture.name);
     expect(screen.getByRole('complementary', { name: 'Recent activity' })).toHaveTextContent('Note recorded');
+  });
+
+  it('reloads dashboard metrics and activity after a shared care-data change', async () => {
+    const fetcher = vi.fn().mockImplementation((path: string) => {
+      if (path === '/api/recipients') return Promise.resolve(jsonResponse([recipientFixture]));
+      if (path.startsWith('/api/activity?')) return Promise.resolve(jsonResponse([]));
+      return Promise.resolve(historyResponse([]));
+    });
+    renderOverview('/app?date=2026-10-18', fetcher, 'en', false);
+    expect(await screen.findByText('0', { selector: '.overview-mtd strong' })).toBeInTheDocument();
+    expect(await screen.findByRole('heading', { name: recipientFixture.name, level: 3 })).toBeInTheDocument();
+    expect(await screen.findByText('No recent activity.')).toBeInTheDocument();
+    fetcher.mockClear();
+
+    act(() => notifyCareDataChanged());
+
+    await waitFor(() => {
+      expect(fetcher.mock.calls.filter(([path]) => path === '/api/recipients')).toHaveLength(1);
+      expect(fetcher.mock.calls.filter(([path]) => path === '/api/notes?from=2026-10-18&to=2026-10-18&page=0&size=100')).toHaveLength(1);
+      expect(fetcher.mock.calls.filter(([path]) => path === '/api/notes?from=2026-10-01&to=2026-10-18&page=0&size=100')).toHaveLength(1);
+      expect(fetcher.mock.calls.filter(([path]) => path === '/api/activity?limit=10')).toHaveLength(1);
+    });
   });
 
   it('defaults to the caregiver local calendar date', async () => {
