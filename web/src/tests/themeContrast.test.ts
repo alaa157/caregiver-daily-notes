@@ -8,6 +8,8 @@ const tokensCss = readFileSync(resolve(repositoryRoot, 'docs/design-system/token
   .replace(/\/\*[\s\S]*?\*\//g, '');
 const webBaseCss = readFileSync(resolve(repositoryRoot, 'web/src/styles/base.css'), 'utf8')
   .replace(/\/\*[\s\S]*?\*\//g, '');
+const webUiCss = readFileSync(resolve(repositoryRoot, 'web/src/styles/ui.css'), 'utf8')
+  .replace(/\/\*[\s\S]*?\*\//g, '');
 
 type CssBlock = {
   selector: string;
@@ -278,6 +280,49 @@ describe('shipped design palette contrast', () => {
     }
 
     expect(failures, failures.join('\n')).toEqual([]);
+  });
+
+  it('gives --caregiver-primary an AA-safe value in both dark modes', () => {
+    const defaultPalette = testedPalettes[0];
+    const failures: string[] = [];
+
+    for (const mode of effectiveModes.filter(({ name }) => name === 'dark' || name === 'system-dark')) {
+      const tokens = effectiveTokens(defaultPalette, mode);
+      const primary = requiredColor(tokens, '--caregiver-primary', defaultPalette.name, mode.name);
+      expect(primary, `Mode=${mode.name} must override --caregiver-primary`).toBe('#4DB6AC');
+
+      for (const backgroundToken of [
+        '--caregiver-surface', '--caregiver-primary-soft', '--caregiver-background',
+      ]) {
+        const background = requiredColor(tokens, backgroundToken, defaultPalette.name, mode.name);
+        const result = validateContrast(primary, background, 4.5);
+        if (!result.passes) {
+          failures.push(describePair(
+            defaultPalette.name, mode.name, '--caregiver-primary', primary,
+            backgroundToken, background, result.ratio, 4.5,
+          ));
+        }
+      }
+    }
+
+    expect(rootBlock.declarations['--caregiver-primary']).toBe('#0E6B66');
+    expect(failures, failures.join('\n')).toEqual([]);
+  });
+
+  // notes.css also colours this selector with --caregiver-primary. After the
+  // dark override both possible winners pass AA, and ui.css keeps the global
+  // theme-aware ink rule in place.
+  it('keeps .history-original summary on the theme-aware ink colour', () => {
+    expect(webUiCss).toMatch(/\.history-original summary[^{}]*\{[^}]*color:\s*var\(--caregiver-ink\)/);
+    const darkMode = effectiveModes.find(({ name }) => name === 'dark')!;
+    const tokens = effectiveTokens(testedPalettes[0], darkMode);
+    const ink = requiredColor(tokens, '--caregiver-ink', 'default', darkMode.name);
+    const surface = requiredColor(tokens, '--caregiver-surface', 'default', darkMode.name);
+    const result = validateContrast(ink, surface, 4.5);
+    expect(result.passes, describePair(
+      'default', darkMode.name, '--caregiver-ink', ink,
+      '--caregiver-surface', surface, result.ratio, 4.5,
+    )).toBe(true);
   });
 
   it('fails a deliberately low-contrast pair', () => {
