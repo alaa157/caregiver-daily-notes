@@ -132,6 +132,28 @@ class PlanSuggestionServiceTest {
   }
 
   @Test
+  void unsafeChangeIsDroppedButOtherChangesAndCountAreKept() {
+    var store = new InMemorySuggestedPlanStore();
+    var svc = service(store, new LlmResult(LlmStatus.OK,
+        suggestionJson(
+            changeJson("SCHEDULE_CHECK_IN", "\"withinDays\":\"3\"",
+                "increase the dose of metformin", "\"n1\"")
+                + ","
+                + changeJson("CAREGIVER_EDUCATION_TOPIC", "\"topic\":\"hydration\"",
+                    "Increase in confusion after missed medication", "\"n1\""),
+            ""), null));
+
+    var result = svc.suggest(request(Map.of("n1", "ate well"), null, List.of()));
+
+    assertThat(result.aiUnavailable()).isFalse();
+    assertThat(result.removedUnsafeChanges()).isEqualTo(1);
+    assertThat(store.saves()).isEqualTo(1);
+    assertThat(result.stored().plan().changes()).hasSize(1);
+    assertThat(result.stored().plan().changes().get(0).action())
+        .isEqualTo(PlanAction.CAREGIVER_EDUCATION_TOPIC);
+  }
+
+  @Test
   void unsupportedTopLevelField_rejectedBeforeStore() {
     var store = new InMemorySuggestedPlanStore();
     var svc = service(store, new LlmResult(LlmStatus.OK,

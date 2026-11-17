@@ -4,6 +4,7 @@ import com.caregiver.plans.MedicationEntry;
 import com.caregiver.plans.MedicationHardLock;
 import com.caregiver.plans.PlanAction;
 import com.caregiver.plans.PlanDocument;
+import com.caregiver.plans.PlanTextSafety;
 import com.caregiver.plans.ProtectedPlanException;
 import com.caregiver.plans.SuggestedPlan;
 import com.caregiver.plans.SuggestedPlanChange;
@@ -61,8 +62,17 @@ public class PlanSuggestionService {
         result.text(), ParsedSuggestion.class, Set.of("changes", "proposedMedications"));
     List<SuggestedPlanChange> changes = new ArrayList<>();
     List<RawChange> rawChanges = parsed.changes() != null ? parsed.changes() : List.of();
+    int removedUnsafeChanges = 0;
     for (int i = 0; i < rawChanges.size(); i++) {
+      if (unsafeChange(rawChanges.get(i))) {
+        removedUnsafeChanges++;
+        continue;
+      }
       changes.add(toChange(i, rawChanges.get(i)));
+    }
+    if (!rawChanges.isEmpty() && changes.isEmpty()) {
+      // Every generated change carried unsafe text: there is no usable plan left.
+      throw new InvalidModelOutputException("All generated changes contain unsafe plan text");
     }
     List<MedicationEntry> proposed =
         parsed.proposedMedications() != null ? parsed.proposedMedications() : List.of();
@@ -87,7 +97,25 @@ public class PlanSuggestionService {
     SuggestedPlan plan =
         new SuggestedPlan(changes, request.currentMedications(), proposed, basedOn);
     MedicationHardLock.checkUnchanged(request.currentMedications(), plan.proposedMedications());
-    return new PlanSuggestionResult(store.save(request.recipientId(), plan), false);
+    return new PlanSuggestionResult(store.save(request.recipientId(), plan), false, removedUnsafeChanges);
+  }
+
+  /** Safety is enforced per change so one bad phrase does not discard the whole plan. */
+  private static boolean unsafeChange(RawChange raw) {
+    if (raw == null) {
+      return false;
+    }
+    if (PlanTextSafety.isUnsafe(raw.reason())) {
+      return true;
+    }
+    if (raw.params() != null) {
+      for (String value : raw.params().values()) {
+        if (PlanTextSafety.isUnsafe(value)) {
+          return true;
+        }
+      }
+    }
+    return false;
   }
 
   private static SuggestedPlanChange toChange(int index, RawChange raw) {

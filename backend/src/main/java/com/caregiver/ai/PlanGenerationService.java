@@ -51,12 +51,12 @@ public class PlanGenerationService {
           summary.safety(), generated.notes().stream().collect(Collectors.toMap(SummaryNote::noteId, SummaryNote::text)),
           last, baseline.medications()), credentials);
       return result.aiUnavailable() ? unavailable(summary.safety())
-          : new PlanGenerationController.Result(saved.get(), false, summary.safety());
+          : new PlanGenerationController.Result(saved.get(), false, summary.safety(), result.removedUnsafeChanges());
     } catch (InvalidModelOutputException | ProtectedPlanException invalidSuggestion) {
       return unavailable(summary.safety());
     }
   }
-  private PlanGenerationController.Result unavailable(SafetyEvaluation safety) { return new PlanGenerationController.Result(null, true, safety); }
+  private PlanGenerationController.Result unavailable(SafetyEvaluation safety) { return new PlanGenerationController.Result(null, true, safety, 0); }
   private String fingerprint(SummaryResult result) {
     try { return "summary-sha256:" + HexFormat.of().formatHex(MessageDigest.getInstance("SHA-256").digest(mapper.writeValueAsBytes(result))); }
     catch (Exception serializationFailure) { throw new IllegalStateException("Could not identify the source summary."); }
