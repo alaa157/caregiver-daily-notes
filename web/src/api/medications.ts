@@ -125,6 +125,13 @@ function idempotencyHeaders(key?: string): HeadersInit | undefined {
   return { 'Idempotency-Key': key };
 }
 
+export function isInvalidIntakeTime(error: unknown): boolean {
+  if (!(error instanceof ApiError) || error.status !== 400) return false;
+  const details: unknown = error.details;
+  return typeof details === 'object' && details !== null
+    && 'code' in details && details.code === 'INVALID_INTAKE_TIME';
+}
+
 export function medicationErrorMessage(error: unknown): MessageKey {
   if (error instanceof ApiError) {
     if (error.status === 400 || error.status === 422) return 'medicationValidationError';

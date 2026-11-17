@@ -80,6 +80,12 @@ public class MedicationIntakeController {
     return ResponseEntity.badRequest().body(new ErrorResponse("VALIDATION_ERROR", message));
   }
 
+  @ExceptionHandler(InvalidIntakeTimeException.class)
+  public ResponseEntity<ErrorResponse> invalidIntakeTime(InvalidIntakeTimeException exception) {
+    return ResponseEntity.badRequest()
+        .body(new ErrorResponse("INVALID_INTAKE_TIME", exception.getMessage()));
+  }
+
   @ExceptionHandler(HttpMessageNotReadableException.class)
   public ResponseEntity<ErrorResponse> unreadable(HttpMessageNotReadableException exception) {
     return ResponseEntity.badRequest()

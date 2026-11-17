@@ -5,6 +5,9 @@ import com.caregiver.recipient.CareRecipient;
 import com.caregiver.recipient.CareRecipientRepository;
 import com.caregiver.recipient.RecipientNotFoundException;
 import jakarta.persistence.EntityManager;
+import java.time.Clock;
+import java.time.Duration;
+import java.time.Instant;
 import java.util.List;
 import java.util.UUID;
 import org.springframework.dao.DataIntegrityViolationException;
@@ -20,21 +23,28 @@ import org.springframework.web.server.ResponseStatusException;
 @Service
 public class MedicationIntakeService {
   private static final int MAX_IDEMPOTENCY_KEY_LENGTH = 100;
+  // A small allowance for clock skew between the caregiver's device and the
+  // server; anything later than that has not happened yet.
+  private static final Duration MAX_FUTURE_SKEW = Duration.ofMinutes(5);
+  // Intake records older than a year are not plausible caregiver backfills.
+  private static final Duration MAX_PAST_AGE = Duration.ofDays(365);
 
   private final CareRecipientRepository recipients;
   private final MedicationRepository medications;
   private final MedicationIntakeEventRepository intakeEvents;
   private final EntityManager entityManager;
+  private final Clock clock;
   private final TransactionTemplate writeTx;
   private final TransactionTemplate readTx;
 
   public MedicationIntakeService(CareRecipientRepository recipients, MedicationRepository medications,
-      MedicationIntakeEventRepository intakeEvents, EntityManager entityManager,
+      MedicationIntakeEventRepository intakeEvents, EntityManager entityManager, Clock clock,
       PlatformTransactionManager transactionManager) {
     this.recipients = recipients;
     this.medications = medications;
     this.intakeEvents = intakeEvents;
     this.entityManager = entityManager;
+    this.clock = clock;
     this.writeTx = new TransactionTemplate(transactionManager);
     this.writeTx.setPropagationBehavior(TransactionDefinition.PROPAGATION_REQUIRES_NEW);
     this.readTx = new TransactionTemplate(transactionManager);
@@ -52,6 +62,7 @@ public class MedicationIntakeService {
   public MedicationIntakeResponse create(UUID recipientId, UUID medicationId,
       MedicationIntakeRequest request, String key) {
     UUID caregiverId = AuthContext.currentCaregiverId();
+    validateOccurredAt(request.occurredAt());
     String idempotencyKey = normalizeKey(key);
     if (idempotencyKey != null) {
       MedicationIntakeResponse replay = readTx.execute(status -> intakeEvents
@@ -100,6 +111,24 @@ public class MedicationIntakeService {
       }
       throw failure;
     });
+  }
+
+  /**
+   * Rejects timestamps outside the plausible range. The clock is the injected
+   * UTC {@code SecurityBeans.systemClock()}, so the comparison is identical
+   * wherever the server runs and does not depend on the host's local zone.
+   */
+  private void validateOccurredAt(Instant occurredAt) {
+    if (occurredAt == null) {
+      throw new InvalidIntakeTimeException("An intake time is required.");
+    }
+    Instant now = Instant.now(clock);
+    if (occurredAt.isAfter(now.plus(MAX_FUTURE_SKEW))) {
+      throw new InvalidIntakeTimeException("The intake time cannot be in the future.");
+    }
+    if (occurredAt.isBefore(now.minus(MAX_PAST_AGE))) {
+      throw new InvalidIntakeTimeException("The intake time is too far in the past.");
+    }
   }
 
   private String normalizeKey(String key) {

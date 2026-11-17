@@ -4,6 +4,8 @@ import com.caregiver.auth.JwtService;
 import com.caregiver.config.CaregiverApplication;
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
+import java.time.Duration;
+import java.time.Instant;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
@@ -72,6 +74,20 @@ class MedicationIntakeControllerTest {
     assertThat(jdbc.queryForObject(
         "select caregiver_id from medication_intake_events where id = ?",
         UUID.class, UUID.fromString(response.path("id").asText()))).isEqualTo(fixture.caregiver().id());
+  }
+
+  @Test
+  void rejectsFutureIntakeTimeWithTheValidationCode() throws Exception {
+    Fixture fixture = fixture();
+
+    mvc.perform(post(path(fixture))
+            .header("Authorization", bearer(fixture.caregiver().token()))
+            .contentType(MediaType.APPLICATION_JSON)
+            .content(mapper.writeValueAsBytes(request("TAKEN",
+                Instant.now().plus(Duration.ofHours(1)).toString(), "VERIFIED"))))
+        .andExpect(status().isBadRequest())
+        .andExpect(jsonPath("$.code").value("INVALID_INTAKE_TIME"));
+    assertThat(eventCount(fixture)).isZero();
   }
 
   @Test
