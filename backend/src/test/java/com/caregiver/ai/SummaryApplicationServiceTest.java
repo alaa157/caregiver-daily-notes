@@ -46,9 +46,21 @@ class SummaryApplicationServiceTest {
     assertThat(result.summary().unavailableReason()).isNull();
     assertThat(result.summary().observations()).isEmpty();
     assertThat(result.summary().uncertainties()).isEmpty();
+    assertThat(result.daysWithNotes()).isZero();
+    assertThat(result.periodDays()).isEqualTo(14);
     assertThat(result.safety().signals()).extracting(SafetySignal::ruleId)
         .containsExactly(SafetyRuleId.FALL_DETECTED);
     assertThat(trend(result, "FALL_COUNT").currentCount()).isEqualTo(2);
+  }
+
+  @Test
+  void coverageCountsDistinctNoteDatesAcrossTheApplicationPath() {
+    SummaryResult result = run(request(7), List.of(
+        new SummaryNote("note", END, "routine"),
+        new SummaryNote("note2", END.minusDays(2), "routine")), FALLS, "success");
+
+    assertThat(result.daysWithNotes()).isEqualTo(2);
+    assertThat(result.periodDays()).isEqualTo(7);
   }
 
   @Test

@@ -934,3 +934,35 @@ describe('generated-with attribution', () => {
     expect(document.body.textContent).not.toContain('synthetic-swap-key');
   });
 });
+
+describe('summary coverage and empty periods', () => {
+  it('shows deterministic coverage for a summary backed by notes', async () => {
+    const fixture = summaryFixture();
+    show(dataFetcher((path) => path === byokSummaryPath
+      ? jsonResponse({ ...fixture, daysWithNotes: 2, periodDays: 30 }) : undefined));
+
+    await choose();
+    await userEvent.click(screen.getByRole('button', { name: 'Generate summary' }));
+
+    expect(await screen.findByText('2 of 30 days have notes')).toBeInTheDocument();
+  });
+
+  it('shows a dedicated empty state without uncertainty for a zero-note period', async () => {
+    const fixture = summaryFixture();
+    show(dataFetcher((path) => path === byokSummaryPath ? jsonResponse({
+      ...fixture,
+      daysWithNotes: 0,
+      periodDays: 7,
+      summary: { ...fixture.summary, observations: [], uncertainties: [] },
+      trends: [],
+    }) : undefined));
+
+    await choose();
+    await userEvent.click(screen.getByRole('button', { name: 'Generate summary' }));
+
+    expect(await screen.findByText(/No notes were recorded in this period/)).toBeInTheDocument();
+    expect(screen.getByText('0 of 7 days have notes')).toBeInTheDocument();
+    expect(screen.queryByText(/No uncertainty items were returned/)).not.toBeInTheDocument();
+    expect(screen.queryByText(/No observations were returned/)).not.toBeInTheDocument();
+  });
+});

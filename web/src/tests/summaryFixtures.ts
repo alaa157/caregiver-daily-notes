@@ -12,5 +12,7 @@ export function summaryFixture() {
     },
     safety: { needsDoctorBanner: true, signals: [{ ruleId: 'FALL_DETECTED', severity: 'HIGH', reason: 'Fall reported in period / تم الإبلاغ عن سقوط' }] },
     trends: [{ metric: 'POOR_APPETITE_COUNT', previousCount: 1, currentCount: 3, delta: 2, previousSampleSize: 4, currentSampleSize: 6 }],
+    daysWithNotes: 5,
+    periodDays: 7,
   };
 }

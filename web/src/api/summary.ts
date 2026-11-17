@@ -21,7 +21,16 @@ export interface SummaryContent {
 export interface SafetySignal { ruleId: string | null; severity: string | null; reason: string | null }
 export interface SummarySafety { signals: SafetySignal[]; needsDoctorBanner: boolean; incomplete: boolean }
 export interface SummaryTrend { metric: string; previousCount: number; currentCount: number; delta: number; previousSampleSize: number; currentSampleSize: number }
-export interface SummaryResponse { safety: SummarySafety; summary: SummaryContent | null; trends: SummaryTrend[]; invalidContent: boolean }
+export interface SummaryResponse {
+  safety: SummarySafety;
+  summary: SummaryContent | null;
+  trends: SummaryTrend[];
+  invalidContent: boolean;
+  /** Distinct note dates in the requested window, computed by the backend. */
+  daysWithNotes: number;
+  /** Requested window length in days. */
+  periodDays: number;
+}
 
 const object = (value: unknown): Record<string, unknown> | null => value !== null && typeof value === 'object' && !Array.isArray(value)
   ? value as Record<string, unknown> : null;
@@ -53,6 +62,16 @@ export function readSummaryResponse(value: unknown): SummaryResponse {
   let summary: SummaryContent | null = null;
   let trends: SummaryTrend[] = [];
   let invalidContent = false;
+  let daysWithNotes = 0;
+  let periodDays = 0;
+  try {
+    const coveredDays = item?.daysWithNotes;
+    const requestedDays = item?.periodDays;
+    if (!Number.isSafeInteger(coveredDays) || (coveredDays as number) < 0
+      || !Number.isSafeInteger(requestedDays) || (requestedDays as number) < 1) throw new Error();
+    daysWithNotes = coveredDays as number;
+    periodDays = requestedDays as number;
+  } catch { invalidContent = true; }
   try {
     const raw = object(item?.summary);
     if (!raw || typeof raw.aiUnavailable !== 'boolean' || !Array.isArray(raw.observations) || !Array.isArray(raw.uncertainties)) throw new Error();
@@ -95,7 +114,7 @@ export function readSummaryResponse(value: unknown): SummaryResponse {
         previousSampleSize: trend.previousSampleSize as number, currentSampleSize: trend.currentSampleSize as number };
     });
   } catch { invalidContent = true; }
-  return { safety, summary, trends, invalidContent };
+  return { safety, summary, trends, invalidContent, daysWithNotes, periodDays };
 }
 
 /** An incomplete/error response can add warnings, but cannot clear previously returned warnings. */

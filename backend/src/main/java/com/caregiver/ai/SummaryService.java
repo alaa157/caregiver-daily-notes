@@ -47,6 +47,7 @@ public class SummaryService {
     for (SummaryNote note : windowed) {
       noteTextsById.putIfAbsent(note.noteId(), note.text());
     }
+    int daysWithNotes = (int) windowed.stream().map(SummaryNote::date).distinct().count();
     String block = SummaryDataBuilder.build(windowed, end, days);
 
     List<NoteSignals> safeSignals = signals == null ? List.of() : signals;
@@ -65,7 +66,9 @@ public class SummaryService {
               true,
               unavailableReason),
           safety,
-          trendResults);
+          trendResults,
+          daysWithNotes,
+          days);
     }
     ModelSummary parsed =
         StrictJsonParser.parse(result.text(), ModelSummary.class, Set.of("observations", "uncertainties"));
@@ -76,11 +79,12 @@ public class SummaryService {
       // No observation survived verification: fail cleanly with an explicit
       // state rather than presenting an empty summary as a success.
       return new SummaryResult(new GroundedSummary(List.of(), parsed.uncertainties(), true,
-          FailureReason.INVALID_OUTPUT.name(), dropped, validation.reason()), safety, trendResults);
+          FailureReason.INVALID_OUTPUT.name(), dropped, validation.reason()), safety, trendResults,
+          daysWithNotes, days);
     }
     GroundedSummary grounded = new GroundedSummary(validation.accepted(), parsed.uncertainties(), false,
         null, dropped, dropped == 0 ? null : validation.reason());
-    return new SummaryResult(grounded, safety, trendResults);
+    return new SummaryResult(grounded, safety, trendResults, daysWithNotes, days);
   }
 
   /** The model's permitted JSON shape; provider status is owned by this service. */

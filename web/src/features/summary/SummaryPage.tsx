@@ -93,6 +93,7 @@ export function SummaryPage({ scopedRecipientId }: { scopedRecipientId?: string 
           }, response: {
             summary: matching?.response.summary ?? null, trends: matching?.response.trends ?? [], invalidContent: false,
             safety: retainSafety(matching?.response.safety, safety, true),
+            daysWithNotes: 0, periodDays: 0,
           } };
         });
       }

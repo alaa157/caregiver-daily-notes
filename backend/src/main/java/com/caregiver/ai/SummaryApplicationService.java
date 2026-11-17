@@ -43,20 +43,28 @@ public class SummaryApplicationService {
           : providerOrValidationFailure instanceof ProviderDeadlineExceededException
               ? FailureReason.TIMEOUT.name()
               : FailureReason.PROVIDER_UNAVAILABLE.name();
-      result = unavailable(request, source.signals(), unavailableReason);
+      result = unavailable(request, source.notes(), source.signals(), unavailableReason);
     }
     return new Generated(result, source.notes());
   }
   private SummaryResult noNotes(SummaryRequest request, List<NoteSignals> signals) {
-    return result(request, signals, new GroundedSummary(List.of(), List.of(), false));
+    return result(request, List.of(), signals, new GroundedSummary(List.of(), List.of(), false));
   }
-  private SummaryResult unavailable(SummaryRequest request, List<NoteSignals> signals, String unavailableReason) {
-    return result(request, signals,
+  private SummaryResult unavailable(SummaryRequest request, List<SummaryNote> notes,
+      List<NoteSignals> signals, String unavailableReason) {
+    return result(request, notes, signals,
         new GroundedSummary(List.of(), List.of(new SummaryUncertainty("availability", "AI unavailable")),
             true, unavailableReason));
   }
-  private SummaryResult result(SummaryRequest request, List<NoteSignals> signals, GroundedSummary summary) {
+  private SummaryResult result(SummaryRequest request, List<SummaryNote> notes,
+      List<NoteSignals> signals, GroundedSummary summary) {
+    int daysWithNotes = (int) notes.stream()
+        .filter(note -> note != null && note.date() != null)
+        .map(SummaryNote::date)
+        .distinct()
+        .count();
     return new SummaryResult(summary, evaluator.evaluate(signals, request.periodEndInclusive(), request.periodDays()),
-        TrendWindows.compute(trends, signals, request.periodEndInclusive(), request.periodDays()));
+        TrendWindows.compute(trends, signals, request.periodEndInclusive(), request.periodDays()),
+        daysWithNotes, request.periodDays());
   }
 }
