@@ -17,9 +17,12 @@ import com.caregiver.recipient.RecipientNotFoundException;
 import java.time.Instant;
 import java.time.LocalDate;
 import java.util.ArrayList;
+import java.util.Collections;
 import java.util.Comparator;
+import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
+import java.util.Set;
 import java.util.UUID;
 import java.util.stream.Collectors;
 import org.springframework.stereotype.Service;
@@ -28,6 +31,30 @@ import org.springframework.transaction.annotation.Transactional;
 /** Loads owned observations in one short read transaction, before any provider call. */
 @Service
 public class SummarySourceLoader {
+
+  /** Field keys emitted into the note text below; keep in sync with {@code append}. */
+  private static final Set<String> FIELD_KEYS = Set.of(
+      "mood", "appetite", "sleep", "mobility", "medicationStatus", "painScore",
+      "fallReported", "freeText", "medicationVerification");
+
+  /**
+   * Serialization scaffolding that is never evidence text. Field keys, state
+   * markers and structural keys are compared token-by-token by
+   * {@link EvidenceValidator}, so a quote made only of these is rejected.
+   */
+  public static final Set<String> NON_EVIDENCE_TOKENS;
+
+  static {
+    HashSet<String> tokens = new HashSet<>(FIELD_KEYS);
+    tokens.addAll(Set.of("RECORDED", "NOT_RECORDED", "UNKNOWN", "NOT_APPLICABLE",
+        "LEGACY_AMBIGUOUS", "VERIFIED", "UNVERIFIED", "NOT_ASSERTED", "SET", "CLEAR"));
+    tokens.addAll(Set.of("createdAt", "providedFields", "medicationVerificationProvided",
+        "sequenceNo", "field", "operation", "valueJson", "APPENDED", "ADDENDUM",
+        "STRUCTURED", "CORRECTION", "EVENT", "historical", "value", "withheld",
+        "meaning", "unresolved"));
+    NON_EVIDENCE_TOKENS = Collections.unmodifiableSet(tokens);
+  }
+
   private final CareRecipientRepository recipients;
   private final DailyNoteRepository notes;
   private final NoteAddendumRepository addenda;
