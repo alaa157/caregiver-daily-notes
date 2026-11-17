@@ -67,7 +67,7 @@
   --color-background:#121616; --color-on-background:#E3E7EA; --color-surface:#1A1F1F; --color-on-surface:#E3E7EA;
   --color-surface-container:#1A1F1F; --color-surface-variant:#2A3336; --color-on-surface-variant:#B0BEC5; --color-outline:#78868B;
   --color-error:#EF9A9A; --color-on-error:#2E1412; --color-error-container:#5C1A1A; --color-on-error-container:#EF9A9A;
-  --caregiver-primary-soft:#1A3A38; --caregiver-ink:#E3E7EA; --caregiver-muted:#B0BEC5;
+  --caregiver-primary:#4DB6AC; --caregiver-primary-soft:#1A3A38; --caregiver-ink:#E3E7EA; --caregiver-muted:#B0BEC5;
   --caregiver-background:#121616; --caregiver-surface:#1A1F1F; --caregiver-border:#3A4548; --caregiver-border-soft:#2A3336;
   --caregiver-danger:#EF9A9A; --caregiver-danger-container:#5C1A1A; --caregiver-danger-border:#8B2B25;
   --caregiver-success:#81C784; --caregiver-success-container:#1B3A24;
@@ -85,7 +85,7 @@
     --color-background:#121616; --color-on-background:#E3E7EA; --color-surface:#1A1F1F; --color-on-surface:#E3E7EA;
     --color-surface-container:#1A1F1F; --color-surface-variant:#2A3336; --color-on-surface-variant:#B0BEC5; --color-outline:#78868B;
     --color-error:#EF9A9A; --color-error-container:#5C1A1A; --color-on-error-container:#EF9A9A;
-    --caregiver-primary-soft:#1A3A38; --caregiver-ink:#E3E7EA; --caregiver-muted:#B0BEC5;
+    --caregiver-primary:#4DB6AC; --caregiver-primary-soft:#1A3A38; --caregiver-ink:#E3E7EA; --caregiver-muted:#B0BEC5;
     --caregiver-background:#121616; --caregiver-surface:#1A1F1F; --caregiver-border:#3A4548; --caregiver-border-soft:#2A3336;
     --caregiver-danger:#EF9A9A; --caregiver-danger-container:#5C1A1A; --caregiver-danger-border:#8B2B25;
     --caregiver-success:#81C784; --caregiver-success-container:#1B3A24;
