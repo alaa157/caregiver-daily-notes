@@ -14,12 +14,14 @@ import androidx.compose.ui.test.hasClickAction
 import androidx.compose.ui.test.filterToOne
 import androidx.compose.ui.test.assertIsNotEnabled
 import androidx.compose.ui.test.junit4.createComposeRule
+import androidx.compose.ui.test.longClick
 import androidx.compose.ui.test.onAllNodesWithText
 import androidx.compose.ui.test.onNodeWithTag
 import androidx.compose.ui.test.onNodeWithText
 import androidx.compose.ui.test.performClick
 import androidx.compose.ui.test.performTextClearance
 import androidx.compose.ui.test.performTextInput
+import androidx.compose.ui.test.performTouchInput
 import androidx.test.core.app.ApplicationProvider
 import androidx.test.ext.junit.runners.AndroidJUnit4
 import com.caregiver.mobile.core.network.TokenHolder
@@ -120,6 +122,11 @@ class AuthFormUiTest {
 
     private fun submitButton(label: String) =
         compose.onAllNodesWithText(label).filterToOne(hasClickAction())
+
+    /** #872: the demo entry is hidden until the logo is long-pressed. */
+    private fun revealDemo() {
+        compose.onNodeWithTag("auth_logo").performTouchInput { longClick() }
+    }
 
     @Test
     fun loginLabelsEnglish() {
@@ -389,6 +396,9 @@ class AuthFormUiTest {
     fun debugDemoEntryVisibleOnLogin() {
         setForm(AuthMode.Login, "en", onDemo = {})
 
+        // #872: no demo link in the plain footer; long-press reveals it.
+        compose.onNodeWithTag("auth_demo_entry").assertDoesNotExist()
+        revealDemo()
         compose.onNodeWithTag("auth_demo_entry").assertIsDisplayed()
         compose.onNodeWithText("Explore the demo (offline)").assertIsDisplayed()
     }
@@ -408,6 +418,7 @@ class AuthFormUiTest {
             SignInResult.SignedIn
         })
 
+        revealDemo()
         compose.onNodeWithTag("auth_demo_entry").performClick()
         compose.waitForIdle()
 
@@ -425,6 +436,7 @@ class AuthFormUiTest {
             SignInResult.Rejected(null, "Offline demo unavailable.")
         })
 
+        revealDemo()
         compose.onNodeWithTag("auth_demo_entry").performClick()
         compose.waitForIdle()
 
