@@ -1096,7 +1096,7 @@ describe('care recipients screens', () => {
     await userEvent.click(screen.getByRole('button', { name: 'Retry' }));
     expect(await screen.findByRole('heading', { name: recipient.name })).toBeInTheDocument();
     expect(screen.getByText('Archived')).toBeInTheDocument();
-    expect(fetcher).toHaveBeenCalledTimes(3);
+    expect(fetcher).toHaveBeenCalledTimes(4);
   });
 
   it('rejects malformed route IDs without calling the backend', async () => {
@@ -1120,7 +1120,7 @@ describe('care recipients screens', () => {
     await userEvent.click(within(dialog).getByRole('button', { name: 'Cancel' }));
     expect(screen.queryByRole('dialog')).not.toBeInTheDocument();
     expect(trigger).toHaveFocus();
-    expect(fetcher).toHaveBeenCalledTimes(3);
+    expect(fetcher).toHaveBeenCalledTimes(4);
   });
 
   it('archives the recipient through the API and makes the detail read-only', async () => {
@@ -1451,17 +1451,17 @@ describe('care recipients screens', () => {
   });
 
   it('keeps loading, empty, error and retry states distinct', async () => {
-    let resolve!: (response: Response) => void;
+    const pendingResolvers: Array<(response: Response) => void> = [];
     const pending = vi.fn().mockImplementation((path: string) => {
       const url = new URL(path, 'http://localhost');
       if (url.pathname === `/api/recipients/${recipient.id}`) return Promise.resolve(jsonResponse(recipient));
       if (url.pathname === '/api/notes') return Promise.resolve(jsonResponse(historyPage([], 0, 100)));
-      return new Promise<Response>((done) => { resolve = done; });
+      return new Promise<Response>((done) => { pendingResolvers.push(done); });
     });
     const loadingView = renderRecipients(detail, pending);
-    await waitFor(() => expect(pending).toHaveBeenCalledTimes(3));
+    await waitFor(() => expect(pending).toHaveBeenCalledTimes(4));
     expect(screen.getByText('Loading medication records…')).toBeInTheDocument();
-    resolve(jsonResponse([]));
+    pendingResolvers.forEach((done) => done(jsonResponse([])));
     expect(await screen.findByRole('heading', { name: 'Medications' })).toBeInTheDocument();
     loadingView.unmount();
 

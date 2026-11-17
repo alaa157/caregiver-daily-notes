@@ -12,6 +12,7 @@ import { NoteTimelineRow } from './NoteTimelineRow';
 import { CorrectionEffectiveValues, CorrectionEventRow } from './CorrectionHistory';
 import { fieldLabels } from './noteForm';
 import { useNoteResource, useNotesApis } from './useNotes';
+import { RecipientSafety } from '../safety/RecipientSafety';
 import './notes.css';
 
 export const notesPath = '/app/notes';
@@ -267,6 +268,9 @@ function NoteRecord({ id, append }: { id: string; append: boolean }) {
             />}
         </div>
       </div>
+      {!append && <div className="note-surface note-safety">
+        <RecipientSafety recipientId={state.data.recipient.id} periodEndInclusive={state.data.note.date} periodDays={7} />
+      </div>}
     </>}
   </NotesLayout>;
 }
