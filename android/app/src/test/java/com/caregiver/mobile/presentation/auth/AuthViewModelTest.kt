@@ -147,18 +147,6 @@ class AuthViewModelTest {
     }
 
     @Test
-    fun registerMismatchBlocksSubmit() = runTest {
-        val vm = AuthViewModel(AuthMode.Register, repository, this)
-        vm.onEmail("a@b.c")
-        vm.onPassword("pw")
-        vm.onConfirm("other")
-
-        vm.submit()
-
-        assertEquals(ConfirmError.Mismatch, vm.state.value.confirmError)
-    }
-
-    @Test
     fun registerDuplicateSurfacesLocalizedDuplicate() = runTest {
         fakeAuth.registerHandler = {
             throw FakeAuthApi.httpError(422, "DUPLICATE_EMAIL", "Email is already registered.")
@@ -166,7 +154,6 @@ class AuthViewModelTest {
         val vm = AuthViewModel(AuthMode.Register, repository, this)
         vm.onEmail("a@b.c")
         vm.onPassword("pw")
-        vm.onConfirm("pw")
 
         vm.submit()
         vm.state.first { it.formError != null }
@@ -182,7 +169,6 @@ class AuthViewModelTest {
         val vm = AuthViewModel(AuthMode.Register, repository, this)
         vm.onEmail("a@b.c")
         vm.onPassword("pw")
-        vm.onConfirm("pw")
 
         vm.submit()
         vm.state.first { it.formError != null }
@@ -212,7 +198,6 @@ class AuthViewModelTest {
         }
         vm.onEmail("a@b.c")
         vm.onPassword("Password1")
-        vm.onConfirm("Password1")
 
         vm.submit()
 
@@ -227,7 +212,6 @@ class AuthViewModelTest {
         }
         vm.onEmail("a@b.c")
         vm.onPassword("Password1")
-        vm.onConfirm("Password1")
 
         vm.onDisplayName("   ")
         vm.submit()
@@ -253,7 +237,6 @@ class AuthViewModelTest {
         vm.onDisplayName("  Aisha  ")
         vm.onEmail("a@b.c")
         vm.onPassword("Password1")
-        vm.onConfirm("Password1")
 
         vm.submit()
         vm.state.first { it.signedIn }
@@ -271,7 +254,6 @@ class AuthViewModelTest {
         vm.onDisplayName("Aisha")
         vm.onEmail("a@b.c")
         vm.onPassword("Password1")
-        vm.onConfirm("Password1")
 
         vm.submit()
         vm.state.first { it.formError != null }
@@ -288,7 +270,6 @@ class AuthViewModelTest {
         vm.onDisplayName("Aisha")
         vm.onEmail("a@b.c")
         vm.onPassword("short")
-        vm.onConfirm("short")
 
         vm.submit()
         vm.state.first { it.passwordError != null }
@@ -312,7 +293,6 @@ class AuthViewModelTest {
             vm.onDisplayName("Aisha")
             vm.onEmail("a@b.c")
             vm.onPassword("Password1")
-            vm.onConfirm("Password1")
 
             vm.submit()
             vm.state.first { it.passwordError != null }
@@ -330,7 +310,6 @@ class AuthViewModelTest {
         val vm = AuthViewModel(AuthMode.Register, repository, this)
         vm.onEmail("a@b.c")
         vm.onPassword("Password1")
-        vm.onConfirm("Password1")
 
         vm.submit()
         vm.state.first { it.formError != null }
@@ -356,7 +335,6 @@ class AuthViewModelTest {
             val vm = AuthViewModel(AuthMode.Register, repository, this)
             vm.onEmail("a@b.c")
             vm.onPassword("Password1")
-            vm.onConfirm("Password1")
 
             vm.submit()
             vm.state.first { it.passwordError != null }
@@ -376,7 +354,6 @@ class AuthViewModelTest {
         val vm = AuthViewModel(AuthMode.Register, repository, this)
         vm.onEmail("a@b.c")
         vm.onPassword("Password1")
-        vm.onConfirm("Password1")
 
         vm.submit()
         vm.state.first { it.emailError != null }
@@ -394,7 +371,6 @@ class AuthViewModelTest {
             val vm = AuthViewModel(AuthMode.Register, repository, this)
             vm.onEmail("a@b.c")
             vm.onPassword("Password1")
-            vm.onConfirm("Password1")
 
             vm.submit()
             vm.state.first { it.formError != null }

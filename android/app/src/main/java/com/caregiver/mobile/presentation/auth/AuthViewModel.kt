@@ -48,10 +48,6 @@ sealed interface PasswordError {
     data class Policy(val problem: PasswordProblem) : PasswordError
 }
 
-sealed interface ConfirmError {
-    data object Mismatch : ConfirmError
-}
-
 sealed interface NameError {
     data object Required : NameError
     data object TooLong : NameError
@@ -68,11 +64,9 @@ data class AuthUiState(
     val displayName: String = "",
     val email: String = "",
     val password: String = "",
-    val confirm: String = "",
     val nameError: NameError? = null,
     val emailError: EmailError? = null,
     val passwordError: PasswordError? = null,
-    val confirmError: ConfirmError? = null,
     val formError: FormError? = null,
     val busy: Boolean = false,
     val signedIn: Boolean = false,
@@ -111,10 +105,6 @@ class AuthViewModel(
         _state.value = _state.value.copy(password = value, passwordError = null, formError = null)
     }
 
-    fun onConfirm(value: String) {
-        _state.value = _state.value.copy(confirm = value, confirmError = null, formError = null)
-    }
-
     /**
      * Offline demo entry: fills fixed demo credentials and submits through
      * the normal [submit] path. The debug demo backend accepts any
@@ -130,19 +120,12 @@ class AuthViewModel(
         val current = _state.value
         val emailError = validateEmail(current.email)
         val passwordError = validatePassword(current.password)
-        val confirmError =
-            if (mode == AuthMode.Register && current.confirm != current.password) {
-                ConfirmError.Mismatch
-            } else {
-                null
-            }
         val nameError = if (requiresDisplayName) validateDisplayName(current.displayName) else null
-        if (emailError != null || passwordError != null || confirmError != null || nameError != null) {
+        if (emailError != null || passwordError != null || nameError != null) {
             _state.value = current.copy(
                 nameError = nameError,
                 emailError = emailError,
                 passwordError = passwordError,
-                confirmError = confirmError,
             )
             return
         }
@@ -150,7 +133,6 @@ class AuthViewModel(
             nameError = null,
             emailError = null,
             passwordError = null,
-            confirmError = null,
             formError = null,
             busy = true,
             createdAccount = null,
