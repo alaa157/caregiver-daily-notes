@@ -2,6 +2,7 @@ package com.caregiver.config;
 
 import com.caregiver.auth.AuthErrorResponseFactory;
 import com.caregiver.auth.JwtAuthenticationFilter;
+import com.caregiver.ratelimit.RateLimitFilter;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import jakarta.servlet.http.HttpServletResponse;
 import org.springframework.beans.factory.annotation.Value;
@@ -50,6 +51,7 @@ public class SecurityConfig {
   public SecurityFilterChain securityFilterChain(
       HttpSecurity http,
       JwtAuthenticationFilter jwtAuthenticationFilter,
+      RateLimitFilter rateLimitFilter,
       AuthenticationEntryPoint authenticationEntryPoint,
       @Value("${springdoc.api-docs.enabled:false}") boolean apiDocsEnabled)
       throws Exception {
@@ -71,6 +73,8 @@ public class SecurityConfig {
           rules.anyRequest().authenticated();
         })
         .addFilterBefore(jwtAuthenticationFilter, UsernamePasswordAuthenticationFilter.class)
+        // After the JWT filter so AI limits can key on the verified caregiver.
+        .addFilterAfter(rateLimitFilter, JwtAuthenticationFilter.class)
         .exceptionHandling(
             exceptions -> exceptions.authenticationEntryPoint(authenticationEntryPoint));
     return http.build();

@@ -28,6 +28,19 @@ spring:
   flyway:
     enabled: true
 
+# In-memory token buckets for the open auth endpoints and the BYOK AI routes.
+# A denial is HTTP 429 with Retry-After and code RATE_LIMITED. Configurable so
+# the demo can be tuned without a rebuild; tighten for production deployments.
+# Auth is keyed by IP and by normalized account email, AI by caregiver id.
+rate-limit:
+  enabled: true
+  auth-ip-max-requests: 200
+  auth-ip-window: 1m
+  auth-account-max-requests: 50
+  auth-account-window: 5m
+  ai-max-requests: 120
+  ai-window: 1m
+
 # LLM provider configuration.
 # There are no server-configured providers and no provider API keys in the
 # environment: every AI call carries request-scoped BYOK credentials supplied
