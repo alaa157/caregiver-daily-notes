@@ -7,6 +7,7 @@ import { LoadingState } from '../components/Feedback';
 import { Icon } from '../components/Icon';
 import { useI18n } from '../i18n/I18nProvider';
 import { PagePanel } from '../components/PagePanel';
+import { StatusAnnouncerProvider } from '../components/StatusAnnouncer';
 import { ProtectedRoute } from './ProtectedRoute';
 import { ThemeProvider } from './ThemeProvider';
 
@@ -32,7 +33,7 @@ export function App() {
   const backgroundLocation = (location.state as { backgroundLocation?: typeof location } | null)?.backgroundLocation;
   const isLanding = (backgroundLocation ?? location).pathname === '/';
   return (
-    <ThemeProvider><Suspense fallback={<LoadingState />}>
+    <StatusAnnouncerProvider><ThemeProvider><Suspense fallback={<LoadingState />}>
       {isLanding ? <LandingRoute /> : <AppShell>
         <Routes location={backgroundLocation ?? location}>
           <Route path="/login" element={<LoginPage />} />
@@ -53,6 +54,6 @@ export function App() {
           </Route>
         </Routes>}
       </AppShell>}
-    </Suspense></ThemeProvider>
+    </Suspense></ThemeProvider></StatusAnnouncerProvider>
   );
 }

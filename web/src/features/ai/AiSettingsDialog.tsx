@@ -3,6 +3,7 @@ import { Button } from '../../components/Button';
 import { useI18n } from '../../i18n/I18nProvider';
 import type { MessageKey } from '../../i18n/translations';
 import { useApiClient } from '../../lib/api';
+import { useStatusAnnouncement } from '../../components/StatusAnnouncer';
 import { useByok, type ByokProviderId } from './ByokContext';
 import { loadAiPreferences, saveAiPreferences } from './aiPreferences';
 import { MODEL_CATALOG, MODEL_ID_PATTERN, requiresDataUseAck } from './modelCatalog';
@@ -40,6 +41,7 @@ function errorCodeFrom(value: unknown): string {
 
 export function AiSettingsDialog({ open, onClose }: { open: boolean; onClose?: () => void }) {
   const { t } = useI18n();
+  const { message, announce } = useStatusAnnouncement();
   const api = useApiClient();
   const { credentials, setCredentials, clearCredentials } = useByok();
   const dialogRef = useRef<HTMLDialogElement>(null);
@@ -76,6 +78,10 @@ export function AiSettingsDialog({ open, onClose }: { open: boolean; onClose?: (
     setValidationAttempted(false);
     setTestState({ kind: 'idle' });
   }, [open]);
+
+  useEffect(() => {
+    if (open && testState.kind === 'succeeded') announce(t('byokConnectionSuccess'));
+  }, [announce, open, t, testState.kind]);
 
   useEffect(() => {
     if (!open) return;
@@ -259,7 +265,8 @@ export function AiSettingsDialog({ open, onClose }: { open: boolean; onClose?: (
           <Button type="button" variant="secondary" disabled={pending || (!credentials && !apiKey)} onClick={removeKey}>{t('byokRemoveKey')}</Button>
         </div>
       </form>
-      {testState.kind === 'succeeded' && <p role="status">{t('byokConnectionSuccess')}</p>}
+      {testState.kind === 'succeeded' && <p className="byok-success">{t('byokConnectionSuccess')}</p>}
+      <div className="app-visually-hidden" role="status" aria-live="polite" aria-atomic="true">{message}</div>
       {testState.kind === 'failed' && (
         <div role="alert">
           <p>{t(testState.message)}</p>

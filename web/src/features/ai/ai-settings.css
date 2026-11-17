@@ -60,13 +60,12 @@
 }
 
 .byok-dialog > [role='alert'],
-.byok-dialog > [role='status'] {
+.byok-dialog > .byok-success {
   margin-top: 16px;
   line-height: 1.7;
 }
 
-.byok-dialog > [role='alert'] p,
-.byok-dialog > [role='status'] p {
+.byok-dialog > [role='alert'] p {
   margin: 0 0 8px;
 }
 

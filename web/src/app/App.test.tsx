@@ -7,6 +7,7 @@ import { AuthProvider } from './AuthContext';
 import { I18nProvider } from '../i18n/I18nProvider';
 import { EmptyState, ErrorState, FieldError, LoadingState } from '../components/Feedback';
 import { App } from './App';
+import { StatusAnnouncerProvider } from '../components/StatusAnnouncer';
 import { ApiProvider } from '../lib/api';
 import { observationFields } from '../api/notes';
 import { jsonResponse, testToken } from '../tests/authFixtures';
@@ -33,9 +34,9 @@ function ByokStateProbe() {
 
 function renderByokDialogUnderProvider(fetcher: unknown) {
   vi.stubGlobal('fetch', fetcher);
-  return render(<I18nProvider><ApiProvider config={{ apiBaseUrl: '' }}><ByokProvider>
+  return render(<StatusAnnouncerProvider><I18nProvider><ApiProvider config={{ apiBaseUrl: '' }}><ByokProvider>
     <AiSettingsDialog open /><ByokStateProbe />
-  </ByokProvider></ApiProvider></I18nProvider>);
+  </ByokProvider></ApiProvider></I18nProvider></StatusAnnouncerProvider>);
 }
 
 function AuthenticatedByokProbe() {
@@ -149,8 +150,8 @@ describe('application foundation', () => {
     expect(document.documentElement.dir).toBe('ltr');
   });
   it('provides accessible loading, empty, error and validation states', () => {
-    render(<I18nProvider><LoadingState /><EmptyState /><ErrorState /><FieldError id="field-error" /></I18nProvider>);
-    expect(screen.getAllByRole('status')).toHaveLength(2);
+    render(<StatusAnnouncerProvider><I18nProvider><LoadingState /><EmptyState /><ErrorState /><FieldError id="field-error" /></I18nProvider></StatusAnnouncerProvider>);
+    expect(screen.getAllByRole('status')).toHaveLength(1);
     expect(screen.getAllByRole('alert')).toHaveLength(2);
     expect(screen.getByText('No items yet')).toBeInTheDocument();
     expect(screen.getByText('This field is required.')).toHaveAttribute('id', 'field-error');

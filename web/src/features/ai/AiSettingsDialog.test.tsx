@@ -1,10 +1,11 @@
 import { useState } from 'react';
-import { render, screen, waitFor } from '@testing-library/react';
+import { render, screen, waitFor, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { describe, expect, it, vi } from 'vitest';
 import { ApiProvider } from '../../lib/api';
 import { I18nProvider } from '../../i18n/I18nProvider';
 import { messages } from '../../i18n/translations';
+import { StatusAnnouncerProvider } from '../../components/StatusAnnouncer';
 import { jsonResponse } from '../../tests/authFixtures';
 import { ByokProvider } from './ByokContext';
 import { clearAiPreferences, loadAiPreferences, saveAiPreferences } from './aiPreferences';
@@ -19,7 +20,7 @@ function DialogFixture() {
 }
 
 function renderDialog() {
-  return render(<I18nProvider><ApiProvider config={{ apiBaseUrl: '' }}><ByokProvider><DialogFixture /></ByokProvider></ApiProvider></I18nProvider>);
+  return render(<StatusAnnouncerProvider><I18nProvider><ApiProvider config={{ apiBaseUrl: '' }}><ByokProvider><DialogFixture /></ByokProvider></ApiProvider></I18nProvider></StatusAnnouncerProvider>);
 }
 
 async function openDialog(user: ReturnType<typeof userEvent.setup>) {
@@ -285,7 +286,7 @@ describe('AI preferences in dialog', () => {
     await user.type(screen.getByLabelText('API key'), 'test-key');
     await user.click(screen.getByRole('button', { name: 'Test connection' }));
 
-    expect(await screen.findByRole('status')).toHaveTextContent('Connection test succeeded');
+    await waitFor(() => expect(within(screen.getByRole('dialog')).getByRole('status')).toHaveTextContent('Connection test succeeded'));
     expect(screen.getByLabelText('API key')).toHaveValue('');
     expect(localStorage.getItem(storageKey)).toBe('{"providerId":"OPENAI","model":"gpt-6-luna"}');
     expect(JSON.stringify(localStorage)).not.toContain('test-key');
@@ -310,7 +311,7 @@ describe('AI preferences in dialog', () => {
       await user.click(screen.getByRole('checkbox', { name: /I understand that my care notes/ }));
       await user.click(screen.getByRole('button', { name: 'Test connection' }));
 
-      expect(await screen.findByRole('status')).toHaveTextContent('Connection test succeeded');
+      await waitFor(() => expect(within(screen.getByRole('dialog')).getByRole('status')).toHaveTextContent('Connection test succeeded'));
       expect(screen.getByLabelText('API key')).toHaveValue('');
     } finally {
       setItem.mockRestore();
@@ -341,7 +342,7 @@ describe('AI preferences in dialog', () => {
     await user.type(screen.getByLabelText('API key'), 'test-key');
     await user.click(screen.getByRole('checkbox', { name: /I understand that my care notes/ }));
     await user.click(screen.getByRole('button', { name: 'Test connection' }));
-    expect(await screen.findByRole('status')).toHaveTextContent('Connection test succeeded');
+    await waitFor(() => expect(within(screen.getByRole('dialog')).getByRole('status')).toHaveTextContent('Connection test succeeded'));
 
     await user.click(screen.getByRole('button', { name: 'Remove key' }));
     expect(screen.getByText('No verified credentials are active.')).toBeVisible();
