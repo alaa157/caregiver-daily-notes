@@ -108,7 +108,7 @@ class RtlUiTest {
         renderAuth(AuthMode.Login, "ar") { switched = true }
 
         assertEquals(LayoutDirection.Rtl, capturedDirection)
-        compose.onNodeWithText("تسجيل الدخول").assertIsDisplayed()
+        compose.onNodeWithText("مرحبًا بعودتك").assertIsDisplayed()
         compose.onNodeWithText("البريد الإلكتروني").assertIsDisplayed()
         compose.onNodeWithText("دخول").assertIsDisplayed()
     }
@@ -118,7 +118,7 @@ class RtlUiTest {
         renderAuth(AuthMode.Login, "en") {}
 
         assertEquals(LayoutDirection.Ltr, capturedDirection)
-        compose.onNodeWithText("Sign in").assertIsDisplayed()
+        compose.onNodeWithText("Welcome back").assertIsDisplayed()
         compose.onNodeWithText("Email").assertIsDisplayed()
     }
 

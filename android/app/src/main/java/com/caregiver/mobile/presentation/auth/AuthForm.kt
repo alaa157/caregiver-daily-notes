@@ -2,7 +2,6 @@ package com.caregiver.mobile.presentation.auth
 
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Arrangement
-import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
@@ -12,7 +11,6 @@ import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.imePadding
 import androidx.compose.foundation.layout.padding
-import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.text.KeyboardActions
@@ -21,7 +19,6 @@ import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.OutlinedTextFieldDefaults
 import androidx.compose.material3.Text
@@ -29,10 +26,10 @@ import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.semantics.contentDescription
+import androidx.compose.ui.semantics.heading
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.ImeAction
@@ -40,10 +37,12 @@ import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.text.input.PasswordVisualTransformation
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import com.caregiver.mobile.AppGraph
 import com.caregiver.mobile.BuildConfig
 import com.caregiver.mobile.R
 import com.caregiver.mobile.core.theme.CaregiverColors
 import com.caregiver.mobile.core.theme.PlexArabic
+import com.caregiver.mobile.data.SettingsStore
 import com.caregiver.mobile.presentation.common.AppBackButton
 import com.caregiver.mobile.presentation.common.AppDimens
 
@@ -52,10 +51,12 @@ import com.caregiver.mobile.presentation.common.AppDimens
  * bordered 52dp inputs, teal 56dp primary button, inline field errors.
  * Renders [AuthUiState] only — all decisions live in [AuthViewModel].
  *
- * HTML: logo 56x56 radius 16 teal, h1 28sp Bold, subtitle 15sp muted,
+ * HTML: logo 52x52 radius 16 teal, h1 28sp Bold, subtitle 15sp muted,
  * labels 14sp Bold, inputs 52dp border #C5CDD1 radius 12, CTA 56dp 17sp.
- * The auth heading (تسجيل الدخول / Sign in) is kept for the existing
- * navigation/tests; the hero carries the HTML board title.
+ * The hero carries the single heading (#866): "Welcome back" / "Create your
+ * account" with its matching subtitle. Callers that can supply [graph] get
+ * the working EN | عربي switch; headless previews/tests fall back to a
+ * static rendering of the same control.
  *
  * [onBack] adds the shared back control to the header. Register passes it
  * because it is reached from Login; Login is the root and leaves it null.
@@ -78,6 +79,9 @@ fun AuthForm(
     showSwitchMode: Boolean = true,
     showSwitchAccount: Boolean = false,
     onSwitchAccount: (() -> Unit)? = null,
+    // #871 wiring is done here in #866. Null keeps headless tests/previews
+    // rendering; the real auth screens pass the graph from CaregiverRoot.
+    graph: AppGraph? = null,
 ) {
     Column(
         modifier = modifier
@@ -87,9 +91,7 @@ fun AuthForm(
             .imePadding()
             .padding(horizontal = 16.dp),
     ) {
-        // Top language row — HTML secondary small 44dp button.
-        // Language switching lives in Settings; this mirrors the board
-        // affordance without hijacking the auth mode switch below.
+        // Top language row — the working EN | عربي switch from #871.
         Row(
             horizontalArrangement = Arrangement.spacedBy(AppDimens.GapForm),
             verticalAlignment = Alignment.CenterVertically,
@@ -100,39 +102,42 @@ fun AuthForm(
             if (onBack != null) {
                 AppBackButton(onBack = onBack)
             }
-            OutlinedButton(
-                onClick = {},
-                modifier = Modifier.heightIn(min = 48.dp).height(48.dp),
-                shape = RoundedCornerShape(AppDimens.ControlRadius),
-            ) {
-                Text("English", fontFamily = PlexArabic, fontWeight = FontWeight.Bold)
+            if (graph != null) {
+                AuthLanguageSwitch(graph = graph)
+            } else {
+                // Headless tests/previews have no graph; still render the
+                // same stateless control so the header layout is unchanged.
+                AuthLanguageSwitchRow(
+                    language = SettingsStore.DEFAULT_LANGUAGE,
+                    onSelect = {},
+                )
             }
         }
-        // Hero — HTML margin-top 40px, gap 10px.
+        // Hero — HTML margin-top 40px, gap 10px. One heading per screen (#866).
         Column(
             verticalArrangement = Arrangement.spacedBy(10.dp),
             modifier = Modifier
                 .fillMaxWidth()
                 .padding(top = 40.dp),
         ) {
-            Box(
-                contentAlignment = Alignment.Center,
-                modifier = Modifier
-                    .size(56.dp)
-                    .background(CaregiverColors.Primary, RoundedCornerShape(16.dp)),
-            ) {
-                Text("♥", fontSize = 28.sp, color = Color.White)
-            }
+            AuthLogo()
             Text(
-                text = stringResource(R.string.login_hero_title),
+                text = stringResource(
+                    if (mode == AuthMode.Login) R.string.auth_title_login
+                    else R.string.auth_title_register,
+                ),
                 fontFamily = PlexArabic,
                 fontWeight = FontWeight.Bold,
                 fontSize = 28.sp,
                 lineHeight = 34.sp,
                 color = CaregiverColors.Ink,
+                modifier = Modifier.semantics { heading() },
             )
             Text(
-                text = stringResource(R.string.login_hero_subtitle),
+                text = stringResource(
+                    if (mode == AuthMode.Login) R.string.auth_subtitle_login
+                    else R.string.auth_subtitle_register,
+                ),
                 fontFamily = PlexArabic,
                 fontSize = 15.sp,
                 color = CaregiverColors.Muted,
@@ -145,17 +150,6 @@ fun AuthForm(
                 .fillMaxWidth()
                 .padding(top = 24.dp, bottom = 24.dp),
         ) {
-            Text(
-                text = stringResource(
-                    if (mode == AuthMode.Login) R.string.auth_title_login
-                    else R.string.auth_title_register,
-                ),
-                fontFamily = PlexArabic,
-                fontWeight = FontWeight.Bold,
-                fontSize = 22.sp,
-                color = CaregiverColors.Ink,
-            )
-
             if (mode == AuthMode.Register && showDisplayName) {
                 LabeledField(
                     label = stringResource(R.string.auth_name),

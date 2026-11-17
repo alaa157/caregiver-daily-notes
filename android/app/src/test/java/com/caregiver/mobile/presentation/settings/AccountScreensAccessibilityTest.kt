@@ -153,7 +153,7 @@ class AccountScreensAccessibilityTest {
         }
 
         compose.onNodeWithContentDescription("Back").assertIsDisplayed()
-        compose.onNodeWithText("Create account").assertIsDisplayed()
+        compose.onNodeWithText("Create your account").assertIsDisplayed()
         compose.onNodeWithTag("auth_field_name").assertIsDisplayed()
         compose.onNodeWithTag("auth_field_email").assertIsDisplayed()
         compose.onNodeWithTag("auth_field_password").assertIsDisplayed()

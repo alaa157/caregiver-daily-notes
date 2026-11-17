@@ -73,10 +73,11 @@ private fun LocalLoginNavHost(
                 // #878: the destination is only registered when this flag is
                 // true, so hide the link in the same condition.
                 showServerSettings = includeServerUrl,
+                graph = graph,
             )
         }
         composable(AppDestinations.Register.base) {
-            RegisterScreen(graph.auth, navController, registerAccount)
+            RegisterScreen(graph.auth, navController, registerAccount, graph = graph)
         }
         if (includeServerUrl) {
             composable(AppDestinations.ServerUrl.base) {

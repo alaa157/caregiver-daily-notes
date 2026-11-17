@@ -104,7 +104,7 @@ class AccountScreensLocaleTest {
     fun englishSignInRegisterAndSwitchAreLtr() {
         render("en") { authForm(AuthMode.Login) }
         assertDirection("Ltr")
-        compose.onNodeWithText("Sign in").assertIsDisplayed()
+        compose.onNodeWithText("Welcome back").assertIsDisplayed()
         compose.onNodeWithText("Email").assertIsDisplayed()
         compose.onNodeWithText("Password").assertIsDisplayed()
         compose.onNodeWithText("Switch account").assertIsDisplayed()
@@ -114,7 +114,7 @@ class AccountScreensLocaleTest {
     fun englishRegisterWithNameIsLtr() {
         render("en") { authForm(AuthMode.Register, showName = true) }
         assertDirection("Ltr")
-        compose.onNodeWithText("Create account").assertIsDisplayed()
+        compose.onNodeWithText("Create your account").assertIsDisplayed()
         compose.onNodeWithText("Name").assertIsDisplayed()
         compose.onNodeWithText("Confirm password").assertIsDisplayed()
     }
@@ -257,7 +257,7 @@ class AccountScreensLocaleTest {
             )
         }
         assertDirection("Ltr")
-        compose.onNodeWithText("Create account").assertIsDisplayed()
+        compose.onNodeWithText("Create your account").assertIsDisplayed()
         compose.onNodeWithText("Name").assertIsDisplayed()
     }
 
