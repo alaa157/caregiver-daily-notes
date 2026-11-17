@@ -39,6 +39,36 @@ object LanguagePrefs {
     /** The mirrored language, or null when nothing was ever written. */
     fun read(): String? = prefs()?.getString(KEY, null)
 
+    /**
+     * The language to apply at cold start. This reads the synchronous mirror
+     * only: `CaregiverApp.attachBaseContext` runs before the Application's
+     * context is attached, so no DataStore/ContentResolver/file lookup is
+     * safe there. [default] covers a genuinely fresh install. Pure decision
+     * so it can be pinned without an Android runtime.
+     */
+    fun coldStartLanguage(default: String): String = read() ?: default
+
+    /**
+     * Reconciles the durable DataStore value with the cold-start mirror after
+     * the context is attached. A stored value wins; a missing stored value
+     * must never erase a mirrored choice (that was the original
+     * "language reverts to Arabic" bug). Pure decision for testability.
+     */
+    fun reconcile(stored: String?, mirrored: String?, default: String): String =
+        stored ?: mirrored ?: default
+
+    /**
+     * Single entry point for applying a language to the process mirrors.
+     * Both the post-attach cold-start restore and every UI switch
+     * (`SettingsStore.setLanguage`) go through here, so the cache the
+     * activities wrap with and the mirror the next cold start reads can
+     * never diverge. No Context is required: the host was captured at attach.
+     */
+    fun apply(language: String) {
+        write(language)
+        LocaleHelper.cache(language)
+    }
+
     private fun prefs(): SharedPreferences? =
         host?.getSharedPreferences(FILE, Context.MODE_PRIVATE)
 

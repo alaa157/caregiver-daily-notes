@@ -7,9 +7,8 @@ import androidx.datastore.preferences.core.booleanPreferencesKey
 import androidx.datastore.preferences.core.edit
 import androidx.datastore.preferences.core.emptyPreferences
 import androidx.datastore.preferences.core.stringPreferencesKey
-import androidx.datastore.preferences.preferencesDataStoreFile
 import com.caregiver.mobile.core.util.LanguagePrefs
-import com.caregiver.mobile.core.util.LocaleHelper
+import java.io.File
 import java.io.IOException
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.catch
@@ -39,6 +38,14 @@ class SettingsStore(private val dataStore: DataStore<Preferences>) {
     val token: Flow<String?> = safeData.map { it[TOKEN] }
     val email: Flow<String?> = safeData.map { it[EMAIL] }
     val language: Flow<String> = safeData.map { it[LANGUAGE] ?: DEFAULT_LANGUAGE }
+
+    /**
+     * The stored language without the default applied, or null when nothing
+     * was ever saved. The post-attach cold-start restore uses this so a
+     * missing stored value cannot overwrite the synchronous mirror with the
+     * default (the original "language reverts to Arabic" bug).
+     */
+    val storedLanguage: Flow<String?> = safeData.map { it[LANGUAGE] }
     val themeMode: Flow<String> = safeData.map { it[THEME_MODE] ?: DEFAULT_THEME_MODE }
     val pureBlack: Flow<Boolean> = safeData.map { it[PURE_BLACK] ?: false }
     val colorPalette: Flow<String> = safeData.map { it[COLOR_PALETTE] ?: DEFAULT_COLOR_PALETTE }
@@ -70,13 +77,10 @@ class SettingsStore(private val dataStore: DataStore<Preferences>) {
 
     suspend fun setLanguage(code: String) {
         dataStore.edit { it[LANGUAGE] = code }
-        // Mirror the choice into the process cache the activities wrap their
-        // base context with, and into the synchronous SharedPreferences
-        // mirror LanguagePrefs.read() serves `attachBaseContext` at cold
-        // start. The DataStore value stays the source of truth; the mirrors
-        // only make the choice survive the process with no interpreted read.
-        LocaleHelper.cache(code)
-        LanguagePrefs.write(code)
+        // Apply through the one shared entry point so the cache activities
+        // wrap with and the mirror the cold start reads can never diverge.
+        // The DataStore value stays the durable source of truth.
+        LanguagePrefs.apply(code)
     }
 
     suspend fun setThemeMode(mode: String) {
@@ -115,6 +119,13 @@ class SettingsStore(private val dataStore: DataStore<Preferences>) {
         private val ONBOARDING_COMPLETED = booleanPreferencesKey("onboarding_completed")
 
         fun create(context: Context, name: String = "settings"): SettingsStore =
-            SettingsStoreRegistry.getOrCreate(name) { context.preferencesDataStoreFile(name) }
+            SettingsStoreRegistry.getOrCreate(name) {
+                // Resolve the file from the passed Context's own filesDir,
+                // never through `applicationContext` (which preferences-
+                // DataStoreFile uses and which is null before attachBaseContext
+                // calls super — the #879 cold-start NPE). Any base or
+                // application context resolves to the same filesDir here.
+                File(context.filesDir, "datastore/$name.preferences_pb")
+            }
     }
 }

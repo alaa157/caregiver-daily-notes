@@ -98,4 +98,26 @@ class LanguagePrefsTest {
 
         assertEquals("ar", LanguagePrefs.read())
     }
+
+    @Test
+    fun coldStartLanguageReadsOnlyTheMirrorAndNeedsNoHost() {
+        LanguagePrefs.resetForTest()
+        // No host attached: cold start must fall back to the default without
+        // touching DataStore (which would NPE on a null application context).
+        assertEquals(SettingsStore.DEFAULT_LANGUAGE, LanguagePrefs.coldStartLanguage("ar"))
+
+        LanguagePrefs.attachHost(context)
+        LanguagePrefs.write("en")
+        assertEquals("en", LanguagePrefs.coldStartLanguage("ar"))
+    }
+
+    @Test
+    fun reconcileNeverLetsAMissingStoredValueEraseTheMirror() {
+        // A stored choice wins over the cold-start mirror.
+        assertEquals("en", LanguagePrefs.reconcile("en", "ar", "ar"))
+        // DataStore unset (e.g. first launch after an upgrade): keep "en".
+        assertEquals("en", LanguagePrefs.reconcile(null, "en", "ar"))
+        // Nothing anywhere: use the default.
+        assertEquals("ar", LanguagePrefs.reconcile(null, null, "ar"))
+    }
 }
