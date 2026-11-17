@@ -116,6 +116,12 @@
     <string name="editor_progress_done">%1$d of 7 done</string>
     <string name="editor_close">Close editor</string>
     <string name="editor_mood">Mood</string>
+    <!-- #902: headline mood tiles (wire codes happy/calm/sad) and the
+         disclosure that keeps anxious/agitated/confused writable. -->
+    <string name="editor_mood_tile_good">Good</string>
+    <string name="editor_mood_tile_okay">Okay</string>
+    <string name="editor_mood_tile_low">Low</string>
+    <string name="editor_more_moods">More moods</string>
     <string name="editor_appetite">Appetite</string>
     <string name="editor_sleep">Sleep</string>
     <string name="editor_mobility">Mobility</string>

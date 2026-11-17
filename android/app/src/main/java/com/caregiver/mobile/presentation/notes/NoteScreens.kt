@@ -284,15 +284,13 @@ fun NoteEditorScreen(recipientId: String, graph: AppGraph, navController: NavCon
             // The seven existing groups, one SectionCard each, in one column.
             SectionCard {
                 GroupLabel(OptionGroup.Mood)
-                ChipWrap {
-                    NoteOptions.values(OptionGroup.Mood).forEach { value ->
-                        HtmlChip(
-                            label = optionLabel(OptionGroup.Mood, value),
-                            selected = state.mood == value,
-                            onClick = { vm.select(OptionGroup.Mood, value) },
-                        )
-                    }
-                }
+                // #902: three headline tiles plus a disclosure for the
+                // clinically meaningful values. All six wire codes stay
+                // writable; the editor's toggling select clears on re-tap.
+                MoodTiles(
+                    selected = state.mood,
+                    onSelect = { value -> vm.select(OptionGroup.Mood, value) },
+                )
             }
             SectionCard {
                 GroupLabel(OptionGroup.Appetite)
