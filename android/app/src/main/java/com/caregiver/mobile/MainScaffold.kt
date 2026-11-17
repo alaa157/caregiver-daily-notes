@@ -181,10 +181,13 @@ fun MainScaffold(graph: AppGraph) {
     // outside or choosing an item. (Replaces the old left drawer.)
     var showAccountMenu by remember { mutableStateOf(false) }
 
-    // Session identity: the same email→name derivation the Home greeting
-    // uses, so the bar, drawer and greeting agree; "?" while it loads.
+    // Session identity: the stored local account name wins, with the
+    // email-derived name only as the server/demo fallback. The same resolver
+    // feeds the Home greeting, so bar, menu and greeting agree; "?" while it
+    // loads (#706).
     val email by graph.settings.email.collectAsState(initial = null)
-    val displayName = HomeViewModel.displayName(email)
+    val storedDisplayName by graph.activeAccountDisplayName.collectAsState(initial = null)
+    val displayName = HomeViewModel.resolvedDisplayName(storedDisplayName, email)
     val avatarLetter = displayName?.take(1)?.uppercase() ?: "?"
 
     // Shared recipients source: the exact activity-scoped "people-shared"

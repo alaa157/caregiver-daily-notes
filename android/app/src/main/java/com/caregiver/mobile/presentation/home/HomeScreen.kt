@@ -81,9 +81,17 @@ import com.caregiver.mobile.presentation.notes.optionLabel
 @Composable
 fun HomeScreen(graph: AppGraph, navController: NavController) {
     val vm: HomeViewModel = assistedViewModel("home") {
-        HomeViewModel(graph.auth, graph.settings)
+        HomeViewModel(
+            graph.auth,
+            graph.settings,
+            activeDisplayName = graph.activeAccountDisplayName,
+        )
     }
     val state by vm.state.collectAsStateWithLifecycle()
+    // A swap does not recreate the "home" ViewModel, so follow the stored name
+    // here as well: the greeting must change immediately on registration and
+    // account switches, not only on the next reload (#706).
+    val storedName by graph.activeAccountDisplayName.collectAsState(initial = null)
     // Medication card over local tables; null (and hidden) in graphs with no
     // local database, the same self-disabling the backup service uses.
     val medicationsVm = graph.medications?.let { store ->
@@ -96,7 +104,9 @@ fun HomeScreen(graph: AppGraph, navController: NavController) {
             onRetry = vm::refresh,
         )
         is HomeState.Content -> HomeTimeline(
-            content = s.content,
+            content = storedName?.takeIf { it.isNotBlank() }?.let { name ->
+                s.content.copy(greeting = s.content.greeting.copy(name = name))
+            } ?: s.content,
             refreshing = s.refreshing,
             onRefresh = vm::refresh,
             navController = navController,

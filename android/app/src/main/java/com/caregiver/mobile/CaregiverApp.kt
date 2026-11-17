@@ -61,9 +61,12 @@ import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.cancel
+import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.first
+import kotlinx.coroutines.flow.flowOf
+import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.runBlocking
 import retrofit2.HttpException
 import retrofit2.Response
@@ -337,6 +340,16 @@ class AppGraph(
      * have no manager, so their register path stays unchanged.
      */
     val accountManager: AccountManager? get() = localAccountManager
+
+    /**
+     * The active local account's persisted display name (#706). Re-emits on
+     * sign-up and account swaps via [AccountManager.activeAccount], so the
+     * bar/menu/greeting update without a restart. Null in server/demo graphs
+     * (no local account), where callers fall back to the email-derived name.
+     */
+    val activeAccountDisplayName: Flow<String?> by lazy {
+        accountManager?.activeAccount?.map { it?.displayName } ?: flowOf(null)
+    }
 
     /** Local sign-in/up keep the active-id flow in sync with the session store. */
     private val localAccountManager: AccountManager? by lazy {
