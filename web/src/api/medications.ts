@@ -119,6 +119,12 @@ export function validateMedication(input: MedicationInput): MedicationFieldError
   return errors;
 }
 
+function idempotencyHeaders(key?: string): HeadersInit | undefined {
+  if (key === undefined) return undefined;
+  if (!key || key.length > 100 || !/^[\w-]+$/.test(key)) throw new Error('Invalid save key.');
+  return { 'Idempotency-Key': key };
+}
+
 export function medicationErrorMessage(error: unknown): MessageKey {
   if (error instanceof ApiError) {
     if (error.status === 400 || error.status === 422) return 'medicationValidationError';
@@ -171,13 +177,14 @@ export function createMedicationsApi(client: ApiClient) {
       return response.map((item) => readIntakeEvent(item, recipientId, medicationId));
     },
     async createIntakeEvent(recipientId: string, medicationId: string,
-      input: CreateIntakeEventInput, signal?: AbortSignal): Promise<IntakeEvent> {
+      input: CreateIntakeEventInput, key?: string, signal?: AbortSignal): Promise<IntakeEvent> {
       if (!intakeStates.includes(input.intakeState) || !verificationStates.includes(input.verificationState)
         || !isTimestamp(input.occurredAt)) throw new ApiError(400, null);
       const body: CreateIntakeEventInput = {
         intakeState: input.intakeState, occurredAt: input.occurredAt, verificationState: input.verificationState };
       return readIntakeEvent(await client.request<unknown>({
-        path: `${medicationPath(recipientId, medicationId)}/intake-events`, method: 'POST', signal, body }),
+        path: `${medicationPath(recipientId, medicationId)}/intake-events`, method: 'POST', signal,
+        headers: idempotencyHeaders(key), body }),
         recipientId, medicationId);
     },
   };

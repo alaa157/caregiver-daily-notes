@@ -225,6 +225,7 @@ export function MedicationListPanel({ recipientId, canEdit }: { recipientId: str
 type IntakeHistoryState = { status: 'loading' }
   | { status: 'error'; error: unknown }
   | { status: 'ready'; data: IntakeEvent[] };
+type IntakeAttempt = { key: string; input: CreateIntakeEventInput };
 
 const intakeLabel: Record<IntakeState, MessageKey> = {
   TAKEN: 'medicationIntakeTaken', MISSED: 'medicationIntakeMissed', UNSURE: 'medicationIntakeUnsure',
@@ -248,6 +249,7 @@ function IntakeHistory({ recipientId, medication, canRecord }: {
   const [formError, setFormError] = useState<MessageKey | null>(null);
   const [notice, setNotice] = useState<MessageKey | null>(null);
   const mutation = useRef<AbortController | null>(null);
+  const attempt = useRef<IntakeAttempt | null>(null);
 
   useEffect(() => {
     const controller = new AbortController();
@@ -260,6 +262,7 @@ function IntakeHistory({ recipientId, medication, canRecord }: {
   }, [api, recipientId, medication.id, revision]);
 
   useEffect(() => {
+    attempt.current = null;
     setIntakeState(''); setVerificationState(''); setFormError(null); setNotice(null); setSaving(false);
   }, [recipientId, medication.id]);
 
@@ -271,19 +274,29 @@ function IntakeHistory({ recipientId, medication, canRecord }: {
       setFormError('medicationIntakeInvalid');
       return;
     }
-    const input: CreateIntakeEventInput = {
-      intakeState: intakeState as IntakeState,
-      occurredAt: new Date().toISOString(),
-      verificationState: verificationState as VerificationState,
-    };
+    // Generate one key per submission. A retry after a lost response reuses it
+    // so the server replays the original event instead of recording a second dose.
+    if (!attempt.current) {
+      const bytes = crypto.getRandomValues(new Uint8Array(16));
+      attempt.current = {
+        key: Array.from(bytes, (byte) => byte.toString(16).padStart(2, '0')).join(''),
+        input: {
+          intakeState: intakeState as IntakeState,
+          occurredAt: new Date().toISOString(),
+          verificationState: verificationState as VerificationState,
+        },
+      };
+    }
+    const pending = attempt.current;
     const controller = new AbortController();
     mutation.current = controller;
     setSaving(true);
     setFormError(null);
     setNotice(null);
     try {
-      await api.createIntakeEvent(recipientId, medication.id, input, controller.signal);
+      await api.createIntakeEvent(recipientId, medication.id, pending.input, pending.key, controller.signal);
       if (controller.signal.aborted) return;
+      attempt.current = null;
       setIntakeState('');
       setVerificationState('');
       setNotice('medicationIntakeRecorded');
@@ -323,7 +336,7 @@ function IntakeHistory({ recipientId, medication, canRecord }: {
       <div className="recipient-field">
         <label htmlFor={intakeId}>{t('medicationIntakeState')}</label>
         <select id={intakeId} name="intakeState" required disabled={saving} value={intakeState}
-          onChange={(event) => { setIntakeState(event.target.value as '' | IntakeState); setFormError(null); }}>
+          onChange={(event) => { attempt.current = null; setIntakeState(event.target.value as '' | IntakeState); setFormError(null); }}>
           <option value="">{t('medicationIntakeSelect')}</option>
           {intakeStates.map((value) => <option key={value} value={value}>{t(intakeLabel[value])}</option>)}
         </select>
@@ -331,7 +344,7 @@ function IntakeHistory({ recipientId, medication, canRecord }: {
       <div className="recipient-field">
         <label htmlFor={verificationId}>{t('medicationVerificationState')}</label>
         <select id={verificationId} name="verificationState" required disabled={saving} value={verificationState}
-          onChange={(event) => { setVerificationState(event.target.value as '' | VerificationState); setFormError(null); }}>
+          onChange={(event) => { attempt.current = null; setVerificationState(event.target.value as '' | VerificationState); setFormError(null); }}>
           <option value="">{t('medicationIntakeSelect')}</option>
           {verificationStates.map((value) => <option key={value} value={value}>{t(verificationLabel[value])}</option>)}
         </select>

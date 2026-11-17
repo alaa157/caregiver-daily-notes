@@ -17,6 +17,7 @@ import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestBody;
+import org.springframework.web.bind.annotation.RequestHeader;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.ResponseStatus;
 import org.springframework.web.bind.annotation.RestController;
@@ -35,12 +36,14 @@ public class MedicationIntakeController {
 
   @PostMapping
   @ResponseStatus(HttpStatus.CREATED)
-  @Operation(summary = "Record an explicit intake event for an owned medication")
+  @Operation(summary = "Record an explicit intake event for an owned medication; "
+      + "an optional Idempotency-Key makes retries safe")
   public MedicationIntakeResponse create(
       @PathVariable UUID recipientId,
       @PathVariable UUID medicationId,
-      @Valid @RequestBody MedicationIntakeRequest request) {
-    return service.create(recipientId, medicationId, request);
+      @Valid @RequestBody MedicationIntakeRequest request,
+      @RequestHeader(value = "Idempotency-Key", required = false) String key) {
+    return service.create(recipientId, medicationId, request, key);
   }
 
   @GetMapping
