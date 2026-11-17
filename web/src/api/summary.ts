@@ -11,9 +11,12 @@ export interface ByokSummaryRequest { summary: SummaryRequest; credentials: Byok
 export interface SummaryObservation { text: string; noteId: string; quote: string }
 export interface SummaryUncertainty { topic: string; detail: string }
 export type SummaryUnavailableReason = 'INVALID_KEY' | 'INVALID_MODEL' | 'RATE_LIMIT' | 'TIMEOUT' | 'PROVIDER_UNAVAILABLE' | 'INVALID_OUTPUT';
+export type SummaryDroppedReason = 'UNVERIFIED_QUOTE';
 export interface SummaryContent {
   observations: SummaryObservation[]; uncertainties: SummaryUncertainty[]; aiUnavailable: boolean;
   unavailableReason?: SummaryUnavailableReason;
+  droppedObservationCount?: number;
+  droppedReason?: SummaryDroppedReason;
 }
 export interface SafetySignal { ruleId: string | null; severity: string | null; reason: string | null }
 export interface SummarySafety { signals: SafetySignal[]; needsDoctorBanner: boolean; incomplete: boolean }
@@ -65,11 +68,16 @@ export function readSummaryResponse(value: unknown): SummaryResponse {
       return { text: observation.text, noteId: observation.noteId, quote: observation.quote };
     });
     const unavailableReason = raw.unavailableReason;
+    const droppedCount = raw.droppedObservationCount;
+    const droppedReason = raw.droppedReason;
     summary = {
       observations,
       uncertainties,
       aiUnavailable: raw.aiUnavailable,
       ...(isSummaryUnavailableReason(unavailableReason) ? { unavailableReason } : {}),
+      ...(Number.isSafeInteger(droppedCount) && (droppedCount as number) >= 0
+        ? { droppedObservationCount: droppedCount as number } : {}),
+      ...(droppedReason === 'UNVERIFIED_QUOTE' ? { droppedReason } : {}),
     };
   } catch { invalidContent = true; }
   try {

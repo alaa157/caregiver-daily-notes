@@ -96,6 +96,11 @@ export function SummaryResult({ view }: { view: SummaryView }) {
       periodEndInclusive={request.periodEndInclusive} periodDays={request.periodDays} />
     {response.invalidContent && <p className="summary-notice" role="alert">{t('summaryInvalidContent')}</p>}
     {response.summary?.aiUnavailable && !view.failed && <p className="summary-notice" role="status">{t('summaryFallback')}{unavailableReasonKey ? ` ${t(unavailableReasonKey)}` : null}</p>}
+    {response.summary?.droppedObservationCount
+      ? <p className="summary-notice" role="status">
+        {t('summaryDroppedObservations').replace('{count}', format(response.summary.droppedObservationCount))}
+      </p>
+      : null}
     {canPresentAiSuccess && <section className="summary-surface summary-ai" aria-labelledby="summary-observations-heading">
       <div className="summary-ai-heading">
         <h3 id="summary-observations-heading">{t('summaryObservations')}</h3>

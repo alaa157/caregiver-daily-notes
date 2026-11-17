@@ -20,7 +20,11 @@ public record GroundedSummary(
             "PROVIDER_UNAVAILABLE", "INVALID_OUTPUT"
         })
     @JsonInclude(JsonInclude.Include.NON_NULL)
-    String unavailableReason) {
+    String unavailableReason,
+    /** Observations dropped because their quote could not be verified. */
+    int droppedObservationCount,
+    @JsonInclude(JsonInclude.Include.NON_NULL)
+    String droppedReason) {
 
   public GroundedSummary {
     observations = observations == null ? List.of() : List.copyOf(observations);
@@ -29,6 +33,12 @@ public record GroundedSummary(
 
   public GroundedSummary(
       List<SummaryObservation> observations, List<SummaryUncertainty> uncertainties, boolean aiUnavailable) {
-    this(observations, uncertainties, aiUnavailable, null);
+    this(observations, uncertainties, aiUnavailable, null, 0, null);
+  }
+
+  public GroundedSummary(
+      List<SummaryObservation> observations, List<SummaryUncertainty> uncertainties, boolean aiUnavailable,
+      String unavailableReason) {
+    this(observations, uncertainties, aiUnavailable, unavailableReason, 0, null);
   }
 }

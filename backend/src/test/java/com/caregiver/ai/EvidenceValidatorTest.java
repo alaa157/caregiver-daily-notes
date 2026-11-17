@@ -67,6 +67,49 @@ class EvidenceValidatorTest {
   }
 
   @Test
+  void partialFailureKeepsVerifiedObservationsAndReportsTheDroppedOne() {
+    var good = new SummaryObservation("ate well", "n1", "ate well");
+    var bad = new SummaryObservation("slept", "n1", "slept ten hours");
+    var mixed = summary(good, bad);
+
+    var result = EvidenceValidator.validatePartial(mixed, Map.of("n1", "she ate well today"));
+
+    assertThat(result.accepted()).containsExactly(good);
+    assertThat(result.rejected()).hasSize(1);
+    assertThat(result.rejected().getFirst().index()).isEqualTo(1);
+    assertThat(result.rejected().getFirst().detail()).contains("quote not found");
+    assertThat(result.reason()).isEqualTo(EvidenceValidation.REASON_UNVERIFIED_QUOTE);
+  }
+
+  @Test
+  void partialFailureDropsEveryUnverifiableObservation() {
+    var bad = summary(new SummaryObservation("ate well", "n9", "ate well"),
+        new SummaryObservation("slept", "n1", "slept ten hours"));
+
+    var result = EvidenceValidator.validatePartial(bad, Map.of("n1", "she ate well today"));
+
+    assertThat(result.accepted()).isEmpty();
+    assertThat(result.rejected()).extracting(EvidenceValidation.Rejected::index).containsExactly(0, 1);
+  }
+
+  @Test
+  void partialValidationStillRejectsNullInputs() {
+    assertThatThrownBy(() -> EvidenceValidator.validatePartial(null, Map.of("n1", "x")))
+        .isInstanceOf(IllegalArgumentException.class);
+    assertThatThrownBy(() -> EvidenceValidator.validatePartial(summary(), null))
+        .isInstanceOf(IllegalArgumentException.class);
+  }
+
+  @Test
+  void allOrNothingValidateStillThrowsOnFirstViolation() {
+    var mixed = summary(new SummaryObservation("ate well", "n1", "ate well"),
+        new SummaryObservation("slept", "n1", "slept ten hours"));
+
+    assertThatThrownBy(() -> EvidenceValidator.validate(mixed, Map.of("n1", "she ate well today")))
+        .isInstanceOf(InvalidModelOutputException.class);
+  }
+
+  @Test
   void nullSummaryOrMap_rejected() {
     assertThatThrownBy(() -> EvidenceValidator.validate(null, Map.of("n1", "x")))
         .isInstanceOf(IllegalArgumentException.class);

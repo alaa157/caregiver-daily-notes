@@ -396,6 +396,18 @@ describe('on-demand summary and safety workflow', () => {
     expect(screen.queryByText('Model-generated text')).not.toBeInTheDocument();
     expect(fetcher.mock.calls.some(([path]) => path === '/api/summaries')).toBe(false);
   });
+  it('shows a localized notice when observations were dropped for failed grounding', async () => {
+    const fixture = summaryFixture();
+    show(dataFetcher((path) => path === byokSummaryPath ? jsonResponse({
+      ...fixture,
+      summary: { ...fixture.summary, droppedObservationCount: 2, droppedReason: 'UNVERIFIED_QUOTE' },
+    }) : undefined));
+    await generate();
+
+    expect(await screen.findByText('2 observations removed (could not be verified).')).toBeVisible();
+    expect(screen.getByRole('region', { name: 'Summary observations' })).toBeVisible();
+  });
+
   it('labels successful AI content as generated', async () => {
     show(dataFetcher()); await generate();
     const aiSection = screen.getByRole('region', { name: 'Summary observations' });
