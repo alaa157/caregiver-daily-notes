@@ -75,8 +75,12 @@ public class PlanService {
   @Transactional(readOnly = true)
   public List<PlanResponse> history(UUID recipientId) {
     CareRecipient recipient = ownedRecipient(recipientId);
+    CarePlan current = currentAccepted(recipient.getId());
+    UUID currentId = current == null ? null : current.getId();
     return plans.findAllByRecipient_IdOrderByVersionNumberDesc(recipient.getId()).stream()
-        .map(this::response).toList();
+        .map(plan -> PlanResponse.from(plan, documents.read(plan),
+            plan.getStatus() == PlanStatus.SUGGESTED && !Objects.equals(plan.getSourcePlanId(), currentId)))
+        .toList();
   }
 
   @Transactional

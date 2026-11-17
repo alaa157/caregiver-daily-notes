@@ -349,6 +349,32 @@ class PlanControllerTest {
   }
 
   @Test
+  void historyFlagsSuggestionsBuiltOnASupersededBaselineAsOutdated() throws Exception {
+    TestCaregiver owner = register("plan-outdated-flag@example.com");
+    String recipientId = createRecipient(owner.token());
+    saveAcceptedBaseline(recipientId, 1, planDocument(List.of()));
+    JsonNode staleDraft = submitStructured(owner.token(), recipientId, planDocument(List.of()));
+    JsonNode acceptedDraft = submitStructured(owner.token(), recipientId, planDocument(List.of()));
+
+    mvc.perform(post(path(recipientId, acceptedDraft.get("id").asText(), "accept"))
+            .header("Authorization", bearer(owner.token())))
+        .andExpect(status().isOk());
+    JsonNode freshDraft = submitStructured(owner.token(), recipientId, planDocument(List.of()));
+
+    JsonNode history = mapper.readTree(mvc.perform(get(PLANS + recipientId + "/plans/history")
+            .header("Authorization", bearer(owner.token())))
+        .andExpect(status().isOk())
+        .andReturn().getResponse().getContentAsByteArray());
+    Map<String, JsonNode> byId = new java.util.HashMap<>();
+    for (JsonNode node : history) byId.put(node.get("id").asText(), node);
+
+    assertThat(byId.get(staleDraft.get("id").asText()).get("outdated").asBoolean()).isTrue();
+    assertThat(byId.get(staleDraft.get("id").asText()).get("status").asText()).isEqualTo("SUGGESTED");
+    assertThat(byId.get(acceptedDraft.get("id").asText()).get("outdated").asBoolean()).isFalse();
+    assertThat(byId.get(freshDraft.get("id").asText()).get("outdated").asBoolean()).isFalse();
+  }
+
+  @Test
   void structuredDraftMedicationHardLockRejectsChangesBeforePersistence() throws Exception {
     TestCaregiver owner = register("plan-medication-hard-lock@example.com");
     MedicationEntry first = new MedicationEntry("Medication A", "10 mg", "daily");
