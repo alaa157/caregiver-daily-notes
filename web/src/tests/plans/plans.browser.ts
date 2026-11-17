@@ -61,11 +61,11 @@ for (const language of ['en', 'ar'] as const) {
   const labels = {
     title: ar ? 'خطط الرعاية' : 'Care plans', active: ar ? 'الخطة المقبولة النشطة' : 'Active accepted plan',
     suggested: ar ? 'الخطط المقترحة' : 'Suggested plans', history: ar ? 'سجل الخطط' : 'Plan history',
-    accept: ar ? 'قبول الاقتراح' : 'Accept suggestion', dismiss: ar ? 'رفض الاقتراح' : 'Dismiss suggestion',
-    confirmAccept: ar ? 'تأكيد القبول' : 'Confirm acceptance', confirmDismiss: ar ? 'تأكيد الرفض' : 'Confirm dismissal',
+    accept: ar ? 'قبول الاقتراح' : 'Accept suggestion', dismiss: ar ? 'استبعاد الاقتراح' : 'Dismiss suggestion',
+    confirmAccept: ar ? 'تأكيد القبول' : 'Confirm acceptance', confirmDismiss: ar ? 'تأكيد الاستبعاد' : 'Confirm dismissal',
     cancel: ar ? 'إلغاء' : 'Cancel', edit: ar ? 'التعديل والقبول' : 'Edit and accept',
     reload: ar ? 'إعادة تحميل الخطط المحفوظة' : 'Reload saved plans', retry: ar ? 'إعادة المحاولة' : 'Retry',
-    accepted: ar ? 'قبل الخادم الاقتراح.' : 'The server accepted the suggestion.', dismissed: ar ? 'رفض الخادم الاقتراح.' : 'The server dismissed the suggestion.',
+    accepted: ar ? 'تم قبول الاقتراح.' : 'Suggestion accepted.', dismissed: ar ? 'تم استبعاد الاقتراح.' : 'Suggestion dismissed.',
     empty: ar ? 'لا توجد خطة مقبولة بعد' : 'No accepted plan yet',
   };
   test.describe(`care plans ${language}`, () => {

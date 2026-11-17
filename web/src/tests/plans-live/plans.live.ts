@@ -32,7 +32,7 @@ for (const language of ['en', 'ar'] as const) {
       generate: ar ? 'طلب اقتراح خطة' : 'Request plan suggestion', edit: ar ? 'التعديل والقبول' : 'Edit and accept',
       review: ar ? 'مراجعة التغييرات' : 'Review changes', confirmEdit: ar ? 'تأكيد التعديل والقبول' : 'Confirm edit and acceptance',
       accept: ar ? 'قبول الاقتراح' : 'Accept suggestion', confirmAccept: ar ? 'تأكيد القبول' : 'Confirm acceptance',
-      dismiss: ar ? 'رفض الاقتراح' : 'Dismiss suggestion', confirmDismiss: ar ? 'تأكيد الرفض' : 'Confirm dismissal',
+      dismiss: ar ? 'استبعاد الاقتراح' : 'Dismiss suggestion', confirmDismiss: ar ? 'تأكيد الاستبعاد' : 'Confirm dismissal',
       reload: ar ? 'إعادة تحميل الخطط المحفوظة' : 'Reload saved plans',
     };
     async function generate() {
