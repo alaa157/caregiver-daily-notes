@@ -33,7 +33,15 @@ data class HomeCard(
 
 data class SafetyFlag(val recipientName: String, val date: String)
 
-data class Greeting(val morning: Boolean, val name: String?)
+/** Time-of-day variant for the Home heading (issue #895). */
+enum class GreetingPeriod { MORNING, AFTERNOON, EVENING }
+
+/**
+ * The greeting header's content. [date] is the app's calendar today, carried
+ * from the injected clock so the header never reads a different day than the
+ * dashboard query does.
+ */
+data class Greeting(val period: GreetingPeriod, val name: String?, val date: LocalDate)
 
 data class HomeContent(
     val greeting: Greeting,
@@ -161,8 +169,9 @@ class HomeViewModel(
             _state.value = HomeState.Content(
                 HomeContent(
                     greeting = Greeting(
-                        morning = LocalTime.now(clock).hour < NOON_HOUR,
+                        period = periodFor(LocalTime.now(clock).hour),
                         name = resolvedDisplayName(activeDisplayName.first(), email),
+                        date = LocalDate.now(clock),
                     ),
                     done = done,
                     total = active.size,
@@ -192,6 +201,14 @@ class HomeViewModel(
     companion object {
         const val HIGH_PAIN_THRESHOLD = 7
         const val NOON_HOUR = 12
+        const val EVENING_HOUR = 17
+
+        /** Morning before noon, afternoon until 17:00, evening after that. */
+        fun periodFor(hour: Int): GreetingPeriod = when {
+            hour < NOON_HOUR -> GreetingPeriod.MORNING
+            hour < EVENING_HOUR -> GreetingPeriod.AFTERNOON
+            else -> GreetingPeriod.EVENING
+        }
 
         /** Dashboard window in days, inclusive of today. */
         const val HOME_WINDOW_DAYS = 7L

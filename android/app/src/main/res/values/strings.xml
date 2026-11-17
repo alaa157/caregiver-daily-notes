@@ -31,9 +31,9 @@
     <string name="auth_error_generic">Something went wrong. Please try again.</string>
     <string name="auth_error_unreachable">Could not reach the server</string>
     <string name="home_greeting_morning">Good morning, %1$s</string>
-    <string name="home_greeting_morning_plain">Good morning</string>
+    <string name="home_greeting_afternoon">Good afternoon, %1$s</string>
     <string name="home_greeting_evening">Good evening, %1$s</string>
-    <string name="home_greeting_evening_plain">Good evening</string>
+    <string name="home_greeting_welcome">Welcome</string>
     <string name="home_today_progress">%1$d / %2$d done</string>
     <string name="home_safety_title">Care alert</string>
     <string name="home_safety_fall">Reported fall — %1$s</string>
@@ -378,6 +378,7 @@
     <string name="sync_status_syncing">Syncing</string>
     <string name="sync_status_offline">Offline</string>
     <string name="sync_status_failed">Sync failed — tap to retry</string>
+    <string name="sync_status_local_only">All data is stored on this device — no cloud sync</string>
     <!-- Task 5: Home timeline sub-tabs and per-tab empty states. -->
     <string name="home_tab_today">Today</string>
     <string name="home_tab_attention">Needs attention</string>

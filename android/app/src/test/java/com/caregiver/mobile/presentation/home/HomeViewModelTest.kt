@@ -51,6 +51,7 @@ class HomeViewModelTest {
     private val today = LocalDate.of(2026, 10, 8)
     private val weekStart = "2026-10-02"
     private val morning = Clock.fixed(Instant.parse("2026-10-08T08:00:00Z"), ZoneOffset.UTC)
+    private val afternoon = Clock.fixed(Instant.parse("2026-10-08T14:00:00Z"), ZoneOffset.UTC)
     private val evening = Clock.fixed(Instant.parse("2026-10-08T20:00:00Z"), ZoneOffset.UTC)
 
     @Before
@@ -102,7 +103,7 @@ class HomeViewModelTest {
 
         val c = content(vm(scope = this))
 
-        assertEquals(Greeting(morning = true, name = "Ahmed"), c.greeting)
+        assertEquals(Greeting(GreetingPeriod.MORNING, "Ahmed", today), c.greeting)
     }
 
     @Test
@@ -119,7 +120,7 @@ class HomeViewModelTest {
             ),
         )
 
-        assertEquals(Greeting(morning = true, name = "أم أحمد"), c.greeting)
+        assertEquals(Greeting(GreetingPeriod.MORNING, "أم أحمد", today), c.greeting)
     }
 
     @Test
@@ -135,12 +136,31 @@ class HomeViewModelTest {
     }
 
     @Test
+    fun afternoonGreeting() = runTest {
+        settings.setEmail("mona@example.com")
+
+        val c = content(vm(clock = afternoon, scope = this))
+
+        assertEquals(Greeting(GreetingPeriod.AFTERNOON, "Mona", today), c.greeting)
+    }
+
+    @Test
     fun eveningGreeting() = runTest {
         settings.setEmail("mona@example.com")
 
         val c = content(vm(clock = evening, scope = this))
 
-        assertEquals(Greeting(morning = false, name = "Mona"), c.greeting)
+        assertEquals(Greeting(GreetingPeriod.EVENING, "Mona", today), c.greeting)
+    }
+
+    @Test
+    fun greetingPeriodBoundaries() {
+        assertEquals(GreetingPeriod.MORNING, HomeViewModel.periodFor(0))
+        assertEquals(GreetingPeriod.MORNING, HomeViewModel.periodFor(11))
+        assertEquals(GreetingPeriod.AFTERNOON, HomeViewModel.periodFor(12))
+        assertEquals(GreetingPeriod.AFTERNOON, HomeViewModel.periodFor(16))
+        assertEquals(GreetingPeriod.EVENING, HomeViewModel.periodFor(17))
+        assertEquals(GreetingPeriod.EVENING, HomeViewModel.periodFor(23))
     }
 
     @Test
@@ -316,7 +336,7 @@ class HomeViewModelTest {
     fun blankEmailGivesNamelessGreeting() = runTest {
         val c = content(vm(scope = this))
 
-        assertEquals(Greeting(morning = true, name = null), c.greeting)
+        assertEquals(Greeting(GreetingPeriod.MORNING, null, today), c.greeting)
     }
 
     @Test

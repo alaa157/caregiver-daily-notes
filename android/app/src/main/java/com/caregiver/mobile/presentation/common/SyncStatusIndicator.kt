@@ -7,6 +7,7 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.outlined.CloudDone
 import androidx.compose.material.icons.outlined.CloudOff
 import androidx.compose.material.icons.outlined.ErrorOutline
+import androidx.compose.material.icons.outlined.Storage
 import androidx.compose.material.icons.outlined.Sync
 import androidx.compose.material3.Icon
 import androidx.compose.runtime.Composable
@@ -14,6 +15,8 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.res.stringResource
+import androidx.compose.ui.semantics.contentDescription
+import androidx.compose.ui.semantics.semantics
 import com.caregiver.mobile.R
 import com.caregiver.mobile.core.theme.CaregiverColors
 
@@ -57,6 +60,32 @@ fun SyncStatusIndicator(
                 SyncStatus.OFFLINE -> CaregiverColors.Muted
                 SyncStatus.FAILED -> CaregiverColors.Danger
             },
+            modifier = Modifier.size(AppDimens.IconMd),
+        )
+    }
+}
+
+/**
+ * Local-only variant of the top-bar end slot (#918). A standalone build has
+ * no outbox and no server, so the cloud glyph would promise an off-device
+ * backup that does not exist. This marker is informational: it carries an
+ * honest, localized accessible label and deliberately has no clickable
+ * modifier, so TalkBack never presents it as a button with no action.
+ */
+@Composable
+fun LocalDataStatusIndicator(modifier: Modifier = Modifier) {
+    val label = stringResource(R.string.sync_status_local_only)
+    Box(
+        contentAlignment = Alignment.Center,
+        modifier = modifier
+            .size(AppDimens.BackSize)
+            .testTag("sync_status")
+            .semantics { contentDescription = label },
+    ) {
+        Icon(
+            imageVector = Icons.Outlined.Storage,
+            contentDescription = null,
+            tint = CaregiverColors.Muted,
             modifier = Modifier.size(AppDimens.IconMd),
         )
     }

@@ -47,6 +47,8 @@ import androidx.compose.ui.graphics.PathEffect
 import androidx.compose.ui.graphics.Stroke
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.res.stringResource
+import androidx.compose.ui.semantics.heading
+import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
@@ -59,9 +61,9 @@ import com.caregiver.mobile.core.navigation.AppDestinations
 import com.caregiver.mobile.core.navigation.AppRoutes
 import com.caregiver.mobile.core.navigation.MainTab
 import com.caregiver.mobile.core.navigation.ScrollToTop
+import com.caregiver.mobile.core.time.DateFormats
 import com.caregiver.mobile.core.theme.CaregiverColors
 import com.caregiver.mobile.core.theme.PlexArabic
-import com.caregiver.mobile.core.time.DateFormats
 import com.caregiver.mobile.core.util.appLocale
 import com.caregiver.mobile.data.recipient.RecipientNameRules
 import com.caregiver.mobile.presentation.common.AppCard
@@ -114,9 +116,14 @@ fun HomeScreen(graph: AppGraph, navController: NavController) {
             onRetry = vm::refresh,
         )
         is HomeState.Content -> HomeTimeline(
-            content = storedName?.takeIf { it.isNotBlank() }?.let { name ->
-                s.content.copy(greeting = s.content.greeting.copy(name = name))
-            } ?: s.content,
+            content = s.content.copy(
+                greeting = s.content.greeting.copy(
+                    // The account's display name is the only name the header
+                    // uses; with no account the greeting reads "Welcome"
+                    // instead of a name derived from a saved email (#895).
+                    name = storedName?.takeIf { it.isNotBlank() },
+                ),
+            ),
             refreshing = s.refreshing,
             onRefresh = vm::refresh,
             navController = navController,
@@ -249,21 +256,33 @@ private fun HomeTimeline(
                 contentPadding = PaddingValues(bottom = 88.dp),
             ) {
                 item(key = "greeting") {
-                    // Greeting is the first feed item (Task 1 moved it out
-                    // of the old inline header row).
-                    Text(
-                        text = greetingText(content.greeting),
-                        fontFamily = PlexArabic,
-                        fontWeight = FontWeight.Bold,
-                        fontSize = 22.sp,
-                        lineHeight = 28.sp,
-                        color = CaregiverColors.Ink,
+                    // Home header (#895): the date in small muted text above
+                    // one heading. The heading carries a semantics heading
+                    // role so screen readers can navigate straight to it.
+                    Column(
+                        verticalArrangement = Arrangement.spacedBy(AppDimens.GapTight),
                         modifier = Modifier.padding(
                             start = AppDimens.ScreenHPadding,
                             top = AppDimens.GapForm,
                             end = AppDimens.ScreenHPadding,
                         ),
-                    )
+                    ) {
+                        Text(
+                            text = DateFormats.dayMonth(content.greeting.date, appLocale()),
+                            fontFamily = PlexArabic,
+                            fontSize = 13.sp,
+                            color = CaregiverColors.Muted,
+                        )
+                        Text(
+                            text = greetingText(content.greeting),
+                            fontFamily = PlexArabic,
+                            fontWeight = FontWeight.Bold,
+                            fontSize = 22.sp,
+                            lineHeight = 28.sp,
+                            color = CaregiverColors.Ink,
+                            modifier = Modifier.semantics { heading() },
+                        )
+                    }
                 }
                 item(key = "stats") {
                     HomeStatsRow(
@@ -561,19 +580,14 @@ private fun SafetyBanner(flags: List<SafetyFlag>) {
 
 @Composable
 private fun greetingText(greeting: Greeting): String {
+    // No account display name means a plain, localized "Welcome" — not a
+    // name guessed from an email and not a time-of-day phrase without a name.
     val name = greeting.name?.let { Bidi.isolate(it) }
-    return if (greeting.morning) {
-        if (name == null) {
-            stringResource(R.string.home_greeting_morning_plain)
-        } else {
-            stringResource(R.string.home_greeting_morning, name)
-        }
-    } else {
-        if (name == null) {
-            stringResource(R.string.home_greeting_evening_plain)
-        } else {
-            stringResource(R.string.home_greeting_evening, name)
-        }
+        ?: return stringResource(R.string.home_greeting_welcome)
+    return when (greeting.period) {
+        GreetingPeriod.MORNING -> stringResource(R.string.home_greeting_morning, name)
+        GreetingPeriod.AFTERNOON -> stringResource(R.string.home_greeting_afternoon, name)
+        GreetingPeriod.EVENING -> stringResource(R.string.home_greeting_evening, name)
     }
 }
 
