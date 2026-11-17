@@ -150,6 +150,18 @@ API_BASE_URL=https://current-backend.trycloudflare.com npm run config:runtime
 
 This modifies `dist/config.json`, not the built JS bundle; repeating that step requires **no rebuild**. A failed or malformed config shows a retryable error rather than silently sending requests to a guessed backend. Only public origins/paths are permitted in this JSON — **never tokens, JWTs, passwords, or API keys**. HTTPS is required for remote backend URLs; HTTP is accepted for loopback development only.
 
+## Social metadata and the site URL
+
+`index.html` uses Vite's HTML substitution for `%VITE_SITE_URL%` in `og:url`, `canonical`, `og:image` and `twitter:image`. Supply the final public origin as a build-time variable:
+
+```sh
+VITE_SITE_URL=https://your-domain.example npm run build
+```
+
+Set the origin or base path **without a trailing slash**; the template appends `/` for the page URL and `/caregiver-notes-preview.svg` for the image. `vite.config.ts` provides a concrete, placeholder-free default so a plain `npm run build` never emits a broken URL. `src/tests/metadata.test.ts` fails if the old placeholder returns or if a metadata image points at a missing public asset; the equivalent post-build check is `grep -r "REPLACE-WITH-PRODUCTION-DOMAIN" dist/`.
+
+Arabic decision: this is a single-page app with no server-side rendering, so crawlers cannot choose a per-language title or description. The metadata stays deliberately neutral English ("Arabic and English support") rather than shipping untranslated UI copy or pretending to localize at runtime. Runtime i18n is unchanged.
+
 ## API contract assumptions and future integration
 
 - The backend is a separate Spring Boot REST API using JWT authentication. No endpoint routes, payload fields, token lifecycle, or ownership semantics are invented by this foundation; feature contributors must consult the actual backend controllers/OpenAPI contract before wiring requests.
