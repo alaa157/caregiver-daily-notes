@@ -10,6 +10,7 @@ import androidx.lifecycle.ViewModel
 import androidx.lifecycle.ViewModelProvider
 import androidx.lifecycle.viewmodel.compose.viewModel
 import androidx.navigation.NavController
+import com.caregiver.mobile.AppGraph
 import com.caregiver.mobile.core.navigation.AppDestinations
 import com.caregiver.mobile.data.AuthRepository
 
@@ -26,6 +27,8 @@ fun LoginScreen(
     // an uncaught IllegalArgumentException. AuthForm hides the link when the
     // callback is null, so passing null is the whole fix.
     showServerSettings: Boolean = true,
+    // #871 wiring, done in #866: the real language switch needs the graph.
+    graph: AppGraph? = null,
 ) {
     val vm: AuthViewModel = authViewModel(AuthMode.Login, repository)
     val state by vm.state.collectAsStateWithLifecycle()
@@ -60,6 +63,7 @@ fun LoginScreen(
         modifier = Modifier,
         showSwitchAccount = hasAccounts,
         onSwitchAccount = onSwitchAccount,
+        graph = graph,
     )
 }
 
@@ -69,6 +73,7 @@ fun RegisterScreen(
     repository: AuthRepository,
     navController: NavController,
     registerAccount: RegisterAccount? = null,
+    graph: AppGraph? = null,
 ) {
     val vm: AuthViewModel = authViewModel(AuthMode.Register, repository, registerAccount)
     val state by vm.state.collectAsStateWithLifecycle()
@@ -89,6 +94,7 @@ fun RegisterScreen(
         showDisplayName = vm.requiresDisplayName,
         modifier = Modifier,
         onBack = backToLogin,
+        graph = graph,
     )
 }
 

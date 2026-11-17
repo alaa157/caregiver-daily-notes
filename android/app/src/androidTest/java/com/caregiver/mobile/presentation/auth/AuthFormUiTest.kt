@@ -125,7 +125,7 @@ class AuthFormUiTest {
     fun loginLabelsEnglish() {
         setForm(AuthMode.Login, "en")
 
-        listOf("Sign in", "Email", "Password", "No account? Create one").forEach {
+        listOf("Welcome back", "Email", "Password", "No account? Create one").forEach {
             compose.onNodeWithText(it).assertIsDisplayed()
         }
     }
@@ -134,7 +134,7 @@ class AuthFormUiTest {
     fun registerLabelsArabic() {
         setForm(AuthMode.Register, "ar")
 
-        listOf("إنشاء حساب", "البريد الإلكتروني", "كلمة المرور", "تأكيد كلمة المرور").forEach {
+        listOf("أنشئ حسابك", "البريد الإلكتروني", "كلمة المرور", "تأكيد كلمة المرور").forEach {
             compose.onNodeWithText(it).assertIsDisplayed()
         }
     }

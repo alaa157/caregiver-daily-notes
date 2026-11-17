@@ -6,8 +6,10 @@
     <string name="tab_notes">الملاحظات</string>
     <string name="tab_history">السجل</string>
     <string name="fab_add_note">إضافة ملاحظة</string>
-    <string name="auth_title_login">تسجيل الدخول</string>
-    <string name="auth_title_register">إنشاء حساب</string>
+    <string name="auth_title_login">مرحبًا بعودتك</string>
+    <string name="auth_title_register">أنشئ حسابك</string>
+    <string name="auth_subtitle_login">سجّل الدخول لإبقاء ملاحظات الرعاية اليومية في مكان واحد.</string>
+    <string name="auth_subtitle_register">أنشئ حسابك لتبدأ في حفظ ملاحظات الرعاية اليومية في مكان واحد.</string>
     <string name="auth_name">الاسم</string>
     <string name="auth_email">البريد الإلكتروني</string>
     <string name="auth_password">كلمة المرور</string>

@@ -6,8 +6,10 @@
     <string name="tab_notes">Notes</string>
     <string name="tab_history">History</string>
     <string name="fab_add_note">Add note</string>
-    <string name="auth_title_login">Sign in</string>
-    <string name="auth_title_register">Create account</string>
+    <string name="auth_title_login">Welcome back</string>
+    <string name="auth_title_register">Create your account</string>
+    <string name="auth_subtitle_login">Sign in to keep your daily care notes in one place.</string>
+    <string name="auth_subtitle_register">Set up your account to keep daily care notes in one place.</string>
     <string name="auth_name">Name</string>
     <string name="auth_email">Email</string>
     <string name="auth_password">Password</string>
