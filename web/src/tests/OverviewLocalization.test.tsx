@@ -24,7 +24,7 @@ const activityId = '00000000-0000-4000-8000-000000000207';
 
 /** The dashboard keys this suite is responsible for (translation parity scope). */
 const dashboardKeys = [
-  'dashboard', 'dashboardTitle', 'overviewDescription', 'overviewDateLabel', 'overviewMtdLabel',
+  'dashboard', 'dashboardTitle', 'overviewDescription', 'overviewMtdLabel',
   'overviewMtdLoading', 'overviewMtdError', 'overviewLoading', 'overviewKpisTitle',
   'overviewKpiRecipients', 'overviewKpiRecorded', 'overviewKpiNotRecorded', 'overviewKpiUnavailable',
   'overviewRecipientStatus', 'overviewNoRecipients', 'overviewNoteRecorded', 'overviewNoNote',
@@ -175,7 +175,8 @@ describe('dashboard direction', () => {
     // LTR for ISO input, and locale-formatted dates use `dir="auto"` for bidi isolation.
     const pinned = Array.from(dashboard.querySelectorAll('[dir]'));
     expect(pinned.every((element) => ['ltr', 'auto'].includes(element.getAttribute('dir')!))).toBe(true);
-    const dateInput = dashboard.querySelector('input[type="date"]');
+    // The single date control now lives in the app shell, not in this section.
+    const dateInput = screen.getByLabelText(messages.ar.appDateLabel);
     expect(dateInput).toHaveAttribute('dir', 'ltr');
     for (const time of Array.from(dashboard.querySelectorAll('time'))) {
       expect(time).toHaveAttribute('dir', 'auto');

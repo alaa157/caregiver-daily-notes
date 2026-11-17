@@ -26,7 +26,7 @@ const workflows = [
 export function WorkspaceOverview() {
   const { t, language } = useI18n();
   const location = useLocation();
-  const [params, setParams] = useSearchParams();
+  const [params] = useSearchParams();
   const today = useLocalToday();
   const rawDate = params.get('date');
   const date = rawDate && isNoteDate(rawDate) ? rawDate : today;
@@ -45,14 +45,6 @@ export function WorkspaceOverview() {
   }) : [];
   const createNotePath = `/app/notes/new?date=${encodeURIComponent(date)}`;
   const formattedDate = (value: string) => formatDate(`${value}T12:00:00Z`, language, { dateStyle: 'long', timeZone: 'UTC' });
-  const changeDate = (value: string) => {
-    if (!isNoteDate(value)) return;
-    setParams((current) => {
-      const next = new URLSearchParams(current);
-      next.set('date', value);
-      return next;
-    });
-  };
 
   return <section className="workspace-overview container" aria-labelledby="workspace-overview-title">
     <header className="overview-heading">
@@ -60,8 +52,6 @@ export function WorkspaceOverview() {
       <div className="overview-actions"><ButtonLink variant="secondary" to="/app/recipients"><Icon name="people" size={18} />{t('recipientsTitle')}</ButtonLink><ButtonLink to={createNotePath} state={{ backgroundLocation: location }}><Icon name="plus" size={18} />{t('notesCreate')}</ButtonLink></div>
     </header>
     <div className="overview-date"><Icon name="calendar" size={20} />
-      <label htmlFor="overview-date-input">{t('overviewDateLabel')}</label>
-      <input id="overview-date-input" type="date" value={date} onChange={(event) => changeDate(event.currentTarget.value)} />
       <time dateTime={date} dir="auto">{formattedDate(date)}</time>
     </div>
     <OverviewKpis state={state} monthToDate={monthToDate} onRetryMonthToDate={reloadMonthToDate} />
