@@ -27,7 +27,17 @@ class SummaryPromptsTest {
         .contains("Synthesize each observation across notes in the requested period")
         .contains("Do not emit one observation per recorded field")
         .contains("Write observations and uncertainties in the language of the note text they describe (English or Arabic)")
-        .contains("do not translate the note or add a reference translation");
+        .contains("Keep evidence quotes verbatim in their source language")
+        .contains("do not translate quoted text or add a reference translation");
+  }
+
+  @Test
+  void selectedInterfaceLanguageOverridesTheNoteLanguage() {
+    assertThat(SummaryPrompts.systemPrompt("ar"))
+        .contains("Write observations and uncertainties in Arabic")
+        .contains("Keep evidence quotes verbatim in their source language");
+    assertThat(SummaryPrompts.systemPrompt("en"))
+        .contains("Write observations and uncertainties in English");
   }
 
   @ParameterizedTest

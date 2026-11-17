@@ -44,7 +44,8 @@ export function isValidByokCredentials(value: unknown): value is ByokCredentials
 function isSummaryRequest(value: unknown): value is SummaryRequest {
   return object(value) && typeof value.recipientId === 'string' && isRecipientId(value.recipientId)
     && typeof value.periodEndInclusive === 'string' && isNoteDate(value.periodEndInclusive)
-    && summaryPeriods.some((period) => period === value.periodDays);
+    && summaryPeriods.some((period) => period === value.periodDays)
+    && (value.language === undefined || value.language === 'ar' || value.language === 'en');
 }
 function containsSecret(value: unknown, secret: string): boolean {
   if (typeof value === 'string') return value.includes(secret);
@@ -150,6 +151,7 @@ export function createPlansApi(client: ApiClient) {
               recipientId: input.recipientId,
               periodEndInclusive: input.periodEndInclusive,
               periodDays: input.periodDays,
+              ...(input.language ? { language: input.language } : {}),
             },
             credentials: {
               providerId: credentials.providerId,

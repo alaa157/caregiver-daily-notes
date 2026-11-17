@@ -207,7 +207,7 @@ describe('care-plan review and authoritative backend decisions', () => {
     expect(generationCalls).toHaveLength(1);
     expect(generationCalls[0][1].method).toBe('POST');
     expect(JSON.parse(generationCalls[0][1].body as string)).toEqual({
-      summary: { recipientId: recipient.id, periodEndInclusive: '2026-10-22', periodDays: 14 },
+      summary: { recipientId: recipient.id, periodEndInclusive: '2026-10-22', periodDays: 14, language: 'en' },
       credentials: byokCredentials,
     });
     expect(fetcher.mock.calls.some(([path]) => path === '/api/plans/generate')).toBe(false);
@@ -220,6 +220,20 @@ describe('care-plan review and authoritative backend decisions', () => {
     expect(within(screen.getByRole('region', { name: 'Active accepted plan' }))
       .getByText(active.content, { normalizer: (value) => value })).toBeVisible();
     expect(writes(fetcher).map(([path]) => path)).toEqual(['/api/plans/generate/byok']);
+  });
+  it('sends the selected Arabic interface language with the plan request', async () => {
+    const fetcher = serve({
+      generationResult: { plan: generatedPlan, aiUnavailable: false, safety: generationSafety },
+      generatedPlan,
+    });
+    renderPlansWithByok(fetcher, byokCredentials, selected, 'ar');
+    await waitFor(() => expect(screen.getByLabelText('تاريخ النهاية (شامل)')).toBeEnabled());
+    fireEvent.change(screen.getByLabelText('تاريخ النهاية (شامل)'), { target: { value: '2026-10-22' } });
+    await userEvent.click(screen.getByRole('button', { name: 'طلب اقتراح خطة' }));
+    await waitFor(() => expect(fetcher.mock.calls.some(([path]) => path === '/api/plans/generate/byok')).toBe(true));
+
+    const request = fetcher.mock.calls.find(([path]) => path === '/api/plans/generate/byok');
+    expect(JSON.parse(request![1].body as string).summary.language).toBe('ar');
   });
   it('shows unavailable state when BYOK generation fails', async () => {
     const fetcher = serve({

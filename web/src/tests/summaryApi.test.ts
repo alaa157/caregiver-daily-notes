@@ -32,6 +32,18 @@ describe('BYOK summary request', () => {
     expect(result).toEqual(readSummaryResponse(summaryFixture()));
   });
 
+  it('sends the selected interface language when provided', async () => {
+    const fetcher = vi.fn().mockResolvedValueOnce(jsonResponse(summaryFixture()));
+    const input = {
+      ...byokRequest,
+      summary: { ...summaryRequest, language: 'ar' as const },
+    };
+
+    await createSummaryApi(createApiClient({ apiBaseUrl: '' }, fetcher)).generateByok(input);
+
+    expect(JSON.parse(fetcher.mock.calls[0][1].body).summary.language).toBe('ar');
+  });
+
   it('does not include credentials in summary response parsing', async () => {
     const response = { ...summaryFixture(), credentials: byokCredentials, apiKey: byokCredentials.apiKey };
     const fetcher = vi.fn().mockResolvedValueOnce(jsonResponse(response));
@@ -82,6 +94,7 @@ describe('BYOK summary request', () => {
       { ...summaryRequest, recipientId: '../auth' },
       { ...summaryRequest, periodEndInclusive: '2026-02-30' },
       { ...summaryRequest, periodDays: 8 },
+      { ...summaryRequest, language: 'fr' },
     ];
 
     for (const summary of invalidSummaries) {

@@ -8,6 +8,7 @@ import com.caregiver.plans.SuggestedPlan;
 import org.junit.jupiter.api.Test;
 
 import java.util.ArrayDeque;
+import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
 
@@ -50,6 +51,26 @@ class PlanSuggestionServiceTest {
 
   static String medJson(String name, String dose, String schedule) {
     return "{\"name\":\"" + name + "\",\"dose\":\"" + dose + "\",\"schedule\":\"" + schedule + "\"}";
+  }
+
+  @Test
+  void requestsSelectedOutputLanguageForPlanReasonsAndParameters() {
+    List<LlmRequest> requests = new ArrayList<>();
+    var store = new InMemorySuggestedPlanStore();
+    var svc = new PlanSuggestionService(request -> {
+      requests.add(request);
+      return new LlmResult(LlmStatus.OK,
+          suggestionJson(
+              changeJson("SCHEDULE_CHECK_IN", "\"withinDays\":\"3\"", "check soon", "\"n1\""), ""), null);
+    }, store);
+    var request = new PlanSuggestionRequest(
+        "r1", emptySummary(), emptySafety(), Map.of("n1", "English note text"), null, List.of(), "ar");
+
+    svc.suggest(request);
+
+    assertThat(requests.get(0).systemPrompt())
+        .contains("Write each change reason and every human-readable parameter value in Arabic")
+        .contains("Keep catalog action IDs, parameter names, evidence note IDs");
   }
 
   @Test

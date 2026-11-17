@@ -53,6 +53,19 @@ class SummaryServiceTest {
   }
 
   @Test
+  void requestsSelectedOutputLanguageWhenNotesUseAnotherLanguage() {
+    List<LlmRequest> requests = new ArrayList<>();
+    var svc = capturing(requests, "{\"observations\":[],\"uncertainties\":[]}");
+
+    svc.summarize(new SummaryRequest("r1", END, 7, "ar"),
+        List.of(new SummaryNote("n1", END, "Caregiver notes are written in English.")), List.of());
+
+    assertThat(requests.get(0).systemPrompt())
+        .contains("Write observations and uncertainties in Arabic")
+        .contains("Keep evidence quotes verbatim in their source language");
+  }
+
+  @Test
   void coverageCountsDistinctNoteDatesInTheRequestedWindow() {
     var svc = service(ok("{\"observations\":[{\"text\":\"she ate well today\",\"noteId\":\"n1\",\"quote\":\"she ate well today\"}],\"uncertainties\":[]}"));
     var notes = List.of(

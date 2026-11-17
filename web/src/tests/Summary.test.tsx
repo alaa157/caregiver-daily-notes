@@ -306,7 +306,7 @@ describe('on-demand summary and safety workflow', () => {
     expect(posts(fetcher).filter(([path]) => path === byokSummaryPath)).toHaveLength(1);
     expect(posts(fetcher)[0][0]).toBe(byokSummaryPath);
     expect(JSON.parse(posts(fetcher)[0][1].body)).toEqual({
-      summary: { recipientId: recipientFixture.id, periodDays: period, periodEndInclusive: '2026-10-24' },
+      summary: { recipientId: recipientFixture.id, periodDays: period, periodEndInclusive: '2026-10-24', language: 'en' },
       credentials: syntheticCredentials,
     });
     expect(screen.getByText(period === 7 ? '2026-10-18' : period === 14 ? '2026-10-11' : '2026-09-25')).toBeInTheDocument();
@@ -324,6 +324,18 @@ describe('on-demand summary and safety workflow', () => {
     await userEvent.selectOptions(screen.getByLabelText('Care recipient', { exact: true }), recipientFixture.id);
     await userEvent.click(screen.getByRole('button', { name: 'Generate summary' }));
     expect(screen.getByLabelText('End date (inclusive)')).toHaveFocus(); expect(posts(fetcher)).toHaveLength(0);
+  });
+  it('sends the selected Arabic interface language with the summary request', async () => {
+    const fetcher = dataFetcher();
+    show(fetcher, 'ar');
+    await waitFor(() => expect(screen.getByLabelText('المستفيد من الرعاية', { exact: true })).toBeEnabled());
+    await userEvent.selectOptions(screen.getByLabelText('المستفيد من الرعاية', { exact: true }), recipientFixture.id);
+    fireEvent.change(screen.getByLabelText('تاريخ النهاية (شامل)'), { target: { value: '2026-10-24' } });
+    await userEvent.click(screen.getByRole('button', { name: 'إنشاء ملخص' }));
+    await waitFor(() => expect(posts(fetcher).filter(([path]) => path === byokSummaryPath)).toHaveLength(1));
+
+    expect(JSON.parse(posts(fetcher).find(([path]) => path === byokSummaryPath)![1].body).summary.language)
+      .toBe('ar');
   });
   it('asks caregiver to configure BYOK before summary generation', async () => {
     const fetcher = dataFetcher();
@@ -366,7 +378,7 @@ describe('on-demand summary and safety workflow', () => {
     expect(summaryCalls).toHaveLength(1);
     expect(summaryCalls[0][1].method).toBe('POST');
     expect(JSON.parse(summaryCalls[0][1].body)).toEqual({
-      summary: { recipientId: recipientFixture.id, periodDays: 7, periodEndInclusive: '2026-10-24' },
+      summary: { recipientId: recipientFixture.id, periodDays: 7, periodEndInclusive: '2026-10-24', language: 'en' },
       credentials: syntheticCredentials,
     });
     expect(fetcher.mock.calls.some(([path]) => path === '/api/summaries' || path === '/v3/api-docs')).toBe(false);

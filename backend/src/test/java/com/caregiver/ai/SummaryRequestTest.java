@@ -19,6 +19,15 @@ class SummaryRequestTest {
   }
 
   @Test
+  void languageDefaultsToNotesAndAcceptsSupportedInterfaceLanguages() {
+    assertThat(new SummaryRequest("r1", END, 7).language()).isEqualTo(AiOutputLanguage.NOTES);
+    assertThat(new SummaryRequest("r1", END, 7, "ar").language()).isEqualTo("ar");
+    assertThat(new SummaryRequest("r1", END, 7, "EN").language()).isEqualTo("en");
+    assertThatThrownBy(() -> new SummaryRequest("r1", END, 7, "fr"))
+        .isInstanceOf(IllegalArgumentException.class);
+  }
+
+  @Test
   @DisplayName("accepts only 7 14 and 30 day windows")
   void acceptsOnly7_14And30DayWindows() {
     assertThat(new SummaryRequest("r1", END, 7).periodDays()).isEqualTo(7);
