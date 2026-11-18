@@ -1,9 +1,7 @@
 package com.caregiver.mobile.core.theme
 
 import androidx.compose.runtime.SideEffect
-import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
-import androidx.compose.runtime.setValue
 import androidx.compose.ui.graphics.Color
 import kotlin.math.pow
 
@@ -13,7 +11,8 @@ private const val ACCENT_INK_CUTOFF = 0.19f
 /**
  * Foreground for a solid accent fill: dark ink on light accents, white on
  * dark ones. Derived from the accent rather than assumed to be white, so a
- * bright palette cannot leave unreadable white text on the fill.
+ * bright palette cannot leave unreadable white text on the fill. Used by
+ * both `onPrimary` in the Material scheme and the selected note tiles.
  *
  * The cut-off sits just below the luminance of the default teal accent, so
  * yellow through blue switch to dark ink while purple, indigo and the other
@@ -67,10 +66,12 @@ data class CaregiverColorScheme(
 
     // Auth redesign (issues #864-#877). Dedicated roles so the new Login and
     // Register screens can be restyled without touching the tokens other
-    // screens share. AuthMuted / AuthFieldBorder / AuthDivider deliberately
-    // carry the same values as Muted / Border / BorderSoft so dark mode stays
-    // consistent; the auth-specific names keep the redesign decoupled from a
-    // generic role whose meaning may change later.
+    // screens share. AuthMuted / AuthDivider deliberately carry the same
+    // values as Muted / BorderSoft so dark mode stays consistent; the
+    // auth-specific names keep the redesign decoupled from a generic role
+    // whose meaning may change later. AuthFieldBorder has its own value: it
+    // is the field's only affordance, so it must clear WCAG 1.4.11's 3:1
+    // against the Surface fill, unlike the decorative Border token.
     val AuthBackground: Color,
     val AuthMuted: Color,
     val AuthFieldBorder: Color,
@@ -98,7 +99,6 @@ object CaregiverColors {
         get() = _current.value
 
     // Observable backing for Compose.
-    private var _state by mutableStateOf(caregiverScheme(dark = false, palette = "teal"))
     val state: androidx.compose.runtime.State<CaregiverColorScheme>
         get() = _current
 
@@ -147,13 +147,40 @@ object CaregiverColors {
     }
 }
 
+/**
+ * The single accent table, shared by the Material scheme and the caregiver
+ * design tokens (#971). Every hex is the value the Material scheme already
+ * used; unknown keys keep the caregiver teal that [caregiverScheme] fell back
+ * to. Do not add a second table here — both consumers must resolve a palette
+ * to exactly the same colour.
+ */
+internal fun paletteAccent(key: String?): Color = when (key?.lowercase()) {
+    ColorPalettes.DYNAMIC -> Color(0xFFED5564)
+    ColorPalettes.CRIMSON -> Color(0xFFEC5464)
+    ColorPalettes.ROSE -> Color(0xFFD81B60)
+    ColorPalettes.PURPLE -> Color(0xFF8E24AA)
+    ColorPalettes.DEEP_PURPLE -> Color(0xFF5E35B1)
+    ColorPalettes.INDIGO -> Color(0xFF3949AB)
+    ColorPalettes.BLUE -> Color(0xFF1E88E5)
+    ColorPalettes.SKY_BLUE -> Color(0xFF039BE5)
+    ColorPalettes.CYAN -> Color(0xFF00ACC1)
+    ColorPalettes.TEAL -> Color(0xFF00897B)
+    ColorPalettes.GREEN -> Color(0xFF43A047)
+    ColorPalettes.LIGHT_GREEN -> Color(0xFF7CB342)
+    ColorPalettes.LIME -> Color(0xFFC0CA33)
+    ColorPalettes.YELLOW -> Color(0xFFFDD835)
+    ColorPalettes.AMBER -> Color(0xFFFFB300)
+    ColorPalettes.ORANGE -> Color(0xFFFB8C00)
+    ColorPalettes.DEEP_ORANGE -> Color(0xFFF4511E)
+    ColorPalettes.BROWN -> Color(0xFF6D4C41)
+    ColorPalettes.GREY -> Color(0xFF757575)
+    ColorPalettes.BLUE_GREY -> Color(0xFF546E7A)
+    ColorPalettes.METROLIST -> Color(0xFF6750A4)
+    else -> Color(0xFF0E6B66)
+}
+
 fun caregiverScheme(dark: Boolean, palette: String, pureBlack: Boolean = false): CaregiverColorScheme {
-    val primary = when (palette.lowercase()) {
-        "indigo" -> Color(0xFF3F51B5)
-        "rose" -> Color(0xFFC2185B)
-        "metrolist" -> Color(0xFF6750A4)
-        else -> Color(0xFF0E6B66)
-    }
+    val primary = paletteAccent(palette)
     return if (dark) {
         // Pure black swaps every token-derived surface to true black so cards
         // stop rendering as grey blocks on a black page. Borders deliberately
@@ -189,7 +216,7 @@ fun caregiverScheme(dark: Boolean, palette: String, pureBlack: Boolean = false):
             Skeleton = Color(0xFF2A3336),
             AuthBackground = Color(0xFF121616),
             AuthMuted = Color(0xFFB0BEC5),
-            AuthFieldBorder = Color(0xFF3A4548),
+            AuthFieldBorder = Color(0xFF7C8A8E),
             AuthDivider = Color(0xFF2A3336),
             AuthDisabledFill = Color(0xFF232C2A),
             AuthDisabledIcon = Color(0xFF6E7C78),
@@ -230,7 +257,7 @@ fun caregiverScheme(dark: Boolean, palette: String, pureBlack: Boolean = false):
             Skeleton = Color(0xFFE3E7EA),
             AuthBackground = Color(0xFFF6F8F7),
             AuthMuted = Color(0xFF5B6B70),
-            AuthFieldBorder = Color(0xFFC5CDD1),
+            AuthFieldBorder = Color(0xFF869398),
             AuthDivider = Color(0xFFE3E7EA),
             AuthDisabledFill = Color(0xFFF0F3F2),
             AuthDisabledIcon = Color(0xFFA3AEAD),
