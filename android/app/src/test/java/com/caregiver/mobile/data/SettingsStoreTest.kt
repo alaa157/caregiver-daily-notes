@@ -16,6 +16,7 @@ import org.junit.After
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
 import org.junit.Assert.assertNull
+import org.junit.Assert.assertTrue
 import org.junit.Before
 import org.junit.Test
 
@@ -45,16 +46,26 @@ class SettingsStoreTest {
     }
 
     @Test
-    fun baseUrlDefaultsToPlaceholder() = runTest {
-        assertEquals(SettingsStore.DEFAULT_BASE_URL, store.baseUrl.first())
+    fun baseUrlIsEmptyAndUnconfiguredOnFreshInstall() = runTest {
+        // A fresh install must not resolve to a placeholder host, and must
+        // report that no server has been configured yet.
+        assertEquals("", store.baseUrl.first())
+        assertFalse(store.isBaseUrlConfigured.first())
     }
 
     @Test
-    fun baseUrlRoundTripsAndResets() = runTest {
-        store.setBaseUrl("https://demo.example:8080/")
-        assertEquals("https://demo.example:8080/", store.baseUrl.first())
+    fun baseUrlConfigurationStateTracksSetAndReset() = runTest {
+        // Fresh install: no host stored, so no server is configured.
+        assertEquals("", store.baseUrl.first())
+        assertFalse(store.isBaseUrlConfigured.first())
+
+        store.setBaseUrl("https://example.org")
+        assertEquals("https://example.org", store.baseUrl.first())
+        assertTrue(store.isBaseUrlConfigured.first())
+
         store.resetBaseUrl()
-        assertEquals(SettingsStore.DEFAULT_BASE_URL, store.baseUrl.first())
+        assertEquals("", store.baseUrl.first())
+        assertFalse(store.isBaseUrlConfigured.first())
     }
 
     @Test
@@ -113,6 +124,7 @@ class SettingsStoreTest {
         val failing = SettingsStore(FailingDataStore())
 
         assertEquals(SettingsStore.DEFAULT_BASE_URL, failing.baseUrl.first())
+        assertFalse(failing.isBaseUrlConfigured.first())
         assertNull(failing.token.first())
         assertNull(failing.email.first())
         assertEquals(SettingsStore.DEFAULT_LANGUAGE, failing.language.first())
