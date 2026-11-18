@@ -125,7 +125,7 @@ private data class CachedModelsPayload(
     val fetchedAtEpochMillis: Long = 0L,
 )
 
-class AiKeyStore internal constructor(
+open class AiKeyStore internal constructor(
     private val context: Context,
     private val cipher: ApiKeyCipher,
     private val activeAccountId: Flow<String?>,
@@ -154,6 +154,9 @@ class AiKeyStore internal constructor(
     }
 
     private fun accountId(): String? = kotlinx.coroutines.runBlocking { activeAccountId.first() }
+
+    /** The account a call is scoped to; the model catalog snapshots it around a fetch. */
+    internal open fun activeAccountId(): String? = accountId()
 
     private fun perAccountKey(key: String, accountId: String): String = "${accountId}_$key"
 
@@ -259,7 +262,7 @@ class AiKeyStore internal constructor(
         prefs.edit().putString(perAccountKey(baseUrlSlot(provider), id), url).apply()
     }
 
-    fun baseUrlOrDefault(provider: AiProvider): String =
+    open fun baseUrlOrDefault(provider: AiProvider): String =
         baseUrl(provider)?.takeIf { it.isNotBlank() } ?: provider.defaultBaseUrl
 
     fun consentGiven(provider: AiProvider = selectedProvider()): Boolean {
