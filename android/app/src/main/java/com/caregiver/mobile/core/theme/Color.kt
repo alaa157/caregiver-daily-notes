@@ -5,6 +5,33 @@ import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.graphics.Color
+import kotlin.math.pow
+
+/** Dark ink above this luminance, white below it. */
+private const val ACCENT_INK_CUTOFF = 0.19f
+
+/**
+ * Foreground for a solid accent fill: dark ink on light accents, white on
+ * dark ones. Derived from the accent rather than assumed to be white, so a
+ * bright palette cannot leave unreadable white text on the fill.
+ *
+ * The cut-off sits just below the luminance of the default teal accent, so
+ * yellow through blue switch to dark ink while purple, indigo and the other
+ * deep accents keep white.
+ */
+internal fun onAccent(accent: Color): Color =
+    if (relativeLuminance(accent) > ACCENT_INK_CUTOFF) Color(0xFF1F2A2E) else Color.White
+
+/** WCAG 2.1 relative luminance of an sRGB Compose [Color]. */
+private fun relativeLuminance(color: Color): Float {
+    fun channel(value: Float): Float {
+        val v = value.coerceIn(0f, 1f)
+        return if (v <= 0.04045f) v / 12.92f else ((v + 0.055f) / 1.055f).pow(2.4f)
+    }
+    return 0.2126f * channel(color.red) +
+        0.7152f * channel(color.green) +
+        0.0722f * channel(color.blue)
+}
 
 /**
  * Theme-aware caregiver palette. Replaces the old fixed [CaregiverColors]
