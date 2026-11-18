@@ -7,7 +7,6 @@ import { Button, ButtonLink } from '../../components/Button';
 import { ErrorState, FieldError, LoadingState } from '../../components/Feedback';
 import { useI18n } from '../../i18n/I18nProvider';
 import { dayCountLabel } from '../../i18n/dayCount';
-import { formatNumber } from '../../lib/format';
 import type { MessageKey } from '../../i18n/translations';
 import { ApiError, useApiClient } from '../../lib/api';
 import { useByok } from '../ai/ByokContext';
@@ -108,7 +107,6 @@ export function SummaryPage({ scopedRecipientId }: { scopedRecipientId?: string 
     active.current?.abort(); active.current = null; clearTimeout(timeout.current); setPending(false); setCancelled(true);
   }
   const available = recipients.state.status === 'ready' && recipients.state.data.length > 0;
-  const format = (value: number) => formatNumber(value, language);
   return <section className="summary-page container" aria-labelledby="summary-heading">
     <header className="summary-heading"><div><p className="eyebrow">{t('dashboardTitle')}</p><h1 id="summary-heading">{t('summaryTitle')}</h1><p>{t('summaryDescription')}</p></div>
       <ButtonLink variant="secondary" to={scopedRecipientId ? `/app/recipients/${encodeURIComponent(scopedRecipientId)}/notes` : '/app/notes'}>{t('historyTitle')}</ButtonLink>
