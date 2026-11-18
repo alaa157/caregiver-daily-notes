@@ -65,10 +65,10 @@ object AiModelCatalog {
         )
 
         AiProvider.ANTHROPIC -> listOf(
-            AiModelOption("claude-sonnet-5-5", recommendedForSummaries = true),
-            AiModelOption("claude-haiku-5-5"),
-            AiModelOption("claude-opus-5-5"),
-            AiModelOption("claude-fable-5-2"),
+            AiModelOption("claude-sonnet-5", recommendedForSummaries = true),
+            AiModelOption("claude-haiku-4-5"),
+            AiModelOption("claude-opus-5"),
+            AiModelOption("claude-fable-5-1"),
         )
 
         AiProvider.XAI -> listOf(
