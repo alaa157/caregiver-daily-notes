@@ -85,7 +85,7 @@ const effectiveModes = [
 ];
 
 function effectiveTokens(palette: PaletteBlock, mode: (typeof effectiveModes)[number]): Record<string, string> {
-  const merged = Object.assign(
+  const merged: Record<string, string> = Object.assign(
     {},
     rootBlock.declarations,
     ...mode.beforePalette.map(({ declarations }) => declarations),
