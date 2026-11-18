@@ -49,7 +49,7 @@ enum class AiProvider(
     OPENAI("OpenAI", "https://api.openai.com/v1", "gpt-6.2-sol", AiFreeTier.TRIAL_CREDITS),
     ANTHROPIC("Anthropic", "https://api.anthropic.com", "claude-sonnet-5"),
     GEMINI("Gemini", "https://generativelanguage.googleapis.com", "gemini-4-hydrogen", AiFreeTier.FREE_MODELS),
-    XAI("xAI", "https://api.x.ai/v1", "grok-4.7"),
+    XAI("xAI", "https://api.x.ai/v1", "grok-4.6"),
     OPEN_ROUTER("OpenRouter", "https://openrouter.ai/api/v1", "openai/gpt-6.2-sol", AiFreeTier.FREE_MODELS),
 }
 

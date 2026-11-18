@@ -68,10 +68,8 @@ object AiModelCatalog {
         )
 
         AiProvider.XAI -> listOf(
-            AiModelOption("grok-4.7", recommendedForSummaries = true),
-            AiModelOption("grok-4.5"),
-            AiModelOption("grok-4.3"),
-            AiModelOption("grok-4.20"),
+            AiModelOption("grok-4.6", recommendedForSummaries = true),
+            AiModelOption("grok-build-0.1"),
         )
 
         AiProvider.OPEN_ROUTER -> listOf(
