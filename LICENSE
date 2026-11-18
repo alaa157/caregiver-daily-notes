@@ -1,0 +1,44 @@
+MIT License
+
+Copyright (c) 2026 alaa157 and the Caregiver Daily Notes contributors
+
+Permission is hereby granted, free of charge, to any person obtaining a copy
+of this software and associated documentation files (the "Software"), to deal
+in the Software without restriction, including without limitation the rights
+to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
+copies of the Software, and to permit persons to whom the Software is
+furnished to do so, subject to the following conditions:
+
+The above copyright notice and this permission notice shall be included in all
+copies or substantial portions of the Software.
+
+THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
+IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
+FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
+AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
+LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
+OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
+SOFTWARE.
+
+---
+
+## Contributors
+
+Caregiver Daily Notes is a capstone project built by the following people.
+
+### Team Lead
+
+**alaa157** — project lead, architecture, backend, web, and Android.
+GitHub: [@alaa157](https://github.com/alaa157)
+
+### Contributors
+
+- **Mohamed Hemdan** — [@mohamed-hemdan1](https://github.com/mohamed-hemdan1)
+- **Mahmoud Hewidy** — [@hewidyy](https://github.com/hewidyy)
+- **Ebrahim Ahmed** — [@ebrahimahmedss47-commits](https://github.com/ebrahimahmedss47-commits)
+
+---
+
+*This project uses synthetic data only. It is not a diagnostic or
+medical-monitoring system, is not medical advice, and must not be used with
+real patient or care-recipient data.*
