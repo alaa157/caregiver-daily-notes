@@ -381,14 +381,15 @@ class PlanControllerTest {
   void historyFlagsSuggestionsBuiltOnASupersededBaselineAsOutdated() throws Exception {
     TestCaregiver owner = register("plan-outdated-flag@example.com");
     String recipientId = createRecipient(owner.token());
-    saveAcceptedBaseline(recipientId, 1, planDocument(List.of()));
-    JsonNode staleDraft = submitStructured(owner.token(), recipientId, planDocument(List.of()));
-    JsonNode acceptedDraft = submitStructured(owner.token(), recipientId, planDocument(List.of()));
+    String noteId = createEvidenceNote(owner.token(), recipientId);
+    saveAcceptedBaseline(recipientId, 1, planDocument(List.of(), noteId));
+    JsonNode staleDraft = submitStructured(owner.token(), recipientId, planDocument(List.of(), noteId));
+    JsonNode acceptedDraft = submitStructured(owner.token(), recipientId, planDocument(List.of(), noteId));
 
     mvc.perform(post(path(recipientId, acceptedDraft.get("id").asText(), "accept"))
             .header("Authorization", bearer(owner.token())))
         .andExpect(status().isOk());
-    JsonNode freshDraft = submitStructured(owner.token(), recipientId, planDocument(List.of()));
+    JsonNode freshDraft = submitStructured(owner.token(), recipientId, planDocument(List.of(), noteId));
 
     JsonNode history = mapper.readTree(mvc.perform(get(PLANS + recipientId + "/plans/history")
             .header("Authorization", bearer(owner.token())))
