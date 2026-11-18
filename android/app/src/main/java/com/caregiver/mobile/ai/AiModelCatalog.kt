@@ -75,13 +75,13 @@ object AiModelCatalog {
         )
 
         AiProvider.OPEN_ROUTER -> listOf(
-            AiModelOption("openai/gpt-4o-mini", recommendedForSummaries = true),
+            AiModelOption("openai/gpt-6.2-sol", recommendedForSummaries = true),
+            AiModelOption("openai/gpt-4o-mini"),
             // Free variants come and go, and may train on what they receive;
             // treat them as a deliberate promotion, not a default.
-            AiModelOption("openrouter/free", free = true),
-            AiModelOption("nvidia/nemotron-3.5-lightning:free", free = true),
+            AiModelOption("inclusionai/ling-3.2-flash:free", free = true),
             // Free models are an explicit choice, never a default recommendation.
-            AiModelOption("google/gemma-4-31b-it:free", free = true),
+            AiModelOption("liquid/lfm-3-1.7b:free", free = true),
         )
     }
 }
