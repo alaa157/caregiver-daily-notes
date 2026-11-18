@@ -4,6 +4,7 @@ import android.app.Activity
 import android.content.Context
 import android.content.res.Configuration
 import android.graphics.drawable.ColorDrawable
+import android.os.Build
 import android.os.Bundle
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
@@ -77,6 +78,12 @@ class MainActivity : ComponentActivity() {
                         window.statusBarColor = bg
                         WindowCompat.getInsetsController(window, window.decorView)
                             .isAppearanceLightStatusBars = !dark
+                        if (Build.VERSION.SDK_INT < 35) {
+                            @Suppress("DEPRECATION")
+                            window.navigationBarColor = bg
+                            WindowCompat.getInsetsController(window, window.decorView)
+                                .isAppearanceLightNavigationBars = !dark
+                        }
                     }
                 }
                 // One shimmer theme for every skeleton in the app; Metrolist
