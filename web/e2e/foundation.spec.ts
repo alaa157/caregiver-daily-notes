@@ -24,9 +24,17 @@ for (const language of ['en', 'ar'] as const) {
       await page.goto('/');
       await expect(page.locator('html')).toHaveAttribute('dir', language === 'ar' ? 'rtl' : 'ltr');
       await expect(page.locator('html')).toHaveAttribute('lang', language);
-      await expect(page.getByRole('navigation').locator('[aria-current="page"]')).toHaveAttribute('href', '/');
+      await expect(page.getByRole('heading', { level: 1 })).toContainText(
+        language === 'ar' ? 'تفاصيل صغيرة ترسم صورة أكبر لـ' : 'The little details are the story of',
+      );
+      await expect(page.getByRole('navigation', { name: language === 'ar' ? 'التنقل الرئيسي' : 'Main navigation' })).toBeVisible();
       await checkAccessibility(page);
-      await page.getByRole('button', { name: language === 'ar' ? 'Switch to English' : 'التغيير إلى العربية' }).click();
+      await page.getByRole('button', {
+        name: language === 'ar' ? 'التبديل إلى الإنجليزية' : 'Switch to Arabic',
+      }).first().click();
+      await expect(page.getByRole('heading', { level: 1 })).toContainText(
+        language === 'ar' ? 'The little details are the story of' : 'تفاصيل صغيرة ترسم صورة أكبر لـ',
+      );
       await expect(page.locator('html')).toHaveAttribute('dir', language === 'ar' ? 'ltr' : 'rtl');
       await checkAccessibility(page);
       await page.reload();
@@ -42,7 +50,7 @@ for (const language of ['en', 'ar'] as const) {
       await page.keyboard.press('Enter');
       await expect(page.getByRole('main')).toBeFocused();
 
-      await page.getByRole('navigation').getByRole('link', { name: language === 'ar' ? 'تسجيل الدخول' : 'Sign in' }).click();
+      await page.locator('.site-header').getByRole('link', { name: language === 'ar' ? 'تسجيل الدخول' : 'Sign in' }).click();
       await expect(page).toHaveURL(/\/login$/);
       await expect(page.getByRole('main')).toBeFocused();
       await expect(page.getByRole('form')).toBeVisible();
@@ -60,15 +68,16 @@ for (const language of ['en', 'ar'] as const) {
       await expect(page.getByRole('main')).toBeFocused();
     });
 
-    test('disables reveal animation and smooth scrolling for reduced motion', async ({ page }) => {
+    test('disables reveal transitions and smooth scrolling for reduced motion', async ({ page }) => {
       await page.emulateMedia({ reducedMotion: 'reduce' });
       await page.goto('/');
       await settlePage(page);
-      const animations = await page.locator('.hero-copy, .care-illustration').evaluateAll((elements) =>
-        elements.map((element) => getComputedStyle(element).animationName));
-      expect(animations).toEqual(['none', 'none']);
+      // The port uses short transitions rather than keyframe animations.
+      const durations = await page.locator('.main-nav a, .button').evaluateAll((elements) =>
+        elements.map((element) => getComputedStyle(element).transitionDuration));
+      expect(durations.length).toBeGreaterThan(0);
+      expect(durations.every((value) => parseFloat(value) < 0.001)).toBe(true);
       await expect(page.locator('html')).toHaveCSS('scroll-behavior', 'auto');
-      await expect(page.locator('.nav-link').first()).toHaveCSS('transition-property', 'none');
     });
 
     test('keeps loading feedback text visible with reduced motion', async ({ page }) => {
@@ -105,9 +114,10 @@ for (const language of ['en', 'ar'] as const) {
       await page.emulateMedia({ reducedMotion: 'no-preference' });
       await page.goto('/');
       await settlePage(page);
-      const animations = await page.locator('.hero-copy, .care-illustration').evaluateAll((elements) =>
-        elements.map((element) => getComputedStyle(element).animationName));
-      expect(animations).toEqual(['reveal', 'reveal']);
+      const durations = await page.locator('.main-nav a, .button').evaluateAll((elements) =>
+        elements.map((element) => getComputedStyle(element).transitionDuration));
+      expect(durations.length).toBeGreaterThan(0);
+      expect(durations.every((value) => parseFloat(value) >= 0.2)).toBe(true);
     });
 
     test('keeps route focus behavior with reduced motion', async ({ page }) => {
@@ -125,7 +135,7 @@ for (const language of ['en', 'ar'] as const) {
         });
       });
       await page.goto('/');
-      await page.getByRole('navigation').getByRole('link', {
+      await page.locator('.site-header').getByRole('link', {
         name: language === 'ar' ? 'تسجيل الدخول' : 'Sign in',
       }).click();
 

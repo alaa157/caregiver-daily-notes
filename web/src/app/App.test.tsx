@@ -131,8 +131,8 @@ function correctionHistoryFixture() {
 describe('application foundation', () => {
   it('renders the public landing page and route navigation', () => {
     renderRoute('/');
-    expect(screen.getByRole('heading', { level: 1, name: 'Better records. More thoughtful care.' })).toBeInTheDocument();
-    expect(screen.getByRole('link', { name: 'Continue to sign in' })).toHaveAttribute('href', '/login');
+    expect(screen.getByRole('heading', { level: 1, name: 'The little details are the story of care.' })).toBeInTheDocument();
+    expect(screen.getAllByRole('link', { name: 'Sign in' })[0]).toHaveAttribute('href', '/login');
   });
   it('protects the dashboard without an authenticated session', async () => {
     renderRoute('/app');
@@ -142,11 +142,11 @@ describe('application foundation', () => {
   it('switches language and document direction to Arabic and back', async () => {
     const user = userEvent.setup();
     renderRoute('/');
-    await user.click(screen.getByRole('button', { name: 'التغيير إلى العربية' }));
-    expect(screen.getByRole('heading', { name: 'سجلات أوضح. رعاية أكثر اهتمامًا.' })).toBeInTheDocument();
+    await user.click(screen.getAllByRole('button', { name: 'Switch to Arabic' })[0]);
+    expect(screen.getByRole('heading', { level: 1, name: /تفاصيل صغيرة ترسم صورة أكبر لـ/ })).toBeInTheDocument();
     expect(document.documentElement.lang).toBe('ar');
     expect(document.documentElement.dir).toBe('rtl');
-    await user.click(screen.getByRole('button', { name: 'Switch to English' }));
+    await user.click(screen.getAllByRole('button', { name: 'التبديل إلى الإنجليزية' })[0]);
     expect(document.documentElement.dir).toBe('ltr');
   });
   it('provides accessible loading, empty, error and validation states', () => {
@@ -171,31 +171,27 @@ describe('application foundation', () => {
     expect(screen.getByRole('heading', { level: 1, name: 'Page not found' })).toBeInTheDocument();
     await user.click(screen.getByRole('link', { name: 'Return home' }));
 
-    expect(screen.getByRole('heading', { level: 1, name: 'Better records. More thoughtful care.' })).toBeInTheDocument();
+    expect(screen.getByRole('heading', { level: 1, name: 'The little details are the story of care.' })).toBeInTheDocument();
   });
-  it('marks the active navigation link and moves focus to main after navigation', async () => {
+  it('moves focus to main and resets scroll when navigating from the landing page', async () => {
     const user = userEvent.setup();
     renderRoute('/');
-    const navigation = within(screen.getByRole('navigation'));
+    const navigation = within(screen.getByRole('navigation', { name: 'Main navigation' }));
 
-    expect(navigation.getByRole('link', { name: 'Home' })).toHaveAttribute('aria-current', 'page');
-    expect(navigation.getByRole('link', { name: 'Sign in' })).not.toHaveAttribute('aria-current');
+    expect(navigation.getByRole('link', { name: 'How it works' })).toHaveAttribute('href', '#how');
     expect(window.scrollTo).not.toHaveBeenCalled();
 
-    await user.click(navigation.getByRole('link', { name: 'Sign in' }));
+    await user.click(screen.getAllByRole('link', { name: 'Sign in' })[0]);
 
     expect(screen.getByRole('heading', { level: 1, name: 'Caregiver sign in' })).toBeInTheDocument();
-    expect(navigation.getByRole('link', { name: 'Sign in' })).toHaveAttribute('aria-current', 'page');
-    expect(navigation.getByRole('link', { name: 'Home' })).not.toHaveAttribute('aria-current');
     expect(screen.getByRole('main')).toHaveFocus();
     expect(window.scrollTo).toHaveBeenCalledTimes(1);
     expect(window.scrollTo).toHaveBeenCalledWith(expect.objectContaining({ top: 0 }));
     expect(document.title).toBe('Caregiver sign in · Caregiver Daily Notes');
 
-    await user.click(navigation.getByRole('link', { name: 'Home' }));
+    await user.click(screen.getByRole('link', { name: 'Return home' }));
 
-    expect(screen.getByRole('heading', { level: 1, name: 'Better records. More thoughtful care.' })).toBeInTheDocument();
-    expect(navigation.getByRole('link', { name: 'Home' })).toHaveAttribute('aria-current', 'page');
+    expect(screen.getByRole('heading', { level: 1, name: 'The little details are the story of care.' })).toBeInTheDocument();
     expect(screen.getByRole('main')).toHaveFocus();
     expect(window.scrollTo).toHaveBeenCalledTimes(2);
     expect(document.title).toBe('Home · Caregiver Daily Notes');
@@ -213,8 +209,8 @@ describe('application foundation', () => {
     const user = userEvent.setup();
     renderRoute('/');
 
-    await user.click(screen.getByRole('button', { name: 'التغيير إلى العربية' }));
-    await user.click(within(screen.getByRole('navigation')).getByRole('link', { name: 'تسجيل الدخول' }));
+    await user.click(screen.getAllByRole('button', { name: 'Switch to Arabic' })[0]);
+    await user.click(screen.getAllByRole('link', { name: 'تسجيل الدخول' })[0]);
 
     expect(screen.getByRole('heading', { level: 1, name: 'دخول مقدّم الرعاية' })).toBeInTheDocument();
     expect(document.documentElement.lang).toBe('ar');
@@ -224,7 +220,7 @@ describe('application foundation', () => {
 
     await user.click(screen.getByRole('link', { name: 'العودة للرئيسية' }));
 
-    expect(screen.getByRole('heading', { level: 1, name: 'سجلات أوضح. رعاية أكثر اهتمامًا.' })).toBeInTheDocument();
+    expect(screen.getByRole('heading', { level: 1, name: /تفاصيل صغيرة ترسم صورة أكبر لـ/ })).toBeInTheDocument();
     expect(document.documentElement.dir).toBe('rtl');
     expect(document.title).toBe('الرئيسية · ملاحظات الرعاية اليومية');
   });
@@ -232,18 +228,20 @@ describe('application foundation', () => {
     localStorage.setItem('caregiver-language', 'ar');
     renderRoute('/');
 
-    expect(screen.getByRole('heading', { level: 1, name: 'سجلات أوضح. رعاية أكثر اهتمامًا.' })).toBeInTheDocument();
+    expect(screen.getByRole('heading', { level: 1, name: /تفاصيل صغيرة ترسم صورة أكبر لـ/ })).toBeInTheDocument();
     expect(document.documentElement.lang).toBe('ar');
     expect(document.documentElement.dir).toBe('rtl');
-    expect(screen.getByRole('button', { name: 'Switch to English' })).toHaveAttribute('lang', 'en');
+    const storedToggle = screen.getAllByRole('button', { name: 'التبديل إلى الإنجليزية' })[0];
+    expect(storedToggle).toHaveAttribute('lang', 'ar');
+    expect(storedToggle.querySelector('span')).toHaveAttribute('lang', 'en');
   });
-  it('declares the language of the language-switch button', async () => {
+  it('declares the language of the language-switch label', async () => {
     const user = userEvent.setup();
     renderRoute('/');
 
-    expect(screen.getByRole('button', { name: 'التغيير إلى العربية' })).toHaveAttribute('lang', 'ar');
-    await user.click(screen.getByRole('button', { name: 'التغيير إلى العربية' }));
-    expect(screen.getByRole('button', { name: 'Switch to English' })).toHaveAttribute('lang', 'en');
+    expect(screen.getAllByRole('button', { name: 'Switch to Arabic' })[0].querySelector('span')).toHaveAttribute('lang', 'ar');
+    await user.click(screen.getAllByRole('button', { name: 'Switch to Arabic' })[0]);
+    expect(screen.getAllByRole('button', { name: 'التبديل إلى الإنجليزية' })[0].querySelector('span')).toHaveAttribute('lang', 'en');
   });
 
   it('shows four authenticated workspace destinations', async () => {
