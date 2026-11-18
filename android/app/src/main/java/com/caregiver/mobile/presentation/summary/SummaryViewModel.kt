@@ -1,0 +1,651 @@
+package com.caregiver.mobile.presentation.summary
+
+import androidx.lifecycle.ViewModel
+import androidx.lifecycle.viewModelScope
+import com.caregiver.mobile.ai.ApiKeyState
+import com.caregiver.mobile.ai.AiKeyStore
+import com.caregiver.mobile.ai.AiProvider
+import com.caregiver.mobile.ai.LlmClientFactory
+import com.caregiver.mobile.ai.PlanSuggestionResult
+import com.caregiver.mobile.ai.PlanSuggestionService
+import com.caregiver.mobile.ai.SafetySignalEvaluator
+import com.caregiver.mobile.ai.SummaryAiResult
+import com.caregiver.mobile.ai.SummaryAiService
+import com.caregiver.mobile.ai.SummaryWindow
+import com.caregiver.mobile.ai.TrendCalculator
+import com.caregiver.mobile.ai.TrendDto
+import com.caregiver.mobile.data.AuthRepository
+import com.caregiver.mobile.data.LoggedOutException
+import com.caregiver.mobile.data.api.ApiErrors
+import com.caregiver.mobile.data.api.BackendApis
+import com.caregiver.mobile.data.api.SummaryDto
+import com.caregiver.mobile.data.api.SummaryRequest
+import com.caregiver.mobile.data.api.SignalDto
+import com.caregiver.mobile.data.api.SuggestPlanRequest
+import com.caregiver.mobile.data.summary.SavedSummaryStore
+import java.io.IOException
+import java.time.LocalDate
+import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.Job
+import kotlinx.coroutines.flow.MutableStateFlow
+import kotlinx.coroutines.withTimeout
+import kotlinx.coroutines.flow.StateFlow
+import kotlinx.coroutines.flow.asStateFlow
+import kotlinx.coroutines.launch
+import retrofit2.HttpException
+
+/**
+ * Everything the result screen renders for one generation: the summary
+ * itself plus the fields later issues fill in (trends, period bounds,
+ * provider/model, generation time, saved-summary id). All fields except
+ * [summary] default so existing behaviour is unchanged.
+ */
+data class SummaryResultData(
+    val summary: SummaryDto,
+    val trends: List<TrendDto> = emptyList(),
+    val periodStart: String? = null,
+    val periodEnd: String? = null,
+    val provider: String? = null,
+    val model: String? = null,
+    val generatedAt: Long? = null,
+    val savedId: String? = null,
+)
+
+sealed interface SummaryState {
+    data object Loading : SummaryState
+
+    /**
+     * The selected provider has no consent yet. Carrying the provider keeps
+     * the consent dialog's name in step with the provider that was checked,
+     * even if settings change underneath the screen.
+     */
+    data class NeedsConsent(val provider: AiProvider) : SummaryState
+    data class Content(val data: SummaryResultData, val refreshing: Boolean = false, val aiGenerated: Boolean = false) : SummaryState
+    data class AiUnavailable(
+        val last: SummaryResultData? = null,
+        val redFlags: List<String> = emptyList(),
+        /** Provider/service code; the UI turns it into recovery copy. */
+        val reasonCode: String? = null,
+        /**
+         * Another provider that has a usable key, offered as a recovery
+         * action when the selected provider cannot be used. The switch only
+         * happens on an explicit user tap; it is never applied automatically.
+         */
+        val switchToProvider: AiProvider? = null,
+    ) : SummaryState
+    data class Rejected(val code: String?, val last: SummaryResultData? = null) : SummaryState
+}
+
+/**
+ * Summary (boards 10-11): 7/14/30-day periods over stored notes. Known flags
+ * survive refresh and failure — clearing happens only when a successful
+ * response reports none, or when the session ends upstream. Transport
+ * failures surface AiUnavailable and HTTP failures surface Rejected; both
+ * carry a reason code so the UI can show localized recovery copy, never the
+ * raw code.
+ */
+class SummaryViewModel(
+    private val recipientId: String,
+    private val apis: BackendApis,
+    private val repository: AuthRepository,
+    scope: CoroutineScope? = null,
+    initialPeriod: Int = DEFAULT_PERIOD_DAYS,
+    private val aiKeyStore: AiKeyStore? = null,
+    private val llmClientFactory: LlmClientFactory = LlmClientFactory(),
+    /** UI language for AI-generated summary text ("ar"/"en"); defaults to English. */
+    private val language: String = "en",
+    /** End of the summary window; null or a future date means "today". */
+    initialEnd: LocalDate? = null,
+    private val clock: () -> LocalDate = LocalDate::now,
+    /** Wall-clock time stamped on each successful result. */
+    private val nowMillis: () -> Long = System::currentTimeMillis,
+    /** On-device store for generated summaries; null disables saving. */
+    private val savedStore: SavedSummaryStore? = null,
+    /**
+     * When set, the result screen reopens this saved summary instead of
+     * generating — no key, consent or provider call is made. A missing or
+     * unreadable id falls back to the normal load.
+     */
+    initialSavedId: String? = null,
+) : ViewModel() {
+    private val exec: CoroutineScope = scope ?: viewModelScope
+
+    /** The active load: cancelled by the user through cancelGeneration. */
+    private var loadJob: Job? = null
+
+    /** Set on user cancel so a queued load never paints over it. */
+    private var cancelledByUser = false
+
+    /** Last deterministic flags, so cancel/timeout states keep them. */
+    private var lastRedFlags: List<String> = emptyList()
+
+    private var lastGood: SummaryResultData? = null
+
+    private val _period = MutableStateFlow(initialPeriod)
+    val period: StateFlow<Int> = _period.asStateFlow()
+
+    private val _endDate = MutableStateFlow(
+        initialEnd?.takeIf { !it.isAfter(clock()) } ?: clock(),
+    )
+    val endDate: StateFlow<LocalDate> = _endDate.asStateFlow()
+
+    private val _state = MutableStateFlow<SummaryState>(SummaryState.Loading)
+    val state: StateFlow<SummaryState> = _state.asStateFlow()
+
+    private val _suggesting = MutableStateFlow(false)
+    val suggesting: StateFlow<Boolean> = _suggesting.asStateFlow()
+
+    private val _suggestedForCurrent = MutableStateFlow(false)
+    val suggestedForCurrent: StateFlow<Boolean> = _suggestedForCurrent.asStateFlow()
+
+    private val _savedId = MutableStateFlow<String?>(null)
+
+    /** Id of the row the latest successful result was saved under, if any. */
+    val savedId: StateFlow<String?> = _savedId.asStateFlow()
+
+    private val _showingSaved = MutableStateFlow(false)
+
+    /** True while the content on screen is a reopened saved summary. */
+    val showingSaved: StateFlow<Boolean> = _showingSaved.asStateFlow()
+
+    init {
+        loadJob = exec.launch {
+            val saved = initialSavedId?.let { id ->
+                savedStore?.let { store -> runCatching { store.get(id) }.getOrNull() }
+            }
+            if (saved != null) {
+                lastGood = saved
+                _savedId.value = saved.savedId
+                _showingSaved.value = true
+                _state.value = SummaryState.Content(
+                    saved,
+                    aiGenerated = saved.provider != null,
+                )
+            } else {
+                load(preserve = false, periodDays = _period.value)
+            }
+        }
+    }
+
+    fun setPeriod(days: Int) {
+        if (days != _period.value) {
+            _period.value = days
+            refresh()
+        }
+    }
+
+    /**
+     * Moves the window's end date. A date after today is ignored — the
+     * window cannot reach into the future — anything else reloads.
+     */
+    fun setEndDate(date: LocalDate) {
+        if (date.isAfter(clock())) return
+        if (date == _endDate.value) return
+        _endDate.value = date
+        refresh()
+    }
+
+    fun refresh() {
+        cancelledByUser = false
+        val current = (_state.value as? SummaryState.Content)?.data
+        _suggestedForCurrent.value = false
+        _suggestStatus.value = null
+        _savedId.value = null
+        _showingSaved.value = false
+        _state.value = if (current != null) {
+            SummaryState.Content(current, refreshing = true)
+        } else {
+            SummaryState.Loading
+        }
+        loadJob?.cancel()
+        val requestedPeriod = _period.value
+        loadJob = exec.launch { load(preserve = current != null, periodDays = requestedPeriod) }
+    }
+
+    fun grantConsent() {
+        // Consent belongs to one provider. The state carries the one the
+        // dialog named; falling back to the current selection only covers a
+        // screen that was restored without a NeedsConsent state.
+        val store = aiKeyStore ?: return
+        val provider = (_state.value as? SummaryState.NeedsConsent)?.provider
+            ?: kotlinx.coroutines.runBlocking { store.selectedProvider() }
+        kotlinx.coroutines.runBlocking { store.setConsentGiven(provider) }
+        cancelledByUser = false
+        _state.value = SummaryState.Loading
+        loadJob?.cancel()
+        val requestedPeriod = _period.value
+        loadJob = exec.launch { load(preserve = false, periodDays = requestedPeriod) }
+    }
+
+    /**
+     * Switches the selected provider on an explicit user action (never
+     * automatically) and reloads. Consent is per provider, so the new
+     * provider asks for its own consent before notes flow to it.
+     */
+    fun switchProvider(provider: AiProvider) {
+        val store = aiKeyStore ?: return
+        kotlinx.coroutines.runBlocking { store.setProvider(provider) }
+        cancelledByUser = false
+        _state.value = SummaryState.Loading
+        loadJob?.cancel()
+        val requestedPeriod = _period.value
+        loadJob = exec.launch { load(preserve = false, periodDays = requestedPeriod) }
+    }
+
+    /**
+     * Surfaces why the selected provider cannot be used, keeping the
+     * deterministic safety flags visible. Distinguishes an absent key, a
+     * saved key that can no longer be read, and an unavailable keystore.
+     * Offers (never applies) a switch to another provider that has a key.
+     */
+    private suspend fun keyProblem(store: AiKeyStore, provider: AiProvider, periodDays: Int) {
+        val reasonCode = when (store.apiKeyState(provider)) {
+            is ApiKeyState.Invalidated -> "key_invalidated"
+            ApiKeyState.Unavailable -> "key_unavailable"
+            ApiKeyState.Absent -> "missing_key"
+            is ApiKeyState.Readable -> "missing_key"
+        }
+        val redFlags = try {
+            val end = endDate.value
+            val from = SummaryWindow.start(end, periodDays).toString()
+            val to = end.toString()
+            val signals = repository.authorized { apis.summaries().signals(recipientId, from, to) }
+            SafetySignalEvaluator.evaluate(
+                signals.filter { it.recipientId == recipientId && SummaryWindow.contains(it.date, end, periodDays) },
+            )
+        } catch (_: Exception) {
+            emptyList()
+        }
+        lastRedFlags = redFlags
+        if (waiting()) {
+            _state.value = SummaryState.AiUnavailable(
+                last = lastSummary(reasonCode),
+                redFlags = redFlags,
+                reasonCode = reasonCode,
+                switchToProvider = store.otherUsableProvider(provider),
+            )
+        }
+    }
+
+    /** True while the screen is waiting for a generation to finish. */
+    private fun waiting(): Boolean =
+        _state.value is SummaryState.Loading ||
+            (_state.value as? SummaryState.Content)?.refreshing == true
+
+/**
+     * The user ends a generation that providers failed to answer in time.
+     * The screen leaves Loading with recovery copy ("AI unavailable",
+     * retry) instead of a stuck spinner. A queued-but-not-started load
+     * honours the cancel and never paints over the cancelled state.
+     */
+    fun cancelGeneration() {
+        if (!waiting()) return
+        cancelledByUser = true
+        loadJob?.cancel()
+        _state.value = SummaryState.AiUnavailable(
+            lastSummary(),
+            redFlags = lastRedFlags,
+            reasonCode = "cancelled",
+        )
+    }
+
+    private suspend fun load(preserve: Boolean, periodDays: Int) {
+        if (cancelledByUser) return
+        val store = aiKeyStore
+        val provider = store?.selectedProvider()
+        var aiRedFlags: List<String> = emptyList()
+        // The current window's signals, already recipient- and
+        // window-filtered — reused for trends so the previous window's
+        // signals never mix into them.
+        var aiWindowedSignals: List<SignalDto>? = null
+        // The selected provider has no usable key. When another provider
+        // does, say so precisely and offer to switch (never silently reuse
+        // that provider's credentials). When none does, keep the backend
+        // fallback so deterministic safety flags and any plan suggestion
+        // still work — there is no key anywhere to switch to.
+        if (store != null && provider != null && !store.hasKey(provider)) {
+            if (store.otherUsableProvider(provider) != null) {
+                keyProblem(store, provider, periodDays)
+                return
+            }
+        }
+        if (store != null && provider != null && store.hasKey(provider)) {
+            if (!store.consentGiven(provider)) {
+                _state.value = SummaryState.NeedsConsent(provider)
+                return
+            }
+            try {
+                val key = store.apiKey(provider).orEmpty()
+                val model = store.model(provider) ?: provider.defaultModel
+                val baseUrl = store.baseUrlOrDefault(provider)
+                // One overall deadline for the whole generation. The client's
+                // retry rounds (empty/truncated/5xx backoff) plus the JSON
+                // repair retry can otherwise stretch without bound: the
+                // per-call timeout defaults to 0 (none) in LlmModels, and a
+                // nested timeout surfaced as an ordinary CancellationException
+                // that died silently in Loading.
+                val result = withTimeout(SUMMARY_DEADLINE_MS) {
+                    val client = when (provider) {
+                        AiProvider.OPENAI,
+                        AiProvider.XAI,
+                        AiProvider.OPEN_ROUTER ->
+                            llmClientFactory.createClient(baseUrl, model, key)
+                        AiProvider.ANTHROPIC ->
+                            llmClientFactory.createAnthropicClient(baseUrl, model, key)
+                        AiProvider.GEMINI ->
+                            llmClientFactory.createGeminiClient(baseUrl, model, key)
+                    }
+                    val service = SummaryAiService(client, store, language = language)
+                // Explicit inclusive window (Finding 3): today plus the
+                // preceding periodDays - 1 days, the same rule the backend
+                // applies. Both fetches are narrowed to it so notes and
+                // signals outside the selected period never reach the AI
+                // provider, and the same window is passed to the service.
+                val end = endDate.value
+                val from = SummaryWindow.start(end, periodDays).toString()
+                val to = end.toString()
+                val notes = repository.authorized { apis.notes().history(recipientId, from, to) }
+                val signals = repository.authorized { apis.summaries().signals(recipientId, from, to) }
+                // Compute deterministic safety flags up front so they survive even
+                // when the AI provider throws instead of returning a fallback.
+                // Scope by recipient here too: this path can surface flags in
+                // the AiUnavailable state without the service's own filter.
+                val windowedSignals = signals.filter {
+                    it.recipientId == recipientId &&
+                        SummaryWindow.contains(it.date, end, periodDays)
+                }
+                    aiWindowedSignals = windowedSignals
+                    aiRedFlags = SafetySignalEvaluator.evaluate(windowedSignals)
+                    lastRedFlags = aiRedFlags
+                    service.summarize(recipientId, periodDays, notes, signals, end)
+                }
+                when (result) {
+                    is SummaryAiResult.Success -> {
+                        val end = endDate.value
+                        val resultData = SummaryResultData(
+                            result.summary,
+                            trends = computeTrends(end, periodDays, aiWindowedSignals),
+                            periodStart = SummaryWindow.start(end, periodDays).toString(),
+                            periodEnd = end.toString(),
+                            provider = provider.name,
+                            model = model,
+                            generatedAt = nowMillis(),
+                        )
+                        lastGood = resultData
+                        _state.value = SummaryState.Content(
+                            resultData,
+                            aiGenerated = true,
+                        )
+                        persistSummary(resultData)
+                        _suggestedForCurrent.value = false
+                        _suggestStatus.value = null
+                        return
+                    }
+                    is SummaryAiResult.Failure -> {
+                        aiRedFlags = result.redFlags
+                        lastRedFlags = result.redFlags
+                        if (waiting()) _state.value = SummaryState.AiUnavailable(
+                            lastSummary(result.reasonCode),
+                            redFlags = result.redFlags,
+                            reasonCode = result.reasonCode,
+                        )
+                        return
+                    }
+                }
+            } catch (e: kotlinx.coroutines.TimeoutCancellationException) {
+                // The overall deadline beat the provider: bounded failure,
+                // recovery copy — never a silent death at Loading.
+                if (waiting()) _state.value = SummaryState.AiUnavailable(
+                    lastSummary(),
+                    redFlags = lastRedFlags,
+                    reasonCode = "timeout",
+                )
+                return
+            } catch (e: kotlinx.coroutines.CancellationException) {
+                throw e
+            } catch (e: HttpException) {
+                val reasonCode = ApiErrors.parse(e)?.code ?: "http_${e.code()}"
+                if (waiting()) _state.value = SummaryState.AiUnavailable(
+                    lastSummary(reasonCode),
+                    redFlags = lastRedFlags,
+                    reasonCode = reasonCode,
+                )
+                return
+            } catch (e: IOException) {
+                if (waiting()) _state.value = SummaryState.AiUnavailable(
+                    lastSummary(),
+                    redFlags = lastRedFlags,
+                    reasonCode = "network",
+                )
+                return
+            } catch (e: Exception) {
+                // Catch-all (Finding 2): any unexpected failure ends in a
+                // bounded error state instead of escaping the coroutine.
+                if (waiting()) _state.value = SummaryState.AiUnavailable(
+                    lastSummary(),
+                    redFlags = lastRedFlags,
+                    reasonCode = "unavailable",
+                )
+                return
+            }
+        }
+        try {
+            // No AI key: the backend (or the local-mode fallback) is the
+            // summary source. It is still responsible for returning the
+            // deterministic safety flags; an empty payload must never hide a
+            // reported fall. LocalBackendApis computes them from Room.
+            val summary = withTimeout(SUMMARY_DEADLINE_MS) {
+                repository.authorized {
+                    apis.summaries().summarize(SummaryRequest(recipientId, periodDays))
+                }
+            }
+            val end = endDate.value
+            val resultData = SummaryResultData(
+                summary,
+                trends = computeTrends(end, periodDays),
+                periodStart = SummaryWindow.start(end, periodDays).toString(),
+                periodEnd = end.toString(),
+                generatedAt = nowMillis(),
+            )
+            lastGood = resultData
+            _state.value = SummaryState.Content(resultData)
+            persistSummary(resultData)
+            _suggestedForCurrent.value = false
+            _suggestStatus.value = null
+        } catch (e: LoggedOutException) {
+            if (!preserve) {
+                if (waiting()) _state.value = SummaryState.Loading
+            } else {
+                lastSummary()?.let { if (waiting()) _state.value = SummaryState.Content(it) }
+            }
+        } catch (e: HttpException) {
+            val code = ApiErrors.parse(e)?.code ?: "http_${e.code()}"
+            if (waiting()) _state.value = SummaryState.Rejected(
+                code,
+                lastSummary(code),
+            )
+        } catch (e: IOException) {
+            if (waiting()) _state.value = SummaryState.AiUnavailable(
+                lastSummary(),
+                redFlags = lastRedFlags,
+                reasonCode = "network",
+            )
+        } catch (e: kotlinx.coroutines.TimeoutCancellationException) {
+            if (waiting()) _state.value = SummaryState.AiUnavailable(
+                lastSummary(),
+                redFlags = lastRedFlags,
+                reasonCode = "timeout",
+            )
+        } catch (e: kotlinx.coroutines.CancellationException) {
+            throw e
+        } catch (e: Exception) {
+            // Catch-all (Finding 2): the non-AI path previously caught only
+            // LoggedOut/Http/IO — any other exception escaped and either
+            // stuck the screen on Loading or crashed the process.
+            if (waiting()) _state.value = SummaryState.AiUnavailable(
+                lastSummary(),
+                redFlags = lastRedFlags,
+                reasonCode = "unavailable",
+            )
+        }
+    }
+
+    private val _suggestStatus = MutableStateFlow<String?>(null)
+    val suggestStatus: StateFlow<String?> = _suggestStatus.asStateFlow()
+
+    fun suggestPlan() {
+        val store = aiKeyStore ?: return
+        val provider = kotlinx.coroutines.runBlocking { store.selectedProvider() }
+        if (!kotlinx.coroutines.runBlocking { store.hasKey(provider) }) return
+        if (!kotlinx.coroutines.runBlocking { store.consentGiven(provider) }) return
+        if (_suggesting.value || _suggestedForCurrent.value) return
+        val summaryText = (_state.value as? SummaryState.Content)?.data?.summary?.text.orEmpty()
+        if (summaryText.isBlank()) {
+            _suggestStatus.value = "empty_after_filter"
+            return
+        }
+        _suggesting.value = true
+        _suggestStatus.value = null
+        exec.launch {
+            try {
+                val key = store.apiKey(provider).orEmpty()
+                val model = store.model(provider) ?: provider.defaultModel
+                val baseUrl = store.baseUrlOrDefault(provider)
+                val client = when (provider) {
+                    AiProvider.OPENAI,
+                    AiProvider.XAI,
+                    AiProvider.OPEN_ROUTER ->
+                        llmClientFactory.createClient(baseUrl, model, key)
+                    AiProvider.ANTHROPIC ->
+                        llmClientFactory.createAnthropicClient(baseUrl, model, key)
+                    AiProvider.GEMINI ->
+                        llmClientFactory.createGeminiClient(baseUrl, model, key)
+                }
+                val summaryIds = (_state.value as? SummaryState.Content)?.data?.summary?.evidence?.map { it.noteId }?.toSet().orEmpty()
+                val noteIds = if (summaryIds.isNotEmpty()) {
+                    summaryIds
+                } else {
+                    val end = endDate.value
+                    val from = SummaryWindow.start(end, _period.value).toString()
+                    val to = end.toString()
+                    repository.authorized { apis.notes().history(recipientId, from, to) }.map { it.id }.toSet()
+                }
+                // Suggestions must be backed by tracked notes: only the
+                // emptiness of this set is checked — the plan call itself
+                // receives just the finished summary, never note IDs.
+                if (noteIds.isEmpty()) {
+                    _suggestStatus.value = "empty_after_filter"
+                    return@launch
+                }
+                val service = PlanSuggestionService(client, store, language = language)
+                val result = withTimeout(SUMMARY_DEADLINE_MS) { service.suggest(summaryText) }
+                when (result) {
+                    is PlanSuggestionResult.Success -> {
+                        val items = result.suggestion.changes.mapNotNull { change ->
+                            PlanSuggestionService.planItemText(change).takeIf { it.isNotBlank() }
+                        }
+                        if (items.isEmpty()) {
+                            _suggestStatus.value = "empty_after_filter"
+                            return@launch
+                        }
+                        try {
+                            repository.authorized {
+                                apis.plans().suggest(SuggestPlanRequest(recipientId, items))
+                            }
+                            _suggestStatus.value = "success"
+                            _suggestedForCurrent.value = true
+                        } catch (e: kotlinx.coroutines.CancellationException) {
+                            throw e
+                        } catch (e: Exception) {
+                            _suggestStatus.value = "error"
+                        }
+                    }
+                    is PlanSuggestionResult.Failure -> {
+                        _suggestStatus.value = result.reasonCode
+                    }
+                }
+            } catch (e: kotlinx.coroutines.CancellationException) {
+                throw e
+            } catch (e: Exception) {
+                _suggestStatus.value = "error"
+            } finally {
+                _suggesting.value = false
+            }
+        }
+    }
+
+    /**
+     * Compares the current window's signals with the previous window's for
+     * the trends strip. [current] may carry signals the caller already
+     * fetched and windowed (the AI path); otherwise they are fetched here
+     * the same way. Either fetch failing leaves the summary untouched —
+     * trends come back empty, never an error state. The previous window's
+     * signals stay on the device: they only ever reach [TrendCalculator],
+     * never a provider.
+     */
+    private suspend fun computeTrends(
+        end: LocalDate,
+        periodDays: Int,
+        current: List<SignalDto>? = null,
+    ): List<TrendDto> {
+        try {
+            val currentSignals = current ?: run {
+                val from = SummaryWindow.start(end, periodDays).toString()
+                repository.authorized {
+                    apis.summaries().signals(recipientId, from, end.toString())
+                }.filter {
+                    it.recipientId == recipientId &&
+                        SummaryWindow.contains(it.date, end, periodDays)
+                }
+            }
+            val prevEnd = SummaryWindow.start(end, periodDays).minusDays(1)
+            val prevStart = SummaryWindow.start(prevEnd, periodDays)
+            val previousSignals = repository.authorized {
+                apis.summaries().signals(recipientId, prevStart.toString(), prevEnd.toString())
+            }.filter {
+                it.recipientId == recipientId &&
+                    SummaryWindow.contains(it.date, prevEnd, periodDays)
+            }
+            return TrendCalculator.compute(currentSignals, previousSignals)
+        } catch (e: kotlinx.coroutines.CancellationException) {
+            throw e
+        } catch (e: Exception) {
+            return emptyList()
+        }
+    }
+
+    /**
+     * Saves a successful result on the device. A summary with neither text
+     * nor flags has nothing worth keeping; a store failure is swallowed —
+     * saving must never change what the screen shows.
+     */
+    private fun persistSummary(data: SummaryResultData) {
+        val store = savedStore ?: return
+        if (data.summary.text.isBlank() && data.summary.redFlags.isEmpty()) return
+        exec.launch {
+            try {
+                _savedId.value = store.save(recipientId, data)
+            } catch (e: kotlinx.coroutines.CancellationException) {
+                throw e
+            } catch (e: Exception) {
+                // A failed save never changes the screen.
+            }
+        }
+    }
+
+    private fun lastSummary(reasonCode: String? = null): SummaryResultData? =
+        if (reasonCode == "no_source_data") null else lastGood
+
+    companion object {
+        const val DEFAULT_PERIOD_DAYS = 7
+        val PERIODS = listOf(7, 14, 30)
+
+        /**
+         * One overall deadline for a summary generation: it must cover the
+         * client's retry rounds (3 attempts with backoff on empty, truncated
+         * and 5xx replies) plus the JSON repair round in the shared reader —
+         * and still end the attempt while the user is watching.
+         */
+        const val SUMMARY_DEADLINE_MS = 120_000L
+    }
+}

@@ -1,0 +1,238 @@
+package com.caregiver.mobile.presentation.notes
+
+import androidx.lifecycle.ViewModel
+import androidx.lifecycle.viewModelScope
+import com.caregiver.mobile.R
+import com.caregiver.mobile.data.AuthRepository
+import com.caregiver.mobile.data.LoggedOutException
+import com.caregiver.mobile.data.NoteDraftStore
+import com.caregiver.mobile.data.api.ApiErrors
+import com.caregiver.mobile.data.api.BackendApis
+import com.caregiver.mobile.data.api.CreateNoteRequest
+import com.caregiver.mobile.data.local.ArchivedRecipientException
+import com.caregiver.mobile.data.local.DuplicateNoteDayException
+import java.io.IOException
+import java.time.Clock
+import java.time.LocalDate
+import kotlinx.coroutines.CancellationException
+import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.flow.MutableStateFlow
+import kotlinx.coroutines.flow.StateFlow
+import kotlinx.coroutines.flow.asStateFlow
+import kotlinx.coroutines.launch
+import retrofit2.HttpException
+
+sealed interface EditorError {
+    data object NothingAnswered : EditorError
+    data class Rejected(val code: String?) : EditorError
+    data object Unreachable : EditorError
+    data object ArchivedRecipient : EditorError
+    data class DuplicateDay(val existingNoteId: String) : EditorError
+}
+
+/**
+ * Maps save-failure codes to localized copy. The only reachable 422 on note
+ * creation is the one-note-per-day rule (all field rules are enforced
+ * client-side first), so it gets specific copy; everything else is generic.
+ */
+object EditorErrorText {
+    fun res(code: String?): Int = when (code) {
+        "VALIDATION_ERROR" -> R.string.editor_error_duplicate_day
+        else -> R.string.editor_error_generic
+    }
+}
+
+data class EditorState(
+    val mood: String? = null,
+    val appetite: String? = null,
+    val sleep: String? = null,
+    val mobility: String? = null,
+    val medication: String? = null,
+    val pain: Int? = null,
+    val fall: Boolean? = null,
+    val text: String = "",
+    val formError: EditorError? = null,
+    val busy: Boolean = false,
+    val savedId: String? = null,
+    val detailsExpanded: Boolean = false,
+    /** Epoch millis of the last local draft write, or null when none exists. */
+    val draftSavedAt: Long? = null,
+)
+
+/** How many of the seven questions have an answer; free text does not count. */
+fun EditorState.answeredCount(): Int =
+    listOf(mood, appetite, sleep, mobility, medication, pain, fall).count { it != null }
+
+/**
+ * Note editor (board 5). Every question is optional; unselected groups
+ * submit as "" (the backend stores those verbatim). Pain is clamped 0-10.
+ */
+class NoteEditorViewModel(
+    private val recipientId: String,
+    private val apis: BackendApis,
+    private val repository: AuthRepository,
+    scope: CoroutineScope? = null,
+    private val drafts: NoteDraftStore = NoteDraftStore.inMemory(),
+    private val clock: Clock = Clock.systemDefaultZone(),
+) : ViewModel() {
+    private val exec: CoroutineScope = scope ?: viewModelScope
+
+    private val _state = MutableStateFlow(EditorState())
+    val state: StateFlow<EditorState> = _state.asStateFlow()
+
+    // One draft per person per calendar day. The clock is injectable so a
+    // test can prove yesterday's draft never leaks into today's editor.
+    private val draftKey: String
+        get() = NoteDraftStore.key(recipientId, LocalDate.now(clock).toString())
+
+    init {
+        drafts.load(draftKey)?.let { draft ->
+            _state.value = _state.value.copy(
+                mood = draft.mood,
+                appetite = draft.appetite,
+                sleep = draft.sleep,
+                mobility = draft.mobility,
+                medication = draft.medication,
+                pain = draft.pain,
+                fall = draft.fall,
+                text = draft.text,
+                draftSavedAt = draft.savedAt.takeIf { it > 0 },
+            )
+        }
+    }
+
+    /** Persist after every change, then expose the time the draft was saved. */
+    private fun commit(next: EditorState) {
+        val savedAt = clock.millis()
+        val clean = next.copy(formError = null)
+        drafts.save(draftKey, clean.toDraft(savedAt))
+        _state.value = clean.copy(draftSavedAt = savedAt)
+    }
+
+    private fun EditorState.toDraft(savedAt: Long) = NoteDraftStore.Draft(
+        mood = mood,
+        appetite = appetite,
+        sleep = sleep,
+        mobility = mobility,
+        medication = medication,
+        pain = pain,
+        fall = fall,
+        text = text,
+        savedAt = savedAt,
+    )
+
+    fun select(group: OptionGroup, value: String) {
+        val current = _state.value.current(group)
+        val next = if (current == value) null else value
+        commit(_state.value.with(group, next))
+    }
+
+    fun setPain(value: Int) {
+        val clamped = value.coerceIn(MIN_PAIN, MAX_PAIN)
+        val current = _state.value
+        commit(current.copy(pain = if (current.pain == clamped) null else clamped))
+    }
+
+    fun setFall(value: Boolean) {
+        val current = _state.value
+        commit(current.copy(fall = if (current.fall == value) null else value))
+    }
+
+    fun onText(value: String) {
+        commit(_state.value.copy(text = value))
+    }
+
+    /** The details field cannot collapse while it holds text, and is UI-only. */
+    fun toggleDetails() {
+        val current = _state.value
+        if (current.text.isNotBlank()) return
+        _state.value = current.copy(detailsExpanded = !current.detailsExpanded)
+    }
+
+    fun submit() {
+        val current = _state.value
+        // A second tap while a save is in flight — or after one landed —
+        // must not issue another create call.
+        if (current.busy || current.savedId != null) return
+        val answered = current.mood != null || current.appetite != null ||
+            current.sleep != null || current.mobility != null ||
+            current.medication != null || current.pain != null ||
+            current.fall != null || current.text.isNotBlank()
+        if (!answered) {
+            _state.value = current.copy(formError = EditorError.NothingAnswered)
+            return
+        }
+        _state.value = current.copy(busy = true, formError = null)
+        exec.launch {
+            try {
+                val created = repository.authorized {
+                    apis.notes().create(
+                        CreateNoteRequest(
+                            recipientId = recipientId,
+                            mood = current.mood.orEmpty(),
+                            appetite = current.appetite.orEmpty(),
+                            sleep = current.sleep.orEmpty(),
+                            mobility = current.mobility.orEmpty(),
+                            medicationTaken = current.medication.orEmpty(),
+                            pain = current.pain ?: 0,
+                            fall = current.fall ?: false,
+                            text = current.text,
+                            painRecorded = current.pain != null,
+                            fallRecorded = current.fall != null,
+                        ),
+                    )
+                }
+                // A saved note must never leave a stale draft behind.
+                drafts.clear(draftKey)
+                _state.value = _state.value.copy(
+                    busy = false,
+                    savedId = created.id,
+                    draftSavedAt = null,
+                )
+            } catch (e: LoggedOutException) {
+                _state.value = _state.value.copy(busy = false)
+            } catch (e: ArchivedRecipientException) {
+                _state.value = _state.value.copy(
+                    busy = false,
+                    formError = EditorError.ArchivedRecipient,
+                )
+            } catch (e: DuplicateNoteDayException) {
+                _state.value = _state.value.copy(
+                    busy = false,
+                    formError = EditorError.DuplicateDay(e.existingNoteId),
+                )
+            } catch (e: HttpException) {
+                _state.value = _state.value.copy(
+                    busy = false,
+                    formError = EditorError.Rejected(ApiErrors.parse(e)?.code),
+                )
+            } catch (e: IOException) {
+                _state.value = _state.value.copy(busy = false, formError = EditorError.Unreachable)
+            } catch (e: CancellationException) {
+                _state.value = _state.value.copy(busy = false)
+                throw e
+            }
+        }
+    }
+
+    private fun EditorState.current(group: OptionGroup): String? = when (group) {
+        OptionGroup.Mood -> mood
+        OptionGroup.Appetite -> appetite
+        OptionGroup.Sleep -> sleep
+        OptionGroup.Mobility -> mobility
+        OptionGroup.Medication -> medication
+    }
+
+    private fun EditorState.with(group: OptionGroup, value: String?): EditorState = when (group) {
+        OptionGroup.Mood -> copy(mood = value)
+        OptionGroup.Appetite -> copy(appetite = value)
+        OptionGroup.Sleep -> copy(sleep = value)
+        OptionGroup.Mobility -> copy(mobility = value)
+        OptionGroup.Medication -> copy(medication = value)
+    }
+
+    companion object {
+        const val MIN_PAIN = 0
+        const val MAX_PAIN = 10
+    }
+}

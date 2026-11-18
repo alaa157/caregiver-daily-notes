@@ -1,0 +1,98 @@
+package com.caregiver.mobile.ai
+
+import org.junit.Assert.assertEquals
+import org.junit.Assert.assertNotNull
+import org.junit.Assert.assertNull
+import org.junit.Test
+
+/**
+ * Feature-level format validation for the settings screen: distinct from
+ * connection testing and strict about the summary shape the app expects.
+ */
+class SummaryResponseFormatTest {
+
+    @Test
+    fun wellFormedSummaryPasses() {
+        assertNull(
+            SummaryResponseFormat.validate(
+                """{"observations":[{"text":"t","noteId":"n1","quote":"q"}],"uncertainties":[{"topic":"x","detail":"y"}]}""",
+            ),
+        )
+    }
+
+    @Test
+    fun emptyArraysPass() {
+        assertNull(SummaryResponseFormat.validate("""{"observations":[],"uncertainties":[]}"""))
+    }
+
+    @Test
+    fun nonJsonIsRejected() {
+        assertNotNull(SummaryResponseFormat.validate("OK"))
+    }
+
+    @Test
+    fun wrappedJsonIsAccepted() {
+        // The app reads the payload out of a fence or a sentence, so a reply
+        // that only wraps the json still proves the format works.
+        assertNull(
+            SummaryResponseFormat.validate(
+                "Here you go: {\"observations\":[],\"uncertainties\":[]}",
+            ),
+        )
+        assertNull(
+            SummaryResponseFormat.validate(
+                "```json\n{\"observations\":[],\"uncertainties\":[]}\n```",
+            ),
+        )
+    }
+
+    @Test
+    fun missingTopLevelArraysAreRejected() {
+        assertNotNull(SummaryResponseFormat.validate("""{}"""))
+        assertNotNull(SummaryResponseFormat.validate("""{"observations":[]}"""))
+        assertNotNull(SummaryResponseFormat.validate("""{"observations":{},"uncertainties":[]}"""))
+    }
+
+    @Test
+    fun observationMissingRequiredStringsIsRejected() {
+        assertNotNull(SummaryResponseFormat.validate("""{"observations":[{}],"uncertainties":[]}"""))
+        assertNotNull(
+            SummaryResponseFormat.validate(
+                """{"observations":[{"text":"t","noteId":"n1"}],"uncertainties":[]}""",
+            ),
+        )
+    }
+
+    @Test
+    fun structuredObservationNeedsNoQuote() {
+        assertNull(
+            SummaryResponseFormat.validate(
+                """{"observations":[{"text":"mood fair","noteId":"n1","evidenceType":"STRUCTURED_FIELD","structuredField":"mood","structuredValue":"fair"}],"uncertainties":[]}""",
+            ),
+        )
+    }
+
+    @Test
+    fun structuredObservationWithoutValueIsRejected() {
+        assertNotNull(
+            SummaryResponseFormat.validate(
+                """{"observations":[{"text":"mood fair","noteId":"n1","evidenceType":"STRUCTURED_FIELD","structuredField":"mood"}],"uncertainties":[]}""",
+            ),
+        )
+    }
+
+    @Test
+    fun unknownEvidenceTypeIsRejected() {
+        assertNotNull(
+            SummaryResponseFormat.validate(
+                """{"observations":[{"text":"t","noteId":"n1","evidenceType":"GUESS","quote":"q"}],"uncertainties":[]}""",
+            ),
+        )
+    }
+
+    @Test
+    fun reasonNamesTheProblem() {
+        assertEquals("not a JSON object", SummaryResponseFormat.validate("nope"))
+        assertEquals("missing uncertainties array", SummaryResponseFormat.validate("""{"observations":[]}"""))
+    }
+}

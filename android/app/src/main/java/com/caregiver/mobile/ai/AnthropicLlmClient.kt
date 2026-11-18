@@ -1,0 +1,214 @@
+package com.caregiver.mobile.ai
+
+import kotlinx.coroutines.CoroutineDispatcher
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.currentCoroutineContext
+import kotlinx.coroutines.ensureActive
+import kotlinx.coroutines.withContext
+import kotlinx.serialization.json.Json
+import kotlinx.serialization.json.JsonObject
+import kotlinx.serialization.json.buildJsonObject
+import kotlinx.serialization.json.contentOrNull
+import kotlinx.serialization.json.jsonArray
+import kotlinx.serialization.json.jsonObject
+import kotlinx.serialization.json.jsonPrimitive
+import kotlinx.serialization.json.put
+import kotlinx.serialization.json.putJsonArray
+import com.caregiver.mobile.core.network.OkHttpConfig
+import com.caregiver.mobile.data.api.ApiClient
+import okhttp3.HttpUrl.Companion.toHttpUrlOrNull
+import okhttp3.MediaType.Companion.toMediaType
+import okhttp3.OkHttpClient
+import okhttp3.Request
+import okhttp3.RequestBody
+import okhttp3.RequestBody.Companion.toRequestBody
+
+class AnthropicLlmClient(
+    private val baseUrl: String,
+    private val model: String,
+    private val apiKey: String,
+    private val okHttpClient: OkHttpClient = OkHttpConfig.defaultOkHttpClient(),
+    private val json: Json = Json { ignoreUnknownKeys = true },
+    private val ioDispatcher: CoroutineDispatcher = Dispatchers.IO,
+    private val maxTokens: Int = DEFAULT_TOKEN_BUDGET,
+) : LlmClient {
+    override suspend fun complete(request: LlmRequest): LlmResult = withContext(ioDispatcher) {
+        val httpUrl = baseUrl.toHttpUrlOrNull()
+        if (httpUrl == null || httpUrl.host.isEmpty()) {
+            return@withContext LlmResult(LlmStatus.FALLBACK, "", "invalid_url", null)
+        }
+        if (baseUrl.any { it.isWhitespace() } ||
+            httpUrl.query != null || httpUrl.fragment != null ||
+            httpUrl.username.isNotEmpty() || httpUrl.password.isNotEmpty()) {
+            return@withContext LlmResult(LlmStatus.FALLBACK, "", "invalid_url", null)
+        }
+        if (httpUrl.scheme == "http" && !ApiClient.isDevHost(httpUrl.host)) {
+            return@withContext LlmResult(LlmStatus.FALLBACK, "", "invalid_url", null)
+        }
+        if (httpUrl.scheme !in listOf("http", "https")) {
+            return@withContext LlmResult(LlmStatus.FALLBACK, "", "invalid_url", null)
+        }
+        if (apiKey.isBlank() || apiKey.any { it.isWhitespace() || it.isISOControl() || it.code !in 0x21..0x7e }) {
+            return@withContext LlmResult(LlmStatus.FALLBACK, "", "invalid_key", null)
+        }
+        val normalizedUrl = try {
+            if (httpUrl.encodedPath.endsWith("/v1") || httpUrl.encodedPath.endsWith("/v1/")) {
+                httpUrl.newBuilder().encodedPath(httpUrl.encodedPath.removeSuffix("/").removeSuffix("/v1") + "/").build()
+            } else {
+                httpUrl
+            }
+        } catch (e: kotlinx.coroutines.CancellationException) {
+            throw e
+        } catch (e: Exception) {
+            return@withContext LlmResult(LlmStatus.FALLBACK, "", "invalid_url", null)
+        }
+        val url = try {
+            normalizedUrl.newBuilder().addPathSegments("v1/messages").build().toString()
+        } catch (e: kotlinx.coroutines.CancellationException) {
+            throw e
+        } catch (e: Exception) {
+            return@withContext LlmResult(LlmStatus.FALLBACK, "", "invalid_url", null)
+        }
+        val finalHttpUrl = url.toHttpUrlOrNull()
+        if (finalHttpUrl == null || finalHttpUrl.host.isEmpty() ||
+            (finalHttpUrl.scheme == "http" && !ApiClient.isDevHost(finalHttpUrl.host)) ||
+            finalHttpUrl.scheme !in listOf("http", "https")) {
+            return@withContext LlmResult(LlmStatus.FALLBACK, "", "invalid_url", null)
+        }
+        val safeUrl = finalHttpUrl.toString()
+        val cancellation = CallCancellation()
+        cancellation.install()
+        try {
+            // A reply that was cut short, or that came back empty because the
+            // budget went on the model's own thinking, is asked again with a
+            // larger budget. Asking again with the same budget fails the
+            // same way, so the answer would never arrive.
+            var budget = maxTokens
+            var result: LlmResult
+            while (true) {
+                // The retry/budget rounds must stop as soon as the caller is
+                // cancelled, even if a provider keeps answering with a
+                // retryable error.
+                currentCoroutineContext().ensureActive()
+                val bodyObj = try {
+                    buildJsonObject {
+                        put("model", model)
+                        put("max_tokens", budget)
+                        put("system", request.systemPrompt)
+                        putJsonArray("messages") {
+                            add(buildJsonObject { put("role", "user"); put("content", request.dataBlock) })
+                        }
+                    }
+                } catch (e: kotlinx.coroutines.CancellationException) {
+                    throw e
+                } catch (e: Exception) {
+                    return@withContext LlmResult(LlmStatus.FALLBACK, "", "invalid_request", null)
+                }
+                val reqBody = try {
+                    json.encodeToString(JsonObject.serializer(), bodyObj)
+                        .toRequestBody("application/json".toMediaType())
+                } catch (e: kotlinx.coroutines.CancellationException) {
+                    throw e
+                } catch (e: Exception) {
+                    return@withContext LlmResult(LlmStatus.FALLBACK, "", "invalid_request", null)
+                }
+                result = attempt(safeUrl, reqBody, request, cancellation)
+                if (result.error == "truncated" || result.error == "empty_output") {
+                    if (budget < MAX_TOKEN_BUDGET) {
+                        budget = (budget * 2).coerceAtMost(MAX_TOKEN_BUDGET)
+                        continue
+                    }
+                }
+                break
+            }
+            return@withContext result
+        } finally {
+            cancellation.close()
+        }
+    }
+
+    private suspend fun attempt(
+        url: String,
+        reqBody: RequestBody,
+        request: LlmRequest,
+        cancellation: CallCancellation,
+    ): LlmResult {
+        var last: LlmResult = LlmResult(LlmStatus.FALLBACK, "", "network", null)
+        repeat(if (request.timeoutSeconds > 0) 1 else 3) { attempt ->
+            currentCoroutineContext().ensureActive()
+            try {
+                val httpReq = Request.Builder()
+                    .url(url)
+                    .addHeader("Content-Type", "application/json")
+                    .addHeader("x-api-key", apiKey)
+                    .addHeader("anthropic-version", "2023-06-01")
+                    .post(reqBody)
+                    .build()
+                val call = okHttpClient.newCall(httpReq)
+                if (request.timeoutSeconds > 0) {
+                    call.timeout().timeout(request.timeoutSeconds.toLong(), java.util.concurrent.TimeUnit.SECONDS)
+                }
+                cancellation.track(call)
+                call.execute().use { resp ->
+                    val raw = resp.body?.string().orEmpty()
+                    if (!resp.isSuccessful) {
+                        val code = resp.code
+                        val err = classifyLlmHttpError(code, raw)
+                        last = LlmResult(LlmStatus.FALLBACK, "", err, code)
+                        if (code == 401 || code == 403) {
+                            return last
+                        }
+                        // 429 surfaces immediately: auto-retrying quota errors
+                        // inside a user-triggered request stalls the UI in
+                        // real backoff; the app shows "rate_limit" and the
+                        // user retries when ready. 5xx still retries.
+                        if (code >= 500) {
+                            if (attempt < 2) kotlinx.coroutines.delay(calculateBackoff(attempt))
+                            return@use
+                        }
+                        return last
+                    }
+                    val root = try { json.parseToJsonElement(raw).jsonObject } catch (e: Exception) { null }
+                    val blocks = root?.get("content")?.jsonArray
+                    val content = blocks?.mapNotNull { block ->
+                        val obj = block.jsonObject
+                        if (obj["type"]?.jsonPrimitive?.contentOrNull != "text") null
+                        else obj["text"]?.jsonPrimitive?.contentOrNull
+                    }?.joinToString("")?.takeIf { it.isNotBlank() }
+                    val stopReason = root?.get("stop_reason")?.jsonPrimitive?.contentOrNull
+                    if (stopReason == "refusal") {
+                        return LlmResult(LlmStatus.FALLBACK, "", "blocked_safety", resp.code)
+                    }
+                    if (content.isNullOrBlank()) {
+                        // The budget may have gone on the model's own
+                        // thinking. The caller asks again with a larger
+                        // budget; the same request with the same budget
+                        // would come back the same way.
+                        return LlmResult(LlmStatus.FALLBACK, "", "empty_output", resp.code)
+                    }
+                    if (stopReason == "max_tokens") {
+                        // Cut off at the token limit. The caller raises the
+                        // budget instead of repeating the same request.
+                        return LlmResult(LlmStatus.FALLBACK, "", "truncated", resp.code)
+                    }
+                    return LlmResult(LlmStatus.OK, content)
+                }
+            } catch (e: kotlinx.coroutines.CancellationException) {
+                throw e
+            } catch (e: Exception) {
+                last = LlmResult(LlmStatus.FALLBACK, "", "network", null)
+                if (attempt < 2) kotlinx.coroutines.delay(calculateBackoff(attempt))
+            }
+        }
+        currentCoroutineContext().ensureActive()
+        return last
+    }
+
+    fun calculateBackoff(attempt: Int, baseMs: Long = BACKOFF_BASE_MS): Long {
+        return baseMs * (1L shl attempt.coerceAtMost(4))
+    }
+
+    companion object {
+        const val BACKOFF_BASE_MS = 500L
+    }
+}

@@ -1,0 +1,115 @@
+package com.caregiver.mobile.presentation.auth
+
+import androidx.compose.runtime.Composable
+import androidx.compose.runtime.produceState
+import androidx.lifecycle.compose.collectAsStateWithLifecycle
+import androidx.compose.runtime.collectAsState
+import androidx.compose.runtime.getValue
+import androidx.compose.ui.Modifier
+import androidx.lifecycle.ViewModel
+import androidx.lifecycle.ViewModelProvider
+import androidx.lifecycle.viewmodel.compose.viewModel
+import androidx.navigation.NavController
+import com.caregiver.mobile.AppGraph
+import com.caregiver.mobile.core.navigation.AppDestinations
+import com.caregiver.mobile.data.AuthRepository
+
+/** Login (board 1) wired to its ViewModel; signed-in flips at the root nav. */
+@Composable
+fun LoginScreen(
+    repository: AuthRepository,
+    navController: NavController,
+    localAccounts: LocalAccountDirectory? = null,
+    onSwitchAccount: (() -> Unit)? = null,
+    // Issue #878: only wire the server-settings link when the host actually
+    // registers the `server-url` destination. In standalone/local-login
+    // builds that destination is absent, so offering the link crashes with
+    // an uncaught IllegalArgumentException. AuthForm hides the link when the
+    // callback is null, so passing null is the whole fix.
+    showServerSettings: Boolean = true,
+    // #871 wiring, done in #866: the real language switch needs the graph.
+    graph: AppGraph? = null,
+) {
+    val vm: AuthViewModel = authViewModel(AuthMode.Login, repository)
+    val state by vm.state.collectAsStateWithLifecycle()
+    val hasAccounts by produceState(initialValue = false, localAccounts) {
+        value = try {
+            localAccounts?.listAccounts()?.isNotEmpty() == true
+        } catch (e: kotlinx.coroutines.CancellationException) {
+            throw e
+        } catch (e: Exception) {
+            false
+        }
+    }
+    AuthForm(
+        state = state,
+        mode = AuthMode.Login,
+        onEmail = vm::onEmail,
+        onPassword = vm::onPassword,
+        onSubmit = vm::submit,
+        onSwitchMode = {
+            navController.navigate(AppDestinations.Register.base) {
+                launchSingleTop = true
+            }
+        },
+        onServerSettings = if (showServerSettings) {
+            { navController.navigate(AppDestinations.ServerUrl.base) }
+        } else null,
+        // Demo builds (debug + minified) show the offline demo entry
+        // (gated inside AuthForm by BuildConfig.DEMO_BACKEND); release
+        // never sees it.
+        onDemo = vm::demoSignIn,
+        modifier = Modifier,
+        showSwitchAccount = hasAccounts,
+        onSwitchAccount = onSwitchAccount,
+        graph = graph,
+    )
+}
+
+/** Register: the redesigned form wired to its ViewModel, with a working back control. */
+@Composable
+fun RegisterScreen(
+    repository: AuthRepository,
+    navController: NavController,
+    registerAccount: RegisterAccount? = null,
+    graph: AppGraph? = null,
+) {
+    val vm: AuthViewModel = authViewModel(AuthMode.Register, repository, registerAccount)
+    val state by vm.state.collectAsStateWithLifecycle()
+    val backToLogin: () -> Unit = {
+        if (!navController.popBackStack()) {
+            navController.navigate(AppDestinations.Login.base)
+        }
+    }
+    AuthForm(
+        state = state,
+        mode = AuthMode.Register,
+        onEmail = vm::onEmail,
+        onPassword = vm::onPassword,
+        onSubmit = vm::submit,
+        onSwitchMode = backToLogin,
+        onDisplayName = vm::onDisplayName,
+        showDisplayName = vm.requiresDisplayName,
+        modifier = Modifier,
+        onBack = backToLogin,
+        graph = graph,
+    )
+}
+
+@Composable
+fun authViewModel(
+    mode: AuthMode,
+    repository: AuthRepository,
+    registerAccount: RegisterAccount? = null,
+): AuthViewModel {
+    val key = if (mode == AuthMode.Login) "login" else "register"
+    return viewModel(
+        key = key,
+        factory = object : ViewModelProvider.Factory {
+            @Suppress("UNCHECKED_CAST")
+            override fun <T : ViewModel> create(modelClass: Class<T>): T {
+                return AuthViewModel(mode, repository, registerAccount = registerAccount) as T
+            }
+        },
+    )
+}

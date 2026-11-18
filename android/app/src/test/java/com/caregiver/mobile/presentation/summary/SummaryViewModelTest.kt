@@ -1,0 +1,891 @@
+package com.caregiver.mobile.presentation.summary
+
+import androidx.room.Room
+import androidx.test.core.app.ApplicationProvider
+import com.caregiver.mobile.ai.AiKeyStore
+import com.caregiver.mobile.ai.AiProvider
+import com.caregiver.mobile.ai.LlmClient
+import com.caregiver.mobile.ai.LlmClientFactory
+import com.caregiver.mobile.ai.LlmRequest
+import com.caregiver.mobile.ai.LlmResult
+import com.caregiver.mobile.ai.LlmStatus
+import com.caregiver.mobile.ai.SummaryWindow
+import com.caregiver.mobile.ai.TrendDto
+import com.caregiver.mobile.test.TestApiKeyCipher
+import com.caregiver.mobile.core.network.TokenHolder
+import com.caregiver.mobile.data.AuthRepository
+import com.caregiver.mobile.data.FakeAuthApi
+import com.caregiver.mobile.data.FakeBackendApis
+import com.caregiver.mobile.data.FakeNoteApi
+import com.caregiver.mobile.data.FakeSummaryApi
+import com.caregiver.mobile.data.SettingsStore
+import com.caregiver.mobile.data.api.NoteDto
+import com.caregiver.mobile.data.api.SummaryDto
+import com.caregiver.mobile.data.api.SummaryRequest
+import com.caregiver.mobile.data.api.SignalDto
+import com.caregiver.mobile.data.local.AppDatabase
+import com.caregiver.mobile.data.summary.SavedSummaryStore
+import androidx.datastore.preferences.core.PreferenceDataStoreFactory
+import java.io.File
+import java.io.IOException
+import java.time.LocalDate
+import kotlinx.coroutines.CompletableDeferred
+import kotlinx.coroutines.ExperimentalCoroutinesApi
+import kotlinx.coroutines.flow.first
+import kotlinx.coroutines.test.TestScope
+import kotlinx.coroutines.test.UnconfinedTestDispatcher
+import kotlinx.coroutines.test.advanceUntilIdle
+import kotlinx.coroutines.test.runCurrent
+import kotlinx.coroutines.test.runTest
+import org.junit.After
+import org.junit.Assert.assertEquals
+import org.junit.Assert.assertFalse
+import org.junit.Assert.assertNull
+import org.junit.Assert.assertTrue
+import org.junit.Before
+import org.junit.Test
+
+import org.junit.runner.RunWith
+import org.robolectric.RobolectricTestRunner
+
+/**
+ * Summary (boards 10-11): 7/14/30-day periods, flag/evidence/uncertainty
+ * passthrough, and the AI-unavailable path with notes-safe reassurance.
+ */
+@RunWith(RobolectricTestRunner::class)
+@OptIn(ExperimentalCoroutinesApi::class)
+class SummaryViewModelTest {
+
+    private lateinit var file: File
+    private lateinit var summaries: FakeSummaryApi
+    private lateinit var repository: AuthRepository
+    private var savedDb: AppDatabase? = null
+
+    @Before
+    fun setUp() {
+        file = File.createTempFile("summary-vm-test", ".preferences_pb")
+        val settings = SettingsStore(
+            PreferenceDataStoreFactory.create(
+                scope = TestScope(UnconfinedTestDispatcher()),
+            ) { file },
+        )
+        summaries = FakeSummaryApi()
+        val apis = FakeBackendApis(FakeAuthApi()).also { it.summaryApi = summaries }
+        repository = AuthRepository(apis, settings, TokenHolder())
+    }
+
+    @After
+    fun tearDown() {
+        file.delete()
+        savedDb?.close()
+    }
+
+    private fun savedStore(newId: () -> String = { "saved-1" }): SavedSummaryStore {
+        val db = Room.inMemoryDatabaseBuilder(
+            ApplicationProvider.getApplicationContext(),
+            AppDatabase::class.java,
+        ).allowMainThreadQueries().build()
+        savedDb = db
+        return SavedSummaryStore(db, newId = newId)
+    }
+
+    private fun apis() = FakeBackendApis(FakeAuthApi()).also { it.summaryApi = summaries }
+
+    private fun summary() = SummaryDto(
+        id = "s1", recipientId = "r1", periodDays = 7, text = "Reviewed 3 day(s) of notes.",
+        redFlags = listOf("FALL_REPORTED", "MEDICATION_UNCLEAR"),
+        evidence = listOf(SummaryDto.EvidenceDto("n1", "fell near the bathroom")),
+        uncertainties = listOf(SummaryDto.UncertaintyDto("medication", "unsure on 2026-10-06")),
+    )
+
+    private suspend fun content(vm: SummaryViewModel): SummaryDto {
+        val state = vm.state.first { it is SummaryState.Content || it !is SummaryState.Loading }
+        assertTrue("expected Content, was $state", state is SummaryState.Content)
+        return (state as SummaryState.Content).data.summary
+    }
+
+    @Test
+    fun defaultPeriodIsSevenDays() = runTest {
+        summaries.summarizeHandler = { summary() }
+        val vm = SummaryViewModel("r1", apis(), repository, this)
+
+        content(vm)
+
+        assertEquals(SummaryRequest("r1", 7), summaries.lastSummarize?.let {
+            SummaryRequest(it.recipientId, it.periodDays)
+        })
+        assertEquals(7, vm.period.value)
+    }
+
+    @Test
+    fun periodSwitchReloadsWithNewPeriod() = runTest {
+        summaries.summarizeHandler = { summary().copy(periodDays = it.periodDays) }
+        val vm = SummaryViewModel("r1", apis(), repository, this)
+        content(vm)
+
+        vm.setPeriod(30)
+        vm.state.first {
+            it is SummaryState.Content && it.data.summary.periodDays == 30
+        }
+
+        assertEquals(30, summaries.lastSummarize?.periodDays)
+    }
+
+    @Test
+    fun newerPeriodWinsWhenOlderRequestFinishesLast() = runTest {
+        summaries.summarizeHandler = { summary().copy(periodDays = it.periodDays) }
+        val vm = SummaryViewModel("r1", apis(), repository, this)
+        content(vm)
+
+        val slowFourteenDay = CompletableDeferred<SummaryDto>()
+        val fastThirtyDay = CompletableDeferred<SummaryDto>()
+        summaries.summarizeHandler = { request ->
+            when (request.periodDays) {
+                14 -> slowFourteenDay.await()
+                30 -> fastThirtyDay.await()
+                else -> error("unexpected period ${request.periodDays}")
+            }
+        }
+
+        vm.setPeriod(14)
+        runCurrent()
+        vm.setPeriod(30)
+        runCurrent()
+
+        fastThirtyDay.complete(summary().copy(periodDays = 30, text = "30-day summary"))
+        advanceUntilIdle()
+        assertEquals(30, (vm.state.value as SummaryState.Content).data.summary.periodDays)
+
+        // The 14-day request is now stale. Even if it finishes later, it must
+        // not replace the 30-day result.
+        slowFourteenDay.complete(summary().copy(periodDays = 14, text = "14-day summary"))
+        advanceUntilIdle()
+
+        val result = vm.state.value as SummaryState.Content
+        assertEquals(30, result.data.summary.periodDays)
+        assertEquals("30-day summary", result.data.summary.text)
+    }
+
+    @Test
+    fun flagsEvidenceAndUncertaintiesPassThrough() = runTest {
+        summaries.summarizeHandler = { summary() }
+        val vm = SummaryViewModel("r1", apis(), repository, this)
+
+        val loaded = content(vm)
+
+        assertEquals(listOf("FALL_REPORTED", "MEDICATION_UNCLEAR"), loaded.redFlags)
+        assertEquals("n1", loaded.evidence.single().noteId)
+        assertEquals("fell near the bathroom", loaded.evidence.single().quote)
+        assertEquals("medication", loaded.uncertainties.single().topic)
+    }
+
+    @Test
+    fun noKeyFallbackKeepsFlagsAndExplainsMissingAiConfiguration() = runTest {
+        summaries.summarizeHandler = {
+            summary().copy(
+                text = "",
+                redFlags = listOf("FALL_REPORTED"),
+                uncertainties = listOf(SummaryDto.UncertaintyDto("ai_not_configured", "")),
+            )
+        }
+        val vm = SummaryViewModel("r1", apis(), repository, this)
+
+        val loaded = content(vm)
+
+        assertEquals(listOf("FALL_REPORTED"), loaded.redFlags)
+        assertEquals("ai_not_configured", loaded.uncertainties.single().topic)
+    }
+
+    @Test
+    fun networkFailureSurfacesAiUnavailable() = runTest {
+        summaries.summarizeHandler = { throw IOException("down") }
+        val vm = SummaryViewModel("r1", apis(), repository, this)
+
+        val state = vm.state.first { it is SummaryState.AiUnavailable } as SummaryState.AiUnavailable
+
+        assertEquals(null, state.last)
+        assertEquals("network", state.reasonCode)
+    }
+
+    @Test
+    fun httpFailureCarriesCodeNeverRawMessage() = runTest {
+        summaries.summarizeHandler = {
+            throw FakeAuthApi.httpError(422, "VALIDATION_ERROR", "No notes in range.")
+        }
+        val vm = SummaryViewModel("r1", apis(), repository, this)
+
+        val state = vm.state.first { it is SummaryState.Rejected }
+
+        assertEquals("VALIDATION_ERROR", (state as SummaryState.Rejected).code)
+    }
+
+    @Test
+    fun refreshKeepsFlagsVisibleOnFailure() = runTest {
+        summaries.summarizeHandler = { summary() }
+        val vm = SummaryViewModel("r1", apis(), repository, this)
+        val before = content(vm)
+        assertEquals(2, before.redFlags.size)
+
+        summaries.summarizeHandler = { throw IOException("down") }
+        vm.refresh()
+        val state = vm.state.first { it is SummaryState.AiUnavailable }
+
+        assertEquals(before.redFlags, (state as SummaryState.AiUnavailable).last?.summary?.redFlags)
+    }
+
+    @Test
+    fun successThenFailureKeepsTheLastGoodResult() = runTest {
+        summaries.summarizeHandler = { summary().copy(text = "Last good summary") }
+        val vm = SummaryViewModel("r1", apis(), repository, this)
+        val successful = (vm.state.first {
+            it is SummaryState.Content && !it.refreshing
+        } as SummaryState.Content).data
+
+        summaries.summarizeHandler = { throw IOException("down") }
+        vm.refresh()
+        advanceUntilIdle()
+
+        val failed = vm.state.value as SummaryState.AiUnavailable
+        assertEquals(successful, failed.last)
+    }
+
+    @Test
+    fun aSecondFailureStillKeepsTheLastGoodResult() = runTest {
+        summaries.summarizeHandler = { summary().copy(text = "Last good summary") }
+        val vm = SummaryViewModel("r1", apis(), repository, this)
+        val successful = (vm.state.first {
+            it is SummaryState.Content && !it.refreshing
+        } as SummaryState.Content).data
+        summaries.summarizeHandler = { throw IOException("down") }
+
+        vm.refresh()
+        advanceUntilIdle()
+        assertEquals(successful, (vm.state.value as SummaryState.AiUnavailable).last)
+
+        vm.refresh()
+        advanceUntilIdle()
+
+        assertEquals(successful, (vm.state.value as SummaryState.AiUnavailable).last)
+    }
+
+    @Test
+    fun noSourceDataFailureDoesNotExposeTheLastGoodResult() = runTest {
+        val today = LocalDate.of(2026, 10, 10)
+        val note = NoteDto(
+            id = "n1",
+            recipientId = "r1",
+            date = today.toString(),
+            mood = "ok",
+            appetite = "good",
+            sleep = "good",
+            mobility = "ok",
+            medicationTaken = "yes",
+            pain = 1,
+            fall = false,
+            text = "walked",
+        )
+        var hasSourceNote = true
+        val noteApi = FakeNoteApi().also {
+            it.historyHandler = { _, _, _ -> if (hasSourceNote) listOf(note) else emptyList() }
+        }
+        summaries.signalsHandler = { _, _, _ -> emptyList() }
+        val apis = FakeBackendApis(FakeAuthApi()).also {
+            it.noteApi = noteApi
+            it.summaryApi = summaries
+        }
+        val repository = AuthRepository(apis, settings(), TokenHolder())
+        val keyStore = AiKeyStore(ApplicationProvider.getApplicationContext(), TestApiKeyCipher()).also {
+            it.setProvider(AiProvider.OPENAI)
+            it.setConsentGiven(AiProvider.OPENAI)
+            it.setApiKey("test-key")
+        }
+        val vm = SummaryViewModel(
+            "r1",
+            apis,
+            repository,
+            this,
+            aiKeyStore = keyStore,
+            llmClientFactory = FixedFactory(OkClient()),
+            initialEnd = today,
+            clock = { today },
+        )
+        val successful = vm.state.first {
+            it is SummaryState.Content && !it.refreshing
+        } as SummaryState.Content
+        assertTrue(successful.data.summary.text.isNotBlank())
+
+        hasSourceNote = false
+        vm.refresh()
+        advanceUntilIdle()
+
+        val failed = vm.state.value as SummaryState.AiUnavailable
+        assertEquals("no_source_data", failed.reasonCode)
+        assertNull(failed.last)
+    }
+
+    @Test
+    fun failedRefreshKeepsFlagsOnRejected() = runTest {
+        summaries.summarizeHandler = { summary() }
+        val vm = SummaryViewModel("r1", apis(), repository, this)
+        content(vm)
+
+        summaries.summarizeHandler = {
+            throw FakeAuthApi.httpError(500, "SERVER_ERROR")
+        }
+        vm.refresh()
+        val state = vm.state.first { it is SummaryState.Rejected }
+
+        assertEquals(
+            listOf("FALL_REPORTED", "MEDICATION_UNCLEAR"),
+            (state as SummaryState.Rejected).last?.summary?.redFlags,
+        )
+    }
+
+    @Test
+    fun successfulRefreshClearsFlagsWhenNoneReported() = runTest {
+        summaries.summarizeHandler = { summary() }
+        val vm = SummaryViewModel("r1", apis(), repository, this)
+        content(vm)
+
+        summaries.summarizeHandler = { summary().copy(redFlags = emptyList()) }
+        vm.refresh()
+        val state = vm.state.first {
+            it is SummaryState.Content && !it.refreshing
+        } as SummaryState.Content
+
+        assertTrue(state.data.summary.redFlags.isEmpty())
+    }
+
+    @Test
+    fun overallDeadlineEndsAHungGeneration() = runTest {
+        // A provider that never answers must end in a bounded error state,
+        // not a spinner forever: the overall deadline fires over virtual time.
+        summaries.summarizeHandler = { kotlinx.coroutines.awaitCancellation() }
+        val vm = SummaryViewModel("r1", apis(), repository, this)
+
+        val state = vm.state.first { it !is SummaryState.Loading } as SummaryState.AiUnavailable
+
+        assertEquals("timeout", state.reasonCode)
+    }
+
+    @Test
+    fun unexpectedFailureEndsInBoundedErrorState() = runTest {
+        // Non-AI path used to catch only LoggedOut/Http/IO: an unexpected
+        // exception escaped the coroutine (stuck or crash). Now it is caught.
+        summaries.summarizeHandler = { throw IllegalStateException("boom") }
+        val vm = SummaryViewModel("r1", apis(), repository, this)
+
+        val state = vm.state.first { it !is SummaryState.Loading } as SummaryState.AiUnavailable
+
+        assertEquals("unavailable", state.reasonCode)
+    }
+
+    @Test
+    fun cancelEndsAHungGenerationAndQueuedLoadsHonourIt() = runTest {
+        summaries.summarizeHandler = { kotlinx.coroutines.awaitCancellation() }
+        val vm = SummaryViewModel("r1", apis(), repository, this)
+
+        vm.cancelGeneration()
+        advanceUntilIdle()
+
+        val state = vm.state.value
+        assertTrue("expected AiUnavailable, was $state", state is SummaryState.AiUnavailable)
+        assertEquals("cancelled", (state as SummaryState.AiUnavailable).reasonCode)
+    }
+
+    @Test
+    fun contentDataRoundTripsTheSummary() {
+        val summary = SummaryDto(
+            id = "s1", recipientId = "r1", periodDays = 7, text = "ok",
+            redFlags = emptyList(), evidence = emptyList(), uncertainties = emptyList(),
+        )
+        val state = SummaryState.Content(SummaryResultData(summary))
+        assertEquals(summary, (state as SummaryState.Content).data.summary)
+    }
+
+    @Test
+    fun defaultEndDateIsTheClock() = runTest {
+        val today = LocalDate.of(2026, 10, 10)
+        summaries.summarizeHandler = { summary() }
+        val vm = SummaryViewModel("r1", apis(), repository, this, clock = { today })
+
+        content(vm)
+
+        assertEquals(today, vm.endDate.value)
+    }
+
+    @Test
+    fun aFutureEndDateIsRejected() = runTest {
+        val today = LocalDate.of(2026, 10, 10)
+        var summarizeCalls = 0
+        summaries.summarizeHandler = { summarizeCalls++; summary() }
+        val vm = SummaryViewModel("r1", apis(), repository, this, clock = { today })
+        content(vm)
+
+        vm.setEndDate(today.plusDays(3))
+        advanceUntilIdle()
+
+        assertEquals(today, vm.endDate.value)
+        // No reload happened: the backend saw exactly one summarize call.
+        assertEquals(1, summarizeCalls)
+    }
+
+    @Test
+    fun successfulResultCarriesThePeriodBounds() = runTest {
+        val today = LocalDate.of(2026, 10, 10)
+        summaries.summarizeHandler = { summary() }
+        val vm = SummaryViewModel("r1", apis(), repository, this, clock = { today })
+
+        val state = vm.state.first {
+            it is SummaryState.Content && !it.refreshing
+        } as SummaryState.Content
+
+        assertEquals(SummaryWindow.start(today, 7).toString(), state.data.periodStart)
+        assertEquals(today.toString(), state.data.periodEnd)
+    }
+
+    @Test
+    fun aPastEndDateNarrowsBothFetches() = runTest {
+        val today = LocalDate.of(2026, 10, 10)
+        val end = LocalDate.of(2026, 10, 5)
+        val note = NoteDto(
+            id = "n1", recipientId = "r1", date = end.toString(),
+            mood = "ok", appetite = "good", sleep = "good", mobility = "ok",
+            medicationTaken = "yes", pain = 1, fall = false,
+            text = "Patient walked today",
+        )
+        val noteFake = FakeNoteApi().also {
+            it.historyHandler = { _, _, _ -> listOf(note) }
+        }
+        var notesFrom: String? = null
+        var notesTo: String? = null
+        noteFake.historyHandler = { _, from, to ->
+            notesFrom = from
+            notesTo = to
+            listOf(note)
+        }
+        var signalsFrom: String? = null
+        var signalsTo: String? = null
+        summaries.signalsHandler = { _, from, to ->
+            // The trends pass issues a second, earlier-window signals fetch;
+            // this test narrows on the first (current-window) call.
+            if (signalsFrom == null) {
+                signalsFrom = from
+                signalsTo = to
+            }
+            emptyList()
+        }
+        val apis = FakeBackendApis(FakeAuthApi()).also {
+            it.noteApi = noteFake
+            it.summaryApi = summaries
+        }
+        val repository = AuthRepository(apis, settings(), TokenHolder())
+        val store = AiKeyStore(ApplicationProvider.getApplicationContext(), TestApiKeyCipher())
+        store.setProvider(AiProvider.OPENAI)
+        store.setConsentGiven(AiProvider.OPENAI)
+        store.setApiKey("test-key")
+        val vm = SummaryViewModel(
+            "r1", apis, repository, this,
+            aiKeyStore = store,
+            llmClientFactory = FixedFactory(OkClient()),
+            initialEnd = end,
+            clock = { today },
+        )
+
+        vm.state.first { it is SummaryState.Content }
+
+        val expectedFrom = SummaryWindow.start(end, 7).toString()
+        assertEquals(expectedFrom, notesFrom)
+        assertEquals(end.toString(), notesTo)
+        assertEquals(expectedFrom, signalsFrom)
+        assertEquals(end.toString(), signalsTo)
+    }
+
+    @Test
+    fun trendsMatchHandComputedValues() = runTest {
+        val today = LocalDate.of(2026, 10, 10)
+        summaries.summarizeHandler = { summary() }
+        val curFrom = SummaryWindow.start(today, 7)
+        val prevEnd = curFrom.minusDays(1)
+        val prevFrom = SummaryWindow.start(prevEnd, 7)
+        val previous = listOf(
+            signal("p1", "2026-09-28", fallReported = true, pain = 8, medication = "missed", poorAppetite = true),
+            signal("p2", "2026-09-29", fallReported = false, pain = 2, medication = "taken", poorAppetite = false),
+        )
+        val current = listOf(
+            signal("c1", "2026-10-08", fallReported = true, pain = 9, medication = "missed", poorAppetite = true),
+            signal(
+                "c2", "2026-10-09", fallReported = true, pain = null, medication = "",
+                poorAppetite = false, appetiteRecorded = false,
+            ),
+        )
+        summaries.signalsHandler = { _, from, to ->
+            when (from to to) {
+                prevFrom.toString() to prevEnd.toString() -> previous
+                curFrom.toString() to today.toString() -> current
+                else -> emptyList()
+            }
+        }
+        val vm = SummaryViewModel(
+            "r1", apis(), repository, this,
+            clock = { today }, nowMillis = { 1_700_000_000_000L },
+        )
+
+        val state = vm.state.first {
+            it is SummaryState.Content && !it.refreshing
+        } as SummaryState.Content
+
+        assertEquals(
+            listOf(
+                TrendDto("FALL_COUNT", previousCount = 1, currentCount = 2, delta = 1, previousSampleSize = 2, currentSampleSize = 2),
+                TrendDto("HIGH_PAIN_COUNT", previousCount = 1, currentCount = 1, delta = 0, previousSampleSize = 2, currentSampleSize = 1),
+                TrendDto("MISSED_MED_COUNT", previousCount = 1, currentCount = 1, delta = 0, previousSampleSize = 2, currentSampleSize = 1),
+                TrendDto("POOR_APPETITE_COUNT", previousCount = 1, currentCount = 1, delta = 0, previousSampleSize = 2, currentSampleSize = 1),
+            ),
+            state.data.trends,
+        )
+        assertEquals(1_700_000_000_000L, state.data.generatedAt)
+    }
+
+    @Test
+    fun failingPreviousSignalsFetchLeavesTrendsEmpty() = runTest {
+        val today = LocalDate.of(2026, 10, 10)
+        summaries.summarizeHandler = { summary() }
+        val curFrom = SummaryWindow.start(today, 7)
+        val prevEnd = curFrom.minusDays(1)
+        val prevFrom = SummaryWindow.start(prevEnd, 7)
+        summaries.signalsHandler = { _, from, to ->
+            if (from == prevFrom.toString() && to == prevEnd.toString()) {
+                throw IOException("signals down")
+            }
+            emptyList()
+        }
+        val vm = SummaryViewModel("r1", apis(), repository, this, clock = { today })
+
+        val state = vm.state.first {
+            it is SummaryState.Content && !it.refreshing
+        } as SummaryState.Content
+
+        assertTrue(state.data.trends.isEmpty())
+        assertEquals("Reviewed 3 day(s) of notes.", state.data.summary.text)
+        assertEquals(curFrom.toString(), state.data.periodStart)
+        assertEquals(today.toString(), state.data.periodEnd)
+    }
+
+    @Test
+    fun savedSummariesAndPreviousWindowSignalsNeverReachAnyProviderRequest() = runTest {
+        val today = LocalDate.of(2026, 10, 10)
+        val note = NoteDto(
+            id = "n1", recipientId = "r1", date = "2026-10-08",
+            mood = "ok", appetite = "good", sleep = "good", mobility = "ok",
+            medicationTaken = "yes", pain = 1, fall = false,
+            text = "Patient walked today",
+        )
+        val savedSummaryMarker = "ZZ-SAVED-SUMMARY"
+        val previousPeriodMarker = "ZZ-PREV-PERIOD"
+        var savedSummaryId = 0
+        val savedSummaryStore = savedStore(newId = { "saved-${++savedSummaryId}" })
+        val savedId = savedSummaryStore.save(
+            "r1",
+            SummaryResultData(
+                summary = summary().copy(text = savedSummaryMarker),
+                periodStart = "2026-09-20",
+                periodEnd = "2026-09-26",
+                generatedAt = 1_700_000_000_000L,
+            ),
+        )
+        assertEquals(savedSummaryMarker, savedSummaryStore.get(savedId)?.summary?.text)
+
+        val noteFake = FakeNoteApi().also {
+            it.historyHandler = { _, _, _ -> listOf(note) }
+        }
+        val client = RecordingClient()
+        val apis = FakeBackendApis(FakeAuthApi()).also {
+            it.noteApi = noteFake
+            it.summaryApi = summaries
+        }
+        val repository = AuthRepository(apis, settings(), TokenHolder())
+        val store = AiKeyStore(ApplicationProvider.getApplicationContext(), TestApiKeyCipher())
+        store.setProvider(AiProvider.OPENAI)
+        store.setConsentGiven(AiProvider.OPENAI)
+        store.setApiKey("test-key")
+        store.setModel("test-model-x")
+        val curFrom = SummaryWindow.start(today, 7)
+        val prevEnd = curFrom.minusDays(1)
+        val prevFrom = SummaryWindow.start(prevEnd, 7)
+        summaries.signalsHandler = { _, from, to ->
+            when (from to to) {
+                prevFrom.toString() to prevEnd.toString() -> listOf(
+                    signal("p1", "2026-09-28", text = previousPeriodMarker),
+                )
+                else -> emptyList()
+            }
+        }
+        val vm = SummaryViewModel(
+            "r1", apis, repository, this,
+            aiKeyStore = store,
+            llmClientFactory = FixedFactory(client),
+            initialEnd = today,
+            clock = { today },
+            savedStore = savedSummaryStore,
+        )
+
+        val state = vm.state.first {
+            it is SummaryState.Content && !it.refreshing
+        } as SummaryState.Content
+
+        assertTrue("expected at least one provider request", client.requests.isNotEmpty())
+        vm.suggestPlan()
+        vm.suggestStatus.first { it != null }
+        assertEquals("expected generation and plan requests", 2, client.requests.size)
+        client.requests.forEach { request ->
+            assertFalse(request.systemPrompt.contains(savedSummaryMarker))
+            assertFalse(request.dataBlock.contains(savedSummaryMarker))
+            assertFalse(request.systemPrompt.contains(previousPeriodMarker))
+            assertFalse(request.dataBlock.contains(previousPeriodMarker))
+        }
+        assertEquals("OPENAI", state.data.provider)
+        assertEquals("test-model-x", state.data.model)
+        assertTrue(state.data.generatedAt != null)
+    }
+
+    @Test
+    fun nonAiResultHasNoProviderOrModel() = runTest {
+        val today = LocalDate.of(2026, 10, 10)
+        summaries.summarizeHandler = { summary() }
+        summaries.signalsHandler = { _, _, _ -> emptyList() }
+        val plain = SummaryViewModel("r1", apis(), repository, this, clock = { today })
+
+        val plainState = plain.state.first {
+            it is SummaryState.Content && !it.refreshing
+        } as SummaryState.Content
+
+        assertNull(plainState.data.provider)
+        assertNull(plainState.data.model)
+        assertFalse(plainState.aiGenerated)
+    }
+
+    @Test
+    fun successfulResultIsSavedOnce() = runTest {
+        summaries.summarizeHandler = { summary() }
+        summaries.signalsHandler = { _, _, _ -> emptyList() }
+        val store = savedStore()
+        val vm = SummaryViewModel("r1", apis(), repository, this, savedStore = store)
+
+        content(vm)
+        vm.savedId.first { it != null }
+        advanceUntilIdle()
+
+        assertEquals(1, store.list("r1").size)
+    }
+
+    @Test
+    fun failedGenerationSavesNothing() = runTest {
+        summaries.summarizeHandler = { throw IOException("down") }
+        val store = savedStore()
+        val vm = SummaryViewModel("r1", apis(), repository, this, savedStore = store)
+
+        vm.state.first { it is SummaryState.AiUnavailable }
+        advanceUntilIdle()
+
+        assertTrue(store.list("r1").isEmpty())
+        assertNull(vm.savedId.value)
+    }
+
+    @Test
+    fun throwingStoreDoesNotChangeState() = runTest {
+        // The payload cap makes save() throw; the screen must still show
+        // the generated summary.
+        summaries.summarizeHandler = { summary().copy(text = "x".repeat(300_000)) }
+        summaries.signalsHandler = { _, _, _ -> emptyList() }
+        val store = savedStore()
+        val vm = SummaryViewModel("r1", apis(), repository, this, savedStore = store)
+
+        val state = vm.state.first {
+            it is SummaryState.Content && !it.refreshing
+        } as SummaryState.Content
+        advanceUntilIdle()
+
+        assertEquals("x".repeat(300_000), state.data.summary.text)
+        assertTrue(store.list("r1").isEmpty())
+        assertNull(vm.savedId.value)
+    }
+
+    @Test
+    fun emptySummaryWithoutFlagsIsNotSaved() = runTest {
+        summaries.summarizeHandler = {
+            summary().copy(
+                text = "",
+                redFlags = emptyList(),
+                evidence = emptyList(),
+                uncertainties = emptyList(),
+            )
+        }
+        summaries.signalsHandler = { _, _, _ -> emptyList() }
+        val store = savedStore()
+        val vm = SummaryViewModel("r1", apis(), repository, this, savedStore = store)
+
+        content(vm)
+        advanceUntilIdle()
+
+        assertTrue(store.list("r1").isEmpty())
+        assertNull(vm.savedId.value)
+    }
+
+    @Test
+    fun savedIdIsSetAfterSave() = runTest {
+        summaries.summarizeHandler = { summary() }
+        summaries.signalsHandler = { _, _, _ -> emptyList() }
+        val store = savedStore(newId = { "saved-42" })
+        val vm = SummaryViewModel("r1", apis(), repository, this, savedStore = store)
+
+        content(vm)
+        assertEquals("saved-42", vm.savedId.first { it != null })
+        advanceUntilIdle()
+    }
+
+    @Test
+    fun openingSavedIdMakesNoProviderCall() = runTest {
+        val store = savedStore()
+        store.save(
+            "r1",
+            SummaryResultData(
+                summary = summary().copy(text = "Saved text"),
+                periodStart = "2026-10-04",
+                periodEnd = "2026-10-10",
+                generatedAt = 1_000L,
+            ),
+        )
+        val client = RecordingClient()
+        val keyStore = AiKeyStore(ApplicationProvider.getApplicationContext(), TestApiKeyCipher())
+        keyStore.setProvider(AiProvider.OPENAI)
+        keyStore.setConsentGiven(AiProvider.OPENAI)
+        keyStore.setApiKey("test-key")
+        val vm = SummaryViewModel(
+            "r1", apis(), repository, this,
+            aiKeyStore = keyStore,
+            llmClientFactory = FixedFactory(client),
+            savedStore = store,
+            initialSavedId = "saved-1",
+        )
+
+        val state = vm.state.first {
+            it is SummaryState.Content && !it.refreshing
+        } as SummaryState.Content
+
+        assertEquals("Saved text", state.data.summary.text)
+        assertTrue(vm.showingSaved.value)
+        assertTrue(client.requests.isEmpty())
+        assertNull(summaries.lastSummarize)
+        assertEquals(0, summaries.signalsCalls)
+    }
+
+    @Test
+    fun missingSavedIdFallsBackToNormalLoad() = runTest {
+        summaries.summarizeHandler = { summary() }
+        summaries.signalsHandler = { _, _, _ -> emptyList() }
+        val store = savedStore()
+        val vm = SummaryViewModel(
+            "r1", apis(), repository, this,
+            savedStore = store,
+            initialSavedId = "does-not-exist",
+        )
+
+        content(vm)
+        advanceUntilIdle()
+
+        assertEquals("Reviewed 3 day(s) of notes.", (vm.state.value as SummaryState.Content).data.summary.text)
+        assertFalse(vm.showingSaved.value)
+        assertTrue(summaries.lastSummarize != null)
+    }
+
+    @Test
+    fun refreshAfterOpeningSavedGeneratesNew() = runTest {
+        var idCounter = 0
+        val store = savedStore(newId = { "saved-${++idCounter}" })
+        store.save(
+            "r1",
+            SummaryResultData(
+                summary = summary().copy(text = "Saved text"),
+                periodStart = "2026-10-04",
+                periodEnd = "2026-10-10",
+                generatedAt = 1_000L,
+            ),
+        )
+        summaries.summarizeHandler = { summary().copy(text = "Fresh text") }
+        summaries.signalsHandler = { _, _, _ -> emptyList() }
+        val vm = SummaryViewModel(
+            "r1", apis(), repository, this,
+            savedStore = store,
+            initialSavedId = "saved-1",
+        )
+        vm.state.first { it is SummaryState.Content && !it.refreshing }
+        assertTrue(vm.showingSaved.value)
+
+        vm.refresh()
+
+        val state = vm.state.first {
+            it is SummaryState.Content && !it.refreshing &&
+                it.data.summary.text == "Fresh text"
+        } as SummaryState.Content
+        assertFalse(vm.showingSaved.value)
+        assertTrue(summaries.lastSummarize != null)
+    }
+
+    private fun signal(
+        noteId: String,
+        date: String,
+        recipientId: String = "r1",
+        fallReported: Boolean = false,
+        fallRecorded: Boolean = true,
+        pain: Int? = null,
+        painRecorded: Boolean = true,
+        medication: String = "",
+        medicationUnverified: Boolean = false,
+        poorAppetite: Boolean = false,
+        appetiteRecorded: Boolean = true,
+        text: String = "",
+    ) = SignalDto(
+        noteId = noteId,
+        recipientId = recipientId,
+        date = date,
+        fallReported = fallReported,
+        pain = pain,
+        medication = medication,
+        medicationUnverified = medicationUnverified,
+        poorAppetite = poorAppetite,
+        text = text,
+        fallRecorded = fallRecorded,
+        painRecorded = painRecorded,
+        appetiteRecorded = appetiteRecorded,
+    )
+
+    private fun settings() = SettingsStore(
+        PreferenceDataStoreFactory.create(scope = TestScope(UnconfinedTestDispatcher())) { file },
+    )
+
+    private class OkClient : LlmClient {
+        override suspend fun complete(request: LlmRequest): LlmResult =
+            LlmResult(
+                LlmStatus.OK,
+                """{"observations":[{"text":"walked","noteId":"n1","quote":"walked"}],"uncertainties":[]}""",
+            )
+    }
+
+    private class RecordingClient : LlmClient {
+        val requests = mutableListOf<LlmRequest>()
+        override suspend fun complete(request: LlmRequest): LlmResult {
+            requests += request
+            return LlmResult(
+                LlmStatus.OK,
+                """{"observations":[{"text":"walked","noteId":"n1","quote":"walked"}],"uncertainties":[]}""",
+            )
+        }
+    }
+
+    private class FixedFactory(private val client: LlmClient) : LlmClientFactory() {
+        override fun createClient(baseUrl: String, model: String, apiKey: String): LlmClient = client
+        override fun createAnthropicClient(baseUrl: String, model: String, apiKey: String): LlmClient = client
+        override fun createGeminiClient(baseUrl: String, model: String, apiKey: String): LlmClient = client
+    }
+}

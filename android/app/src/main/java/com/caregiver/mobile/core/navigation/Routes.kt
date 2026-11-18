@@ -1,0 +1,116 @@
+package com.caregiver.mobile.core.navigation
+
+import androidx.annotation.StringRes
+import com.caregiver.mobile.R
+
+/**
+ * Bottom tabs, in design order: الرئيسية، الأشخاص، الملاحظات، السجل.
+ * Plans deliberately have no tab: they live under recipient detail and the
+ * summary follow-up, exactly like the design boards.
+ */
+enum class MainTab(val route: String, @StringRes val titleRes: Int) {
+    Home("home", R.string.tab_home),
+    People("people", R.string.tab_people),
+    Notes("notes", R.string.tab_notes),
+    History("history", R.string.tab_history);
+
+    companion object {
+        /**
+         * True when [route] names one of the four tab destinations. The tab
+         * shell (top bar, drawer routing, add-note FAB) keys off this rule so
+         * detail/form screens are treated consistently everywhere.
+         */
+        fun isTabRoute(route: String?): Boolean = MainTab.entries.any { it.route == route }
+    }
+}
+
+/** Every destination the app can navigate to. Feature tasks fill in screens. */
+data class Destination(val base: String)
+
+object AppDestinations {
+    val Login = Destination("login")
+    val Register = Destination("register")
+    val ServerUrl = Destination("server-url")
+
+    val Home = Destination("home")
+    val People = Destination("people")
+    val Notes = Destination("notes")
+    val History = Destination("history")
+
+    val RecipientDetail = Destination("recipient/{recipientId}")
+    val AddRecipient = Destination("add-recipient")
+    val EditRecipient = Destination("edit-recipient/{recipientId}")
+    val CareDetails = Destination("care-details/{recipientId}")
+    val NoteEditor = Destination("note-editor/{recipientId}")
+    val NoteSaved = Destination("note-saved/{noteId}")
+    val NoteDetail = Destination("note/{noteId}")
+    val Addendum = Destination("addendum/{noteId}")
+
+    val Summary = Destination("summary/{recipientId}")
+    val SummaryResult = Destination("summary-result/{recipientId}/{periodDays}")
+    val SavedSummaries = Destination("saved-summaries/{recipientId}")
+
+    val Plans = Destination("plans")
+    val PlanProposal = Destination("plan-proposal/{planId}")
+    val PlanEdit = Destination("plan-edit/{planId}")
+    val PlanVersions = Destination("plan-versions/{planId}")
+
+    val Settings = Destination("settings")
+    val AiSettings = Destination("ai-settings")
+    val ThemeColors = Destination("theme-colors")
+    val About = Destination("about")
+
+    val all: List<Destination> = listOf(
+        Login, Register, ServerUrl,
+        Home, People, Notes, History,
+        RecipientDetail, AddRecipient, EditRecipient, CareDetails, NoteEditor, NoteSaved, NoteDetail, Addendum,
+        Summary, SummaryResult, SavedSummaries,
+        Plans, PlanProposal, PlanEdit, PlanVersions,
+        Settings, AiSettings, About, ThemeColors,
+    )
+}
+
+/**
+ * Typed route builders: the single place that turns destination templates
+ * into concrete routes, so callers never hand-concatenate argument strings.
+ * Templates in [AppDestinations] stay as the registration contract.
+ */
+object AppRoutes {
+    fun tab(tab: MainTab): String = tab.route
+
+    fun recipientDetail(recipientId: String): String = "recipient/$recipientId"
+    fun editRecipient(recipientId: String): String = "edit-recipient/$recipientId"
+    fun careDetails(recipientId: String): String = "care-details/$recipientId"
+    fun noteEditor(recipientId: String): String = "note-editor/$recipientId"
+    fun noteSaved(noteId: String): String = "note-saved/$noteId"
+    fun noteDetail(noteId: String): String = "note/$noteId"
+    fun addendum(noteId: String): String = "addendum/$noteId"
+
+    fun summary(recipientId: String): String = "summary/$recipientId"
+    fun savedSummaries(recipientId: String): String = "saved-summaries/$recipientId"
+    fun summaryResult(
+        recipientId: String,
+        periodDays: Int,
+        end: String? = null,
+        saved: String? = null,
+    ): String {
+        val query = buildList {
+            end?.let { add("end=$it") }
+            saved?.let { add("saved=$it") }
+        }
+        val base = "summary-result/$recipientId/$periodDays"
+        return if (query.isEmpty()) base else "$base?${query.joinToString("&")}"
+    }
+
+    fun planProposal(planId: String): String = "plan-proposal/$planId"
+    fun planEdit(planId: String): String = "plan-edit/$planId"
+    fun planVersions(planId: String): String = "plan-versions/$planId"
+
+    /** Reads a required String argument; crashes loudly on a missing arg. */
+    fun arg(entry: androidx.navigation.NavBackStackEntry, name: String): String =
+        checkNotNull(entry.arguments?.getString(name)) { "missing navigation argument: $name" }
+
+    /** Reads a required Int argument; crashes loudly on a missing arg. */
+    fun argInt(entry: androidx.navigation.NavBackStackEntry, name: String): Int =
+        checkNotNull(entry.arguments?.getInt(name)) { "missing navigation argument: $name" }
+}

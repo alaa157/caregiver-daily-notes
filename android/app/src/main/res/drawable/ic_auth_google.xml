@@ -1,0 +1,11 @@
+<!-- Monochrome Google "G" mark for the coming-soon social row (#873).
+     White fill so Compose's tint can recolour it for light and dark themes. -->
+<vector xmlns:android="http://schemas.android.com/apk/res/android"
+    android:width="24dp"
+    android:height="24dp"
+    android:viewportWidth="24"
+    android:viewportHeight="24">
+    <path
+        android:fillColor="#FFFFFFFF"
+        android:pathData="M12.545,10.239v3.821h5.445c-0.712,2.315-2.647,3.972-5.445,3.972c-3.332,0-6.033-2.701-6.033-6.032s2.701-6.032,6.033-6.032c1.498,0,2.866,0.549,3.921,1.453l2.814-2.814C17.503,2.988,15.139,2,12.545,2C7.021,2,2.543,6.477,2.543,12s4.478,10,10.002,10c5.563,0,9.933-4.423,9.933-10c0-0.678-0.071-1.345-0.204-1.994H12.545z" />
+</vector>

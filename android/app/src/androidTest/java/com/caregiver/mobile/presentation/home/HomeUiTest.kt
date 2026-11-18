@@ -1,0 +1,359 @@
+package com.caregiver.mobile.presentation.home
+
+import android.content.Context
+import android.content.res.Configuration
+import androidx.compose.runtime.CompositionLocalProvider
+import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.test.assertCountEquals
+import androidx.compose.ui.test.assertDoesNotExist
+import androidx.compose.ui.test.assertHasClickAction
+import androidx.compose.ui.test.assertIsDisplayed
+import androidx.compose.ui.test.junit4.createComposeRule
+import androidx.compose.ui.test.onAllNodesWithTag
+import androidx.compose.ui.test.onAllNodesWithText
+import androidx.compose.ui.test.onNodeWithTag
+import androidx.compose.ui.test.onNodeWithText
+import androidx.compose.ui.test.performClick
+import androidx.lifecycle.ViewModelProvider
+import androidx.lifecycle.ViewModelStore
+import androidx.lifecycle.ViewModelStoreOwner
+import androidx.lifecycle.viewmodel.compose.LocalViewModelStoreOwner
+import androidx.navigation.compose.rememberNavController
+import androidx.test.core.app.ApplicationProvider
+import androidx.test.ext.junit.runners.AndroidJUnit4
+import com.caregiver.mobile.AppGraph
+import com.caregiver.mobile.core.i18n.Bidi
+import com.caregiver.mobile.core.theme.CaregiverTheme
+import java.time.LocalDate
+import java.util.Locale
+import kotlinx.coroutines.runBlocking
+import okhttp3.mockwebserver.MockResponse
+import okhttp3.mockwebserver.MockWebServer
+import org.junit.After
+import org.junit.Before
+import org.junit.Rule
+import org.junit.Test
+import org.junit.runner.RunWith
+import com.caregiver.mobile.test.WithTestOwner
+
+/**
+ * Home behavior against a fake server in Arabic and English: translated
+ * greeting, progress, chips, enum values, the fall-only banner, and the
+ * Task 5 timeline sub-tabs (Today / Needs attention / All) — with no raw
+ * English enum text leaking into the UI. Instrumentation-only.
+ */
+@RunWith(AndroidJUnit4::class)
+class HomeUiTest {
+
+    @get:Rule
+    val compose = createComposeRule()
+
+    private lateinit var server: MockWebServer
+    private lateinit var graph: AppGraph
+
+    @Before
+    fun setUp() {
+        server = MockWebServer()
+        server.start()
+        val context = ApplicationProvider.getApplicationContext<Context>()
+        graph = AppGraph(context, forceProduction = true)
+        runBlocking {
+            graph.settings.setBaseUrl(server.url("/").toString())
+            graph.settings.setEmail("layla@example.com")
+        }
+    }
+
+    @After
+    fun tearDown() {
+        server.shutdown()
+    }
+
+    @Test
+    fun arabicHomeRendersTranslatedContentAndFallBanner() {
+        val today = LocalDate.now().toString()
+        val older = LocalDate.now().minusDays(2).toString()
+        server.enqueue(
+            MockResponse().setBody(
+                """[{"id":"r1","name":"ليلى Layla","active":true}]""",
+            ),
+        )
+        server.enqueue(
+            MockResponse().setBody(
+                """[{"id":"n1","recipientId":"r1","date":"$today","mood":"good","appetite":"good","sleep":"broken","mobility":"walks","medicationTaken":"taken","pain":1,"fall":false,"text":"t"},
+                    {"id":"n2","recipientId":"r1","date":"$older","mood":"bad","appetite":"poor","sleep":"poor","mobility":"bed","medicationTaken":"missed","pain":2,"fall":true,"text":"t"}]"""
+                    .replace("\n", ""),
+            ),
+        )
+        val base = ApplicationProvider.getApplicationContext<Context>()
+        val localized = base.withLocale("ar")
+        compose.setContent {
+            CompositionLocalProvider(LocalContext provides localized) {
+                WithTestOwner {
+                    CaregiverTheme {
+                        HomeScreen(graph, rememberNavController())
+                    }
+                }
+            }
+        }
+
+        compose.onNodeWithText("1 / 1 مكتملة").assertIsDisplayed()
+        compose.onNodeWithText("تم").assertIsDisplayed()
+        compose.onNodeWithText("آخر ملاحظة: اليوم").assertIsDisplayed()
+        compose.onNodeWithText(Bidi.isolate("ليلى Layla")).assertIsDisplayed()
+        compose.onNodeWithText("تنبيه سقوط").assertIsDisplayed()
+        compose.onNodeWithText("سقوط مبلغ عنه — " + Bidi.isolate("ليلى Layla")).assertIsDisplayed()
+        compose.onAllNodesWithText("good").assertCountEquals(0)
+        compose.onAllNodesWithText("broken").assertCountEquals(0)
+    }
+
+    @Test
+    fun arabicSubTabsFilterTheTimeline() {
+        val today = LocalDate.now().toString()
+        val older = LocalDate.now().minusDays(2).toString()
+        server.enqueue(
+            MockResponse().setBody(
+                """[{"id":"r1","name":"ليلى","active":true},{"id":"r2","name":"سارة","active":true}]""",
+            ),
+        )
+        server.enqueue(
+            MockResponse().setBody(
+                """[{"id":"n1","recipientId":"r1","date":"$today","mood":"good","appetite":"good","sleep":"good","mobility":"walks","medicationTaken":"taken","pain":1,"fall":false,"text":"t"},
+                    {"id":"n2","recipientId":"r2","date":"$older","mood":"bad","appetite":"poor","sleep":"poor","mobility":"bed","medicationTaken":"missed","pain":8,"fall":false,"text":"t"}]"""
+                    .replace("\n", ""),
+            ),
+        )
+        val base = ApplicationProvider.getApplicationContext<Context>()
+        val localized = base.withLocale("ar")
+        compose.setContent {
+            CompositionLocalProvider(LocalContext provides localized) {
+                WithTestOwner {
+                    CaregiverTheme {
+                        HomeScreen(graph, rememberNavController())
+                    }
+                }
+            }
+        }
+
+        // Today (default tab): only the recipient whose note is from today.
+        compose.onNodeWithText(Bidi.isolate("ليلى")).assertIsDisplayed()
+        compose.onNodeWithText(Bidi.isolate("سارة")).assertDoesNotExist()
+
+        // Needs attention: only the high-pain recipient (pain 8).
+        compose.onNodeWithTag("home_tab_attention").performClick()
+        compose.onNodeWithText(Bidi.isolate("سارة")).assertIsDisplayed()
+        compose.onNodeWithText(Bidi.isolate("ليلى")).assertDoesNotExist()
+
+        // All: both rows are back.
+        compose.onNodeWithTag("home_tab_all").performClick()
+        compose.onNodeWithText(Bidi.isolate("ليلى")).assertIsDisplayed()
+        compose.onNodeWithText(Bidi.isolate("سارة")).assertIsDisplayed()
+    }
+
+    @Test
+    fun redesignedPeopleListShowsStatusChipsLastNoteAndAddPersonRow() {
+        val today = LocalDate.now().toString()
+        val yesterday = LocalDate.now().minusDays(1).toString()
+        server.enqueue(
+            MockResponse().setBody(
+                """[{"id":"r1","name":"Aisha","active":true},{"id":"r2","name":"Sara","active":true}]""",
+            ),
+        )
+        server.enqueue(
+            MockResponse().setBody(
+                """[{"id":"n1","recipientId":"r1","date":"$today","mood":"good","appetite":"good","sleep":"good","mobility":"walks","medicationTaken":"taken","pain":1,"fall":false,"text":"t"},
+                    {"id":"n2","recipientId":"r2","date":"$yesterday","mood":"bad","appetite":"poor","sleep":"poor","mobility":"bed","medicationTaken":"missed","pain":2,"fall":false,"text":"t"}]"""
+                    .replace("\n", ""),
+            ),
+        )
+        val base = ApplicationProvider.getApplicationContext<Context>()
+        val localized = base.withLocale("en")
+        compose.setContent {
+            CompositionLocalProvider(LocalContext provides localized) {
+                WithTestOwner {
+                    CaregiverTheme {
+                        HomeScreen(graph, rememberNavController())
+                    }
+                }
+            }
+        }
+
+        // The All tab shows both people; the default Today tab would filter
+        // out the one with only a yesterday note.
+        compose.onNodeWithTag("home_tab_all").performClick()
+
+        compose.onAllNodesWithTag("home_person_card").assertCountEquals(2)
+        compose.onAllNodesWithTag("home_person_card")[0].assertHasClickAction()
+        compose.onNodeWithText("Done").assertIsDisplayed()
+        compose.onNodeWithText("Not yet").assertIsDisplayed()
+        compose.onNodeWithText("Last note: today").assertIsDisplayed()
+        compose.onNodeWithText("Last note: yesterday").assertIsDisplayed()
+        compose.onNodeWithTag("home_add_person").assertIsDisplayed().assertHasClickAction()
+    }
+
+    @Test
+    fun emptyHistoryShowsEmptyState() {
+        server.enqueue(MockResponse().setBody("[]"))
+        server.enqueue(MockResponse().setBody("[]"))
+        val base = ApplicationProvider.getApplicationContext<Context>()
+        val localized = base.withLocale("en")
+        compose.setContent {
+            CompositionLocalProvider(LocalContext provides localized) {
+                WithTestOwner {
+                    CaregiverTheme {
+                        HomeScreen(graph, rememberNavController())
+                    }
+                }
+            }
+        }
+
+        // #898: the summary card and list are replaced by one friendly
+        // message and a single "Add your first person" action.
+        compose.onNodeWithTag("home_summary_card").assertDoesNotExist()
+        compose.onNodeWithText("No people yet. Add your first person.").assertIsDisplayed()
+        compose.onNodeWithText("Add the person you care for to start taking daily notes.")
+            .assertIsDisplayed()
+        compose.onNodeWithText("Add your first person").assertIsDisplayed().assertHasClickAction()
+    }
+
+    @Test
+    fun failedLoadShowsRetryAndRecovers() {
+        val today = LocalDate.now().toString()
+        server.enqueue(
+            MockResponse().setBody("""[{"id":"r1","name":"Sara","active":true}]"""),
+        )
+        server.enqueue(MockResponse().setResponseCode(500))
+        val base = ApplicationProvider.getApplicationContext<Context>()
+        val localized = base.withLocale("en")
+        compose.setContent {
+            CompositionLocalProvider(LocalContext provides localized) {
+                WithTestOwner {
+                    CaregiverTheme {
+                        HomeScreen(graph, rememberNavController())
+                    }
+                }
+            }
+        }
+
+        compose.onNodeWithText("Could not load").assertIsDisplayed()
+        server.enqueue(
+            MockResponse().setBody("""[{"id":"r1","name":"Sara","active":true}]"""),
+        )
+        server.enqueue(
+            MockResponse().setBody(
+                """[{"id":"n1","recipientId":"r1","date":"$today","mood":"good","appetite":"good","sleep":"good","mobility":"walks","medicationTaken":"taken","pain":1,"fall":false,"text":"t"}]""",
+            ),
+        )
+        compose.onNodeWithText("Retry").performClick()
+        compose.onNodeWithText("Sara").assertIsDisplayed()
+    }
+
+    private fun Context.withLocale(language: String): Context {
+        val config = Configuration(resources.configuration)
+        config.setLocale(Locale(language))
+        return createConfigurationContext(config)
+    }
+
+    @Test
+    fun refreshFailureKeepsSafetyBannerVisible() {
+        val today = LocalDate.now().toString()
+        val older = LocalDate.now().minusDays(2).toString()
+        server.enqueue(
+            MockResponse().setBody("""[{"id":"r1","name":"Sara","active":true}]"""),
+        )
+        server.enqueue(
+            MockResponse().setBody(
+                """[{"id":"n1","recipientId":"r1","date":"$today","mood":"good","appetite":"good","sleep":"good","mobility":"walks","medicationTaken":"taken","pain":1,"fall":false,"text":"t"},
+                    {"id":"n2","recipientId":"r1","date":"$older","mood":"bad","appetite":"poor","sleep":"poor","mobility":"bed","medicationTaken":"missed","pain":8,"fall":true,"text":"t"}]"""
+                    .replace("\n", ""),
+            ),
+        )
+        // Explicit owner (same pattern as WithTestOwner) so the test can
+        // reach the screen's keyed ViewModel and trigger a refresh; the
+        // factory is never invoked because the "home" instance exists.
+        val owner = object : ViewModelStoreOwner {
+            override val viewModelStore = ViewModelStore()
+        }
+        val base = ApplicationProvider.getApplicationContext<Context>()
+        val localized = base.withLocale("en")
+        compose.setContent {
+            CompositionLocalProvider(
+                LocalContext provides localized,
+                LocalViewModelStoreOwner provides owner,
+            ) {
+                CaregiverTheme {
+                    HomeScreen(graph, rememberNavController())
+                }
+            }
+        }
+
+        // Initial load succeeds with a fall flag: banner visible.
+        compose.onNodeWithText("Fall alert").assertIsDisplayed()
+        compose.onNodeWithText("Reported fall — " + Bidi.isolate("Sara")).assertIsDisplayed()
+
+        // Refresh fails: error/retry appear, but the flag/banner stays.
+        server.enqueue(
+            MockResponse().setBody("""[{"id":"r1","name":"Sara","active":true}]"""),
+        )
+        server.enqueue(MockResponse().setResponseCode(500))
+        ViewModelProvider(owner)["home", HomeViewModel::class.java].refresh()
+        compose.onNodeWithText("Could not load").assertIsDisplayed()
+        compose.onNodeWithText("Retry").assertIsDisplayed()
+        compose.onNodeWithText("Fall alert").assertIsDisplayed()
+        compose.onNodeWithText("Reported fall — " + Bidi.isolate("Sara")).assertIsDisplayed()
+    }
+
+    // #914: the redesigned Home recipient card never emits a bare " · "
+    // after the name — in either locale — and the last-note / status lines
+    // keep their established copy.
+    @Test
+    fun englishRecipientCardNeverEndsWithABareSeparator() {
+        val today = LocalDate.now().toString()
+        server.enqueue(MockResponse().setBody("""[{"id":"r1","name":"Sarah","active":true}]"""))
+        server.enqueue(
+            MockResponse().setBody(
+                """[{"id":"n1","recipientId":"r1","date":"$today","mood":"good","appetite":"good","sleep":"good","mobility":"walks","medicationTaken":"taken","pain":1,"fall":false,"text":"t"}]""",
+            ),
+        )
+        val base = ApplicationProvider.getApplicationContext<Context>()
+        compose.setContent {
+            CompositionLocalProvider(LocalContext provides base.withLocale("en")) {
+                WithTestOwner {
+                    CaregiverTheme {
+                        HomeScreen(graph, rememberNavController())
+                    }
+                }
+            }
+        }
+
+        compose.onNodeWithText(Bidi.isolate("Sarah")).assertIsDisplayed()
+        compose.onAllNodesWithText(" · ").assertCountEquals(0)
+        compose.onNodeWithText("Last note: today").assertIsDisplayed()
+        compose.onNodeWithText("Done").assertIsDisplayed()
+    }
+
+    @Test
+    fun arabicRecipientCardNeverEndsWithABareSeparator() {
+        val today = LocalDate.now().toString()
+        server.enqueue(MockResponse().setBody("""[{"id":"r1","name":"سارة","active":true}]"""))
+        server.enqueue(
+            MockResponse().setBody(
+                """[{"id":"n1","recipientId":"r1","date":"$today","mood":"good","appetite":"good","sleep":"good","mobility":"walks","medicationTaken":"taken","pain":1,"fall":false,"text":"t"}]""",
+            ),
+        )
+        val base = ApplicationProvider.getApplicationContext<Context>()
+        compose.setContent {
+            CompositionLocalProvider(LocalContext provides base.withLocale("ar")) {
+                WithTestOwner {
+                    CaregiverTheme {
+                        HomeScreen(graph, rememberNavController())
+                    }
+                }
+            }
+        }
+
+        compose.onNodeWithText(Bidi.isolate("سارة")).assertIsDisplayed()
+        compose.onAllNodesWithText(" · ").assertCountEquals(0)
+        compose.onNodeWithText("آخر ملاحظة: اليوم").assertIsDisplayed()
+        compose.onNodeWithText("تم").assertIsDisplayed()
+    }
+}

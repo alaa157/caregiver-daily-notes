@@ -1,0 +1,165 @@
+package com.caregiver.mobile.ai
+
+import org.junit.Assert.assertEquals
+import org.junit.Assert.assertNull
+import org.junit.Assert.assertTrue
+import org.junit.Test
+
+/**
+ * The model suggestions the settings screen offers. A provider that serves
+ * free models has to say so, and the provider default is always one of the
+ * suggestions — otherwise the field would show a model the app would not
+ * suggest.
+ */
+class AiModelCatalogTest {
+    @Test
+    fun everyProviderOffersModels() {
+        for (provider in AiProvider.entries) {
+            assertTrue(
+                "${provider.name} offers no models",
+                AiModelCatalog.options(provider).isNotEmpty(),
+            )
+        }
+    }
+
+    @Test
+    fun theProviderDefaultIsOneOfTheSuggestions() {
+        for (provider in AiProvider.entries) {
+            assertTrue(
+                "${provider.defaultModel} is not offered for ${provider.name}",
+                AiModelCatalog.options(provider).any { it.id == provider.defaultModel },
+            )
+        }
+    }
+
+    @Test
+    fun suggestionsAreUnique() {
+        for (provider in AiProvider.entries) {
+            val ids = AiModelCatalog.options(provider).map { it.id }
+            assertEquals(
+                "duplicate suggestions for ${provider.name}",
+                ids.size,
+                ids.distinct().size,
+            )
+        }
+    }
+
+    @Test
+    fun aProviderWithFreeModelsSaysSo() {
+        for (provider in AiProvider.entries) {
+            if (AiModelCatalog.options(provider).any { it.free }) {
+                assertEquals(provider.name, AiFreeTier.FREE_MODELS, provider.freeTier)
+            }
+        }
+    }
+
+    @Test
+    fun aProviderWithFreeModelsDefaultsToAPaidOne() {
+        for (provider in AiProvider.entries) {
+            val free = AiModelCatalog.options(provider).filter { it.free }
+            if (free.isEmpty()) continue
+            assertTrue(
+                "${provider.name} must not default to a free model that may train on notes",
+                free.none { it.id == provider.defaultModel },
+            )
+            assertEquals(
+                "${provider.name} should lead with its paid default",
+                provider.defaultModel,
+                AiModelCatalog.options(provider).first().id,
+            )
+        }
+    }
+
+    @Test
+    fun aProviderWithoutFreeModelsDoesNotPretendToHaveOne() {
+        for (provider in AiProvider.entries) {
+            if (provider.freeTier == AiFreeTier.FREE_MODELS) continue
+            assertTrue(
+                "${provider.name} offers a free model it does not have",
+                AiModelCatalog.options(provider).none { it.free },
+            )
+        }
+    }
+
+    @Test
+    fun recommendationsArePaidAndAvailableForEveryProvider() {
+        for (provider in AiProvider.entries) {
+            val recommendation = AiModelCatalog.recommendedSummaryModel(provider)
+            assertTrue("${provider.name} has no paid summary recommendation", recommendation != null)
+            assertTrue("${provider.name} recommends a free model", recommendation?.free == false)
+            assertTrue(
+                "${provider.name} recommendation is not in its suggestions",
+                AiModelCatalog.options(provider).contains(recommendation),
+            )
+        }
+    }
+
+    @Test
+    fun modelIdsAreNotBlank() {
+        for (provider in AiProvider.entries) {
+            for (option in AiModelCatalog.options(provider)) {
+                assertTrue(option.id.isNotBlank())
+                assertEquals(option.id, option.id.trim())
+            }
+        }
+    }
+
+    @Test
+    fun noGeminiModelIsFree() {
+        assertTrue(
+            "Gemini data use follows the key's billing tier, not the model",
+            AiModelCatalog.options(AiProvider.GEMINI).none { it.free },
+        )
+    }
+
+    @Test
+    fun eachProviderHasExactlyOnePaidSummaryRecommendation() {
+        for (provider in AiProvider.entries) {
+            val matches = AiModelCatalog.options(provider).filter {
+                it.recommendedForSummaries && !it.free
+            }
+            assertEquals("${provider.name} paid summary recommendations", 1, matches.size)
+        }
+    }
+
+    @Test
+    fun idsAreUniquePerProvider() {
+        for (provider in AiProvider.entries) {
+            val ids = AiModelCatalog.options(provider).map { it.id }
+            assertEquals(ids.size, ids.toSet().size)
+        }
+    }
+
+    @Test
+    fun geminiAlwaysNeedsTheKeyTierNotice() {
+        for (model in listOf("gemini-4-hydrogen", "anything-else")) {
+            assertEquals(
+                AiDataUseNotice.KEY_TIER,
+                AiModelCatalog.dataUseNotice(AiProvider.GEMINI, model),
+            )
+        }
+    }
+
+    @Test
+    fun openRouterFreeVariantNeedsTheFreeHostNotice() {
+        assertEquals(
+            AiDataUseNotice.FREE_HOST,
+            AiModelCatalog.dataUseNotice(AiProvider.OPEN_ROUTER, "a:free"),
+        )
+        assertNull(
+            AiModelCatalog.dataUseNotice(AiProvider.OPEN_ROUTER, "openai/gpt-4o-mini"),
+        )
+        assertNull(
+            AiModelCatalog.dataUseNotice(AiProvider.OPENAI, "gpt-4o-mini"),
+        )
+    }
+
+    @Test
+    fun isCatalogModelMatchesTrimmedListedIds() {
+        val provider = AiProvider.OPENAI
+        val listed = AiModelCatalog.options(provider).first().id
+        assertTrue(AiModelCatalog.isCatalogModel(provider, listed))
+        assertTrue(AiModelCatalog.isCatalogModel(provider, "  $listed  "))
+        assertTrue(!AiModelCatalog.isCatalogModel(provider, "not-a-model"))
+    }
+}
