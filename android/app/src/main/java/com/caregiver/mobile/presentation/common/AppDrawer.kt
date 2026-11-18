@@ -243,8 +243,8 @@ private fun LanguageChip(
         colors = FilterChipDefaults.filterChipColors(
             containerColor = MaterialTheme.colorScheme.surface,
             labelColor = MaterialTheme.colorScheme.onSurface,
-            selectedContainerColor = CaregiverColors.PrimarySoft,
-            selectedLabelColor = MaterialTheme.colorScheme.primary,
+            selectedContainerColor = MaterialTheme.colorScheme.secondaryContainer,
+            selectedLabelColor = MaterialTheme.colorScheme.onSecondaryContainer,
         ),
     )
 }
