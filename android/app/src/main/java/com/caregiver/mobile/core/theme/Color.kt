@@ -120,13 +120,40 @@ object CaregiverColors {
     }
 }
 
+/**
+ * The single accent table, shared by the Material scheme and the caregiver
+ * design tokens (#971). Every hex is the value the Material scheme already
+ * used; unknown keys keep the caregiver teal that [caregiverScheme] fell back
+ * to. Do not add a second table here — both consumers must resolve a palette
+ * to exactly the same colour.
+ */
+internal fun paletteAccent(key: String?): Color = when (key?.lowercase()) {
+    ColorPalettes.DYNAMIC -> Color(0xFFED5564)
+    ColorPalettes.CRIMSON -> Color(0xFFEC5464)
+    ColorPalettes.ROSE -> Color(0xFFD81B60)
+    ColorPalettes.PURPLE -> Color(0xFF8E24AA)
+    ColorPalettes.DEEP_PURPLE -> Color(0xFF5E35B1)
+    ColorPalettes.INDIGO -> Color(0xFF3949AB)
+    ColorPalettes.BLUE -> Color(0xFF1E88E5)
+    ColorPalettes.SKY_BLUE -> Color(0xFF039BE5)
+    ColorPalettes.CYAN -> Color(0xFF00ACC1)
+    ColorPalettes.TEAL -> Color(0xFF00897B)
+    ColorPalettes.GREEN -> Color(0xFF43A047)
+    ColorPalettes.LIGHT_GREEN -> Color(0xFF7CB342)
+    ColorPalettes.LIME -> Color(0xFFC0CA33)
+    ColorPalettes.YELLOW -> Color(0xFFFDD835)
+    ColorPalettes.AMBER -> Color(0xFFFFB300)
+    ColorPalettes.ORANGE -> Color(0xFFFB8C00)
+    ColorPalettes.DEEP_ORANGE -> Color(0xFFF4511E)
+    ColorPalettes.BROWN -> Color(0xFF6D4C41)
+    ColorPalettes.GREY -> Color(0xFF757575)
+    ColorPalettes.BLUE_GREY -> Color(0xFF546E7A)
+    ColorPalettes.METROLIST -> Color(0xFF6750A4)
+    else -> Color(0xFF0E6B66)
+}
+
 fun caregiverScheme(dark: Boolean, palette: String): CaregiverColorScheme {
-    val primary = when (palette.lowercase()) {
-        "indigo" -> Color(0xFF3F51B5)
-        "rose" -> Color(0xFFC2185B)
-        "metrolist" -> Color(0xFF6750A4)
-        else -> Color(0xFF0E6B66)
-    }
+    val primary = paletteAccent(palette)
     return if (dark) {
         CaregiverColorScheme(
             Primary = primary,
