@@ -115,12 +115,12 @@ object CaregiverColors {
     val NotYetChipContainer get() = _current.value.NotYetChipContainer
     val NotYetChipContent get() = _current.value.NotYetChipContent
 
-    fun update(darkTheme: Boolean, palette: String) {
-        _current.value = caregiverScheme(darkTheme, palette)
+    fun update(darkTheme: Boolean, palette: String, pureBlack: Boolean = false) {
+        _current.value = caregiverScheme(darkTheme, palette, pureBlack)
     }
 }
 
-fun caregiverScheme(dark: Boolean, palette: String): CaregiverColorScheme {
+fun caregiverScheme(dark: Boolean, palette: String, pureBlack: Boolean = false): CaregiverColorScheme {
     val primary = when (palette.lowercase()) {
         "indigo" -> Color(0xFF3F51B5)
         "rose" -> Color(0xFFC2185B)
@@ -128,13 +128,18 @@ fun caregiverScheme(dark: Boolean, palette: String): CaregiverColorScheme {
         else -> Color(0xFF0E6B66)
     }
     return if (dark) {
+        // Pure black swaps every token-derived surface to true black so cards
+        // stop rendering as grey blocks on a black page. Borders deliberately
+        // keep their specified values so the raised-card edge stays visible.
+        val background = if (pureBlack) Color.Black else Color(0xFF121616)
+        val surface = if (pureBlack) Color.Black else Color(0xFF1A1F1F)
         CaregiverColorScheme(
             Primary = primary,
             PrimarySoft = Color(0xFF1A3A38),
             Ink = Color(0xFFE3E7EA),
             Muted = Color(0xFFB0BEC5),
-            Background = Color(0xFF121616),
-            Surface = Color(0xFF1A1F1F),
+            Background = background,
+            Surface = surface,
             Border = Color(0xFF3A4548),
             BorderSoft = Color(0xFF2A3336),
             Danger = Color(0xFFEF9A9A),
@@ -153,7 +158,7 @@ fun caregiverScheme(dark: Boolean, palette: String): CaregiverColorScheme {
             PillLightBlueContent = Color(0xFF90CAF9),
             AvatarContainer = Color(0xFF1A2F4A),
             AvatarContent = Color(0xFF90CAF9),
-            LockBar = Color(0xFF1A1F1F),
+            LockBar = surface,
             Skeleton = Color(0xFF2A3336),
             AuthBackground = Color(0xFF121616),
             AuthMuted = Color(0xFFB0BEC5),
@@ -161,7 +166,7 @@ fun caregiverScheme(dark: Boolean, palette: String): CaregiverColorScheme {
             AuthDivider = Color(0xFF2A3336),
             AuthDisabledFill = Color(0xFF232C2A),
             AuthDisabledIcon = Color(0xFF6E7C78),
-            SectionCardSurface = Color(0xFF1A1F1F),
+            SectionCardSurface = surface,
             SectionCardBorder = Color(0xFF2A3336),
             DoneChipContainer = Color(0xFFDDF1EE),
             DoneChipContent = Color(0xFF0A524E),
