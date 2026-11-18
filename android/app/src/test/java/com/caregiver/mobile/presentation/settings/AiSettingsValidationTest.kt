@@ -136,7 +136,7 @@ class AiSettingsValidationTest {
 
     @Test
     fun acceptableModelIds() {
-        assertTrue(AiSettingsValidation.isAcceptableModelId("gpt-6-luna"))
+        assertTrue(AiSettingsValidation.isAcceptableModelId("gpt-6.2-sol"))
         assertTrue(AiSettingsValidation.isAcceptableModelId("openai/gpt-4o-mini"))
         assertTrue(AiSettingsValidation.isAcceptableModelId(""))
     }
