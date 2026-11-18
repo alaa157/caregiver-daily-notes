@@ -138,7 +138,7 @@ describe('public landing page', () => {
     const menuButton = container.querySelector<HTMLButtonElement>('.menu-toggle');
     if (!menuButton) throw new Error('Landing menu button not found');
 
-    expect(screen.getByRole('button', { name: 'Open navigation', exact: true })).toBe(menuButton);
+    expect(screen.getByRole('button', { name: 'Open navigation' })).toBe(menuButton);
     expect(menuButton).toHaveAttribute('aria-controls', 'main-nav');
     expect(menuButton).toHaveAttribute('aria-expanded', 'false');
     expect(menuButton.textContent).not.toMatch(/[☰×]/);
@@ -146,10 +146,10 @@ describe('public landing page', () => {
 
     fireEvent.click(menuButton);
     expect(menuButton).toHaveAttribute('aria-expanded', 'true');
-    expect(screen.getByRole('button', { name: 'Close navigation', exact: true })).toBe(menuButton);
+    expect(screen.getByRole('button', { name: 'Close navigation' })).toBe(menuButton);
 
     fireEvent.click(headerToggle(container));
-    expect(screen.getByRole('button', { name: 'إغلاق قائمة التنقل', exact: true })).toBe(menuButton);
+    expect(screen.getByRole('button', { name: 'إغلاق قائمة التنقل' })).toBe(menuButton);
     expect(menuButton.textContent).not.toMatch(/[☰×]/);
   });
 
