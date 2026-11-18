@@ -45,7 +45,6 @@ class ModelListHttpTest {
             "   ",
             "file:///tmp/models",
             "http://example.com/models",
-            "$base?limit=1",
             "$base#top",
             "http://user:pass@127.0.0.1:$port/models",
             "http://127.0.0.1:$port/mod els",
@@ -59,6 +58,19 @@ class ModelListHttpTest {
             )
         }
         assertEquals(0, server.requestCount)
+    }
+
+    @Test
+    fun `a url with a query string is accepted and sent verbatim`() {
+        server.start()
+        server.enqueue(MockResponse().setBody("[]"))
+        val url = server.url("/v1beta/models").toString() + "?pageSize=200&pageToken=a%2Fb"
+
+        val result = runBlocking { ModelListHttp().get(url, headers) }
+
+        assertEquals(HttpJson.Ok("[]"), result)
+        val request = server.takeRequest()
+        assertEquals("/v1beta/models?pageSize=200&pageToken=a%2Fb", request.path)
     }
 
     @Test
