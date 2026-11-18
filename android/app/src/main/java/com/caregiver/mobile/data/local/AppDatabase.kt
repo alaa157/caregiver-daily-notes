@@ -1,0 +1,312 @@
+package com.caregiver.mobile.data.local
+
+import android.content.Context
+import androidx.room.Database
+import androidx.room.Room
+import androidx.room.RoomDatabase
+import androidx.room.migration.Migration
+import androidx.room.withTransaction
+import androidx.sqlite.db.SupportSQLiteDatabase
+
+/**
+ * Room cache of recipients and notes (Task 8a) plus the note outbox
+ * (Task 8b) — the offline copy the repositories read from, the network
+ * refresh writes to, and the queue for notes saved while offline.
+ *
+ * The exported schema (`app/schemas/`) is committed so migrations have a
+ * baseline to diff against: 1.json is the Task 8a cache-only shape, 2.json
+ * adds the outbox, 3.json the plans, 4.json the addenda, 5.json the
+ * standalone medication tracker, 6.json doses-per-day, 7.json the recipient
+ * archive timestamp, 8.json the note recorded flags (`painRecorded`,
+ * `fallRecorded`) on `notes` and `outbox`, and 9.json the recipient
+ * relationship and care-detail columns, and 10.json the saved summaries.
+ *
+ * File-backed database for production graphs. Demo graphs never call this:
+ * demo data must not reach disk (Task 8a rule), so `AppGraph` only creates
+ * the database when the real backend is in use.
+ */
+@Database(
+    entities = [
+        RecipientEntity::class,
+        NoteEntity::class,
+        OutboxEntity::class,
+        PlanEntity::class,
+        AddendumEntity::class,
+        MedicationEntity::class,
+        MedicationIntakeEntity::class,
+        SavedSummaryEntity::class,
+    ],
+    version = 10,
+    exportSchema = true,
+)
+abstract class AppDatabase : RoomDatabase() {
+    abstract fun recipientDao(): RecipientDao
+
+    abstract fun noteDao(): NoteDao
+
+    abstract fun outboxDao(): OutboxDao
+
+    abstract fun planDao(): PlanDao
+
+    abstract fun addendumDao(): AddendumDao
+
+    abstract fun medicationDao(): MedicationDao
+
+    abstract fun savedSummaryDao(): SavedSummaryDao
+
+    /**
+     * Removes an archived recipient and every row it owns in one transaction.
+     * A missing recipient is a no-op (another delete or a stale screen may
+     * race this); an unarchived recipient is refused before any mutation.
+     */
+    suspend fun deleteArchivedRecipient(recipientId: String) {
+        withTransaction {
+            val recipient = recipientDao().byServerId(recipientId) ?: return@withTransaction
+            if (recipient.archivedAt == null) {
+                throw ActiveRecipientDeleteException(recipientId)
+            }
+
+            noteDao().serverIdsByRecipient(recipientId)
+                .chunked(IN_CHUNK_SIZE)
+                .forEach { addendumDao().deleteByNoteIds(it) }
+            noteDao().deleteByRecipient(recipientId)
+            planDao().deleteByRecipient(recipientId)
+            medicationDao().idsByRecipient(recipientId)
+                .chunked(IN_CHUNK_SIZE)
+                .forEach { medicationDao().clearIntakesForMedications(it) }
+            medicationDao().deleteByRecipient(recipientId)
+            outboxDao().deleteByRecipient(recipientId)
+            savedSummaryDao().deleteForRecipient(recipientId)
+            recipientDao().deleteByServerId(recipientId)
+        }
+    }
+
+    /** Counts every row [deleteArchivedRecipient] would remove, in one read transaction. */
+    suspend fun recipientDataCounts(recipientId: String): RecipientDeletionCounts =
+        withTransaction {
+            RecipientDeletionCounts(
+                notes = noteDao().countByRecipient(recipientId),
+                addenda = addendumDao().countForRecipient(recipientId),
+                plans = planDao().countByRecipient(recipientId),
+                medications = medicationDao().countByRecipient(recipientId),
+                intakes = medicationDao().countIntakesForRecipient(recipientId),
+                outbox = outboxDao().countByRecipient(recipientId),
+                summaries = savedSummaryDao().countForRecipient(recipientId),
+            )
+        }
+
+    companion object {
+        private const val IN_CHUNK_SIZE = 500
+
+        /**
+         * Task 8b: adds the outbox table. Must stay identical to the
+         * `CREATE TABLE` Room generates for [OutboxEntity] (see the
+         * exported 2.json schema).
+         */
+        val MIGRATION_1_2: Migration = object : Migration(1, 2) {
+            override fun migrate(db: SupportSQLiteDatabase) {
+                db.execSQL(
+                    "CREATE TABLE IF NOT EXISTS `outbox` (" +
+                        "`localId` TEXT NOT NULL, " +
+                        "`recipientId` TEXT NOT NULL, " +
+                        "`mood` TEXT NOT NULL, " +
+                        "`appetite` TEXT NOT NULL, " +
+                        "`sleep` TEXT NOT NULL, " +
+                        "`mobility` TEXT NOT NULL, " +
+                        "`medicationTaken` TEXT NOT NULL, " +
+                        "`pain` INTEGER NOT NULL, " +
+                        "`fall` INTEGER NOT NULL, " +
+                        "`text` TEXT NOT NULL, " +
+                        "`date` TEXT NOT NULL, " +
+                        "`createdAt` INTEGER NOT NULL, " +
+                        "`status` TEXT NOT NULL, " +
+                        "PRIMARY KEY(`localId`))",
+                )
+            }
+        }
+
+        /**
+         * Adds the plans table: one plan per id, its version chain as JSON,
+         * and the last-write timestamp.
+         */
+        val MIGRATION_2_3: Migration = object : Migration(2, 3) {
+            override fun migrate(db: SupportSQLiteDatabase) {
+                db.execSQL(
+                    "CREATE TABLE IF NOT EXISTS `plans` (" +
+                        "`id` TEXT NOT NULL, " +
+                        "`recipientId` TEXT NOT NULL, " +
+                        "`versionsJson` TEXT NOT NULL, " +
+                        "`updatedAt` INTEGER NOT NULL, " +
+                        "PRIMARY KEY(`id`))",
+                )
+            }
+        }
+
+        val MIGRATION_3_4: Migration = object : Migration(3, 4) {
+            override fun migrate(db: SupportSQLiteDatabase) {
+                db.execSQL(
+                    "CREATE TABLE IF NOT EXISTS `addenda` (" +
+                        "`id` TEXT NOT NULL, " +
+                        "`noteId` TEXT NOT NULL, " +
+                        "`createdAt` TEXT NOT NULL, " +
+                        "`text` TEXT NOT NULL, " +
+                        "PRIMARY KEY(`id`))",
+                )
+            }
+        }
+
+        /**
+         * Medication tracker tables (5.json): seed data behind the home
+         * card. Column order and names must stay identical to the
+         * `CREATE TABLE` Room generates for [MedicationEntity] and
+         * [MedicationIntakeEntity] so post-migration validation passes on
+         * devices upgrading from v0.3.x installs.
+         */
+        val MIGRATION_4_5: Migration = object : Migration(4, 5) {
+            override fun migrate(db: SupportSQLiteDatabase) {
+                db.execSQL(
+                    "CREATE TABLE IF NOT EXISTS `medications` (" +
+                        "`id` TEXT NOT NULL, " +
+                        "`recipientId` TEXT NOT NULL, " +
+                        "`name` TEXT NOT NULL, " +
+                        "`dose` TEXT, " +
+                        "`schedule` TEXT, " +
+                        "`active` INTEGER NOT NULL, " +
+                        "`createdAt` INTEGER NOT NULL, " +
+                        "PRIMARY KEY(`id`))",
+                )
+                db.execSQL(
+                    "CREATE INDEX IF NOT EXISTS `index_medications_recipientId` ON `medications` (`recipientId`)",
+                )
+                db.execSQL(
+                    "CREATE TABLE IF NOT EXISTS `medication_intakes` (" +
+                        "`id` TEXT NOT NULL, " +
+                        "`medicationId` TEXT NOT NULL, " +
+                        "`date` TEXT NOT NULL, " +
+                        "`times` INTEGER NOT NULL, " +
+                        "PRIMARY KEY(`id`))",
+                )
+            }
+        }
+
+        /**
+         * Doses a day (6.json): a twice-daily medication needs one mark per
+         * dose, so the medication carries how many doses a day it is taken
+         * and each dose of a day gets its own intake row.
+         */
+        val MIGRATION_5_6: Migration = object : Migration(5, 6) {
+            override fun migrate(db: SupportSQLiteDatabase) {
+                // The new column is last, so a plain ALTER matches the
+                // table Room now expects.
+                db.execSQL(
+                    "ALTER TABLE `medications` ADD COLUMN `dosesPerDay` INTEGER NOT NULL DEFAULT 1",
+                )
+                // The intake key carries the dose, so a day holds one row per
+                // dose instead of a single count. The old rows are the first
+                // dose of their day.
+                db.execSQL(
+                    "CREATE TABLE IF NOT EXISTS `medication_intakes_new` (" +
+                        "`id` TEXT NOT NULL, " +
+                        "`medicationId` TEXT NOT NULL, " +
+                        "`date` TEXT NOT NULL, " +
+                        "`times` INTEGER NOT NULL, " +
+                        "PRIMARY KEY(`id`))",
+                )
+                // The new key keeps the original date: "<medicationId>:<date>
+                // :<doseIndex>". Dropping the date would give every day of a
+                // medication the same primary key and REPLACE would silently
+                // keep only one of them. A plain INSERT also fails the
+                // migration loudly if old data holds an unexpected duplicate
+                // instead of losing a row without a trace.
+                db.execSQL(
+                    "INSERT INTO `medication_intakes_new` " +
+                        "(`id`, `medicationId`, `date`, `times`) " +
+                        "SELECT `medicationId` || ':' || `date` || ':0', " +
+                        "`medicationId`, `date`, `times` " +
+                        "FROM `medication_intakes`",
+                )
+                db.execSQL("DROP TABLE `medication_intakes`")
+                db.execSQL("ALTER TABLE `medication_intakes_new` RENAME TO `medication_intakes`")
+            }
+        }
+
+        /**
+         * Recipient archive state (7.json): nullable timestamp, null for every
+         * existing row. Plain ALTER keeps the column last, matching Room.
+         */
+        val MIGRATION_6_7: Migration = object : Migration(6, 7) {
+            override fun migrate(db: SupportSQLiteDatabase) {
+                db.execSQL("ALTER TABLE `recipients` ADD COLUMN `archivedAt` INTEGER")
+            }
+        }
+
+        /**
+         * Recorded flags (8.json): `painRecorded`/`fallRecorded` on `notes`
+         * and `outbox`. Every existing row predates the flags, so the
+         * DEFAULT 1 backfills them as recorded. Plain ALTERs keep the
+         * columns last, matching Room.
+         */
+        val MIGRATION_7_8: Migration = object : Migration(7, 8) {
+            override fun migrate(db: SupportSQLiteDatabase) {
+                db.execSQL("ALTER TABLE `notes` ADD COLUMN `painRecorded` INTEGER NOT NULL DEFAULT 1")
+                db.execSQL("ALTER TABLE `notes` ADD COLUMN `fallRecorded` INTEGER NOT NULL DEFAULT 1")
+                db.execSQL("ALTER TABLE `outbox` ADD COLUMN `painRecorded` INTEGER NOT NULL DEFAULT 1")
+                db.execSQL("ALTER TABLE `outbox` ADD COLUMN `fallRecorded` INTEGER NOT NULL DEFAULT 1")
+            }
+        }
+
+        /**
+         * Recipient relationship and care details (9.json): six nullable
+         * TEXT columns, NULL for every existing row. Plain ALTERs keep the
+         * columns last, matching Room.
+         */
+        val MIGRATION_8_9: Migration = object : Migration(8, 9) {
+            override fun migrate(db: SupportSQLiteDatabase) {
+                db.execSQL("ALTER TABLE `recipients` ADD COLUMN `relationship` TEXT")
+                db.execSQL("ALTER TABLE `recipients` ADD COLUMN `dateOfBirth` TEXT")
+                db.execSQL("ALTER TABLE `recipients` ADD COLUMN `allergies` TEXT")
+                db.execSQL("ALTER TABLE `recipients` ADD COLUMN `conditions` TEXT")
+                db.execSQL("ALTER TABLE `recipients` ADD COLUMN `emergencyContactName` TEXT")
+                db.execSQL("ALTER TABLE `recipients` ADD COLUMN `emergencyContactPhone` TEXT")
+            }
+        }
+
+        val MIGRATION_9_10: Migration = object : Migration(9, 10) {
+            override fun migrate(db: SupportSQLiteDatabase) {
+                db.execSQL(
+                    "CREATE TABLE IF NOT EXISTS `saved_summaries` (" +
+                        "`id` TEXT NOT NULL, " +
+                        "`recipientId` TEXT NOT NULL, " +
+                        "`periodDays` INTEGER NOT NULL, " +
+                        "`periodStart` TEXT NOT NULL, " +
+                        "`periodEnd` TEXT NOT NULL, " +
+                        "`createdAt` INTEGER NOT NULL, " +
+                        "`aiGenerated` INTEGER NOT NULL, " +
+                        "`provider` TEXT, " +
+                        "`model` TEXT, " +
+                        "`payload` TEXT NOT NULL, " +
+                        "PRIMARY KEY(`id`))",
+                )
+                db.execSQL(
+                    "CREATE INDEX IF NOT EXISTS `index_saved_summaries_recipientId_createdAt` " +
+                        "ON `saved_summaries` (`recipientId`, `createdAt`)",
+                )
+            }
+        }
+
+        fun create(context: Context): AppDatabase =
+            Room.databaseBuilder(context.applicationContext, AppDatabase::class.java, "caregiver-db")
+                .addMigrations(
+                    MIGRATION_1_2,
+                    MIGRATION_2_3,
+                    MIGRATION_3_4,
+                    MIGRATION_4_5,
+                    MIGRATION_5_6,
+                    MIGRATION_6_7,
+                    MIGRATION_7_8,
+                    MIGRATION_8_9,
+                    MIGRATION_9_10,
+                )
+                .build()
+    }
+}

@@ -1,0 +1,103 @@
+package com.caregiver.mobile.data.local
+
+import androidx.room.Room
+import androidx.test.core.app.ApplicationProvider
+import com.caregiver.mobile.ai.SafetySignalEvaluator
+import com.caregiver.mobile.data.api.CreateAddendumRequest
+import com.caregiver.mobile.data.api.CreateNoteRequest
+import kotlinx.coroutines.runBlocking
+import kotlinx.coroutines.test.runTest
+import org.junit.After
+import org.junit.Assert.assertEquals
+import org.junit.Assert.assertTrue
+import org.junit.Before
+import org.junit.Test
+import org.junit.runner.RunWith
+import org.robolectric.RobolectricTestRunner
+
+@RunWith(RobolectricTestRunner::class)
+class AddendumPersistenceTest {
+    private lateinit var db: AppDatabase
+
+    @Before
+    fun setUp() {
+        db = Room.inMemoryDatabaseBuilder(
+            ApplicationProvider.getApplicationContext(),
+            AppDatabase::class.java,
+        ).allowMainThreadQueries().build()
+        runBlocking {
+            db.recipientDao().insertAll(
+                listOf(RecipientEntity(serverId = "r1", name = "R1", active = true)),
+            )
+        }
+    }
+
+    @After
+    fun tearDown() {
+        db.close()
+    }
+
+    private fun noteRequest() = CreateNoteRequest(
+        recipientId = "r1",
+        mood = "good",
+        appetite = "good",
+        sleep = "good",
+        mobility = "walks",
+        medicationTaken = "taken",
+        pain = 1,
+        fall = false,
+        text = "original",
+    )
+
+    @Test
+    fun noteForAMissingRecipientIsRejectedWithoutWriting() = runTest {
+        val apis = LocalBackendApis(db)
+        try {
+            apis.notes().create(noteRequest().copy(recipientId = "missing"))
+            throw AssertionError("expected a missing recipient to be rejected")
+        } catch (e: NoSuchElementException) {
+            assertTrue(e.message.orEmpty().contains("missing"))
+        }
+        assertTrue(apis.notes().history("missing", null, null).isEmpty())
+    }
+
+    @Test
+    fun appendPersistsAcrossRepositoryRecreation() = runTest {
+        val first = LocalBackendApis(db)
+        val note = first.notes().create(noteRequest())
+        val appended = first.notes().append(note.id, CreateAddendumRequest("correction"))
+
+        val second = LocalBackendApis(db)
+        val detail = second.notes().detail(note.id)
+
+        assertEquals(1, detail.addenda.size)
+        assertEquals(appended.id, detail.addenda.first().id)
+        assertEquals("correction", detail.addenda.first().text)
+        assertEquals("original", detail.text)
+    }
+
+    @Test
+    fun detailReadsAddendaInDeterministicOrder() = runTest {
+        val apis = LocalBackendApis(db)
+        val note = apis.notes().create(noteRequest())
+        apis.notes().append(note.id, CreateAddendumRequest("first"))
+        apis.notes().append(note.id, CreateAddendumRequest("second"))
+
+        val detail = apis.notes().detail(note.id)
+        assertEquals(listOf("first", "second"), detail.addenda.map { it.text })
+    }
+
+    @Test
+    fun historyCarriesAddendaIntoTheSummaryAndSafetyText() = runTest {
+        val apis = LocalBackendApis(db)
+        val note = apis.notes().create(noteRequest())
+        apis.notes().append(note.id, CreateAddendumRequest("لاحقاً وقعت في الحمام"))
+
+        val history = apis.notes().history("r1", null, null)
+        assertEquals(listOf("لاحقاً وقعت في الحمام"), history.single().addenda.map { it.text })
+
+        val signals = apis.summaries().signals("r1", null, null)
+        assertTrue(signals.single().text.contains("وقعت في الحمام"))
+        assertTrue("FALL_REPORTED" in SafetySignalEvaluator.evaluate(signals))
+    }
+}

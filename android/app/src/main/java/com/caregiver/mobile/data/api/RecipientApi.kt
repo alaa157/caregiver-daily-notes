@@ -1,0 +1,46 @@
+package com.caregiver.mobile.data.api
+
+import kotlinx.serialization.Serializable
+import retrofit2.http.Body
+import retrofit2.http.GET
+import retrofit2.http.POST
+import retrofit2.http.PUT
+import retrofit2.http.Path
+
+/** GET/POST /api/recipients, GET/PUT /api/recipients/{id}. */
+interface RecipientApi {
+    @GET("api/recipients")
+    suspend fun list(): List<RecipientDto>
+
+    @POST("api/recipients")
+    suspend fun create(@Body body: CreateRecipientRequest): RecipientDto
+
+    @GET("api/recipients/{id}")
+    suspend fun get(@Path("id") id: String): RecipientDto
+
+    @PUT("api/recipients/{id}")
+    suspend fun update(@Path("id") id: String, @Body body: UpdateRecipientRequest): RecipientDto
+}
+
+@Serializable
+data class RecipientDto(
+    val id: String,
+    val name: String,
+    val active: Boolean,
+    val archivedAt: Long? = null,
+    val relationship: String? = null,
+    val dateOfBirth: String? = null,
+    val allergies: String? = null,
+    val conditions: String? = null,
+    val emergencyContactName: String? = null,
+    val emergencyContactPhone: String? = null,
+)
+
+@Serializable
+data class CreateRecipientRequest(
+    val name: String,
+    val relationship: String? = null,
+)
+
+@Serializable
+data class UpdateRecipientRequest(val active: Boolean)

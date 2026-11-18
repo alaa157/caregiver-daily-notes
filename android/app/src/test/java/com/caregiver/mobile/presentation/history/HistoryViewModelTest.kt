@@ -1,0 +1,218 @@
+package com.caregiver.mobile.presentation.history
+
+import com.caregiver.mobile.core.network.TokenHolder
+import com.caregiver.mobile.data.AuthRepository
+import com.caregiver.mobile.data.FakeAuthApi
+import com.caregiver.mobile.data.FakeBackendApis
+import com.caregiver.mobile.data.FakeNoteApi
+import com.caregiver.mobile.data.FakeRecipientApi
+import com.caregiver.mobile.data.SettingsStore
+import com.caregiver.mobile.data.api.RecipientDto
+import com.caregiver.mobile.data.testNote
+import androidx.datastore.preferences.core.PreferenceDataStoreFactory
+import java.io.File
+import java.io.IOException
+import java.time.LocalDate
+import kotlinx.coroutines.ExperimentalCoroutinesApi
+import kotlinx.coroutines.flow.first
+import kotlinx.coroutines.test.advanceUntilIdle
+import kotlinx.coroutines.test.TestScope
+import kotlinx.coroutines.test.UnconfinedTestDispatcher
+import kotlinx.coroutines.test.runTest
+import org.junit.After
+import org.junit.Assert.assertEquals
+import org.junit.Assert.assertNull
+import org.junit.Assert.assertTrue
+import org.junit.Before
+import org.junit.Test
+
+/**
+ * History (board 9): unfiltered load, recipient/date narrowing mapped to
+ * exact query params, refresh that keeps loaded rows composed, and bounded
+ * loading without per-note fan-out.
+ */
+@OptIn(ExperimentalCoroutinesApi::class)
+class HistoryViewModelTest {
+
+    private lateinit var file: File
+    private lateinit var notes: FakeNoteApi
+    private lateinit var recipients: FakeRecipientApi
+    private lateinit var repository: AuthRepository
+
+    @Before
+    fun setUp() {
+        file = File.createTempFile("history-vm-test", ".preferences_pb")
+        val settings = SettingsStore(
+            PreferenceDataStoreFactory.create(
+                scope = TestScope(UnconfinedTestDispatcher()),
+            ) { file },
+        )
+        notes = FakeNoteApi()
+        recipients = FakeRecipientApi()
+        val apis = FakeBackendApis(FakeAuthApi()).also {
+            it.noteApi = notes
+            it.recipientApi = recipients
+        }
+        repository = AuthRepository(apis, settings, TokenHolder())
+        recipients.listHandler = { emptyList() }
+        notes.historyHandler = { _, _, _ -> emptyList() }
+    }
+
+    @After
+    fun tearDown() {
+        file.delete()
+    }
+
+    private fun apis() = FakeBackendApis(FakeAuthApi()).also {
+        it.noteApi = notes
+        it.recipientApi = recipients
+    }
+
+    private suspend fun content(vm: HistoryViewModel): HistoryContent {
+        val state = vm.state.first { it is HistoryState.Content || it is HistoryState.Error }
+        assertTrue("expected Content, was $state", state is HistoryState.Content)
+        return (state as HistoryState.Content).content
+    }
+
+    @Test
+    fun defaultLoadSendsNullFilters() = runTest {
+        val vm = HistoryViewModel(apis(), repository, this)
+
+        content(vm)
+
+        assertEquals(Triple(null, null, null), notes.lastHistory)
+    }
+
+    @Test
+    fun presetFiltersApplyOnFirstLoad() = runTest {
+        val vm = HistoryViewModel(
+            apis(), repository, this,
+            initialRecipientId = "r1",
+            initialFrom = LocalDate.of(2026, 10, 1),
+            initialTo = LocalDate.of(2026, 10, 8),
+        )
+
+        content(vm)
+
+        assertEquals(Triple("r1", "2026-10-01", "2026-10-08"), notes.lastHistory)
+    }
+
+    @Test
+    fun changedDateRangePassedToApiUnchanged() = runTest {
+        val vm = HistoryViewModel(apis(), repository, this)
+        content(vm)
+
+        vm.setFrom(LocalDate.of(2026, 10, 1))
+        vm.setTo(LocalDate.of(2026, 10, 31))
+        advanceUntilIdle()
+
+        assertEquals(Triple(null, "2026-10-01", "2026-10-31"), notes.lastHistory)
+    }
+
+    @Test
+    fun recipientFilterNarrowsTheList() = runTest {
+        recipients.listHandler = {
+            listOf(RecipientDto("r1", "A", true), RecipientDto("r2", "B", true))
+        }
+        notes.historyHandler = { id, _, _ ->
+            if (id == "r1") listOf(testNote(id = "n1")) else listOf(testNote(id = "n2"), testNote(id = "n3"))
+        }
+        val vm = HistoryViewModel(apis(), repository, this)
+        content(vm)
+
+        vm.setRecipient("r1")
+        val narrowed = vm.state.first {
+            it is HistoryState.Content && it.content.entries.size == 1
+        } as HistoryState.Content
+
+        assertEquals("n1", narrowed.content.entries.single().note.id)
+        assertEquals("r1", notes.lastHistory?.first)
+    }
+
+    @Test
+    fun dateFilterNarrowsTheList() = runTest {
+        notes.historyHandler = { _, from, to ->
+            listOf(
+                testNote(id = "n1", date = "2026-10-01"),
+                testNote(id = "n2", date = "2026-10-07"),
+                testNote(id = "n3", date = "2026-10-15"),
+            ).filter { (from == null || it.date >= from) && (to == null || it.date <= to) }
+        }
+        val vm = HistoryViewModel(apis(), repository, this)
+        assertEquals(3, content(vm).entries.size)
+
+        vm.setFrom(LocalDate.of(2026, 10, 7))
+        vm.setTo(LocalDate.of(2026, 10, 15))
+        advanceUntilIdle()
+
+        val narrowed = vm.state.value as HistoryState.Content
+        assertEquals(listOf("n2", "n3"), narrowed.content.entries.map { it.note.id })
+        assertEquals(Triple(null, "2026-10-07", "2026-10-15"), notes.lastHistory)
+    }
+
+    @Test
+    fun refreshKeepsContentVisibleWhileReloading() = runTest {
+        notes.historyHandler = { _, _, _ -> listOf(testNote(id = "n1")) }
+        val vm = HistoryViewModel(apis(), repository, this)
+        content(vm)
+
+        vm.refresh()
+
+        // Synchronous: the rows stay composed while the reload runs (the
+        // pull indicator spins); skeletons are only for the first load.
+        val mid = vm.state.value as HistoryState.Content
+        assertTrue(mid.refreshing)
+        assertEquals(listOf("n1"), mid.content.entries.map { it.note.id })
+
+        advanceUntilIdle()
+        val done = vm.state.value as HistoryState.Content
+        assertEquals(false, done.refreshing)
+    }
+
+    @Test
+    fun loadingMakesOnlyBoundedListRequests() = runTest {
+        notes.historyHandler = { _, _, _ ->
+            listOf(testNote(id = "n1"), testNote(id = "n2"))
+        }
+        val vm = HistoryViewModel(apis(), repository, this)
+
+        val entries = content(vm).entries
+
+        assertEquals(listOf("n1", "n2"), entries.map { it.note.id })
+        assertEquals(1, notes.historyCalls.size)
+        assertEquals(0, notes.detailCalls)
+    }
+
+    @Test
+    fun serverErrorSurfacesError() = runTest {
+        notes.historyHandler = { _, _, _ ->
+            throw FakeAuthApi.httpError(500, "SERVER_ERROR")
+        }
+        val vm = HistoryViewModel(apis(), repository, this)
+
+        val state = vm.state.first { it is HistoryState.Error }
+
+        assertTrue(state is HistoryState.Error)
+    }
+
+    @Test
+    fun networkFailureSurfacesError() = runTest {
+        notes.historyHandler = { _, _, _ -> throw IOException("down") }
+        val vm = HistoryViewModel(apis(), repository, this)
+
+        val state = vm.state.first { it is HistoryState.Error }
+
+        assertTrue(state is HistoryState.Error)
+    }
+
+    @Test
+    fun recipientListFailureSurfacesError() = runTest {
+        recipients.listHandler = { throw IOException("down") }
+        val vm = HistoryViewModel(apis(), repository, this)
+
+        val state = vm.state.first { it is HistoryState.Error }
+
+        assertTrue(state is HistoryState.Error)
+        assertNull(notes.lastHistory)
+    }
+}

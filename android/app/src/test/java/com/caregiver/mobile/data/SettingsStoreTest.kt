@@ -1,0 +1,143 @@
+package com.caregiver.mobile.data
+
+import androidx.datastore.core.DataStore
+import androidx.datastore.preferences.core.PreferenceDataStoreFactory
+import androidx.datastore.preferences.core.Preferences
+import java.io.File
+import java.io.IOException
+import kotlinx.coroutines.ExperimentalCoroutinesApi
+import kotlinx.coroutines.flow.Flow
+import kotlinx.coroutines.flow.first
+import kotlinx.coroutines.flow.flow
+import kotlinx.coroutines.test.TestScope
+import kotlinx.coroutines.test.UnconfinedTestDispatcher
+import kotlinx.coroutines.test.runTest
+import org.junit.After
+import org.junit.Assert.assertEquals
+import org.junit.Assert.assertFalse
+import org.junit.Assert.assertNull
+import org.junit.Assert.assertTrue
+import org.junit.Before
+import org.junit.Test
+
+/**
+ * Settings survive process death in DataStore: base URL (runtime-editable per
+ * issue #27), auth token (write-only, never logged), and UI language.
+ */
+@OptIn(ExperimentalCoroutinesApi::class)
+class SettingsStoreTest {
+
+    private lateinit var file: File
+    private lateinit var store: SettingsStore
+
+    @Before
+    fun setUp() {
+        file = File.createTempFile("settings-test", ".preferences_pb")
+        store = SettingsStore(
+            PreferenceDataStoreFactory.create(
+                scope = TestScope(UnconfinedTestDispatcher()),
+            ) { file },
+        )
+    }
+
+    @After
+    fun tearDown() {
+        file.delete()
+    }
+
+    @Test
+    fun baseUrlIsEmptyAndUnconfiguredOnFreshInstall() = runTest {
+        // A fresh install must not resolve to a placeholder host, and must
+        // report that no server has been configured yet.
+        assertEquals("", store.baseUrl.first())
+        assertFalse(store.isBaseUrlConfigured.first())
+    }
+
+    @Test
+    fun baseUrlConfigurationStateTracksSetAndReset() = runTest {
+        // Fresh install: no host stored, so no server is configured.
+        assertEquals("", store.baseUrl.first())
+        assertFalse(store.isBaseUrlConfigured.first())
+
+        store.setBaseUrl("https://example.org")
+        assertEquals("https://example.org", store.baseUrl.first())
+        assertTrue(store.isBaseUrlConfigured.first())
+
+        store.resetBaseUrl()
+        assertEquals("", store.baseUrl.first())
+        assertFalse(store.isBaseUrlConfigured.first())
+    }
+
+    @Test
+    fun tokenStartsNullRoundTripsAndClears() = runTest {
+        assertNull(store.token.first())
+        store.setToken("jwt-token")
+        assertEquals("jwt-token", store.token.first())
+        store.clearToken()
+        assertNull(store.token.first())
+    }
+
+    @Test
+    fun languageDefaultsToArabicAndRoundTrips() = runTest {
+        assertEquals("ar", store.language.first())
+        store.setLanguage("en")
+        assertEquals("en", store.language.first())
+        store.setLanguage("ar")
+        assertEquals("ar", store.language.first())
+    }
+
+    @Test
+    fun storedLanguageIsNullUntilSetAndRoundTrips() = runTest {
+        // The post-attach cold-start restore distinguishes "never saved" from
+        // a real choice so a missing value cannot reset the mirror to Arabic.
+        assertNull(store.storedLanguage.first())
+        store.setLanguage("en")
+        assertEquals("en", store.storedLanguage.first())
+    }
+
+    @Test
+    fun languageSwitchPreservesServerUrlAndToken() = runTest {
+        store.setBaseUrl("https://care.example:8443/")
+        store.setToken("jwt-token")
+        store.setEmail("a@b.c")
+
+        store.setLanguage("en")
+        store.setLanguage("ar")
+
+        assertEquals("https://care.example:8443/", store.baseUrl.first())
+        assertEquals("jwt-token", store.token.first())
+        assertEquals("a@b.c", store.email.first())
+        assertEquals("ar", store.language.first())
+    }
+
+    @Test
+    fun emailStartsNullRoundTripsAndClears() = runTest {
+        assertNull(store.email.first())
+        store.setEmail("a@b.c")
+        assertEquals("a@b.c", store.email.first())
+        store.clearEmail()
+        assertNull(store.email.first())
+    }
+
+    @Test
+    fun unreadableSettingsServeSafeDefaultsInsteadOfFailing() = runTest {
+        val failing = SettingsStore(FailingDataStore())
+
+        assertEquals(SettingsStore.DEFAULT_BASE_URL, failing.baseUrl.first())
+        assertFalse(failing.isBaseUrlConfigured.first())
+        assertNull(failing.token.first())
+        assertNull(failing.email.first())
+        assertEquals(SettingsStore.DEFAULT_LANGUAGE, failing.language.first())
+        assertEquals(SettingsStore.DEFAULT_THEME_MODE, failing.themeMode.first())
+        assertFalse(failing.pureBlack.first())
+        assertEquals(SettingsStore.DEFAULT_COLOR_PALETTE, failing.colorPalette.first())
+        assertFalse(failing.onboardingCompleted.first())
+    }
+}
+
+private class FailingDataStore : DataStore<Preferences> {
+    override val data: Flow<Preferences> = flow { throw IOException("settings disk unavailable") }
+
+    override suspend fun updateData(transform: suspend (t: Preferences) -> Preferences): Preferences =
+        throw IOException("settings disk unavailable")
+}

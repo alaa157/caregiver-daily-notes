@@ -1,0 +1,350 @@
+package com.caregiver.mobile.data.backup
+
+import org.junit.Assert.assertEquals
+import org.junit.Assert.assertTrue
+import org.junit.Test
+
+/**
+ * Semantic validation: ids, relationships, dates, options and the plan JSON.
+ * Every rule is deterministic and read-only.
+ */
+class BackupValidatorTest {
+
+    private fun issues(data: BackupData): List<BackupIssue> = BackupValidator.validate(data)
+
+    private fun kinds(data: BackupData, kind: BackupIssueKind) =
+        issues(data).filter { it.kind == kind }
+
+    @Test
+    fun aWellFormedBackupHasNoIssues() {
+        assertTrue(issues(backupData()).isEmpty())
+    }
+
+    @Test
+    fun emptyCollectionsAreValid() {
+        assertTrue(issues(backupData(emptyList(), emptyList(), emptyList(), emptyList())).isEmpty())
+    }
+
+    @Test
+    fun duplicateRecipientIdsAreReported() {
+        val data = backupData(
+            recipients = listOf(backupRecipient("r1"), backupRecipient("r1", name = "Other")),
+        )
+        assertEquals(1, kinds(data, BackupIssueKind.DUPLICATE_ID).size)
+        assertEquals(BackupEntity.RECIPIENT, kinds(data, BackupIssueKind.DUPLICATE_ID).single().entity)
+    }
+
+    @Test
+    fun duplicateNoteIdsAreReported() {
+        val data = backupData(notes = listOf(backupNote("n1"), backupNote("n1", date = "2026-10-02")))
+        assertEquals(BackupEntity.NOTE, kinds(data, BackupIssueKind.DUPLICATE_ID).single().entity)
+    }
+
+    @Test
+    fun duplicateAddendumAndPlanIdsAreReported() {
+        val data = backupData(
+            addenda = listOf(backupAddendum("a1"), backupAddendum("a1")),
+            plans = listOf(backupPlan("p1"), backupPlan("p1")),
+        )
+        val duplicates = kinds(data, BackupIssueKind.DUPLICATE_ID)
+        assertEquals(2, duplicates.size)
+        assertTrue(duplicates.any { it.entity == BackupEntity.ADDENDUM })
+        assertTrue(duplicates.any { it.entity == BackupEntity.PLAN })
+    }
+
+    @Test
+    fun aNoteReferencingAMissingRecipientIsReported() {
+        val data = backupData(notes = listOf(backupNote(recipientId = "gone")))
+        assertEquals(BackupEntity.NOTE, kinds(data, BackupIssueKind.BROKEN_REFERENCE).single().entity)
+    }
+
+    @Test
+    fun anAddendumReferencingAMissingNoteIsReported() {
+        val data = backupData(addenda = listOf(backupAddendum(noteId = "gone")))
+        assertEquals(BackupEntity.ADDENDUM, kinds(data, BackupIssueKind.BROKEN_REFERENCE).single().entity)
+    }
+
+    @Test
+    fun aPlanReferencingAMissingRecipientIsReported() {
+        val data = backupData(plans = listOf(backupPlan(recipientId = "gone")))
+        assertEquals(BackupEntity.PLAN, kinds(data, BackupIssueKind.BROKEN_REFERENCE).single().entity)
+    }
+
+    @Test
+    fun blankIdsAndNamesAreReported() {
+        val data = backupData(recipients = listOf(backupRecipient(serverId = "", name = " ")))
+        val issues = issues(data)
+        assertTrue(issues.any { it.entity == BackupEntity.RECIPIENT && it.kind == BackupIssueKind.MISSING_ID })
+        assertTrue(issues.any { it.entity == BackupEntity.RECIPIENT && it.kind == BackupIssueKind.MISSING_VALUE })
+    }
+
+    @Test
+    fun invalidRelationshipAndCareDetailsAreReportedWithoutValues() {
+        val data = backupData(
+            recipients = listOf(
+                backupRecipient(
+                    relationship = "x".repeat(81),
+                    allergies = "x".repeat(501),
+                    emergencyContactPhone = "call me",
+                ),
+            ),
+        )
+
+        val issues = issues(data)
+
+        assertEquals(1, kinds(data, BackupIssueKind.INVALID_RELATIONSHIP).size)
+        assertEquals(1, kinds(data, BackupIssueKind.INVALID_CARE_DETAILS).size)
+        assertTrue(issues.all { it.entity == BackupEntity.RECIPIENT })
+        assertTrue(issues.none { issue ->
+            issue.toString().contains("call me") || issue.toString().contains("x".repeat(81))
+        })
+    }
+
+    @Test
+    fun invalidDateOfBirthIsReported() {
+        val data = backupData(recipients = listOf(backupRecipient(dateOfBirth = "not-a-date")))
+
+        assertEquals(1, kinds(data, BackupIssueKind.INVALID_CARE_DETAILS).size)
+    }
+
+    @Test
+    fun invalidEmergencyContactPhoneIsReported() {
+        val data = backupData(recipients = listOf(backupRecipient(emergencyContactPhone = "call me")))
+
+        assertEquals(1, kinds(data, BackupIssueKind.INVALID_CARE_DETAILS).size)
+    }
+
+    @Test
+    fun anInvalidNoteDateIsReported() {
+        val data = backupData(notes = listOf(backupNote(date = "01/10/2026")))
+        assertEquals(BackupEntity.NOTE, kinds(data, BackupIssueKind.INVALID_DATE).single().entity)
+    }
+
+    @Test
+    fun anInvalidAddendumTimestampIsReported() {
+        val data = backupData(addenda = listOf(backupAddendum(createdAt = "yesterday")))
+        assertEquals(BackupEntity.ADDENDUM, kinds(data, BackupIssueKind.INVALID_DATE).single().entity)
+    }
+
+    @Test
+    fun painOutsideZeroToTenIsReported() {
+        assertTrue(kinds(backupData(notes = listOf(backupNote(pain = 11))), BackupIssueKind.INVALID_PAIN).isNotEmpty())
+        assertTrue(kinds(backupData(notes = listOf(backupNote(pain = -1))), BackupIssueKind.INVALID_PAIN).isNotEmpty())
+    }
+
+    @Test
+    fun anUnrecordedPainCarryingAnAnswerIsReported() {
+        val data = backupData(
+            notes = listOf(backupNote(pain = 5, painRecorded = false)),
+        )
+        assertEquals(BackupEntity.NOTE, kinds(data, BackupIssueKind.INVALID_PAIN).single().entity)
+    }
+
+    @Test
+    fun anUnrecordedFallCarryingAnAnswerIsReported() {
+        val data = backupData(
+            notes = listOf(backupNote(fall = true, fallRecorded = false)),
+        )
+        assertEquals(BackupEntity.NOTE, kinds(data, BackupIssueKind.INVALID_FALL).single().entity)
+    }
+
+    @Test
+    fun recordedFlagsWithConsistentValuesAreValid() {
+        val data = backupData(
+            notes = listOf(
+                backupNote("n1", pain = 0, painRecorded = false, fallRecorded = false),
+                backupNote("n2", date = "2026-10-02", pain = 4, fall = true),
+            ),
+        )
+        assertTrue(issues(data).isEmpty())
+    }
+
+    @Test
+    fun aBlankMoodIsReportedAsMissingValue() {
+        val data = backupData(notes = listOf(backupNote(mood = " ")))
+        assertEquals(BackupEntity.NOTE, kinds(data, BackupIssueKind.MISSING_VALUE).single().entity)
+    }
+
+    @Test
+    fun overlongOptionGroupsAreReported() {
+        val data = backupData(notes = listOf(backupNote(appetite = "x".repeat(33))))
+        assertEquals(BackupEntity.NOTE, kinds(data, BackupIssueKind.INVALID_OPTION).single().entity)
+    }
+
+    @Test
+    fun noteTextIsNeverLengthRestricted() {
+        // Notes are free text; only option groups have a wire cap.
+        val data = backupData(notes = listOf(backupNote(text = "ط".repeat(5_000))))
+        assertTrue(issues(data).isEmpty())
+    }
+
+    @Test
+    fun planVersionsMustBeAJsonArray() {
+        val notJson = backupData(plans = listOf(backupPlan(versionsJson = "not json")))
+        assertEquals(BackupEntity.PLAN, kinds(notJson, BackupIssueKind.INVALID_PLAN_JSON).single().entity)
+
+        val notAnArray = backupData(plans = listOf(backupPlan(versionsJson = """{"version":1}""")))
+        assertEquals(BackupEntity.PLAN, kinds(notAnArray, BackupIssueKind.INVALID_PLAN_JSON).single().entity)
+    }
+
+    @Test
+    fun aHostilePlanJsonLengthIsRejectedBeforeParsing() {
+        val data = backupData(plans = listOf(backupPlan(versionsJson = "[" + "1,".repeat(200_000))))
+        assertEquals(BackupEntity.PLAN, kinds(data, BackupIssueKind.INVALID_PLAN_JSON).single().entity)
+    }
+
+    @Test
+    fun aWellFormedMedicationAndIntakeHasNoIssues() {
+        val data = backupData(
+            medications = listOf(backupMedication("m1", dosesPerDay = 2)),
+            medicationIntakes = listOf(backupIntake("m1", doseIndex = 0), backupIntake("m1", doseIndex = 1)),
+        )
+        assertTrue(issues(data).isEmpty())
+    }
+
+    @Test
+    fun duplicateMedicationIdsAreReported() {
+        val data = backupData(medications = listOf(backupMedication("m1"), backupMedication("m1")))
+        assertEquals(BackupEntity.MEDICATION, kinds(data, BackupIssueKind.DUPLICATE_ID).single().entity)
+    }
+
+    @Test
+    fun aMedicationReferencingAMissingRecipientIsReported() {
+        val data = backupData(medications = listOf(backupMedication(recipientId = "gone")))
+        assertEquals(BackupEntity.MEDICATION, kinds(data, BackupIssueKind.BROKEN_REFERENCE).single().entity)
+    }
+
+    @Test
+    fun blankMedicationNameAndOutOfRangeDosesAreReported() {
+        val data = backupData(medications = listOf(backupMedication(name = " ", dosesPerDay = 0)))
+        val issues = issues(data)
+        assertTrue(issues.any { it.entity == BackupEntity.MEDICATION && it.kind == BackupIssueKind.MISSING_VALUE })
+        assertTrue(issues.any { it.entity == BackupEntity.MEDICATION && it.kind == BackupIssueKind.INVALID_COUNT })
+
+        val tooMany = backupData(medications = listOf(backupMedication(dosesPerDay = 5)))
+        assertTrue(kinds(tooMany, BackupIssueKind.INVALID_COUNT).isNotEmpty())
+    }
+
+    @Test
+    fun anIntakeReferencingAMissingMedicationIsReported() {
+        val data = backupData(medicationIntakes = listOf(backupIntake("gone")))
+        assertEquals(
+            BackupEntity.MEDICATION_INTAKE,
+            kinds(data, BackupIssueKind.BROKEN_REFERENCE).single().entity,
+        )
+    }
+
+    @Test
+    fun duplicateIntakeIdsAndInvalidValuesAreReported() {
+        val data = backupData(
+            medications = listOf(backupMedication("m1")),
+            medicationIntakes = listOf(
+                backupIntake("m1", times = 0),
+                backupIntake("m1", times = 0),
+            ),
+        )
+        val issues = issues(data)
+        assertEquals(BackupEntity.MEDICATION_INTAKE, kinds(data, BackupIssueKind.DUPLICATE_ID).single().entity)
+        assertEquals(2, kinds(data, BackupIssueKind.INVALID_COUNT).size)
+        assertTrue(issues.all { it.entity != BackupEntity.NOTE })
+    }
+
+    @Test
+    fun anInvalidIntakeDateIsReported() {
+        val data = backupData(
+            medications = listOf(backupMedication("m1")),
+            medicationIntakes = listOf(backupIntake("m1", date = "01/10/2026")),
+        )
+        assertEquals(
+            BackupEntity.MEDICATION_INTAKE,
+            kinds(data, BackupIssueKind.INVALID_DATE).single().entity,
+        )
+    }
+
+    @Test
+    fun aWellFormedSavedSummaryHasNoIssues() {
+        val data = backupData(savedSummaries = listOf(backupSavedSummary()))
+        assertTrue(issues(data).isEmpty())
+    }
+
+    @Test
+    fun aSummaryReferencingAMissingRecipientIsReported() {
+        val data = backupData(savedSummaries = listOf(backupSavedSummary(recipientId = "gone")))
+        assertEquals(
+            BackupEntity.SAVED_SUMMARY,
+            kinds(data, BackupIssueKind.BROKEN_REFERENCE).single().entity,
+        )
+    }
+
+    @Test
+    fun moreThanTwentySummariesForOneRecipientAreReported() {
+        val summaries = (1..21).map { backupSavedSummary(id = "s$it") }
+        val data = backupData(savedSummaries = summaries)
+        val counts = kinds(data, BackupIssueKind.INVALID_COUNT)
+            .filter { it.entity == BackupEntity.SAVED_SUMMARY }
+        assertEquals(1, counts.size)
+    }
+
+    @Test
+    fun anUnsupportedPeriodDaysIsReported() {
+        for (days in listOf(0, 1, 8, 15, 31)) {
+            val data = backupData(savedSummaries = listOf(backupSavedSummary(periodDays = days)))
+            assertTrue(
+                kinds(data, BackupIssueKind.INVALID_COUNT)
+                    .any { it.entity == BackupEntity.SAVED_SUMMARY },
+            )
+        }
+        for (days in listOf(7, 14, 30)) {
+            val data = backupData(savedSummaries = listOf(backupSavedSummary(periodDays = days)))
+            assertTrue(issues(data).none { it.entity == BackupEntity.SAVED_SUMMARY })
+        }
+    }
+
+    @Test
+    fun invalidPeriodDatesAreReported() {
+        val badStart = backupData(
+            savedSummaries = listOf(backupSavedSummary(periodStart = "not-a-date")),
+        )
+        assertTrue(
+            kinds(badStart, BackupIssueKind.INVALID_DATE)
+                .any { it.entity == BackupEntity.SAVED_SUMMARY },
+        )
+
+        val badEnd = backupData(
+            savedSummaries = listOf(backupSavedSummary(periodEnd = "2026/09/30")),
+        )
+        assertTrue(
+            kinds(badEnd, BackupIssueKind.INVALID_DATE)
+                .any { it.entity == BackupEntity.SAVED_SUMMARY },
+        )
+
+        val reversed = backupData(
+            savedSummaries = listOf(
+                backupSavedSummary(periodStart = "2026-10-01", periodEnd = "2026-09-30"),
+            ),
+        )
+        assertTrue(
+            kinds(reversed, BackupIssueKind.INVALID_DATE)
+                .any { it.entity == BackupEntity.SAVED_SUMMARY },
+        )
+    }
+
+    @Test
+    fun anOversizedOrNonJsonPayloadIsReported() {
+        val oversized = backupData(
+            savedSummaries = listOf(backupSavedSummary(payload = " ".repeat(200_001))),
+        )
+        assertTrue(
+            kinds(oversized, BackupIssueKind.INVALID_PAYLOAD)
+                .any { it.entity == BackupEntity.SAVED_SUMMARY },
+        )
+
+        val notJson = backupData(
+            savedSummaries = listOf(backupSavedSummary(payload = "not json")),
+        )
+        assertTrue(
+            kinds(notJson, BackupIssueKind.INVALID_PAYLOAD)
+                .any { it.entity == BackupEntity.SAVED_SUMMARY },
+        )
+    }
+}

@@ -1,0 +1,232 @@
+package com.caregiver.mobile.presentation.home
+
+import androidx.lifecycle.ViewModel
+import androidx.lifecycle.viewModelScope
+import com.caregiver.mobile.data.AuthRepository
+import com.caregiver.mobile.data.LoggedOutException
+import com.caregiver.mobile.data.SettingsStore
+import com.caregiver.mobile.presentation.common.selectableRecipients
+import java.io.IOException
+import java.time.Clock
+import java.time.LocalDate
+import java.time.LocalTime
+import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.flow.MutableStateFlow
+import kotlinx.coroutines.flow.StateFlow
+import kotlinx.coroutines.flow.asStateFlow
+import kotlinx.coroutines.flow.Flow
+import kotlinx.coroutines.flow.first
+import kotlinx.coroutines.flow.flowOf
+import kotlinx.coroutines.launch
+import retrofit2.HttpException
+
+enum class RecipientChip { DoneToday, MissedToday, HighPain, FallFlag, NoNote }
+
+data class LastNote(val date: String, val mood: String, val appetite: String, val sleep: String)
+
+data class HomeCard(
+    val recipientId: String,
+    val name: String,
+    val chips: List<RecipientChip>,
+    val lastNote: LastNote?,
+)
+
+data class SafetyFlag(val recipientName: String, val date: String)
+
+/** Time-of-day variant for the Home heading (issue #895). */
+enum class GreetingPeriod { MORNING, AFTERNOON, EVENING }
+
+/**
+ * The greeting header's content. [date] is the app's calendar today, carried
+ * from the injected clock so the header never reads a different day than the
+ * dashboard query does.
+ */
+data class Greeting(val period: GreetingPeriod, val name: String?, val date: LocalDate)
+
+data class HomeContent(
+    val greeting: Greeting,
+    val done: Int,
+    val total: Int,
+    val cards: List<HomeCard>,
+    val flags: List<SafetyFlag>,
+)
+
+sealed interface HomeState {
+    data object Loading : HomeState
+    data object Idle : HomeState
+    data class Content(val content: HomeContent, val refreshing: Boolean = false) : HomeState
+    data class Error(val lastContent: HomeContent? = null) : HomeState
+}
+
+/** Home feed sub-tabs (Task 5): Today / Needs attention / All. */
+enum class HomeTab { Today, NeedsAttention, All }
+
+/** The dashboard's attention rule: high pain or a fall flag. */
+fun needsAttention(card: HomeCard): Boolean =
+    RecipientChip.HighPain in card.chips || RecipientChip.FallFlag in card.chips
+
+/**
+ * Pure client-side filter for the sub-tabs, JVM-unit-testable.
+ *
+ * The dashboard already loads one bounded window (recipients + one notes
+ * call, [HomeViewModel.HOME_WINDOW_DAYS] days) for every active recipient,
+ * so each tab just narrows that in-memory list — no per-tab request. No
+ * pagination either: the feed is one row per recipient and stays small
+ * (see docs/api/android-gaps.md, "History has no server-side bound").
+ */
+fun homeCardsForTab(cards: List<HomeCard>, tab: HomeTab): List<HomeCard> = when (tab) {
+    HomeTab.Today -> cards.filter { RecipientChip.DoneToday in it.chips }
+    HomeTab.NeedsAttention -> cards.filter(::needsAttention)
+    HomeTab.All -> cards
+}
+
+/**
+ * Home dashboard (board 2): greeting, today progress over active recipients,
+ * per-recipient status chips, and fall safety flags.
+ *
+ * Bounded by construction: exactly two API calls per load — the recipient
+ * list plus ONE notes-history call over the dashboard window, grouped in
+ * memory. No per-recipient fan-out. Fall flags and the pain threshold come
+ * verbatim from that response (same >= 7 rule the backend's own HIGH_PAIN
+ * flag uses); anything needing a dedicated safety aggregate is a backend
+ * gap, not client logic.
+ *
+ * Refresh never hides known flags: a refresh over content keeps the content
+ * visible with a progress marker, and failures carry the last content so the
+ * banner survives. A 401 signs out upstream and flips the root nav to login.
+ */
+class HomeViewModel(
+    private val repository: AuthRepository,
+    private val settings: SettingsStore,
+    private val clock: Clock = Clock.systemDefaultZone(),
+    scope: CoroutineScope? = null,
+    /** Active local account's stored name (#706); empty in server/demo mode. */
+    private val activeDisplayName: Flow<String?> = flowOf(null),
+) : ViewModel() {
+    // Production uses viewModelScope; tests inject their TestScope.
+    private val execScope: CoroutineScope = scope ?: viewModelScope
+    private val _state = MutableStateFlow<HomeState>(HomeState.Loading)
+    val state: StateFlow<HomeState> = _state.asStateFlow()
+
+    init {
+        execScope.launch { load(preserve = false) }
+    }
+
+    fun refresh() {
+        val current = (_state.value as? HomeState.Content)?.content
+        _state.value = if (current != null) {
+            HomeState.Content(current, refreshing = true)
+        } else {
+            HomeState.Loading
+        }
+        execScope.launch { load(preserve = current != null) }
+    }
+
+    private suspend fun load(preserve: Boolean) {
+        try {
+            val today = LocalDate.now(clock).toString()
+            val windowStart = LocalDate.now(clock).minusDays(HOME_WINDOW_DAYS - 1).toString()
+            val email = settings.email.first()
+            val recipients = repository.authorized { recipients().list() }
+            val active = selectableRecipients(recipients)
+            val notes = repository.authorized { notes().history(null, windowStart, today) }
+            val byRecipient = notes.groupBy { it.recipientId }
+            val cards = active.map { recipient ->
+                val mine = byRecipient[recipient.id].orEmpty()
+                val latest = mine.maxByOrNull { it.date }
+                val chips = buildList {
+                    if (latest == null) {
+                        add(RecipientChip.NoNote)
+                    } else {
+                        if (latest.date == today) {
+                            add(RecipientChip.DoneToday)
+                        } else {
+                            add(RecipientChip.MissedToday)
+                        }
+                        if (latest.pain >= HIGH_PAIN_THRESHOLD) {
+                            add(RecipientChip.HighPain)
+                        }
+                    }
+                    if (mine.any { it.fall }) {
+                        add(RecipientChip.FallFlag)
+                    }
+                }
+                HomeCard(
+                    recipientId = recipient.id,
+                    name = recipient.name,
+                    chips = chips,
+                    lastNote = latest?.let {
+                        LastNote(it.date, it.mood, it.appetite, it.sleep)
+                    },
+                )
+            }
+            val flags = active.flatMap { recipient ->
+                byRecipient[recipient.id].orEmpty()
+                    .filter { it.fall }
+                    .map { SafetyFlag(recipient.name, it.date) }
+            }
+            val done = cards.count { RecipientChip.DoneToday in it.chips }
+            _state.value = HomeState.Content(
+                HomeContent(
+                    greeting = Greeting(
+                        period = periodFor(LocalTime.now(clock).hour),
+                        name = resolvedDisplayName(activeDisplayName.first(), email),
+                        date = LocalDate.now(clock),
+                    ),
+                    done = done,
+                    total = active.size,
+                    cards = cards,
+                    flags = flags,
+                ),
+            )
+        } catch (e: LoggedOutException) {
+            if (!preserve) {
+                _state.value = HomeState.Idle
+            } else {
+                (_state.value as? HomeState.Content)?.let {
+                    _state.value = it.copy(refreshing = false)
+                }
+            }
+        } catch (e: HttpException) {
+            _state.value = HomeState.Error(
+                if (preserve) (_state.value as? HomeState.Content)?.content else null,
+            )
+        } catch (e: IOException) {
+            _state.value = HomeState.Error(
+                if (preserve) (_state.value as? HomeState.Content)?.content else null,
+            )
+        }
+    }
+
+    companion object {
+        const val HIGH_PAIN_THRESHOLD = 7
+        const val NOON_HOUR = 12
+        const val EVENING_HOUR = 17
+
+        /** Morning before noon, afternoon until 17:00, evening after that. */
+        fun periodFor(hour: Int): GreetingPeriod = when {
+            hour < NOON_HOUR -> GreetingPeriod.MORNING
+            hour < EVENING_HOUR -> GreetingPeriod.AFTERNOON
+            else -> GreetingPeriod.EVENING
+        }
+
+        /** Dashboard window in days, inclusive of today. */
+        const val HOME_WINDOW_DAYS = 7L
+
+        /** "ahmed@example.com" → "Ahmed"; blank → nameless greeting. */
+        fun displayName(email: String?): String? {
+            val local = email?.substringBefore("@").orEmpty()
+            if (local.isBlank()) {
+                return null
+            }
+            return local.replaceFirstChar { it.uppercase() }
+        }
+
+        /**
+         * The local account's stored name wins (#706); the email-derived name
+         * is only the fallback for server/demo mode, where no account exists.
+         */
+        fun resolvedDisplayName(stored: String?, email: String?): String? =
+            stored?.takeIf { it.isNotBlank() } ?: displayName(email)
+    }
+}

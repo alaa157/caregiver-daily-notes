@@ -1,0 +1,119 @@
+package com.caregiver.mobile.data.api
+
+import kotlinx.serialization.Serializable
+import retrofit2.http.Body
+import retrofit2.http.GET
+import retrofit2.http.POST
+import retrofit2.http.Path
+import retrofit2.http.Query
+
+/**
+ * POST /api/notes, GET /api/notes/{id}, POST /api/notes/{id}/addenda,
+ * GET /api/notes?recipientId&from&to (ISO dates; nulls are omitted).
+ */
+interface NoteApi {
+    @POST("api/notes")
+    suspend fun create(@Body body: CreateNoteRequest): NoteDto
+
+    @GET("api/notes/{id}")
+    suspend fun detail(@Path("id") id: String): NoteDetailDto
+
+    @POST("api/notes/{id}/addenda")
+    suspend fun append(@Path("id") id: String, @Body body: CreateAddendumRequest): AddendumDto
+
+    @GET("api/notes")
+    suspend fun history(
+        @Query("recipientId") recipientId: String?,
+        @Query("from") from: String?,
+        @Query("to") to: String?,
+    ): List<NoteDto>
+}
+
+@Serializable
+data class NoteDto(
+    val id: String,
+    val recipientId: String,
+    val date: String,
+    val mood: String,
+    val appetite: String,
+    val sleep: String,
+    val mobility: String,
+    val medicationTaken: String,
+    val pain: Int,
+    val fall: Boolean,
+    val text: String,
+    /**
+     * Addenda appended to the note after it was written, oldest first.
+     *
+     * History used to return note fields only, so a fall, a correction, or a
+     * medication change recorded in an addendum never reached the summary or
+     * the deterministic safety flags. Backends that cannot provide them send
+     * no field and the list stays empty.
+     */
+    val addenda: List<AddendumDto> = emptyList(),
+    /**
+     * Client-local flag (Task 8b): true only for notes that exist in the
+     * device outbox and have not reached the server yet. The backend never
+     * sends this field, so decoded and cached rows always default to false.
+     */
+    val pending: Boolean = false,
+    val painRecorded: Boolean = true,
+    val fallRecorded: Boolean = true,
+)
+
+/**
+ * The full note text the summary and safety rules must read: the original
+ * note followed by every addendum. Addenda are corrections and late details,
+ * not metadata, so treating them as separate records would hide exactly the
+ * information they were written to add. Quotes are still checked against
+ * this same combined text, so an addendum can be cited verbatim.
+ */
+fun NoteDto.combinedText(): String = buildString {
+    append(text.trim())
+    for (addendum in addenda) {
+        val extra = addendum.text.trim()
+        if (extra.isEmpty()) continue
+        if (isNotEmpty()) append('\n')
+        append(extra)
+    }
+}
+
+@Serializable
+data class NoteDetailDto(
+    val id: String,
+    val recipientId: String,
+    val date: String,
+    val mood: String,
+    val appetite: String,
+    val sleep: String,
+    val mobility: String,
+    val medicationTaken: String,
+    val pain: Int,
+    val fall: Boolean,
+    val text: String,
+    val addenda: List<AddendumDto>,
+    val painRecorded: Boolean = true,
+    val fallRecorded: Boolean = true,
+)
+
+@Serializable
+data class CreateNoteRequest(
+    val recipientId: String,
+    val mood: String,
+    val appetite: String,
+    val sleep: String,
+    val mobility: String,
+    val medicationTaken: String,
+    val pain: Int,
+    val fall: Boolean,
+    val text: String,
+    val idempotencyKey: String? = null,
+    val painRecorded: Boolean = true,
+    val fallRecorded: Boolean = true,
+)
+
+@Serializable
+data class CreateAddendumRequest(val text: String)
+
+@Serializable
+data class AddendumDto(val id: String, val noteId: String, val createdAt: String, val text: String)

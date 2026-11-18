@@ -1,0 +1,193 @@
+package com.caregiver.mobile.data.backup
+
+import kotlinx.serialization.Serializable
+
+/**
+ * The versioned backup payload (`.carebackup.json`, schema v6). Version 2
+ * added recipient archive state, version 3 the standalone medication
+ * tracker (medications + intake marks), version 4 the note recorded flags
+ * (`painRecorded`, `fallRecorded`), version 5 recipient relationship and
+ * care details, and version 6 saved summaries. Older files still decode:
+ * v1 restores as fully unarchived, v1/v2 restore without medication data,
+ * v1–v3 restore every note with both flags recorded, v1–v4 restore
+ * recipients without care details, and v1–v5 restore with no saved
+ * summaries.
+ *
+ * Room surrogate keys (`rowId`) are deliberately absent: list order is the
+ * contract that preserves them. Recipients keep their list order, and notes
+ * are written in the order the app reads them (`date DESC, rowId`), so
+ * same-day ordering survives a restore. Sync mappings (`localId`), outbox
+ * rows, AI keys, settings and tokens never appear in a backup.
+ */
+@Serializable
+data class BackupData(
+    val recipients: List<BackupRecipient>,
+    val notes: List<BackupNote>,
+    val addenda: List<BackupAddendum>,
+    val plans: List<BackupPlan>,
+    val medications: List<BackupMedication> = emptyList(),
+    val medicationIntakes: List<BackupMedicationIntake> = emptyList(),
+    val savedSummaries: List<BackupSavedSummary> = emptyList(),
+) {
+    val counts: BackupCounts
+        get() = BackupCounts(
+            recipients = recipients.size,
+            notes = notes.size,
+            addenda = addenda.size,
+            plans = plans.size,
+            medications = medications.size,
+            intakes = medicationIntakes.size,
+            summaries = savedSummaries.size,
+        )
+}
+
+/**
+ * A recipient as stored locally; [serverId] is the stable id notes reference.
+ * [archivedAt] is absent from v1 files and defaults to unarchived. The
+ * relationship and care-detail fields were added in v5.
+ */
+@Serializable
+data class BackupRecipient(
+    val serverId: String,
+    val name: String,
+    val active: Boolean,
+    val archivedAt: Long? = null,
+    val relationship: String? = null,
+    val dateOfBirth: String? = null,
+    val allergies: String? = null,
+    val conditions: String? = null,
+    val emergencyContactName: String? = null,
+    val emergencyContactPhone: String? = null,
+)
+
+/**
+ * A daily note; values mirror the local entity, minus the outbox sync
+ * mapping. [painRecorded]/[fallRecorded] arrived in v4: files written by
+ * v1–v3 carry no flags and restore as recorded (`true`).
+ */
+@Serializable
+data class BackupNote(
+    val serverId: String,
+    val recipientId: String,
+    val date: String,
+    val mood: String,
+    val appetite: String,
+    val sleep: String,
+    val mobility: String,
+    val medicationTaken: String,
+    val pain: Int,
+    val fall: Boolean,
+    val text: String,
+    val painRecorded: Boolean = true,
+    val fallRecorded: Boolean = true,
+)
+
+/** An addendum; [noteId] references [BackupNote.serverId]. */
+@Serializable
+data class BackupAddendum(
+    val id: String,
+    val noteId: String,
+    val createdAt: String,
+    val text: String,
+)
+
+/** A care plan; [versionsJson] is the plan's own version list, kept verbatim. */
+@Serializable
+data class BackupPlan(
+    val id: String,
+    val recipientId: String,
+    val versionsJson: String,
+    val updatedAt: Long,
+)
+
+/**
+ * A tracked medication. The local tracker only stores [active] rows on the
+ * card, but the backup keeps every row so a restore is a complete snapshot.
+ */
+@Serializable
+data class BackupMedication(
+    val id: String,
+    val recipientId: String,
+    val name: String,
+    val dose: String? = null,
+    val schedule: String? = null,
+    val active: Boolean,
+    val createdAt: Long,
+    val dosesPerDay: Int,
+)
+
+/** One taken dose; [id] is the local "<medicationId>:<date>:<doseIndex>" key. */
+@Serializable
+data class BackupMedicationIntake(
+    val id: String,
+    val medicationId: String,
+    val date: String,
+    val times: Int,
+)
+
+/**
+ * A saved summary; the ten fields mirror `SavedSummaryEntity`. [payload]
+ * is the store's own JSON document and is carried verbatim — the backup
+ * never interprets it.
+ */
+@Serializable
+data class BackupSavedSummary(
+    val id: String,
+    val recipientId: String,
+    val periodDays: Int,
+    val periodStart: String,
+    val periodEnd: String,
+    val createdAt: Long,
+    val aiGenerated: Boolean,
+    val provider: String? = null,
+    val model: String? = null,
+    val payload: String,
+)
+
+/**
+ * The document envelope: stable identifiers, provenance and the payload.
+ * [integrity] is nullable only so a missing block fails with its own clear
+ * error instead of a generic parse error; files this app writes always carry it.
+ */
+@Serializable
+data class BackupEnvelope(
+    val format: String,
+    val formatVersion: Int,
+    val appName: String,
+    val appVersion: String,
+    val createdAt: String,
+    val integrity: BackupIntegrity? = null,
+    val data: BackupData,
+)
+
+/**
+ * Digest over the canonical compact JSON of [BackupEnvelope.data]. It detects
+ * corruption and accidental edits, not forgery (the algorithm is public).
+ */
+@Serializable
+data class BackupIntegrity(
+    val algorithm: String,
+    val digest: String,
+)
+
+/**
+ * A consistent view of the restorable data at one instant: [counts] for the
+ * preview and [token], a content digest that changes whenever any restorable
+ * value changes. Counts alone cannot detect an edit in place (a note whose
+ * text or pain score changed keeps the same number of rows), so the restore
+ * commit compares the token instead.
+ */
+data class BackupState(val counts: BackupCounts, val token: String)
+
+/** Record counts per entity type; what the preview and result notices report. */
+data class BackupCounts(
+    val recipients: Int,
+    val notes: Int,
+    val addenda: Int,
+    val plans: Int,
+    val medications: Int = 0,
+    val intakes: Int = 0,
+    val summaries: Int = 0,
+) {
+    val total: Int get() = recipients + notes + addenda + plans + medications + intakes + summaries
+}

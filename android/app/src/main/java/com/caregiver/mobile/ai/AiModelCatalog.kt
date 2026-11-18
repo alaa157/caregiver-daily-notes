@@ -1,0 +1,106 @@
+package com.caregiver.mobile.ai
+
+/**
+ * One model the app offers for a provider.
+ */
+data class AiModelOption(
+    val id: String,
+    /**
+     * True when the model can be used without paying: it sits in the
+     * provider's free tier, or it is a free variant.
+     */
+    val free: Boolean = false,
+    /**
+     * The provider's chat endpoint accepts a JSON-mode constraint
+     * (`response_format` / `responseMimeType`) for this model. The client
+     * detects non-support at runtime and retries without it, but a model
+     * known to support it is preferred for the grounded-summary task.
+     */
+    val jsonMode: Boolean = true,
+    /** The provider's known compatibility note, when there is one. */
+    val note: String? = null,
+    /** True for a known instruction-faithful paid model suited to grounded summaries. */
+    val recommendedForSummaries: Boolean = false,
+)
+
+/**
+ * The models the app suggests per provider.
+ *
+ * This catalog is an offline fallback, not the source of truth. Verify ids
+ * against the provider's public model index before relying on them; this
+ * list was last verified on 2026-11-18. The model field stays free text, and
+ * "Other model" is the escape hatch for ids the catalog does not list.
+ * Suggestions exist so a typo surfaces in settings instead of much later as
+ * an opaque failure.
+ *
+ * Paid models lead, and a provider's default is a paid model. Gemini data
+ * use follows the key's billing tier, not the model, and an OpenRouter
+ * `:free` model keeps whatever data policy its host has — some of them
+ * train on what they receive. A free model is therefore an explicit
+ * opt-in, never the first suggestion.
+ */
+object AiModelCatalog {
+    /** A known paid model selected for the grounded-summary task on [provider]. */
+    fun recommendedSummaryModel(provider: AiProvider): AiModelOption? =
+        options(provider).firstOrNull { it.recommendedForSummaries && !it.free }
+
+    fun options(provider: AiProvider): List<AiModelOption> = when (provider) {
+        AiProvider.OPENAI -> listOf(
+            AiModelOption("gpt-6.2-sol", recommendedForSummaries = true),
+            AiModelOption("gpt-6.2-astra"),
+            AiModelOption("gpt-6.1-terra"),
+        )
+
+        AiProvider.GEMINI -> listOf(
+            // Paid first: the free tier may train on care notes.
+            AiModelOption("gemini-4-hydrogen", recommendedForSummaries = true),
+            AiModelOption("gemini-4-argon"),
+            AiModelOption("gemini-4-carbon"),
+            // Gemini data use follows the key's billing tier, not the model.
+            AiModelOption("gemini-3.6-flash"),
+        )
+
+        AiProvider.ANTHROPIC -> listOf(
+            AiModelOption("claude-sonnet-5", recommendedForSummaries = true),
+            AiModelOption("claude-haiku-4-5"),
+            AiModelOption("claude-opus-5"),
+            AiModelOption("claude-fable-5-1"),
+        )
+
+        AiProvider.XAI -> listOf(
+            AiModelOption("grok-4.6", recommendedForSummaries = true),
+            AiModelOption("grok-build-0.1"),
+        )
+
+        AiProvider.OPEN_ROUTER -> listOf(
+            AiModelOption("openai/gpt-6.2-sol", recommendedForSummaries = true),
+            AiModelOption("openai/gpt-4o-mini"),
+            // Free variants come and go, and may train on what they receive;
+            // treat them as a deliberate promotion, not a default.
+            AiModelOption("inclusionai/ling-3.2-flash:free", free = true),
+            // Free models are an explicit choice, never a default recommendation.
+            AiModelOption("liquid/lfm-3-1.7b:free", free = true),
+        )
+    }
+}
+
+/** Why a provider/model pair needs a data-use notice in the UI. */
+enum class AiDataUseNotice { KEY_TIER, FREE_HOST }
+
+/**
+ * The data-use notice a provider/model pair needs, or null when none
+ * applies. Gemini follows the key's billing tier for every model;
+ * OpenRouter flags only `:free` model variants.
+ */
+fun AiModelCatalog.dataUseNotice(provider: AiProvider, modelId: String): AiDataUseNotice? = when {
+    provider == AiProvider.GEMINI -> AiDataUseNotice.KEY_TIER
+    provider == AiProvider.OPEN_ROUTER && modelId.trim().endsWith(":free") ->
+        AiDataUseNotice.FREE_HOST
+    else -> null
+}
+
+/** True when [raw] (trimmed) is one of the catalog's suggested ids for [provider]. */
+fun AiModelCatalog.isCatalogModel(provider: AiProvider, raw: String): Boolean {
+    val id = raw.trim()
+    return options(provider).any { it.id == id }
+}
