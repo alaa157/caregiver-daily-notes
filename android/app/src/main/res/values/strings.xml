@@ -289,6 +289,7 @@
     <string name="settings_language">Language</string>
     <string name="settings_logout">Sign out</string>
     <string name="auth_server_link">Server settings</string>
+    <string name="settings_server_not_set">No server set</string>
     <!-- HTML 1:1 additions — exact reference copy, existing keys untouched -->
     <string name="login_hero_title">Daily Care Notes</string>
     <string name="login_hero_subtitle">Record your daily notes easily and follow the people in your care.</string>

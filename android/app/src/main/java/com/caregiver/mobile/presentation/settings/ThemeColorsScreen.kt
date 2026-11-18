@@ -34,6 +34,7 @@ import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyRow
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.selection.selectableGroup
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
@@ -65,7 +66,9 @@ import androidx.compose.ui.graphics.toArgb
 import androidx.compose.ui.platform.LocalConfiguration
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.stringResource
+import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.semantics.contentDescription
+import androidx.compose.ui.semantics.selected
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
@@ -159,6 +162,7 @@ fun ThemeColorsScreen(graph: AppGraph, navController: NavController) {
                 modifier = Modifier.padding(horizontal = 16.dp, vertical = 8.dp),
             )
             LazyRow(
+                modifier = Modifier.selectableGroup(),
                 horizontalArrangement = Arrangement.spacedBy(12.dp, Alignment.CenterHorizontally),
                 contentPadding = PaddingValues(horizontal = 16.dp),
             ) {
@@ -229,7 +233,11 @@ private fun PaletteSwatch(palette: ThemePalette, isSelected: Boolean, onClick: (
         onClick = onClick,
         shape = RoundedCornerShape(12.dp),
         color = if (seed == androidx.compose.ui.graphics.Color.Transparent) MaterialTheme.colorScheme.surfaceVariant else seed,
-        modifier = Modifier.size(48.dp).semantics { contentDescription = label },
+        modifier = Modifier.size(48.dp).semantics {
+            contentDescription = label
+            selected = isSelected
+            role = Role.RadioButton
+        },
         border = if (isSelected) androidx.compose.foundation.BorderStroke(3.dp, MaterialTheme.colorScheme.primary) else null,
     ) {
         Box(contentAlignment = Alignment.Center) {
