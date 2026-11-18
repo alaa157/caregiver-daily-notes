@@ -5,6 +5,24 @@ import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.graphics.Color
+import kotlin.math.pow
+
+/**
+ * Foreground for content drawn on a solid accent fill. The selected note
+ * tiles use [CaregiverColors.Primary] as their fill, which can be a bright
+ * palette colour; white content is unreadable there, so bright fills get
+ * dark ink and dark fills keep white. Issue #984.
+ */
+internal fun onAccent(accent: Color): Color {
+    fun channel(c: Float): Double {
+        val v = c.toDouble()
+        return if (v <= 0.03928) v / 12.92 else ((v + 0.055) / 1.055).pow(2.4)
+    }
+    val luminance = 0.2126 * channel(accent.red) +
+        0.7152 * channel(accent.green) +
+        0.0722 * channel(accent.blue)
+    return if (luminance > 0.45) Color(0xFF1F2A2E) else Color.White
+}
 
 /**
  * Theme-aware caregiver palette. Replaces the old fixed [CaregiverColors]
