@@ -13,7 +13,7 @@ import { useAuth } from './AuthProvider';
 import { MIN_PASSWORD_LENGTH } from './passwordRules';
 import './auth.css';
 
-type FieldErrors = { email?: MessageKey; password?: MessageKey };
+type FieldErrors = { email?: MessageKey; password?: MessageKey; confirm?: MessageKey };
 
 function errorCode(error: unknown): string | null {
   if (!(error instanceof ApiError)) return null;
@@ -40,11 +40,14 @@ export function SignupPage() {
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [showPassword, setShowPassword] = useState(false);
+  const [confirm, setConfirm] = useState('');
+  const [showConfirm, setShowConfirm] = useState(false);
   const [errors, setErrors] = useState<FieldErrors>({});
   const [error, setError] = useState<MessageKey | null>(null);
   const [pending, setPending] = useState(false);
   const emailRef = useRef<HTMLInputElement>(null);
   const passwordRef = useRef<HTMLInputElement>(null);
+  const confirmRef = useRef<HTMLInputElement>(null);
   const errorRef = useRef<HTMLDivElement>(null);
   const request = useRef<AbortController | null>(null);
   useEffect(() => () => { request.current?.abort(); }, []);
@@ -65,10 +68,12 @@ export function SignupPage() {
     if (!password.trim()) next.password = 'authPasswordRequired';
     else if (password.length < MIN_PASSWORD_LENGTH) next.password = 'authPasswordTooShort';
     else if (new TextEncoder().encode(password).length > 72) next.password = 'authPasswordTooLong';
+    if (!confirm.trim()) next.confirm = 'authConfirmRequired';
+    else if (confirm !== password) next.confirm = 'authConfirmMismatch';
     setErrors(next);
     setError(null);
-    if (next.email || next.password) {
-      (next.email ? emailRef : passwordRef).current?.focus();
+    if (next.email || next.password || next.confirm) {
+      (next.email ? emailRef : next.password ? passwordRef : confirmRef).current?.focus();
       return;
     }
     const controller = new AbortController();
@@ -76,7 +81,7 @@ export function SignupPage() {
     setPending(true);
     try { await auth.register(normalizedEmail, password, controller.signal); }
     catch (failure) {
-      if (!controller.signal.aborted) { setError(errorMessage(failure)); setPassword(''); setShowPassword(false); }
+      if (!controller.signal.aborted) { setError(errorMessage(failure)); setPassword(''); setShowPassword(false); setConfirm(''); setShowConfirm(false); }
     } finally {
       if (!controller.signal.aborted) setPending(false);
       if (request.current === controller) request.current = null;
@@ -107,6 +112,19 @@ export function SignupPage() {
               disabled={pending} onClick={() => setShowPassword((shown) => !shown)}>{t(showPassword ? 'authHidePassword' : 'authShowPassword')}</button>
           </div>
           {errors.password && <FieldError id="signup-password-error" message={t(errors.password)} />}
+        </div>
+        <div className="auth-field">
+          <label htmlFor="signup-confirm">{t('authConfirmPassword')}</label>
+          <div className="auth-password-row">
+            <input ref={confirmRef} id="signup-confirm" name="confirmPassword" type={showConfirm ? 'text' : 'password'}
+              autoComplete="new-password" required value={confirm} readOnly={pending} dir="ltr"
+              aria-invalid={Boolean(errors.confirm)}
+              aria-describedby={errors.confirm ? 'signup-confirm-error' : undefined}
+              onChange={(event) => { setConfirm(event.target.value); setErrors((current) => ({ ...current, confirm: undefined })); }} />
+            <button className="auth-password-toggle" type="button" aria-controls="signup-confirm" aria-pressed={showConfirm}
+              disabled={pending} onClick={() => setShowConfirm((shown) => !shown)}>{t(showConfirm ? 'authHidePassword' : 'authShowPassword')}</button>
+          </div>
+          {errors.confirm && <FieldError id="signup-confirm-error" message={t(errors.confirm)} />}
         </div>
         <Button type="submit" className="auth-submit" disabled={pending}>
           {pending && <span className="spinner" aria-hidden="true" />}{t(pending ? 'signupSubmitting' : 'signupSubmit')}

@@ -33,6 +33,7 @@ describe('caregiver signup', () => {
     renderSignup();
     await user.type(await screen.findByLabelText('Email address'), '  New.Caregiver@Example.com  ');
     await user.type(screen.getByLabelText('Password'), 'a strong passphrase');
+    await user.type(screen.getByLabelText('Confirm password'), 'a strong passphrase');
     await user.click(screen.getByRole('button', { name: 'Create account' }));
 
     await screen.findByRole('heading', { name: 'Caregiver workspace' });
@@ -54,6 +55,7 @@ describe('caregiver signup', () => {
     renderSignup();
     await user.type(await screen.findByLabelText('Email address'), 'someone@example.com');
     await user.type(screen.getByLabelText('Password'), 'a strong passphrase');
+    await user.type(screen.getByLabelText('Confirm password'), 'a strong passphrase');
     await user.click(screen.getByRole('button', { name: 'Create account' }));
 
     const alert = await screen.findByRole('alert');
@@ -97,6 +99,7 @@ describe('caregiver signup', () => {
     renderSignup();
     await user.type(await screen.findByLabelText('Email address'), 'taken@example.com');
     await user.type(screen.getByLabelText('Password'), 'a strong passphrase');
+    await user.type(screen.getByLabelText('Confirm password'), 'a strong passphrase');
     await user.click(screen.getByRole('button', { name: 'Create account' }));
 
     const alert = await screen.findByRole('alert');
