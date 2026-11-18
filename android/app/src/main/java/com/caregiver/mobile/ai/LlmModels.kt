@@ -30,11 +30,13 @@ enum class AiProvider(
     val displayName: String,
     val defaultBaseUrl: String,
     /**
-     * The model the app falls back to. Kept in step with
-     * [AiModelCatalog]: the ids the providers still serve in 2026. Previous
-     * direct-provider defaults (gpt-4o-mini, gemini-2.0-flash, grok-3) are
-     * retired or deprecated; OpenRouter separately still serves its
-     * `openai/gpt-4o-mini` route.
+     * The model the app falls back to when none has been chosen.
+     *
+     * The bundled catalog is an offline fallback, not the source of truth.
+     * Verify ids against the provider's public model index before relying on
+     * them; these ids were last verified on 2026-11-18. The model field stays
+     * free text, and "Other model" is the escape hatch for ids the catalog
+     * does not list.
      *
      * Free tiers can use submitted notes to improve the provider's products
      * or train its models, so free models are opt-in: the defaults are paid
@@ -44,11 +46,11 @@ enum class AiProvider(
     /** What this provider offers for free, if anything. */
     val freeTier: AiFreeTier? = null,
 ) {
-    OPENAI("OpenAI", "https://api.openai.com/v1", "gpt-6-luna", AiFreeTier.TRIAL_CREDITS),
-    ANTHROPIC("Anthropic", "https://api.anthropic.com", "claude-sonnet-5-5"),
-    GEMINI("Gemini", "https://generativelanguage.googleapis.com", "gemini-3.8-flash", AiFreeTier.FREE_MODELS),
-    XAI("xAI", "https://api.x.ai/v1", "grok-4.7"),
-    OPEN_ROUTER("OpenRouter", "https://openrouter.ai/api/v1", "openai/gpt-4o-mini", AiFreeTier.FREE_MODELS),
+    OPENAI("OpenAI", "https://api.openai.com/v1", "gpt-6.2-sol", AiFreeTier.TRIAL_CREDITS),
+    ANTHROPIC("Anthropic", "https://api.anthropic.com", "claude-sonnet-5"),
+    GEMINI("Gemini", "https://generativelanguage.googleapis.com", "gemini-4-hydrogen", AiFreeTier.FREE_MODELS),
+    XAI("xAI", "https://api.x.ai/v1", "grok-4.6"),
+    OPEN_ROUTER("OpenRouter", "https://openrouter.ai/api/v1", "openai/gpt-6.2-sol", AiFreeTier.FREE_MODELS),
 }
 
 data class LlmRequest(

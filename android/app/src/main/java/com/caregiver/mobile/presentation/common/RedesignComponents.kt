@@ -50,14 +50,6 @@ object SectionCardDimens {
 private val SectionCardContainer = Color(0xFFFFFFFF)
 private val SectionCardBorderColor = Color(0xFFE3E7EA)
 
-/** "Done" chip: #0A524E on #DDF1EE (7.68:1 contrast). */
-private val DoneChipContainer = Color(0xFFDDF1EE)
-private val DoneChipContent = Color(0xFF0A524E)
-
-/** "Not yet" chip: #7A4A00 on #FFF0D6 (6.66:1 contrast). */
-private val NotYetChipContainer = Color(0xFFFFF0D6)
-private val NotYetChipContent = Color(0xFF7A4A00)
-
 @Composable
 fun SectionCard(
     modifier: Modifier = Modifier,
@@ -86,8 +78,8 @@ fun StatusChip(
     variant: StatusChipVariant,
     modifier: Modifier = Modifier,
 ) {
-    val container = if (variant == StatusChipVariant.Done) DoneChipContainer else NotYetChipContainer
-    val content = if (variant == StatusChipVariant.Done) DoneChipContent else NotYetChipContent
+    val container = if (variant == StatusChipVariant.Done) CaregiverColors.DoneChipContainer else CaregiverColors.NotYetChipContainer
+    val content = if (variant == StatusChipVariant.Done) CaregiverColors.DoneChipContent else CaregiverColors.NotYetChipContent
     Surface(
         shape = RoundedCornerShape(AppDimens.PillRadius),
         color = container,

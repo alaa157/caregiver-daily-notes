@@ -295,6 +295,7 @@
     <string name="settings_language">اللغة</string>
     <string name="settings_logout">تسجيل الخروج</string>
     <string name="auth_server_link">إعدادات الخادم</string>
+    <string name="settings_server_not_set">لم يتم تحديد خادم</string>
     <!-- HTML 1:1 additions — نص المرجع حرفياً -->
     <string name="login_hero_title">ملاحظات الرعاية اليومية</string>
     <string name="login_hero_subtitle">سجّل ملاحظاتك اليومية بسهولة وتابع الأشخاص تحت رعايتك.</string>
@@ -485,6 +486,11 @@
     <string name="settings_ai_model_free">مجاني</string>
     <string name="settings_ai_model_recommended">موصى به للملخصات</string>
     <string name="settings_ai_model_paid_note">النماذج التي لا تحمل علامة «مجاني» تُحاسب عليها جهة التزويد مقابل كل استخدام.</string>
+    <string name="settings_ai_models_refresh">تحديث</string>
+    <string name="settings_ai_models_live">مباشر من %1$s · آخر تحديث %2$s</string>
+    <string name="settings_ai_models_bundled">قائمة مضمّنة · اضغط تحديث للتحديث</string>
+    <string name="settings_ai_models_privacy">تُجلب قائمة الموديلات من %1$s. لا تُرسل أي ملاحظات.</string>
+    <string name="settings_ai_models_error">تعذّر تحميل قائمة الموديلات</string>
     <string name="settings_ai_tier_free_models">يقدم هذا المزود نماذج يمكن استخدامها دون تكلفة. قد تستخدم النماذج المجانية ما تتلقاه لتحسين منتجات المزود، لذا اختر نموذجًا مدفوعًا للملاحظات التي لا ترغب في مشاركتها.</string>
     <string name="settings_ai_tier_trial_credits">الحساب الجديد في API يحصل على أرصدة مجانية لتجربة النماذج المدفوعة.</string>
     <string name="settings_ai_test_cancelled">تم إلغاء الاختبار.</string>

@@ -289,6 +289,7 @@
     <string name="settings_language">Language</string>
     <string name="settings_logout">Sign out</string>
     <string name="auth_server_link">Server settings</string>
+    <string name="settings_server_not_set">No server set</string>
     <!-- HTML 1:1 additions — exact reference copy, existing keys untouched -->
     <string name="login_hero_title">Daily Care Notes</string>
     <string name="login_hero_subtitle">Record your daily notes easily and follow the people in your care.</string>
@@ -475,6 +476,11 @@
     <string name="settings_ai_model_free">Free</string>
     <string name="settings_ai_model_recommended">Recommended for summaries</string>
     <string name="settings_ai_model_paid_note">Models without a Free tag are billed by the provider per use.</string>
+    <string name="settings_ai_models_refresh">Refresh</string>
+    <string name="settings_ai_models_live">Live from %1$s · updated %2$s</string>
+    <string name="settings_ai_models_bundled">Bundled list · tap Refresh to update</string>
+    <string name="settings_ai_models_privacy">Fetches the model list from %1$s. No notes are sent.</string>
+    <string name="settings_ai_models_error">Could not load the model list</string>
     <string name="settings_ai_quality_check">Check model quality</string>
     <string name="settings_ai_quality_pass">This model quoted your notes correctly (%1$d of %2$d findings verified)</string>
     <string name="settings_ai_quality_partial">This model sometimes rewords notes (%1$d of %2$d findings verified). Summaries may miss details.</string>
