@@ -5,21 +5,22 @@ import androidx.compose.runtime.mutableStateOf
 import androidx.compose.ui.graphics.Color
 import kotlin.math.pow
 
-/** Dark ink above this luminance, white below it. */
-private const val ACCENT_INK_CUTOFF = 0.19f
+/** Black above this luminance, white below it. */
+private const val ACCENT_INK_CUTOFF = 0.179f
 
 /**
- * Foreground for a solid accent fill: dark ink on light accents, white on
+ * Foreground for a solid accent fill: pure black on light accents, white on
  * dark ones. Derived from the accent rather than assumed to be white, so a
  * bright palette cannot leave unreadable white text on the fill. Used by
  * both `onPrimary` in the Material scheme and the selected note tiles.
  *
- * The cut-off sits just below the luminance of the default teal accent, so
- * yellow through blue switch to dark ink while purple, indigo and the other
- * deep accents keep white.
+ * Black has luminance 0, so it clears 4.5:1 whenever the accent's luminance
+ * is at least 0.175; white clears it up to 0.183. The cut-off lies in that
+ * overlap, so one of the two choices always meets AA with no gap between
+ * them.
  */
 internal fun onAccent(accent: Color): Color =
-    if (relativeLuminance(accent) > ACCENT_INK_CUTOFF) Color(0xFF1F2A2E) else Color.White
+    if (relativeLuminance(accent) > ACCENT_INK_CUTOFF) Color.Black else Color.White
 
 /** WCAG 2.1 relative luminance of an sRGB Compose [Color]. */
 private fun relativeLuminance(color: Color): Float {

@@ -4,6 +4,7 @@ import androidx.compose.ui.graphics.Color
 import com.caregiver.mobile.core.theme.ColorPalettes
 import com.caregiver.mobile.core.theme.caregiverScheme
 import com.caregiver.mobile.core.theme.onAccent
+import com.caregiver.mobile.core.theme.palettePrimary
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertTrue
 import org.junit.Test
@@ -65,9 +66,12 @@ class OnAccentContrastTest {
     }
 
     @Test
-    fun defaultTealKeepsWhiteAndBrightAccentsGetDarkInk() {
-        val tealFill = caregiverScheme(dark = false, palette = ColorPalettes.TEAL).Primary
-        assertEquals(Color.White, onAccent(tealFill))
+    fun defaultTealAndBrightAccentsUseBlack() {
+        // The Material accent is the documented teal #00897B; the separate
+        // design-token teal in caregiverScheme is covered by the all-palette
+        // contrast test above.
+        val tealFill = palettePrimary(ColorPalettes.TEAL)
+        assertEquals(Color.Black, onAccent(tealFill))
 
         // Documented bright accents: white on these is 1.40-1.79:1.
         listOf(
@@ -75,7 +79,7 @@ class OnAccentContrastTest {
             Color(0xFFC0CA33), // lime
             Color(0xFFFFB300), // amber
         ).forEach { bright ->
-            assertEquals(Color(0xFF1F2A2E), onAccent(bright))
+            assertEquals(Color.Black, onAccent(bright))
             assertTrue(contrastRatio(onAccent(bright), bright) >= 4.5)
         }
     }
