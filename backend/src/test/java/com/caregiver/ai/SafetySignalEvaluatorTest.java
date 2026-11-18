@@ -17,7 +17,13 @@ class SafetySignalEvaluatorTest {
   private static NoteSignals note(
       String id, LocalDate date, Boolean fall, Integer pain,
       Boolean missed, boolean unverified, Boolean appetite) {
-    return new NoteSignals(id, date, fall, pain, missed, unverified, appetite, "");
+    return note(id, date, fall, pain, missed, unverified, appetite, "");
+  }
+
+  private static NoteSignals note(
+      String id, LocalDate date, Boolean fall, Integer pain,
+      Boolean missed, boolean unverified, Boolean appetite, String freeText) {
+    return new NoteSignals(id, date, fall, pain, missed, unverified, appetite, freeText);
   }
 
   private static NoteSignals clean(LocalDate date) {
