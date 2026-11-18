@@ -15,7 +15,7 @@ import java.io.IOException
 internal const val MAX_MODELS_BODY_CHARS = 2_000_000
 
 /** The result of a model-list GET: either a bounded body or a reason code. */
-internal sealed interface HttpJson {
+sealed interface HttpJson {
     data class Ok(val body: String) : HttpJson
     data class Failed(val reasonCode: String) : HttpJson
 }
@@ -29,7 +29,7 @@ internal sealed interface HttpJson {
  * a path or choose which header holds the key, and it never logs the URL, the
  * headers or the body.
  */
-internal class ModelListHttp(
+class ModelListHttp(
     private val client: OkHttpClient = OkHttpConfig.defaultOkHttpClient(),
 ) {
     suspend fun get(url: String, headers: Map<String, String>): HttpJson = withContext(Dispatchers.IO) {
