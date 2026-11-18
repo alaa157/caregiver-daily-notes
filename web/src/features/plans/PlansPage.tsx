@@ -261,7 +261,7 @@ function PlanWorkspace({ recipientId, onSaving }: { recipientId: string; onSavin
               <ul className="plan-list" role="list">{outdatedSuggestions.map((plan) => <li className="note-surface" key={plan.id}>
                 <PlanCard plan={plan} historyIds={historyIds} />
                 <p className="plan-outdated-badge">{t('plansOutdatedBadge')}</p>
-              </li>)}</ul>}
+              </li>)}</ul>
             </div>}
           </>}
       </section>
