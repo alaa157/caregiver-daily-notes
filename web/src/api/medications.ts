@@ -182,9 +182,9 @@ export function createMedicationsApi(client: ApiClient) {
       readOne(recipientId, `${medicationPath(recipientId, medicationId)}/archive`, 'PATCH', signal, undefined, medicationId),
     async listIntakeEvents(recipientId: string, medicationId: string, signal?: AbortSignal,
       page = 0): Promise<IntakeEvent[]> {
-      const path = `${medicationPath(recipientId, medicationId)}/intake-events`;
+      const path = `${medicationPath(recipientId, medicationId)}/intake-events` as const;
       const response = await client.request<unknown>({
-        path: page === 0 ? path : `${path}?page=${page}&size=${INTAKE_PAGE_SIZE}`, signal });
+        path: page === 0 ? path : `${path}?page=${page}&size=${INTAKE_PAGE_SIZE}` as const, signal });
       if (!Array.isArray(response)) throw new Error('Invalid intake event list response.');
       return response.map((item) => readIntakeEvent(item, recipientId, medicationId));
     },
