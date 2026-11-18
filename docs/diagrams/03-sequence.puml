@@ -1,0 +1,125 @@
+@startuml
+' Compatibility shims: the mandated !theme plain otherwise forces Verdana
+' and black/white defaults over the shared style below. These values are
+' taken from the shared palette and change no rendered colour.
+!$FONT_NAME = "IBM Plex Sans"
+!$FGCOLOR = "#1F2A2E"
+!$BGCOLOR = "#F7F6F3"
+' ---- SHARED STYLE (identical in all five diagrams) ----
+!theme plain
+skinparam backgroundColor #F7F6F3
+skinparam defaultTextColor #1F2A2E
+skinparam fontName "IBM Plex Sans"
+skinparam fontSize 11
+skinparam shadowing false
+skinparam handwritten false
+skinparam linetype ortho
+skinparam nodesep 30
+skinparam ranksep 40
+skinparam arrowColor #5B6B70
+
+skinparam title {
+  FontColor #0E6B66
+  FontSize 15
+  FontName "IBM Plex Sans"
+}
+skinparam note {
+  BackgroundColor #E8F0F9
+  BorderColor #24507E
+  FontColor #1F2A2E
+}
+skinparam rectangle {
+  BackgroundColor #FAF9F5
+  BorderColor #C5CDD1
+  FontColor #1F2A2E
+}
+skinparam component {
+  BackgroundColor #FAF9F5
+  BorderColor #C5CDD1
+  FontColor #1F2A2E
+}
+skinparam database {
+  BackgroundColor #DCE5D6
+  BorderColor #00897B
+  FontColor #1F2A2E
+}
+skinparam actor {
+  BackgroundColor #FAF9F5
+  BorderColor #00897B
+  FontColor #1F2A2E
+}
+skinparam package {
+  BackgroundColor #F7F6F3
+  BorderColor #00897B
+  FontColor #0E6B66
+}
+skinparam entity {
+  BackgroundColor #FAF9F5
+  BorderColor #00897B
+  FontColor #1F2A2E
+}
+skinparam sequence {
+  ActorBackgroundColor #FAF9F5
+  ActorBorderColor #00897B
+  ActorFontColor #1F2A2E
+  ParticipantBackgroundColor #FAF9F5
+  ParticipantBorderColor #C5CDD1
+  ParticipantFontColor #1F2A2E
+  LifeLineBorderColor #C5CDD1
+  LifeLineBackgroundColor #DCE5D6
+  ArrowColor #00897B
+  MessageTextColor #1F2A2E
+  NoteBackgroundColor #E8F0F9
+  NoteBorderColor #24507E
+  NoteFontColor #1F2A2E
+  BoxBackgroundColor #F7F6F3
+  BoxBorderColor #00897B
+}
+skinparam activity {
+  BackgroundColor #DCE5D6
+  BorderColor #00897B
+  ArrowColor #5B6B70
+  FontColor #1F2A2E
+}
+skinparam activityDiamond {
+  BackgroundColor #FBF0D9
+  BorderColor #7A4B00
+  FontColor #7A4B00
+}
+' ---- END SHARED STYLE ----
+
+title Sequence — Grounded AI request
+
+actor Caregiver
+participant Client as "Client (Android / Web)"
+participant Consent as "Consent gate"
+participant KeyStore as "Device Keystore"
+participant Catalog as "Model catalogue"
+participant Provider as "Model provider API"
+participant Ground as "Grounding + safety"
+
+autonumber
+
+Caregiver ->> Client: request summary for period
+Client ->> Consent: confirm first use
+Consent -->> Caregiver: show what leaves the device
+Caregiver ->> Consent: grant consent
+Client ->> KeyStore: read key for selected provider
+KeyStore -->> Client: decrypted key in memory
+note over Client, KeyStore: The key never leaves the device.
+Client ->> Catalog: resolve model
+alt cached list is valid
+    Catalog -->> Client: cached model list
+else cache missing or stale
+    Client ->> Provider: GET /models (OpenRouter only)
+    Provider -->> Client: model list
+    Client ->> Catalog: filter, dedupe, cap, cache
+end
+note over Catalog, Provider: Other providers use bundled lists; their /models routes are not called.
+Client ->> Provider: bounded completion request
+Provider -->> Client: model reply
+Client ->> Ground: sanitize, quote evidence, check negation
+Ground -->> Client: grounded result + safety flags
+Client -->> Caregiver: result with disclaimer
+
+@enduml
