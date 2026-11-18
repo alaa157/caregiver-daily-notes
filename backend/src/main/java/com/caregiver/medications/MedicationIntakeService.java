@@ -219,7 +219,7 @@ public class MedicationIntakeService {
       throw new IntakeAlreadyVoidedException();
     }
     event.markVoided(Instant.now(clock), event.getCaregiver(), normalizedReason);
-    intakeEvents.saveAndFlush(event);
+    intakeEvents.save(event);
     audit.record("MEDICATION_INTAKE_VOIDED", "MEDICATION_INTAKE_EVENT", event.getId().toString(),
         "medicationId=" + medication.getId());
     return response(event);
