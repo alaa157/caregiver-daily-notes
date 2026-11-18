@@ -25,9 +25,11 @@ import androidx.compose.material.icons.filled.Visibility
 import androidx.compose.material.icons.filled.VisibilityOff
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
+import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
@@ -118,6 +120,15 @@ fun AuthForm(
     // #874: the Register hint comes from the one real password policy, so a
     // future policy change cannot leave stale "8 characters" copy behind.
     val passwordHint = stringResource(R.string.auth_password_hint, PasswordPolicy.MIN_LENGTH)
+
+    // #1004: an empty base URL is an explicit state, not a network failure
+    // discovered later. `initial = true` keeps the old behaviour while the
+    // flow loads, and headless callers without a graph keep it too.
+    val serverConfigured = if (graph != null) {
+        graph.settings.isBaseUrlConfigured.collectAsState(initial = true).value
+    } else {
+        true
+    }
 
     Column(
         modifier = modifier
@@ -362,6 +373,13 @@ fun AuthForm(
                         stringResource(R.string.auth_server_link),
                         fontFamily = PlexArabic,
                         color = CaregiverColors.Primary,
+                    )
+                }
+                if (!serverConfigured) {
+                    Text(
+                        text = stringResource(R.string.settings_server_not_set),
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
                     )
                 }
             }
