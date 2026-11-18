@@ -57,7 +57,8 @@ class RateLimitFilterTest {
     filter.doFilter(request, response, chain);
   }
 
-  private static void assertDenied(MockHttpServletResponse response, MockFilterChain chain) {
+  private static void assertDenied(MockHttpServletResponse response, MockFilterChain chain)
+      throws Exception {
     assertThat(response.getStatus()).isEqualTo(429);
     assertThat(response.getHeader("Retry-After")).isNotNull();
     assertThat(Long.parseLong(response.getHeader("Retry-After"))).isGreaterThanOrEqualTo(1);
