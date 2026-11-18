@@ -56,7 +56,7 @@ class MedicationIntakeServiceLifecycleTest {
     Fixture fixture = fixture();
     authenticate(fixture.caregiverId());
     fixture.medication().archive();
-    medications.saveAndFlush(fixture.medication());
+    medications.save(fixture.medication());
 
     ResponseStatusException failure = catchThrowableOfType(
         () -> recordIntake(fixture), ResponseStatusException.class);
@@ -108,7 +108,7 @@ class MedicationIntakeServiceLifecycleTest {
     Caregiver caregiver = caregivers.getReferenceById(caregiverId);
     CareRecipient recipient = recipients.saveAndFlush(
         new CareRecipient(caregiver, "Lifecycle recipient", "family"));
-    MedicationRecord medication = medications.saveAndFlush(new MedicationRecord(
+    MedicationRecord medication = medications.save(new MedicationRecord(
         caregiver, recipient, "Lifecycle med", "10 mg", "daily at 08:30"));
     return new Fixture(caregiverId, recipient, medication);
   }

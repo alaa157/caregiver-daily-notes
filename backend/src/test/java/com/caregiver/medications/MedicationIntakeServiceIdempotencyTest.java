@@ -142,7 +142,7 @@ class MedicationIntakeServiceIdempotencyTest {
     Caregiver caregiver = caregivers.getReferenceById(caregiverId);
     CareRecipient recipient = recipients.saveAndFlush(
         new CareRecipient(caregiver, "Idempotency recipient", "family"));
-    MedicationRecord medication = medications.saveAndFlush(new MedicationRecord(
+    MedicationRecord medication = medications.save(new MedicationRecord(
         caregiver, recipient, "Idempotency med", "10 mg", "daily at 08:30"));
     return new Fixture(caregiverId, recipient.getId(), medication.getId());
   }
