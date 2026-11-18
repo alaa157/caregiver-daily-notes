@@ -1,0 +1,119 @@
+@startuml
+' ---- SHARED STYLE (identical in all five diagrams) ----
+!theme plain
+skinparam backgroundColor #F7F6F3
+skinparam defaultTextColor #1F2A2E
+skinparam fontName "IBM Plex Sans"
+skinparam fontSize 11
+skinparam shadowing false
+skinparam handwritten false
+skinparam linetype ortho
+skinparam nodesep 30
+skinparam ranksep 40
+skinparam arrowColor #5B6B70
+
+skinparam title {
+  FontColor #0E6B66
+  FontSize 15
+  FontName "IBM Plex Sans"
+}
+skinparam note {
+  BackgroundColor #E8F0F9
+  BorderColor #24507E
+  FontColor #1F2A2E
+}
+skinparam rectangle {
+  BackgroundColor #FAF9F5
+  BorderColor #C5CDD1
+  FontColor #1F2A2E
+}
+skinparam component {
+  BackgroundColor #FAF9F5
+  BorderColor #C5CDD1
+  FontColor #1F2A2E
+}
+skinparam database {
+  BackgroundColor #DCE5D6
+  BorderColor #00897B
+  FontColor #1F2A2E
+}
+skinparam actor {
+  BackgroundColor #FAF9F5
+  BorderColor #00897B
+  FontColor #1F2A2E
+}
+skinparam package {
+  BackgroundColor #F7F6F3
+  BorderColor #00897B
+  FontColor #0E6B66
+}
+skinparam entity {
+  BackgroundColor #FAF9F5
+  BorderColor #00897B
+  FontColor #1F2A2E
+}
+skinparam sequence {
+  ActorBackgroundColor #FAF9F5
+  ActorBorderColor #00897B
+  ActorFontColor #1F2A2E
+  ParticipantBackgroundColor #FAF9F5
+  ParticipantBorderColor #C5CDD1
+  ParticipantFontColor #1F2A2E
+  LifeLineBorderColor #C5CDD1
+  LifeLineBackgroundColor #DCE5D6
+  ArrowColor #00897B
+  MessageTextColor #1F2A2E
+  NoteBackgroundColor #E8F0F9
+  NoteBorderColor #24507E
+  NoteFontColor #1F2A2E
+  BoxBackgroundColor #F7F6F3
+  BoxBorderColor #00897B
+}
+skinparam activity {
+  BackgroundColor #DCE5D6
+  BorderColor #00897B
+  ArrowColor #5B6B70
+  FontColor #1F2A2E
+}
+skinparam activityDiamond {
+  BackgroundColor #FBF0D9
+  BorderColor #7A4B00
+  FontColor #7A4B00
+}
+' ---- END SHARED STYLE ----
+
+title Activity — Model catalogue selection
+
+start
+:Caregiver opens model picker;
+if (Key configured for provider?) then (no)
+  :Show setup guide;
+  stop
+else (yes)
+  :Open picker;
+endif
+
+if (Cached list valid within 7 days?) then (yes)
+  :Load cached list;
+else (no)
+  :Request live list from OpenRouter;
+  if (Request succeeded?) then (yes)
+    :Filter text-only, drop :batch, dedupe, cap at 1000;
+    :Replace cache;
+    :Load live list;
+  else (no)
+    note right: A failed refresh never discards a working cache.
+    :Keep cached or bundled list;
+    :Enable Refresh;
+  endif
+endif
+
+:Render picker with search and pinned "Other model";
+if (User selects Other model?) then (yes)
+  :Show custom model id field;
+  :Save selection;
+else (no)
+  :Save selected catalogue model;
+endif
+stop
+@enduml
