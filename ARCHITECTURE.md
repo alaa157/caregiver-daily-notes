@@ -122,6 +122,11 @@ The app is built to run **without a backend**:
   Keystore through the `ApiKeyCipher` seam, in a separate slot per account and provider; keys are
   re-entered if they are not migrated. Requests go from the
   device straight to the provider — the backend is not in the path.
+- **Model lists live in `ai/models/`.** `ModelCatalogRepository` chooses between a live, cached
+  or bundled list through a `ModelListSource`; `OpenAiCompatibleModelListSource` reads
+  OpenAI-shaped `/models` responses. Fetched lists are cached per account and provider (7 days).
+  The production map wires a live source for OpenRouter only; the other providers keep using
+  their bundled lists.
 - **The deterministic safety layer runs on-device**, so the app can raise a safety flag with no
   network and no key configured.
 - **`DEMO_BACKEND` and `LOCAL_MODE` are different switches.** The demo banner is driven by
