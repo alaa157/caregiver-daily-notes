@@ -76,6 +76,7 @@ public class SafetySignalEvaluator {
     }
 
     window.stream()
+        .map(NoteSignals::freeText)
         .map(SafetySignalEvaluator::freeTextConcerns)
         .flatMap(List::stream)
         .distinct()
