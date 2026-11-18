@@ -11,7 +11,7 @@ import kotlin.math.pow
  * accent, never a hardcoded white. The ratios below are WCAG 2.1 contrast.
  */
 class OnAccentContrastTest {
-    private val darkInk = Color(0xFF1F2A2E)
+    private val darkInk = Color.Black
 
     private val palettes = listOf(
         ColorPalettes.DYNAMIC,
@@ -37,7 +37,7 @@ class OnAccentContrastTest {
         ColorPalettes.METROLIST,
     )
 
-    /** Accents that must switch from white to dark ink. */
+    /** Accents that must switch from white to black. */
     private val lightAccents = listOf(
         ColorPalettes.TEAL,
         ColorPalettes.BLUE,
@@ -67,9 +67,9 @@ class OnAccentContrastTest {
     )
 
     @Test
-    fun lightAccentsUseDarkInk() {
+    fun lightAccentsUseBlack() {
         lightAccents.forEach { key ->
-            assertEquals("$key should use dark ink", darkInk, onAccent(palettePrimary(key)))
+            assertEquals("$key should use black", darkInk, onAccent(palettePrimary(key)))
         }
     }
 
@@ -84,25 +84,17 @@ class OnAccentContrastTest {
     fun everyPaletteHasAReadableForegroundInBothModes() {
         for (dark in listOf(false, true)) {
             palettes.forEach { key ->
-                val accent = palettePrimary(key)
-                val foreground = onAccent(accent)
-                val ratio = contrastRatio(foreground, accent)
-                assertTrue(
-                    "$key (dark=$dark): ratio $ratio for ${if (foreground == darkInk) "dark ink" else "white"}",
-                    foreground == darkInk || foreground == Color.White,
+                val fills = listOf(
+                    palettePrimary(key),
+                    caregiverScheme(dark = dark, palette = key).Primary,
                 )
-                // The prescribed ink is #1F2A2E. On six mid-tone accents its
-                // ratio stays below 4.5 whichever of the two inks is used;
-                // every other palette must clear AA with the chosen ink.
-                if (key !in setOf(
-                        ColorPalettes.TEAL,
-                        ColorPalettes.BLUE,
-                        ColorPalettes.GREEN,
-                        ColorPalettes.DEEP_ORANGE,
-                        ColorPalettes.CRIMSON,
-                        ColorPalettes.DYNAMIC,
+                fills.forEach { fill ->
+                    val foreground = onAccent(fill)
+                    val ratio = contrastRatio(foreground, fill)
+                    assertTrue(
+                        "$key (dark=$dark): ratio $ratio for ${if (foreground == Color.Black) "black" else "white"}",
+                        foreground == Color.Black || foreground == Color.White,
                     )
-                ) {
                     assertTrue(
                         "$key (dark=$dark) contrast must be >= 4.5:1 (was $ratio)",
                         ratio >= 4.5,
