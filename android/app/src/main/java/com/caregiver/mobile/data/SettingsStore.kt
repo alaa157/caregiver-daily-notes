@@ -8,6 +8,7 @@ import androidx.datastore.preferences.core.edit
 import androidx.datastore.preferences.core.emptyPreferences
 import androidx.datastore.preferences.core.stringPreferencesKey
 import com.caregiver.mobile.core.util.LanguagePrefs
+import com.caregiver.mobile.core.util.ThemePrefs
 import java.io.File
 import java.io.IOException
 import kotlinx.coroutines.flow.Flow
@@ -85,10 +86,17 @@ class SettingsStore(private val dataStore: DataStore<Preferences>) {
 
     suspend fun setThemeMode(mode: String) {
         dataStore.edit { it[THEME_MODE] = mode }
+        // Refresh the synchronous mirror on the caller's thread so the next
+        // launch frame sees this choice without collecting the DataStore flow.
+        // DataStore stays the durable source of truth; the other mirrored
+        // value is carried over so the two setters cannot erase each other.
+        ThemePrefs.seed(mode, ThemePrefs.cachedPureBlack())
     }
 
     suspend fun setPureBlack(enabled: Boolean) {
         dataStore.edit { it[PURE_BLACK] = enabled }
+        // Same entry point as setThemeMode, keeping the cached mode intact.
+        ThemePrefs.seed(ThemePrefs.cachedOr(DEFAULT_THEME_MODE), enabled)
     }
 
     suspend fun setColorPalette(palette: String) {
