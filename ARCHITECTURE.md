@@ -126,7 +126,13 @@ The app is built to run **without a backend**:
   or bundled list through a `ModelListSource`; `OpenAiCompatibleModelListSource` reads
   OpenAI-shaped `/models` responses. Fetched lists are cached per account and provider (7 days).
   The production map wires a live source for OpenRouter only; the other providers keep using
-  their bundled lists.
+  their bundled lists, so their `/models` routes are never called. The OpenRouter parser
+  de-duplicates ids, drops `:batch` and non-text output models, treats `:free` or zero
+  prompt/completion pricing as free, and caps the result at 1,000 models. The shared
+  `ModelListHttp` is cancellation-aware: closing the picker cancels an in-flight request.
+  Changing a provider's base URL clears that provider's cached list. The picker itself is a
+  pure `AiModelPickerContent` composable hosted in a `ModalBottomSheet`, with search and a
+  pinned **Other model** action.
 - **The deterministic safety layer runs on-device**, so the app can raise a safety flag with no
   network and no key configured.
 - **`DEMO_BACKEND` and `LOCAL_MODE` are different switches.** The demo banner is driven by

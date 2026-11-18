@@ -50,6 +50,9 @@ The app ships its own small AI layer rather than depending on a server:
   whose model list is fetched live for now; OpenAI, Anthropic, Gemini and xAI use the bundled
   fallback. Fetching a model list sends no note text. The fetched list is cached per account and
   provider for 7 days, and the model picker has a manual **Refresh** action.
+  OpenRouter's live list keeps interactive text models only (up to 1,000; `:batch` and media-output
+  entries are dropped), and the picker is a searchable full-height sheet with **Other model**
+  pinned at the top so a custom id never requires scrolling hundreds of rows.
 
 ### The safety layer
 
