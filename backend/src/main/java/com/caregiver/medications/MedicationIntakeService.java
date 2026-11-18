@@ -221,7 +221,7 @@ public class MedicationIntakeService {
     event.markVoided(Instant.now(clock), event.getCaregiver(), normalizedReason);
     intakeEvents.save(event);
     audit.record("MEDICATION_INTAKE_VOIDED", "MEDICATION_INTAKE_EVENT", event.getId().toString(),
-        "medicationId=" + medication.getId());
+        "medicationId=" + medicationId);
     return response(event);
   }
 
