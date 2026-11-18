@@ -57,7 +57,10 @@ import com.caregiver.mobile.data.recipient.CareDetails
 import com.caregiver.mobile.data.summary.SavedSummaryStore
 import com.caregiver.mobile.data.update.GitHubReleaseChecker
 import com.caregiver.mobile.data.update.UpdateChecker
+import com.caregiver.mobile.ai.AiKeyStore
 import com.caregiver.mobile.ai.LlmClientFactory
+import com.caregiver.mobile.ai.models.ModelCatalogRepository
+import com.caregiver.mobile.ai.models.defaultModelSources
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.Job
@@ -292,6 +295,14 @@ class AppGraph(
         get() = !forceProduction && BuildConfig.LOCAL_MODE
 
     val llmClientFactory: LlmClientFactory by lazy { LlmClientFactory() }
+
+    /** The account-scoped key store the settings screens build for themselves. */
+    val aiKeyStore: AiKeyStore by lazy { AiKeyStore(context, activeAccountIdFlow) }
+
+    /** Resolves live, cached and bundled model lists for the settings dialog. */
+    val modelCatalog: ModelCatalogRepository by lazy {
+        ModelCatalogRepository(aiKeyStore, defaultModelSources())
+    }
 
     /**
      * Offline demo switch: demo builds (debug + minified) serve

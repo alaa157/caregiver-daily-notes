@@ -11,12 +11,14 @@ import androidx.compose.ui.Alignment
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.selection.selectable
 import androidx.compose.foundation.selection.selectableGroup
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Button
+import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.RadioButton
@@ -31,6 +33,7 @@ import androidx.compose.material.icons.outlined.Memory
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.SideEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
@@ -74,6 +77,8 @@ import com.caregiver.mobile.ai.Prompts
 import com.caregiver.mobile.ai.SummaryResponseFormat
 import com.caregiver.mobile.ai.dataUseNotice
 import com.caregiver.mobile.ai.isCatalogModel
+import com.caregiver.mobile.ai.models.ModelSnapshot
+import com.caregiver.mobile.ai.models.ModelSource
 import com.caregiver.mobile.ai.stringRes
 import com.caregiver.mobile.core.i18n.Bidi
 import com.caregiver.mobile.core.navigation.markUnsavedChanges
@@ -843,16 +848,74 @@ fun AiSettingsScreen(graph: AppGraph, navController: NavController, navEntry: Na
     }
 
     if (showModelDialog) {
+        // The repository is only ever called from an effect or a coroutine —
+        // never from composition. A new account/provider starts from a null
+        // snapshot, so the bundled list is shown until the fetch lands.
+        var snapshot by remember(provider) { mutableStateOf<ModelSnapshot?>(null) }
+        var refreshing by remember(provider) { mutableStateOf(false) }
+        var loadError by remember(provider) { mutableStateOf(false) }
+        LaunchedEffect(provider, apiKey, baseUrl) {
+            refreshing = true
+            loadError = false
+            try {
+                snapshot = modelCatalogFor(graph).models(provider)
+            } catch (e: Exception) {
+                loadError = true
+            } finally {
+                refreshing = false
+            }
+        }
         AlertDialog(
             onDismissRequest = { showModelDialog = false },
-            title = { Text(stringResource(R.string.settings_ai_model)) },
+            title = {
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    verticalAlignment = Alignment.CenterVertically,
+                ) {
+                    Text(
+                        text = stringResource(R.string.settings_ai_model),
+                        style = MaterialTheme.typography.titleMedium,
+                        modifier = Modifier.weight(1f),
+                    )
+                    if (snapshot == null || refreshing) {
+                        CircularProgressIndicator(
+                            modifier = Modifier
+                                .padding(end = 8.dp)
+                                .size(16.dp),
+                            strokeWidth = 2.dp,
+                            color = MaterialTheme.colorScheme.primary,
+                        )
+                    }
+                    TextButton(
+                        onClick = {
+                            refreshing = true
+                            loadError = false
+                            scope.launch {
+                                try {
+                                    snapshot = modelCatalogFor(graph).models(
+                                        provider,
+                                        forceRefresh = true,
+                                    )
+                                } catch (e: Exception) {
+                                    loadError = true
+                                } finally {
+                                    refreshing = false
+                                }
+                            }
+                        },
+                        enabled = snapshot != null && !refreshing,
+                    ) {
+                        Text(stringResource(R.string.settings_ai_models_refresh))
+                    }
+                }
+            },
             text = {
                 var otherSelected by remember {
                     mutableStateOf(!AiModelCatalog.isCatalogModel(provider, model))
                 }
                 Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
                     Column(Modifier.selectableGroup()) {
-                        AiModelCatalog.options(provider).forEach { option ->
+                        (snapshot?.models ?: AiModelCatalog.options(provider)).forEach { option ->
                             Row(
                                 modifier = Modifier
                                     .fillMaxWidth()
@@ -925,6 +988,42 @@ fun AiSettingsScreen(graph: AppGraph, navController: NavController, navEntry: Na
                                 .testTag("model_custom_field"),
                         )
                     }
+                    // Exactly one status line, plus the disclosure below it.
+                    if (loadError) {
+                        Text(
+                            text = stringResource(R.string.settings_ai_models_error),
+                            style = MaterialTheme.typography.bodySmall,
+                            color = MaterialTheme.colorScheme.error,
+                            modifier = Modifier.testTag("model_list_status"),
+                        )
+                    } else {
+                        val snap = snapshot
+                        if (snap != null && snap.source == ModelSource.LIVE) {
+                            Text(
+                                text = stringResource(
+                                    R.string.settings_ai_models_live,
+                                    provider.displayName,
+                                    relativeModelAge(snap.fetchedAtEpochMillis),
+                                ),
+                                style = MaterialTheme.typography.bodySmall,
+                                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                                modifier = Modifier.testTag("model_list_status"),
+                            )
+                        } else {
+                            Text(
+                                text = stringResource(R.string.settings_ai_models_bundled),
+                                style = MaterialTheme.typography.bodySmall,
+                                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                                modifier = Modifier.testTag("model_list_status"),
+                            )
+                        }
+                    }
+                    Text(
+                        text = stringResource(R.string.settings_ai_models_privacy, provider.displayName),
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        modifier = Modifier.testTag("model_list_privacy"),
+                    )
                     AiModelCatalog.dataUseNotice(provider, model.ifBlank { provider.defaultModel })
                         ?.let { notice ->
                             Text(
@@ -1036,6 +1135,21 @@ private fun pendingSetupCheckState() = SetupCheckState(
     running = false,
     awaitingConsent = false,
 )
+
+/** Short age label for a live list: "12 m", "2 h", "3 d". */
+private fun relativeModelAge(fetchedAtEpochMillis: Long?): String {
+    val fetched = fetchedAtEpochMillis ?: return "0 m"
+    val minutes = ((System.currentTimeMillis() - fetched).coerceAtLeast(0L) / 60_000L).toInt()
+    return when {
+        minutes < 1 -> "0 m"
+        minutes < 60 -> "$minutes m"
+        minutes < 1_440 -> "${minutes / 60} h"
+        else -> "${minutes / 1_440} d"
+    }
+}
+
+/** Single place the settings screen reaches the model catalog. */
+private fun modelCatalogFor(graph: AppGraph) = graph.modelCatalog
 
 /** Single place the settings screen builds a provider client (test + probes). */
 private fun llmClientFor(
