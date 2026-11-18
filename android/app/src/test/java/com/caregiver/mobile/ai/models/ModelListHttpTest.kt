@@ -1,6 +1,11 @@
 package com.caregiver.mobile.ai.models
 
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.cancelAndJoin
+import kotlinx.coroutines.delay
+import kotlinx.coroutines.launch
 import kotlinx.coroutines.runBlocking
+import kotlinx.coroutines.withTimeout
 import okhttp3.OkHttpClient
 import okhttp3.ResponseBody
 import okhttp3.mockwebserver.MockResponse
@@ -206,5 +211,26 @@ class ModelListHttpTest {
         assertEquals(HttpJson.Failed("too_large"), runBlocking { helper.get(modelUrl(), headers) })
 
         assertEquals(3, closes)
+    }
+
+    @Test
+    fun `cancelling the caller cancels the request`() = runBlocking {
+        withTimeout(5_000) {
+            server.start()
+            server.enqueue(
+                MockResponse()
+                    .setBodyDelay(10, TimeUnit.SECONDS)
+                    .setBody("""{"data":[]}"""),
+            )
+            val job = launch(Dispatchers.IO) {
+                ModelListHttp(OkHttpClient()).get(
+                    server.url("/models").toString(),
+                    mapOf("Authorization" to "Bearer sk-test"),
+                )
+            }
+            delay(200)
+            job.cancelAndJoin()
+            assertTrue(job.isCancelled)
+        }
     }
 }
