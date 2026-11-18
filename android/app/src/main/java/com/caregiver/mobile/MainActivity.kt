@@ -2,6 +2,9 @@ package com.caregiver.mobile
 
 import android.app.Activity
 import android.content.Context
+import android.content.res.Configuration
+import android.graphics.drawable.ColorDrawable
+import android.os.Build
 import android.os.Bundle
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
@@ -15,8 +18,10 @@ import androidx.compose.ui.graphics.toArgb
 import androidx.compose.ui.platform.LocalView
 import androidx.core.view.WindowCompat
 import com.caregiver.mobile.core.theme.CaregiverTheme
+import com.caregiver.mobile.core.theme.launchWindowColor
 import com.caregiver.mobile.core.theme.resolveDarkTheme
 import com.caregiver.mobile.core.util.LocaleHelper
+import com.caregiver.mobile.core.util.ThemePrefs
 import com.caregiver.mobile.data.SettingsStore
 import com.caregiver.mobile.ui.component.shimmer.ShimmerTheme
 import com.valentinilk.shimmer.LocalShimmerTheme
@@ -38,6 +43,20 @@ class MainActivity : ComponentActivity() {
     }
 
     override fun onCreate(savedInstanceState: Bundle?) {
+        // Decide the launch-window colour before the first frame is drawn: the
+        // theme flows below are collected too late, and the XML startup themes
+        // only know the OS configuration. ThemePrefs is seeded at process start
+        // by CaregiverApp and refreshed by the settings setters, so the stored
+        // choice is already available here with no coroutine or disk read.
+        val mode = ThemePrefs.cachedOr(SettingsStore.DEFAULT_THEME_MODE)
+        val systemInDark = (resources.configuration.uiMode and Configuration.UI_MODE_NIGHT_MASK) ==
+            Configuration.UI_MODE_NIGHT_YES
+        val dark = resolveDarkTheme(mode, systemInDark = systemInDark)
+        val black = dark && ThemePrefs.cachedPureBlack()
+        val colour = launchWindowColor(dark = dark, pureBlack = black)
+        @Suppress("DEPRECATION")
+        window.setBackgroundDrawable(ColorDrawable(colour.toArgb()))
+
         super.onCreate(savedInstanceState)
         val graph = (application as CaregiverApp).graph
         setContent {
@@ -59,6 +78,12 @@ class MainActivity : ComponentActivity() {
                         window.statusBarColor = bg
                         WindowCompat.getInsetsController(window, window.decorView)
                             .isAppearanceLightStatusBars = !dark
+                        if (Build.VERSION.SDK_INT < 35) {
+                            @Suppress("DEPRECATION")
+                            window.navigationBarColor = bg
+                            WindowCompat.getInsetsController(window, window.decorView)
+                                .isAppearanceLightNavigationBars = !dark
+                        }
                     }
                 }
                 // One shimmer theme for every skeleton in the app; Metrolist

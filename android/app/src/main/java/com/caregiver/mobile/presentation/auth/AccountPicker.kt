@@ -203,7 +203,7 @@ private fun AccountPickerAddRow(onAddAccount: () -> Unit) {
         Text(
             text = label,
             style = MaterialTheme.typography.bodyLarge,
-            color = CaregiverColors.Primary,
+            color = MaterialTheme.colorScheme.primary,
         )
     }
 }

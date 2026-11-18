@@ -47,9 +47,6 @@ object SectionCardDimens {
     val CardPadding = 16.dp
 }
 
-private val SectionCardContainer = Color(0xFFFFFFFF)
-private val SectionCardBorderColor = Color(0xFFE3E7EA)
-
 /** "Done" chip: #0A524E on #DDF1EE (7.68:1 contrast). */
 private val DoneChipContainer = Color(0xFFDDF1EE)
 private val DoneChipContent = Color(0xFF0A524E)
@@ -65,8 +62,8 @@ fun SectionCard(
 ) {
     Surface(
         shape = RoundedCornerShape(SectionCardDimens.CardRadius),
-        color = SectionCardContainer,
-        border = BorderStroke(SectionCardDimens.CardBorder, SectionCardBorderColor),
+        color = CaregiverColors.SectionCardSurface,
+        border = BorderStroke(SectionCardDimens.CardBorder, CaregiverColors.SectionCardBorder),
         modifier = modifier.testTag(SectionCardTestTag),
     ) {
         Column(
@@ -86,8 +83,8 @@ fun StatusChip(
     variant: StatusChipVariant,
     modifier: Modifier = Modifier,
 ) {
-    val container = if (variant == StatusChipVariant.Done) DoneChipContainer else NotYetChipContainer
-    val content = if (variant == StatusChipVariant.Done) DoneChipContent else NotYetChipContent
+    val container = if (variant == StatusChipVariant.Done) CaregiverColors.DoneChipContainer else CaregiverColors.NotYetChipContainer
+    val content = if (variant == StatusChipVariant.Done) CaregiverColors.DoneChipContent else CaregiverColors.NotYetChipContent
     Surface(
         shape = RoundedCornerShape(AppDimens.PillRadius),
         color = container,
