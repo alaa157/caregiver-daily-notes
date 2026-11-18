@@ -222,7 +222,7 @@ describe('caregiver authentication', () => {
     expect(fetcher.mock.calls[0][1].signal.aborted).toBe(true);
     await act(async () => { resolve(jsonResponse({ token: testToken() })); });
     expect(sessionStorage.getItem(SESSION_STORAGE_KEY)).toBeNull();
-    expect(await screen.findByRole('heading', { name: 'Better records. More thoughtful care.' })).toBeVisible();
+    expect(await screen.findByRole('heading', { name: 'The little details are the story of care.' })).toBeVisible();
   });
 
   it('does not let a stale 401 clear a newly signed-in session', async () => {

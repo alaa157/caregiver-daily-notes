@@ -1,4 +1,4 @@
-import { fireEvent, render, screen, within } from '@testing-library/react';
+import { fireEvent, render, screen, waitFor } from '@testing-library/react';
 import { MemoryRouter } from 'react-router-dom';
 import { describe, expect, it } from 'vitest';
 import { AuthProvider } from '../auth/AuthProvider';
@@ -11,20 +11,28 @@ function setup() {
   return render(<I18nProvider><ApiProvider config={{ apiBaseUrl: '' }}><AuthProvider><MemoryRouter><LandingRoute /></MemoryRouter></AuthProvider></ApiProvider></I18nProvider>);
 }
 
+/** The ported header toggle is outside the nav landmark; there is also a footer copy. */
+function headerToggle(container: HTMLElement): HTMLButtonElement {
+  const toggle = container.querySelector<HTMLButtonElement>('.site-header .language-toggle');
+  if (!toggle) throw new Error('Header language toggle not found');
+  return toggle;
+}
+
 describe('public landing page', () => {
   it('renders the English landing sections, Android download and visible safety notice', () => {
     const { container } = setup();
     expect(container.querySelectorAll('main')).toHaveLength(1);
     expect(container.querySelector('main')).toHaveAttribute('id', 'main-content');
-    expect(screen.getByRole('heading', { level: 1, name: /clearer picture/i })).toBeInTheDocument();
-    expect(screen.getByRole('heading', { name: 'Safety comes first' })).toBeInTheDocument();
-    expect(screen.getByText(/capstone project/i)).toBeInTheDocument();
-    expect(screen.getByText(/structured recipient profile fields.*excluded from AI requests.*free-text notes are sent as written/i)).toBeInTheDocument();
+    expect(screen.getByRole('heading', { level: 1, name: /little details are the story of/i })).toBeInTheDocument();
+    expect(screen.getByRole('heading', { name: 'AI can assist. It does not take the wheel.' })).toBeInTheDocument();
+    expect(screen.getByRole('heading', { name: /project demo — please read before using/i })).toBeInTheDocument();
+    expect(screen.getByText(/capstone project using synthetic data only/i)).toBeInTheDocument();
+    // The port drops the old structured-profile-fields sentence; its safety
+    // notice now explains that BYOK note text is sent to the chosen provider.
+    expect(screen.getByText(/the note text is sent to that provider as written/i)).toBeInTheDocument();
     const apkLinks = screen.getAllByRole('link', { name: /download android apk/i });
-    expect(apkLinks).toHaveLength(2);
-    const hrefs = apkLinks.map((link) => link.getAttribute('href'));
-    expect(hrefs[1]).toBe(hrefs[0]); // hero and Android card share one source of truth
-    const url = new URL(hrefs[0]!);
+    expect(apkLinks).toHaveLength(1);
+    const url = new URL(apkLinks[0].getAttribute('href')!);
     expect(url.origin).toBe('https://github.com');
     // The permanent `apk-latest` tag is replaced by the build, so no version
     // segment can go stale the way a `v0.1.1`-style URL would.
@@ -35,60 +43,58 @@ describe('public landing page', () => {
     const { container } = setup();
 
     const external = Array.from(container.querySelectorAll<HTMLAnchorElement>('a[target="_blank"]'));
-    expect(external).toHaveLength(6);
+    expect(external).toHaveLength(3);
     expect(external.every((link) => link.getAttribute('rel') === 'noopener noreferrer')).toBe(true);
     // The notice is present in the accessible name but visually hidden.
     expect(external.every((link) => link.querySelector('.visually-hidden')?.textContent === ' (opens in a new tab)')).toBe(true);
-    expect(screen.getAllByRole('link', { name: /opens in a new tab/i })).toHaveLength(6);
+    expect(screen.getAllByRole('link', { name: /opens in a new tab/i })).toHaveLength(3);
   });
 
   it('translates the new-tab announcement when the page switches to Arabic', () => {
     const { container } = setup();
-    fireEvent.click(within(screen.getByRole('navigation')).getByRole('button', { name: /التبديل إلى العربية/ }));
+    fireEvent.click(headerToggle(container));
 
     const external = Array.from(container.querySelectorAll<HTMLAnchorElement>('a[target="_blank"]'));
-    expect(external).toHaveLength(6);
+    expect(external).toHaveLength(3);
     expect(external.every((link) => link.querySelector('.visually-hidden')?.textContent === ' (يفتح في علامة تبويب جديدة)')).toBe(true);
     expect(external.every((link) => link.getAttribute('rel') === 'noopener noreferrer')).toBe(true);
   });
 
-  it('marks both APK download links with a visible external-link icon', () => {
-    const { container } = setup();
+  it('marks the APK download link as opening in a new tab', () => {
+    const apkLink = screen.getByRole('link', { name: /download android apk/i });
 
-    const apkLinks = screen.getAllByRole('link', { name: /download android apk/i });
-    expect(apkLinks).toHaveLength(2);
-    expect(apkLinks.every((link) => link.querySelector('svg.external') !== null)).toBe(true);
-    const heroIcon = apkLinks[0].querySelector('svg.external');
-    expect(heroIcon).toHaveAttribute('aria-hidden', 'true');
-    expect(container.querySelectorAll('svg.external')).toHaveLength(2);
+    expect(apkLink).toHaveAttribute('target', '_blank');
+    expect(apkLink).toHaveAttribute('rel', 'noopener noreferrer');
+    expect(apkLink.querySelector('.visually-hidden')).toHaveTextContent('(opens in a new tab)');
   });
 
   it('switches language and document direction using the existing i18n provider', () => {
-    setup();
-    const navigation = screen.getByRole('navigation', { name: 'Main navigation' });
-    const languageToggle = within(navigation).getByRole('button', { name: /التبديل إلى العربية/ });
-    expect(languageToggle).toHaveAttribute('aria-label', 'AR — التبديل إلى العربية');
-    expect(languageToggle).toHaveTextContent('AR');
-    fireEvent.click(languageToggle);
-    expect(screen.getByRole('heading', { level: 1 })).toHaveTextContent('سجّل تفاصيل يومك');
-    expect(within(navigation).getByRole('button', { name: 'EN — Switch to English' })).toHaveTextContent('EN');
+    const { container } = setup();
+    expect(screen.getByRole('navigation', { name: 'Main navigation' })).toBeInTheDocument();
+    const toggle = headerToggle(container);
+    expect(toggle).toHaveAttribute('aria-label', 'Switch to Arabic');
+    expect(toggle).toHaveTextContent('العربية');
+    fireEvent.click(toggle);
+    expect(screen.getByRole('heading', { level: 1 })).toHaveTextContent(/تفاصيل صغيرة ترسم صورة أكبر/i);
+    expect(headerToggle(container)).toHaveAttribute('aria-label', 'التبديل إلى الإنجليزية');
+    expect(headerToggle(container)).toHaveTextContent('English');
     expect(document.documentElement.lang).toBe('ar');
     expect(document.documentElement.dir).toBe('rtl');
-    expect(screen.getByText(/بيانات الملف الشخصي المنظمة.*الملاحظات المكتوبة بحرية فتُرسل كما كُتبت/)).toBeInTheDocument();
+    expect(screen.getByText(/كما كُتب، وقد يتضمن معلومات تكشف الهوية/)).toBeInTheDocument();
   });
-  it('marks the brand name as English in the header, hero and footer on both pages', () => {
+  it('marks the brand name as English in the header and footer on both pages', () => {
     const { container } = setup();
     const brandSpans = () => Array.from(container.querySelectorAll<HTMLElement>(
-      '.landing-brand span, .landing-hero .eyebrow span, .landing-footer span[lang="en"]',
+      '.brand-name strong[lang="en"], .footer-brand span[lang="en"]',
     ));
 
-    expect(brandSpans()).toHaveLength(3);
+    expect(brandSpans()).toHaveLength(2);
     expect(brandSpans().every((span) => span.getAttribute('lang') === 'en')).toBe(true);
     expect(brandSpans().every((span) => span.textContent === 'Caregiver Daily Notes')).toBe(true);
 
-    fireEvent.click(within(screen.getByRole('navigation')).getByRole('button', { name: /التبديل إلى العربية/ }));
+    fireEvent.click(headerToggle(container));
 
-    expect(brandSpans()).toHaveLength(3);
+    expect(brandSpans()).toHaveLength(2);
     expect(brandSpans().every((span) => span.getAttribute('lang') === 'en')).toBe(true);
     expect(brandSpans().every((span) => span.textContent === 'Caregiver Daily Notes')).toBe(true);
   });
@@ -96,64 +102,60 @@ describe('public landing page', () => {
   it('marks the language toggle label with the language it is written in', () => {
     const { container } = setup();
     const toggles = () => Array.from(container.querySelectorAll<HTMLButtonElement>('.language-toggle'));
+    const labelLangs = () => toggles().map((button) => button.querySelector('span')?.getAttribute('lang'));
 
-    // English page: the label reads "AR — التبديل إلى العربية" (Arabic).
+    // English page: the label reads "العربية" (written in Arabic).
     expect(toggles()).toHaveLength(2);
-    expect(toggles().every((button) => button.getAttribute('lang') === 'ar')).toBe(true);
+    expect(labelLangs()).toEqual(['ar', 'ar']);
 
     fireEvent.click(toggles()[0]);
 
-    // Arabic page: the label reads "EN — Switch to English" (English).
-    expect(toggles().every((button) => button.getAttribute('lang') === 'en')).toBe(true);
+    // Arabic page: the label reads "English" (written in English).
+    expect(labelLangs()).toEqual(['en', 'en']);
   });
 
-  it('marks the tech-stack product names as English on both pages', () => {
+  it('marks the sample language cards with the language they are written in', () => {
     const { container } = setup();
-    const badges = () => Array.from(container.querySelectorAll<HTMLElement>('.landing-badges span'));
 
-    expect(badges()).toHaveLength(8);
-    expect(badges().every((badge) => badge.getAttribute('lang') === 'en')).toBe(true);
-
-    fireEvent.click(within(screen.getByRole('navigation')).getByRole('button', { name: /التبديل إلى العربية/ }));
-
-    expect(badges().every((badge) => badge.getAttribute('lang') === 'en')).toBe(true);
+    expect(container.querySelector('.language-card[lang="en"]')).toHaveTextContent("Today's note");
+    expect(container.querySelector('.language-card[lang="ar"]')).toHaveTextContent('ملاحظة اليوم');
+    expect(container.querySelector('.language-card[lang="ar"]')).toHaveAttribute('dir', 'rtl');
   });
 
-  it('renders without API/auth providers and points a stored-session visitor at the app', () => {
+  it('renders without API/auth providers and keeps a stored session readable', () => {
     sessionStorage.setItem('caregiver-auth-session-v1', JSON.stringify({ token: testToken(), baseUrl: 'https://api.example.test' }));
 
     render(<I18nProvider><MemoryRouter><LandingRoute /></MemoryRouter></I18nProvider>);
 
-    expect(screen.getByRole('heading', { level: 1, name: /clearer picture/i })).toBeVisible();
-    expect(screen.getAllByRole('link', { name: 'Open app' })[0]).toHaveAttribute('href', '/app');
-    expect(screen.queryByRole('link', { name: 'Create an account' })).not.toBeInTheDocument();
+    expect(screen.getByRole('heading', { level: 1, name: /little details are the story of/i })).toBeVisible();
+    expect(screen.getAllByRole('link', { name: 'Sign in' })[0]).toHaveAttribute('href', '/login');
     // Reading the session for the CTA must not consume it before config loads.
     expect(sessionStorage.getItem('caregiver-auth-session-v1')).not.toBeNull();
   });
 
   it('names the mobile menu button with the label only, in both languages', () => {
     const { container } = setup();
-    const menuButton = container.querySelector<HTMLButtonElement>('.landing-menu');
+    const menuButton = container.querySelector<HTMLButtonElement>('.menu-toggle');
     if (!menuButton) throw new Error('Landing menu button not found');
 
-    expect(screen.getByRole('button', { name: 'Menu', exact: true })).toBe(menuButton);
-    expect(menuButton).toHaveAttribute('aria-controls', 'landing-nav');
+    expect(screen.getByRole('button', { name: 'Open navigation', exact: true })).toBe(menuButton);
+    expect(menuButton).toHaveAttribute('aria-controls', 'main-nav');
     expect(menuButton).toHaveAttribute('aria-expanded', 'false');
     expect(menuButton.textContent).not.toMatch(/[☰×]/);
     expect(menuButton.querySelector('svg')).toHaveAttribute('aria-hidden', 'true');
 
     fireEvent.click(menuButton);
     expect(menuButton).toHaveAttribute('aria-expanded', 'true');
-    expect(screen.getByRole('button', { name: 'Menu', exact: true })).toBe(menuButton);
+    expect(screen.getByRole('button', { name: 'Close navigation', exact: true })).toBe(menuButton);
 
-    fireEvent.click(within(screen.getByRole('navigation')).getByRole('button', { name: /التبديل إلى العربية/ }));
-    expect(screen.getByRole('button', { name: 'القائمة', exact: true })).toBe(menuButton);
+    fireEvent.click(headerToggle(container));
+    expect(screen.getByRole('button', { name: 'إغلاق قائمة التنقل', exact: true })).toBe(menuButton);
     expect(menuButton.textContent).not.toMatch(/[☰×]/);
   });
 
-  it('closes the mobile menu on Escape and on navigation link clicks', () => {
+  it('closes the mobile menu on Escape and on navigation link clicks', async () => {
     const { container } = setup();
-    const menuButton = container.querySelector<HTMLButtonElement>('.landing-menu');
+    const menuButton = container.querySelector<HTMLButtonElement>('.menu-toggle');
     if (!menuButton) throw new Error('Landing menu button not found');
     const navigation = screen.getByRole('navigation', { name: 'Main navigation' });
 
@@ -166,8 +168,9 @@ describe('public landing page', () => {
     menuButton.focus();
     fireEvent.keyDown(document, { key: 'Escape' });
     expect(menuButton).toHaveAttribute('aria-expanded', 'false');
-    expect(menuButton).toHaveFocus();
     expect(navigation).not.toHaveClass('is-open');
+    // closeMenu defers focus to the next task so in-page anchors do not steal it.
+    await waitFor(() => expect(menuButton).toHaveFocus());
 
     fireEvent.click(menuButton);
     fireEvent.click(screen.getByRole('link', { name: 'How it works' }));

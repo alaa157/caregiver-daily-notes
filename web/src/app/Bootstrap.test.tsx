@@ -50,7 +50,7 @@ describe('bootstrap config gate', () => {
 
     render(<Bootstrap />);
 
-    expect(screen.getByRole('heading', { level: 1, name: /clearer picture/i })).toBeVisible();
+    expect(screen.getByRole('heading', { level: 1, name: /little details are the story of/i })).toBeVisible();
     expect(screen.getAllByRole('link', { name: 'Sign in' })[0]).toHaveAttribute('href', '/login');
     expect(load).not.toHaveBeenCalled();
     expect(document.querySelector('.feedback--loading')).toBeNull();
@@ -62,7 +62,7 @@ describe('bootstrap config gate', () => {
 
     render(<Bootstrap />);
 
-    expect(screen.getByRole('heading', { level: 1, name: /clearer picture/i })).toBeVisible();
+    expect(screen.getByRole('heading', { level: 1, name: /little details are the story of/i })).toBeVisible();
     expect(screen.queryByText('Application configuration unavailable')).not.toBeInTheDocument();
     expect(load).not.toHaveBeenCalled();
   });
