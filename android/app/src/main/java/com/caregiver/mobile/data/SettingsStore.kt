@@ -8,6 +8,7 @@ import androidx.datastore.preferences.core.edit
 import androidx.datastore.preferences.core.emptyPreferences
 import androidx.datastore.preferences.core.stringPreferencesKey
 import com.caregiver.mobile.core.util.LanguagePrefs
+import com.caregiver.mobile.core.util.ThemePrefs
 import java.io.File
 import java.io.IOException
 import kotlinx.coroutines.flow.Flow
@@ -35,6 +36,14 @@ class SettingsStore(private val dataStore: DataStore<Preferences>) {
     }
 
     val baseUrl: Flow<String> = safeData.map { it[BASE_URL] ?: DEFAULT_BASE_URL }
+
+    /**
+     * Whether a server URL has actually been stored. A blank URL means no
+     * server is configured; callers use this to drive the unconfigured state
+     * rather than mistaking an empty default for a usable host.
+     */
+    val isBaseUrlConfigured: Flow<Boolean> = baseUrl.map { it.isNotBlank() }
+
     val token: Flow<String?> = safeData.map { it[TOKEN] }
     val email: Flow<String?> = safeData.map { it[EMAIL] }
     val language: Flow<String> = safeData.map { it[LANGUAGE] ?: DEFAULT_LANGUAGE }
@@ -85,10 +94,17 @@ class SettingsStore(private val dataStore: DataStore<Preferences>) {
 
     suspend fun setThemeMode(mode: String) {
         dataStore.edit { it[THEME_MODE] = mode }
+        // Refresh the synchronous mirror on the caller's thread so the next
+        // launch frame sees this choice without collecting the DataStore flow.
+        // DataStore stays the durable source of truth; the other mirrored
+        // value is carried over so the two setters cannot erase each other.
+        ThemePrefs.seed(mode, ThemePrefs.cachedPureBlack())
     }
 
     suspend fun setPureBlack(enabled: Boolean) {
         dataStore.edit { it[PURE_BLACK] = enabled }
+        // Same entry point as setThemeMode, keeping the cached mode intact.
+        ThemePrefs.seed(ThemePrefs.cachedOr(DEFAULT_THEME_MODE), enabled)
     }
 
     suspend fun setColorPalette(palette: String) {
@@ -104,7 +120,7 @@ class SettingsStore(private val dataStore: DataStore<Preferences>) {
     }
 
     companion object {
-        const val DEFAULT_BASE_URL = "https://CHANGE-ME"
+        const val DEFAULT_BASE_URL = ""
         const val DEFAULT_LANGUAGE = "ar"
         const val DEFAULT_THEME_MODE = "system"
         const val DEFAULT_COLOR_PALETTE = "teal"
