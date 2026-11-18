@@ -348,7 +348,7 @@ fun AuthForm(
                     Text(
                         switchLabel,
                         fontFamily = PlexArabic,
-                        color = CaregiverColors.Primary,
+                        color = MaterialTheme.colorScheme.primary,
                     )
                 }
             }
@@ -361,7 +361,7 @@ fun AuthForm(
                             else R.string.auth_have_account,
                         ),
                         fontFamily = PlexArabic,
-                        color = CaregiverColors.Primary,
+                        color = MaterialTheme.colorScheme.primary,
                         fontWeight = FontWeight.Bold,
                     )
                 }
@@ -372,7 +372,7 @@ fun AuthForm(
                     Text(
                         stringResource(R.string.auth_server_link),
                         fontFamily = PlexArabic,
-                        color = CaregiverColors.Primary,
+                        color = MaterialTheme.colorScheme.primary,
                     )
                 }
                 if (!serverConfigured) {
@@ -394,7 +394,7 @@ fun AuthForm(
                     Text(
                         stringResource(R.string.auth_demo),
                         fontFamily = PlexArabic,
-                        color = CaregiverColors.Primary,
+                        color = MaterialTheme.colorScheme.primary,
                     )
                 }
             }
