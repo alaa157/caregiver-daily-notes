@@ -1,0 +1,133 @@
+@startuml
+' ---- SHARED STYLE (identical in all five diagrams) ----
+!theme plain
+skinparam backgroundColor #F7F6F3
+skinparam defaultTextColor #1F2A2E
+skinparam fontName "IBM Plex Sans"
+skinparam fontSize 11
+skinparam shadowing false
+skinparam handwritten false
+skinparam linetype ortho
+skinparam nodesep 30
+skinparam ranksep 40
+skinparam arrowColor #5B6B70
+
+skinparam title {
+  FontColor #0E6B66
+  FontSize 15
+  FontName "IBM Plex Sans"
+}
+skinparam note {
+  BackgroundColor #E8F0F9
+  BorderColor #24507E
+  FontColor #1F2A2E
+}
+skinparam rectangle {
+  BackgroundColor #FAF9F5
+  BorderColor #C5CDD1
+  FontColor #1F2A2E
+}
+skinparam component {
+  BackgroundColor #FAF9F5
+  BorderColor #C5CDD1
+  FontColor #1F2A2E
+}
+skinparam database {
+  BackgroundColor #DCE5D6
+  BorderColor #00897B
+  FontColor #1F2A2E
+}
+skinparam actor {
+  BackgroundColor #FAF9F5
+  BorderColor #00897B
+  FontColor #1F2A2E
+}
+skinparam package {
+  BackgroundColor #F7F6F3
+  BorderColor #00897B
+  FontColor #0E6B66
+}
+skinparam entity {
+  BackgroundColor #FAF9F5
+  BorderColor #00897B
+  FontColor #1F2A2E
+}
+skinparam sequence {
+  ActorBackgroundColor #FAF9F5
+  ActorBorderColor #00897B
+  ActorFontColor #1F2A2E
+  ParticipantBackgroundColor #FAF9F5
+  ParticipantBorderColor #C5CDD1
+  ParticipantFontColor #1F2A2E
+  LifeLineBorderColor #C5CDD1
+  LifeLineBackgroundColor #DCE5D6
+  ArrowColor #00897B
+  MessageTextColor #1F2A2E
+  NoteBackgroundColor #E8F0F9
+  NoteBorderColor #24507E
+  NoteFontColor #1F2A2E
+  BoxBackgroundColor #F7F6F3
+  BoxBorderColor #00897B
+}
+skinparam activity {
+  BackgroundColor #DCE5D6
+  BorderColor #00897B
+  ArrowColor #5B6B70
+  FontColor #1F2A2E
+}
+skinparam activityDiamond {
+  BackgroundColor #FBF0D9
+  BorderColor #7A4B00
+  FontColor #7A4B00
+}
+' ---- END SHARED STYLE ----
+
+' Element-level overrides: theme plain otherwise falls back to Verdana/black for labels.
+skinparam actorFontName "IBM Plex Sans"
+skinparam componentFontName "IBM Plex Sans"
+skinparam noteFontName "IBM Plex Sans"
+skinparam arrowFontName "IBM Plex Sans"
+skinparam packageFontName "IBM Plex Sans"
+skinparam arrowFontColor #1F2A2E
+
+!pragma layout smetana
+
+title Context — Caregiver Daily Notes
+
+actor "Caregiver (Android)" as CaregiverAndroid
+actor "Caregiver (web browser)" as CaregiverWeb
+actor "Reviewer (read-only)" as Reviewer
+
+package "Caregiver Daily Notes" as SystemBoundary {
+  component "Android app" as AndroidApp
+  component "Web app" as WebApp
+  component "Backend API" as BackendApi
+}
+
+component "Model providers" as ModelProviders
+component "Device platform" as DevicePlatform
+
+note bottom of SystemBoundary
+  The backend is optional for
+  standalone deployments.
+end note
+
+note right of ModelProviders
+  OpenRouter supplies a live catalogue;
+  other providers use bundled lists.
+end note
+
+note top of DevicePlatform
+  Keystore, local storage, locale and
+  accessibility services.
+end note
+
+CaregiverAndroid --> AndroidApp : native UI
+CaregiverWeb --> WebApp : HTTPS
+Reviewer ..> BackendApi : read-only reports
+AndroidApp --> BackendApi : optional sync
+WebApp --> BackendApi : HTTPS / JSON
+AndroidApp --> ModelProviders : BYOK completion
+BackendApi --> ModelProviders : completion proxy
+
+@enduml
