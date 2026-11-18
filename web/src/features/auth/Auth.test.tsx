@@ -88,7 +88,7 @@ describe('caregiver authentication', () => {
     await screen.findByRole('heading', { name: 'Caregiver workspace' });
 
     expect(fetcher).toHaveBeenCalled();
-    expect(screen.queryByText('Password must be at least 12 characters.')).not.toBeInTheDocument();
+    expect(screen.queryByText('Password must be at least 8 characters.')).not.toBeInTheDocument();
   });
 
   it('allows a single-label email domain accepted by the backend', async () => {
