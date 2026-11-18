@@ -18,7 +18,7 @@ public class AuthService {
   static final int MAX_PASSWORD_BYTES = 72;
 
   /** Minimum password length for NEW registrations. Login never applies this. */
-  public static final int MIN_PASSWORD_CHARS = 12;
+  public static final int MIN_PASSWORD_CHARS = 8;
 
   private final CaregiverRepository repository;
   private final PasswordEncoder encoder;
