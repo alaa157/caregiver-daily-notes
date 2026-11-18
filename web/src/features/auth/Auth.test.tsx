@@ -84,7 +84,7 @@ describe('caregiver authentication', () => {
 
   it('does not apply the signup password minimum to login', async () => {
     fetcher.mockResolvedValue(jsonResponse({ token: testToken() }));
-    const user = await fillAndSubmit('caregiver@example.com', 'old');
+    await fillAndSubmit('caregiver@example.com', 'old');
     await screen.findByRole('heading', { name: 'Caregiver workspace' });
 
     expect(fetcher).toHaveBeenCalled();
