@@ -87,7 +87,7 @@ describe('caregiver signup', () => {
     await user.type(screen.getByLabelText('Password'), 'short');
     await user.click(screen.getByRole('button', { name: 'Create account' }));
 
-    expect(screen.getByText('Password must be at least 12 characters.')).toBeVisible();
+    expect(screen.getByText('Password must be at least 8 characters.')).toBeVisible();
     expect(fetcher).not.toHaveBeenCalled();
   });
 
