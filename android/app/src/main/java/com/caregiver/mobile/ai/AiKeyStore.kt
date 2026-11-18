@@ -257,9 +257,20 @@ open class AiKeyStore internal constructor(
         return prefs.getString(perAccountKey(baseUrlSlot(provider), id), null)
     }
 
+    /**
+     * A base-URL change invalidates the cached model list: ids are specific to
+     * the endpoint that produced them (#1079). Saving the same URL leaves the
+     * cache untouched, so an unchanged settings save does not force a refetch.
+     */
     fun setBaseUrl(url: String, provider: AiProvider = selectedProvider()) {
         val id = accountId() ?: return
-        prefs.edit().putString(perAccountKey(baseUrlSlot(provider), id), url).apply()
+        val key = perAccountKey(baseUrlSlot(provider), id)
+        val previous = prefs.getString(key, null)
+        val editor = prefs.edit().putString(key, url)
+        if (previous != url) {
+            editor.remove(cachedModelsSlot(provider, id))
+        }
+        editor.apply()
     }
 
     open fun baseUrlOrDefault(provider: AiProvider): String =
