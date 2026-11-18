@@ -72,6 +72,14 @@ class ObservationInputValidatorTest {
         .toList();
   }
 
+  private static List<String> validate(ObservationSetRequest set) {
+    var request = new NoteRequest(UUID.randomUUID(), LocalDate.now(), null, null, null, null,
+        null, null, null, null, null, set, null);
+    return validator.validate(request).stream()
+        .map(violation -> violation.getPropertyPath().toString())
+        .toList();
+  }
+
   private static ObservationSetRequest setWithFreeText(ObservationInput<String> freeText) {
     return new ObservationSetRequest(
         input(ObservationState.NOT_RECORDED, null, null),
