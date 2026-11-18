@@ -1,9 +1,7 @@
 package com.caregiver.mobile.core.theme
 
 import androidx.compose.runtime.SideEffect
-import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
-import androidx.compose.runtime.setValue
 import androidx.compose.ui.graphics.Color
 
 /**
@@ -71,7 +69,6 @@ object CaregiverColors {
         get() = _current.value
 
     // Observable backing for Compose.
-    private var _state by mutableStateOf(caregiverScheme(dark = false, palette = "teal"))
     val state: androidx.compose.runtime.State<CaregiverColorScheme>
         get() = _current
 
