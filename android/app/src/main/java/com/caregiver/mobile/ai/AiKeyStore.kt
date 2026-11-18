@@ -4,6 +4,8 @@ import android.content.Context
 import android.content.SharedPreferences
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.first
+import kotlinx.serialization.Serializable
+import kotlinx.serialization.json.Json
 
 /**
  * The state of the stored API key.
@@ -72,6 +74,57 @@ private class PerAccountAndroidKeyStoreCipher(
     override fun delete(accountId: String) = cipher.delete(accountId)
 }
 
+/**
+ * A model list fetched for one provider and the moment it was fetched.
+ *
+ * Freshness is deliberately left to the caller: this type only carries the
+ * data and the timestamp so a picker can decide whether to reuse it (#990).
+ */
+data class CachedModels(
+    val models: List<AiModelOption>,
+    val fetchedAtEpochMillis: Long,
+)
+
+/**
+ * Wire form of [AiModelOption]. The catalog type has no serialization
+ * annotations — and its file is out of scope for #990 — so every field is
+ * mirrored here explicitly. Adding a field to the catalog must be reflected
+ * here too, which keeps the stored format stable.
+ */
+@Serializable
+private data class CachedModelOptionDto(
+    val id: String,
+    val free: Boolean = false,
+    val jsonMode: Boolean = true,
+    val note: String? = null,
+    val recommendedForSummaries: Boolean = false,
+) {
+    fun toOption(): AiModelOption = AiModelOption(
+        id = id,
+        free = free,
+        jsonMode = jsonMode,
+        note = note,
+        recommendedForSummaries = recommendedForSummaries,
+    )
+
+    companion object {
+        fun from(option: AiModelOption): CachedModelOptionDto = CachedModelOptionDto(
+            id = option.id,
+            free = option.free,
+            jsonMode = option.jsonMode,
+            note = option.note,
+            recommendedForSummaries = option.recommendedForSummaries,
+        )
+    }
+}
+
+/** The list and its timestamp live in one JSON object under one preference. */
+@Serializable
+private data class CachedModelsPayload(
+    val models: List<CachedModelOptionDto> = emptyList(),
+    val fetchedAtEpochMillis: Long = 0L,
+)
+
 class AiKeyStore internal constructor(
     private val context: Context,
     private val cipher: ApiKeyCipher,
@@ -88,6 +141,12 @@ class AiKeyStore internal constructor(
 
     private val prefs: SharedPreferences =
         context.getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE)
+
+    /** Defaults are written out so a cached list carries all of its flags. */
+    private val json = Json {
+        encodeDefaults = true
+        ignoreUnknownKeys = true
+    }
 
     init {
         migrateLegacySettings()
@@ -149,6 +208,45 @@ class AiKeyStore internal constructor(
     fun setModel(m: String, provider: AiProvider = selectedProvider()) {
         val id = accountId() ?: return
         prefs.edit().putString(perAccountKey(modelSlot(provider), id), m).apply()
+    }
+
+    /**
+     * The cached model list for [provider], or null when none was saved, there
+     * is no active account, or the stored value cannot be read. An unreadable
+     * value is deleted so the caller can fetch again (#990).
+     */
+    fun cachedModels(provider: AiProvider): CachedModels? {
+        val id = accountId() ?: return null
+        val key = cachedModelsSlot(provider, id)
+        val raw = prefs.getString(key, null) ?: return null
+        val payload = runCatching { json.decodeFromString<CachedModelsPayload>(raw) }.getOrNull()
+        if (payload == null) {
+            prefs.edit().remove(key).apply()
+            return null
+        }
+        return CachedModels(
+            models = payload.models.map { it.toOption() },
+            fetchedAtEpochMillis = payload.fetchedAtEpochMillis,
+        )
+    }
+
+    fun setCachedModels(provider: AiProvider, models: List<AiModelOption>, fetchedAt: Long) {
+        val id = accountId() ?: return
+        val payload = CachedModelsPayload(
+            models = models.map { CachedModelOptionDto.from(it) },
+            fetchedAtEpochMillis = fetchedAt,
+        )
+        prefs.edit()
+            .putString(
+                cachedModelsSlot(provider, id),
+                json.encodeToString(CachedModelsPayload.serializer(), payload),
+            )
+            .apply()
+    }
+
+    fun clearCachedModels(provider: AiProvider) {
+        val id = accountId() ?: return
+        prefs.edit().remove(cachedModelsSlot(provider, id)).apply()
     }
 
     fun baseUrl(provider: AiProvider = selectedProvider()): String? {
@@ -293,6 +391,9 @@ class AiKeyStore internal constructor(
 
     private fun baseUrlSlot(provider: AiProvider): String = KEY_BASE_URL_PREFIX + provider.name
 
+    private fun cachedModelsSlot(provider: AiProvider, accountId: String): String =
+        perAccountKey(KEY_MODELS_PREFIX + provider.name, accountId)
+
     companion object {
         private const val PREFS_NAME = "ai_settings"
         private const val KEY_PROVIDER = "provider"
@@ -301,6 +402,7 @@ class AiKeyStore internal constructor(
         private const val KEY_BASE_URL_LEGACY = "base_url"
         private const val KEY_API_PREFIX = "api_key_"
         private const val KEY_MODEL_PREFIX = "model_"
+        private const val KEY_MODELS_PREFIX = "models_"
         private const val KEY_BASE_URL_PREFIX = "base_url_"
         /** Legacy global consent flag, migrated to [KEY_CONSENT_PREFIX]. */
         private const val KEY_CONSENT = "consent"
