@@ -11,17 +11,15 @@ import androidx.compose.ui.Alignment
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
-import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.rememberScrollState
-import androidx.compose.foundation.selection.selectable
-import androidx.compose.foundation.selection.selectableGroup
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Button
-import androidx.compose.material3.CircularProgressIndicator
+import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.ModalBottomSheet
 import androidx.compose.material3.OutlinedTextField
-import androidx.compose.material3.RadioButton
+import androidx.compose.material3.rememberModalBottomSheetState
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.outlined.Article
 import androidx.compose.material.icons.outlined.Cloud
@@ -58,7 +56,6 @@ import androidx.navigation.NavController
 import com.caregiver.mobile.AppGraph
 import com.caregiver.mobile.R
 import com.caregiver.mobile.ai.ApiKeyState
-import com.caregiver.mobile.ai.AiFreeTier
 import com.caregiver.mobile.ai.AiKeyStore
 import com.caregiver.mobile.ai.AiModelCatalog
 import com.caregiver.mobile.ai.AiProvider
@@ -76,11 +73,8 @@ import com.caregiver.mobile.ai.PromptNotes
 import com.caregiver.mobile.ai.Prompts
 import com.caregiver.mobile.ai.SummaryResponseFormat
 import com.caregiver.mobile.ai.dataUseNotice
-import com.caregiver.mobile.ai.isCatalogModel
 import com.caregiver.mobile.ai.models.ModelSnapshot
-import com.caregiver.mobile.ai.models.ModelSource
 import com.caregiver.mobile.ai.stringRes
-import com.caregiver.mobile.core.i18n.Bidi
 import com.caregiver.mobile.core.navigation.markUnsavedChanges
 import com.caregiver.mobile.presentation.common.AiRecovery
 import com.caregiver.mobile.presentation.common.AppTopBar
@@ -93,6 +87,7 @@ import kotlinx.coroutines.TimeoutCancellationException
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withTimeout
 
+@OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun AiSettingsScreen(graph: AppGraph, navController: NavController, navEntry: NavBackStackEntry) {
     val scope = rememberCoroutineScope()
@@ -865,198 +860,46 @@ fun AiSettingsScreen(graph: AppGraph, navController: NavController, navEntry: Na
                 refreshing = false
             }
         }
-        AlertDialog(
+        ModalBottomSheet(
             onDismissRequest = { showModelDialog = false },
-            title = {
-                Row(
-                    modifier = Modifier.fillMaxWidth(),
-                    verticalAlignment = Alignment.CenterVertically,
-                ) {
-                    Text(
-                        text = stringResource(R.string.settings_ai_model),
-                        style = MaterialTheme.typography.titleMedium,
-                        modifier = Modifier.weight(1f),
-                    )
-                    if (snapshot == null || refreshing) {
-                        CircularProgressIndicator(
-                            modifier = Modifier
-                                .padding(end = 8.dp)
-                                .size(16.dp),
-                            strokeWidth = 2.dp,
-                            color = MaterialTheme.colorScheme.primary,
-                        )
-                    }
-                    TextButton(
-                        onClick = {
-                            refreshing = true
-                            loadError = false
-                            scope.launch {
-                                try {
-                                    snapshot = modelCatalogFor(graph).models(
-                                        provider,
-                                        forceRefresh = true,
-                                    )
-                                } catch (e: Exception) {
-                                    loadError = true
-                                } finally {
-                                    refreshing = false
-                                }
-                            }
-                        },
-                        enabled = snapshot != null && !refreshing,
-                    ) {
-                        Text(stringResource(R.string.settings_ai_models_refresh))
-                    }
-                }
-            },
-            text = {
-                var otherSelected by remember {
-                    mutableStateOf(!AiModelCatalog.isCatalogModel(provider, model))
-                }
-                Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
-                    Column(Modifier.selectableGroup()) {
-                        (snapshot?.models ?: AiModelCatalog.options(provider)).forEach { option ->
-                            Row(
-                                modifier = Modifier
-                                    .fillMaxWidth()
-                                    .selectable(
-                                        selected = model.trim() == option.id,
-                                        role = Role.RadioButton,
-                                        onClick = {
-                                            model = option.id
-                                            setupState = pendingSetupCheckState()
-                                            otherSelected = false
-                                        },
-                                    )
-                                    .testTag("model_option_${option.id}"),
-                                verticalAlignment = Alignment.CenterVertically,
-                            ) {
-                                RadioButton(
-                                    selected = model.trim() == option.id,
-                                    onClick = null,
-                                )
-                                Text(
-                                    text = Bidi.isolate(option.id),
-                                    modifier = Modifier.weight(1f),
-                                )
-                                if (option.recommendedForSummaries) {
-                                    RecommendedTag()
-                                }
-                                if (option.free) {
-                                    FreeTag()
-                                }
-                            }
-                        }
-                        Row(
-                            modifier = Modifier
-                                .fillMaxWidth()
-                                .selectable(
-                                    selected = otherSelected,
-                                    role = Role.RadioButton,
-                                    onClick = {
-                                        otherSelected = true
-                                        setupState = pendingSetupCheckState()
-                                    },
-                                )
-                                .testTag("model_option_other"),
-                            verticalAlignment = Alignment.CenterVertically,
-                        ) {
-                            RadioButton(selected = otherSelected, onClick = null)
-                            Text(
-                                text = stringResource(R.string.settings_ai_model_other),
-                                modifier = Modifier.weight(1f),
+            sheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true),
+        ) {
+            AiModelPickerContent(
+                models = snapshot?.models ?: AiModelCatalog.options(provider),
+                selectedModel = model,
+                provider = provider,
+                source = snapshot?.source,
+                fetchedAtEpochMillis = snapshot?.fetchedAtEpochMillis,
+                refreshing = refreshing,
+                loadError = loadError,
+                onSelect = { id ->
+                    model = id
+                    setupState = pendingSetupCheckState()
+                    showModelDialog = false
+                },
+                onCustomModelChange = { id ->
+                    model = id
+                    setupState = pendingSetupCheckState()
+                },
+                onRefresh = {
+                    refreshing = true
+                    loadError = false
+                    scope.launch {
+                        try {
+                            snapshot = modelCatalogFor(graph).models(
+                                provider,
+                                forceRefresh = true,
                             )
+                        } catch (e: Exception) {
+                            loadError = true
+                        } finally {
+                            refreshing = false
                         }
                     }
-                    if (otherSelected) {
-                        OutlinedTextField(
-                            value = model,
-                            onValueChange = {
-                                model = it
-                                setupState = pendingSetupCheckState()
-                            },
-                            label = { Text(stringResource(R.string.settings_ai_custom_model)) },
-                            singleLine = true,
-                            isError = modelInvalid,
-                            supportingText = {
-                                if (modelInvalid) {
-                                    Text(stringResource(R.string.settings_ai_invalid_model))
-                                }
-                            },
-                            modifier = Modifier
-                                .fillMaxWidth()
-                                .testTag("model_custom_field"),
-                        )
-                    }
-                    // Exactly one status line, plus the disclosure below it.
-                    if (loadError) {
-                        Text(
-                            text = stringResource(R.string.settings_ai_models_error),
-                            style = MaterialTheme.typography.bodySmall,
-                            color = MaterialTheme.colorScheme.error,
-                            modifier = Modifier.testTag("model_list_status"),
-                        )
-                    } else {
-                        val snap = snapshot
-                        if (snap != null && snap.source == ModelSource.LIVE) {
-                            Text(
-                                text = stringResource(
-                                    R.string.settings_ai_models_live,
-                                    provider.displayName,
-                                    relativeModelAge(snap.fetchedAtEpochMillis),
-                                ),
-                                style = MaterialTheme.typography.bodySmall,
-                                color = MaterialTheme.colorScheme.onSurfaceVariant,
-                                modifier = Modifier.testTag("model_list_status"),
-                            )
-                        } else {
-                            Text(
-                                text = stringResource(R.string.settings_ai_models_bundled),
-                                style = MaterialTheme.typography.bodySmall,
-                                color = MaterialTheme.colorScheme.onSurfaceVariant,
-                                modifier = Modifier.testTag("model_list_status"),
-                            )
-                        }
-                    }
-                    Text(
-                        text = stringResource(R.string.settings_ai_models_privacy, provider.displayName),
-                        style = MaterialTheme.typography.bodySmall,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant,
-                        modifier = Modifier.testTag("model_list_privacy"),
-                    )
-                    AiModelCatalog.dataUseNotice(provider, model.ifBlank { provider.defaultModel })
-                        ?.let { notice ->
-                            Text(
-                                text = stringResource(notice.stringRes()),
-                                style = MaterialTheme.typography.bodySmall,
-                                color = MaterialTheme.colorScheme.onSurfaceVariant,
-                                modifier = Modifier.testTag("model_data_use_notice"),
-                            )
-                        }
-                    // What the provider offers for free, so the choice is
-                    // made with the cost in view. Paid models are billed per
-                    // use; they are never picked silently.
-                    provider.freeTier?.let { tier ->
-                        Text(
-                            text = stringResource(
-                                when (tier) {
-                                    AiFreeTier.FREE_MODELS -> R.string.settings_ai_tier_free_models
-                                    AiFreeTier.TRIAL_CREDITS -> R.string.settings_ai_tier_trial_credits
-                                },
-                            ),
-                            style = MaterialTheme.typography.bodySmall,
-                            color = MaterialTheme.colorScheme.onSurfaceVariant,
-                        )
-                    }
-                    Text(
-                        text = stringResource(R.string.settings_ai_model_paid_note),
-                        style = MaterialTheme.typography.bodySmall,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant,
-                    )
-                }
-            },
-            confirmButton = { TextButton(onClick = { showModelDialog = false }) { Text(stringResource(R.string.common_ok)) } },
-        )
+                },
+                onDismiss = { showModelDialog = false },
+            )
+        }
     }
 
     if (showUrlDialog) {
@@ -1136,8 +979,8 @@ private fun pendingSetupCheckState() = SetupCheckState(
     awaitingConsent = false,
 )
 
-/** Short age label for a live list: "12 m", "2 h", "3 d". */
-private fun relativeModelAge(fetchedAtEpochMillis: Long?): String {
+/** Short age label for a live or cached list: "12 m", "2 h", "3 d". */
+internal fun relativeModelAge(fetchedAtEpochMillis: Long?): String {
     val fetched = fetchedAtEpochMillis ?: return "0 m"
     val minutes = ((System.currentTimeMillis() - fetched).coerceAtLeast(0L) / 60_000L).toInt()
     return when {
@@ -1228,7 +1071,7 @@ private fun stageStatusText(context: Context, stage: SetupStage, status: StageSt
 
 /** The "free" marker on a model the caregiver does not have to pay for. */
 @Composable
-private fun FreeTag() {
+internal fun FreeTag() {
     Text(
         text = stringResource(R.string.settings_ai_model_free),
         style = MaterialTheme.typography.labelSmall,
@@ -1241,7 +1084,7 @@ private fun FreeTag() {
 
 /** The "recommended for summaries" marker on the verified summary model. */
 @Composable
-private fun RecommendedTag() {
+internal fun RecommendedTag() {
     Text(
         text = stringResource(R.string.settings_ai_model_recommended),
         style = MaterialTheme.typography.labelSmall,
