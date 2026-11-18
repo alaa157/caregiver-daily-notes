@@ -36,6 +36,30 @@ class OpenAiCompatibleModelListSourceTest {
     private fun bodyWithIds(ids: List<String>): String =
         "{\"data\":[" + ids.joinToString(",") { "{\"id\":\"$it\"}" } + "]}"
 
+    /** One OpenRouter catalogue entry; null [modalities] omits the architecture object. */
+    private fun openRouterEntry(
+        id: String,
+        modalities: List<String>? = listOf("text"),
+        prompt: String? = null,
+        completion: String? = null,
+    ): String {
+        val fields = mutableListOf("\"id\":\"$id\"")
+        if (modalities != null) {
+            val values = modalities.joinToString(",") { "\"$it\"" }
+            fields += "\"architecture\":{\"output_modalities\":[$values]}"
+        }
+        if (prompt != null || completion != null) {
+            val prices = mutableListOf<String>()
+            prompt?.let { prices += "\"prompt\":\"$it\"" }
+            completion?.let { prices += "\"completion\":\"$it\"" }
+            fields += "\"pricing\":{${prices.joinToString(",")}}"
+        }
+        return "{${fields.joinToString(",")}}"
+    }
+
+    private fun openRouterBody(entries: List<String>): String =
+        "{\"data\":[${entries.joinToString(",")}]}"
+
     private fun enqueue(body: String, code: Int = 200) {
         server.enqueue(MockResponse().setResponseCode(code).setBody(body))
     }
@@ -85,25 +109,103 @@ class OpenAiCompatibleModelListSourceTest {
     }
 
     @Test
-    fun `openrouter free variants are flagged by suffix or zero prompt price`() {
-        val body = """{"data":[
-            {"id":"openai/gpt-4o-mini"},
-            {"id":"nvidia/nemotron:free"},
-            {"id":"some/model","pricing":{"prompt":"0","completion":"0"}},
-            {"id":"paid/model","pricing":{"prompt":"0.001"}}
-        ]}"""
-        val result = fetch(AiProvider.OPEN_ROUTER, body)
+    fun `openrouter keeps only the four interactive text models`() {
+        val body = openRouterBody(
+            listOf(
+                openRouterEntry("openai/gpt-4o-mini"),
+                openRouterEntry("anthropic/claude-sonnet"),
+                openRouterEntry("google/gemini-flash"),
+                openRouterEntry("meta/llama:free"),
+                openRouterEntry("vision/multimodal", modalities = listOf("image", "text")),
+                openRouterEntry("audio/speech", modalities = listOf("audio")),
+                openRouterEntry("openai/gpt-4o:batch"),
+                openRouterEntry("openai/gpt-4o-mini"),
+                openRouterEntry(""),
+            ),
+        )
 
-        val byId = models(result).associateBy { it.id }
+        assertEquals(
+            listOf(
+                "anthropic/claude-sonnet",
+                "google/gemini-flash",
+                "meta/llama:free",
+                "openai/gpt-4o-mini",
+            ),
+            models(fetch(AiProvider.OPEN_ROUTER, body)).map { it.id },
+        )
+    }
+
+    @Test
+    fun `openrouter free variants are flagged by suffix or zero prices`() {
+        val body = openRouterBody(
+            listOf(
+                openRouterEntry("openai/gpt-4o-mini"),
+                openRouterEntry("nvidia/nemotron:free"),
+                openRouterEntry("some/model", prompt = "0.000000", completion = "0.0"),
+                openRouterEntry("zero/model", prompt = "0", completion = "0.000000"),
+                openRouterEntry("paid/model", prompt = "0.001", completion = "0.002"),
+                openRouterEntry("input-free/model", prompt = "0", completion = "0.001"),
+                openRouterEntry("no-pricing:free", modalities = listOf("text")),
+            ),
+        )
+
+        val byId = models(fetch(AiProvider.OPEN_ROUTER, body)).associateBy { it.id }
         assertFalse(byId.getValue("openai/gpt-4o-mini").free)
         assertTrue(byId.getValue("nvidia/nemotron:free").free)
         assertTrue(byId.getValue("some/model").free)
+        assertTrue(byId.getValue("zero/model").free)
         assertFalse(byId.getValue("paid/model").free)
+        assertFalse(byId.getValue("input-free/model").free)
+        assertTrue(byId.getValue("no-pricing:free").free)
         byId.values.forEach {
             assertTrue(it.jsonMode)
             assertEquals(null, it.note)
             assertFalse(it.recommendedForSummaries)
         }
+    }
+
+    @Test
+    fun `openrouter excludes multi-modal audio batch and capability-less entries`() {
+        val body = openRouterBody(
+            listOf(
+                openRouterEntry("multi/modal", modalities = listOf("image", "text")),
+                openRouterEntry("vision/text-image", modalities = listOf("text", "image")),
+                openRouterEntry("audio/model", modalities = listOf("audio")),
+                openRouterEntry("batch/model:batch"),
+                openRouterEntry("no/architecture", modalities = null),
+                openRouterEntry("good/model"),
+            ),
+        )
+
+        assertEquals(
+            listOf("good/model"),
+            models(fetch(AiProvider.OPEN_ROUTER, body)).map { it.id },
+        )
+    }
+
+    @Test
+    fun `openrouter returns the full catalogue beyond five hundred models`() {
+        val ids = (1..600).map { "m%04d".format(it) }
+        val body = openRouterBody(ids.shuffled().map { openRouterEntry(it) })
+
+        val returned = models(fetch(AiProvider.OPEN_ROUTER, body)).map { it.id }
+        assertEquals(600, returned.size)
+        assertEquals(ids.sorted(), returned)
+    }
+
+    @Test
+    fun `a payload with no interactive text models fails with empty`() {
+        val body = openRouterBody(
+            listOf(
+                openRouterEntry("image/generator", modalities = listOf("image")),
+                openRouterEntry("batch/only:batch"),
+            ),
+        )
+
+        assertEquals(
+            ModelListResult.Failed("empty"),
+            fetch(AiProvider.OPEN_ROUTER, body),
+        )
     }
 
     @Test
@@ -119,6 +221,15 @@ class OpenAiCompatibleModelListSourceTest {
         server.enqueue(MockResponse().setResponseCode(401))
 
         val result = runBlocking { source(AiProvider.OPENAI).fetch(baseUrl(), "sk-test") }
+
+        assertEquals(ModelListResult.Failed("invalid_key"), result)
+    }
+
+    @Test
+    fun `openrouter 401 keeps the helpers invalid key reason`() {
+        server.enqueue(MockResponse().setResponseCode(401))
+
+        val result = runBlocking { source(AiProvider.OPEN_ROUTER).fetch(baseUrl(), "sk-test") }
 
         assertEquals(ModelListResult.Failed("invalid_key"), result)
     }
