@@ -3,6 +3,8 @@
 Thanks for working on Caregiver Daily Notes. This is a four-person project and the
 conventions below keep the work reviewable by everyone.
 
+For issue-writing, branch, and verification rules used by agent-driven work, read [AGENTS.md](./AGENTS.md). Where the two conflict for an agent-driven issue, `AGENTS.md` wins.
+
 ## Where to work
 
 Each area of the codebase is owned by one person and tracked by that person's own
