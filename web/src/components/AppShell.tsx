@@ -88,11 +88,14 @@ export function AppShell({ children }: { children: ReactNode }) {
 
   const nextLanguage = language === 'en' ? 'ar' : 'en';
   const isWorkspace = isAppRoute(pathname);
+  // The ported auth screen (#959) carries its own topline, brand and language
+  // toggle, so the shared header/footer must not render on those two routes.
+  const isAuthRoute = pathname === '/login' || pathname === '/signup';
 
   return (
     <div className="site-shell">
       <a className="skip-link" href="#main-content" onClick={() => focusMainContent()}>{t('skipToContent')}</a>
-      {!isWorkspace && <header className={`site-header${auth.status === 'authenticated' ? ' site-header--workspace' : ''}`}>
+      {!isWorkspace && !isAuthRoute && <header className={`site-header${auth.status === 'authenticated' ? ' site-header--workspace' : ''}`}>
         <div className="header-inner container">
           <Link className="brand" to={auth.status === 'authenticated' ? '/app' : '/'}>
             <span className="brand-mark"><Icon name="leaf" size={25} /></span>
@@ -141,12 +144,12 @@ export function AppShell({ children }: { children: ReactNode }) {
       {!isWorkspace ? <main id="main-content" tabIndex={-1} className="main-content">
         {auth.status === 'authenticated' ? <ByokProvider>{children}</ByokProvider> : children}
       </main> : (auth.status === 'authenticated' ? <ByokProvider>{children}</ByokProvider> : children)}
-      <footer className="site-footer">
+      {!isAuthRoute && <footer className="site-footer">
         <div className="container footer-inner">
           <span className="footer-brand"><Icon name="leaf" size={18} />{t('footer')}</span>
           <span className="footer-note">{t('note')}</span>
         </div>
-      </footer>
+      </footer>}
     </div>
   );
 }
