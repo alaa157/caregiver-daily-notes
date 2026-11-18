@@ -158,4 +158,83 @@ class AiKeyStoreModelCacheTest {
         assertNull(store.cachedModels(AiProvider.OPENAI))
         assertTrue(prefs.all.keys.none { it.contains("models_") })
     }
+
+    @Test
+    fun changingBaseUrlClearsThatProvidersCache() {
+        val store = store()
+        store.setBaseUrl("https://openrouter.ai/api/v1", AiProvider.OPEN_ROUTER)
+        store.setCachedModels(
+            AiProvider.OPEN_ROUTER,
+            listOf(AiModelOption("old-endpoint-model")),
+            1L,
+        )
+        assertNotNull(store.cachedModels(AiProvider.OPEN_ROUTER))
+
+        store.setBaseUrl("https://proxy.example/v1", AiProvider.OPEN_ROUTER)
+
+        assertNull(store.cachedModels(AiProvider.OPEN_ROUTER))
+    }
+
+    @Test
+    fun savingTheSameBaseUrlKeepsTheCache() {
+        val store = store()
+        val url = "https://proxy.example/v1"
+        store.setBaseUrl(url, AiProvider.OPEN_ROUTER)
+        val models = listOf(AiModelOption("kept-model"))
+        store.setCachedModels(AiProvider.OPEN_ROUTER, models, 1L)
+
+        store.setBaseUrl(url, AiProvider.OPEN_ROUTER)
+
+        assertEquals(models, store.cachedModels(AiProvider.OPEN_ROUTER)?.models)
+        assertEquals(1L, store.cachedModels(AiProvider.OPEN_ROUTER)?.fetchedAtEpochMillis)
+    }
+
+    @Test
+    fun resettingBaseUrlToBlankClearsTheCache() {
+        val store = store()
+        store.setBaseUrl("https://proxy.example/v1", AiProvider.OPEN_ROUTER)
+        store.setCachedModels(AiProvider.OPEN_ROUTER, listOf(AiModelOption("m")), 1L)
+
+        store.setBaseUrl("", AiProvider.OPEN_ROUTER)
+
+        assertNull(store.cachedModels(AiProvider.OPEN_ROUTER))
+    }
+
+    @Test
+    fun changingFromBlankBaseUrlClearsTheCache() {
+        val store = store()
+        store.setBaseUrl("", AiProvider.OPEN_ROUTER)
+        store.setCachedModels(AiProvider.OPEN_ROUTER, listOf(AiModelOption("m")), 1L)
+
+        store.setBaseUrl("https://proxy.example/v1", AiProvider.OPEN_ROUTER)
+
+        assertNull(store.cachedModels(AiProvider.OPEN_ROUTER))
+    }
+
+    @Test
+    fun baseUrlChangeDoesNotClearAnotherProviderOrAccount() {
+        val storeA = store(accountA)
+        val storeB = store(accountB)
+        for (store in listOf(storeA, storeB)) {
+            store.setCachedModels(AiProvider.OPEN_ROUTER, listOf(AiModelOption("or-model")), 1L)
+            store.setCachedModels(AiProvider.OPENAI, listOf(AiModelOption("openai-model")), 2L)
+        }
+
+        storeA.setBaseUrl("https://proxy.example/v1", AiProvider.OPEN_ROUTER)
+
+        assertNull(storeA.cachedModels(AiProvider.OPEN_ROUTER))
+        assertNotNull(storeA.cachedModels(AiProvider.OPENAI))
+        assertNotNull(storeB.cachedModels(AiProvider.OPEN_ROUTER))
+        assertNotNull(storeB.cachedModels(AiProvider.OPENAI))
+    }
+
+    @Test
+    fun noActiveAccountBaseUrlChangeIsANoop() {
+        val store = store(noAccount)
+
+        // No active account: setBaseUrl must be a no-op and must not throw.
+        store.setBaseUrl("https://proxy.example/v1", AiProvider.OPEN_ROUTER)
+
+        assertNull(store.cachedModels(AiProvider.OPEN_ROUTER))
+    }
 }
