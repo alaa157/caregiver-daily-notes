@@ -134,20 +134,20 @@ abstract class ObservationColumns {
         : new Observation<>(state, value, null);
   }
 
-  final String getMood() { return display(moodState, moodValue, legacyMood); }
-  final String getAppetite() { return display(appetiteState, appetiteValue, legacyAppetite); }
-  final String getSleep() { return display(sleepState, sleepValue, legacySleep); }
-  final String getMobility() { return display(mobilityState, mobilityValue, legacyMobility); }
-  final String getMedicationStatus() {
+  String getMood() { return display(moodState, moodValue, legacyMood); }
+  String getAppetite() { return display(appetiteState, appetiteValue, legacyAppetite); }
+  String getSleep() { return display(sleepState, sleepValue, legacySleep); }
+  String getMobility() { return display(mobilityState, mobilityValue, legacyMobility); }
+  String getMedicationStatus() {
     if (medicationStatusState == ObservationState.UNKNOWN) return "UNKNOWN";
     return display(medicationStatusState, medicationStatusValue, legacyMedicationStatus);
   }
-  final Integer getPainScore() { return display(painScoreState, painScoreValue, legacyPainScore); }
-  final Boolean getFallReported() { return display(fallReportedState, fallReportedValue, legacyFallReported); }
-  final String getFreeText() { return display(freeTextState, freeTextValue, legacyFreeText); }
-  final Boolean getMedicationVerified() { return legacyMedicationVerified; }
-  final VerificationState getMedicationVerification() { return medicationVerification; }
-  final boolean isMedicationVerificationProvided() { return medicationVerificationProvided; }
+  Integer getPainScore() { return display(painScoreState, painScoreValue, legacyPainScore); }
+  Boolean getFallReported() { return display(fallReportedState, fallReportedValue, legacyFallReported); }
+  String getFreeText() { return display(freeTextState, freeTextValue, legacyFreeText); }
+  Boolean getMedicationVerified() { return legacyMedicationVerified; }
+  VerificationState getMedicationVerification() { return medicationVerification; }
+  boolean isMedicationVerificationProvided() { return medicationVerificationProvided; }
 
   private static <T> T display(ObservationState state, T value, T legacyValue) {
     return state == ObservationState.RECORDED
