@@ -132,10 +132,12 @@ internal fun AiModelPickerContent(
             }
             TextButton(
                 onClick = onRefresh,
-                enabled = source != null && !refreshing,
-                modifier = Modifier.semantics {
-                    contentDescription = stringResource(R.string.settings_ai_models_refresh)
-                },
+                enabled = !refreshing && (source != null || loadError),
+                modifier = Modifier
+                    .testTag("ai_model_refresh")
+                    .semantics {
+                        contentDescription = stringResource(R.string.settings_ai_models_refresh)
+                    },
             ) {
                 Text(stringResource(R.string.settings_ai_models_refresh))
             }
