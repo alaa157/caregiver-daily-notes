@@ -193,9 +193,9 @@ fun CaregiverTheme(darkTheme: Boolean = false, palette: Any? = null, pureBlack: 
     // The scheme input is built here — not from a class-load snapshot — so
     // the Material roles and the [CaregiverColors] tokens both follow the
     // dark flag of THIS render.
-    val cs = caregiverScheme(darkTheme, p)
+    val cs = caregiverScheme(darkTheme, p, pureBlack)
     androidx.compose.runtime.SideEffect {
-        com.caregiver.mobile.core.theme.CaregiverColors.update(darkTheme, p)
+        com.caregiver.mobile.core.theme.CaregiverColors.update(darkTheme, p, pureBlack)
     }
     val base = when (p) {
         ColorPalettes.METROLIST -> if (darkTheme) MetrolistDarkScheme else MetrolistLightScheme
