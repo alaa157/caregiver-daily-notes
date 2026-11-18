@@ -49,10 +49,9 @@ object AiModelCatalog {
 
     fun options(provider: AiProvider): List<AiModelOption> = when (provider) {
         AiProvider.OPENAI -> listOf(
-            AiModelOption("gpt-6-luna", recommendedForSummaries = true),
-            AiModelOption("gpt-5.4-mini"),
-            AiModelOption("gpt-6.1-sol"),
-            AiModelOption("gpt-6-sol"),
+            AiModelOption("gpt-6.2-sol", recommendedForSummaries = true),
+            AiModelOption("gpt-6.2-astra"),
+            AiModelOption("gpt-6.1-terra"),
         )
 
         AiProvider.GEMINI -> listOf(
