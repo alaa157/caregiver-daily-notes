@@ -237,10 +237,32 @@ class ModelCatalogRepositoryTest {
     }
 
     @Test
-    fun `default sources cover all five providers`() {
+    fun `defaultSourcesOnlyContainOpenRouter`() {
         val sources = defaultModelSources()
 
-        assertEquals(5, sources.size)
-        AiProvider.values().forEach { assertTrue(sources.containsKey(it)) }
+        assertEquals(setOf(AiProvider.OPEN_ROUTER), sources.keys)
+    }
+
+    @Test
+    fun `providersWithoutASourceReturnBundledAndIgnoreAFreshCache`() = runBlocking {
+        val bundledOnly = listOf(
+            AiProvider.OPENAI,
+            AiProvider.ANTHROPIC,
+            AiProvider.GEMINI,
+            AiProvider.XAI,
+        )
+        bundledOnly.forEach { provider ->
+            assertTrue(store.setApiKey("sk-test", provider))
+            store.setCachedModels(provider, listOf(AiModelOption("stale-model")), now)
+        }
+        val repository = ModelCatalogRepository(store, defaultModelSources()) { now }
+
+        bundledOnly.forEach { provider ->
+            val snapshot = repository.models(provider)
+
+            assertEquals("$provider source", ModelSource.BUNDLED, snapshot.source)
+            assertEquals("$provider models", AiModelCatalog.options(provider), snapshot.models)
+            assertFalse("$provider stale cache", snapshot.models.any { it.id == "stale-model" })
+        }
     }
 }

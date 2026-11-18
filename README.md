@@ -46,7 +46,10 @@ The app ships its own small AI layer rather than depending on a server:
 - **Predictable failures** — per-call timeout, one cancellation handler, `blocked_safety` reported
   without a pointless retry.
 - **A model catalogue** — a free model is offered first wherever a provider has one; the model
-  field stays free text so a provider can serve anything else.
+  field stays free text so a provider can serve anything else. **OpenRouter** is the only provider
+  whose model list is fetched live for now; OpenAI, Anthropic, Gemini and xAI use the bundled
+  fallback. Fetching a model list sends no note text. The fetched list is cached per account and
+  provider for 7 days, and the model picker has a manual **Refresh** action.
 
 ### The safety layer
 

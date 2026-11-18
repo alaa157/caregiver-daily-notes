@@ -36,14 +36,16 @@ class ModelCatalogRepository(
         val baseUrl = keyStore.baseUrlOrDefault(provider)
         if (baseUrl.isBlank()) return bundled(provider)
 
+        // Resolve the source before the cache: a provider without a live source
+        // shows its bundled list even when an older build cached one.
+        val source = sources[provider] ?: return bundled(provider)
+
         val cached = keyStore.cachedModels(provider)
         if (!forceRefresh && cached != null &&
             clock() - cached.fetchedAtEpochMillis < MODEL_CACHE_TTL_MILLIS
         ) {
             return ModelSnapshot(cached.models, ModelSource.CACHED, cached.fetchedAtEpochMillis)
         }
-
-        val source = sources[provider] ?: return fromCacheOrBundled(provider, cached)
 
         val accountBefore = keyStore.activeAccountId()
         val result = source.fetch(baseUrl, apiKey)
@@ -85,11 +87,11 @@ class ModelCatalogRepository(
         }
 }
 
-/** The production sources: three OpenAI-shaped, Anthropic and Gemini. */
+/**
+ * OpenRouter is the only provider with a live model list for now. The other
+ * providers are intentionally bundled until a later issue; their source
+ * classes stay here for that work.
+ */
 fun defaultModelSources(): Map<AiProvider, ModelListSource> = mapOf(
-    AiProvider.OPENAI to OpenAiCompatibleModelListSource(AiProvider.OPENAI),
-    AiProvider.XAI to OpenAiCompatibleModelListSource(AiProvider.XAI),
     AiProvider.OPEN_ROUTER to OpenAiCompatibleModelListSource(AiProvider.OPEN_ROUTER),
-    AiProvider.ANTHROPIC to AnthropicModelListSource(),
-    AiProvider.GEMINI to GeminiModelListSource(),
 )
