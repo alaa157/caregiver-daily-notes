@@ -229,21 +229,50 @@ private fun ModeCircleOption(label: String, selected: Boolean, onClick: () -> Un
 private fun PaletteSwatch(palette: ThemePalette, isSelected: Boolean, onClick: () -> Unit) {
     val seed = palette.seedColor
     val label = stringResource(palette.nameRes)
-    androidx.compose.material3.Surface(
-        onClick = onClick,
-        shape = RoundedCornerShape(12.dp),
-        color = if (seed == androidx.compose.ui.graphics.Color.Transparent) MaterialTheme.colorScheme.surfaceVariant else seed,
-        modifier = Modifier.size(48.dp).semantics {
-            contentDescription = label
-            selected = isSelected
-            role = Role.RadioButton
-        },
-        border = if (isSelected) androidx.compose.foundation.BorderStroke(3.dp, MaterialTheme.colorScheme.primary) else null,
-    ) {
-        Box(contentAlignment = Alignment.Center) {
-            if (seed == androidx.compose.ui.graphics.Color.Transparent) {
-                Text("D", color = MaterialTheme.colorScheme.onSurfaceVariant)
+    val isDynamic = seed == Color.Transparent
+    Box(
+        modifier = Modifier
+            .size(48.dp)
+            .clip(RoundedCornerShape(12.dp))
+            .semantics {
+                contentDescription = label
+                selected = isSelected
+                role = Role.RadioButton
             }
+            .clickable(
+                interactionSource = remember { MutableInteractionSource() },
+                indication = ripple(),
+                onClick = onClick,
+            ),
+        contentAlignment = Alignment.Center,
+    ) {
+        // The swatch fill itself is unchanged.
+        Box(
+            modifier = Modifier
+                .matchParentSize()
+                .background(
+                    if (isDynamic) MaterialTheme.colorScheme.surfaceVariant else seed,
+                    RoundedCornerShape(12.dp),
+                ),
+        )
+        if (isSelected) {
+            // A 3 dp surface-coloured gap keeps the ring legible on both light and dark swatches.
+            Spacer(
+                modifier = Modifier
+                    .matchParentSize()
+                    .padding(3.dp)
+                    .border(3.dp, MaterialTheme.colorScheme.surface, RoundedCornerShape(9.dp)),
+            )
+            // The selection ring uses a fixed foreground, never the active palette's primary,
+            // so it cannot blend into the swatch it surrounds.
+            Spacer(
+                modifier = Modifier
+                    .matchParentSize()
+                    .border(3.dp, MaterialTheme.colorScheme.onSurface, RoundedCornerShape(12.dp)),
+            )
+        }
+        if (isDynamic) {
+            Text("D", color = MaterialTheme.colorScheme.onSurfaceVariant)
         }
     }
 }
