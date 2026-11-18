@@ -604,7 +604,7 @@ fun AiSettingsScreen(graph: AppGraph, navController: NavController, navEntry: Na
                 // xAI has its own console; the shared branch sent it to
                 // OpenRouter, which is a different company.
                 AiProvider.XAI -> "https://console.x.ai"
-                AiProvider.OPEN_ROUTER -> "https://openrouter.ai"
+                AiProvider.OPEN_ROUTER -> "https://openrouter.ai/keys"
             }
             AlertDialog(
                 onDismissRequest = { showGuideDialog = false },
