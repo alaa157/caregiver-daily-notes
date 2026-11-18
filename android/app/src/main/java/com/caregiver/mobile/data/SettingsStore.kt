@@ -35,6 +35,14 @@ class SettingsStore(private val dataStore: DataStore<Preferences>) {
     }
 
     val baseUrl: Flow<String> = safeData.map { it[BASE_URL] ?: DEFAULT_BASE_URL }
+
+    /**
+     * Whether a server URL has actually been stored. A blank URL means no
+     * server is configured; callers use this to drive the unconfigured state
+     * rather than mistaking an empty default for a usable host.
+     */
+    val isBaseUrlConfigured: Flow<Boolean> = baseUrl.map { it.isNotBlank() }
+
     val token: Flow<String?> = safeData.map { it[TOKEN] }
     val email: Flow<String?> = safeData.map { it[EMAIL] }
     val language: Flow<String> = safeData.map { it[LANGUAGE] ?: DEFAULT_LANGUAGE }
@@ -104,7 +112,7 @@ class SettingsStore(private val dataStore: DataStore<Preferences>) {
     }
 
     companion object {
-        const val DEFAULT_BASE_URL = "https://CHANGE-ME"
+        const val DEFAULT_BASE_URL = ""
         const val DEFAULT_LANGUAGE = "ar"
         const val DEFAULT_THEME_MODE = "system"
         const val DEFAULT_COLOR_PALETTE = "teal"
