@@ -37,7 +37,6 @@ import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.res.stringResource
@@ -55,6 +54,7 @@ import androidx.compose.foundation.layout.FlowRow
 import com.caregiver.mobile.R
 import com.caregiver.mobile.core.theme.CaregiverColors
 import com.caregiver.mobile.core.theme.PlexArabic
+import com.caregiver.mobile.core.theme.onAccent
 import com.caregiver.mobile.presentation.common.AppDimens
 
 /**
@@ -150,7 +150,7 @@ fun MoodTiles(
                         Icon(
                             imageVector = moodTileIcon(value),
                             contentDescription = null,
-                            tint = if (isSelected) Color.White else CaregiverColors.Primary,
+                            tint = if (isSelected) onAccent(CaregiverColors.Primary) else CaregiverColors.Primary,
                             modifier = Modifier.size(28.dp),
                         )
                         Spacer(Modifier.height(4.dp))
@@ -159,7 +159,7 @@ fun MoodTiles(
                             fontFamily = PlexArabic,
                             fontWeight = FontWeight.Bold,
                             fontSize = 14.sp,
-                            color = if (isSelected) Color.White else CaregiverColors.Ink,
+                            color = if (isSelected) onAccent(CaregiverColors.Primary) else CaregiverColors.Ink,
                             textAlign = TextAlign.Center,
                         )
                     }
