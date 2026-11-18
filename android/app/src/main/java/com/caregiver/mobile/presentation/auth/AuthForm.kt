@@ -25,6 +25,7 @@ import androidx.compose.material.icons.filled.Visibility
 import androidx.compose.material.icons.filled.VisibilityOff
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
+import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
@@ -337,7 +338,7 @@ fun AuthForm(
                     Text(
                         switchLabel,
                         fontFamily = PlexArabic,
-                        color = CaregiverColors.Primary,
+                        color = MaterialTheme.colorScheme.primary,
                     )
                 }
             }
@@ -350,7 +351,7 @@ fun AuthForm(
                             else R.string.auth_have_account,
                         ),
                         fontFamily = PlexArabic,
-                        color = CaregiverColors.Primary,
+                        color = MaterialTheme.colorScheme.primary,
                         fontWeight = FontWeight.Bold,
                     )
                 }
@@ -361,7 +362,7 @@ fun AuthForm(
                     Text(
                         stringResource(R.string.auth_server_link),
                         fontFamily = PlexArabic,
-                        color = CaregiverColors.Primary,
+                        color = MaterialTheme.colorScheme.primary,
                     )
                 }
             }
@@ -376,7 +377,7 @@ fun AuthForm(
                     Text(
                         stringResource(R.string.auth_demo),
                         fontFamily = PlexArabic,
-                        color = CaregiverColors.Primary,
+                        color = MaterialTheme.colorScheme.primary,
                     )
                 }
             }
