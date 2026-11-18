@@ -10,6 +10,7 @@ import okhttp3.ResponseBody.Companion.toResponseBody
 import com.caregiver.mobile.core.network.TokenHolder
 import com.caregiver.mobile.core.util.LanguagePrefs
 import com.caregiver.mobile.core.util.LocaleHelper
+import com.caregiver.mobile.core.util.ThemePrefs
 import com.caregiver.mobile.data.AuthRepository
 import com.caregiver.mobile.data.CacheHealth
 import com.caregiver.mobile.data.NoteRepository
@@ -116,6 +117,20 @@ class CaregiverApp : Application() {
         LanguagePrefs.apply(
             LanguagePrefs.reconcile(stored, LanguagePrefs.read(), SettingsStore.DEFAULT_LANGUAGE),
         )
+        // Seed the synchronous theme mirror before any activity draws its
+        // first frame. DataStore stays the source of truth; this is only a
+        // process-start snapshot. A read failure skips the seed entirely so a
+        // transient error cannot replace a mirrored choice with a default.
+        val theme = try {
+            runBlocking {
+                SettingsStore.create(appContext).let { settings ->
+                    settings.themeMode.first() to settings.pureBlack.first()
+                }
+            }
+        } catch (e: Exception) {
+            null
+        }
+        if (theme != null) ThemePrefs.seed(theme.first, theme.second)
         // Task 8c: drain anything a previous run left in the outbox as soon
         // as connectivity returns. Demo graphs have no outbox — and demo
         // data must never upload — so they never schedule the worker.
