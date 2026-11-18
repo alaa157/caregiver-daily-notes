@@ -30,11 +30,13 @@ enum class AiProvider(
     val displayName: String,
     val defaultBaseUrl: String,
     /**
-     * The model the app falls back to. Kept in step with
-     * [AiModelCatalog]: the ids the providers still serve in 2026. Previous
-     * direct-provider defaults (gpt-4o-mini, gemini-2.0-flash, grok-3) are
-     * retired or deprecated; OpenRouter separately still serves its
-     * `openai/gpt-4o-mini` route.
+     * The model the app falls back to when none has been chosen.
+     *
+     * The bundled catalog is an offline fallback, not the source of truth.
+     * Verify ids against the provider's public model index before relying on
+     * them; these ids were last verified on 2026-11-18. The model field stays
+     * free text, and "Other model" is the escape hatch for ids the catalog
+     * does not list.
      *
      * Free tiers can use submitted notes to improve the provider's products
      * or train its models, so free models are opt-in: the defaults are paid

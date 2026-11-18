@@ -26,15 +26,12 @@ data class AiModelOption(
 /**
  * The models the app suggests per provider.
  *
- * The model field stays free text — a provider can serve models this list
- * has never heard of, and the caregiver can always type their own id — but
- * the suggestions exist so a typo in a model id shows up in the settings
- * instead of much later as an opaque failure.
- *
- * The list is dated knowledge: direct provider defaults follow current model
- * ids (gpt-4o-mini and gemini-2.0-flash were retired or deprecated, as was
- * grok-3 in May 2026). OpenRouter's separate route to openai/gpt-4o-mini
- * remains available and is listed under that provider.
+ * This catalog is an offline fallback, not the source of truth. Verify ids
+ * against the provider's public model index before relying on them; this
+ * list was last verified on 2026-11-18. The model field stays free text, and
+ * "Other model" is the escape hatch for ids the catalog does not list.
+ * Suggestions exist so a typo surfaces in settings instead of much later as
+ * an opaque failure.
  *
  * Paid models lead, and a provider's default is a paid model. Gemini data
  * use follows the key's billing tier, not the model, and an OpenRouter
