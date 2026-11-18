@@ -7,6 +7,8 @@
 #   --test    also run backend and web unit tests
 #   --e2e     also install the Chromium browser used by Playwright
 #   --run     start the backend and the web dev server when setup is done
+#   --tunnel  also expose the backend through a Cloudflare quick tunnel
+#             (implies --run)
 #   -h|--help show this help
 #
 set -euo pipefail
@@ -16,13 +18,30 @@ cd "$(dirname "${BASH_SOURCE[0]}")"
 RUN_TESTS=false
 INSTALL_E2E=false
 START_APP=false
+USE_TUNNEL=false
+
+usage() {
+  cat <<'EOF'
+Caregiver Daily Notes: one-command project setup.
+Run from the project root:   ./setup.sh [options]
+
+Options:
+  --test    also run backend and web unit tests
+  --e2e     also install the Chromium browser used by Playwright
+  --run     start the backend and the web dev server when setup is done
+  --tunnel  also expose the backend through a Cloudflare quick tunnel
+            (implies --run)
+  -h|--help show this help
+EOF
+}
 
 for arg in "$@"; do
   case "$arg" in
     --test) RUN_TESTS=true ;;
     --e2e)  INSTALL_E2E=true ;;
     --run)  START_APP=true ;;
-    -h|--help) sed -n '2,13p' "$0" | sed 's/^# \{0,1\}//'; exit 0 ;;
+    --tunnel) USE_TUNNEL=true; START_APP=true ;;
+    -h|--help) usage; exit 0 ;;
     *) echo "Unknown option: $arg (try --help)"; exit 1 ;;
   esac
 done
@@ -31,6 +50,31 @@ info() { printf '\n\033[1;34m==>\033[0m %s\n' "$*"; }
 ok()   { printf '\033[1;32m ok\033[0m %s\n' "$*"; }
 warn() { printf '\033[1;33m !!\033[0m %s\n' "$*"; }
 fail() { printf '\033[1;31mERR\033[0m %s\n' "$*" >&2; exit 1; }
+
+# Download the official cloudflared binary into the user's bin directory.
+ensure_cloudflared() {
+  if command -v cloudflared >/dev/null 2>&1; then
+    CLOUDFLARED_BIN="$(command -v cloudflared)"
+    ok "cloudflared found at $CLOUDFLARED_BIN"
+    return
+  fi
+
+  info "Installing cloudflared (one-time download)"
+  local arch bindir url
+  case "$(uname -m)" in
+    x86_64) arch=amd64 ;;
+    aarch64|arm64) arch=arm64 ;;
+    *) fail "Unsupported architecture for cloudflared: $(uname -m)" ;;
+  esac
+  bindir="$HOME/.local/bin"
+  mkdir -p "$bindir"
+  url="https://github.com/cloudflare/cloudflared/releases/latest/download/cloudflared-linux-${arch}"
+  curl -fsSL "$url" -o "$bindir/cloudflared" || fail "Could not download cloudflared. Install it manually, then re-run."
+  chmod +x "$bindir/cloudflared"
+  CLOUDFLARED_BIN="$bindir/cloudflared"
+  export PATH="$bindir:$PATH"
+  ok "cloudflared installed at $CLOUDFLARED_BIN"
+}
 
 # ---------------------------------------------------------------- prerequisites
 info "Checking prerequisites"
@@ -48,6 +92,9 @@ command -v npm  >/dev/null 2>&1 || fail "npm is required but was not found."
 NODE_MAJOR=$(node -v | sed -E 's/^v([0-9]+).*/\1/')
 [ "$NODE_MAJOR" -ge 18 ] || fail "Node.js 18+ is required (found $(node -v))."
 ok "Node $(node -v)"
+
+command -v curl >/dev/null 2>&1 || fail "curl is required to download tooling."
+ok "curl"
 
 # ----------------------------------------------------------------- environment
 info "Preparing .env"
@@ -107,12 +154,29 @@ fi
 if [ "$START_APP" = true ]; then
   [ "$DB_READY" = true ] || fail "Fill in the database values in .env first, then run: ./setup.sh --run"
 
+  if [ "$USE_TUNNEL" = true ]; then
+    ensure_cloudflared
+  fi
+
   info "Starting backend on http://localhost:8080 and web dev server"
   set -a; . ./.env; set +a
 
+  BACKEND_PID=""
+  TUNNEL_PID=""
+  cleanup() {
+    [ -n "$TUNNEL_PID" ] && kill "$TUNNEL_PID" 2>/dev/null || true
+    [ -n "$BACKEND_PID" ] && kill "$BACKEND_PID" 2>/dev/null || true
+  }
+  trap cleanup EXIT INT TERM
+
   mvn -f backend/pom.xml spring-boot:run &
   BACKEND_PID=$!
-  trap 'kill "$BACKEND_PID" 2>/dev/null || true' EXIT INT TERM
+
+  if [ "$USE_TUNNEL" = true ]; then
+    info "Starting Cloudflare tunnel to the backend (URL is printed below)"
+    "$CLOUDFLARED_BIN" tunnel --url http://localhost:8080 &
+    TUNNEL_PID=$!
+  fi
 
   (cd web && npm run dev)
   exit 0
@@ -125,6 +189,7 @@ if [ "$DB_READY" = true ]; then
 else
   echo "Next: edit .env with your database values, then run:  ./setup.sh --run"
 fi
+echo "Or expose the backend with a tunnel:  ./setup.sh --tunnel"
 echo "Or start them separately:"
 echo "  backend:  set -a; source .env; set +a; mvn -f backend/pom.xml spring-boot:run"
 echo "  web:      cd web && npm run dev"
