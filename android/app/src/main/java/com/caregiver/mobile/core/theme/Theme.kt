@@ -38,6 +38,15 @@ internal fun appLightScheme(cs: CaregiverColorScheme) = lightColorScheme(
     errorContainer = cs.DangerContainer,
     onErrorContainer = cs.Danger,
     surfaceContainer = cs.Surface,
+    secondary = cs.PrimarySoft,
+    onSecondary = cs.Ink,
+    tertiary = cs.Muted,
+    onTertiary = cs.Surface,
+    outlineVariant = cs.BorderSoft,
+    surfaceTint = cs.Primary,
+    inverseSurface = cs.Ink,
+    inverseOnSurface = cs.Surface,
+    inversePrimary = cs.PrimarySoft,
 )
 
 internal fun appDarkScheme(cs: CaregiverColorScheme) = darkColorScheme(
@@ -59,6 +68,15 @@ internal fun appDarkScheme(cs: CaregiverColorScheme) = darkColorScheme(
     errorContainer = cs.DangerContainer,
     onErrorContainer = cs.Danger,
     surfaceContainer = cs.Surface,
+    secondary = cs.PrimarySoft,
+    onSecondary = cs.Ink,
+    tertiary = cs.Muted,
+    onTertiary = cs.Surface,
+    outlineVariant = cs.BorderSoft,
+    surfaceTint = cs.Primary,
+    inverseSurface = cs.Ink,
+    inverseOnSurface = cs.Surface,
+    inversePrimary = cs.PrimarySoft,
 )
 
 /**
