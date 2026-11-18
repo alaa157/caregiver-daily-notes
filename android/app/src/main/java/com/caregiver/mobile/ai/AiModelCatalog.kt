@@ -57,11 +57,11 @@ object AiModelCatalog {
 
         AiProvider.GEMINI -> listOf(
             // Paid first: the free tier may train on care notes.
-            AiModelOption("gemini-3.8-flash", recommendedForSummaries = true),
-            AiModelOption("gemini-3.5-flash"),
-            AiModelOption("gemini-3.5-flash-lite"),
+            AiModelOption("gemini-4-hydrogen", recommendedForSummaries = true),
+            AiModelOption("gemini-4-argon"),
+            AiModelOption("gemini-4-carbon"),
             // Gemini data use follows the key's billing tier, not the model.
-            AiModelOption("gemini-3.1-flash-lite"),
+            AiModelOption("gemini-3.6-flash"),
         )
 
         AiProvider.ANTHROPIC -> listOf(

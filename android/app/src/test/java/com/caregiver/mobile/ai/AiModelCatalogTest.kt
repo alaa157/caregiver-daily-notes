@@ -132,7 +132,7 @@ class AiModelCatalogTest {
 
     @Test
     fun geminiAlwaysNeedsTheKeyTierNotice() {
-        for (model in listOf("gemini-3.8-flash", "anything-else")) {
+        for (model in listOf("gemini-4-hydrogen", "anything-else")) {
             assertEquals(
                 AiDataUseNotice.KEY_TIER,
                 AiModelCatalog.dataUseNotice(AiProvider.GEMINI, model),
