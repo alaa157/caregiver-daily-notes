@@ -21,9 +21,9 @@ import com.caregiver.mobile.R
  */
 internal fun appLightScheme(cs: CaregiverColorScheme) = lightColorScheme(
     primary = cs.Primary,
-    onPrimary = Color.White,
+    onPrimary = onAccent(cs.Primary),
     primaryContainer = cs.Primary,
-    onPrimaryContainer = Color.White,
+    onPrimaryContainer = onAccent(cs.Primary),
     secondaryContainer = cs.BorderSoft,
     onSecondaryContainer = cs.Ink,
     background = cs.Background,
@@ -51,9 +51,9 @@ internal fun appLightScheme(cs: CaregiverColorScheme) = lightColorScheme(
 
 internal fun appDarkScheme(cs: CaregiverColorScheme) = darkColorScheme(
     primary = cs.Primary,
-    onPrimary = Color.White,
+    onPrimary = onAccent(cs.Primary),
     primaryContainer = cs.Primary,
-    onPrimaryContainer = Color.White,
+    onPrimaryContainer = onAccent(cs.Primary),
     secondaryContainer = cs.BorderSoft,
     onSecondaryContainer = cs.Ink,
     background = cs.Background,
@@ -123,7 +123,7 @@ fun palettePrimary(palette: String?): Color = paletteAccent(palette)
 
 internal val MetrolistLightScheme = lightColorScheme(
     primary = Color(0xFF6750A4),
-    onPrimary = Color.White,
+    onPrimary = onAccent(Color(0xFF6750A4)),
     primaryContainer = Color(0xFFEADDFF),
     onPrimaryContainer = Color(0xFF21005D),
     secondaryContainer = Color(0xFFE8DEF8),
@@ -204,7 +204,14 @@ fun CaregiverTheme(darkTheme: Boolean = false, palette: Any? = null, pureBlack: 
     val scheme = if (p == ColorPalettes.METROLIST) {
         base
     } else {
-        base.copy(primary = primary, primaryContainer = primary)
+        base.copy(
+            primary = primary,
+            primaryContainer = primary,
+            // The Material roles are re-pointed at the chosen accent below,
+            // so their foregrounds must follow that accent too.
+            onPrimary = onAccent(primary),
+            onPrimaryContainer = onAccent(primary),
+        )
     }
     val finalScheme = if (darkTheme && pureBlack) scheme.copy(surface = Color.Black, background = Color.Black) else scheme
     MaterialTheme(
