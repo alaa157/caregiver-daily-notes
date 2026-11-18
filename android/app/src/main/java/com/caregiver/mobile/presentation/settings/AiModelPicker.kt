@@ -132,10 +132,12 @@ internal fun AiModelPickerContent(
             }
             TextButton(
                 onClick = onRefresh,
-                enabled = source != null && !refreshing,
-                modifier = Modifier.semantics {
-                    contentDescription = stringResource(R.string.settings_ai_models_refresh)
-                },
+                enabled = !refreshing && (source != null || loadError),
+                modifier = Modifier
+                    .testTag("ai_model_refresh")
+                    .semantics {
+                        contentDescription = stringResource(R.string.settings_ai_models_refresh)
+                    },
             ) {
                 Text(stringResource(R.string.settings_ai_models_refresh))
             }
@@ -231,6 +233,17 @@ internal fun AiModelPickerContent(
             )
         }
 
+        // "Other model" is an action, not a row in the list. Pinning it above
+        // the list keeps it reachable with hundreds of models, and keeps the
+        // custom field next to it when selected. It is never search-filtered.
+        ModelOptionRow(
+            option = null,
+            label = stringResource(R.string.settings_ai_model_other),
+            selected = otherSelected,
+            tag = "model_option_other",
+            onClick = { otherManuallySelected = true },
+        )
+
         // The list owns the remaining height. Nothing above it scrolls, and
         // the static notes live at its end so they stay reachable.
         LazyColumn(
@@ -269,15 +282,6 @@ internal fun AiModelPickerContent(
                         otherManuallySelected = false
                         onSelect(option.id)
                     },
-                )
-            }
-            item(key = "other") {
-                ModelOptionRow(
-                    option = null,
-                    label = stringResource(R.string.settings_ai_model_other),
-                    selected = otherSelected,
-                    tag = "model_option_other",
-                    onClick = { otherManuallySelected = true },
                 )
             }
             AiModelCatalog.dataUseNotice(provider, selectedModel.ifBlank { provider.defaultModel })
