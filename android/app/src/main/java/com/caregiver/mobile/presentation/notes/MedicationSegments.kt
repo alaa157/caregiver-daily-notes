@@ -66,10 +66,10 @@ fun MedicationSegments(
             val isSelected = selected == value
             Surface(
                 shape = RoundedCornerShape(AppDimens.ControlRadius),
-                color = if (isSelected) CaregiverColors.Primary else CaregiverColors.Surface,
+                color = if (isSelected) CaregiverColors.Primary else CaregiverColors.PillGrayContainer,
                 border = BorderStroke(
                     1.dp,
-                    if (isSelected) CaregiverColors.Primary else CaregiverColors.Border,
+                    if (isSelected) CaregiverColors.Primary else CaregiverColors.PillGrayContent,
                 ),
                 modifier = Modifier
                     .weight(1f)
