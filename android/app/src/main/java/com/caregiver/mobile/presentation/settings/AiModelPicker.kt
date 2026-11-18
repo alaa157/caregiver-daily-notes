@@ -92,6 +92,11 @@ internal fun AiModelPickerContent(
     }
     val showSpinner = refreshing || (source == null && !loadError)
     val searchDescription = stringResource(R.string.settings_ai_models_search_description)
+    // Hoisted out of the semantics lambdas: stringResource is @Composable and
+    // semantics {} is not, so calling it inline does not compile.
+    val loadingDescription = stringResource(R.string.settings_ai_models_loading)
+    val refreshDescription = stringResource(R.string.settings_ai_models_refresh)
+    val closeDescription = stringResource(R.string.settings_ai_models_close)
 
     Column(
         modifier = Modifier
@@ -124,7 +129,7 @@ internal fun AiModelPickerContent(
                         .padding(start = 8.dp)
                         .size(16.dp)
                         .semantics(mergeDescendants = true) {
-                            contentDescription = stringResource(R.string.settings_ai_models_loading)
+                            contentDescription = loadingDescription
                         },
                     strokeWidth = 2.dp,
                     color = MaterialTheme.colorScheme.primary,
@@ -136,7 +141,7 @@ internal fun AiModelPickerContent(
                 modifier = Modifier
                     .testTag("ai_model_refresh")
                     .semantics {
-                        contentDescription = stringResource(R.string.settings_ai_models_refresh)
+                        contentDescription = refreshDescription
                     },
             ) {
                 Text(stringResource(R.string.settings_ai_models_refresh))
@@ -144,12 +149,12 @@ internal fun AiModelPickerContent(
             IconButton(
                 onClick = onDismiss,
                 modifier = Modifier.semantics {
-                    contentDescription = stringResource(R.string.settings_ai_models_close)
+                    contentDescription = closeDescription
                 },
             ) {
                 Icon(
                     imageVector = Icons.Filled.Close,
-                    contentDescription = stringResource(R.string.settings_ai_models_close),
+                    contentDescription = closeDescription,
                 )
             }
         }
