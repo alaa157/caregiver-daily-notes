@@ -1,0 +1,201 @@
+@startuml
+' ---- SHARED STYLE (identical in all five diagrams) ----
+!theme plain
+skinparam backgroundColor #F7F6F3
+skinparam defaultTextColor #1F2A2E
+skinparam fontName "IBM Plex Sans"
+skinparam fontSize 11
+skinparam shadowing false
+skinparam handwritten false
+skinparam linetype ortho
+skinparam nodesep 30
+skinparam ranksep 40
+skinparam arrowColor #5B6B70
+
+skinparam title {
+  FontColor #0E6B66
+  FontSize 15
+  FontName "IBM Plex Sans"
+}
+skinparam note {
+  BackgroundColor #E8F0F9
+  BorderColor #24507E
+  FontColor #1F2A2E
+}
+skinparam rectangle {
+  BackgroundColor #FAF9F5
+  BorderColor #C5CDD1
+  FontColor #1F2A2E
+}
+skinparam component {
+  BackgroundColor #FAF9F5
+  BorderColor #C5CDD1
+  FontColor #1F2A2E
+}
+skinparam database {
+  BackgroundColor #DCE5D6
+  BorderColor #00897B
+  FontColor #1F2A2E
+}
+skinparam actor {
+  BackgroundColor #FAF9F5
+  BorderColor #00897B
+  FontColor #1F2A2E
+}
+skinparam package {
+  BackgroundColor #F7F6F3
+  BorderColor #00897B
+  FontColor #0E6B66
+}
+skinparam entity {
+  BackgroundColor #FAF9F5
+  BorderColor #00897B
+  FontColor #1F2A2E
+}
+skinparam sequence {
+  ActorBackgroundColor #FAF9F5
+  ActorBorderColor #00897B
+  ActorFontColor #1F2A2E
+  ParticipantBackgroundColor #FAF9F5
+  ParticipantBorderColor #C5CDD1
+  ParticipantFontColor #1F2A2E
+  LifeLineBorderColor #C5CDD1
+  LifeLineBackgroundColor #DCE5D6
+  ArrowColor #00897B
+  MessageTextColor #1F2A2E
+  NoteBackgroundColor #E8F0F9
+  NoteBorderColor #24507E
+  NoteFontColor #1F2A2E
+  BoxBackgroundColor #F7F6F3
+  BoxBorderColor #00897B
+}
+skinparam activity {
+  BackgroundColor #DCE5D6
+  BorderColor #00897B
+  ArrowColor #5B6B70
+  FontColor #1F2A2E
+}
+skinparam activityDiamond {
+  BackgroundColor #FBF0D9
+  BorderColor #7A4B00
+  FontColor #7A4B00
+}
+' ---- END SHARED STYLE ----
+
+title ERD — Caregiver Daily Notes data model
+
+entity ACCOUNT {
+  account_id : uuid <<PK>>
+  --
+  email : text
+  password_hash : text
+  locale : text
+  theme : text
+  created_at : timestamp
+}
+
+entity RECIPIENT {
+  recipient_id : uuid <<PK>>
+  --
+  account_id : uuid <<FK>>
+  display_name : text
+  archived : boolean
+  created_at : timestamp
+}
+
+entity NOTE {
+  note_id : uuid <<PK>>
+  --
+  account_id : uuid <<FK>>
+  recipient_id : uuid <<FK>>
+  body : text
+  created_at : timestamp
+  sync_state : text
+}
+
+entity ADDENDUM {
+  addendum_id : uuid <<PK>>
+  --
+  note_id : uuid <<FK>>
+  account_id : uuid <<FK>>
+  body : text
+  created_at : timestamp
+}
+
+entity PLAN {
+  plan_id : uuid <<PK>>
+  --
+  account_id : uuid <<FK>>
+  recipient_id : uuid <<FK>>
+  version : integer
+  state : text
+  body : text
+  updated_at : timestamp
+}
+
+entity AUDIT_EVENT {
+  event_id : uuid <<PK>>
+  --
+  account_id : uuid <<FK>>
+  entity_type : text
+  entity_id : uuid
+  action : text
+  occurred_at : timestamp
+}
+
+entity AI_KEY_SLOT {
+  account_id : uuid <<FK>>
+  --
+  provider : text
+  encrypted_key : text
+}
+
+entity MODEL_CACHE {
+  provider : text
+  --
+  account_id : uuid <<FK>>
+  snapshot_json : text
+  fetched_at : timestamp
+  model_count : integer
+}
+
+entity SYNC_OUTBOX {
+  outbox_id : uuid <<PK>>
+  --
+  account_id : uuid <<FK>>
+  entity_type : text
+  entity_id : uuid
+  created_at : timestamp
+}
+
+ACCOUNT ||--o{ RECIPIENT : owns
+ACCOUNT ||--o{ NOTE : writes
+RECIPIENT ||--o{ NOTE : has
+NOTE ||--o{ ADDENDUM : appends
+ACCOUNT ||--o{ PLAN : owns
+RECIPIENT ||--o{ PLAN : covers
+ACCOUNT ||--o{ AUDIT_EVENT : emits
+ACCOUNT ||--o{ AI_KEY_SLOT : holds
+ACCOUNT ||--o{ MODEL_CACHE : caches
+ACCOUNT ||--o{ SYNC_OUTBOX : queues
+
+note right of ACCOUNT
+  Every child row carries account_id;
+  all reads and writes are scoped to
+  the active account.
+end note
+
+note bottom of ADDENDUM
+  Append-only: rows are inserted,
+  never edited or deleted.
+end note
+
+note bottom of AI_KEY_SLOT
+  Primary key: (account_id, provider).
+end note
+
+note bottom of MODEL_CACHE
+  Primary key: (provider, account_id).
+end note
+
+@enduml
