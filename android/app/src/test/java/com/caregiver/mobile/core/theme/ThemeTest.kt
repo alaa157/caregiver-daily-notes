@@ -106,17 +106,24 @@ class ThemeTest {
     @Test
     fun authRedesignColorTokensMatchDesign() {
         // Issue #864: dedicated tokens for the new Login/Register screens.
-        // Muted / field border / divider intentionally match the shared
-        // roles; the three specified new values are the page background and
-        // the disabled-social fill and icon tint.
+        // Muted / divider intentionally match the shared roles; the field
+        // border has its own accessible value (#982), and the remaining
+        // specified new values are the page background and the disabled-
+        // social fill and icon tint.
         assertEquals(Color(0xFFF6F8F7), CaregiverColors.AuthBackground)
         assertEquals(Color(0xFF5B6B70), CaregiverColors.AuthMuted)
-        assertEquals(Color(0xFFC5CDD1), CaregiverColors.AuthFieldBorder)
+        assertEquals(Color(0xFF869398), CaregiverColors.AuthFieldBorder)
         assertEquals(Color(0xFFE3E7EA), CaregiverColors.AuthDivider)
         assertEquals(Color(0xFFF0F3F2), CaregiverColors.AuthDisabledFill)
         assertEquals(Color(0xFFA3AEAD), CaregiverColors.AuthDisabledIcon)
         // The primary teal is reused, never redefined.
         assertEquals(Color(0xFF0E6B66), CaregiverColors.Primary)
+        // #982: the border is the field's only affordance in light mode.
+        val light = caregiverScheme(dark = false, palette = "teal")
+        assertTrue(
+            "light field border contrast must be >= 3:1 (was ${contrastRatio(light.AuthFieldBorder, light.Surface)})",
+            contrastRatio(light.AuthFieldBorder, light.Surface) >= 3.0,
+        )
     }
 
     @Test
@@ -124,10 +131,15 @@ class ThemeTest {
         val dark = caregiverScheme(dark = true, palette = "teal")
         assertEquals(Color(0xFF121616), dark.AuthBackground)
         assertEquals(Color(0xFFB0BEC5), dark.AuthMuted)
-        assertEquals(Color(0xFF3A4548), dark.AuthFieldBorder)
+        assertEquals(Color(0xFF7C8A8E), dark.AuthFieldBorder)
         assertEquals(Color(0xFF2A3336), dark.AuthDivider)
         assertEquals(Color(0xFF232C2A), dark.AuthDisabledFill)
         assertEquals(Color(0xFF6E7C78), dark.AuthDisabledIcon)
+        // #982: the raised Surface fill needs the same 3:1 boundary in dark.
+        assertTrue(
+            "dark field border contrast must be >= 3:1 (was ${contrastRatio(dark.AuthFieldBorder, dark.Surface)})",
+            contrastRatio(dark.AuthFieldBorder, dark.Surface) >= 3.0,
+        )
     }
 
     @Test

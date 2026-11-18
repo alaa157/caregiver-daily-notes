@@ -33,14 +33,16 @@ internal class ModelListHttp(
     private val client: OkHttpClient = OkHttpConfig.defaultOkHttpClient(),
 ) {
     suspend fun get(url: String, headers: Map<String, String>): HttpJson = withContext(Dispatchers.IO) {
-        // The same validation as the completion clients: no whitespace, query,
+        // The same validation as the completion clients: no whitespace,
         // fragment or userinfo, http(s) only, and cleartext only to dev hosts.
+        // A query string is allowed here: model-list APIs paginate with
+        // `pageSize`/`pageToken`, and the caller URL-encodes those values.
         val httpUrl = url.toHttpUrlOrNull()
         if (httpUrl == null || httpUrl.host.isEmpty()) {
             return@withContext HttpJson.Failed("invalid_url")
         }
         if (url.any { it.isWhitespace() } ||
-            httpUrl.query != null || httpUrl.fragment != null ||
+            httpUrl.fragment != null ||
             httpUrl.username.isNotEmpty() || httpUrl.password.isNotEmpty()) {
             return@withContext HttpJson.Failed("invalid_url")
         }

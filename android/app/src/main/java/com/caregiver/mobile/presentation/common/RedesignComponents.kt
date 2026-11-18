@@ -83,8 +83,8 @@ fun StatusChip(
     variant: StatusChipVariant,
     modifier: Modifier = Modifier,
 ) {
-    val container = if (variant == StatusChipVariant.Done) DoneChipContainer else NotYetChipContainer
-    val content = if (variant == StatusChipVariant.Done) DoneChipContent else NotYetChipContent
+    val container = if (variant == StatusChipVariant.Done) CaregiverColors.DoneChipContainer else CaregiverColors.NotYetChipContainer
+    val content = if (variant == StatusChipVariant.Done) CaregiverColors.DoneChipContent else CaregiverColors.NotYetChipContent
     Surface(
         shape = RoundedCornerShape(AppDimens.PillRadius),
         color = container,

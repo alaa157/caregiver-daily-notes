@@ -14,7 +14,6 @@ import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.semantics.Role
@@ -28,6 +27,7 @@ import androidx.compose.ui.unit.sp
 import com.caregiver.mobile.R
 import com.caregiver.mobile.core.theme.CaregiverColors
 import com.caregiver.mobile.core.theme.PlexArabic
+import com.caregiver.mobile.core.theme.onAccent
 import com.caregiver.mobile.presentation.common.AppDimens
 
 /**
@@ -78,10 +78,10 @@ fun AppetiteSegments(
             val isSelected = shown == value
             Surface(
                 shape = RoundedCornerShape(AppDimens.ControlRadius),
-                color = if (isSelected) CaregiverColors.Primary else CaregiverColors.Surface,
+                color = if (isSelected) CaregiverColors.Primary else CaregiverColors.PillGrayContainer,
                 border = BorderStroke(
                     1.dp,
-                    if (isSelected) CaregiverColors.Primary else CaregiverColors.Border,
+                    if (isSelected) CaregiverColors.Primary else CaregiverColors.PillGrayContent,
                 ),
                 modifier = Modifier
                     .weight(1f)
@@ -106,7 +106,7 @@ fun AppetiteSegments(
                         fontFamily = PlexArabic,
                         fontWeight = FontWeight.Bold,
                         fontSize = 14.sp,
-                        color = if (isSelected) Color.White else CaregiverColors.Ink,
+                        color = if (isSelected) onAccent(CaregiverColors.Primary) else CaregiverColors.Ink,
                         textAlign = TextAlign.Center,
                     )
                 }

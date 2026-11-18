@@ -1,10 +1,26 @@
 package com.caregiver.mobile.core.theme
 
 import androidx.compose.runtime.SideEffect
-import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
-import androidx.compose.runtime.setValue
 import androidx.compose.ui.graphics.Color
+import kotlin.math.pow
+
+/**
+ * Foreground for content drawn on a solid accent fill. The selected note
+ * tiles use [CaregiverColors.Primary] as their fill, which can be a bright
+ * palette colour; white content is unreadable there, so bright fills get
+ * dark ink and dark fills keep white. Issue #984.
+ */
+internal fun onAccent(accent: Color): Color {
+    fun channel(c: Float): Double {
+        val v = c.toDouble()
+        return if (v <= 0.03928) v / 12.92 else ((v + 0.055) / 1.055).pow(2.4)
+    }
+    val luminance = 0.2126 * channel(accent.red) +
+        0.7152 * channel(accent.green) +
+        0.0722 * channel(accent.blue)
+    return if (luminance > 0.45) Color(0xFF1F2A2E) else Color.White
+}
 
 /**
  * Theme-aware caregiver palette. Replaces the old fixed [CaregiverColors]
@@ -40,10 +56,12 @@ data class CaregiverColorScheme(
 
     // Auth redesign (issues #864-#877). Dedicated roles so the new Login and
     // Register screens can be restyled without touching the tokens other
-    // screens share. AuthMuted / AuthFieldBorder / AuthDivider deliberately
-    // carry the same values as Muted / Border / BorderSoft so dark mode stays
-    // consistent; the auth-specific names keep the redesign decoupled from a
-    // generic role whose meaning may change later.
+    // screens share. AuthMuted / AuthDivider deliberately carry the same
+    // values as Muted / BorderSoft so dark mode stays consistent; the
+    // auth-specific names keep the redesign decoupled from a generic role
+    // whose meaning may change later. AuthFieldBorder has its own value: it
+    // is the field's only affordance, so it must clear WCAG 1.4.11's 3:1
+    // against the Surface fill, unlike the decorative Border token.
     val AuthBackground: Color,
     val AuthMuted: Color,
     val AuthFieldBorder: Color,
@@ -71,7 +89,6 @@ object CaregiverColors {
         get() = _current.value
 
     // Observable backing for Compose.
-    private var _state by mutableStateOf(caregiverScheme(dark = false, palette = "teal"))
     val state: androidx.compose.runtime.State<CaregiverColorScheme>
         get() = _current
 
@@ -162,7 +179,7 @@ fun caregiverScheme(dark: Boolean, palette: String, pureBlack: Boolean = false):
             Skeleton = Color(0xFF2A3336),
             AuthBackground = Color(0xFF121616),
             AuthMuted = Color(0xFFB0BEC5),
-            AuthFieldBorder = Color(0xFF3A4548),
+            AuthFieldBorder = Color(0xFF7C8A8E),
             AuthDivider = Color(0xFF2A3336),
             AuthDisabledFill = Color(0xFF232C2A),
             AuthDisabledIcon = Color(0xFF6E7C78),
@@ -203,7 +220,7 @@ fun caregiverScheme(dark: Boolean, palette: String, pureBlack: Boolean = false):
             Skeleton = Color(0xFFE3E7EA),
             AuthBackground = Color(0xFFF6F8F7),
             AuthMuted = Color(0xFF5B6B70),
-            AuthFieldBorder = Color(0xFFC5CDD1),
+            AuthFieldBorder = Color(0xFF869398),
             AuthDivider = Color(0xFFE3E7EA),
             AuthDisabledFill = Color(0xFFF0F3F2),
             AuthDisabledIcon = Color(0xFFA3AEAD),
