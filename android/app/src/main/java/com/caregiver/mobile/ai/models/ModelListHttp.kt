@@ -3,11 +3,14 @@ package com.caregiver.mobile.ai.models
 import com.caregiver.mobile.ai.classifyLlmHttpError
 import com.caregiver.mobile.core.network.OkHttpConfig
 import com.caregiver.mobile.data.api.ApiClient
-import kotlinx.coroutines.Dispatchers
-import kotlinx.coroutines.withContext
+import kotlin.coroutines.resume
+import kotlinx.coroutines.suspendCancellableCoroutine
+import okhttp3.Call
+import okhttp3.Callback
 import okhttp3.HttpUrl.Companion.toHttpUrlOrNull
 import okhttp3.OkHttpClient
 import okhttp3.Request
+import okhttp3.Response
 import okhttp3.ResponseBody
 import java.io.IOException
 
@@ -32,58 +35,91 @@ sealed interface HttpJson {
 class ModelListHttp(
     private val client: OkHttpClient = OkHttpConfig.defaultOkHttpClient(),
 ) {
-    suspend fun get(url: String, headers: Map<String, String>): HttpJson = withContext(Dispatchers.IO) {
-        // The same validation as the completion clients: no whitespace,
-        // fragment or userinfo, http(s) only, and cleartext only to dev hosts.
-        // A query string is allowed here: model-list APIs paginate with
-        // `pageSize`/`pageToken`, and the caller URL-encodes those values.
-        val httpUrl = url.toHttpUrlOrNull()
-        if (httpUrl == null || httpUrl.host.isEmpty()) {
-            return@withContext HttpJson.Failed("invalid_url")
-        }
-        if (url.any { it.isWhitespace() } ||
-            httpUrl.fragment != null ||
-            httpUrl.username.isNotEmpty() || httpUrl.password.isNotEmpty()) {
-            return@withContext HttpJson.Failed("invalid_url")
-        }
-        if (httpUrl.scheme !in listOf("http", "https")) {
-            return@withContext HttpJson.Failed("invalid_url")
-        }
-        if (httpUrl.scheme == "http" && !ApiClient.isDevHost(httpUrl.host)) {
-            return@withContext HttpJson.Failed("invalid_url")
-        }
-        // The caller owns provider-specific header names; every value still
-        // has to be a printable ASCII key value, as for a completion request.
-        if (headers.values.any { value ->
-                value.isBlank() || value.any { c ->
-                    c.isWhitespace() || c.isISOControl() || c.code !in 0x21..0x7e
-                }
-            }) {
-            return@withContext HttpJson.Failed("invalid_key")
-        }
-
-        val request = Request.Builder().url(url).get().apply {
-            headers.forEach { (name, value) -> header(name, value) }
-        }.build()
-
-        try {
-            client.newCall(request).execute().use { response ->
-                val body = response.body
-                    ?: return@withContext HttpJson.Failed("network")
-                val bounded = readBounded(body)
-                when {
-                    !response.isSuccessful ->
-                        HttpJson.Failed(classifyLlmHttpError(response.code, bounded.body))
-                    bounded.tooLarge -> HttpJson.Failed("too_large")
-                    else -> HttpJson.Ok(bounded.body)
+    suspend fun get(url: String, headers: Map<String, String>): HttpJson =
+        suspendCancellableCoroutine { continuation ->
+            fun resumeOnce(result: HttpJson) {
+                if (continuation.isActive) {
+                    continuation.resume(result)
                 }
             }
-        } catch (e: IOException) {
-            // Includes socket/connect/read timeouts. Cancellation is not an
-            // IOException, so a cancelled caller stays cancelled.
-            HttpJson.Failed("network")
+
+            // The same validation as the completion clients: no whitespace,
+            // fragment or userinfo, http(s) only, and cleartext only to dev hosts.
+            // A query string is allowed here: model-list APIs paginate with
+            // `pageSize`/`pageToken`, and the caller URL-encodes those values.
+            val httpUrl = url.toHttpUrlOrNull()
+            if (httpUrl == null || httpUrl.host.isEmpty()) {
+                resumeOnce(HttpJson.Failed("invalid_url"))
+                return@suspendCancellableCoroutine
+            }
+            if (url.any { it.isWhitespace() } ||
+                httpUrl.fragment != null ||
+                httpUrl.username.isNotEmpty() || httpUrl.password.isNotEmpty()) {
+                resumeOnce(HttpJson.Failed("invalid_url"))
+                return@suspendCancellableCoroutine
+            }
+            if (httpUrl.scheme !in listOf("http", "https")) {
+                resumeOnce(HttpJson.Failed("invalid_url"))
+                return@suspendCancellableCoroutine
+            }
+            if (httpUrl.scheme == "http" && !ApiClient.isDevHost(httpUrl.host)) {
+                resumeOnce(HttpJson.Failed("invalid_url"))
+                return@suspendCancellableCoroutine
+            }
+            // The caller owns provider-specific header names; every value still
+            // has to be a printable ASCII key value, as for a completion request.
+            if (headers.values.any { value ->
+                    value.isBlank() || value.any { c ->
+                        c.isWhitespace() || c.isISOControl() || c.code !in 0x21..0x7e
+                    }
+                }) {
+                resumeOnce(HttpJson.Failed("invalid_key"))
+                return@suspendCancellableCoroutine
+            }
+
+            val request = Request.Builder().url(url).get().apply {
+                headers.forEach { (name, value) -> header(name, value) }
+            }.build()
+
+            // The blocking execute() below used to keep running after the
+            // caller (for example the model sheet's LaunchedEffect) was
+            // cancelled. Enqueue instead and tie the OkHttp call to the caller.
+            val call = client.newCall(request)
+            continuation.invokeOnCancellation { call.cancel() }
+
+            call.enqueue(object : Callback {
+                override fun onFailure(call: Call, e: IOException) {
+                    // Includes socket/connect/read timeouts. Cancellation is
+                    // not an IOException, so a cancelled caller stays cancelled.
+                    resumeOnce(HttpJson.Failed("network"))
+                }
+
+                override fun onResponse(call: Call, response: Response) {
+                    try {
+                        response.use { resp ->
+                            val body = resp.body
+                            if (body == null) {
+                                resumeOnce(HttpJson.Failed("network"))
+                                return@use
+                            }
+                            val bounded = readBounded(body)
+                            val result = when {
+                                !resp.isSuccessful ->
+                                    HttpJson.Failed(classifyLlmHttpError(resp.code, bounded.body))
+                                bounded.tooLarge -> HttpJson.Failed("too_large")
+                                else -> HttpJson.Ok(bounded.body)
+                            }
+                            resumeOnce(result)
+                        }
+                    } catch (e: IOException) {
+                        // A failed bounded read or close must still complete
+                        // the continuation exactly once; nothing may escape
+                        // an OkHttp callback thread.
+                        resumeOnce(HttpJson.Failed("network"))
+                    }
+                }
+            })
         }
-    }
 
     private data class BoundedBody(val body: String, val tooLarge: Boolean)
 
