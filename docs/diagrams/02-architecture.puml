@@ -1,0 +1,168 @@
+@startuml
+' ---- SHARED STYLE (identical in all five diagrams) ----
+!theme plain
+skinparam backgroundColor #F7F6F3
+skinparam defaultTextColor #1F2A2E
+skinparam fontName "IBM Plex Sans"
+skinparam fontSize 11
+skinparam shadowing false
+skinparam handwritten false
+skinparam linetype ortho
+skinparam nodesep 30
+skinparam ranksep 40
+skinparam arrowColor #5B6B70
+
+skinparam title {
+  FontColor #0E6B66
+  FontSize 15
+  FontName "IBM Plex Sans"
+}
+skinparam note {
+  BackgroundColor #E8F0F9
+  BorderColor #24507E
+  FontColor #1F2A2E
+}
+skinparam rectangle {
+  BackgroundColor #FAF9F5
+  BorderColor #C5CDD1
+  FontColor #1F2A2E
+}
+skinparam component {
+  BackgroundColor #FAF9F5
+  BorderColor #C5CDD1
+  FontColor #1F2A2E
+}
+skinparam database {
+  BackgroundColor #DCE5D6
+  BorderColor #00897B
+  FontColor #1F2A2E
+}
+skinparam actor {
+  BackgroundColor #FAF9F5
+  BorderColor #00897B
+  FontColor #1F2A2E
+}
+skinparam package {
+  BackgroundColor #F7F6F3
+  BorderColor #00897B
+  FontColor #0E6B66
+}
+skinparam entity {
+  BackgroundColor #FAF9F5
+  BorderColor #00897B
+  FontColor #1F2A2E
+}
+skinparam sequence {
+  ActorBackgroundColor #FAF9F5
+  ActorBorderColor #00897B
+  ActorFontColor #1F2A2E
+  ParticipantBackgroundColor #FAF9F5
+  ParticipantBorderColor #C5CDD1
+  ParticipantFontColor #1F2A2E
+  LifeLineBorderColor #C5CDD1
+  LifeLineBackgroundColor #DCE5D6
+  ArrowColor #00897B
+  MessageTextColor #1F2A2E
+  NoteBackgroundColor #E8F0F9
+  NoteBorderColor #24507E
+  NoteFontColor #1F2A2E
+  BoxBackgroundColor #F7F6F3
+  BoxBorderColor #00897B
+}
+skinparam activity {
+  BackgroundColor #DCE5D6
+  BorderColor #00897B
+  ArrowColor #5B6B70
+  FontColor #1F2A2E
+}
+skinparam activityDiamond {
+  BackgroundColor #FBF0D9
+  BorderColor #7A4B00
+  FontColor #7A4B00
+}
+' ---- END SHARED STYLE ----
+
+!pragma layout smetana
+
+' The plain theme ignores the global font keys; restate them per element.
+skinparam component {
+  FontName "IBM Plex Sans"
+  FontSize 11
+}
+skinparam database {
+  FontName "IBM Plex Sans"
+  FontSize 11
+}
+skinparam package {
+  FontName "IBM Plex Sans"
+  FontSize 11
+}
+skinparam note {
+  FontName "IBM Plex Sans"
+  FontSize 11
+}
+skinparam arrow {
+  FontName "IBM Plex Sans"
+  FontSize 11
+  FontColor #1F2A2E
+}
+
+title Architecture — Caregiver Daily Notes
+
+left to right direction
+
+package "Android client" as AndroidClient {
+  component "Presentation (Compose)" as Presentation
+  component "Use cases / AI" as UseCases
+  component "Data (Room, per-account DB)" as Data
+  component "Platform (Keystore, backup)" as Platform
+  component "Model catalogue + picker" as ModelCatalog
+  database "accounts.db" as AccountsDb
+  database "notes-<accountId>.db" as NotesDb
+}
+
+package "Web client" as WebClient {
+  component "Landing / routes" as WebLanding
+  component "Auth + recipients" as WebAuth
+  component "Notes / addenda / history" as WebNotes
+  component "Summaries / plans" as WebSummaries
+  component "Runtime config" as WebConfig
+  component "i18n + RTL" as WebI18n
+}
+
+package "Backend" as BackendPkg {
+  component "JWT auth + ownership" as Auth
+  component "Notes + addenda (append-only)" as Notes
+  component "History / filtering" as History
+  component "Plans + audit" as Plans
+  component "Validation / idempotency" as Validation
+  component "AI proxy + template fallback" as AiProxy
+  database "Backend database" as BackendDb
+}
+
+component "Model providers" as ModelProviders
+
+Presentation --> UseCases
+UseCases --> Data
+Data --> Platform
+ModelCatalog --> UseCases
+Data --> AccountsDb
+Data --> NotesDb
+
+WebClient --> BackendPkg : HTTPS / JSON
+BackendPkg --> BackendDb
+
+AndroidClient ..> ModelProviders : BYOK, key stays on device
+BackendPkg --> ModelProviders : completion proxy
+
+note right of Platform
+  AI keys are encrypted in the device Keystore;
+  they never leave the device.
+end note
+
+note bottom of Data
+  All reads and writes are scoped
+  to the active account.
+end note
+
+@enduml
