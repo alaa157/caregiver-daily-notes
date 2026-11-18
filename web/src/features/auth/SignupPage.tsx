@@ -1,14 +1,13 @@
 import { useEffect, useRef, useState, type FormEvent } from 'react';
 import { Navigate, useLocation } from 'react-router-dom';
-import { Button, ButtonLink } from '../../components/Button';
+import { Button } from '../../components/Button';
 import { FieldError } from '../../components/Feedback';
 import { Icon } from '../../components/Icon';
-import { PagePanel } from '../../components/PagePanel';
-import { CareIllustration } from '../../components/CareIllustration';
 import { useI18n } from '../../i18n/I18nProvider';
 import type { MessageKey } from '../../i18n/translations';
 import { ApiError } from '../../lib/api';
 import { safeReturnPath } from '../../routes/authRedirect';
+import { AuthScreen } from './AuthScreen';
 import { useAuth } from './AuthProvider';
 import { MIN_PASSWORD_LENGTH } from './passwordRules';
 import './auth.css';
@@ -34,7 +33,7 @@ function errorMessage(error: unknown): MessageKey {
 }
 
 export function SignupPage() {
-  const { t } = useI18n();
+  const { t, language } = useI18n();
   const auth = useAuth();
   const location = useLocation();
   const [email, setEmail] = useState('');
@@ -89,14 +88,14 @@ export function SignupPage() {
   };
 
   return (
-    <PagePanel icon="user" eyebrow={t('authWelcome')} title={t('signupTitle')} description={t('signupDescription')}
-      aside={<><CareIllustration /><h2>{t('authAsideTitle')}</h2><p>{t('authAsideDescription')}</p></>}>
+    <AuthScreen language={language} variant="register" title={t('signupTitle')}>
       <form className="auth-form" aria-label={t('signupTitle')} noValidate onSubmit={submit}>
         {error && <div ref={errorRef} className="auth-error" role="alert" tabIndex={-1}><Icon name="alert-circle" size={20} /><p>{t(error)}</p></div>}
         <div className="auth-field">
           <label htmlFor="signup-email">{t('authEmail')}</label>
           <input ref={emailRef} id="signup-email" name="email" type="email" autoComplete="username" inputMode="email" dir="ltr"
             autoCapitalize="none" spellCheck={false} required value={email} readOnly={pending}
+            placeholder={t('authEmailPlaceholder')}
             aria-invalid={Boolean(errors.email)} aria-describedby={errors.email ? 'signup-email-error' : undefined}
             onChange={(event) => { setEmail(event.target.value); setErrors((current) => ({ ...current, email: undefined })); }} />
           {errors.email && <FieldError id="signup-email-error" message={t(errors.email)} />}
@@ -105,8 +104,8 @@ export function SignupPage() {
           <label htmlFor="signup-password">{t('authPassword')}</label>
           <div className="auth-password-row">
             <input ref={passwordRef} id="signup-password" name="password" type={showPassword ? 'text' : 'password'} autoComplete="new-password"
-              required value={password} readOnly={pending} dir="ltr" aria-invalid={Boolean(errors.password)}
-              aria-describedby={errors.password ? 'signup-password-error' : undefined}
+              required value={password} readOnly={pending} dir="ltr" placeholder={t('authPasswordPlaceholder')}
+              aria-invalid={Boolean(errors.password)} aria-describedby={errors.password ? 'signup-password-error' : undefined}
               onChange={(event) => { setPassword(event.target.value); setErrors((current) => ({ ...current, password: undefined })); }} />
             <button className="auth-password-toggle" type="button" aria-controls="signup-password" aria-pressed={showPassword}
               disabled={pending} onClick={() => setShowPassword((shown) => !shown)}>{t(showPassword ? 'authHidePassword' : 'authShowPassword')}</button>
@@ -118,7 +117,7 @@ export function SignupPage() {
           <div className="auth-password-row">
             <input ref={confirmRef} id="signup-confirm" name="confirmPassword" type={showConfirm ? 'text' : 'password'}
               autoComplete="new-password" required value={confirm} readOnly={pending} dir="ltr"
-              aria-invalid={Boolean(errors.confirm)}
+              placeholder={t('authConfirmPlaceholder')} aria-invalid={Boolean(errors.confirm)}
               aria-describedby={errors.confirm ? 'signup-confirm-error' : undefined}
               onChange={(event) => { setConfirm(event.target.value); setErrors((current) => ({ ...current, confirm: undefined })); }} />
             <button className="auth-password-toggle" type="button" aria-controls="signup-confirm" aria-pressed={showConfirm}
@@ -133,8 +132,6 @@ export function SignupPage() {
         <span className="auth-progress" role="status" aria-live="polite">{pending ? t('signupSubmitting') : ''}</span>
         <p className="auth-session-note"><Icon name="shield" size={16} />{t('authSessionNote')}</p>
       </form>
-      <p className="auth-switch">{t('signupHaveAccount')} <ButtonLink variant="text" to="/login">{t('signupSignIn')}</ButtonLink></p>
-      <ButtonLink variant="text" to="/"><Icon name="arrow-left" className="directional-icon" />{t('returnHome')}</ButtonLink>
-    </PagePanel>
+    </AuthScreen>
   );
 }

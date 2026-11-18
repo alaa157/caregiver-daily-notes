@@ -1,14 +1,13 @@
 import { useEffect, useRef, useState, type FormEvent } from 'react';
 import { Navigate, useLocation } from 'react-router-dom';
-import { Button, ButtonLink } from '../../components/Button';
+import { Button } from '../../components/Button';
 import { FieldError } from '../../components/Feedback';
 import { Icon } from '../../components/Icon';
-import { PagePanel } from '../../components/PagePanel';
-import { CareIllustration } from '../../components/CareIllustration';
 import { useI18n } from '../../i18n/I18nProvider';
 import type { MessageKey } from '../../i18n/translations';
 import { ApiError } from '../../lib/api';
 import { safeReturnPath } from '../../routes/authRedirect';
+import { AuthScreen } from './AuthScreen';
 import { useAuth } from './AuthProvider';
 import './auth.css';
 
@@ -24,7 +23,7 @@ function errorMessage(error: unknown): MessageKey {
 }
 
 export function LoginPage() {
-  const { t } = useI18n();
+  const { t, language } = useI18n();
   const auth = useAuth();
   const location = useLocation();
   const [email, setEmail] = useState('');
@@ -71,16 +70,18 @@ export function LoginPage() {
     }
   };
   return (
-    <PagePanel icon="lock" eyebrow={t('authWelcome')} title={t('loginTitle')} description={t('loginDescription')}
-      aside={<><CareIllustration /><h2>{t('authAsideTitle')}</h2><p>{t('authAsideDescription')}</p></>}>
-      {auth.reason === 'expired' && !error && <p className="notice" role="alert">{t('authSessionExpired')}</p>}
-      {auth.reason === 'signedOut' && <p className="notice" role="status">{t('authSignedOut')}</p>}
+    <AuthScreen language={language} variant="login" title={t('loginTitle')}
+      notices={<>
+        {auth.reason === 'expired' && !error && <p className="notice" role="alert">{t('authSessionExpired')}</p>}
+        {auth.reason === 'signedOut' && <p className="notice" role="status">{t('authSignedOut')}</p>}
+      </>}>
       <form className="auth-form" aria-label={t('loginTitle')} noValidate onSubmit={submit}>
         {error && <div ref={errorRef} className="auth-error" role="alert" tabIndex={-1}><Icon name="alert-circle" size={20} /><p>{t(error)}</p></div>}
         <div className="auth-field">
           <label htmlFor="auth-email">{t('authEmail')}</label>
           <input ref={emailRef} id="auth-email" name="email" type="email" autoComplete="username" inputMode="email" dir="ltr"
             autoCapitalize="none" spellCheck={false} required value={email} readOnly={pending}
+            placeholder={t('authEmailPlaceholder')}
             aria-invalid={Boolean(errors.email)} aria-describedby={errors.email ? 'auth-email-error' : undefined}
             onChange={(event) => { setEmail(event.target.value); setErrors((current) => ({ ...current, email: undefined })); }} />
           {errors.email && <FieldError id="auth-email-error" message={t(errors.email)} />}
@@ -89,8 +90,8 @@ export function LoginPage() {
           <label htmlFor="auth-password">{t('authPassword')}</label>
           <div className="auth-password-row">
             <input ref={passwordRef} id="auth-password" name="password" type={showPassword ? 'text' : 'password'} autoComplete="current-password"
-              required value={password} readOnly={pending} dir="ltr" aria-invalid={Boolean(errors.password)}
-              aria-describedby={errors.password ? 'auth-password-error' : undefined}
+              required value={password} readOnly={pending} dir="ltr" placeholder={t('authPasswordPlaceholder')}
+              aria-invalid={Boolean(errors.password)} aria-describedby={errors.password ? 'auth-password-error' : undefined}
               onChange={(event) => { setPassword(event.target.value); setErrors((current) => ({ ...current, password: undefined })); }} />
             <button className="auth-password-toggle" type="button" aria-controls="auth-password" aria-pressed={showPassword}
               disabled={pending} onClick={() => setShowPassword((shown) => !shown)}>{t(showPassword ? 'authHidePassword' : 'authShowPassword')}</button>
@@ -104,8 +105,6 @@ export function LoginPage() {
         <span className="auth-progress" role="status" aria-live="polite">{pending ? t('authSigningIn') : ''}</span>
         <p id="auth-session-note" className="auth-session-note"><Icon name="shield" size={16} />{t('authSessionNote')}</p>
       </form>
-      <p className="auth-switch">{t('loginNoAccount')} <ButtonLink variant="text" to="/signup">{t('signupCta')}</ButtonLink></p>
-      <ButtonLink variant="text" to="/"><Icon name="arrow-left" className="directional-icon" />{t('returnHome')}</ButtonLink>
-    </PagePanel>
+    </AuthScreen>
   );
 }
