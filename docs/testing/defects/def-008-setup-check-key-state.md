@@ -32,4 +32,4 @@ The mask indicator is present immediately before **and after** the tap (evidence
 2. If it reproduces manually: instrument `startSetupCheck` entry (key length only, never the key) and the dialog dismiss path; check for duplicate composition instances and `keyError` staleness.
 3. Clear `keyError` when a new setup check starts (cosmetic fix regardless of root cause).
 
-**Status: open — investigation pending.**
+**Status: closed by owner decision (2026-11-19).** Remaining verification deferred; findings and evidence preserved above. The automated emulator regression (AiSettingsKeyCommitUiTest) remains in the suite.
