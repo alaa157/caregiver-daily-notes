@@ -1,6 +1,6 @@
 # Test Strategy — Rafeek
 
-Living document for the DEPI Software Testing track capstone. Last verified: **2026-11-19**, against `main` at commit `f44aaf78`, executed on the project's Linux build VM (Debian 13, OpenJDK 21.0.12, Node 18+). Every count and result below was measured, not estimated; suites that were not executed in this pass are marked as inventory-only.
+Living document for the DEPI Software Testing track capstone. Last verified: **2026-11-19**, against `main` at commit `d70795fc`, executed on the project's Linux build VM (Debian 13, OpenJDK 21.0.12, Node 18+). Every count and result below was measured, not estimated; suites that were not executed in this pass are marked as inventory-only.
 
 ---
 
@@ -48,17 +48,17 @@ Backend integration tests boot real Spring contexts against per-test in-memory H
 
 ## 4. Coverage (JaCoCo 0.8.12)
 
-Measured 2026-11-19 with the suite in its current state (§5):
+Measured 2026-11-19 with the suite fully green (700/700, run 7):
 
 | Counter | Covered | Total | % |
 |---|---|---|---|
-| Lines | 1,841 | 3,661 | **50.3%** |
-| Instructions | 9,599 | 19,194 | 50.0% |
-| Branches | 888 | 2,030 | 43.7% |
-| Methods | 396 | 885 | 44.7% |
-| Classes | 126 | 213 | 59.2% |
+| Lines | 3,423 | 3,670 | **93.3%** |
+| Instructions | 17,806 | 19,228 | 92.6% |
+| Branches | 1,560 | 2,034 | 76.7% |
+| Methods | 830 | 885 | 93.8% |
+| Classes | 212 | 213 | 99.5% |
 
-**Caveat:** 325 test errors (§6, D1) prevent the Spring integration layer from executing, so this figure is a floor, not the suite's true reach. Re-measure after D1 is fixed. Web and Android coverage reporting are not yet configured (§9).
+An earlier measurement under the DEF-001 cascade read 50.3% lines — a floor, because the integration layer could not execute. With DEF-001 fixed the true reach is the table above. Web and Android coverage reporting are not yet configured (§9).
 
 Reproduce (identical to the CI invocation):
 
@@ -72,31 +72,28 @@ mvn -f backend/pom.xml org.jacoco:jacoco-maven-plugin:0.8.12:prepare-agent test 
 
 | Suite | Result |
 |---|---|
-| Backend (`mvn test`, failure-ignore) | **700 run — 371 passed, 4 assertion failures, 325 errors.** All 325 errors trace to one root cause (D1). |
+| Backend (`mvn test` + JaCoCo) | **700 run — 700 passed, 0 failures, 0 errors** (run 7, after DEF-001/003/004/005/006 fixes). |
 | AI evaluation + deterministic safety | **Green.** `GoldenDatasetTest` (3), `EvalMetricsTest` (4), `EvalReportTest` (2), `SafetySignalEvaluatorTest` (15) all pass; the four metrics hold at `1.0`. |
-| Web unit (`vitest run`) | **1,080 run — 971 passed, 109 failed across 19 files** (D2). Run under concurrent build load; a 32-failure subset in `App`/`Settings`/`LandingRoute` was previously confirmed in an isolated run. Authoritative re-run pending in CI. |
+| Web unit (`vitest run`) | **1,080 run — 971 passed, 109 failed across 19 files** (DEF-002, test-only fixes in progress). A 32-failure subset was confirmed in an isolated run, ruling out load flakiness as the primary cause. |
 | Web typecheck / build | Green (verified 2026-11-18 during the rebrand pass). |
 | Playwright browser, live workflow | **Inventory-only this pass** — execution requires the built web app plus a running backend; counts verified statically. |
 | Android JVM / instrumentation | **Inventory-only this pass** — last full JVM execution was during the rebrand build; instrumentation runs on Revyl cloud devices, not yet in CI. |
 
-Backend assertion failures (the 4, distinct from the D1 cascade):
+The earlier failure inventory (325 cascade errors + 24 assertion failures) is fully resolved; each root cause is documented in the [defect register](defects/README.md).
 
-1. `SummaryServiceTest.excludesNotesOutsideTheInclusiveSummaryWindow`
-2. `SummaryServiceTest.periodBoundaries_useRequestedWindowOnly`
-3. `TokenBucketLimiterTest.refillsOverTime` (timing-sensitive)
-4. `ChatCompletionsLlmClientTest.nonOpenAiRequestBodies_remainByteForByteUnchanged`
+## 6. Defect register
 
-## 6. Open defects
+Defects found by this testing effort are documented with evidence, repro, fix commits, and verification in [`docs/testing/defects/`](defects/README.md), each tracked as a GitHub issue:
 
-Full defect reports with evidence and repro scripts are the next deliverable (`docs/testing/defects/`); each will be filed as a GitHub issue. Summary of what is currently open:
-
-| ID | Severity | Component | Summary |
+| ID | Issue | Summary | Status |
 |---|---|---|---|
-| D1 | **Blocker (test layer)** | backend / migrations | `V17__add_medication_intake_event_void.sql` uses a multi-column `ALTER TABLE … ADD COLUMN voided_at TIMESTAMP WITH TIME ZONE …` that H2 2.2.224 rejects even in PostgreSQL mode. `flywayInitializer` fails, cascading into **325 errors** across every Spring-context test class. Production (PostgreSQL) is unaffected. Fix options: H2-compatible migration SQL, split ALTER statements, or move integration tests to real PostgreSQL (Testcontainers). |
-| D2 | Major | web / unit | 109 failing unit cases across 19 files; dominant pattern is the BYOK connection-test credential flow and navigation/activity-feed drift (e.g. `App.test` 28, `Summary`/`Overview`/`Recipients` 17 each). Systematic workflow drift, not random flakiness. |
-| D3 | Minor–Major | backend | The 4 assertion failures in §5: summary window boundaries (×2), rate-limiter refill timing, non-OpenAI request-body byte contract. |
-| D4 | Major | android / AI | BYOK setup reports "Your AI key was rejected" with a verified-valid OpenRouter key. Typing fidelity proven (exact 73-char match); the app's exact request replayed from the VM returns HTTP 200; all bundled model IDs exist on OpenRouter. Suspected app-side request handling. Found on a Revyl cloud device. |
-| D5 | Major | backend / AI | Plan generation fails `invalid_model_output` across three models: the prompt never states the output JSON schema, models return `actions`, and `StrictJsonParser` requires `changes`. Reproduced with `openai/gpt-4o-mini`, `openai/gpt-6.2-sol`, `anthropic/claude-sonnet-5`. Proposed fix: explicit schema instruction in the plan prompt. |
+| DEF-001 | [#1095](https://github.com/alaa157/caregiver-daily-notes/issues/1095) | V17 migration incompatible with H2 — 325 cascading errors | fixed |
+| DEF-002 | [#1096](https://github.com/alaa157/caregiver-daily-notes/issues/1096) | 109 stale web unit tests after UI contract changes | in progress |
+| DEF-003 | [#1097](https://github.com/alaa157/caregiver-daily-notes/issues/1097) | Backend suites/docs stale after the unified error contract | fixed |
+| DEF-004 | [#1098](https://github.com/alaa157/caregiver-daily-notes/issues/1098) | Typed corrections 500 on never-recorded fields | fixed |
+| DEF-005 | [#1099](https://github.com/alaa157/caregiver-daily-notes/issues/1099) | Nondeterministic LLM request bodies (Map.of) | fixed |
+| DEF-006 | [#1100](https://github.com/alaa157/caregiver-daily-notes/issues/1100) | Plan prompt never stated the output schema | fixed (live-verified) |
+| DEF-007 | [#1101](https://github.com/alaa157/caregiver-daily-notes/issues/1101) | Android key-error classification | fixed (device verification pending) |
 
 ## 7. Defect management
 
@@ -120,8 +117,8 @@ All data is synthetic. No real patient or care-recipient data is used in any tes
 
 ## 9. Known gaps and next milestones
 
-1. **CI is currently disabled** (`ci.yml`, `disabled_manually`). Re-enable after D1–D3 are fixed; wire the eval-report artifact upload that `docs/ai/eval-harness.md` describes.
-2. D1 blocks the backend integration layer — highest-leverage fix in the repo.
+1. **CI is currently disabled** (`ci.yml`, `disabled_manually`). The backend suite is now green locally, so re-enablement is the next milestone; wire the eval-report artifact upload that `docs/ai/eval-harness.md` describes.
+2. DEF-002 (web unit drift) must land before the frontend CI job can pass.
 3. Android instrumentation is not yet part of CI (cloud-device execution is manual).
 4. No coverage gates for web or Android; backend coverage is reported but not gated.
 5. No load/performance, penetration, or mutation testing yet — out of scope for the capstone, recorded so the boundary is explicit.
@@ -135,7 +132,7 @@ All data is synthetic. No real patient or care-recipient data is used in any tes
 - Android JVM suite green; instrumentation smoke pass on a cloud device.
 - Every open defect triaged with an issue link; no untracked blockers.
 
-**Current state: not met** — see §5 and §6. This document is updated as each milestone lands.
+**Current state: partially met** — backend, eval, and typecheck/build are green; web unit (DEF-002) and the CI gate remain. This document is updated as each milestone lands.
 
 ---
 

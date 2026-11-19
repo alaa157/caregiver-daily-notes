@@ -197,7 +197,7 @@ API_BASE_URL=https://your-backend.example npm run config:runtime
 
 The test estate spans **93 backend test classes** (632 test methods + 12 parameterized; JUnit 5, JaCoCo), **49 web unit-test files** (1,080 cases; Vitest + Testing Library), **81 Playwright browser test definitions** run across four viewports (324 runs) with axe-core accessibility checks and English/Arabic workflow coverage, **194 Android JVM test classes** (1,651 methods) plus **35 Compose UI instrumentation classes** (179 methods), and a **22-case deterministic AI evaluation harness** whose four safety metrics are enforced at `1.0`. Defects are tracked one per issue — **542 issues closed** to date.
 
-The test strategy, measured coverage, current execution status, and open defects are documented in [`docs/testing/`](docs/testing/).
+Measured backend coverage (JaCoCo, 2026-11-19, suite green at 700/700): **93.3% lines, 76.7% branches**. The test strategy, execution status, and the defect register — seven defects found by this testing effort, each with evidence, fix, and verification — are documented in [`docs/testing/`](docs/testing/).
 
 GitHub Actions workflows in [`.github/workflows/`](.github/workflows/) cover the frontend suite (unit, typecheck, build, Playwright), the backend suite with JaCoCo coverage, a Docker image build, and Android APK releases.
 
@@ -267,7 +267,8 @@ setup.sh          One-command local setup
 
 | Document | Contents |
 |---|---|
-| [`docs/testing/`](docs/testing/) | Test strategy, inventory, measured coverage, execution status, open defects |
+| [`docs/testing/`](docs/testing/) | Test strategy, inventory, measured coverage, execution status |
+| [`docs/testing/defects/`](docs/testing/defects/) | Defect register — evidence, repro, fixes, verification (issues #1095–#1101) |
 | [`docs/diagrams/`](docs/diagrams/) | UML set — context, architecture, sequence, activity, ERD (SVG/PNG/PDF/PlantUML) |
 | [`docs/api/daily-notes.md`](docs/api/daily-notes.md) | Notes, addenda, corrections, signals, idempotency, error codes |
 | [`docs/api/recipients.md`](docs/api/recipients.md) | Recipient lifecycle, care details, archive and restore |
