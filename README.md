@@ -25,6 +25,7 @@ Two clients, one domain model: a **React web application** and a **native Kotlin
 - [Data handling and privacy](#data-handling-and-privacy)
 - [Repository layout](#repository-layout)
 - [Documentation](#documentation)
+- [Contributors](#contributors)
 - [License](#license)
 - [Contributing](#contributing)
 
@@ -272,6 +273,18 @@ setup.sh          One-command local setup
 | [`docs/privacy/README.md`](docs/privacy/README.md) | Verified data-handling inventory and policy gap |
 | [`docs/brand/the-gather/`](docs/brand/the-gather/) | Selected brand concept — Rafeek "The Gather" mark and logo files |
 | [`android/README.md`](android/README.md) | Android build variants, local accounts, data layout |
+
+## Contributors
+
+Rafeek is a four-person team. Contributions are summarised from the repository's
+commit history and issue tracker:
+
+| Contributor | GitHub | Area of work |
+|---|---|---|
+| **Alaa Shehata** (team lead) | [`alaa157`](https://github.com/alaa157) | Project lead and full-stack owner: Android app (Kotlin/Compose, local-first release, BYOK AI and model picker, OpenRouter integration), backend features (auth, safety signals, medications, AI summaries), branding (Rafeek "The Gather"), CI workflows, documentation, diagrams and repo setup. |
+| **Mohamed Hemdan** | [`mohamed-hemdan1`](https://github.com/mohamed-hemdan1) | Backend — care plans, audit and authorization: plan API and lifecycle (accept / edit / dismiss, versioning, active-plan uniqueness), append-only audit events with owner-scoped reads, caregiver-role authorization for verified JWTs, and plan/audit/ownership integration tests. |
+| **Mahmoud Hewidy** | [`hewidyy`](https://github.com/hewidyy) | Web frontend (React + TypeScript + Vite): project foundation, caregiver authentication (Task 14), recipient management (15), daily notes with append-only corrections (16), notes history and filtering (Task 5), summaries and protected care-plan workflows (Tasks 6–7), and later UI refreshes across workflows. |
+| **Ebrahim Ahmed** | [`ebrahimahmedss47-commits`](https://github.com/ebrahimahmedss47-commits) | Backend — daily notes API: implemented the daily notes API (issue #47) and completed its acceptance criteria (issue #56). |
 
 ## License
 
