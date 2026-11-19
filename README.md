@@ -1,12 +1,12 @@
-# Caregiver Daily Notes
+# Rafeek — رفيق
 
-![Caregiver Daily Notes preview](web/public/caregiver-notes-preview.svg)
+![Rafeek preview](web/public/caregiver-notes-preview.svg)
 
 A care-support system for recording structured daily observations about the people you care for, reviewing their history, and generating AI-assisted summaries and care plans from those notes.
 
 Two clients, one domain model: a **React web application** and a **native Kotlin/Compose Android app**. Both are built around the same append-only note record and the same safety rules.
 
-> **Project notice.** Caregiver Daily Notes is a capstone project using synthetic data only. It is not a diagnostic or medical-monitoring system, is not medical advice, and must not be used with real patient or care-recipient data.
+> **Project notice.** Rafeek is a capstone project using synthetic data only. It is not a diagnostic or medical-monitoring system, is not medical advice, and must not be used with real patient or care-recipient data.
 
 ---
 
@@ -261,6 +261,7 @@ setup.sh          One-command local setup
 | [`docs/design-system/DESIGN-STYLE.md`](docs/design-system/DESIGN-STYLE.md) | Android visual design guide |
 | [`docs/design-system/DECISIONS.md`](docs/design-system/DECISIONS.md) | Design system parity decisions |
 | [`docs/privacy/README.md`](docs/privacy/README.md) | Verified data-handling inventory and policy gap |
+| [`docs/brand/the-gather/`](docs/brand/the-gather/) | Selected brand concept — Rafeek "The Gather" mark and logo files |
 | [`android/README.md`](android/README.md) | Android build variants, local accounts, data layout |
 
 ## License

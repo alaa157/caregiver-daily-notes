@@ -164,7 +164,7 @@ describe('authenticated grouped settings page', () => {
     expect(within(navigation).getByRole('link', { name: 'Notes' })).toHaveAttribute('href', '/app/notes/new');
     expect(within(navigation).getByRole('link', { name: 'History' })).toHaveAttribute('href', '/app/notes');
     expect(within(navigation).getByRole('link', { name: 'Care plans' })).toHaveAttribute('href', '/app/notes/plans');
-    expect(document.title).toBe('Settings · Caregiver Daily Notes');
+    expect(document.title).toBe('Settings · Rafeek');
 
     await user.click(within(navigation).getByRole('link', { name: 'Home' }));
     expect(await screen.findByRole('heading', { name: 'Caregiver workspace' })).toBeVisible();

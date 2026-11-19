@@ -1,6 +1,6 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
-    <string name="app_name">Caregiver Notes</string>
+    <string name="app_name">Rafeek</string>
     <string name="tab_home">Home</string>
     <string name="tab_people">People</string>
     <string name="tab_notes">Notes</string>
@@ -579,7 +579,7 @@
     <string name="settings_palette_rose">Rose</string>
     <string name="settings_data">Data</string>
     <string name="settings_server_section">Server</string>
-    <string name="settings_app_version">Caregiver Daily Notes v%1$s</string>
+    <string name="settings_app_version">Rafeek v%1$s</string>
     <string name="settings_ai_summary_prompt">Summary</string>
     <string name="settings_ai_plan_prompt">Plan</string>
     <string name="settings_ai_summary_system_prompt">Summary system prompt</string>

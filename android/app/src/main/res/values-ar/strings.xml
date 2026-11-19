@@ -1,6 +1,6 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
-    <string name="app_name">ملاحظات مقدم الرعاية</string>
+    <string name="app_name">رفيق</string>
     <string name="tab_home">الرئيسية</string>
     <string name="tab_people">الأشخاص</string>
     <string name="tab_notes">الملاحظات</string>
@@ -589,7 +589,7 @@
     <string name="settings_palette_rose">وردي</string>
     <string name="settings_data">البيانات</string>
     <string name="settings_server_section">الخادم</string>
-    <string name="settings_app_version">Caregiver Daily Notes، الإصدار %1$s</string>
+    <string name="settings_app_version">رفيق، الإصدار %1$s</string>
     <string name="settings_ai_summary_prompt">الملخص</string>
     <string name="settings_ai_plan_prompt">الخطة</string>
     <string name="settings_ai_summary_system_prompt">موجه نظام الملخص</string>

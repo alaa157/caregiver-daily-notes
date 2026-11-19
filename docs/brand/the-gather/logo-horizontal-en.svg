@@ -1,0 +1,8 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="580" height="144" viewBox="0 0 580 144" role="img" aria-labelledby="svg-title svg-desc">
+<title id="svg-title">Rafeek en logo</title><desc id="svg-desc">The Gather identity, en lockup. Four rounded arc-fragments sit around a shared centre. No one fragment claims to be the whole; the negative space is as important as the pieces.</desc><g transform="translate(18 24) scale(.98)"><g fill="none" stroke="#285B45" stroke-width="10" stroke-linecap="round">
+          <path d="M48 16a32 32 0 0 1 30 21"/>
+          <path d="M80 48a32 32 0 0 1-21 30"/>
+          <path d="M48 80a32 32 0 0 1-30-21"/>
+          <path d="M16 48a32 32 0 0 1 21-30"/>
+        </g><circle cx="48" cy="48" r="6.4" fill="#C77F68"/></g>
+        <text x="142" y="91" font-family="DM Sans, Inter, sans-serif" font-size="48" font-weight="700" letter-spacing="-2.1" fill="#213B32">Rafeek</text></svg>

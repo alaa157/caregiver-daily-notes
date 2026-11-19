@@ -22,10 +22,10 @@ export function CareIllustration() {
       <div className="journal-paper journal-paper--back" />
       <div className="journal-paper journal-paper--front">
         <div className="journal-binding" />
-        <div className="journal-heading"><Icon name="leaf" size={22} /><span>{t('illustrationLabel')}</span></div>
+        <div className="journal-heading"><Icon name="gather" size={22} /><span>{t('illustrationLabel')}</span></div>
         <div className="journal-divider" />
         <div className="journal-rules"><span /><span /><span /><span /></div>
-        <div className="journal-stamp"><Icon name="leaf" size={36} /></div>
+        <div className="journal-stamp"><Icon name="gather" size={36} /></div>
         <span className="journal-caption">{t('illustrationCaption')}</span>
       </div>
       <div className="illustration-language"><Icon name="globe" size={18} /><span lang="ar" dir="rtl">العربية</span><span className="language-divider" /><span lang="en" dir="ltr">English</span></div>

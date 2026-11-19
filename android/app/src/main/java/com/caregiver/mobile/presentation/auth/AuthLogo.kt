@@ -16,17 +16,18 @@ import com.caregiver.mobile.core.theme.CaregiverColors
 import com.caregiver.mobile.presentation.common.AppDimens
 
 // Auth redesign logo geometry (#865). No design token covers the square or
-// heart size, so these stay local to the mark; the radius (16 dp) and colour
+// mark size, so these stay local to the mark; the radius (16 dp) and colour
 // (teal) come from the #864 tokens below. Keeping them here makes AuthLogo
 // self-contained, with no reference to AuthForm.
 private val AuthLogoSquare = 52.dp
-private val AuthLogoHeart = 28.dp
+private val AuthLogoMark = 38.dp
 
 /**
- * Reusable auth hero mark: a vector outline heart on a 52 dp teal rounded
- * square (16 dp radius). The teal is the shared primary role — it is identical
- * in light and dark themes — and the heart is baked white in the drawable, so
- * the mark renders the same on every device and font.
+ * Reusable auth hero mark: the Rafeek "Gather" symbol (four white arc-fragments
+ * with a clay centre dot) on a 52 dp teal rounded square (16 dp radius). The
+ * teal is the shared primary role — it is identical in light and dark themes —
+ * and the symbol is baked white in the drawable, so the mark renders the same
+ * on every device and font.
  *
  * Purely decorative: the brand meaning is carried by the screen's heading, so
  * the whole mark is cleared from the semantics tree rather than given a
@@ -42,9 +43,9 @@ fun AuthLogo(modifier: Modifier = Modifier) {
             .clearAndSetSemantics { },
     ) {
         Image(
-            painter = painterResource(R.drawable.ic_auth_heart),
+            painter = painterResource(R.drawable.ic_auth_mark),
             contentDescription = null,
-            modifier = Modifier.size(AuthLogoHeart),
+            modifier = Modifier.size(AuthLogoMark),
         )
     }
 }

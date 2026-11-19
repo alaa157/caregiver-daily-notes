@@ -23,11 +23,11 @@ class CareSummaryShareTextTest {
         val text = CareSummaryShare.shareText(
             summaryText = actualSummary,
             dateText = "Oct 19, 2026",
-            appName = "Caregiver Notes",
+            appName = "Rafeek",
             template = englishTemplate,
         )
         assertEquals(
-            "Care Summary\nShared on: Oct 19, 2026\n\n$actualSummary\n\nShared from Caregiver Notes",
+            "Care Summary\nShared on: Oct 19, 2026\n\n$actualSummary\n\nShared from Rafeek",
             text,
         )
     }
@@ -51,7 +51,7 @@ class CareSummaryShareTextTest {
     fun blankSummaryHidesShareAction() {
         assertNull(
             CareSummaryShare.shareText(
-                "", "Oct 19, 2026", "Caregiver Notes", englishTemplate,
+                "", "Oct 19, 2026", "Rafeek", englishTemplate,
             ),
         )
         assertNull(
@@ -70,7 +70,7 @@ class CareSummaryShareTextTest {
         val text = CareSummaryShare.shareText(
             summaryText = summary,
             dateText = "Oct 19, 2026",
-            appName = "Caregiver Notes",
+            appName = "Rafeek",
             template = englishTemplate,
         )!!
         assertTrue(text.contains(summary))

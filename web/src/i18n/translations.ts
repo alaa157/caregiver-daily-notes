@@ -85,7 +85,7 @@ export const messages = {
     settingsNotAvailable: 'Not available yet',
     settingsNavigation: 'Settings',
     workspaceSecondaryNavigation: 'Additional workspace links',
-    brand: 'Caregiver Daily Notes',
+    brand: 'Rafeek',
     brandTagline: 'Clarity for everyday care',
     appearance: 'Appearance',
     themeSystem: 'System',
@@ -249,7 +249,7 @@ export const messages = {
     configErrorDescription: 'The runtime configuration could not be loaded. Check config.json and try again.',
     retry: 'Retry',
     required: 'This field is required.',
-    footer: 'Caregiver Daily Notes · DEPI project',
+    footer: 'Rafeek · DEPI project',
   },
   ar: {
     ...recipientMessages.ar,
@@ -331,7 +331,7 @@ export const messages = {
     settingsNotAvailable: 'غير متاح حتى الآن',
     settingsNavigation: 'الإعدادات',
     workspaceSecondaryNavigation: 'روابط إضافية لمساحة العمل',
-    brand: 'ملاحظات الرعاية اليومية',
+    brand: 'رفيق',
     brandTagline: 'وضوح في تفاصيل الرعاية',
     appearance: 'المظهر',
     themeSystem: 'النظام',
@@ -495,7 +495,7 @@ export const messages = {
     configErrorDescription: 'تعذر تحميل إعدادات التشغيل. تحقق من ملف config.json ثم حاول مجددًا.',
     retry: 'إعادة المحاولة',
     required: 'هذا الحقل مطلوب.',
-    footer: 'ملاحظات الرعاية اليومية · مشروع DEPI',
+    footer: 'رفيق · مشروع DEPI',
   },
 } as const;
 

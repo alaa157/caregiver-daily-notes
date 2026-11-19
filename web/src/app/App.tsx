@@ -22,7 +22,7 @@ const SettingsPage = lazy(() => import('../features/settings/SettingsPage').then
 function NotFoundPage() {
   const { t } = useI18n();
   return (
-    <PagePanel icon="leaf" eyebrow={t('notFoundLabel')} title={t('pageNotFound')} description={t('pageNotFoundDescription')}>
+    <PagePanel icon="gather" eyebrow={t('notFoundLabel')} title={t('pageNotFound')} description={t('pageNotFoundDescription')}>
       <ButtonLink variant="secondary" to="/"><Icon name="arrow-left" className="directional-icon" />{t('returnHome')}</ButtonLink>
     </PagePanel>
   );

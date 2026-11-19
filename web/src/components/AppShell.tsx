@@ -98,7 +98,7 @@ export function AppShell({ children }: { children: ReactNode }) {
       {!isWorkspace && !isAuthRoute && <header className={`site-header${auth.status === 'authenticated' ? ' site-header--workspace' : ''}`}>
         <div className="header-inner container">
           <Link className="brand" to={auth.status === 'authenticated' ? '/app' : '/'}>
-            <span className="brand-mark"><Icon name="leaf" size={25} /></span>
+            <span className="brand-mark"><Icon name="gather" size={25} /></span>
             <span className="brand-text"><span>{t('brand')}</span><span className="brand-tagline">{t('brandTagline')}</span></span>
           </Link>
           <div className="nav-utilities">
@@ -146,7 +146,7 @@ export function AppShell({ children }: { children: ReactNode }) {
       </main> : (auth.status === 'authenticated' ? <ByokProvider>{children}</ByokProvider> : children)}
       {!isAuthRoute && <footer className="site-footer">
         <div className="container footer-inner">
-          <span className="footer-brand"><Icon name="leaf" size={18} />{t('footer')}</span>
+          <span className="footer-brand"><Icon name="gather" size={18} />{t('footer')}</span>
           <span className="footer-note">{t('note')}</span>
         </div>
       </footer>}
@@ -289,7 +289,7 @@ export function AppLayout() {
       aria-label={mobile && drawerOpen ? t('appNavigation') : undefined} onKeyDown={mobile && drawerOpen ? trapDrawerFocus : undefined}>
       <aside className="app-sidebar">
         <Link className="app-sidebar-brand" to="/app" onClick={() => closeDrawer(true)}>
-          <span className="brand-mark"><Icon name="leaf" size={24} /></span>
+          <span className="brand-mark"><Icon name="gather" size={24} /></span>
           <span className="app-sidebar-brand-text"><strong>{t('brand')}</strong><span>{t('brandTagline')}</span></span>
         </Link>
         <nav className="app-sidebar-nav" aria-label={t('appNavigation')}>

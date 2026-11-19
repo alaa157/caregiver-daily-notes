@@ -40,3 +40,7 @@ logs/
 
 # Revyl CLI local device-session state.
 .revyl/
+
+# Android local build state.
+android/local.properties
+android/.gradle/
