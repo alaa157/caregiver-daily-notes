@@ -48,7 +48,7 @@ Notes are never edited in place. Corrections are appended as **addenda** or as t
   <img src="docs/screenshots/web/en-03-home.png" alt="Web workspace — daily overview with note availability and recent activity" width="760" />
 </p>
 <p align="center">
-  <img src="docs/screenshots/android/17-home-attention.png" alt="Android home — deterministic care alert for a reported fall" width="320" />
+  <img src="docs/screenshots/android/12-home-medication-dose.png" alt="Android home — care alert, medication dose tracking, and daily notes" width="320" />
   <img src="docs/screenshots/android/39-home-ar.png" alt="Android home in Arabic — full RTL layout" width="320" />
 </p>
 
