@@ -303,6 +303,7 @@ setup.sh          One-command local setup
 | [`docs/design-system/DECISIONS.md`](docs/design-system/DECISIONS.md) | Design system parity decisions |
 | [`docs/privacy/README.md`](docs/privacy/README.md) | Verified data-handling inventory and policy gap |
 | [`docs/brand/the-gather/`](docs/brand/the-gather/) | Selected brand concept — Rafeek "The Gather" mark and logo files |
+| [`docs/guide/`](docs/guide/) | Caregiver user guide — English and Arabic walkthroughs |
 | [`android/README.md`](android/README.md) | Android build variants, local accounts, data layout |
 | [`CHANGELOG.md`](CHANGELOG.md) | Milestones and release history |
 
