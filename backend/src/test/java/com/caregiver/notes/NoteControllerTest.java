@@ -672,7 +672,7 @@ class NoteControllerTest {
     mvc.perform(post(NOTES + "/" + noteId + "/corrections")
             .header("Authorization", bearer(owner.token())).contentType(MediaType.APPLICATION_JSON)
             .content("{\"corrections\":[{\"field\":\"medicationStatus\",\"operation\":\"SET\",\"value\":\"UNKNOWN\"}]}"))
-        .andExpect(status().isUnprocessableEntity());
+        .andExpect(status().isBadRequest());
 
     mvc.perform(get(NOTES + "/" + noteId + "/corrections").header("Authorization", bearer(owner.token())))
         .andExpect(status().isOk()).andExpect(jsonPath("$.originalNote.observations.medicationStatus.state").value("RECORDED"))
@@ -690,7 +690,7 @@ class NoteControllerTest {
         + "{\"field\":\"fallReported\",\"operation\":\"SET\",\"value\":\"false\"}]}";
     mvc.perform(post(NOTES + "/" + noteId + "/corrections")
             .header("Authorization", bearer(owner.token())).contentType(MediaType.APPLICATION_JSON).content(invalid))
-        .andExpect(status().isUnprocessableEntity());
+        .andExpect(status().isBadRequest());
     assertThat(jdbcTemplate.queryForObject("select count(*) from note_correction_events", Integer.class)).isZero();
 
     mvc.perform(post(NOTES + "/" + noteId + "/corrections")

@@ -179,7 +179,7 @@ class NoteSignalServiceTest {
                 + "\"painScore\":{\"state\":\"NOT_RECORDED\"},"
                 + "\"fallReported\":{\"state\":\"NOT_RECORDED\"},"
                 + "\"freeText\":{\"state\":\"NOT_RECORDED\"}}}"))
-        .andExpect(status().isBadRequest());
+        .andExpect(status().isUnprocessableEntity());
   }
 
   @Test

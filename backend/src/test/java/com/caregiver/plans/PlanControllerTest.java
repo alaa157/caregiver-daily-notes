@@ -254,7 +254,7 @@ class PlanControllerTest {
     assertThat(stored.getStatus()).isEqualTo(PlanStatus.SUGGESTED);
     assertThat(stored.getSourceType()).isEqualTo(PlanSource.CAREGIVER_SUBMITTED);
     assertThat(stored.getSourceSummaryId()).isEqualTo("summary-structured");
-    assertThat(stored.getEvidenceNoteIds()).isEqualTo("outer-note");
+    assertThat(stored.getEvidenceNoteIds()).isEqualTo(noteId);
     assertThat(stored.getSourcePlanId()).isNull();
     assertThat(plans.findAllByRecipient_IdOrderByVersionNumberDesc(UUID.fromString(recipientId)))
         .filteredOn(plan -> plan.getStatus().isActiveAccepted())
@@ -281,7 +281,7 @@ class PlanControllerTest {
               .header("Authorization", bearer(owner.token()))
               .contentType(MediaType.APPLICATION_JSON)
               .content(mapper.writeValueAsBytes(request)))
-          .andExpect(status().isBadRequest());
+          .andExpect(status().isUnprocessableEntity());
     }
 
     assertThat(plans.findAllByRecipient_IdOrderByVersionNumberDesc(UUID.fromString(recipientId))).isEmpty();
@@ -551,7 +551,7 @@ class PlanControllerTest {
             .header("Authorization", bearer(owner.token()))
             .contentType(MediaType.APPLICATION_JSON)
             .content(request))
-        .andExpect(status().isBadRequest());
+        .andExpect(status().isUnprocessableEntity());
 
     assertThat(plans.findAllByRecipient_IdOrderByVersionNumberDesc(UUID.fromString(recipientId))).isEmpty();
   }
@@ -645,7 +645,7 @@ class PlanControllerTest {
             .header("Authorization", bearer(owner.token()))
             .contentType(MediaType.APPLICATION_JSON)
             .content("{\"content\":\"Caregiver-edited plan\",\"evidenceNoteIds\":[\"note-1\"]}"))
-        .andExpect(status().isUnprocessableEntity());
+        .andExpect(status().isBadRequest());
 
     mvc.perform(get(PLANS + recipientId + "/plans/history")
             .header("Authorization", bearer(owner.token())))

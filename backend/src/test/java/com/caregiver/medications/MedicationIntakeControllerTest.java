@@ -246,7 +246,7 @@ class MedicationIntakeControllerTest {
             .header("Authorization", bearer(fixture.caregiver().token()))
             .contentType(MediaType.APPLICATION_JSON)
             .content(mapper.writeValueAsBytes(request("NOT_RECORDED", "2026-10-22T08:30:00Z", "VERIFIED"))))
-        .andExpect(status().isUnprocessableEntity());
+        .andExpect(status().isBadRequest());
 
     assertThat(eventCount(fixture)).isZero();
   }
@@ -280,12 +280,15 @@ class MedicationIntakeControllerTest {
         Map.of("intakeState", "TAKEN", "verificationState", "VERIFIED"),
         request("TAKEN", "not-a-timestamp", "VERIFIED"));
 
-    for (Map<String, Object> invalidRequest : invalidRequests) {
+    // An unknown enum value or malformed timestamp cannot be deserialized
+    // (400); a missing required field is bean validation (422). Contract #843.
+    List<Integer> expectedStatuses = List.of(400, 422, 400);
+    for (int i = 0; i < invalidRequests.size(); i++) {
       mvc.perform(post(path(fixture))
               .header("Authorization", bearer(fixture.caregiver().token()))
               .contentType(MediaType.APPLICATION_JSON)
-              .content(mapper.writeValueAsBytes(invalidRequest)))
-          .andExpect(status().isUnprocessableEntity());
+              .content(mapper.writeValueAsBytes(invalidRequests.get(i))))
+          .andExpect(status().is(expectedStatuses.get(i)));
     }
 
     assertThat(eventCount(fixture)).isZero();

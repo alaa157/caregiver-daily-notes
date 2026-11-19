@@ -235,10 +235,10 @@ class SummaryPlanHttpTest {
   void rejectsInvalidByokRequestFieldsWithoutEchoingCredentials() throws Exception {
     String secret = "invalid-byok-secret";
     call("/api/summaries/byok", owner, Map.of("summary", request(7, recipientId)))
-        .andExpect(status().isBadRequest());
+        .andExpect(status().isUnprocessableEntity());
     call("/api/summaries/byok", owner, Map.of("credentials",
         Map.of("providerId", "GEMINI", "model", "gemini-3.8-flash", "apiKey", secret)))
-        .andExpect(status().isBadRequest());
+        .andExpect(status().isUnprocessableEntity());
     var invalidCredentials = Map.of("providerId", "GEMINI", "model", "gemini-3.8-flash", "apiKey", " ");
     var response = call("/api/summaries/byok", owner,
         Map.of("summary", request(7, recipientId), "credentials", invalidCredentials))
@@ -483,7 +483,7 @@ class SummaryPlanHttpTest {
   void protectedFieldsCannotBeInjectedAtHttpEditBoundary(String field) throws Exception {
     seedAccepted(); JsonNode original = generate();
     var payload = new java.util.HashMap<String, Object>(edit(original, "10")); payload.put(field, "untrusted replacement");
-    call(path(original, "edit-and-accept"), owner, payload).andExpect(status().isUnprocessableEntity());
+    call(path(original, "edit-and-accept"), owner, payload).andExpect(status().isBadRequest());
     assertThat(history().size()).isEqualTo(2);
     assertThat(history().get(0).path("status").asText()).isEqualTo("SUGGESTED");
   }
@@ -510,7 +510,7 @@ class SummaryPlanHttpTest {
   @ParameterizedTest @ValueSource(strings = {"0", "-1", "366", "text", "20mg"})
   void invalidActionParameterValuesCannotCreateAnEditedVersion(String value) throws Exception {
     JsonNode original = generate();
-    call(path(original, "edit-and-accept"), owner, edit(original, value)).andExpect(status().isBadRequest());
+    call(path(original, "edit-and-accept"), owner, edit(original, value)).andExpect(status().isUnprocessableEntity());
     assertThat(history().size()).isEqualTo(1);
     assertThat(history().get(0).path("status").asText()).isEqualTo("SUGGESTED");
   }

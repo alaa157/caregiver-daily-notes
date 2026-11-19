@@ -37,7 +37,11 @@ class TokenBucketLimiterTest {
     assertThat(limiter.tryConsume("k").allowed()).isFalse();
 
     now.set(60_000);
+    // Continuous refill: only one token accrues between t=30s and t=60s.
     assertThat(limiter.tryConsume("k").allowed()).isTrue();
+    assertThat(limiter.tryConsume("k").allowed()).isFalse();
+
+    now.set(90_000);
     assertThat(limiter.tryConsume("k").allowed()).isTrue();
   }
 

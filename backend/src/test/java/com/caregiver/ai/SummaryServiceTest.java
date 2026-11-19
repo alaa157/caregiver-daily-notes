@@ -214,10 +214,14 @@ class SummaryServiceTest {
         new SummaryNote("n0", END.minusDays(10), "old news"),
         new SummaryNote("n1", END, "fresh news"));
 
-    // n0 is outside the 7-day window, so citing it must fail as unknown.
-    assertThatThrownBy(() -> svc.summarize(new SummaryRequest("r1", END, 7), notes, List.of()))
-        .isInstanceOf(InvalidModelOutputException.class)
-        .hasMessageContaining("n0");
+    // n0 is outside the 7-day window: its citation is rejected as unknown
+    // evidence, and with nothing surviving the summary degrades to
+    // INVALID_OUTPUT rather than presenting ungrounded text.
+    var result = svc.summarize(new SummaryRequest("r1", END, 7), notes, List.of());
+    assertThat(result.summary().observations()).isEmpty();
+    assertThat(result.summary().aiUnavailable()).isTrue();
+    assertThat(result.summary().unavailableReason()).isEqualTo("INVALID_OUTPUT");
+    assertThat(result.summary().droppedObservationCount()).isEqualTo(1);
   }
 
   @Test
@@ -264,10 +268,12 @@ class SummaryServiceTest {
       var summary = "{\"observations\":[{\"text\":\"outside\",\"noteId\":\"" + outside.noteId()
           + "\",\"quote\":\"outside evidence\"}],\"uncertainties\":[]}";
 
-      assertThatThrownBy(() -> capturing(requests, summary).summarize(
-          new SummaryRequest("r1", END, 7), List.of(outside), List.of()))
-          .isInstanceOf(InvalidModelOutputException.class)
-          .hasMessageContaining(outside.noteId());
+      var result = capturing(requests, summary).summarize(
+          new SummaryRequest("r1", END, 7), List.of(outside), List.of());
+      assertThat(result.summary().observations()).isEmpty();
+      assertThat(result.summary().aiUnavailable()).isTrue();
+      assertThat(result.summary().unavailableReason()).isEqualTo("INVALID_OUTPUT");
+      assertThat(result.summary().droppedObservationCount()).isEqualTo(1);
       assertThat(requests.getFirst().dataBlock()).doesNotContain(outside.noteId(), "outside evidence");
     }
   }
