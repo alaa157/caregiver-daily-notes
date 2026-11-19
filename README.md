@@ -37,7 +37,7 @@ Two clients, one domain model: a **React web application** and a **native Kotlin
 - [AI features and safety rules](#ai-features-and-safety-rules)
 - [Data handling and privacy](#data-handling-and-privacy)
 - [Repository layout](#repository-layout)
-- [Documentation](#documentation)
+- [References & artifacts](#references--artifacts)
 - [Team & acknowledgments](#team--acknowledgments)
 - [License](#license)
 - [Contributing](#contributing)
@@ -195,9 +195,11 @@ API_BASE_URL=https://your-backend.example npm run config:runtime
 | Android JVM unit | `cd android && ./gradlew :app:testDebugUnitTest` |
 | Android instrumentation | `cd android && ./gradlew :app:connectedDebugAndroidTest` |
 
-The test estate spans **93 backend test classes** (632 test methods + 12 parameterized; JUnit 5, JaCoCo), **49 web unit-test files** (1,086 cases; Vitest + Testing Library), **81 Playwright browser test definitions** run across four viewports (324 runs) with axe-core accessibility checks and English/Arabic workflow coverage, **194 Android JVM test classes** (1,651 methods) plus **35 Compose UI instrumentation classes** (179 methods), and a **22-case deterministic AI evaluation harness** whose four safety metrics are enforced at `1.0`. Defects are tracked one per issue — **542 issues closed** to date.
+The test estate spans **93 backend test classes** (632 test methods + 12 parameterized; JUnit 5, JaCoCo), **49 web unit-test files** (1,086 cases; Vitest + Testing Library), **53 Playwright browser test definitions** run across four viewports (212 runs) with axe-core accessibility checks and English/Arabic workflow coverage, **192 Android JVM test classes** (1,654 methods) plus **35 Compose UI instrumentation classes** (179 methods), and a **22-case deterministic AI evaluation harness** whose four safety metrics are enforced at `1.0`. Defects are tracked one per issue — **542 issues closed** to date.
 
 Measured backend coverage (JaCoCo, 2026-11-19, suite green at 700/700): **93.3% lines, 76.7% branches**. The test strategy, execution status, and the defect register — seven defects found by this testing effort, each with evidence, fix, and verification — are documented in [`docs/testing/`](docs/testing/).
+
+**Formal deliverable:** the [Test Case Specification & Execution Report](docs/testing/rafeek-test-cases.pdf) (PDF, 61 pages) — IEEE 829-style key cases plus the full executed registers (700 backend, 1,086 web, 22 AI golden) and the specified E2E/Android inventories, prepared for DEPI review.
 
 GitHub Actions workflows in [`.github/workflows/`](.github/workflows/) cover the frontend suite (unit, typecheck, build, Playwright), the backend suite with JaCoCo coverage, a Docker image build, and Android APK releases.
 
@@ -263,22 +265,46 @@ docs/             API contracts, AI evaluation, UML diagrams, design system, pri
 setup.sh          One-command local setup
 ```
 
-## Documentation
+## References & artifacts
+
+### Testing & quality
+
+| Artifact | Contents |
+|---|---|
+| [**Formal Test Case Specification & Execution Report (PDF)**](docs/testing/rafeek-test-cases.pdf) | 61-page DEPI deliverable — 27 formal key cases, full executed registers, defect summary, sign-off |
+| [`docs/testing/`](docs/testing/) | Test strategy, inventory, measured coverage, execution status |
+| [`docs/testing/defects/`](docs/testing/defects/) | Defect register — evidence, repro, fixes, verification (issues #1095–#1101) |
+| [`docs/ai/eval-harness.md`](docs/ai/eval-harness.md) · [`docs/ai/golden/`](docs/ai/golden/) | AI evaluation metrics and the 22-case synthetic golden dataset |
+
+### Diagrams (UML set)
+
+| Diagram | View | Formats |
+|---|---|---|
+| System context | [`docs/diagrams/context/`](docs/diagrams/context/) | [PNG](docs/diagrams/context/01-context.png) · [SVG](docs/diagrams/context/01-context.svg) · [PDF](docs/diagrams/context/01-context.pdf) · [source](docs/diagrams/context/01-context.puml) |
+| Architecture | [`docs/diagrams/architecture/`](docs/diagrams/architecture/) | [PNG](docs/diagrams/architecture/02-architecture.png) · [SVG](docs/diagrams/architecture/02-architecture.svg) · [PDF](docs/diagrams/architecture/02-architecture.pdf) · [source](docs/diagrams/architecture/02-architecture.puml) |
+| Sequence (AI summary flow) | [`docs/diagrams/sequence/`](docs/diagrams/sequence/) | [PNG](docs/diagrams/sequence/03-sequence.png) · [SVG](docs/diagrams/sequence/03-sequence.svg) · [PDF](docs/diagrams/sequence/03-sequence.pdf) · [source](docs/diagrams/sequence/03-sequence.puml) |
+| Activity (daily note flow) | [`docs/diagrams/activity/`](docs/diagrams/activity/) | [PNG](docs/diagrams/activity/04-activity.png) · [SVG](docs/diagrams/activity/04-activity.svg) · [PDF](docs/diagrams/activity/04-activity.pdf) · [source](docs/diagrams/activity/04-activity.puml) |
+| Entity relationships | [`docs/diagrams/erd/`](docs/diagrams/erd/) | [PNG](docs/diagrams/erd/05-erd.png) · [SVG](docs/diagrams/erd/05-erd.svg) · [PDF](docs/diagrams/erd/05-erd.pdf) · [source](docs/diagrams/erd/05-erd.puml) |
+
+### Screenshots
+
+| Gallery | Contents |
+|---|---|
+| [`docs/screenshots/web/`](docs/screenshots/web/) | 29 captures — EN desktop, AR RTL, mobile; real seeded flows |
+| [`docs/screenshots/android/`](docs/screenshots/android/) | 27 captures — onboarding, home, note editor, medications, history, settings, full AR pass |
+
+### API, design & project docs
 
 | Document | Contents |
 |---|---|
-| [`docs/testing/`](docs/testing/) | Test strategy, inventory, measured coverage, execution status |
-| [`docs/testing/defects/`](docs/testing/defects/) | Defect register — evidence, repro, fixes, verification (issues #1095–#1101) |
-| [`CHANGELOG.md`](CHANGELOG.md) | Milestones and release history |
-| [`docs/diagrams/`](docs/diagrams/) | UML set — context, architecture, sequence, activity, ERD (SVG/PNG/PDF/PlantUML) |
 | [`docs/api/daily-notes.md`](docs/api/daily-notes.md) | Notes, addenda, corrections, signals, idempotency, error codes |
 | [`docs/api/recipients.md`](docs/api/recipients.md) | Recipient lifecycle, care details, archive and restore |
-| [`docs/ai/eval-harness.md`](docs/ai/eval-harness.md) | AI evaluation metrics and golden dataset |
 | [`docs/design-system/DESIGN-STYLE.md`](docs/design-system/DESIGN-STYLE.md) | Android visual design guide |
 | [`docs/design-system/DECISIONS.md`](docs/design-system/DECISIONS.md) | Design system parity decisions |
 | [`docs/privacy/README.md`](docs/privacy/README.md) | Verified data-handling inventory and policy gap |
 | [`docs/brand/the-gather/`](docs/brand/the-gather/) | Selected brand concept — Rafeek "The Gather" mark and logo files |
 | [`android/README.md`](android/README.md) | Android build variants, local accounts, data layout |
+| [`CHANGELOG.md`](CHANGELOG.md) | Milestones and release history |
 
 ## Team & acknowledgments
 

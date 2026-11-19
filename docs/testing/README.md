@@ -4,6 +4,8 @@ Living document for the DEPI Software Testing track capstone. Last verified: **2
 
 ---
 
+**Formal deliverable:** [rafeek-test-cases.pdf](rafeek-test-cases.pdf) — the IEEE 829-style Test Case Specification & Execution Report (61 pages) prepared for DEPI review: 27 formal key cases, full executed registers (700 backend, 1,086 web, 22 AI golden), specified E2E/Android inventories, defect summary, and sign-off block.
+
 ## 1. Purpose and scope
 
 Rafeek ships three testable deliverables from one domain model:
@@ -38,9 +40,9 @@ Testing effort is weighted toward the failure modes that would harm a care recip
 | Backend unit + integration | JUnit 5, Spring Boot Test, Flyway, in-memory H2 (`MODE=PostgreSQL`) | **93 test classes — 632 `@Test` methods + 12 parameterized** | `mvn -f backend/pom.xml test` |
 | Web unit | Vitest 2.1 + Testing Library (jsdom) | **49 files — 1,086 executed cases** | `cd web && npm test` |
 | Web static | TypeScript 5.6 compiler; Vite build + metadata check | whole codebase | `npm run typecheck` / `npm run build` |
-| Web browser | Playwright 1.64, axe-core; 4 viewport projects (desktop 1280×900, tablet 768×1024, mobile 390×844, compact 320×740) | **81 test definitions × 4 viewports = 324 runs** (11 e2e specs + browser contracts); EN/AR workflows covered inside specs | `npm run test:e2e` |
+| Web browser | Playwright 1.64, axe-core; 4 viewport projects (desktop 1280×900, tablet 768×1024, mobile 390×844, compact 320×740) | **53 test definitions × 4 viewports = 212 runs** (11 e2e specs + browser contracts); EN/AR workflows covered inside specs | `npm run test:e2e` |
 | Web live workflow | Playwright, separate config, real backend | end-to-end caregiver workflow | `npm run test:e2e:live` |
-| Android JVM | JUnit on-device-free | **194 test classes — 1,651 `@Test` methods** | `cd android && ./gradlew :app:testDebugUnitTest` |
+| Android JVM | JUnit on-device-free | **192 test classes — 1,654 `@Test` methods** | `cd android && ./gradlew :app:testDebugUnitTest` |
 | Android instrumentation | Compose UI Test (`androidx.compose.ui.test`) | **35 test classes — 179 `@Test` methods** | `./gradlew :app:connectedDebugAndroidTest` (cloud device) |
 | AI evaluation | Deterministic harness over golden JSON | **22 cases** (`docs/ai/golden/`), 4 metrics enforced at `1.0` | runs inside the backend suite (`GoldenDatasetTest`, `EvalMetricsTest`, `EvalReportTest`) |
 
