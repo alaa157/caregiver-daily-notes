@@ -15,11 +15,16 @@ export function LandingFooter({ c, language, onLanguageToggle }: {
       <div className="container footer-inner">
         <div>
           <div className="footer-brand">
-            <svg aria-hidden="true" fill="none" focusable="false" height="26" viewBox="0 0 28 28" width="26">
-              <path d="M14 24.2S3.3 17.8 3.3 10.5A5.9 5.9 0 0 1 14 7.1a5.9 5.9 0 0 1 10.7 3.4C24.7 17.8 14 24.2 14 24.2Z" stroke="currentColor" strokeWidth="1.7" />
-              <path d="M9.1 14.2c2.2-.3 4.1.2 5.3 2.5 1-2 2.5-3.2 4.8-3.5" stroke="currentColor" strokeLinecap="round" strokeWidth="1.5" />
+            <svg aria-hidden="true" fill="none" focusable="false" height="26" viewBox="0 0 96 96" width="26">
+              <g stroke="currentColor" strokeLinecap="round" strokeWidth="10">
+                <path d="M48 16a32 32 0 0 1 30 21" />
+                <path d="M80 48a32 32 0 0 1-21 30" />
+                <path d="M48 80a32 32 0 0 1-30-21" />
+                <path d="M16 48a32 32 0 0 1 21-30" />
+              </g>
+              <circle cx="48" cy="48" r="6.4" fill="#C77F68" stroke="none" />
             </svg>
-            <span lang="en">{c.brand}</span>
+            <span lang={language}>{c.brand}</span>
           </div>
           <div className="footer-copy">{c.footerCopy}</div>
         </div>

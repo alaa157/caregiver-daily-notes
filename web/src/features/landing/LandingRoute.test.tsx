@@ -82,21 +82,21 @@ describe('public landing page', () => {
     expect(document.documentElement.dir).toBe('rtl');
     expect(screen.getByText(/كما كُتب، وقد يتضمن معلومات تكشف الهوية/)).toBeInTheDocument();
   });
-  it('marks the brand name as English in the header and footer on both pages', () => {
+  it('marks the brand name with the page language in the header and footer', () => {
     const { container } = setup();
     const brandSpans = () => Array.from(container.querySelectorAll<HTMLElement>(
-      '.brand-name strong[lang="en"], .footer-brand span[lang="en"]',
+      '.brand-name strong, .footer-brand span[lang]',
     ));
 
     expect(brandSpans()).toHaveLength(2);
     expect(brandSpans().every((span) => span.getAttribute('lang') === 'en')).toBe(true);
-    expect(brandSpans().every((span) => span.textContent === 'Caregiver Daily Notes')).toBe(true);
+    expect(brandSpans().every((span) => span.textContent === 'Rafeek')).toBe(true);
 
     fireEvent.click(headerToggle(container));
 
     expect(brandSpans()).toHaveLength(2);
-    expect(brandSpans().every((span) => span.getAttribute('lang') === 'en')).toBe(true);
-    expect(brandSpans().every((span) => span.textContent === 'Caregiver Daily Notes')).toBe(true);
+    expect(brandSpans().every((span) => span.getAttribute('lang') === 'ar')).toBe(true);
+    expect(brandSpans().every((span) => span.textContent === 'رفيق')).toBe(true);
   });
 
   it('marks the language toggle label with the language it is written in', () => {

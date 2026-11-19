@@ -187,14 +187,14 @@ describe('application foundation', () => {
     expect(screen.getByRole('main')).toHaveFocus();
     expect(window.scrollTo).toHaveBeenCalledTimes(1);
     expect(window.scrollTo).toHaveBeenCalledWith(expect.objectContaining({ top: 0 }));
-    expect(document.title).toBe('Caregiver sign in · Caregiver Daily Notes');
+    expect(document.title).toBe('Caregiver sign in · Rafeek');
 
     await user.click(screen.getByRole('link', { name: 'Return home' }));
 
     expect(screen.getByRole('heading', { level: 1, name: 'The little details are the story of care.' })).toBeInTheDocument();
     expect(screen.getByRole('main')).toHaveFocus();
     expect(window.scrollTo).toHaveBeenCalledTimes(2);
-    expect(document.title).toBe('Home · Caregiver Daily Notes');
+    expect(document.title).toBe('Home · Rafeek');
   });
   it('provides a focusable main landmark as the skip-link target', () => {
     renderRoute('/');
@@ -216,13 +216,13 @@ describe('application foundation', () => {
     expect(document.documentElement.lang).toBe('ar');
     expect(document.documentElement.dir).toBe('rtl');
     expect(localStorage.getItem('caregiver-language')).toBe('ar');
-    expect(document.title).toBe('دخول مقدّم الرعاية · ملاحظات الرعاية اليومية');
+    expect(document.title).toBe('دخول مقدّم الرعاية · رفيق');
 
     await user.click(screen.getByRole('link', { name: 'العودة للرئيسية' }));
 
     expect(screen.getByRole('heading', { level: 1, name: /تفاصيل صغيرة ترسم صورة أكبر لـ/ })).toBeInTheDocument();
     expect(document.documentElement.dir).toBe('rtl');
-    expect(document.title).toBe('الرئيسية · ملاحظات الرعاية اليومية');
+    expect(document.title).toBe('الرئيسية · رفيق');
   });
   it('restores stored Arabic when the application mounts', () => {
     localStorage.setItem('caregiver-language', 'ar');
