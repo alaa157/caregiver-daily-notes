@@ -69,6 +69,12 @@ object AiRecovery {
                 primary = AiRecoveryAction.OpenAiSettings,
                 secondary = AiRecoveryAction.Retry,
             )
+        code == "invalid_key_characters" ->
+            AiRecoveryCopy(
+                R.string.ai_recovery_invalid_key_characters,
+                primary = AiRecoveryAction.OpenAiSettings,
+                secondary = AiRecoveryAction.Retry,
+            )
         code == "rate_limit" || code == "http_429" -> rateLimit()
         code == "no_source_data" -> noSource(periodDays)
         code == "malformed_output" || code == "parse_error" ->

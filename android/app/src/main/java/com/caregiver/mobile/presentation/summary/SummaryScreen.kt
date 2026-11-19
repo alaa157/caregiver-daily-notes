@@ -926,7 +926,7 @@ private fun SummaryBody(
                 "oversized" -> stringResource(R.string.plan_suggest_oversized)
                 "invalid_evidence" -> stringResource(R.string.plan_suggest_invalid_evidence)
                 "invalid_action" -> stringResource(R.string.plan_suggest_invalid_action)
-                "invalid_key", "invalid_model", "rate_limit", "network", "timeout",
+                "invalid_key", "invalid_key_characters", "invalid_model", "rate_limit", "network", "timeout",
                 "malformed_output", "no_key", "missing_key", "not_configured",
                 "invalid_url", "blocked", "blocked_safety", "invalid_request",
                 "json_mode_unsupported", "empty_output", "truncated", "incomplete",

@@ -21,6 +21,14 @@ class AiRecoveryTest {
     }
 
     @Test
+    fun invalidKeyCharactersPointsAtSettings() {
+        val copy = AiRecovery.copyFor("invalid_key_characters", 7)
+
+        assertEquals(R.string.ai_recovery_invalid_key_characters, copy.message)
+        assertEquals(AiRecoveryAction.OpenAiSettings, copy.primary)
+    }
+
+    @Test
     fun rateLimitOffersRetry() {
         val copy = AiRecovery.copyFor("rate_limit", 7)
 

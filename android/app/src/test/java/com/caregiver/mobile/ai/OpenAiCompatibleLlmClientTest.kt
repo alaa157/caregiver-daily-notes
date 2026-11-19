@@ -35,6 +35,22 @@ class OpenAiCompatibleLlmClientTest {
     }
 
     @Test
+    fun blankKeyReportsMissingKeyWithoutRequest() {
+        val client = OpenAiCompatibleLlmClient("https://openrouter.ai/api/v1", "m", "")
+        val res = kotlinx.coroutines.runBlocking { client.complete(LlmRequest("sys", "data")) }
+        assertEquals(LlmStatus.FALLBACK, res.status)
+        assertEquals("missing_key", res.error)
+    }
+
+    @Test
+    fun keyWithInvalidCharactersReportsCharacterError() {
+        val client = OpenAiCompatibleLlmClient("https://openrouter.ai/api/v1", "m", "sk-or-v1-abc def")
+        val res = kotlinx.coroutines.runBlocking { client.complete(LlmRequest("sys", "data")) }
+        assertEquals(LlmStatus.FALLBACK, res.status)
+        assertEquals("invalid_key_characters", res.error)
+    }
+
+    @Test
     fun rateLimit() {
         server.start()
         server.enqueue(MockResponse().setResponseCode(429))

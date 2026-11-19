@@ -48,8 +48,13 @@ class OpenAiCompatibleLlmClient(
         if (httpUrl.scheme == "http" && !ApiClient.isDevHost(httpUrl.host)) {
             return@withContext LlmResult(LlmStatus.FALLBACK, "", "invalid_url", null)
         }
-        if (apiKey.isBlank() || apiKey.any { it.isWhitespace() || it.isISOControl() || it.code !in 0x21..0x7e }) {
-            return@withContext LlmResult(LlmStatus.FALLBACK, "", "invalid_key", null)
+        if (apiKey.isBlank()) {
+            return@withContext LlmResult(LlmStatus.FALLBACK, "", "missing_key", null)
+        }
+        if (apiKey.any { it.isWhitespace() || it.isISOControl() || it.code !in 0x21..0x7e }) {
+            // A corrupted paste is not a provider rejection: say exactly what
+            // is wrong so the caregiver re-enters the key instead of blaming it.
+            return@withContext LlmResult(LlmStatus.FALLBACK, "", "invalid_key_characters", null)
         }
         val basePath = httpUrl.encodedPath
             .removeSuffix("/chat/completions")

@@ -590,6 +590,7 @@
     <string name="summary_ai_not_configured">AI summaries are not configured. Safety flags are still calculated from the notes.</string>
     <string name="ai_malformed_output">AI output was not valid JSON</string>
     <string name="ai_recovery_invalid_key">Your AI key was rejected. Check it in Settings.</string>
+    <string name="ai_recovery_invalid_key_characters">The AI key contains spaces or unsupported characters. Enter it again in Settings.</string>
     <string name="ai_recovery_rate_limit">The provider says too many requests. Try again in a minute.</string>
     <string name="ai_recovery_no_source">No notes in the last %1$d days. Add a note or try 30 days.</string>
     <string name="ai_recovery_no_source_30">No notes in the last 30 days. Add a note for today.</string>

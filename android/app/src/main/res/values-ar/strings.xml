@@ -600,6 +600,7 @@
     <string name="summary_ai_not_configured">لم يتم إعداد ملخصات الذكاء الاصطناعي. لا تزال تنبيهات السلامة تُحتسب من الملاحظات.</string>
     <string name="ai_malformed_output">مخرجات الذكاء الاصطناعي ليست JSON صالحة</string>
     <string name="ai_recovery_invalid_key">تم رفض مفتاح الذكاء الاصطناعي. تحقق منه في الإعدادات.</string>
+    <string name="ai_recovery_invalid_key_characters">يحتوي مفتاح الذكاء الاصطناعي على مسافات أو أحرف غير مدعومة. أدخله مرة أخرى في الإعدادات.</string>
     <string name="ai_recovery_rate_limit">يؤكد المزود وجود طلبات كثيرة جداً. حاول مرة أخرى بعد دقيقة.</string>
     <string name="ai_recovery_no_source">لا توجد ملاحظات في الفترة المحددة. عدد الأيام: %1$d. أضف ملاحظة أو جرّب 30 يوماً.</string>
     <string name="ai_recovery_no_source_30">لا توجد ملاحظات في آخر 30 يوماً. أضف ملاحظة لهذا اليوم.</string>
