@@ -97,7 +97,8 @@ export function AppShell({ children }: { children: ReactNode }) {
       <a className="skip-link" href="#main-content" onClick={() => focusMainContent()}>{t('skipToContent')}</a>
       {!isWorkspace && !isAuthRoute && <header className={`site-header${auth.status === 'authenticated' ? ' site-header--workspace' : ''}`}>
         <div className="header-inner container">
-          <Link className="brand" to={auth.status === 'authenticated' ? '/app' : '/'}>
+          <Link className="brand" to={auth.status === 'authenticated' ? '/app' : '/'}
+            aria-label={`${t('brand')} ${t('brandTagline')}`}>
             <span className="brand-mark"><Icon name="gather" size={25} /></span>
             <span className="brand-text"><span>{t('brand')}</span><span className="brand-tagline">{t('brandTagline')}</span></span>
           </Link>

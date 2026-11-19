@@ -3,12 +3,12 @@
   --paper-deep: #ede6d9;
   --surface: #fffdf8;
   --ink: #25352e;
-  --muted: #68756b;
+  --muted: #626f65;
   --forest: #405847;
   --forest-deep: #2d4437;
   --sage: #dfe7d9;
   --sage-2: #edf1e8;
-  --clay: #bd7057;
+  --clay: #a05a3c;
   --clay-soft: #f2dfd5;
   --line: #e3dbce;
   --sand: #e5d6bf;
@@ -202,7 +202,7 @@ body:has(.landing-page) { min-width: 0; background: #f5f1e8; }
 .landing-page .footer-locale { color: #bfcbbd; font-size: 10px; }
 .landing-page .reveal { opacity: 0; transform: translateY(16px); transition: opacity .65s ease, transform .65s ease; }
 .landing-page .reveal.is-visible { opacity: 1; transform: none; }
-.landing-page :focus-visible { outline: 3px solid #bd7057; outline-offset: 3px; }
+.landing-page :focus-visible { outline: 3px solid #a05a3c; outline-offset: 3px; }
 @media (max-width: 980px) {
   .landing-page .main-nav { gap: 13px; }
   .landing-page .main-nav a { font-size: 11px; }
