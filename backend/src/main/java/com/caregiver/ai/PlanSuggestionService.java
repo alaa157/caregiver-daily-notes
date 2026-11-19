@@ -33,7 +33,10 @@ public class PlanSuggestionService {
       "You suggest care-plan updates from grounded summaries. Select ONLY actions from the fixed catalog "
           + "with its exact parameter names. Cite evidenceNoteIds from the supplied notes for every change "
           + "and give a reason. NEVER add, remove, or change medications, doses, or schedules. "
-          + "NEVER diagnose or prescribe. Return ONLY valid JSON. ";
+          + "NEVER diagnose or prescribe. Return ONLY valid JSON with exactly this shape: "
+          + "{\"changes\":[{\"actionId\":\"<catalog action id>\",\"params\":{\"<parameter name>\":\"<value>\"},"
+          + "\"reason\":\"<short reason>\",\"evidenceNoteIds\":[\"<note id>\"]}]}. "
+          + "The top-level key MUST be \"changes\". Use an empty changes array when no update is warranted. ";
   static final String PLAN_SYSTEM_PROMPT = systemPrompt(AiOutputLanguage.NOTES);
 
   static record RawChange(String actionId, Map<String, String> params, String reason, List<String> evidenceNoteIds) {
