@@ -11,6 +11,8 @@
 [![MIT License](https://img.shields.io/badge/License-MIT-285B45?style=flat-square)](LICENSE)
 [![DEPI Capstone](https://img.shields.io/badge/DEPI-Capstone_2026-285B45?style=flat-square)](https://depi.gov.eg/)
 
+**Project lead & maintainer: [Alaa Shehata](https://github.com/alaa157)**
+
 ![Rafeek preview](web/public/caregiver-notes-preview.svg)
 
 A care-support system for recording structured daily observations about the people you care for, reviewing their history, and generating AI-assisted summaries and care plans from those notes.
@@ -277,16 +279,16 @@ setup.sh          One-command local setup
 
 Rafeek was built as the capstone project of the **Software Testing track** of the [Digital Egypt Pioneers Initiative (DEPI)](https://depi.gov.eg/) — a national digital-skills program by Egypt's Ministry of Communications and Information Technology.
 
-**Supervisor:** Mina Yonan  ·  **Training partner:** [GlobalKnowledge](https://www.globalknowledge.com/en-eg)
-
 ### Contributions
 
 | Member | GitHub | Contributions |
 |---|---|---|
-| **Alaa Shehata** — Project lead & maintainer | [`alaa157`](https://github.com/alaa157) | Architecture and full-stack ownership: the native Android app (Kotlin/Compose, local-first standalone release, offline demo, BYOK AI with provider and model picker, OpenRouter integration), backend features (auth, safety signals, medications, AI summaries and plans), the deterministic AI evaluation harness, cross-stack defect fixes, Rafeek branding ("The Gather"), CI and release workflows, test strategy and defect triage, documentation, UML diagrams, and repository setup. |
-| Ebrahim Ahmed | [`ebrahimahmedss47-commits`](https://github.com/ebrahimahmedss47-commits) | Backend — daily notes domain ([#47](https://github.com/alaa157/caregiver-daily-notes/pull/47), [#56](https://github.com/alaa157/caregiver-daily-notes/pull/56)): note entity and create/read API with structured observations, append-only addenda, caregiver-scoped history with date filters and stable pagination, validation with machine-readable errors and `Idempotency-Key` support, deterministic structured signals with per-field addendum overrides, contract tests, and API documentation. |
-| Mahmoud Hewidy | [`hewidyy`](https://github.com/hewidyy) | Web frontend (React + TypeScript + Vite): project foundation ([#35](https://github.com/alaa157/caregiver-daily-notes/pull/35)), caregiver authentication ([#49](https://github.com/alaa157/caregiver-daily-notes/pull/49)), recipient management ([#50](https://github.com/alaa157/caregiver-daily-notes/pull/50)), daily notes with append-only addenda ([#54](https://github.com/alaa157/caregiver-daily-notes/pull/54)), notes history and filtering ([#55](https://github.com/alaa157/caregiver-daily-notes/pull/55)), summaries and protected care-plan workflows ([#58](https://github.com/alaa157/caregiver-daily-notes/pull/58)), the accessibility, RTL and responsive quality gate ([#61](https://github.com/alaa157/caregiver-daily-notes/pull/61)), full backend integration and handoff ([#62](https://github.com/alaa157/caregiver-daily-notes/pull/62)), and later UI refreshes across workflows ([#151](https://github.com/alaa157/caregiver-daily-notes/pull/151)). |
-| Mohamed Hemdan | [`mohamed-hemdan1`](https://github.com/mohamed-hemdan1) | Backend — security and care plans (issues [#8](https://github.com/alaa157/caregiver-daily-notes/issues/8)–[#12](https://github.com/alaa157/caregiver-daily-notes/issues/12), [#45](https://github.com/alaa157/caregiver-daily-notes/pull/45)): caregiver authentication and JWT security, caregiver-owned recipient management, care-plan persistence, versioning and lifecycle (accept / edit / dismiss, active-plan uniqueness), append-only audit logging with owner-scoped reads, caregiver-role authorization for verified JWTs, module integration and security hardening, and plan/audit/ownership integration tests. |
+| **Alaa Shehata** — Project lead & maintainer | [`alaa157`](https://github.com/alaa157) | Project architecture and full-stack ownership: the native Android app, backend services, AI integration and the safety evaluation harness, Rafeek branding, CI and release engineering, testing strategy, and documentation. |
+| Ebrahim Ahmed | [`ebrahimahmedss47-commits`](https://github.com/ebrahimahmedss47-commits) | Backend — the daily notes API, with its validation, history, and structured-signal contracts. |
+| Mahmoud Hewidy | [`hewidyy`](https://github.com/hewidyy) | Web frontend — the React/TypeScript client, core caregiver workflows, accessibility and RTL. |
+| Mohamed Hemdan | [`mohamed-hemdan1`](https://github.com/mohamed-hemdan1) | Backend — authentication and JWT security, care plans, and append-only audit logging. |
+
+**Supervisor:** Mina Yonan  ·  **Training partner:** [GlobalKnowledge](https://www.globalknowledge.com/en-eg)
 
 Contribution activity is public in the repository's [contributors graph](https://github.com/alaa157/caregiver-daily-notes/graphs/contributors).
 
