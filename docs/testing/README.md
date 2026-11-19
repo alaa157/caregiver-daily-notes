@@ -42,7 +42,7 @@ Testing effort is weighted toward the failure modes that would harm a care recip
 | Web static | TypeScript 5.6 compiler; Vite build + metadata check | whole codebase | `npm run typecheck` / `npm run build` |
 | Web browser | Playwright 1.64, axe-core; 4 viewport projects (desktop 1280×900, tablet 768×1024, mobile 390×844, compact 320×740) | **80 test definitions × 4 viewports = 320 runs** (53 e2e specs + 27 browser contracts); EN/AR workflows covered inside specs | `npm run test:e2e` |
 | Web live workflow | Playwright, separate config, real backend | end-to-end caregiver workflow | `npm run test:e2e:live` |
-| Android JVM | JUnit on-device-free | **192 test classes — 1,659 `@Test` methods** | `cd android && ./gradlew :app:testDebugUnitTest` |
+| Android JVM | JUnit on-device-free | **192 test classes — 1,660 `@Test` methods** | `cd android && ./gradlew :app:testDebugUnitTest` |
 | Android instrumentation | Compose UI Test (`androidx.compose.ui.test`) | **36 test classes — 180 `@Test` methods** | `./gradlew :app:connectedDebugAndroidTest` (CI emulator / cloud device) |
 | AI evaluation | Deterministic harness over golden JSON | **22 cases** (`docs/ai/golden/`), 4 metrics enforced at `1.0` | runs inside the backend suite (`GoldenDatasetTest`, `EvalMetricsTest`, `EvalReportTest`) |
 
@@ -79,8 +79,8 @@ mvn -f backend/pom.xml org.jacoco:jacoco-maven-plugin:0.8.12:prepare-agent test 
 | Web unit (`vitest run`) | **1,086 run — 1,086 passed, 0 failures (49 files)** after DEF-002 test-only alignments. |
 | Web typecheck / build | Green (verified 2026-11-18 during the rebrand pass). |
 | Playwright browser, live workflow | **Automated; execution wired in `ci.yml`** against the built app (vite preview, mocked APIs); PR + on-demand. First full run in flight this cycle. |
-| Android JVM | **1,659/1,659 green** (full local run 2026-11-19 after the test-tree alignment + DEF-009/DEF-010 fixes; CI re-run in flight). |
-| Android instrumentation | **Automated; execution wired in `android-tests.yml`** (API-34 KVM emulator; PR + on-demand). First full emulator run in flight this cycle. |
+| Android JVM | **1,660/1,660 green in CI** (run 44600045805, 2026-11-19; includes the DEF-011 session-store regression). |
+| Android instrumentation | **Automated; execution wired in `android-tests.yml`** (API-34 KVM emulator). Full 180-test run completes with no process crash; stale-test alignment (shared-state resets, activity rules, RTL locale, nav arguments) in flight on a dedicated branch. |
 
 The earlier failure inventory (325 cascade errors + 24 assertion failures) is fully resolved; each root cause is documented in the [defect register](defects/README.md).
 
@@ -100,6 +100,8 @@ Defects found by this testing effort are documented with evidence, repro, fix co
 | DEF-008 | [#1102](https://github.com/alaa157/caregiver-daily-notes/issues/1102) | Setup check resolves to missing_key although a key is entered (cloud harness; emulator regression in flight) | open |
 | DEF-009 | [#1103](https://github.com/alaa157/caregiver-daily-notes/issues/1103) | Bearer prefix fails key-character check — OpenAI/xAI/OpenRouter model lists never load | fixed |
 | DEF-010 | [#1104](https://github.com/alaa157/caregiver-daily-notes/issues/1104) | Legacy-migration main-db backup never deleted | fixed |
+| DEF-011 | [#1105](https://github.com/alaa157/caregiver-daily-notes/issues/1105) | Session DataStore lacks singleton registry (136 emulator setup crashes) | fixed |
+| DEF-012 | [#1106](https://github.com/alaa157/caregiver-daily-notes/issues/1106) | Rebrand palette below WCAG AA; brand label-in-name mismatch | fixed |
 
 ## 7. Defect management
 
