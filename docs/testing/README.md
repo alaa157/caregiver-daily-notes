@@ -4,7 +4,7 @@ Living document for the DEPI Software Testing track capstone. Last verified: **2
 
 ---
 
-**Formal deliverable:** [rafeek-test-cases.pdf](rafeek-test-cases.pdf) — the IEEE 829-style Test Case Specification & Execution Report (62 pages) prepared for DEPI review: 27 formal key cases, full executed registers (700 backend, 1,086 web, 22 AI golden), E2E/Android test-case specifications (CI-wired), defect summary, and sign-off block.
+**Formal deliverable:** [rafeek-test-cases.pdf](rafeek-test-cases.pdf) — the IEEE 829-style Test Case Specification & Execution Report (63 pages) prepared for DEPI review: 31 formal key cases, executed registers (700 backend, 1,086 web unit, 1,660 Android JVM, 22 AI golden), browser E2E and Android instrumentation specifications (CI-wired, alignment in flight), the 12-defect summary, and sign-off block.
 
 ## 1. Purpose and scope
 
@@ -40,7 +40,7 @@ Testing effort is weighted toward the failure modes that would harm a care recip
 | Backend unit + integration | JUnit 5, Spring Boot Test, Flyway, in-memory H2 (`MODE=PostgreSQL`) | **93 test classes — 632 `@Test` methods + 12 parameterized** | `mvn -f backend/pom.xml test` |
 | Web unit | Vitest 2.1 + Testing Library (jsdom) | **49 files — 1,086 executed cases** | `cd web && npm test` |
 | Web static | TypeScript 5.6 compiler; Vite build + metadata check | whole codebase | `npm run typecheck` / `npm run build` |
-| Web browser | Playwright 1.64, axe-core; 4 viewport projects (desktop 1280×900, tablet 768×1024, mobile 390×844, compact 320×740) | **80 test definitions × 4 viewports = 320 runs** (53 e2e specs + 27 browser contracts); EN/AR workflows covered inside specs | `npm run test:e2e` |
+| Web browser | Playwright 1.64, axe-core; 4 viewport projects (desktop 1280×900, tablet 768×1024, mobile 390×844, compact 320×740) | **80 test definitions** (53 e2e specs + 27 browser contracts) expand to **504 executed tests** across 4 viewports (locale/theme loops); EN/AR workflows covered inside specs | `npm run test:e2e` |
 | Web live workflow | Playwright, separate config, real backend | end-to-end caregiver workflow | `npm run test:e2e:live` |
 | Android JVM | JUnit on-device-free | **192 test classes — 1,660 `@Test` methods** | `cd android && ./gradlew :app:testDebugUnitTest` |
 | Android instrumentation | Compose UI Test (`androidx.compose.ui.test`) | **36 test classes — 180 `@Test` methods** | `./gradlew :app:connectedDebugAndroidTest` (CI emulator / cloud device) |

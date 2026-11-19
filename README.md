@@ -182,7 +182,7 @@ API_BASE_URL=https://your-backend.example npm run config:runtime
 ./gradlew :app:assembleRelease    # standalone release build
 ```
 
-`debug` and `minified` serve canned in-memory data with no network and no login: long-press the logo on the login screen to enter the offline demo. `release` is the standalone local-first build with local accounts and no backend dependency. See [`android/README.md`](android/README.md) for the full build, variant, and data-layout reference.
+All variants are standalone local-first builds: local accounts, per-account on-device databases, no backend dependency. Long-press the logo on the login screen to enter the offline demo account; `minified` is the R8-shrunk demo APK signed for in-place updates. See [`android/README.md`](android/README.md) for the full build, variant, and data-layout reference.
 
 ## Testing
 
@@ -330,6 +330,6 @@ Released under the [MIT License](LICENSE).
 
 ## Contributing
 
-Work is tracked as GitHub issues, one defect or feature per issue, each independently actionable and self-contained. Pull requests target `main`; run the relevant suites locally (see [Testing](#testing)) before opening a PR. Branch convention for fixes is `fix/<area>-<issue-number>-<slug>`.
+Work is tracked as GitHub issues, one defect or feature per issue, each independently actionable and self-contained. Pull requests target `main`; the CI workflows run the relevant suites on every PR (see [Testing](#testing)) — heavy suites run in CI, not on constrained machines. Branch convention for fixes is `fix/<area>-<issue-number>-<slug>`.
 
 If you find a separate problem while working, file a separate issue rather than widening the current change.
