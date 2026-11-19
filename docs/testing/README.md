@@ -4,7 +4,7 @@ Living document for the DEPI Software Testing track capstone. Last verified: **2
 
 ---
 
-**Formal deliverable:** [rafeek-test-cases.pdf](rafeek-test-cases.pdf) — the IEEE 829-style Test Case Specification & Execution Report (62 pages) prepared for DEPI review: 29 formal key cases, executed registers (700 backend, 1,086 web unit, 1,660 Android JVM, 22 AI golden), browser E2E and Android instrumentation specifications (CI-wired), the 12-defect summary, and sign-off block.
+**Formal deliverable:** [rafeek-test-cases.pdf](rafeek-test-cases.pdf) — the IEEE 829-style Test Case Specification & Execution Report (62 pages) prepared for DEPI review: 29 formal key cases, executed registers (700 backend, 1,086 web unit, 1,660 Android JVM, 22 AI golden), browser E2E and Android instrumentation registers (CI-wired), the 12-defect summary, and sign-off block.
 
 ## 1. Purpose and scope
 
