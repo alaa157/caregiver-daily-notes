@@ -14,7 +14,7 @@
   --pine:#285B45; --pine-dark:#1D4635; --clay:#C77F68; --clay-light:#E0A08C;
   --ink:#213B32; --bg:#FAFAF6; --muted:#59695F; --border:#DDE4D8;
   --surface:#FFFFFF; --soft:#EEF2E8;
-  /* Application UI palette (reference only — no app screenshots in this deck) */
+  /* Application UI palette; slides 5–6 show real app captures (synthetic demo data) */
   --app-teal:#0E6B66; --app-ink:#1F2A2E;
   /* Spacing scale */
   --xs:4px; --sm:8px; --md:16px; --lg:24px; --xl:32px; --xxl:48px;
@@ -343,20 +343,8 @@ body.overview #hud,body.overview #notes{display:none}
     <div class="chips" style="margin-top:24px"><span class="chip pine">React 18</span><span class="chip pine">TypeScript 5.6</span><span class="chip">Vite</span><span class="chip">EN / AR · full RTL</span></div>
     <div style="display:grid;grid-template-columns:920px 1fr;gap:70px;margin-top:40px">
       <div>
-        <div class="schem" style="height:470px;padding:26px">
-          <span class="lbl" style="top:-13px;left:34px;background:var(--bg);padding:0 12px">Workspace anatomy — schematic</span>
-          <div style="display:grid;grid-template-columns:250px 1fr;gap:18px;height:100%">
-            <div class="region" style="display:flex;flex-direction:column;gap:10px">
-              <h4>Navigation</h4>
-              <p>Overview<br>Recipients<br>Record a daily note<br>Notes · history<br>Summaries<br>Plans<br>Settings · AI</p>
-            </div>
-            <div style="display:flex;flex-direction:column;gap:18px">
-              <div class="region"><h4>Context bar</h4><p>Selected date · recipient selector · language switch · account</p></div>
-              <div class="region" style="flex:1"><h4>Content area</h4><p>Overview KPIs &amp; today-by-recipient table · note editor with observation states · filterable history with correction timelines · summary with safety panel, evidence quotes &amp; trends · plan versions with accept / edit / dismiss</p></div>
-            </div>
-          </div>
-        </div>
-        <p class="schem-note">Structural schematic of the shipped workspace — labels are the app's own navigation. No fabricated screens.</p>
+        <img src="assets/web-home.png" alt="Rafeek web workspace — overview with daily note availability and recent activity" style="width:900px;height:auto;border-radius:18px;border:1.5px solid var(--border);box-shadow:0 18px 44px rgba(33,59,50,.14);display:block">
+        <p class="schem-note">Real capture of the shipped workspace — synthetic demo data.</p>
       </div>
       <div>
         <ul class="ledger">
@@ -385,15 +373,11 @@ body.overview #hud,body.overview #notes{display:none}
     <div class="chips" style="margin-top:24px"><span class="chip pine">Kotlin 2.0</span><span class="chip pine">Jetpack Compose</span><span class="chip">Room</span><span class="chip">Android Keystore</span><span class="chip">minSdk 23</span></div>
     <div style="display:grid;grid-template-columns:640px 1fr;gap:80px;margin-top:36px;align-items:start">
       <div style="position:relative">
-        <div style="width:400px;margin:0 auto;border:3px solid var(--pine);border-radius:44px;padding:26px 22px;background:var(--surface);box-shadow:0 18px 44px rgba(33,59,50,.12)">
-          <div style="width:110px;height:10px;border-radius:var(--r-pill);background:var(--border);margin:0 auto 20px"></div>
-          <div class="region" style="border:1.5px solid var(--border);border-radius:var(--r-control);background:var(--bg);padding:16px;margin-bottom:14px"><h4 style="font-size:19px;font-weight:700;color:var(--pine)">Local accounts</h4><p style="font-size:16px;color:var(--muted)">On-device accounts · no backend required</p></div>
-          <div class="region" style="border:1.5px solid var(--border);border-radius:var(--r-control);background:var(--bg);padding:16px;margin-bottom:14px"><h4 style="font-size:19px;font-weight:700;color:var(--pine)">Room — source of truth</h4><p style="font-size:16px;color:var(--muted)">Per-account database: notes · plans · summaries</p></div>
-          <div class="region" style="border:1.5px solid var(--clay);border-radius:var(--r-control);background:#FBF3EF;padding:16px;margin-bottom:14px"><h4 style="font-size:19px;font-weight:700;color:var(--clay)">Android Keystore</h4><p style="font-size:16px;color:var(--muted)">Encrypted BYOK keys · per account &amp; provider</p></div>
-          <div style="text-align:center;font-size:16px;color:var(--muted);padding:8px 0 2px">↓ direct, with the caregiver's own key</div>
-          <div class="region" style="border:1.5px dashed var(--pine);border-radius:var(--r-control);background:var(--soft);padding:14px;text-align:center"><p style="font-size:17px;font-weight:700;color:var(--pine)">AI provider — BYOK</p></div>
+        <div style="display:flex;gap:26px;justify-content:center;align-items:flex-start">
+          <img src="assets/android-home.png" alt="Android home — care alert, medication dose tracking, and daily notes" style="height:620px;width:auto;border-radius:26px;border:1.5px solid var(--border);box-shadow:0 18px 44px rgba(33,59,50,.14)">
+          <img src="assets/android-note-editor.png" alt="Android daily note editor — structured observation fields" style="height:620px;width:auto;border-radius:26px;border:1.5px solid var(--border);box-shadow:0 18px 44px rgba(33,59,50,.14)">
         </div>
-        <p class="schem-note" style="text-align:center">Standalone release architecture — schematic, not a screen.</p>
+        <p class="schem-note" style="text-align:center">Real captures from the standalone demo build — home and daily note editor (synthetic data).</p>
       </div>
       <div>
         <ul class="ledger">
