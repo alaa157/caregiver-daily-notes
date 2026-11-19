@@ -36,10 +36,11 @@ public class PlanSuggestionService {
           + "NEVER diagnose or prescribe. Return ONLY valid JSON with exactly this shape: "
           + "{\"changes\":[{\"actionId\":\"<catalog action id>\",\"params\":{\"<parameter name>\":\"<value>\"},"
           + "\"reason\":\"<short reason>\",\"evidenceNoteIds\":[\"<note id>\"]}]}. "
-          + "The top-level key MUST be \"changes\". Use an empty changes array when no update is warranted. ";
+          + "The top-level key MUST be \"changes\". Each change MUST use the key \"params\" (never \"parameters\"). "
+          + "Use an empty changes array when no update is warranted. ";
   static final String PLAN_SYSTEM_PROMPT = systemPrompt(AiOutputLanguage.NOTES);
 
-  static record RawChange(String actionId, Map<String, String> params, String reason, List<String> evidenceNoteIds) {
+  static record RawChange(String actionId, @com.fasterxml.jackson.annotation.JsonAlias("parameters") Map<String, String> params, String reason, List<String> evidenceNoteIds) {
   }
 
   /**
