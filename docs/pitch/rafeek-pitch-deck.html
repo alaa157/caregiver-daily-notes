@@ -1,0 +1,905 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Rafeek — رفيق · Startup Pitch Deck · DEPI Capstone 2026</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=DM+Sans:opsz,wght@9..40,400;9..40,500;9..40,700;9..40,900&family=Noto+Sans+Arabic:wght@400;500;700&display=swap" rel="stylesheet">
+<style>
+/* ============ RAFEK DESIGN TOKENS (from docs/design-system/tokens.css) ============ */
+:root{
+  /* Brand identity — The Gather */
+  --pine:#285B45; --pine-dark:#1D4635; --clay:#C77F68; --clay-light:#E0A08C;
+  --ink:#213B32; --bg:#FAFAF6; --muted:#59695F; --border:#DDE4D8;
+  --surface:#FFFFFF; --soft:#EEF2E8;
+  /* Application UI palette (reference only — no app screenshots in this deck) */
+  --app-teal:#0E6B66; --app-ink:#1F2A2E;
+  /* Spacing scale */
+  --xs:4px; --sm:8px; --md:16px; --lg:24px; --xl:32px; --xxl:48px;
+  /* Shape */
+  --r-control:12px; --r-card:14px; --r-large:28px; --r-web:18px; --r-pill:999px;
+  --font-en:'DM Sans',system-ui,sans-serif;
+  --font-ar:'Noto Sans Arabic','DM Sans',sans-serif;
+}
+*{margin:0;padding:0;box-sizing:border-box}
+html,body{height:100%;background:#101512;font-family:var(--font-en);color:var(--ink);overflow:hidden}
+.ar{font-family:var(--font-ar)}
+
+/* ============ DECK CHROME ============ */
+#viewport{position:fixed;inset:0;display:flex;align-items:center;justify-content:center}
+#stage{position:relative;width:1920px;height:1080px;transform-origin:center center}
+.frame{position:absolute;inset:0;width:1920px;height:1080px;opacity:0;pointer-events:none;transition:opacity .35s ease}
+.frame.current{opacity:1;pointer-events:auto}
+.slide{position:relative;width:1920px;height:1080px;background:var(--bg);overflow:hidden}
+.slide.dark{background:var(--pine-dark);color:#F4F6F1}
+.slide.soft{background:var(--soft)}
+
+/* progress + counter */
+#progress{position:fixed;top:0;left:0;height:5px;background:var(--clay);width:0;z-index:60;transition:width .3s ease}
+#hud{position:fixed;right:22px;bottom:18px;z-index:60;display:flex;gap:10px;align-items:center;font-size:13px;color:#B9C4BB;letter-spacing:.04em}
+#hud button{background:rgba(255,255,255,.08);border:1px solid rgba(255,255,255,.18);color:#DCE4DD;border-radius:var(--r-pill);padding:6px 14px;font-family:var(--font-en);font-size:12px;cursor:pointer}
+#hud button:hover{background:rgba(255,255,255,.16)}
+#counter{font-variant-numeric:tabular-nums}
+
+/* ============ SLIDE ANATOMY ============ */
+.pad{position:absolute;inset:0;padding:88px 110px 120px}
+.kicker{display:flex;align-items:center;gap:14px;font-size:21px;font-weight:700;letter-spacing:.22em;text-transform:uppercase;color:var(--pine)}
+.dark .kicker{color:var(--clay-light)}
+.kicker::before{content:"";width:34px;height:3px;background:var(--clay);border-radius:2px}
+h1.head{font-size:76px;line-height:1.06;font-weight:900;letter-spacing:-.025em;margin-top:22px;max-width:1500px;text-wrap:balance}
+h1.head em{font-style:normal;color:var(--pine)}
+.dark h1.head em{color:var(--clay-light)}
+.sub{font-size:26px;line-height:1.5;color:var(--muted);margin-top:18px;max-width:1200px}
+.dark .sub{color:#C3CFC5}
+
+/* footer on every slide */
+.foot{position:absolute;left:110px;right:110px;bottom:44px;display:flex;align-items:center;justify-content:space-between;border-top:1px solid var(--border);padding-top:20px}
+.dark .foot{border-top-color:rgba(255,255,255,.16)}
+.foot .brand{display:flex;align-items:center;gap:16px}
+.foot .brand img{height:34px;width:auto;display:block}
+.foot .meta{display:flex;align-items:center;gap:22px;font-size:17px;color:var(--muted)}
+.dark .foot .meta{color:#AEBBB1}
+.foot .num{font-variant-numeric:tabular-nums;font-weight:700;color:var(--ink)}
+.dark .foot .num{color:#F4F6F1}
+.spk{display:inline-flex;align-items:center;gap:9px;background:var(--soft);border:1px solid var(--border);border-radius:var(--r-pill);padding:7px 18px;font-size:16px;font-weight:700;color:var(--pine)}
+.dark .spk{background:rgba(255,255,255,.08);border-color:rgba(255,255,255,.2);color:#E9EFE8}
+.spk::before{content:"";width:9px;height:9px;border-radius:50%;background:var(--clay)}
+
+/* watermark symbol */
+.wm{position:absolute;pointer-events:none;opacity:.05}
+.dark .wm{opacity:.07}
+
+/* chips */
+.chips{display:flex;flex-wrap:wrap;gap:12px}
+.chip{border:1px solid var(--border);background:var(--surface);border-radius:var(--r-pill);padding:10px 22px;font-size:19px;font-weight:500;color:var(--ink)}
+.chip.pine{background:var(--pine);border-color:var(--pine);color:#fff}
+.chip.clay{background:var(--clay);border-color:var(--clay);color:#fff}
+.dark .chip{background:rgba(255,255,255,.07);border-color:rgba(255,255,255,.22);color:#E9EFE8}
+
+/* generic card */
+.card{background:var(--surface);border:1px solid var(--border);border-radius:var(--r-card);padding:var(--lg)}
+.dark .card{background:rgba(255,255,255,.05);border-color:rgba(255,255,255,.16)}
+
+/* numbered editorial list */
+.edlist{list-style:none;counter-reset:ed}
+.edlist li{counter-increment:ed;display:flex;gap:26px;padding:21px 0;border-bottom:1px solid var(--border);font-size:26px;line-height:1.4;align-items:baseline}
+.edlist li:last-child{border-bottom:none}
+.edlist li::before{content:counter(ed,decimal-leading-zero);font-size:22px;font-weight:900;color:var(--clay);min-width:44px;font-variant-numeric:tabular-nums}
+.edlist b{font-weight:700}
+.edlist span{color:var(--muted)}
+
+/* ledger rows */
+.ledger{list-style:none}
+.ledger li{display:flex;gap:16px;align-items:baseline;padding:13px 0;font-size:23px;line-height:1.35;border-bottom:1px dashed var(--border)}
+.ledger li:last-child{border-bottom:none}
+.ledger li::before{content:"";width:10px;height:10px;border-radius:50%;background:var(--pine);flex:none;transform:translateY(-1px)}
+.ledger li.clay::before{background:var(--clay)}
+.ledger small{display:block;font-size:18px;color:var(--muted);font-weight:400}
+
+/* note fragments (slide 2) */
+.frag{position:absolute;background:var(--surface);border:1px solid var(--border);border-radius:var(--r-control);padding:18px 24px;font-size:22px;line-height:1.35;box-shadow:0 10px 26px rgba(33,59,50,.10);max-width:380px}
+.frag .tag{display:block;font-size:14px;font-weight:700;letter-spacing:.12em;text-transform:uppercase;color:var(--muted);margin-bottom:6px}
+.frag.ar{font-family:var(--font-ar)}
+
+/* stage flow (slide 4) */
+.flow{display:grid;grid-template-columns:repeat(4,1fr);gap:0;align-items:stretch}
+.stage{position:relative;background:var(--surface);border:1px solid var(--border);border-radius:var(--r-card);padding:30px 30px 26px;margin-right:56px}
+.stage:last-child{margin-right:0}
+.stage::after{content:"";position:absolute;top:50%;right:-42px;width:28px;height:3px;background:var(--pine)}
+.stage:last-child::after{display:none}
+.stage .n{font-size:20px;font-weight:900;color:var(--clay);letter-spacing:.14em}
+.stage h3{font-size:29px;font-weight:700;margin:10px 0 10px;letter-spacing:-.01em}
+.stage p{font-size:20px;line-height:1.45;color:var(--muted)}
+
+/* schematic (slides 5, 6) */
+.schem{border:2px dashed var(--border);border-radius:var(--r-large);background:var(--surface);position:relative}
+.schem .lbl{position:absolute;font-size:16px;font-weight:700;letter-spacing:.1em;text-transform:uppercase;color:var(--muted)}
+.schem .region{border:1.5px solid var(--border);border-radius:var(--r-control);background:var(--bg);padding:16px 18px}
+.schem .region h4{font-size:19px;font-weight:700;color:var(--pine);margin-bottom:6px}
+.schem .region p{font-size:16.5px;line-height:1.45;color:var(--muted)}
+.schem-note{font-size:16px;color:var(--muted);font-style:italic;margin-top:12px}
+
+/* bilingual mirror (slide 7) */
+.mirror{display:grid;grid-template-columns:1fr 1fr;border:1px solid var(--border);border-radius:var(--r-large);overflow:hidden;background:var(--surface)}
+.mirror .half{padding:38px 44px}
+.mirror .half + .half{border-left:1px solid var(--border);background:var(--soft)}
+.mirror .lang{font-size:17px;font-weight:900;letter-spacing:.2em;text-transform:uppercase;color:var(--clay);margin-bottom:20px}
+.mrow{display:flex;justify-content:space-between;gap:20px;padding:15px 0;border-bottom:1px dashed var(--border);font-size:25px}
+.mrow:last-child{border-bottom:none}
+.mrow .k{color:var(--muted);font-size:21px}
+.mrow .v{font-weight:700}
+
+/* metric dashboard (slide 12) */
+.dash{display:grid;grid-template-columns:1.15fr 1fr;grid-template-rows:1fr 1fr;gap:26px}
+.mcard{background:rgba(255,255,255,.05);border:1px solid rgba(255,255,255,.16);border-radius:var(--r-card);padding:26px 30px;position:relative}
+.mcard .tag{font-size:17px;font-weight:900;letter-spacing:.18em;text-transform:uppercase;color:var(--clay-light)}
+.mcard .status{position:absolute;top:30px;right:34px;font-size:14px;font-weight:700;letter-spacing:.1em;text-transform:uppercase;border-radius:var(--r-pill);padding:6px 14px}
+.status.exec{background:rgba(224,160,140,.16);color:var(--clay-light);border:1px solid rgba(224,160,140,.4)}
+.status.inv{background:rgba(255,255,255,.08);color:#B9C4BB;border:1px solid rgba(255,255,255,.25)}
+.big{font-size:80px;font-weight:900;letter-spacing:-.03em;line-height:1;margin:16px 0 6px;font-variant-numeric:tabular-nums}
+.big small{font-size:34px;font-weight:700;color:#AEBBB1}
+.mcard .desc{font-size:18.5px;color:#C3CFC5;line-height:1.4}
+.bar{margin-top:14px}
+.bar .bl{display:flex;justify-content:space-between;font-size:17px;color:#C3CFC5;margin-bottom:6px}
+.bar .bl b{color:#F4F6F1;font-variant-numeric:tabular-nums}
+.bar .track{height:12px;border-radius:var(--r-pill);background:rgba(255,255,255,.12);overflow:hidden}
+.bar .fill{height:100%;border-radius:var(--r-pill);background:var(--clay-light)}
+.bar .fill.pine{background:#7FA98F}
+.statrow{display:flex;gap:38px;margin-top:10px}
+.statrow .st .v{font-size:40px;font-weight:900;font-variant-numeric:tabular-nums;line-height:1.1}
+.statrow .st .k{font-size:16.5px;color:#AEBBB1;margin-top:2px}
+
+/* eval metrics (slide 13) */
+.metric{display:flex;align-items:center;gap:18px;padding:12px 0;border-bottom:1px dashed var(--border)}
+.metric:last-child{border-bottom:none}
+.metric .name{flex:1;font-size:22px;font-weight:500}
+.metric .track{width:320px;height:12px;background:var(--soft);border-radius:var(--r-pill);overflow:hidden;border:1px solid var(--border)}
+.metric .fill{height:100%;background:var(--pine);border-radius:var(--r-pill)}
+.metric .val{font-size:26px;font-weight:900;color:var(--pine);min-width:64px;text-align:right;font-variant-numeric:tabular-nums}
+
+/* defect flow */
+.dflow{display:flex;align-items:center;gap:18px}
+.dnode{background:var(--surface);border:1px solid var(--border);border-radius:var(--r-card);padding:20px 26px;text-align:center}
+.dnode .v{font-size:56px;font-weight:900;line-height:1;font-variant-numeric:tabular-nums}
+.dnode .k{font-size:17px;color:var(--muted);margin-top:6px}
+.dnode.open{border-color:var(--clay);background:#FBF3EF}
+.dnode.open .v{color:var(--clay)}
+.darrow{font-size:30px;color:var(--pine);font-weight:700}
+
+/* team cards */
+.team{display:grid;grid-template-columns:repeat(4,1fr);gap:24px}
+.tcard{background:rgba(255,255,255,.05);border:1px solid rgba(255,255,255,.16);border-radius:var(--r-card);padding:30px 28px;display:flex;flex-direction:column;gap:12px}
+.tcard .role{font-size:16px;font-weight:900;letter-spacing:.16em;text-transform:uppercase;color:var(--clay-light)}
+.tcard h3{font-size:31px;font-weight:700;letter-spacing:-.01em}
+.tcard p{font-size:18.5px;line-height:1.5;color:#C3CFC5;flex:1}
+.tcard .gh{font-size:17px;color:#AEBBB1;font-weight:500}
+
+/* adoption path */
+.path{display:flex;gap:0;align-items:stretch;counter-reset:pt}
+.pstep{counter-increment:pt;flex:1;position:relative;background:var(--surface);border:1px solid var(--border);border-radius:var(--r-card);padding:22px 22px 20px;margin-right:40px}
+.pstep:last-child{margin-right:0}
+.pstep::after{content:"";position:absolute;top:50%;right:-30px;width:20px;height:3px;background:var(--clay)}
+.pstep:last-child::after{display:none}
+.pstep::before{content:counter(pt);display:flex;align-items:center;justify-content:center;width:38px;height:38px;border-radius:50%;background:var(--pine);color:#fff;font-weight:900;font-size:19px;margin-bottom:12px}
+.pstep h4{font-size:20.5px;font-weight:700;line-height:1.3}
+.pstep p{font-size:16.5px;color:var(--muted);margin-top:6px;line-height:1.4}
+
+/* honesty strip */
+.strip{border:1px solid var(--border);border-left:5px solid var(--clay);background:var(--surface);border-radius:var(--r-control);padding:18px 26px;font-size:19px;line-height:1.5;color:var(--muted)}
+.strip b{color:var(--ink)}
+
+/* presenter notes overlay */
+#notes{position:fixed;left:0;right:0;bottom:0;z-index:70;background:#141A16;color:#DCE4DD;border-top:2px solid var(--clay);padding:20px 30px;display:none;max-height:38vh;overflow:auto;font-size:15.5px;line-height:1.55}
+#notes.show{display:block}
+#notes .nh{display:flex;gap:18px;align-items:center;margin-bottom:8px;font-size:13px;letter-spacing:.1em;text-transform:uppercase;color:var(--clay-light);font-weight:700}
+#notes .next{color:#8FA093}
+.notes{display:none}
+
+/* overview mode */
+body.overview #viewport{align-items:flex-start;overflow:auto;padding:30px}
+body.overview #stage{width:100%;height:auto;transform:none!important;display:grid;grid-template-columns:repeat(4,460px);gap:26px;justify-content:center}
+body.overview .frame{position:relative;inset:auto;width:460px;height:259px;opacity:1;pointer-events:auto;cursor:pointer;transform:none}
+body.overview .frame .slide{transform:scale(.2396);transform-origin:top left}
+body.overview .frame:hover{outline:3px solid var(--clay)}
+body.overview #hud,body.overview #notes{display:none}
+
+/* ============ PRINT / PDF ============ */
+@page{size:1920px 1080px;margin:0}
+@media print{
+  html,body{overflow:visible;background:#fff;height:auto}
+  #viewport{position:static;display:block}
+  #stage{width:1920px;height:auto;transform:none!important;display:block}
+  .frame{position:relative;inset:auto;opacity:1;pointer-events:auto;page-break-after:always;break-after:page;width:1920px;height:1080px}
+  .frame:last-child{page-break-after:auto}
+  #progress,#hud,#notes{display:none!important}
+  .slide{-webkit-print-color-adjust:exact;print-color-adjust:exact}
+}
+</style>
+</head>
+<body>
+<div id="progress"></div>
+<div id="viewport"><div id="stage">
+
+<!-- ================= SLIDE 01 · COVER ================= -->
+<div class="frame" id="f1"><section class="slide dark" data-speaker="Alaa Shehata" data-time="0:45">
+  <img src="assets/brand-family-photo.png" alt="" style="position:absolute;right:0;top:0;width:900px;height:1080px;object-fit:cover;object-position:62% center">
+  <div style="position:absolute;right:0;top:0;width:900px;height:1080px;background:linear-gradient(90deg,var(--pine-dark) 0%,rgba(29,70,53,.55) 22%,rgba(29,70,53,0) 55%)"></div>
+  <img class="wm" src="../brand/the-gather/symbol.svg" alt="" style="left:-220px;bottom:-260px;width:820px;filter:brightness(0) invert(1)">
+  <div class="pad" style="padding-right:960px">
+    <img src="../brand/the-gather/logo-white.svg" alt="Rafeek — رفيق" style="width:560px;height:auto">
+    <h1 class="head" style="font-size:92px;margin-top:64px;max-width:820px">A companion in every moment of care.</h1>
+    <p class="ar" style="font-size:36px;color:var(--clay-light);margin-top:26px;font-weight:500">رفيقك في تفاصيل الرعاية</p>
+    <p class="sub" style="margin-top:34px;max-width:760px">A bilingual caregiver documentation and care-continuity platform.</p>
+    <div class="chips" style="margin-top:44px">
+      <span class="chip">DEPI Software Testing Track</span><span class="chip">Capstone Project</span><span class="chip clay">2026</span>
+    </div>
+  </div>
+  <div class="foot">
+    <div class="meta"><span class="spk">Alaa Shehata · Project Lead</span></div>
+    <div class="meta"><span>Rafeek · رفيق</span><span class="num">01 / 15</span></div>
+  </div>
+  <div class="notes">OPENING — 0:45. "Good morning. Care doesn't happen in appointments — it happens in hundreds of small moments every day: a meal eaten, a night slept badly, a dose missed, a fall nobody wrote down. I'm Alaa Shehata, project lead of Rafeek — رفيق, Arabic for 'companion'. Rafeek is a bilingual platform that keeps those moments together, so the people providing care never lose the thread. Over the next fourteen minutes we'll show you the product, the engineering behind it, and the testing evidence that proves it works — because this is a software-testing capstone, and quality is our headline feature." TAKEAWAY: Rafeek turns scattered daily care moments into a record you can trust. TRANSITION: "Let me start with the problem we kept seeing." → slide 2 (Alaa continues).</div>
+</section></div>
+
+<!-- ================= SLIDE 02 · PROBLEM ================= -->
+<div class="frame" id="f2"><section class="slide" data-speaker="Alaa Shehata" data-time="0:50">
+  <img class="wm" src="../brand/the-gather/symbol.svg" alt="" style="right:-260px;top:-260px;width:760px">
+  <div class="pad">
+    <div class="kicker">The problem</div>
+    <h1 class="head">Care is continuous.<br><em>Documentation often isn't.</em></h1>
+    <div style="display:grid;grid-template-columns:880px 1fr;gap:80px;margin-top:44px">
+      <ol class="edlist">
+        <li><div><b>Observations scatter.</b> <span>Notebooks, chat threads, and memory each hold a piece of the day.</span></div></li>
+        <li><div><b>Context disappears between caregivers.</b> <span>What the morning shift knew, the evening shift re-discovers.</span></div></li>
+        <li><div><b>Inconsistent entries make history hard to review.</b> <span>No structure means no reliable comparison across days.</span></div></li>
+        <li><div><b>Small signals are hard to connect across time.</b> <span>Three poor-appetite days matter — if anyone can see all three.</span></div></li>
+        <li><div><b>Structure can't cost the human context.</b> <span>Caregivers need fields, but also their own words.</span></div></li>
+      </ol>
+      <div style="position:relative;height:520px">
+        <div class="frag" style="left:30px;top:20px;transform:rotate(-3deg)"><span class="tag">Notebook</span>Ate well today. Seemed tired.</div>
+        <div class="frag ar" style="right:20px;top:80px;transform:rotate(2.5deg)"><span class="tag">رسالة</span>لم ينم جيدًا… هل أخذ الدواء؟</div>
+        <div class="frag" style="left:120px;top:210px;transform:rotate(1.5deg)"><span class="tag">Chat</span>Missed the morning dose, I think?</div>
+        <div class="frag" style="right:60px;top:300px;transform:rotate(-2deg)"><span class="tag">Memory</span>Was she confused yesterday… or Monday?</div>
+        <div class="frag" style="left:60px;top:410px;transform:rotate(-1deg)"><span class="tag">Sticky note</span>Pain 6/10 — ask again later</div>
+        <p style="position:absolute;bottom:-36px;left:30px;font-size:20px;color:var(--muted);font-style:italic">One day of care, five places. Nothing holds it together.</p>
+      </div>
+    </div>
+  </div>
+  <div class="foot">
+    <div class="brand"><img src="../brand/the-gather/logo-horizontal-en.svg" alt="Rafeek"></div>
+    <div class="meta"><span class="spk">Alaa Shehata</span><span>The problem</span><span class="num">02 / 15</span></div>
+  </div>
+  <div class="notes">PROBLEM — 0:50. "None of these are hypothetical failures — they're the default state of informal care documentation. A daughter caring for her mother writes in a notebook; the professional caregiver sends voice notes; the agency keeps a binder. When information lives in five places, the history of a person's care effectively doesn't exist. And note what we deliberately did NOT do here: no invented prevalence statistics, no fabricated survey numbers. The problem is observable in how care actually works, and our answer had to respect that — structure without stripping away the caregiver's own words." TERM: 'care continuity' = the same understanding of a person's situation following them across days, shifts, and caregivers. TAKEAWAY: When documentation fragments, the person's history disappears. TRANSITION: "So we built one place where the pieces gather — literally our brand idea. Here's the solution." → slide 3 (Alaa continues).</div>
+</section></div>
+
+<!-- ================= SLIDE 03 · SOLUTION ================= -->
+<div class="frame" id="f3"><section class="slide" data-speaker="Alaa Shehata" data-time="1:00">
+  <div class="pad">
+    <div class="kicker">The solution</div>
+    <h1 class="head">One structured record. <em>A clearer history.</em></h1>
+    <div style="display:grid;grid-template-columns:900px 1fr;gap:90px;margin-top:40px;align-items:center">
+      <div>
+        <p style="font-size:26px;line-height:1.5;color:var(--muted);max-width:860px">Rafeek is a <b style="color:var(--ink)">care-support documentation platform</b> — not a diagnostic system. It keeps everyday observations together and lets caregivers decide what happens next.</p>
+        <ul class="ledger" style="margin-top:26px">
+          <li>Structured daily observations <small>mood, appetite, sleep, mobility, medication, pain, falls</small></li>
+          <li>Recipient-specific historical records <small>filterable, searchable, replayable</small></li>
+          <li>Arabic and English documentation <small>full RTL/LTR, mixed text preserved</small></li>
+          <li>Immutable originals, traceable corrections <small>nothing is silently overwritten</small></li>
+          <li>Medication tracking <small>records and intake events, never model-authored</small></li>
+          <li>AI-assisted summaries and suggested plans <small>evidence-backed, bring-your-own-key</small></li>
+          <li class="clay">Caregiver-controlled review and decisions <small>accept · edit · dismiss — always human</small></li>
+        </ul>
+      </div>
+      <div style="position:relative;height:600px">
+        <img src="../brand/the-gather/symbol.svg" alt="The Gather — four observations, one picture" style="position:absolute;left:50%;top:50%;transform:translate(-50%,-50%);width:400px">
+        <div style="position:absolute;left:50%;top:6px;transform:translateX(-50%);text-align:center"><b style="font-size:22px">Daily observations</b></div>
+        <div style="position:absolute;right:-10px;top:50%;transform:translateY(-50%);text-align:right;max-width:220px"><b style="font-size:22px">Traceable history</b></div>
+        <div style="position:absolute;left:50%;bottom:6px;transform:translateX(-50%);text-align:center"><b style="font-size:22px">Both languages</b></div>
+        <div style="position:absolute;left:-10px;top:50%;transform:translateY(-50%);max-width:220px"><b style="font-size:22px">Human judgment</b></div>
+        <p style="position:absolute;left:50%;bottom:-52px;transform:translateX(-50%);font-size:20px;color:var(--muted);white-space:nowrap">The Gather: separate pieces, one fuller picture.</p>
+      </div>
+    </div>
+  </div>
+  <div class="foot">
+    <div class="brand"><img src="../brand/the-gather/logo-horizontal-en.svg" alt="Rafeek"></div>
+    <div class="meta"><span class="spk">Alaa Shehata</span><span>The solution</span><span class="num">03 / 15</span></div>
+  </div>
+  <div class="notes">SOLUTION — 1:00. "Our brand mark is called The Gather: four arc-fragments around a shared centre. That's the product thesis. Separate observations — a mood, a meal, a night's sleep, a medication — only become a picture when they're held together. Rafeek does four things at once: it structures the day, it preserves the history immutably, it works natively in Arabic and English, and it adds AI assistance that stays on a leash — summaries grounded in the actual notes, plans that a human must accept, edit, or dismiss. One positioning point matters for this panel: Rafeek is care-support documentation. It does not diagnose, it does not monitor medically, and it never gives medical advice." TAKEAWAY: The Gather is the architecture — fragments in, a trustworthy picture out. TRANSITION: "That's the idea. Mahmoud will now walk you through the actual product, step by step." → slide 4 (hand to Mahmoud Hewidy).</div>
+</section></div>
+
+<!-- ================= SLIDE 04 · PRODUCT JOURNEY ================= -->
+<div class="frame" id="f4"><section class="slide soft" data-speaker="Mahmoud Hewidy" data-time="1:00">
+  <div class="pad">
+    <div class="kicker">Product · the journey</div>
+    <h1 class="head">From daily observation to <em>organized history.</em></h1>
+    <div class="flow" style="margin-top:56px">
+      <div class="stage"><div class="n">STAGE 01</div><h3>Care recipient</h3><p>Add the people you care for — relationship, care details, medications, lifecycle.</p></div>
+      <div class="stage"><div class="n">STAGE 02</div><h3>Daily note</h3><p>Structured fields plus free text, in Arabic, English, or a mix — one original per person per day.</p></div>
+      <div class="stage"><div class="n">STAGE 03</div><h3>Saved record</h3><p>The original is locked. Corrections append as dated events; history replays the effective state.</p></div>
+      <div class="stage"><div class="n">STAGE 04</div><h3>Insight &amp; decision</h3><p>Request a 7/14/30-day summary; review a suggested plan; accept, edit, or dismiss.</p></div>
+    </div>
+    <div style="margin-top:64px">
+      <p style="font-size:20px;font-weight:900;letter-spacing:.16em;text-transform:uppercase;color:var(--muted);margin-bottom:18px">What a daily note captures</p>
+      <div class="chips">
+        <span class="chip">Mood</span><span class="chip">Appetite</span><span class="chip">Sleep</span><span class="chip">Mobility</span><span class="chip">Medication status</span><span class="chip">Pain score 0–10</span><span class="chip">Fall reported</span><span class="chip pine">Free text · AR / EN · up to 20,000 characters</span>
+      </div>
+      <p style="font-size:19px;color:var(--muted);margin-top:22px">Every field carries an explicit state — Recorded, Unknown, Not recorded, Not applicable. Missing is never silently treated as fine.</p>
+    </div>
+  </div>
+  <div class="foot">
+    <div class="brand"><img src="../brand/the-gather/logo-horizontal-en.svg" alt="Rafeek"></div>
+    <div class="meta"><span class="spk">Mahmoud Hewidy</span><span>Product journey</span><span class="num">04 / 15</span></div>
+  </div>
+  <div class="notes">JOURNEY — 1:00. "Thanks, Alaa. I'm Mahmoud Hewidy, I build the web frontend, and this is the loop a caregiver actually lives in. You add a person — say, your mother. Each day you record one structured note: mood, appetite, sleep, mobility, whether medication was taken, a pain score from zero to ten, whether a fall happened, and your own words — up to twenty thousand characters, in either language. The moment you save, the original is locked. If something was wrong, you don't edit history — you append a correction, and the app replays the effective state from the full chain. Then, when you want the bigger picture, you request a summary over seven, fourteen, or thirty days, and review a suggested plan. Notice the design decision underneath: uncertainty is a value. 'Not recorded' and 'unknown' are different, and neither is guessed away." TAKEAWAY: One note a day becomes a history you can replay. TRANSITION: "Let me show you where this lives on the web." → slide 5 (Mahmoud continues).</div>
+</section></div>
+
+<!-- ================= SLIDE 05 · WEB EXPERIENCE ================= -->
+<div class="frame" id="f5"><section class="slide" data-speaker="Mahmoud Hewidy" data-time="0:50">
+  <div class="pad">
+    <div class="kicker">Product · web</div>
+    <h1 class="head">A complete caregiver workspace.</h1>
+    <div class="chips" style="margin-top:24px"><span class="chip pine">React 18</span><span class="chip pine">TypeScript 5.6</span><span class="chip">Vite</span><span class="chip">EN / AR · full RTL</span></div>
+    <div style="display:grid;grid-template-columns:920px 1fr;gap:70px;margin-top:40px">
+      <div>
+        <div class="schem" style="height:470px;padding:26px">
+          <span class="lbl" style="top:-13px;left:34px;background:var(--bg);padding:0 12px">Workspace anatomy — schematic</span>
+          <div style="display:grid;grid-template-columns:250px 1fr;gap:18px;height:100%">
+            <div class="region" style="display:flex;flex-direction:column;gap:10px">
+              <h4>Navigation</h4>
+              <p>Overview<br>Recipients<br>Record a daily note<br>Notes · history<br>Summaries<br>Plans<br>Settings · AI</p>
+            </div>
+            <div style="display:flex;flex-direction:column;gap:18px">
+              <div class="region"><h4>Context bar</h4><p>Selected date · recipient selector · language switch · account</p></div>
+              <div class="region" style="flex:1"><h4>Content area</h4><p>Overview KPIs &amp; today-by-recipient table · note editor with observation states · filterable history with correction timelines · summary with safety panel, evidence quotes &amp; trends · plan versions with accept / edit / dismiss</p></div>
+            </div>
+          </div>
+        </div>
+        <p class="schem-note">Structural schematic of the shipped workspace — labels are the app's own navigation. No fabricated screens.</p>
+      </div>
+      <div>
+        <ul class="ledger">
+          <li>Recipient management <small>care details, medications, archive &amp; restore</small></li>
+          <li>Daily notes <small>structured fields, verification, safe retry on uncertain saves</small></li>
+          <li>History &amp; filtering <small>recipient + date filters, pagination, corrections on demand</small></li>
+          <li>Summaries &amp; plans <small>evidence-linked claims, deterministic safety, versioned decisions</small></li>
+          <li>Accessible structure <small>keyboard-safe flows, axe-core checks in every viewport</small></li>
+          <li class="clay">Tab-scoped sessions <small>the JWT lives in sessionStorage — privacy by default</small></li>
+        </ul>
+      </div>
+    </div>
+  </div>
+  <div class="foot">
+    <div class="brand"><img src="../brand/the-gather/logo-horizontal-en.svg" alt="Rafeek"></div>
+    <div class="meta"><span class="spk">Mahmoud Hewidy</span><span>Web experience</span><span class="num">05 / 15</span></div>
+  </div>
+  <div class="notes">WEB — 0:50. "The web client is React 18 with TypeScript — a single workspace, not a collection of pages. On the left, the navigation you see here is the app's real navigation: Overview, Recipients, Notes, Summaries, Plans. The context bar carries the selected date and recipient everywhere, so you never wonder whose record you're looking at. Two engineering points I care about as the frontend owner: first, accessibility is checked, not claimed — axe-core runs in every Playwright viewport project. Second, sessions are tab-scoped: the JWT sits in sessionStorage, not localStorage, so closing the tab ends the session. And everything you'll see in the evidence slides — the 1,086 web unit tests — tests this workspace's actual contracts." TAKEAWAY: One workspace, real structure, checked accessibility. TRANSITION: "Care doesn't only happen where there's a desk. Here's the Android side." → slide 6 (Mahmoud continues).</div>
+</section></div>
+
+<!-- ================= SLIDE 06 · ANDROID ================= -->
+<div class="frame" id="f6"><section class="slide" data-speaker="Mahmoud Hewidy" data-time="1:00">
+  <div class="pad">
+    <div class="kicker">Product · android</div>
+    <h1 class="head">Care documentation, <em>wherever the day happens.</em></h1>
+    <div class="chips" style="margin-top:24px"><span class="chip pine">Kotlin 2.0</span><span class="chip pine">Jetpack Compose</span><span class="chip">Room</span><span class="chip">Android Keystore</span><span class="chip">minSdk 23</span></div>
+    <div style="display:grid;grid-template-columns:640px 1fr;gap:80px;margin-top:36px;align-items:start">
+      <div style="position:relative">
+        <div style="width:400px;margin:0 auto;border:3px solid var(--pine);border-radius:44px;padding:26px 22px;background:var(--surface);box-shadow:0 18px 44px rgba(33,59,50,.12)">
+          <div style="width:110px;height:10px;border-radius:var(--r-pill);background:var(--border);margin:0 auto 20px"></div>
+          <div class="region" style="border:1.5px solid var(--border);border-radius:var(--r-control);background:var(--bg);padding:16px;margin-bottom:14px"><h4 style="font-size:19px;font-weight:700;color:var(--pine)">Local accounts</h4><p style="font-size:16px;color:var(--muted)">On-device accounts · no backend required</p></div>
+          <div class="region" style="border:1.5px solid var(--border);border-radius:var(--r-control);background:var(--bg);padding:16px;margin-bottom:14px"><h4 style="font-size:19px;font-weight:700;color:var(--pine)">Room — source of truth</h4><p style="font-size:16px;color:var(--muted)">Per-account database: notes · plans · summaries</p></div>
+          <div class="region" style="border:1.5px solid var(--clay);border-radius:var(--r-control);background:#FBF3EF;padding:16px;margin-bottom:14px"><h4 style="font-size:19px;font-weight:700;color:var(--clay)">Android Keystore</h4><p style="font-size:16px;color:var(--muted)">Encrypted BYOK keys · per account &amp; provider</p></div>
+          <div style="text-align:center;font-size:16px;color:var(--muted);padding:8px 0 2px">↓ direct, with the caregiver's own key</div>
+          <div class="region" style="border:1.5px dashed var(--pine);border-radius:var(--r-control);background:var(--soft);padding:14px;text-align:center"><p style="font-size:17px;font-weight:700;color:var(--pine)">AI provider — BYOK</p></div>
+        </div>
+        <p class="schem-note" style="text-align:center">Standalone release architecture — schematic, not a screen.</p>
+      </div>
+      <div>
+        <ul class="ledger">
+          <li>Local-first standalone release <small>install the APK, create a local account, work offline</small></li>
+          <li>Room as the source of truth <small>each account owns its database on the device</small></li>
+          <li>No backend dependency <small>the release build runs without any server</small></li>
+          <li>AI with the caregiver's own credentials <small>bring-your-own-key, disclosed before activation</small></li>
+          <li>Keys protected by Android Keystore <small>encrypted, scoped per account and provider</small></li>
+          <li class="clay">Offline demo for evaluation <small>synthetic data, no network — long-press the logo</small></li>
+        </ul>
+        <div class="strip" style="margin-top:26px"><b>Two execution paths, one domain model.</b> The web app is a connected client of the backend; the Android release is an independent device record with direct provider integration.</div>
+      </div>
+    </div>
+  </div>
+  <div class="foot">
+    <div class="brand"><img src="../brand/the-gather/logo-horizontal-en.svg" alt="Rafeek"></div>
+    <div class="meta"><span class="spk">Mahmoud Hewidy</span><span>Android experience</span><span class="num">06 / 15</span></div>
+  </div>
+  <div class="notes">ANDROID — 1:00. "The Android app is native — Kotlin 2.0 and Jetpack Compose — and it makes a deliberately different architectural choice from the web. The official release is standalone and local-first: accounts live on the device, each account gets its own Room database, and notes, plans and summaries are stored on-device. No backend is required. That matters in real caregiving: the documentation works in a home with no reliable connection. AI is still available, but through the caregiver's own provider key, stored encrypted in the Android Keystore — never in plain storage, never shared between accounts. For this evaluation there's an offline demo with synthetic data: long-press the logo on the login screen. One distinction to keep clear: web equals connected workspace; Android equals independent device record. Same rules, different execution path." TAKEAWAY: The record survives without a network — and keys never leave the Keystore. TRANSITION: "Both apps share one more non-negotiable: language." → slide 7 (Mahmoud continues).</div>
+</section></div>
+
+<!-- ================= SLIDE 07 · BILINGUAL ================= -->
+<div class="frame" id="f7"><section class="slide" data-speaker="Mahmoud Hewidy" data-time="0:50">
+  <img class="wm" src="../brand/the-gather/symbol.svg" alt="" style="left:-240px;bottom:-280px;width:720px">
+  <div class="pad">
+    <div class="kicker">Product · bilingual by design</div>
+    <h1 class="head">Language should never become <em>a barrier to clarity.</em></h1>
+    <div class="mirror" style="margin-top:44px">
+      <div class="half" dir="ltr">
+        <div class="lang">English · LTR</div>
+        <div class="mrow"><span class="k">Mood</span><span class="v">Calm</span></div>
+        <div class="mrow"><span class="k">Sleep</span><span class="v">Slept well</span></div>
+        <div class="mrow"><span class="k">Action</span><span class="v">Save original note</span></div>
+        <div class="mrow"><span class="k">States</span><span class="v">Not recorded ≠ Unknown</span></div>
+      </div>
+      <div class="half ar" dir="rtl">
+        <div class="lang">العربية · RTL</div>
+        <div class="mrow"><span class="k">المزاج</span><span class="v">هادئ</span></div>
+        <div class="mrow"><span class="k">النوم</span><span class="v">نام جيدًا</span></div>
+        <div class="mrow"><span class="k">الإجراء</span><span class="v">حفظ الملاحظة الأصلية</span></div>
+        <div class="mrow"><span class="k">الحالات</span><span class="v">غير مسجّل ≠ غير معروف</span></div>
+      </div>
+    </div>
+    <div style="display:grid;grid-template-columns:repeat(4,1fr);gap:24px;margin-top:36px">
+      <div class="card"><b style="font-size:22px">Full RTL / LTR</b><p style="font-size:18.5px;color:var(--muted);margin-top:8px;line-height:1.45">Layouts mirror completely — logical CSS properties, not translated patches.</p></div>
+      <div class="card"><b style="font-size:22px">Bidi isolation</b><p style="font-size:18.5px;color:var(--muted);margin-top:8px;line-height:1.45">Mixed Arabic/English text keeps its natural direction inside every record.</p></div>
+      <div class="card"><b style="font-size:22px">Parity by tests</b><p style="font-size:18.5px;color:var(--muted);margin-top:8px;line-height:1.45">Arabic string parity is enforced by the test suite — not by convention.</p></div>
+      <div class="card"><b style="font-size:22px">Accessible in both</b><p style="font-size:18.5px;color:var(--muted);margin-top:8px;line-height:1.45">axe-core checks run in every viewport, in both language workflows.</p></div>
+    </div>
+    <p style="font-size:18px;color:var(--muted);margin-top:24px">Typography: DM Sans + Noto Sans Arabic (web) · IBM Plex Sans Arabic (Android). Shown above: the app's actual interface strings.</p>
+  </div>
+  <div class="foot">
+    <div class="brand"><img src="../brand/the-gather/logo-horizontal-en.svg" alt="Rafeek"></div>
+    <div class="meta"><span class="spk">Mahmoud Hewidy</span><span>Bilingual by design</span><span class="num">07 / 15</span></div>
+  </div>
+  <div class="notes">BILINGUAL — 0:50. "This mirror shows the app's real strings, side by side — not a mockup. 'Save original note' and 'حفظ الملاحظة الأصلية' are the same button in the shipped product. Bilingual support here is an architectural decision: layouts are built with logical properties so RTL is a first-class mode, mixed-direction text is isolated so an English medication name inside an Arabic sentence never corrupts the line, and Arabic parity is enforced by tests — if a string exists in English and not Arabic, the suite fails. For the Egyptian and MENA context this is the difference between a translated app and an app that actually belongs to its users. Accessibility checks run in both languages, in every viewport." TAKEAWAY: Arabic isn't a toggle — it's a tested, structural guarantee. TRANSITION: "That's the product. Ebrahim will now take you under the hood — the architecture and the engineering that makes these promises real." → slide 8 (hand to Ebrahim Ahmed).</div>
+</section></div>
+
+<!-- ================= SLIDE 08 · ARCHITECTURE ================= -->
+<div class="frame" id="f8"><section class="slide" data-speaker="Ebrahim Ahmed" data-time="1:10">
+  <div class="pad" style="padding-bottom:110px">
+    <div class="kicker">Engineering · architecture</div>
+    <h1 class="head" style="font-size:66px">One product. Multiple clients. <em>Clear boundaries.</em></h1>
+    <svg viewBox="0 0 1700 660" style="width:1700px;height:660px;margin-top:26px" font-family="DM Sans, sans-serif">
+      <defs>
+        <marker id="ar" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="8" markerHeight="8" orient="auto-start-reverse"><path d="M0 0L10 5L0 10z" fill="#285B45"/></marker>
+        <marker id="arc" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="8" markerHeight="8" orient="auto-start-reverse"><path d="M0 0L10 5L0 10z" fill="#C77F68"/></marker>
+      </defs>
+      <!-- boundaries -->
+      <rect x="20" y="20" width="1080" height="430" rx="28" fill="#FFFFFF" stroke="#DDE4D8" stroke-width="2"/>
+      <text x="48" y="62" font-size="20" font-weight="700" letter-spacing="3" fill="#59695F">CONNECTED PATH</text>
+      <rect x="1130" y="20" width="550" height="430" rx="28" fill="#EEF2E8" stroke="#DDE4D8" stroke-width="2"/>
+      <text x="1158" y="62" font-size="20" font-weight="700" letter-spacing="3" fill="#59695F">STANDALONE PATH</text>
+      <!-- web client -->
+      <rect x="60" y="100" width="300" height="150" rx="14" fill="#FAFAF6" stroke="#285B45" stroke-width="2.5"/>
+      <text x="210" y="140" text-anchor="middle" font-size="26" font-weight="700" fill="#213B32">Web client</text>
+      <text x="210" y="172" text-anchor="middle" font-size="19" fill="#59695F">React 18 · TypeScript 5.6</text>
+      <text x="210" y="200" text-anchor="middle" font-size="19" fill="#59695F">EN/AR · RTL · tab-scoped JWT</text>
+      <text x="210" y="228" text-anchor="middle" font-size="17" fill="#59695F">renders — never decides</text>
+      <!-- backend -->
+      <rect x="440" y="90" width="330" height="180" rx="14" fill="#285B45"/>
+      <text x="605" y="130" text-anchor="middle" font-size="26" font-weight="700" fill="#FFFFFF">Backend — the authority</text>
+      <text x="605" y="162" text-anchor="middle" font-size="19" fill="#DCE5D6">Java 21 · Spring Boot 3.3</text>
+      <text x="605" y="190" text-anchor="middle" font-size="19" fill="#DCE5D6">Spring Security · JWT · REST</text>
+      <text x="605" y="218" text-anchor="middle" font-size="19" fill="#DCE5D6">validation · ownership · audit</text>
+      <text x="605" y="246" text-anchor="middle" font-size="19" fill="#E0A08C">deterministic safety · trends</text>
+      <!-- database -->
+      <rect x="850" y="100" width="220" height="150" rx="14" fill="#FAFAF6" stroke="#285B45" stroke-width="2.5"/>
+      <text x="960" y="140" text-anchor="middle" font-size="25" font-weight="700" fill="#213B32">PostgreSQL</text>
+      <text x="960" y="172" text-anchor="middle" font-size="19" fill="#59695F">JPA entities</text>
+      <text x="960" y="200" text-anchor="middle" font-size="19" fill="#59695F">Flyway V1–V17</text>
+      <text x="960" y="228" text-anchor="middle" font-size="17" fill="#59695F">append-only records</text>
+      <!-- arrows connected -->
+      <line x1="360" y1="175" x2="436" y2="175" stroke="#285B45" stroke-width="3" marker-end="url(#ar)"/>
+      <text x="398" y="160" text-anchor="middle" font-size="16" fill="#59695F">REST</text>
+      <line x1="770" y1="175" x2="846" y2="175" stroke="#285B45" stroke-width="3" marker-end="url(#ar)"/>
+      <text x="808" y="160" text-anchor="middle" font-size="16" fill="#59695F">JPA</text>
+      <!-- android -->
+      <rect x="1160" y="100" width="490" height="150" rx="14" fill="#FFFFFF" stroke="#285B45" stroke-width="2.5"/>
+      <text x="1405" y="140" text-anchor="middle" font-size="26" font-weight="700" fill="#213B32">Android — standalone</text>
+      <text x="1405" y="172" text-anchor="middle" font-size="19" fill="#59695F">Kotlin 2.0 · Jetpack Compose</text>
+      <text x="1405" y="200" text-anchor="middle" font-size="19" fill="#59695F">Room per-account · local accounts</text>
+      <text x="1405" y="228" text-anchor="middle" font-size="17" fill="#59695F">Keystore-encrypted BYOK keys</text>
+      <!-- AI band -->
+      <rect x="440" y="490" width="1240" height="130" rx="14" fill="#FBF3EF" stroke="#C77F68" stroke-width="2.5"/>
+      <text x="1060" y="530" text-anchor="middle" font-size="25" font-weight="700" fill="#213B32">AI providers — bring your own key</text>
+      <text x="1060" y="562" text-anchor="middle" font-size="19" fill="#59695F">OpenAI · Gemini · xAI · OpenRouter (web) · + Anthropic (Android)</text>
+      <text x="1060" y="592" text-anchor="middle" font-size="18" fill="#59695F">output validated: schema · grounded quotes · medication hard lock · deterministic flags unaffected</text>
+      <!-- backend to AI -->
+      <path d="M605 270 L605 486" stroke="#C77F68" stroke-width="3" fill="none" marker-end="url(#arc)"/>
+      <text x="618" y="390" font-size="17" fill="#59695F">server-side call · caregiver's key</text>
+      <path d="M700 486 L700 274" stroke="#285B45" stroke-width="3" fill="none" stroke-dasharray="7 6" marker-end="url(#ar)"/>
+      <text x="712" y="420" font-size="17" fill="#59695F">controlled output</text>
+      <!-- android to AI -->
+      <path d="M1405 250 L1405 486" stroke="#C77F68" stroke-width="3" fill="none" marker-end="url(#arc)"/>
+      <text x="1418" y="390" font-size="17" fill="#59695F">direct · own key · no backend</text>
+      <!-- note -->
+      <text x="60" y="540" font-size="19" fill="#59695F">Same domain rules on both paths:</text>
+      <text x="60" y="570" font-size="19" fill="#59695F">immutable originals · typed corrections ·</text>
+      <text x="60" y="600" font-size="19" fill="#59695F">uncertainty preserved · humans decide.</text>
+    </svg>
+  </div>
+  <div class="foot">
+    <div class="brand"><img src="../brand/the-gather/logo-horizontal-en.svg" alt="Rafeek"></div>
+    <div class="meta"><span class="spk">Ebrahim Ahmed</span><span>Architecture</span><span class="num">08 / 15</span></div>
+  </div>
+  <div class="notes">ARCHITECTURE — 1:10. "Thank you, Mahmoud. I'm Ebrahim Ahmed, backend engineering. This diagram is the whole system in one view, and the key word is boundaries. Left: the connected path. The React client talks REST to a Java 21, Spring Boot 3.3 backend — and the backend is the authority. Business rules, ownership checks, deterministic safety signals, trend counts, plan versioning and audit all live server-side; clients render, they do not decide. PostgreSQL with Flyway migrations V1 through V17 holds append-only records. Right: the standalone path. The Android release runs independently — Room on-device, its own local accounts, and a direct line to AI providers using the caregiver's own key. Both paths call providers bring-your-own-key style, and both enforce the same output contract: schema-valid, grounded in source notes, medication-locked. The model's output is a suggestion that passed validation — never an instruction." TERM: BYOK = bring your own key; the user's provider account, the user's cost and data policy. TAKEAWAY: Two execution paths, one set of non-negotiable rules. TRANSITION: "Let's zoom into the backend itself — the contracts that make records reliable." → slide 9 (Ebrahim continues).</div>
+</section></div>
+
+<!-- ================= SLIDE 09 · BACKEND ================= -->
+<div class="frame" id="f9"><section class="slide" data-speaker="Ebrahim Ahmed" data-time="0:50">
+  <div class="pad">
+    <div class="kicker">Engineering · backend</div>
+    <h1 class="head" style="font-size:66px">Reliable records begin with <em>reliable backend contracts.</em></h1>
+    <div style="display:grid;grid-template-columns:640px 1fr;gap:80px;margin-top:40px">
+      <div>
+        <p style="font-size:20px;font-weight:900;letter-spacing:.16em;text-transform:uppercase;color:var(--muted);margin-bottom:14px">Eight domains, one API</p>
+        <ul class="ledger">
+          <li>Authentication &amp; ownership</li>
+          <li>Care-recipient management</li>
+          <li>Daily notes</li>
+          <li>Addenda &amp; typed corrections</li>
+          <li>Safety signals</li>
+          <li>Medication intake events</li>
+          <li>AI summaries</li>
+          <li>Care-plan suggestions</li>
+        </ul>
+      </div>
+      <div>
+        <svg viewBox="0 0 900 300" style="width:900px;height:300px" font-family="DM Sans, sans-serif">
+          <defs><marker id="ar2" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="8" markerHeight="8" orient="auto-start-reverse"><path d="M0 0L10 5L0 10z" fill="#285B45"/></marker></defs>
+          <rect x="10" y="60" width="240" height="120" rx="14" fill="#FAFAF6" stroke="#285B45" stroke-width="2.5"/>
+          <text x="130" y="105" text-anchor="middle" font-size="24" font-weight="700" fill="#213B32">REST API</text>
+          <text x="130" y="137" text-anchor="middle" font-size="17" fill="#59695F">JWT bearer · rate limits</text>
+          <text x="130" y="162" text-anchor="middle" font-size="17" fill="#59695F">Idempotency-Key</text>
+          <line x1="250" y1="120" x2="326" y2="120" stroke="#285B45" stroke-width="3" marker-end="url(#ar2)"/>
+          <rect x="330" y="60" width="250" height="120" rx="14" fill="#285B45"/>
+          <text x="455" y="105" text-anchor="middle" font-size="24" font-weight="700" fill="#fff">Services</text>
+          <text x="455" y="137" text-anchor="middle" font-size="17" fill="#DCE5D6">owner-scoped queries</text>
+          <text x="455" y="162" text-anchor="middle" font-size="17" fill="#DCE5D6">rules · signals · replay</text>
+          <line x1="580" y1="120" x2="656" y2="120" stroke="#285B45" stroke-width="3" marker-end="url(#ar2)"/>
+          <rect x="660" y="60" width="230" height="120" rx="14" fill="#FAFAF6" stroke="#285B45" stroke-width="2.5"/>
+          <text x="775" y="105" text-anchor="middle" font-size="24" font-weight="700" fill="#213B32">PostgreSQL</text>
+          <text x="775" y="137" text-anchor="middle" font-size="17" fill="#59695F">Flyway migrations</text>
+          <text x="775" y="162" text-anchor="middle" font-size="17" fill="#59695F">append-only + audit</text>
+          <rect x="10" y="220" width="880" height="64" rx="12" fill="#EEF2E8" stroke="#DDE4D8"/>
+          <text x="450" y="259" text-anchor="middle" font-size="19" font-weight="500" fill="#213B32">Cross-cutting: validation · unified error contract · idempotent replay vs 409 · structured audit</text>
+        </svg>
+        <ul class="ledger" style="margin-top:20px">
+          <li>Ownership is the only boundary <small>another caregiver's IDs return 404 — never 403; clients never submit owner IDs</small></li>
+          <li>Idempotency by contract <small>safe retries replay the same result; conflicts return 409 IDEMPOTENCY_CONFLICT</small></li>
+          <li class="clay">Migrations as provenance <small>Flyway V1–V17; every schema change is versioned and testable</small></li>
+        </ul>
+      </div>
+    </div>
+  </div>
+  <div class="foot">
+    <div class="brand"><img src="../brand/the-gather/logo-horizontal-en.svg" alt="Rafeek"></div>
+    <div class="meta"><span class="spk">Ebrahim Ahmed</span><span>Backend engineering</span><span class="num">09 / 15</span></div>
+  </div>
+  <div class="notes">BACKEND — 0:50. "Eight domains share one API surface, and every request passes the same gauntlet: validation, JWT authentication, then owner-scoped queries. A detail we're proud of because it's a security decision: if you request another caregiver's resource, you get 404 — not 403. A 403 would confirm the record exists; a 404 reveals nothing. Writes carry an Idempotency-Key: retrying a save replays the original result instead of duplicating it, and a genuine conflict returns 409. That's what makes the 'safe retry' in the UI honest — the backend guarantees it. Errors follow one unified contract, migrations are versioned V1 to V17, and every meaningful action lands in an append-only audit log with secret redaction. These aren't aspirations; each one has dedicated tests you'll see in the evidence." TERM: idempotency = performing the same request twice has the same effect as once. TAKEAWAY: The contract is the product — retries are safe, ownership is invisible, history is provable. TRANSITION: "Now the principles that matter most in a care context: integrity and safety." → slide 10 (Ebrahim continues).</div>
+</section></div>
+
+<!-- ================= SLIDE 10 · INTEGRITY & SAFETY ================= -->
+<div class="frame" id="f10"><section class="slide soft" data-speaker="Ebrahim Ahmed" data-time="1:10">
+  <div class="pad">
+    <div class="kicker">Engineering · integrity &amp; safety</div>
+    <h1 class="head" style="font-size:66px">Trust must be <em>built into the system.</em></h1>
+    <div style="display:grid;grid-template-columns:1fr 1fr;gap:44px;margin-top:38px">
+      <div class="card" style="padding:34px">
+        <p style="font-size:20px;font-weight:900;letter-spacing:.16em;text-transform:uppercase;color:var(--pine);margin-bottom:20px">The record — append-only</p>
+        <svg viewBox="0 0 760 400" style="width:100%;height:400px" font-family="DM Sans, sans-serif">
+          <defs><marker id="ar3" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="8" markerHeight="8" orient="auto-start-reverse"><path d="M0 0L10 5L0 10z" fill="#285B45"/></marker></defs>
+          <rect x="20" y="10" width="720" height="74" rx="12" fill="#285B45"/>
+          <text x="44" y="42" font-size="22" font-weight="700" fill="#fff">Original note — immutable</text>
+          <text x="44" y="68" font-size="17" fill="#DCE5D6">saved observations + free text, locked forever</text>
+          <line x1="380" y1="84" x2="380" y2="112" stroke="#285B45" stroke-width="3" marker-end="url(#ar3)"/>
+          <rect x="20" y="116" width="720" height="64" rx="12" fill="#FAFAF6" stroke="#DDE4D8" stroke-width="2"/>
+          <text x="44" y="143" font-size="20" font-weight="700" fill="#213B32">Addendum</text>
+          <text x="44" y="167" font-size="16.5" fill="#59695F">later context or correction, as a separate dated record</text>
+          <line x1="380" y1="180" x2="380" y2="208" stroke="#285B45" stroke-width="3" marker-end="url(#ar3)"/>
+          <rect x="20" y="212" width="720" height="64" rx="12" fill="#FAFAF6" stroke="#DDE4D8" stroke-width="2"/>
+          <text x="44" y="239" font-size="20" font-weight="700" fill="#213B32">Typed correction events</text>
+          <text x="44" y="263" font-size="16.5" fill="#59695F">SET · CLEAR · UNKNOWN · NOT_RECORDED — each immutable</text>
+          <line x1="380" y1="276" x2="380" y2="304" stroke="#C77F68" stroke-width="3" marker-end="url(#ar3)"/>
+          <rect x="20" y="308" width="720" height="74" rx="12" fill="#FBF3EF" stroke="#C77F68" stroke-width="2.5"/>
+          <text x="44" y="340" font-size="22" font-weight="700" fill="#213B32">Effective state — replayed, never edited</text>
+          <text x="44" y="366" font-size="17" fill="#59695F">deterministic projection of original + every event</text>
+        </svg>
+      </div>
+      <div class="card" style="padding:34px">
+        <p style="font-size:20px;font-weight:900;letter-spacing:.16em;text-transform:uppercase;color:var(--pine);margin-bottom:20px">The model's boundary</p>
+        <div style="display:grid;grid-template-columns:1fr 1fr;gap:26px">
+          <div>
+            <p style="font-size:19px;font-weight:900;color:var(--pine);letter-spacing:.08em;margin-bottom:12px">CAN</p>
+            <ul class="ledger" style="font-size:20px">
+              <li style="font-size:20px">Raise urgency</li>
+              <li style="font-size:20px">Ground claims in source notes</li>
+              <li style="font-size:20px">Suggest catalog actions</li>
+              <li style="font-size:20px">Surface uncertainty</li>
+            </ul>
+          </div>
+          <div>
+            <p style="font-size:19px;font-weight:900;color:var(--clay);letter-spacing:.08em;margin-bottom:12px">CANNOT</p>
+            <ul class="ledger" style="font-size:20px">
+              <li class="clay" style="font-size:20px">Suppress a deterministic flag</li>
+              <li class="clay" style="font-size:20px">Add, remove or alter medications</li>
+              <li class="clay" style="font-size:20px">Invent actions outside the catalog</li>
+              <li class="clay" style="font-size:20px">Decide for the caregiver</li>
+            </ul>
+          </div>
+        </div>
+        <div class="strip" style="margin-top:26px"><b>Safety signals and trends are computed by ordinary backend code</b> — never delegated to the language model. Accept, edit, or dismiss stays human.</div>
+      </div>
+    </div>
+  </div>
+  <div class="foot">
+    <div class="brand"><img src="../brand/the-gather/logo-horizontal-en.svg" alt="Rafeek"></div>
+    <div class="meta"><span class="spk">Ebrahim Ahmed</span><span>Integrity &amp; safety</span><span class="num">10 / 15</span></div>
+  </div>
+  <div class="notes">INTEGRITY & SAFETY — 1:10. "This is the slide I'd ask you to remember from the engineering section. Left: how a record lives. The original note is immutable. Corrections arrive as addenda or typed events — set a value, clear it, mark it unknown, mark it not recorded — and the effective state you see is a deterministic replay of the original plus every event. Anyone can reconstruct what was known, when, and by whom. Right: the model's leash. Red flags — a fall, high pain, repeated missed medication — are computed by ordinary code, before and independently of any LLM. The model may raise urgency; it can never lower or remove a flag, never touch medication names, doses or schedules, and plan actions come from a fixed catalog: check-ins, meal reminders, mobility goals, education, contact a doctor. Every claim must quote a real source note. And the final decision — accept, edit, dismiss — belongs to the caregiver. We say it in one line: the model never holds the pen on safety." TAKEAWAY: Immutability plus a leashed model equals a record a clinician could trust. TRANSITION: "Promises like these are only worth what you can prove. Mohamed will show you exactly how we prove them." → slide 11 (hand to Mohamed Hemdan).</div>
+</section></div>
+
+<!-- ================= SLIDE 11 · TESTING STRATEGY ================= -->
+<div class="frame" id="f11"><section class="slide" data-speaker="Mohamed Hemdan" data-time="1:00">
+  <div class="pad">
+    <div class="kicker">Quality · strategy</div>
+    <h1 class="head" style="font-size:64px">Quality isn't a final step. <em>It's part of the engineering process.</em></h1>
+    <div style="display:grid;grid-template-columns:760px 1fr;gap:80px;margin-top:34px">
+      <div>
+        <svg viewBox="0 0 760 470" style="width:760px;height:470px" font-family="DM Sans, sans-serif">
+          <polygon points="380,10 560,150 200,150" fill="#C77F68"/>
+          <text x="380" y="105" text-anchor="middle" font-size="19" font-weight="700" fill="#fff">E2E &amp; UI</text>
+          <text x="380" y="130" text-anchor="middle" font-size="15" fill="#FBF3EF">Playwright · Compose</text>
+          <polygon points="195,160 565,160 640,290 120,290" fill="#285B45"/>
+          <text x="380" y="210" text-anchor="middle" font-size="20" font-weight="700" fill="#fff">Integration &amp; API</text>
+          <text x="380" y="238" text-anchor="middle" font-size="16" fill="#DCE5D6">Spring contexts · H2 + Flyway · contracts</text>
+          <text x="380" y="264" text-anchor="middle" font-size="16" fill="#DCE5D6">ownership · idempotency · safety rules</text>
+          <polygon points="115,300 645,300 730,440 30,440" fill="#EEF2E8" stroke="#DDE4D8" stroke-width="2"/>
+          <text x="380" y="350" text-anchor="middle" font-size="21" font-weight="700" fill="#213B32">Unit</text>
+          <text x="380" y="380" text-anchor="middle" font-size="17" fill="#59695F">backend 700 · web 1,086 · Android JVM 1,654</text>
+          <text x="380" y="408" text-anchor="middle" font-size="17" fill="#59695F">+ deterministic AI eval harness · 22 golden cases</text>
+          <text x="380" y="462" text-anchor="middle" font-size="16" fill="#59695F">Risk-weighted: safety suppression · silent edits · data leaks · medication advice</text>
+        </svg>
+      </div>
+      <div>
+        <p style="font-size:20px;font-weight:900;letter-spacing:.16em;text-transform:uppercase;color:var(--muted);margin-bottom:16px">The lifecycle we run</p>
+        <div style="display:flex;flex-wrap:wrap;gap:12px;margin-bottom:30px">
+          <span class="chip">Plan &amp; risk analysis</span><span class="chip">Design cases</span><span class="chip pine">Execute</span><span class="chip">Defect &amp; repro</span><span class="chip">Fix</span><span class="chip clay">Regression verify</span>
+        </div>
+        <p style="font-size:20px;font-weight:900;letter-spacing:.16em;text-transform:uppercase;color:var(--muted);margin-bottom:16px">Tooling in the repository</p>
+        <div class="chips">
+          <span class="chip">JUnit 5</span><span class="chip">Spring Boot Test</span><span class="chip">JaCoCo</span><span class="chip">Vitest</span><span class="chip">Testing Library</span><span class="chip">Playwright</span><span class="chip">axe-core</span><span class="chip">Deterministic eval harness</span>
+        </div>
+        <div class="strip" style="margin-top:30px"><b>DEPI Software Testing competencies</b> — test planning, risk analysis, test-condition analysis, structured case design, defect management — drive the strategy; the tools above are the project's documented implementation.</div>
+      </div>
+    </div>
+  </div>
+  <div class="foot">
+    <div class="brand"><img src="../brand/the-gather/logo-horizontal-en.svg" alt="Rafeek"></div>
+    <div class="meta"><span class="spk">Mohamed Hemdan</span><span>Testing strategy</span><span class="num">11 / 15</span></div>
+  </div>
+  <div class="notes">TESTING STRATEGY — 1:00. "Thank you, Ebrahim. I'm Mohamed Hemdan — backend and security, and I'll close out with our quality evidence. This is a Software Testing track capstone, so testing isn't a chapter at the end; it's how the project was run. We started from risk: what would actually harm a care recipient or leak their data? A model suppressing a safety flag. A silent edit to history. Cross-caregiver access. Model-authored medication advice. Each risk maps to a guard you can see in the pyramid — deterministic red-flag tests, immutability and replay tests, ownership tests, medication hard-lock tests, and a deterministic AI evaluation harness. The lifecycle is the full DEPI discipline: plan and analyze risk, design structured cases, execute, file defects with reproduction, fix, and verify regression. Every tool on this slide is in the repository — JUnit 5, Spring Boot Test, JaCoCo, Vitest, Testing Library, Playwright, axe-core. And there's a formal IEEE 829-style test-case specification — a 62-page PDF — prepared for DEPI review." TAKEAWAY: Risk chose the tests; the tests guard the promises. TRANSITION: "Strategy is intent. Here are the measured numbers." → slide 12 (Mohamed continues).</div>
+</section></div>
+
+<!-- ================= SLIDE 12 · QUALITY EVIDENCE ================= -->
+<div class="frame" id="f12"><section class="slide dark" data-speaker="Mohamed Hemdan" data-time="1:00">
+  <div class="pad" style="padding-top:76px">
+    <div class="kicker">Quality · evidence</div>
+    <div style="display:flex;justify-content:space-between;align-items:flex-end">
+      <h1 class="head" style="font-size:56px;margin-top:12px">Measured quality. <em>Documented evidence.</em></h1>
+      <p style="font-size:19px;color:#C3CFC5;text-align:right;line-height:1.5">Verified 2026-11-19 · main @ d70795fc<br>Linux build VM · OpenJDK 21 · measured, not estimated</p>
+    </div>
+    <div class="dash" style="margin-top:26px;height:676px">
+      <div class="mcard">
+        <span class="tag">Backend</span><span class="status exec">Executed · passing</span>
+        <div class="big">700<small> / 700</small></div>
+        <div class="desc">93 test classes · 0 failures · 0 errors · JUnit 5 + Spring Boot Test, H2 + Flyway</div>
+        <div class="bar"><div class="bl"><span>Line coverage — 3,423 / 3,670</span><b>93.3%</b></div><div class="track"><div class="fill" style="width:93.3%"></div></div></div>
+        <div class="bar"><div class="bl"><span>Branch coverage — 1,560 / 2,034</span><b>76.7%</b></div><div class="track"><div class="fill pine" style="width:76.7%"></div></div></div>
+      </div>
+      <div class="mcard">
+        <span class="tag">Web</span><span class="status exec">Executed · passing</span>
+        <div class="big">1,086<small> / 1,086</small></div>
+        <div class="desc">49 unit-test files · 0 failures · Vitest + Testing Library<br>Typecheck &amp; production build green</div>
+        <div class="statrow">
+          <div class="st"><div class="v">4</div><div class="k">viewport projects<br>desktop · tablet · mobile · compact</div></div>
+          <div class="st"><div class="v">EN+AR</div><div class="k">workflow coverage<br>inside the specs</div></div>
+        </div>
+      </div>
+      <div class="mcard">
+        <span class="tag">Android</span><span class="status inv">Inventory · CI-wired</span>
+        <div class="statrow" style="margin-top:14px">
+          <div class="st"><div class="v">192</div><div class="k">JVM test classes</div></div>
+          <div class="st"><div class="v">1,654</div><div class="k">JVM test methods</div></div>
+        </div>
+        <div class="statrow">
+          <div class="st"><div class="v">36</div><div class="k">Compose UI classes</div></div>
+          <div class="st"><div class="v">180</div><div class="k">instrumentation methods</div></div>
+        </div>
+        <div class="desc" style="margin-top:16px">JVM on JDK 17 · instrumentation on API-34 emulator / cloud devices</div>
+      </div>
+      <div class="mcard">
+        <span class="tag">Browser</span><span class="status inv">Inventory · CI-wired</span>
+        <div class="big" style="font-size:68px">320<small> runs defined</small></div>
+        <div class="desc">80 Playwright definitions × 4 viewports<br>53 end-to-end specs + 27 browser contracts · axe-core in every project</div>
+        <div class="statrow">
+          <div class="st"><div class="v">542</div><div class="k">GitHub issues closed<br>one defect/feature per issue</div></div>
+          <div class="st"><div class="v">62 pp</div><div class="k">IEEE 829-style test-case<br>specification &amp; execution PDF</div></div>
+        </div>
+      </div>
+    </div>
+    <p style="font-size:17px;color:#C3CFC5;margin-top:16px;line-height:1.45"><b style="color:var(--clay-light)">Status distinction:</b> backend 700/700 and web 1,086/1,086 are verified passing results from the 2026-11-19 execution. Android and Playwright figures are the documented test inventory, wired into CI with first full runs in flight — not claimed as executed-and-passing in that pass.</p>
+  </div>
+  <div class="foot">
+    <div class="brand"><img src="../brand/the-gather/logo-white.svg" alt="Rafeek" style="height:34px"></div>
+    <div class="meta"><span class="spk">Mohamed Hemdan</span><span>Quality evidence</span><span class="num">12 / 15</span></div>
+  </div>
+  <div class="notes">QUALITY EVIDENCE — 1:00. "These numbers are measured, not estimated, and each one is reproducible from the repository. Backend: seven hundred tests executed, seven hundred passed, zero failures, zero errors — across ninety-three test classes that boot real Spring contexts with Flyway migrations. JaCoCo coverage: ninety-three point three percent of lines, seventy-six point seven percent of branches. Web: one thousand eighty-six cases across forty-nine files, all passing. Now the distinction that matters for honesty: the Android and browser figures are inventory — one hundred ninety-two JVM classes with sixteen hundred fifty-four methods, thirty-six Compose classes with one hundred eighty methods, eighty Playwright definitions across four viewports, three hundred twenty defined runs. They're wired into CI and the first full runs are in flight; we do not claim they all executed and passed in this verification pass. The repository states exactly this, and so do we. Five hundred forty-two issues closed, and a sixty-two-page formal test specification behind all of it." TAKEAWAY: Executed results and inventory are labeled separately — that's the discipline. TRANSITION: "Tests also found real problems. Here's what happened to them — and how we evaluate the AI itself." → slide 13 (Mohamed continues).</div>
+</section></div>
+
+<!-- ================= SLIDE 13 · DEFECTS & AI EVAL ================= -->
+<div class="frame" id="f13"><section class="slide" data-speaker="Mohamed Hemdan" data-time="1:00">
+  <div class="pad">
+    <div class="kicker">Quality · defects &amp; AI evaluation</div>
+    <h1 class="head" style="font-size:60px">Testing uncovered problems. <em>Engineering turned them into evidence.</em></h1>
+    <div style="display:grid;grid-template-columns:1fr 1fr;gap:48px;margin-top:36px">
+      <div>
+        <div class="dflow">
+          <div class="dnode"><div class="v">8</div><div class="k">documented defects</div></div>
+          <div class="darrow">→</div>
+          <div class="dnode"><div class="v" style="color:var(--pine)">7</div><div class="k">fixed &amp; verified</div></div>
+          <div class="darrow">→</div>
+          <div class="dnode open"><div class="v">1</div><div class="k">open · DEF-008 · #1102</div></div>
+        </div>
+        <div class="card" style="margin-top:26px">
+          <p style="font-size:18px;font-weight:900;letter-spacing:.14em;text-transform:uppercase;color:var(--clay)">Case study · DEF-001</p>
+          <p style="font-size:22px;line-height:1.5;margin-top:12px"><b>V17 migration × H2.</b> One SQL incompatibility cascaded into <b>325 test errors</b> across ~30 classes. Root cause isolated with RunScript experiments, fixed, verified — suite green.</p>
+          <p style="font-size:19px;color:var(--muted);margin-top:12px;line-height:1.5">Coverage under the cascade read 50.3% — a floor, not the truth. After the fix: <b style="color:var(--pine)">93.3% lines</b>. Every defect carries repro, evidence, fix commit and verification; DEF-008 (setup-check key state) is openly tracked as investigation pending.</p>
+        </div>
+      </div>
+      <div class="card" style="padding:32px">
+        <p style="font-size:18px;font-weight:900;letter-spacing:.14em;text-transform:uppercase;color:var(--pine)">AI evaluation · deterministic harness</p>
+        <div class="big" style="font-size:64px;color:var(--ink);margin:14px 0 4px">22 <small style="color:var(--muted)">synthetic golden cases</small></div>
+        <div class="metric"><span class="name">Red-flag recall</span><div class="track"><div class="fill" style="width:100%"></div></div><span class="val">1.0</span></div>
+        <div class="metric"><span class="name">Schema-valid rate</span><div class="track"><div class="fill" style="width:100%"></div></div><span class="val">1.0</span></div>
+        <div class="metric"><span class="name">Groundedness rate</span><div class="track"><div class="fill" style="width:100%"></div></div><span class="val">1.0</span></div>
+        <div class="metric"><span class="name">Medication-safety rate</span><div class="track"><div class="fill" style="width:100%"></div></div><span class="val">1.0</span></div>
+        <div class="chips" style="margin-top:20px;gap:8px">
+          <span class="chip" style="font-size:16px;padding:7px 16px">English</span><span class="chip" style="font-size:16px;padding:7px 16px">MSA</span><span class="chip" style="font-size:16px;padding:7px 16px">Egyptian dialect</span><span class="chip" style="font-size:16px;padding:7px 16px">Mixed AR/EN</span><span class="chip" style="font-size:16px;padding:7px 16px">Contradictory</span><span class="chip" style="font-size:16px;padding:7px 16px">Noisy</span><span class="chip" style="font-size:16px;padding:7px 16px">Irrelevant</span><span class="chip clay" style="font-size:16px;padding:7px 16px">Prompt injection</span>
+        </div>
+        <p style="font-size:17px;color:var(--muted);margin-top:18px;line-height:1.5">All four metrics enforced at 1.0 by <b>EvalReportTest</b> — regressions fail CI. These are deterministic harness metrics on synthetic cases, <b>not clinical validation or certification</b>.</p>
+      </div>
+    </div>
+  </div>
+  <div class="foot">
+    <div class="brand"><img src="../brand/the-gather/logo-horizontal-en.svg" alt="Rafeek"></div>
+    <div class="meta"><span class="spk">Mohamed Hemdan</span><span>Defects &amp; AI evaluation</span><span class="num">13 / 15</span></div>
+  </div>
+  <div class="notes">DEFECTS & AI EVAL — 1:00. "Eight defects were documented by this testing effort; seven are fixed and verified; one — DEF-008, issue eleven-oh-two, a setup-check key-state problem on the cloud harness — is openly tracked as under investigation. We show the open one on purpose: a defect register you can trust includes what isn't finished. The case study is DEF-001: a single migration statement incompatible with H2 cascaded into three hundred twenty-five errors. We isolated it, fixed it, verified it — and watched coverage jump from a misleading fifty percent floor to the true ninety-three point three. On the right: the AI itself is tested deterministically. Twenty-two synthetic golden cases — English, Modern Standard Arabic, Egyptian dialect, mixed text, contradictory entries, noise, irrelevant content, and prompt-injection attempts treated as data. Four metrics: red-flag recall, schema validity, groundedness, medication safety — all enforced at one-point-zero by a test that fails CI on regression. To be explicit: these are harness metrics on synthetic data. They are not clinical validation, and we claim none." TAKEAWAY: Even the AI has a test suite — and the open defect is on the slide, not hidden. TRANSITION: "Alaa will close with who this is for, and how we'd responsibly find out." → slide 14 (hand back to Alaa Shehata).</div>
+</section></div>
+
+<!-- ================= SLIDE 14 · BUSINESS VALUE ================= -->
+<div class="frame" id="f14"><section class="slide" data-speaker="Alaa Shehata" data-time="0:50">
+  <img src="assets/brand-family-photo-2.png" alt="" style="position:absolute;right:0;top:0;width:640px;height:1080px;object-fit:cover;object-position:70% center">
+  <div style="position:absolute;right:0;top:0;width:640px;height:1080px;background:linear-gradient(90deg,var(--bg) 0%,rgba(250,250,246,0) 40%)"></div>
+  <div class="pad" style="padding-right:700px">
+    <div class="kicker">Business · value &amp; adoption</div>
+    <h1 class="head" style="font-size:58px;max-width:1050px">Built around the people who <em>carry the responsibility of care.</em></h1>
+    <div style="display:grid;grid-template-columns:1fr 1fr;gap:44px;margin-top:30px">
+      <div>
+        <p style="font-size:18px;font-weight:900;letter-spacing:.16em;text-transform:uppercase;color:var(--muted);margin-bottom:12px">Target segments to investigate</p>
+        <ul class="ledger">
+          <li><b>Family caregivers</b> <small>the primary segment — adult children, spouses, relatives</small></li>
+          <li>Independent &amp; professional caregivers <small>structured records across clients and shifts</small></li>
+          <li>Small care-support organizations <small>teams needing continuity and traceability</small></li>
+        </ul>
+        <p style="font-size:18px;font-weight:900;letter-spacing:.16em;text-transform:uppercase;color:var(--muted);margin:22px 0 12px">The value proposition</p>
+        <p style="font-size:20.5px;line-height:1.55;color:var(--ink)">Organized daily documentation · continuity of information · searchable, traceable histories · consistent bilingual workflows · transparent AI summaries · human-reviewed actions · mobile and connected-web experiences.</p>
+      </div>
+      <div>
+        <p style="font-size:18px;font-weight:900;letter-spacing:.16em;text-transform:uppercase;color:var(--muted);margin-bottom:12px">Adoption pathway — hypotheses, not outcomes</p>
+        <div style="display:flex;flex-direction:column;gap:12px">
+          <div class="card" style="padding:14px 20px;font-size:19px"><b style="color:var(--pine)">1</b>&nbsp; Understand caregiver workflows</div>
+          <div class="card" style="padding:14px 20px;font-size:19px"><b style="color:var(--pine)">2</b>&nbsp; User interviews &amp; usability research</div>
+          <div class="card" style="padding:14px 20px;font-size:19px"><b style="color:var(--pine)">3</b>&nbsp; Validate the experience with synthetic data</div>
+          <div class="card" style="padding:14px 20px;font-size:19px"><b style="color:var(--pine)">4</b>&nbsp; Controlled pilot after privacy &amp; security requirements</div>
+          <div class="card" style="padding:14px 20px;font-size:19px"><b style="color:var(--clay)">5</b>&nbsp; Evaluate feedback &amp; refine</div>
+        </div>
+      </div>
+    </div>
+    <div class="strip" style="margin-top:26px;max-width:1080px"><b>Production-readiness, stated honestly:</b> no approved privacy policy or terms yet, no retention schedule, synthetic data only, not a medical device. These are the gates before any real-world pilot — and the roadmap we own.</div>
+  </div>
+  <div class="foot">
+    <div class="brand"><img src="../brand/the-gather/logo-horizontal-en.svg" alt="Rafeek"></div>
+    <div class="meta"><span class="spk">Alaa Shehata</span><span>Business value</span><span class="num">14 / 15</span></div>
+  </div>
+  <div class="notes">BUSINESS — 0:50. "Thank you, Mohamed. So who is this for, and how would we find out responsibly? Three segments to investigate — family caregivers first, because in Egypt and the wider region care is family-led; then professional caregivers and small care organizations. The value proposition is deliberately concrete: organized documentation, continuity, traceable history, bilingual workflows, transparent AI, human-reviewed actions. Notice what this slide does not contain: no revenue projections, no pricing, no invented market size, no adoption statistics. This is a capstone, and we present business hypotheses with a validation strategy — understand workflows, interview users, validate with synthetic data, and only then consider a controlled pilot, after privacy and security requirements are met. The repository documents the gaps honestly: no approved privacy policy or terms yet, no retention schedule. Those are gates, not footnotes — and owning them is part of engineering credibility." TAKEAWAY: A credible path to adoption starts with honesty about what isn't ready. TRANSITION: "Let me bring the team up to close — because this product is four disciplines working as one." → slide 15 (shared closing, led by Mohamed Hemdan).</div>
+</section></div>
+
+<!-- ================= SLIDE 15 · TEAM & CLOSE ================= -->
+<div class="frame" id="f15"><section class="slide dark" data-speaker="Shared close · led by Mohamed Hemdan" data-time="0:45">
+  <img class="wm" src="../brand/the-gather/symbol.svg" alt="" style="right:-260px;top:-280px;width:820px;filter:brightness(0) invert(1)">
+  <div class="pad" style="padding-top:72px">
+    <div class="kicker">The team</div>
+    <h1 class="head" style="font-size:60px;margin-top:16px">Different disciplines. <em>One coherent product.</em></h1>
+    <div class="team" style="margin-top:36px">
+      <div class="tcard"><span class="role">Project Lead &amp; Maintainer</span><h3>Alaa Shehata</h3><p>Architecture · native Android · backend services · AI integration &amp; safety evaluation · branding · CI &amp; release engineering · testing strategy · documentation</p><span class="gh">GitHub · @alaa157</span></div>
+      <div class="tcard"><span class="role">Backend Engineering</span><h3>Ebrahim Ahmed</h3><p>Daily notes API · validation · record history · structured-signal contracts</p><span class="gh">GitHub · @ebrahimahmedss47-commits</span></div>
+      <div class="tcard"><span class="role">Frontend Engineering</span><h3>Mahmoud Hewidy</h3><p>React/TypeScript web application · caregiver workflows · accessibility · Arabic RTL</p><span class="gh">GitHub · @hewidyy</span></div>
+      <div class="tcard"><span class="role">Backend &amp; Security</span><h3>Mohamed Hemdan</h3><p>Authentication · JWT security · care plans · append-only audit logging</p><span class="gh">GitHub · @mohamed-hemdan1</span></div>
+    </div>
+    <p style="font-size:20px;color:#AEBBB1;margin-top:26px">Supervisor: <b style="color:#E9EFE8">Mina Yonan</b> &nbsp;·&nbsp; Training partner: <b style="color:#E9EFE8">GlobalKnowledge</b> &nbsp;·&nbsp; Digital Egypt Pioneers Initiative — Software Testing Track</p>
+    <div style="display:flex;align-items:center;gap:56px;margin-top:34px">
+      <img src="../brand/the-gather/logo-white.svg" alt="Rafeek — رفيق" style="width:430px;height:auto;flex:none">
+      <div>
+        <p style="font-size:46px;font-weight:900;letter-spacing:-.02em;line-height:1.15">Care, recorded.<br><span style="color:var(--clay-light)">Continuity, protected.</span></p>
+        <p style="font-size:21px;color:#C3CFC5;margin-top:14px;max-width:820px;line-height:1.5">Rafeek brings structure to everyday care documentation and puts trust, traceability, and human judgment at the centre of the experience. <span class="ar" style="color:var(--clay-light)">شكرًا</span> — thank you. Questions?</p>
+      </div>
+    </div>
+  </div>
+  <div class="foot">
+    <div class="meta"><span class="spk">Shared close · led by Mohamed Hemdan</span></div>
+    <div class="meta"><span>Rafeek · رفيق</span><span class="num">15 / 15</span></div>
+  </div>
+  <div class="notes">CLOSING — 0:45 total, four voices. HEMDAN (lead, 0:15): "Four disciplines, one product. I'll speak for the quality side: every promise you heard today has a test behind it — and the ones that don't yet are on the record as open." EBRAHIM (0:10): "For backend: the contracts are the guarantee — immutable history, ownership, and safety that no model can override." MAHMOUD (0:10): "For frontend: two languages, two platforms, one experience that respects the caregiver's words and direction." ALAA (0:10): "And as project lead: Rafeek is a companion — رفيق — for the people who carry care every day. Care, recorded. Continuity, protected. Thank you — we're happy to take your questions." TAKEAWAY: Care, recorded. Continuity, protected. NOTE: all four members speak; keep each closing to one sentence. Q&A follows.</div>
+</section></div>
+
+</div></div>
+
+<div id="hud">
+  <span id="counter">1 / 15</span>
+  <button onclick="toggleNotes()" title="Presenter notes (N)">Notes · N</button>
+  <button onclick="toggleOverview()" title="Overview (O)">Overview · O</button>
+  <button onclick="toggleFull()" title="Fullscreen (F)">Full · F</button>
+</div>
+<div id="notes"><div class="nh"><span id="n-speaker"></span><span id="n-time"></span><span class="next" id="n-next"></span></div><div id="n-body"></div></div>
+
+<script>
+const frames=[...document.querySelectorAll('.frame')];
+const N=frames.length;
+let cur=Math.min(parseInt(localStorage.getItem('rafeek-deck-slide')||'0',10),N-1);
+function fit(){
+  if(document.body.classList.contains('overview'))return;
+  const s=Math.min(innerWidth/1920,innerHeight/1080);
+  document.getElementById('stage').style.transform=`scale(${s})`;
+}
+function show(i){
+  cur=Math.max(0,Math.min(N-1,i));
+  frames.forEach((f,j)=>f.classList.toggle('current',j===cur));
+  document.getElementById('counter').textContent=`${cur+1} / ${N}`;
+  document.getElementById('progress').style.width=`${((cur+1)/N)*100}%`;
+  localStorage.setItem('rafeek-deck-slide',cur);
+  const sec=frames[cur].querySelector('.slide');
+  document.getElementById('n-speaker').textContent=sec.dataset.speaker||'';
+  document.getElementById('n-time').textContent='⏱ '+(sec.dataset.time||'');
+  document.getElementById('n-body').textContent=sec.querySelector('.notes')?.textContent.trim()||'';
+  document.getElementById('n-next').textContent=cur<N-1?('NEXT → '+frames[cur+1].querySelector('.kicker')?.textContent):'END · Q&A';
+}
+function toggleNotes(){document.getElementById('notes').classList.toggle('show')}
+function toggleOverview(){
+  document.body.classList.toggle('overview');
+  if(!document.body.classList.contains('overview')){fit();show(cur);}
+}
+function toggleFull(){document.fullscreenElement?document.exitFullscreen():document.documentElement.requestFullscreen()}
+addEventListener('keydown',e=>{
+  if(document.body.classList.contains('overview')){
+    if(e.key==='Escape'||e.key.toLowerCase()==='o')toggleOverview();
+    return;
+  }
+  switch(e.key){
+    case'ArrowRight':case' ':case'PageDown':show(cur+1);break;
+    case'ArrowLeft':case'PageUp':show(cur-1);break;
+    case'Home':show(0);break;
+    case'End':show(N-1);break;
+    case'n':case'N':toggleNotes();break;
+    case'o':case'O':toggleOverview();break;
+    case'f':case'F':toggleFull();break;
+    case'Escape':document.getElementById('notes').classList.remove('show');break;
+  }
+});
+frames.forEach((f,i)=>f.addEventListener('click',()=>{
+  if(document.body.classList.contains('overview')){toggleOverview();show(i);}
+}));
+addEventListener('resize',fit);
+fit();show(cur);
+</script>
+</body>
+</html>
