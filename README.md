@@ -44,12 +44,21 @@ Notes are never edited in place. Corrections are appended as **addenda** or as t
 
 ## Screenshots
 
+### Web app
+
 <p align="center">
   <img src="docs/screenshots/web/en-03-home.png" alt="Web workspace — daily overview with note availability and recent activity" width="760" />
 </p>
 <p align="center">
-  <img src="docs/screenshots/android/12-home-medication-dose.png" alt="Android home — care alert, medication dose tracking, and daily notes" width="320" />
-  <img src="docs/screenshots/android/39-home-ar.png" alt="Android home in Arabic — full RTL layout" width="320" />
+  <img src="docs/screenshots/web/en-08-history.png" alt="Notes history — filterable list of original notes and corrections" width="760" />
+</p>
+
+### Mobile app (Android)
+
+<p align="center">
+  <img src="docs/screenshots/android/12-home-medication-dose.png" alt="Android home — care alert, medication dose tracking, and daily notes" width="240" />
+  <img src="docs/screenshots/android/15-history.png" alt="Android history — bilingual notes with a fall safety tag" width="240" />
+  <img src="docs/screenshots/android/39-home-ar.png" alt="Android home in Arabic — full RTL layout" width="240" />
 </p>
 
 Captured from the running apps with synthetic data: the web client against a local Spring Boot + PostgreSQL backend, and the Android offline demo on a cloud device. The full set — every screen in English and Arabic, desktop and mobile — is in [`docs/screenshots/`](docs/screenshots/).
