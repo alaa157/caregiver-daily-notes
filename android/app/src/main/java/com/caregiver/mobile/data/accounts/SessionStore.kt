@@ -8,10 +8,37 @@ import androidx.datastore.preferences.core.edit
 import androidx.datastore.preferences.core.emptyPreferences
 import androidx.datastore.preferences.core.stringPreferencesKey
 import androidx.datastore.preferences.preferencesDataStoreFile
+import java.io.File
 import java.io.IOException
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.catch
 import kotlinx.coroutines.flow.map
+
+/**
+ * Single-instance owner for the session backing file, mirroring
+ * [com.caregiver.mobile.data.SettingsStoreRegistry]. DataStore allows exactly
+ * one active instance per file; without this registry every new [SessionStore]
+ * (e.g. a second AppGraph in the same process — instrumentation runs many tests
+ * in one process) crashed with "multiple DataStores active for the same file".
+ * DEF-011: found by the first full emulator instrumentation run (136 failures).
+ */
+object SessionStoreRegistry {
+    private val lock = Any()
+    private val stores = mutableMapOf<String, SessionStore>()
+
+    /**
+     * Keyed by the resolved file's absolute path, not a bare name: one active
+     * instance per file on a device (all graphs share one filesDir), while
+     * Robolectric's per-test filesDir still yields isolated stores per test.
+     */
+    fun getOrCreate(produceFile: () -> File): SessionStore =
+        synchronized(lock) {
+            val file = produceFile()
+            stores.getOrPut(file.absolutePath) {
+                SessionStore(PreferenceDataStoreFactory.create(produceFile = { file }))
+            }
+        }
+}
 
 /**
  * The persisted active-account id (epic #581, #592).
@@ -59,9 +86,9 @@ class SessionStore(private val dataStore: DataStore<Preferences>) {
          * DataStore and is not owned by this lane; only the opaque active id
          * lives here, never a credential.
          */
-        fun create(context: Context): SessionStore = SessionStore(
-            PreferenceDataStoreFactory.create { context.applicationContext.preferencesDataStoreFile(SESSION_FILE) },
-        )
+        fun create(context: Context): SessionStore = SessionStoreRegistry.getOrCreate {
+            context.applicationContext.preferencesDataStoreFile(SESSION_FILE)
+        }
 
         private const val SESSION_FILE = "session"
     }

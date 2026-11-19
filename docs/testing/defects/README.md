@@ -14,6 +14,7 @@ Defects found by the project's own testing, documented with evidence and repro. 
 | [DEF-008](def-008-setup-check-key-state.md) | Major | android / AI settings | Setup check resolves to missing_key although a key is entered | open |
 | [DEF-009](def-009-bearer-model-list.md) | Major | android / AI model catalog | Bearer prefix fails the key-character check — OpenAI/xAI/OpenRouter model lists never load | fixed |
 | [DEF-010](def-010-migration-backup-cleanup.md) | Minor | android / legacy migration | Main-db migration backup never deleted (duplicated path suffix) | fixed |
+| [DEF-011](def-011-session-datastore-singleton.md) | Major | android / session store | Session DataStore lacks a singleton registry — second graph in a process crashes (136 emulator tests) | fixed |
 
 ## Report template
 

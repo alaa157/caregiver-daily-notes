@@ -41,6 +41,20 @@ class AppGraphTest {
     private suspend fun accountIdFor(email: String): String =
         AccountsDatabase.create(context).accountDao().listAll().single { it.email == email }.id
 
+    /**
+     * DEF-011: instrumentation runs many tests in one process; a second graph
+     * must reuse the session DataStore instead of crashing with "multiple
+     * DataStores active for the same file". Touching aiKeyStore forces the
+     * lazy SessionStore creation on both graphs.
+     */
+    @Test
+    fun secondGraphInTheSameProcessReusesTheSessionDataStore() {
+        val first = AppGraph(context)
+        val second = AppGraph(context)
+        assertNotNull(first.aiKeyStore)
+        assertNotNull(second.aiKeyStore)
+    }
+
     @Test
     fun localWritesGoToTheActiveAccountsFile() = runTest {
         val graph = AppGraph(context)
