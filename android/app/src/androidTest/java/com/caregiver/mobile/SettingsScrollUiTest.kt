@@ -50,7 +50,7 @@ class SettingsScrollUiTest {
     @Test
     fun settingsScreenRendersTitle() {
         val context = ApplicationProvider.getApplicationContext<Context>()
-        val graph = AppGraph(context)
+        val graph = AppGraph(context, forceProduction = true)
         compose.setContent {
             WithTestOwner {
                 CaregiverTheme {
@@ -64,7 +64,7 @@ class SettingsScrollUiTest {
     @Test
     fun settingsScrollsToTheVersionRowOnAShortViewport() {
         val context = ApplicationProvider.getApplicationContext<Context>()
-        val graph = AppGraph(context)
+        val graph = AppGraph(context, forceProduction = true)
         val version = context.getString(R.string.settings_app_version, BuildConfig.VERSION_NAME)
 
         compose.setContent {
@@ -84,7 +84,7 @@ class SettingsScrollUiTest {
     @Test
     fun settingsScrollsAtDoubledFontScale() {
         val context = ApplicationProvider.getApplicationContext<Context>()
-        val graph = AppGraph(context)
+        val graph = AppGraph(context, forceProduction = true)
         val version = context.getString(R.string.settings_app_version, BuildConfig.VERSION_NAME)
 
         compose.setContent {
@@ -106,7 +106,7 @@ class SettingsScrollUiTest {
     @Test
     fun settingsScrollsInArabicRtl() {
         val localized = ApplicationProvider.getApplicationContext<Context>().withLocale("ar")
-        val graph = AppGraph(localized)
+        val graph = AppGraph(localized, forceProduction = true)
         val version = localized.getString(R.string.settings_app_version, BuildConfig.VERSION_NAME)
 
         compose.setContent {
@@ -133,7 +133,7 @@ class SettingsScrollUiTest {
         // label there must read Arabic — the mode circles used to be
         // hardcoded English and the section headers shipped untranslated.
         val localized = ApplicationProvider.getApplicationContext<Context>().withLocale("ar")
-        val graph = AppGraph(localized)
+        val graph = AppGraph(localized, forceProduction = true)
 
         compose.setContent {
             CompositionLocalProvider(
@@ -162,7 +162,7 @@ class SettingsScrollUiTest {
     @Test
     fun paletteSwatchesStayReachableOnANarrowScreen() {
         val context = ApplicationProvider.getApplicationContext<Context>()
-        val graph = AppGraph(context)
+        val graph = AppGraph(context, forceProduction = true)
         val rose = context.getString(R.string.palette_rose)
 
         compose.setContent {
@@ -183,7 +183,7 @@ class SettingsScrollUiTest {
     @Test
     fun aiSettingsScrollsToTheSaveActionOnAShortViewport() {
         val context = ApplicationProvider.getApplicationContext<Context>()
-        val graph = AppGraph(context)
+        val graph = AppGraph(context, forceProduction = true)
         val save = context.getString(R.string.settings_ai_save)
 
         compose.setContent {
@@ -204,7 +204,7 @@ class SettingsScrollUiTest {
     @Test
     fun aiSettingsDialogsBringTheirActionsAtDoubledFontScale() {
         val context = ApplicationProvider.getApplicationContext<Context>()
-        val graph = AppGraph(context)
+        val graph = AppGraph(context, forceProduction = true)
 
         compose.setContent {
             CompositionLocalProvider(LocalDensity provides Density(density = 1f, fontScale = 2f)) {

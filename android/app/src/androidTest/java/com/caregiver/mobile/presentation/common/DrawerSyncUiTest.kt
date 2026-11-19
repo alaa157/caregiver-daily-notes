@@ -89,7 +89,7 @@ class DrawerSyncUiTest {
 
     private fun render(status: SyncStatus, language: String = "en", onRetry: (() -> Unit)? = null) {
         val localized = ApplicationProvider.getApplicationContext<Context>().withLocale(language)
-        val graph = AppGraph(localized)
+        val graph = AppGraph(localized, forceProduction = true)
         compose.setContent {
             CompositionLocalProvider(
                 LocalContext provides localized,

@@ -45,7 +45,7 @@ class NoteEditorDraftUiTest {
     @Before
     fun setUp() {
         val context = ApplicationProvider.getApplicationContext<Context>()
-        graph = AppGraph(context)
+        graph = AppGraph(context, forceProduction = true)
         // Start each test with no left-over draft for the demo person.
         NoteDraftStore.create(context)
             .clear(NoteDraftStore.key("r1", LocalDate.now().toString()))

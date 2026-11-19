@@ -45,7 +45,7 @@ class SettingsFlowUiTest {
     @Before
     fun setUp() {
         val context = ApplicationProvider.getApplicationContext<Context>()
-        graph = AppGraph(context)
+        graph = AppGraph(context, forceProduction = true)
         resetState()
     }
 

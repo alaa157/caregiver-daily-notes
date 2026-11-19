@@ -35,7 +35,7 @@ class ThemeConfigUiTest {
     @Test
     fun themeColorsScreenRendersAcrossEveryPaletteInLightAndDark() {
         val context = ApplicationProvider.getApplicationContext<Context>()
-        val graph = AppGraph(context)
+        val graph = AppGraph(context, forceProduction = true)
         var dark by mutableStateOf(false)
         var palette by mutableStateOf(ColorPalettes.TEAL)
 

@@ -13,6 +13,7 @@ import androidx.test.core.app.ApplicationProvider
 import androidx.test.ext.junit.runners.AndroidJUnit4
 import com.caregiver.mobile.core.theme.CaregiverTheme
 import com.caregiver.mobile.test.WithTestOwner
+import kotlinx.coroutines.runBlocking
 import org.junit.Rule
 import org.junit.Test
 import org.junit.runner.RunWith
@@ -37,6 +38,9 @@ class DrawerUiTest {
     private fun setScaffold() {
         val context = ApplicationProvider.getApplicationContext<Context>()
         val graph = AppGraph(context)
+        // The local-mode shell needs an active account before any tab loads;
+        // the offline demo entry provides one without a server (#880).
+        runBlocking { graph.auth.enterDemo() }
         compose.setContent {
             WithTestOwner {
                 CaregiverTheme {

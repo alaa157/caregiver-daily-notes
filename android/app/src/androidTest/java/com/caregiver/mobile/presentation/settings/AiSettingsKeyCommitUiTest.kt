@@ -43,6 +43,9 @@ class AiSettingsKeyCommitUiTest {
     fun enteredKeyReachesSetupCheck() {
         val context = ApplicationProvider.getApplicationContext<Context>()
         val graph = AppGraph(context)
+        // Local-mode key storage is account-scoped: enter the offline demo
+        // account so the setup check resolves a real account slot.
+        runBlocking { graph.auth.enterDemo() }
         val store = AiKeyStore(context, graph.activeAccountIdFlow)
         // Pre-grant data-use consent so the check goes straight to the probe.
         runBlocking { store.setConsentGiven(AiProvider.OPEN_ROUTER) }
