@@ -36,7 +36,7 @@ Testing effort is weighted toward the failure modes that would harm a care recip
 | Layer | Framework | Scale | Command |
 |---|---|---|---|
 | Backend unit + integration | JUnit 5, Spring Boot Test, Flyway, in-memory H2 (`MODE=PostgreSQL`) | **93 test classes — 632 `@Test` methods + 12 parameterized** | `mvn -f backend/pom.xml test` |
-| Web unit | Vitest 2.1 + Testing Library (jsdom) | **49 files — 1,080 executed cases** | `cd web && npm test` |
+| Web unit | Vitest 2.1 + Testing Library (jsdom) | **49 files — 1,086 executed cases** | `cd web && npm test` |
 | Web static | TypeScript 5.6 compiler; Vite build + metadata check | whole codebase | `npm run typecheck` / `npm run build` |
 | Web browser | Playwright 1.64, axe-core; 4 viewport projects (desktop 1280×900, tablet 768×1024, mobile 390×844, compact 320×740) | **81 test definitions × 4 viewports = 324 runs** (11 e2e specs + browser contracts); EN/AR workflows covered inside specs | `npm run test:e2e` |
 | Web live workflow | Playwright, separate config, real backend | end-to-end caregiver workflow | `npm run test:e2e:live` |
@@ -74,7 +74,7 @@ mvn -f backend/pom.xml org.jacoco:jacoco-maven-plugin:0.8.12:prepare-agent test 
 |---|---|
 | Backend (`mvn test` + JaCoCo) | **700 run — 700 passed, 0 failures, 0 errors** (run 7, after DEF-001/003/004/005/006 fixes). |
 | AI evaluation + deterministic safety | **Green.** `GoldenDatasetTest` (3), `EvalMetricsTest` (4), `EvalReportTest` (2), `SafetySignalEvaluatorTest` (15) all pass; the four metrics hold at `1.0`. |
-| Web unit (`vitest run`) | **1,080 run — 971 passed, 109 failed across 19 files** (DEF-002, test-only fixes in progress). A 32-failure subset was confirmed in an isolated run, ruling out load flakiness as the primary cause. |
+| Web unit (`vitest run`) | **1,086 run — 1,086 passed, 0 failures (49 files)** after DEF-002 test-only alignments. |
 | Web typecheck / build | Green (verified 2026-11-18 during the rebrand pass). |
 | Playwright browser, live workflow | **Inventory-only this pass** — execution requires the built web app plus a running backend; counts verified statically. |
 | Android JVM / instrumentation | **Inventory-only this pass** — last full JVM execution was during the rebrand build; instrumentation runs on Revyl cloud devices, not yet in CI. |
@@ -88,7 +88,7 @@ Defects found by this testing effort are documented with evidence, repro, fix co
 | ID | Issue | Summary | Status |
 |---|---|---|---|
 | DEF-001 | [#1095](https://github.com/alaa157/caregiver-daily-notes/issues/1095) | V17 migration incompatible with H2 — 325 cascading errors | fixed |
-| DEF-002 | [#1096](https://github.com/alaa157/caregiver-daily-notes/issues/1096) | 109 stale web unit tests after UI contract changes | in progress |
+| DEF-002 | [#1096](https://github.com/alaa157/caregiver-daily-notes/issues/1096) | 109 stale web unit tests after UI contract changes | fixed |
 | DEF-003 | [#1097](https://github.com/alaa157/caregiver-daily-notes/issues/1097) | Backend suites/docs stale after the unified error contract | fixed |
 | DEF-004 | [#1098](https://github.com/alaa157/caregiver-daily-notes/issues/1098) | Typed corrections 500 on never-recorded fields | fixed |
 | DEF-005 | [#1099](https://github.com/alaa157/caregiver-daily-notes/issues/1099) | Nondeterministic LLM request bodies (Map.of) | fixed |
@@ -118,7 +118,7 @@ All data is synthetic. No real patient or care-recipient data is used in any tes
 ## 9. Known gaps and next milestones
 
 1. **CI is currently disabled** (`ci.yml`, `disabled_manually`). The backend suite is now green locally, so re-enablement is the next milestone; wire the eval-report artifact upload that `docs/ai/eval-harness.md` describes.
-2. DEF-002 (web unit drift) must land before the frontend CI job can pass.
+2. Web and backend suites are green locally; the CI gate itself is the remaining step.
 3. Android instrumentation is not yet part of CI (cloud-device execution is manual).
 4. No coverage gates for web or Android; backend coverage is reported but not gated.
 5. No load/performance, penetration, or mutation testing yet — out of scope for the capstone, recorded so the boundary is explicit.
@@ -132,7 +132,7 @@ All data is synthetic. No real patient or care-recipient data is used in any tes
 - Android JVM suite green; instrumentation smoke pass on a cloud device.
 - Every open defect triaged with an issue link; no untracked blockers.
 
-**Current state: partially met** — backend, eval, and typecheck/build are green; web unit (DEF-002) and the CI gate remain. This document is updated as each milestone lands.
+**Current state: met locally** — backend (700/700), web unit (1,086/1,086), eval, and typecheck/build are green; only the CI gate itself remains (workflow disabled manually). This document is updated as each milestone lands.
 
 ---
 

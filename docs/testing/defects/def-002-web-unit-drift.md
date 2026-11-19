@@ -15,8 +15,18 @@ Dominant patterns (all intentional app changes the tests never absorbed):
 2. **BYOK dialog redesign.** Model selection moved from a free-text input to a catalog radio group plus an "other" custom-model input; a data-use acknowledgement checkbox gates the connection test; submit is guarded by `modelReady && !ackBlocked`. Tests type into a `Model` input that no longer exists, so the connection test never fires and `Connection test succeeded` never renders.
 3. **Error-status mocks** aligned to the pre-#843 contract (400 for validation).
 
-## Fix in progress
+## Fix
 
-Test-only updates to the current contracts (no app behavior changes). Shared helpers fixed once where they are the root cause. Final totals and changed-file list will be appended here when the suite is green.
+Test-only updates to the current contracts (no app behavior changes), across 19 test files:
 
-**Status: in progress.**
+- Language-toggle queries updated to the `switchLanguage` accessible names (`العربية` / `English`).
+- BYOK dialog tests rewritten for the catalog radio picker, custom-model input, data-use acknowledgement gate, and connection-test flow.
+- Error-status mocks aligned with the unified contract (422 validation / 400 malformed).
+- Remaining three: MTD pagination assertion given a load-tolerant timeout (passes isolated in 236 ms; flaked under full-suite parallel load); the medication-empty disclaimer scoped to `#recipient-medications` (the panel mounts twice in the detail view); plans nav assertion accepts both responsive nav variants (`Care plans` / `Plans`) and asserts exactly one carries `aria-current="page"`.
+- Two temporary debug test files removed.
+
+## Verification
+
+Full suite (2026-11-19): **49 files, 1,086/1,086 passing, 0 failures** — up from 971/1,080 at discovery.
+
+**Status: fixed.**

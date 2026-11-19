@@ -195,7 +195,7 @@ API_BASE_URL=https://your-backend.example npm run config:runtime
 | Android JVM unit | `cd android && ./gradlew :app:testDebugUnitTest` |
 | Android instrumentation | `cd android && ./gradlew :app:connectedDebugAndroidTest` |
 
-The test estate spans **93 backend test classes** (632 test methods + 12 parameterized; JUnit 5, JaCoCo), **49 web unit-test files** (1,080 cases; Vitest + Testing Library), **81 Playwright browser test definitions** run across four viewports (324 runs) with axe-core accessibility checks and English/Arabic workflow coverage, **194 Android JVM test classes** (1,651 methods) plus **35 Compose UI instrumentation classes** (179 methods), and a **22-case deterministic AI evaluation harness** whose four safety metrics are enforced at `1.0`. Defects are tracked one per issue — **542 issues closed** to date.
+The test estate spans **93 backend test classes** (632 test methods + 12 parameterized; JUnit 5, JaCoCo), **49 web unit-test files** (1,086 cases; Vitest + Testing Library), **81 Playwright browser test definitions** run across four viewports (324 runs) with axe-core accessibility checks and English/Arabic workflow coverage, **194 Android JVM test classes** (1,651 methods) plus **35 Compose UI instrumentation classes** (179 methods), and a **22-case deterministic AI evaluation harness** whose four safety metrics are enforced at `1.0`. Defects are tracked one per issue — **542 issues closed** to date.
 
 Measured backend coverage (JaCoCo, 2026-11-19, suite green at 700/700): **93.3% lines, 76.7% branches**. The test strategy, execution status, and the defect register — seven defects found by this testing effort, each with evidence, fix, and verification — are documented in [`docs/testing/`](docs/testing/).
 

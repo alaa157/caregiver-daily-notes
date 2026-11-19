@@ -6,7 +6,6 @@ date-based milestones alongside the Android demo release tags.
 
 ## [Unreleased]
 
-- Web unit suite: final stale-test alignments landing (DEF-002, #1096).
 - CI re-enablement pending (workflow currently disabled manually).
 - DEF-007 (#1101): one manual clean-key verification on a physical device.
 
@@ -40,6 +39,9 @@ date-based milestones alongside the Android demo release tags.
   status, and a defect register with evidence, repro, fixes, and verification
   (issues #1095–#1101).
 - Backend suite fully green: **700/700**, JaCoCo **93.3% lines / 76.7% branches**.
+- Web unit suite fully green: **1,086/1,086** across 49 files (DEF-002, #1096).
+- Repository hygiene: issue/PR templates, changelog, description and topics,
+  Rafeek release titles.
 
 ## 2026-11-18 — Standalone Android demo
 
