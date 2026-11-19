@@ -138,7 +138,7 @@ for (const language of ['en', 'ar'] as const) {
       await expect(page.getByRole('region', { name: labels.active, exact: true }).locator('.plan-content')).toHaveJSProperty('textContent', activePlanFixture.content);
       const dismissed = page.locator(`#plan-history-${suggestedPlanFixture.id}`); await dismissed.locator('summary').click();
       await expect(dismissed.locator('.plan-content')).toHaveJSProperty('textContent', suggestedPlanFixture.content);
-      await expect(dismissed.locator('summary .plan-status')).toHaveText(ar ? 'مرفوض' : 'Dismissed');
+      await expect(dismissed.locator('summary .plan-status')).toHaveText(ar ? 'مُستبعد' : 'Dismissed');
       await accessibility(page);
     });
     test('recovers safely from read/transition/network errors and reviews inactive/empty plans', async ({ page }) => {
@@ -147,10 +147,10 @@ for (const language of ['en', 'ar'] as const) {
       state.options.failure = false; await page.getByRole('button', { name: labels.retry, exact: true }).click();
       const accept = page.getByRole('region', { name: labels.suggested, exact: true }).getByRole('button', { name: labels.accept, exact: true });
       await accept.click(); await page.getByRole('button', { name: labels.confirmAccept, exact: true }).click();
-      await expect(page.getByRole('alert')).toBeFocused(); await expect(accept).toBeDisabled(); expect(state.writes).toHaveLength(1); await accessibility(page);
+      await expect(page.locator('.plan-message')).toBeFocused(); await expect(accept).toBeDisabled(); expect(state.writes).toHaveLength(1); await accessibility(page);
       state.options.conflict = false; state.options.uncertain = true;
       await page.getByRole('button', { name: labels.reload, exact: true }).click(); await accept.click();
-      await page.getByRole('button', { name: labels.confirmAccept, exact: true }).click(); await expect(page.getByRole('alert')).toBeFocused(); await expect(accept).toBeDisabled(); expect(state.writes).toHaveLength(2);
+      await page.getByRole('button', { name: labels.confirmAccept, exact: true }).click(); await expect(page.locator('.plan-message')).toBeFocused(); await expect(accept).toBeDisabled(); expect(state.writes).toHaveLength(2);
       state.options.inactive = true; await page.getByRole('button', { name: labels.reload, exact: true }).click();
       await expect(accept).toBeDisabled(); await expect(page.locator('.plan-workspace')).toContainText(ar ? 'هذا المستفيد غير نشط' : 'This recipient is inactive'); await accessibility(page);
       state.options.empty = true; await page.getByRole('button', { name: labels.reload, exact: true }).click(); await expect(page.getByText(labels.empty, { exact: true })).toBeVisible(); await accessibility(page);

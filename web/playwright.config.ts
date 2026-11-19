@@ -26,8 +26,14 @@ export default defineConfig({
     { name: 'compact-mobile', use: { viewport: { width: 320, height: 740 } } },
   ],
   webServer: {
-    command: 'npm run preview -- --host 127.0.0.1 --port 4173 --strictPort',
+    // The browser contracts seed synthetic BYOK credentials through
+    // window.__E2E_BYOK_CREDENTIALS__, which ByokContext only consumes when the
+    // app is built with --mode e2e (see npm run test:e2e). Build that mode here
+    // so `npx playwright test` is self-contained even if a production build was
+    // produced earlier in the pipeline.
+    command: 'npm run build -- --mode e2e && npm run preview -- --host 127.0.0.1 --port 4173 --strictPort',
     url: 'http://127.0.0.1:4173',
     reuseExistingServer: !process.env.CI,
+    timeout: 180_000,
   },
 });

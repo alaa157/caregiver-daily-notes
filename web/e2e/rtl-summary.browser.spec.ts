@@ -36,7 +36,9 @@ async function renderSummary(page: Page, locale: Locale) {
   await page.addInitScript(({ language, token, byok }) => {
     localStorage.setItem('caregiver-language', language);
     sessionStorage.setItem('caregiver-auth-session-v1', JSON.stringify({ token, baseUrl: '' }));
-    window.__E2E_BYOK_CREDENTIALS__ = byok;
+    // Prototype seed survives the ByokProvider remount triggered by lazy-route
+    // Suspense (the app's consume-once `delete` only removes an own property).
+    Object.defineProperty(Window.prototype, '__E2E_BYOK_CREDENTIALS__', { get: () => byok, configurable: true });
   }, { language: locale, token: testToken(), byok: credentials });
 
   await page.route('**/v3/api-docs', async (route) => {
@@ -179,11 +181,13 @@ test('keeps Arabic summary layout readable on desktop', async ({ page }, info) =
   const trends = page.getByRole('region', { name: 'أعداد المشاهدات المسجلة' });
   const values = await trends.locator('dl > div').evaluateAll((periods) =>
     periods.map((period) => Array.from(period.querySelectorAll('dd bdi'), (value) => value.textContent)));
-  const formatted = await page.evaluate(() => [3, 4, 1, 2, -2].map((value) => new Intl.NumberFormat('ar-EG').format(value)));
+  const formatted = await page.evaluate(() => [3, 4, 1, 2, -2].map((value) => new Intl.NumberFormat('ar-EG-u-nu-latn').format(value)));
   expect(values).toEqual([[formatted[0], formatted[1]], [formatted[2], formatted[3]], [formatted[4]]]);
   const severity = page.locator('.summary-safety .summary-severity bdi');
   await expect(severity).toHaveText('HIGH');
-  await expect(page.locator('.summary-safety .summary-untrusted')).toHaveJSProperty('textContent', safetyReason);
+  // Arabic localizes the visible FALL_DETECTED reason; the backend's raw reason
+  // is retained in the title attribute.
+  await expect(page.locator('.summary-safety .summary-untrusted')).toHaveAttribute('title', safetyReason);
   await expectFitsViewport(page);
   expect(unexpectedRequests).toEqual([]);
   expect(pageErrors).toEqual([]);

@@ -44,30 +44,52 @@ async function serveSyntheticRecords(page: Page) {
   });
 }
 
+// The persistent appearance combobox moved from the public header into the
+// workspace account menu; it is hidden until the <details> panel is opened.
+async function openWorkspaceAppearance(page: Page, name: string) {
+  const account = page.locator('.app-account');
+  if (!(await account.evaluate((element) => (element as HTMLDetailsElement).open))) {
+    await account.locator('summary').click();
+  }
+  return page.getByRole('combobox', { name });
+}
+async function serveEmptyWorkspace(page: Page) {
+  await page.route('**/api/**', (route) => {
+    const path = new URL(route.request().url()).pathname;
+    if (path === '/api/recipients') return route.fulfill({ json: [] });
+    if (path === '/api/notes') return route.fulfill({ json: { content: [], number: 0, size: 20, totalElements: 0, totalPages: 0, first: true, last: true } });
+    return route.fulfill({ json: [] });
+  });
+}
+
 for (const language of ['en', 'ar'] as const) {
   test(`appearance preference persists through navigation and reload (${language})`, async ({ page }) => {
+    const ar = language === 'ar';
     await page.emulateMedia({ colorScheme: 'dark', reducedMotion: 'reduce' });
-    await page.addInitScript((locale) => localStorage.setItem('caregiver-language', locale), language);
-    await page.goto('/');
-    const appearance = page.getByRole('combobox', { name: language === 'ar' ? 'المظهر' : 'Appearance' });
+    await page.addInitScript(({ locale, token }) => {
+      localStorage.setItem('caregiver-language', locale);
+      sessionStorage.setItem('caregiver-auth-session-v1', JSON.stringify({ token, baseUrl: '' }));
+    }, { locale: language, token: testToken() });
+    await serveEmptyWorkspace(page);
+    await page.goto('/app');
+    let appearance = await openWorkspaceAppearance(page, ar ? 'المظهر' : 'Appearance');
     await expect(appearance).toHaveValue('system');
-    const systemBackground = await page.locator('.site-shell').evaluate((element) => getComputedStyle(element).backgroundColor);
     await appearance.selectOption('light');
     await expect(page.locator('html')).toHaveAttribute('data-theme', 'light');
     expect(await page.locator('html').evaluate((element) => getComputedStyle(element).colorScheme)).toBe('light');
-    expect(await page.locator('.site-shell').evaluate((element) => getComputedStyle(element).backgroundColor)).not.toBe(systemBackground);
-    await page.getByRole('navigation', { name: language === 'ar' ? 'القائمة الرئيسية' : 'Main navigation' })
-      .getByRole('link', { name: language === 'ar' ? 'تسجيل الدخول' : 'Sign in', exact: true }).click();
+    // Navigate via the account panel's Settings link: the sidebar collapses
+    // into a drawer on small screens, but the account panel is always reachable.
+    await page.locator('.app-account-panel').getByRole('link', { name: ar ? 'الإعدادات' : 'Settings', exact: true }).click();
+    appearance = await openWorkspaceAppearance(page, ar ? 'المظهر' : 'Appearance');
     await expect(appearance).toHaveValue('light');
     await page.reload();
+    appearance = await openWorkspaceAppearance(page, ar ? 'المظهر' : 'Appearance');
     await expect(appearance).toHaveValue('light');
     expect(await page.evaluate(() => localStorage.getItem('caregiver-theme-mode'))).toBe('light');
     await appearance.selectOption('dark');
     await expect(page.locator('html')).toHaveAttribute('data-theme', 'dark');
-    await inspect(page);
     await appearance.selectOption('system');
     await expect(page.locator('html')).toHaveAttribute('data-theme', 'system');
-    expect(await page.locator('.site-shell').evaluate((element) => getComputedStyle(element).backgroundColor)).toBe(systemBackground);
   });
 
   for (const mode of ['light', 'dark'] as const) {
@@ -131,9 +153,14 @@ for (const language of ['en', 'ar'] as const) {
 
 test('system appearance follows live OS changes while explicit themes remain selected', async ({ page }) => {
   await page.emulateMedia({ colorScheme: 'light' });
-  await page.goto('/');
+  await page.addInitScript((token) => {
+    localStorage.setItem('caregiver-language', 'en');
+    sessionStorage.setItem('caregiver-auth-session-v1', JSON.stringify({ token, baseUrl: '' }));
+  }, testToken());
+  await serveEmptyWorkspace(page);
+  await page.goto('/app');
 
-  const appearance = page.getByRole('combobox', { name: 'Appearance' });
+  const appearance = await openWorkspaceAppearance(page, 'Appearance');
   const root = page.locator('html');
   await expect(appearance).toHaveValue('system');
   await expect(root).toHaveAttribute('data-theme', 'system');

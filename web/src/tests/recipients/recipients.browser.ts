@@ -87,7 +87,10 @@ for (const language of ['en', 'ar'] as const) {
     await expect(page.getByText(labels.readOnly, { exact: false })).toBeVisible();
     await expect(page.getByRole('link', { name: labels.edit, exact: true })).toHaveCount(0);
     await page.getByRole('link', { name: labels.back, exact: true }).click();
-    await expect(page.getByText(labels.noActive)).toBeVisible();
+    // The list loads all recipients and auto-switches to the populated filter,
+    // so with only an archived recipient it shows the Archived tab, not an
+    // empty-active message.
+    await expect(page.getByRole('link', { name: recipientFixture.name })).toBeVisible();
     await page.getByRole('button', { name: labels.archivedFilter, exact: true }).click();
     await expect(page.getByRole('link', { name: recipientFixture.name })).toBeVisible();
     await page.getByRole('link', { name: recipientFixture.name }).click();
@@ -97,7 +100,8 @@ for (const language of ['en', 'ar'] as const) {
     await restoreDialog.getByRole('button', { name: labels.confirmRestore, exact: true }).click();
     await expect(page.getByText(labels.active, { exact: true })).toBeVisible();
     await page.getByRole('link', { name: labels.back, exact: true }).click();
-    await page.getByRole('button', { name: labels.activeFilter, exact: true }).click();
+    // With only active recipients populated the filter tabs are hidden and the
+    // active list is shown directly.
     await expect(page.getByRole('link', { name: recipientFixture.name })).toBeVisible();
     await accessibility(page);
   });

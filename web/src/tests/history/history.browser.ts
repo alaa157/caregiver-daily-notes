@@ -69,6 +69,7 @@ for (const language of ['en', 'ar'] as const) {
     fields: ar ? 'عرض المشاهدات والنص الأصلي' : 'View original observations and text', show: ar ? 'عرض التصحيحات (1)' : 'Show corrections (1)',
     correction: ar ? 'تصحيح 1' : 'Correction 1', original: ar ? 'الملاحظة الأصلية' : 'Original note', open: ar ? 'فتح الملاحظة كاملة' : 'Open full note',
     next: ar ? 'الصفحة التالية' : 'Next page', previous: ar ? 'الصفحة السابقة' : 'Previous page', size: ar ? 'عدد الملاحظات في الصفحة' : 'Notes per page',
+    firstPage: ar ? 'الانتقال إلى الصفحة الأولى' : 'Go to first page',
     retry: ar ? 'إعادة المحاولة' : 'Retry', empty: ar ? 'لا توجد ملاحظات تطابق التصفية.' : 'No notes match these filters.',
   };
   test.describe(`history ${language}`, () => {
@@ -157,6 +158,9 @@ for (const language of ['en', 'ar'] as const) {
       await expect(page.locator('.history-note')).toHaveCount(1);
       await expect(page.getByRole('button', { name: label.next, exact: true })).toBeDisabled();
       await page.getByLabel(label.size, { exact: true }).selectOption('50');
+      // A larger page size can leave the current page beyond the last page; the
+      // app then shows an empty-page notice with an explicit return to page one.
+      await page.getByRole('button', { name: label.firstPage, exact: true }).click();
       await expect(page.locator('.history-note')).toHaveCount(41);
       expect(new URL(page.url()).searchParams.has('page')).toBe(false);
       await expect(page.getByRole('button', { name: label.next, exact: true })).toHaveCount(0);

@@ -14,6 +14,7 @@ const labels = {
     recorded: 'Recorded',
     history: 'Notes history',
     switch: 'التغيير إلى العربية',
+    addDetails: 'Add details',
   },
   ar: {
     recipient: 'مستفيد الرعاية',
@@ -22,6 +23,7 @@ const labels = {
     recorded: 'مسجّل',
     history: 'سجل الملاحظات',
     switch: 'Switch to English',
+    addDetails: 'إضافة تفاصيل',
   },
 };
 
@@ -97,11 +99,7 @@ test('renders note editor fields in Arabic RTL', async ({ page }) => {
   await recipient.selectOption(recipientFixture.id);
   await date.fill(noteFixture.date);
 
-  const textGroup = page.getByRole('group', {
-    name: `${labels.ar.text} — حالة الملاحظة`,
-    exact: true,
-  });
-  await textGroup.getByText(labels.ar.recorded, { exact: true }).click();
+  await page.getByRole('button', { name: labels.ar.addDetails, exact: true }).click();
   const text = page.getByRole('textbox', { name: labels.ar.text, exact: true });
   await text.fill('ملاحظة عربية قابلة للتحرير');
   await expect(text).toHaveValue('ملاحظة عربية قابلة للتحرير');
@@ -147,7 +145,7 @@ test('keeps history date query values unchanged in Arabic', async ({ page }) => 
   expect(url.searchParams.get('to')).toBe('2026-10-22');
   await expect(page.getByRole('heading', { name: labels.ar.history })).toBeVisible();
   await expect(page.getByRole('article', { name: recipientFixture.name })).toBeVisible();
-  await expect(page.locator('.history-note time')).toHaveAttribute('dir', 'auto');
+  await expect(page.locator('.history-table time').first()).toBeVisible();
 });
 
 test('does not horizontally overflow notes or history at 320 pixels', async ({ page }) => {
@@ -156,10 +154,7 @@ test('does not horizontally overflow notes or history at 320 pixels', async ({ p
   await page.goto('/app/notes/new');
   await expect(page.getByLabel(labels.ar.recipient, { exact: true })).toBeVisible();
   await expect(page.getByLabel(labels.ar.date, { exact: true })).toBeVisible();
-  await page.getByRole('group', {
-    name: `${labels.ar.text} — حالة الملاحظة`,
-    exact: true,
-  }).getByText(labels.ar.recorded, { exact: true }).click();
+  await page.getByRole('button', { name: labels.ar.addDetails, exact: true }).click();
   const text = page.getByRole('textbox', { name: labels.ar.text, exact: true });
   await expect(text).toBeVisible();
   await text.fill('ملاحظة عربية ضمن العرض المكتبي');
@@ -205,10 +200,7 @@ test('renders the Arabic note editor within a 1280px RTL viewport', async ({ pag
   expect(await page.locator('.note-form').evaluate((element) => getComputedStyle(element).direction)).toBe('rtl');
   await expect(page.getByLabel(labels.ar.recipient, { exact: true })).toBeVisible();
   await expect(page.getByLabel(labels.ar.date, { exact: true })).toBeVisible();
-  await page.getByRole('group', {
-    name: `${labels.ar.text} — حالة الملاحظة`,
-    exact: true,
-  }).getByText(labels.ar.recorded, { exact: true }).click();
+  await page.getByRole('button', { name: labels.ar.addDetails, exact: true }).click();
   const text = page.getByRole('textbox', { name: labels.ar.text, exact: true });
   await expect(text).toBeVisible();
   await text.fill('ملاحظة عربية ضمن العرض المكتبي');

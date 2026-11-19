@@ -51,7 +51,7 @@ for (const language of ['en', 'ar'] as const) {
     });
 
     await page.goto('/app?date=2026-10-18');
-    await expect(page.getByLabel(labels.date)).toHaveValue('2026-10-18');
+    await expect(page.getByLabel(labels.date, { exact: true })).toHaveValue('2026-10-18');
     await expect(page.getByRole('heading', { name: labels.recipients }).locator('..')).toContainText(language === 'ar' ? '2' : '2');
     await expect(page.getByRole('heading', { name: labels.recorded }).locator('..')).toContainText(language === 'ar' ? '1' : '1');
     await expect(page.getByRole('heading', { name: labels.notRecorded }).locator('..')).toContainText(language === 'ar' ? '1' : '1');
@@ -115,17 +115,17 @@ for (const language of ['en', 'ar'] as const) {
       expect(layout.kpiCardsFitViewport).toBe(true);
       expect(layout.recipientCardsFitList).toBe(true);
       expect(layout.textFits).toBe(true);
-      await expect(page.getByLabel(labels.date)).toBeVisible();
+      await expect(page.getByLabel(labels.date, { exact: true })).toBeVisible();
       await expect(page.getByRole('link', { name: new RegExp(labels.record) })).toBeVisible();
     }
     await page.setViewportSize(originalViewport);
 
-    await page.getByLabel(labels.date).fill('2026-10-19');
+    await page.getByLabel(labels.date, { exact: true }).fill('2026-10-19');
     await expect(page).toHaveURL(/date=2026-10-19/);
     await page.reload();
-    await expect(page.getByLabel(labels.date)).toHaveValue('2026-10-19');
+    await expect(page.getByLabel(labels.date, { exact: true })).toHaveValue('2026-10-19');
     await page.goBack();
-    await expect(page.getByLabel(labels.date)).toHaveValue('2026-10-18');
+    await expect(page.getByLabel(labels.date, { exact: true })).toHaveValue('2026-10-18');
 
     await page.getByRole('link', { name: new RegExp(labels.record) }).click();
     await expect(page).toHaveURL(new RegExp(`/app/notes/new\\?recipientId=${secondRecipient.id}\\&date=2026-10-18`));

@@ -27,6 +27,7 @@ for (const language of ['en', 'ar'] as const) {
     title: ar ? 'إنشاء حساب مقدّم رعاية' : 'Create a caregiver account',
     email: ar ? 'البريد الإلكتروني' : 'Email address',
     password: ar ? 'كلمة المرور' : 'Password',
+    confirm: ar ? 'تأكيد كلمة المرور' : 'Confirm password',
     submit: ar ? 'إنشاء الحساب' : 'Create account',
     createAccount: ar ? 'إنشاء حساب' : 'Create an account',
     workspace: ar ? 'مساحة عمل مقدّم الرعاية' : 'Caregiver workspace',
@@ -62,6 +63,7 @@ for (const language of ['en', 'ar'] as const) {
       await checkAccessibility(page);
       await page.getByLabel(labels.email, { exact: true }).fill('SYNTHETIC@EXAMPLE.COM');
       await page.getByLabel(labels.password, { exact: true }).fill('synthetic password');
+      await page.getByLabel(labels.confirm, { exact: true }).fill('synthetic password');
       await page.getByRole('button', { name: labels.submit, exact: true }).click();
       await expect(page).toHaveURL(/\/app$/);
       await expect(page.getByRole('heading', { level: 1 })).toHaveText(labels.workspace);
@@ -76,6 +78,7 @@ for (const language of ['en', 'ar'] as const) {
       await page.goto('/signup');
       await page.getByLabel(labels.email, { exact: true }).fill('taken@example.com');
       await page.getByLabel(labels.password, { exact: true }).fill('synthetic password');
+      await page.getByLabel(labels.confirm, { exact: true }).fill('synthetic password');
       await page.getByRole('button', { name: labels.submit, exact: true }).click();
       const alert = page.getByRole('alert');
       await expect(alert).toContainText(labels.duplicate);
@@ -91,7 +94,7 @@ for (const language of ['en', 'ar'] as const) {
       await expect(page.getByRole('heading', { level: 1 })).toHaveText(labels.title);
       await page.getByRole('button', { name: labels.submit, exact: true }).click();
       await expect(page.getByLabel(labels.email, { exact: true })).toBeFocused();
-      await expect(page.getByRole('alert')).toHaveCount(2);
+      await expect(page.getByRole('alert')).toHaveCount(3);
       await checkAccessibility(page);
       await expect(page.locator('html')).toHaveAttribute('dir', ar ? 'rtl' : 'ltr');
     });

@@ -1,10 +1,10 @@
 import { expect, test } from '@playwright/test';
 import { correctionHistoryFixture } from './historyFixtures';
-import { noteFixture } from './noteFixtures';
+import { noteDetailFixture } from './noteFixtures';
 import { recipientFixture } from './recipientFixtures';
 
 const recipientDetail = `/app/recipients/${recipientFixture.id}`;
-const noteDetail = `/app/notes/${noteFixture.id}`;
+const noteDetail = `/app/notes/${noteDetailFixture.id}`;
 const noteAppend = `${noteDetail}/addenda/new`;
 const token = () => {
   const encode = (value: unknown) => Buffer.from(JSON.stringify(value)).toString('base64url');
@@ -27,7 +27,7 @@ test('protected caregiver detail and addendum routes survive direct loads and re
     if (path.startsWith('/api/recipients/')) return route.fulfill({ json: recipientFixture });
     if (path.endsWith('/addenda')) return route.fulfill({ json: [] });
     if (path.endsWith('/corrections')) return route.fulfill({ json: correctionHistoryFixture() });
-    return route.fulfill({ json: noteFixture });
+    return route.fulfill({ json: noteDetailFixture });
   });
 
   await page.goto(recipientDetail);

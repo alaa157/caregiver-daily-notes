@@ -1,7 +1,7 @@
 import { createRequire } from 'node:module';
 import { expect, test, type Page } from '@playwright/test';
 import { recipientFixture } from '../recipientFixtures';
-import { addendumFixture, noteFixture, noteObservations } from '../noteFixtures';
+import { addendumFixture, noteDetailFixture, noteFixture, noteObservations } from '../noteFixtures';
 import { correctionHistoryFixture } from '../historyFixtures';
 
 const require = createRequire(import.meta.url);
@@ -38,6 +38,9 @@ for (const language of ['en', 'ar'] as const) {
     append: ar ? 'إضافة تصحيح' : 'Add a correction', saveAppend: ar ? 'حفظ الإضافة' : 'Save addendum',     appended: ar ? 'تم حفظ الإضافة. الملاحظة الأصلية لم تتغير.' : 'Addendum saved. The original note is unchanged.',
     retry: ar ? 'إعادة محاولة الحفظ نفسه' : 'Retry the same save', open: ar ? 'فتح ملاحظة لهذا التاريخ' : 'Open note for this date', new: ar ? 'تسجيل ملاحظة أخرى' : 'Record another note', reload: ar ? 'إعادة المحاولة' : 'Retry',
     addDetails: ar ? 'إضافة تفاصيل' : 'Add details',
+    moodCalm: ar ? 'هادئ' : 'Calm', appetiteFair: ar ? 'مقبول' : 'Fair', sleepWell: ar ? 'نام جيدًا' : 'Slept well',
+    mobilityIndependent: ar ? 'مستقل' : 'Independent', missed: ar ? 'لم يتم تناوله' : 'Missed',
+    unverified: ar ? 'لم يُتحقق' : 'Unverified', no: ar ? 'لا' : 'No',
   };
   test.describe(`daily notes ${language}`, () => {
     test.beforeEach(async ({ page }) => {
@@ -50,13 +53,14 @@ for (const language of ['en', 'ar'] as const) {
       await page.getByLabel(label.recipient, { exact: true }).selectOption(recipientFixture.id);
       await page.getByLabel(label.date, { exact: true }).fill(noteFixture.date);
     }
+    // Structured observations are now enum chip radiogroups, not state+text fields.
+    async function chip(page: Page, group: string, option: string) {
+      await page.getByRole('radiogroup', { name: group, exact: true }).getByRole('radio', { name: option, exact: true }).click();
+    }
+    // Free-text corrections (append mode) still use the observation-state group.
     async function record(page: Page, field: string) {
       const group = page.getByRole('group', { name: `${field} — ${label.stateLabel}`, exact: true });
       await group.getByText(label.stateRecorded, { exact: true }).click();
-    }
-    async function chooseState(page: Page, field: string, state: 'RECORDED' | 'UNKNOWN') {
-      const group = page.getByRole('group', { name: `${field} — ${label.stateLabel}`, exact: true });
-      await group.getByText(state === 'RECORDED' ? label.stateRecorded : label.stateUnknown, { exact: true }).click();
     }
     test('groups editor fields and wraps state choices at 320px', async ({ page }) => {
       test.skip(page.viewportSize()?.width !== 320, 'This assertion specifically exercises the 320px viewport.');
@@ -70,14 +74,14 @@ for (const language of ['en', 'ar'] as const) {
       for (const legend of [label.wellbeingGroup, label.medicationGroup, label.safetyGroup, label.additionalGroup]) {
         await expect(observations.getByRole('group', { name: legend, exact: true })).toBeVisible();
       }
-      const choices = page.locator('.obs-state-options').first().locator('.obs-state-choice');
-      await expect(choices).toHaveCount(4);
+      const choices = page.getByRole('radiogroup', { name: label.mood, exact: true }).getByRole('radio');
+      await expect(choices).toHaveCount(7);
       for (const choice of await choices.all()) await expect(choice).toBeVisible();
-      const first = await choices.nth(0).boundingBox();
-      const second = await choices.nth(1).boundingBox();
+      const first = await choices.first().boundingBox();
+      const last = await choices.last().boundingBox();
       expect(first).not.toBeNull();
-      expect(second).not.toBeNull();
-      expect(second!.y).toBeGreaterThan(first!.y);
+      expect(last).not.toBeNull();
+      expect(last!.y).toBeGreaterThan(first!.y);
       expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBe(true);
       await expect(page.getByRole('button', { name: label.save, exact: true })).toBeVisible();
     });
@@ -158,8 +162,9 @@ for (const language of ['en', 'ar'] as const) {
           expect(body).not.toHaveProperty('caregiverId');
           if (path === '/api/notes') {
             original = {
-              ...noteFixture,
+              ...noteDetailFixture,
               ...body,
+              correctionCount: 0,
               observations: {
                 ...noteFixture.observations,
                 ...body.observations,
@@ -191,30 +196,28 @@ for (const language of ['en', 'ar'] as const) {
       await expect(page.getByLabel(label.recipient, { exact: true })).toBeFocused();
       await accessibility(page);
       await metadata(page);
-      for (const [name, value] of [[label.mood, noteObservations.mood!], [label.appetite, noteObservations.appetite!], [label.sleep, noteObservations.sleep!], [label.mobility, noteObservations.mobility!]] as const) {
-        await record(page, name);
-        await page.getByRole('textbox', { name, exact: true }).fill(value);
-      }
-      await chooseState(page, label.medication, 'UNKNOWN');
-      await page.getByLabel(label.verified, { exact: true }).selectOption('UNVERIFIED');
-      await record(page, label.pain);
-      await page.getByRole('spinbutton', { name: label.pain, exact: true }).fill('0');
-      await record(page, label.falls);
-      await page.getByRole('combobox', { name: label.falls, exact: true }).selectOption('false');
-      await record(page, label.text);
+      await chip(page, label.mood, label.moodCalm);
+      await chip(page, label.appetite, label.appetiteFair);
+      await chip(page, label.sleep, label.sleepWell);
+      await chip(page, label.mobility, label.mobilityIndependent);
+      await chip(page, label.medication, label.stateUnknown);
+      await chip(page, label.verified, label.unverified);
+      await chip(page, label.pain, '0');
+      await chip(page, label.falls, label.no);
+      await page.getByRole('button', { name: label.addDetails, exact: true }).click();
       await page.getByRole('textbox', { name: label.text, exact: true }).fill(noteObservations.freeText!);
       await page.screenshot({ path: info.outputPath(`note-form-${language}.png`), fullPage: true });
       await page.getByRole('button', { name: label.save, exact: true }).click();
-      await expect(page.getByRole('status')).toHaveText(label.saved);
-      await expect(page.getByRole('status')).toBeFocused();
+      await expect(page.locator('.note-success')).toHaveText(label.saved);
+      await expect(page.locator('.note-success')).toBeFocused();
       expect(writes[0].body).toEqual({
         recipientId: recipientFixture.id,
         date: noteFixture.date,
         observations: {
-          mood: { state: 'RECORDED', value: noteObservations.mood },
-          appetite: { state: 'RECORDED', value: noteObservations.appetite },
-          sleep: { state: 'RECORDED', value: noteObservations.sleep },
-          mobility: { state: 'RECORDED', value: noteObservations.mobility },
+          mood: { state: 'RECORDED', value: 'CALM' },
+          appetite: { state: 'RECORDED', value: 'FAIR' },
+          sleep: { state: 'RECORDED', value: 'SLEPT_WELL' },
+          mobility: { state: 'RECORDED', value: 'INDEPENDENT' },
           medicationStatus: { state: 'UNKNOWN', value: null },
           painScore: { state: 'RECORDED', value: 0 },
           fallReported: { state: 'RECORDED', value: false },
@@ -225,7 +228,7 @@ for (const language of ['en', 'ar'] as const) {
       expect(writes[0].key).toMatch(/^[a-f0-9]{32}$/);
       const article = page.getByRole('article', { name: label.original, exact: true });
       await expect(article.locator('.note-verbatim').last()).toHaveJSProperty('textContent', noteObservations.freeText);
-      await expect(page.getByRole('textbox')).toHaveCount(0);
+      await expect(page.getByRole('main').getByRole('textbox')).toHaveCount(0);
       await accessibility(page);
       await page.getByRole('link', { name: label.append, exact: true }).focus();
       await page.keyboard.press('Enter');
@@ -234,8 +237,7 @@ for (const language of ['en', 'ar'] as const) {
       await accessibility(page);
       await page.getByRole('checkbox', { name: `${label.correct}: ${label.medication}`, exact: true }).focus();
       await page.keyboard.press('Space');
-      await record(page, label.medication);
-      await page.getByRole('combobox', { name: label.medication, exact: true }).selectOption('MISSED');
+      await chip(page, label.medication, label.missed);
       await page.getByRole('checkbox', { name: `${label.correct}: ${label.verified}`, exact: true }).check();
       await page.getByLabel(label.verified, { exact: true }).selectOption('UNVERIFIED');
       await page.getByRole('checkbox', { name: `${label.correct}: ${label.text}`, exact: true }).check();
@@ -264,18 +266,18 @@ for (const language of ['en', 'ar'] as const) {
         if (request.method() === 'POST') {
           writes.push({ key: request.headers()['idempotency-key'], body: request.postDataJSON() });
           if (writes.length === 1) return route.abort('failed');
-          return route.fulfill({ status: 201, json: noteFixture });
+          return route.fulfill({ status: 201, json: { ...noteDetailFixture, correctionCount: 0 } });
         }
-        return route.fulfill({ json: path === '/api/recipients' ? [recipientFixture] : path.startsWith('/api/recipients/') ? recipientFixture : path.endsWith('/addenda') ? [] : path.endsWith('/corrections') ? correctionHistoryFixture() : noteFixture });
+        return route.fulfill({ json: path === '/api/recipients' ? [recipientFixture] : path.startsWith('/api/recipients/') ? recipientFixture : path.endsWith('/addenda') ? [] : path.endsWith('/corrections') ? correctionHistoryFixture() : noteDetailFixture });
       });
       await page.goto(`${root}/new`);
       await metadata(page);
       await page.getByRole('button', { name: label.save, exact: true }).click();
       await expect(page.getByRole('alert')).toBeFocused();
-      await expect(page.getByRole('group', { name: `${label.text} — ${label.stateLabel}`, exact: true }).getByRole('radio').first()).toBeDisabled();
+      await expect(page.getByRole('radiogroup', { name: label.mood, exact: true }).getByRole('radio').first()).toBeDisabled();
       await accessibility(page);
       await page.getByRole('button', { name: label.retry, exact: true }).click();
-      await expect(page.getByRole('status')).toHaveText(label.saved);
+      await expect(page.locator('.note-success')).toHaveText(label.saved);
       expect(writes).toHaveLength(2);
       expect(writes[1]).toEqual(writes[0]);
     });
@@ -303,7 +305,7 @@ for (const language of ['en', 'ar'] as const) {
       await page.getByRole('button', { name: label.save, exact: true }).click();
       await expect(page.getByRole('alert')).toBeFocused();
       await expect(page.getByText('private diagnostics', { exact: true })).toHaveCount(0);
-      await expect(page.getByRole('group', { name: `${label.text} — ${label.stateLabel}`, exact: true }).getByRole('radio').first()).toBeEnabled();
+      await expect(page.getByRole('radiogroup', { name: label.mood, exact: true }).getByRole('radio').first()).toBeEnabled();
       await accessibility(page);
     });
     test('retries uncertain addenda without changing the original and clears rejected sessions', async ({ page }) => {
@@ -330,7 +332,7 @@ for (const language of ['en', 'ar'] as const) {
             medicationVerificationProvided: body.medicationVerification !== undefined,
           } });
         }
-        return route.fulfill({ json: path.startsWith('/api/recipients/') ? recipientFixture : path.endsWith('/addenda') ? (count ? [addendumFixture] : []) : path.endsWith('/corrections') ? correctionHistoryFixture() : noteFixture });
+        return route.fulfill({ json: path.startsWith('/api/recipients/') ? recipientFixture : path.endsWith('/addenda') ? (count ? [addendumFixture] : []) : path.endsWith('/corrections') ? correctionHistoryFixture() : noteDetailFixture });
       });
       await page.goto(`${detail}/addenda/new`);
       await page.getByRole('checkbox', { name: `${label.correct}: ${label.text}`, exact: true }).check();

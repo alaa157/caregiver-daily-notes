@@ -93,13 +93,13 @@ test('isolates Arabic plan versions, dates, identifiers, and unknown statuses', 
 
   const history = page.getByRole('region', { name: 'سجل الخطط' });
   const entry = history.locator('details.plan-history-version');
-  await expect(entry.locator('summary span:first-child bdi')).toHaveText('٢');
+  await expect(entry.locator('summary span:first-child bdi')).toHaveText('2');
   await expect(entry.locator('summary time bdi')).toBeVisible();
   await expect(entry.locator('summary .plan-status bdi')).toHaveText('SYNTHETIC_UNKNOWN_STATUS');
   await entry.locator('summary').click();
   await expect(entry.locator('.plan-medications bdi').first()).toHaveText('SYNTHETIC_REPORTED_ITEM');
   await expect(entry.locator('.plan-provenance').getByText(activePlanFixture.id, { exact: true })).toHaveJSProperty('tagName', 'BDI');
-  await expect(entry.locator('.plan-structured .note-verbatim')).toHaveAttribute('dir', 'auto');
+  await expect(entry.locator('.plan-structured .note-verbatim').first()).toHaveAttribute('dir', 'auto');
 });
 
 test('keeps the Plans workspace within 320px in Arabic and English', async ({ page }) => {
@@ -127,8 +127,10 @@ test('keeps Settings and the AI dialog RTL while isolating the saved model ident
   await expect(dialog).toBeVisible();
   await expect(dialog).toHaveJSProperty('dir', '');
   await expect(dialog).toHaveCSS('direction', 'rtl');
-  await dialog.getByLabel('النموذج', { exact: true }).fill('vendor/Model-X-12:preview');
+  await dialog.getByRole('radio', { name: /أخرى/ }).click();
+  await dialog.getByLabel('معرّف النموذج', { exact: true }).fill('vendor/Model-X-12:preview');
   await dialog.getByLabel('مفتاح API', { exact: true }).fill('synthetic-settings-key');
+  await dialog.getByRole('checkbox', { name: /أفهم أن مقدّم الخدمة/ }).check();
   await dialog.getByRole('button', { name: 'اختبار الاتصال' }).click();
   const model = dialog.locator('.byok-active bdi');
   await expect(model).toHaveText('vendor/Model-X-12:preview');

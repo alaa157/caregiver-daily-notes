@@ -52,7 +52,7 @@ test('renders plan actions in Arabic logical order', async ({ page }) => {
   await openPlans(page, 'ar');
   const actions = page.getByRole('region', { name: 'الخطط المقترحة' }).locator('.note-actions').first();
   const accept = actions.getByRole('button', { name: 'قبول الاقتراح' });
-  const dismiss = actions.getByRole('button', { name: 'رفض الاقتراح' });
+  const dismiss = actions.getByRole('button', { name: 'استبعاد الاقتراح' });
   const edit = actions.getByRole('button', { name: 'التعديل والقبول' });
   await expect(accept).toBeVisible();
   await expect(dismiss).toBeVisible();
@@ -85,10 +85,12 @@ test('renders settings and AI dialog in Arabic RTL', async ({ page }) => {
   await expect(dialog).toBeVisible();
   expect(await dialog.evaluate((element) => getComputedStyle(element).direction)).toBe('rtl');
   await expect(dialog.getByLabel('المزود')).toBeVisible();
-  await expect(dialog.getByLabel('النموذج')).toBeVisible();
+  // The model picker is now a catalog radiogroup (with an Other -> Model ID path).
+  await expect(dialog.getByRole('radiogroup', { name: 'النموذج' })).toBeVisible();
   await expect(dialog.getByLabel('مفتاح API')).toBeVisible();
   await expect(dialog.getByRole('button', { name: 'اختبار الاتصال' })).toBeVisible();
-  await expect(dialog.locator('form .auth-field label')).toHaveText(['المزود', 'النموذج', 'مفتاح API']);
+  await expect(dialog.locator('label[for="byok-provider"]')).toHaveText('المزود');
+  await expect(dialog.locator('#byok-model-label')).toHaveText('النموذج');
 });
 
 test('does not overflow plans or settings at 320 pixels', async ({ page }) => {

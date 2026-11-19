@@ -13,14 +13,14 @@ const labels = {
     save: 'Save original note', saved: 'Original note saved.', original: 'Original note — read only',
     append: 'Add a correction', correctText: 'Correct this field: Free-text observations',
     saveAppend: 'Save addendum', appended: 'Addendum saved. The original note is unchanged.',
-    switch: 'التغيير إلى العربية',
+    switch: 'التغيير إلى العربية', addDetails: 'Add details', openNav: 'Open navigation',
   },
   ar: {
     recipient: 'مستفيد الرعاية', date: 'تاريخ الملاحظة', text: 'ملاحظات نصية حرة',
     save: 'حفظ الملاحظة الأصلية', saved: 'تم حفظ الملاحظة الأصلية.', original: 'الملاحظة الأصلية — للقراءة فقط',
     append: 'إضافة تصحيح', correctText: 'تصحيح هذا الحقل: ملاحظات نصية حرة',
     saveAppend: 'حفظ الإضافة', appended: 'تم حفظ الإضافة. الملاحظة الأصلية لم تتغير.',
-    switch: 'Switch to English',
+    switch: 'Switch to English', addDetails: 'إضافة تفاصيل', openNav: 'فتح قائمة التنقل',
   },
 };
 
@@ -47,6 +47,14 @@ async function checkPageQuality(page: Page, locale: Locale) {
       .map((element) => element.id || element.textContent?.trim() || element.tagName),
   }));
   expect(layout).toEqual({ overflow: false, outside: [] });
+}
+
+// In create mode the free-text field is an expandable textarea (no state group);
+// it becomes RECORDED automatically once text is entered.
+async function fillCreateFreeText(page: Page, textName: string, addDetailsName: string, value: string) {
+  const box = page.getByRole('textbox', { name: textName, exact: true });
+  if (!(await box.isVisible())) await page.getByRole('button', { name: addDetailsName, exact: true }).click();
+  await box.fill(value);
 }
 
 for (const initial of ['en', 'ar'] as const) {
@@ -135,23 +143,21 @@ for (const initial of ['en', 'ar'] as const) {
     await page.goto('/app/notes/new');
     await page.getByLabel(first.recipient, { exact: true }).selectOption(recipient.id);
     await page.getByLabel(first.date, { exact: true }).fill(note.date);
-    await page.getByRole('group', { name: `${first.text} — ${initial === 'ar' ? 'حالة الملاحظة' : 'Observation status'}`, exact: true }).getByText(initial === 'ar' ? 'مسجّل' : 'Recorded', { exact: true }).click();
-    await page.getByRole('textbox', { name: first.text, exact: true }).fill(draft);
+    await fillCreateFreeText(page, first.text, first.addDetails, draft);
     await checkPageQuality(page, initial);
 
     await page.getByRole('button', { name: first.switch, exact: true }).click();
     await page.locator('#note-recipientId').selectOption(recipient.id);
     await page.locator('#note-date').fill(note.date);
-    await page.getByRole('group', { name: `${second.text} — ${next === 'ar' ? 'حالة الملاحظة' : 'Observation status'}`, exact: true }).getByText(next === 'ar' ? 'مسجّل' : 'Recorded', { exact: true }).click();
-    await page.getByRole('textbox', { name: second.text, exact: true }).fill(draft);
+    await fillCreateFreeText(page, second.text, second.addDetails, draft);
     await expect(page.getByLabel(second.date, { exact: true })).toHaveAttribute('dir', 'ltr');
     expect(writes).toHaveLength(0);
     await checkPageQuality(page, next);
 
     await page.getByRole('button', { name: second.save, exact: true }).focus();
     await page.keyboard.press('Enter');
-    await expect(page.getByRole('status')).toHaveText(second.saved);
-    await expect(page.getByRole('status')).toBeFocused();
+    await expect(page.locator('.note-success')).toHaveText(second.saved);
+    await expect(page.locator('.note-success')).toBeFocused();
     const original = () => page.getByRole('article', { name: labels[initial].original, exact: true });
     await expect(page.getByRole('article', { name: second.original, exact: true }).locator('.note-verbatim').last()).toHaveJSProperty('textContent', draft);
     expect(writes).toHaveLength(1);
@@ -173,8 +179,8 @@ for (const initial of ['en', 'ar'] as const) {
 
     await page.getByRole('button', { name: first.saveAppend, exact: true }).focus();
     await page.keyboard.press('Enter');
-    await expect(page.getByRole('status')).toHaveText(first.appended);
-    await expect(page.getByRole('status')).toBeFocused();
+    await expect(page.locator('.note-success')).toHaveText(first.appended);
+    await expect(page.locator('.note-success')).toBeFocused();
     await expect(original().locator('.note-verbatim').last()).toHaveJSProperty('textContent', draft);
     await expect(page.getByRole('article').last().locator('.note-verbatim').last()).toHaveJSProperty('textContent', correction);
     expect(writes).toHaveLength(2);
@@ -253,7 +259,7 @@ test('mirrors only directional navigation icons in RTL', async ({ page }) => {
   const globeTransform = await page.locator('.language-toggle .icon')
     .evaluate((element) => getComputedStyle(element).transform);
   expect(globeTransform).toBe('none');
-  const navIconTransform = await page.locator('.site-nav .icon').first()
+  const navIconTransform = await page.locator('.app-sidebar-nav .icon').first()
     .evaluate((element) => getComputedStyle(element).transform);
   expect(navIconTransform).toBe('none');
 });
@@ -267,7 +273,7 @@ test('does not horizontally overflow the shared shell at 320 pixels', async ({ p
   }));
   expect(overflowAr.scrollWidth).toBeLessThanOrEqual(overflowAr.clientWidth);
   await expect(page.getByRole('button', { name: 'Switch to English', exact: true })).toBeVisible();
-  await expect(page.getByRole('navigation', { name: 'القائمة الرئيسية' })).toBeVisible();
+  await expect(page.getByRole('button', { name: 'فتح قائمة التنقل' })).toBeVisible();
   await page.getByRole('button', { name: 'Switch to English', exact: true }).click();
   await expect(page.locator('html')).toHaveAttribute('dir', 'ltr');
   const overflowEn = await page.evaluate(() => ({
@@ -276,12 +282,12 @@ test('does not horizontally overflow the shared shell at 320 pixels', async ({ p
   }));
   expect(overflowEn.scrollWidth).toBeLessThanOrEqual(overflowEn.clientWidth);
   await expect(page.getByRole('button', { name: 'التغيير إلى العربية', exact: true })).toBeVisible();
-  await expect(page.getByRole('navigation', { name: 'Main navigation' })).toBeVisible();
+  await expect(page.getByRole('button', { name: 'Open navigation' })).toBeVisible();
 });
 
 test('keeps mixed Latin identifiers isolated in Arabic navigation', async ({ page }) => {
   await setupShell(page, 'ar');
-  const name = page.getByText(recipientFixture.name, { exact: true });
+  const name = page.locator('.recipient-list').getByText(recipientFixture.name, { exact: true });
   await expect(name).toBeVisible();
   const text = await name.evaluate((element) => element.textContent);
   expect(text).toBe('Samir Hassan');

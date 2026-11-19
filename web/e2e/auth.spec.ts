@@ -80,11 +80,13 @@ for (const language of ['en', 'ar'] as const) {
       await page.reload();
       await expect(page.getByRole('heading', { level: 1 })).toHaveText(labels.workspace);
       expect(requests).toBe(1);
-      const navigation = page.getByRole('navigation', { name: ar ? 'القائمة الرئيسية' : 'Main navigation' });
-      await navigation.getByRole('link', { name: ar ? 'المستفيدون' : 'People', exact: true }).click();
+      const navigation = page.getByRole('navigation', { name: ar ? 'قائمة التطبيق' : 'Application navigation' });
+      await navigation.getByRole('link', { name: ar ? 'المستفيدون' : 'Recipients', exact: true }).click();
       await expect(page).toHaveURL(/\/app\/recipients$/);
-      await navigation.getByRole('link', { name: ar ? 'الرئيسية' : 'Home', exact: true }).click();
+      await navigation.getByRole('link', { name: ar ? 'نظرة عامة' : 'Overview', exact: true }).click();
       await expect(page).toHaveURL(/\/app$/);
+      // Sign-out now lives in the workspace account menu rather than the header.
+      await page.locator('.app-account > summary').click();
       await page.getByRole('button', { name: labels.signOut, exact: true }).click();
       await expect(page).toHaveURL(/\/login$/);
       expect(await page.evaluate(() => sessionStorage.getItem('caregiver-auth-session-v1'))).toBeNull();

@@ -120,6 +120,8 @@ async function installApiMocks(page: Page, options: MockOptions = {}) {
     if (path === `/api/recipients/${RECIPIENT_ID}` && method === 'GET' && recipient) return fulfill(recipient);
     if (path === `/api/recipients/${RECIPIENT_ID}/medications` && method === 'GET') return fulfill([]);
     if (path === `/api/recipients/${RECIPIENT_ID}/safety-acknowledgements` && method === 'GET') return fulfill([]);
+    if (path === '/api/activity' && method === 'GET') return fulfill([]);
+    if (path === `/api/recipients/${RECIPIENT_ID}/safety-signals` && method === 'GET') return fulfill({ needsDoctorBanner: false, signals: [] });
 
     if (path === '/api/notes' && method === 'POST') {
       const observations = body?.observations as typeof noteFixture.observations;
@@ -199,32 +201,26 @@ async function signIn(page: Page) {
 async function createRecipient(page: Page) {
   await page.goto('/app/recipients/new');
   await page.getByLabel('Name', { exact: true }).fill(RECIPIENT_NAME);
-  await page.getByLabel(/Relationship/, { exact: true }).fill('Parent');
+  await page.getByRole('radiogroup', { name: 'Relationship (optional)' }).getByRole('radio', { name: 'Father', exact: true }).click();
   await page.getByRole('form', { name: 'Add care recipient' })
     .getByRole('button', { name: 'Add care recipient', exact: true }).click();
   await expect(page).toHaveURL(new RegExp(`/app/recipients/${RECIPIENT_ID}$`));
   await expect(page.getByRole('heading', { name: RECIPIENT_NAME })).toBeVisible();
 }
 
-async function chooseState(page: Page, fieldLabel: string, stateLabel: string) {
-  await page.getByRole('group', { name: `${fieldLabel} — Observation status`, exact: true })
-    .getByText(stateLabel, { exact: true }).click();
+async function selectChip(page: Page, group: string, option: string) {
+  await page.getByRole('radiogroup', { name: group, exact: true }).getByRole('radio', { name: option, exact: true }).click();
 }
 
 async function fillMixedNote(page: Page) {
   await page.goto('/app/notes/new');
   await page.getByLabel('Care recipient', { exact: true }).selectOption(RECIPIENT_ID);
   await page.getByLabel('Observation date', { exact: true }).fill(NOTE_DATE);
-  // RECORDED zero (Pain) and RECORDED false (Fall).
-  await chooseState(page, 'Pain score (0–10)', 'Recorded');
-  await page.getByLabel('Pain score (0–10)', { exact: true }).fill('0');
-  await chooseState(page, 'Fall reported', 'Recorded');
-  await page.getByLabel('Fall reported', { exact: true }).selectOption('false');
-  // UNKNOWN medication state, NOT_RECORDED sleep, remaining fields NOT_RECORDED.
-  await chooseState(page, 'Medication taken', 'Unknown');
-  for (const label of ['Mood', 'Appetite', 'Sleep', 'Mobility', 'Free-text observations']) {
-    await chooseState(page, label, 'Not recorded');
-  }
+  // Structured observations are enum chips: RECORDED 0 pain, RECORDED false fall,
+  // UNKNOWN medication; the other fields stay NOT_RECORDED (no chip selected).
+  await selectChip(page, 'Pain score (0–10)', '0');
+  await selectChip(page, 'Fall reported', 'No');
+  await selectChip(page, 'Medication taken', 'Unknown');
   await page.getByRole('button', { name: 'Save original note', exact: true }).click();
   await expect(page).toHaveURL(new RegExp(`/app/notes/${NOTE_ID}$`));
 }
@@ -234,17 +230,19 @@ async function enterSyntheticKey(page: Page) {
   await page.getByRole('button', { name: 'AI Settings', exact: true }).click();
   const dialog = page.getByRole('dialog', { name: 'AI provider settings' });
   await expect(dialog).toBeVisible();
-  await dialog.getByLabel('Model', { exact: true }).fill('synthetic-model');
+  await dialog.getByRole('radio', { name: /Other/ }).click();
+  await dialog.getByLabel('Model ID', { exact: true }).fill('synthetic-model');
   await dialog.getByLabel('API key', { exact: true }).fill(SYNTHETIC_KEY);
+  await dialog.getByRole('checkbox', { name: /I understand that my care notes/ }).check();
   await dialog.getByRole('button', { name: 'Test connection', exact: true }).click();
-  await expect(dialog.getByRole('status')).toContainText('Connection test succeeded.');
+  await expect(dialog.locator('.byok-success')).toContainText('Connection test succeeded');
   await expect(page.locator('body')).not.toContainText(SYNTHETIC_KEY);
   await dialog.getByRole('button', { name: 'Close', exact: true }).click();
   await expect(dialog).toBeHidden();
 }
 
 async function generateSummary(page: Page) {
-  await page.getByRole('link', { name: 'AI summary & safety', exact: true }).click();
+  await page.getByRole('link', { name: 'Summaries', exact: true }).click();
   await expect(page).toHaveURL(/\/app\/notes\/summary$/);
   await page.getByLabel('Care recipient', { exact: true }).selectOption(RECIPIENT_ID);
   await page.getByLabel('End date (inclusive)', { exact: true }).fill(PERIOD_END);
@@ -252,8 +250,8 @@ async function generateSummary(page: Page) {
 }
 
 async function generatePlan(page: Page) {
-  await page.getByRole('navigation', { name: 'Main navigation' })
-    .getByRole('link', { name: 'Care plans', exact: true }).click();
+  await page.getByRole('navigation', { name: 'Application navigation' })
+    .getByRole('link', { name: 'Plans', exact: true }).click();
   await expect(page).toHaveURL(new RegExp(`/app/notes/plans`));
   await page.getByLabel('Care recipient', { exact: true }).selectOption(RECIPIENT_ID);
   await expect(page.getByRole('region', { name: 'Suggested plans' })).toBeVisible();
@@ -304,10 +302,10 @@ test('completes sign in note summary and accepted plan journey', async ({ page }
 
   // Client-side navigation to the dashboard (keeps in-memory BYOK credentials),
   // then to Summary via the workflow link.
-  await page.getByRole('navigation', { name: 'Main navigation' }).getByRole('link', { name: 'Home', exact: true }).click();
+  await page.getByRole('navigation', { name: 'Application navigation' }).getByRole('link', { name: 'Overview', exact: true }).click();
   await generateSummary(page);
   await expect(page.getByRole('heading', { name: 'Requested summary', exact: true })).toBeVisible();
-  await expect(page.getByText('AI-generated', { exact: true })).toBeVisible();
+  await expect(page.getByText('Model-generated text', { exact: true })).toBeVisible();
   await expect(page.getByText(DISCLAIMER, { exact: true })).toBeVisible();
   await expect(page.locator(`a[href="/app/notes/${NOTE_ID}"]`).first()).toBeVisible();
   const aiSection = page.locator('.summary-ai');
@@ -331,7 +329,7 @@ test('completes sign in note summary and accepted plan journey', async ({ page }
   await expect(page.getByRole('group', { name: 'Confirm acceptance' })).toBeVisible();
   expect(requests.filter((item) => item.path === acceptPath)).toHaveLength(0);
   await page.getByRole('button', { name: 'Confirm acceptance', exact: true }).click();
-  await expect(page.getByText('The server accepted the suggestion.')).toBeVisible();
+  await expect(page.getByText('Suggestion accepted.')).toBeVisible();
   expect(requests.filter((item) => item.path === acceptPath)).toHaveLength(1);
 
   const active = page.getByRole('region', { name: 'Active accepted plan' });
@@ -375,13 +373,13 @@ test('does not persist synthetic BYOK key in browser storage', async ({ page }) 
   await createRecipient(page);
   await fillMixedNote(page);
   await enterSyntheticKey(page);
-  await page.getByRole('navigation', { name: 'Main navigation' }).getByRole('link', { name: 'Home', exact: true }).click();
+  await page.getByRole('navigation', { name: 'Application navigation' }).getByRole('link', { name: 'Overview', exact: true }).click();
   await generateSummary(page);
   await generatePlan(page);
   await page.getByRole('region', { name: 'Suggested plans' })
     .getByRole('button', { name: 'Accept suggestion', exact: true }).click();
   await page.getByRole('button', { name: 'Confirm acceptance', exact: true }).click();
-  await expect(page.getByText('The server accepted the suggestion.')).toBeVisible();
+  await expect(page.getByText('Suggestion accepted.')).toBeVisible();
 
   const scan = await page.evaluate(async () => {
     const chunks: string[] = [];
@@ -421,10 +419,10 @@ test('keeps provider failure out of successful summary and plan generation', asy
   await createRecipient(page);
   await fillMixedNote(page);
   await enterSyntheticKey(page);
-  await page.getByRole('navigation', { name: 'Main navigation' }).getByRole('link', { name: 'Home', exact: true }).click();
+  await page.getByRole('navigation', { name: 'Application navigation' }).getByRole('link', { name: 'Overview', exact: true }).click();
   await generateSummary(page);
   await expect(page.getByText('AI is unavailable. No generated observations are shown.')).toBeVisible();
-  await expect(page.getByText('AI-generated', { exact: true })).toHaveCount(0);
+  await expect(page.getByText('Model-generated text', { exact: true })).toHaveCount(0);
   await expect(page.locator('.summary-ai')).toHaveCount(0);
   await expect(page.locator('.summary-observations')).toHaveCount(0);
   expect(requests.filter((item) => item.path === '/api/plans/generate/byok')).toHaveLength(0);
@@ -439,7 +437,7 @@ test('does not auto accept a generated plan', async ({ page }) => {
   await createRecipient(page);
   await fillMixedNote(page);
   await enterSyntheticKey(page);
-  await page.getByRole('navigation', { name: 'Main navigation' }).getByRole('link', { name: 'Home', exact: true }).click();
+  await page.getByRole('navigation', { name: 'Application navigation' }).getByRole('link', { name: 'Overview', exact: true }).click();
   await generateSummary(page);
   await generatePlan(page);
   const suggested = page.getByRole('region', { name: 'Suggested plans' });
@@ -450,7 +448,7 @@ test('does not auto accept a generated plan', async ({ page }) => {
   await expect(page.getByRole('group', { name: 'Confirm acceptance' })).toBeVisible();
   expect(requests.filter((item) => item.path === acceptPath)).toHaveLength(0);
   await page.getByRole('button', { name: 'Confirm acceptance', exact: true }).click();
-  await expect(page.getByText('The server accepted the suggestion.')).toBeVisible();
+  await expect(page.getByText('Suggestion accepted.')).toBeVisible();
   expect(requests.filter((item) => item.path === acceptPath)).toHaveLength(1);
   expect(unmocked).toEqual([]);
 });

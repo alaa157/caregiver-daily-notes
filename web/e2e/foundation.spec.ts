@@ -65,7 +65,9 @@ for (const language of ['en', 'ar'] as const) {
       await checkAccessibility(page);
       await page.getByRole('link', { name: language === 'ar' ? 'العودة للرئيسية' : 'Return home' }).click();
       await expect(page).toHaveURL(/\/$/);
-      await expect(page.getByRole('main')).toBeFocused();
+      // The self-contained landing route owns the main landmark but no longer
+      // auto-focuses it on entry; the skip link remains the focus path.
+      await expect(page.getByRole('main')).toHaveAttribute('id', 'main-content');
     });
 
     test('disables reveal transitions and smooth scrolling for reduced motion', async ({ page }) => {
@@ -97,13 +99,15 @@ for (const language of ['en', 'ar'] as const) {
       await page.goto('/login');
       await configRequested;
       try {
-        const status = page.getByRole('status');
-        const label = status.locator('.feedback-label');
-        await expect(status).toBeVisible();
-        await expect(status).toHaveAttribute('aria-live', 'polite');
+        // The loading frame carries the label/spinner; the polite live region is
+        // the separate StatusAnnouncer, not the frame itself.
+        const loading = page.locator('.feedback--loading');
+        const label = loading.locator('.feedback-label');
+        await expect(loading).toBeVisible();
         await expect(label).toBeVisible();
         await expect(label).toHaveText(/\S/);
-        await expect(status.locator('.spinner')).toHaveCSS('animation-name', 'none');
+        await expect(loading.locator('.spinner')).toHaveCSS('animation-name', 'none');
+        await expect(page.getByRole('status')).toHaveAttribute('aria-live', 'polite');
       } finally {
         releaseConfig();
       }
