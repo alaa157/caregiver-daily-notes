@@ -124,11 +124,18 @@ abstract class ObservationColumns {
         observation(painScoreState, painScoreValue, legacyPainScore),
         observation(fallReportedState, fallReportedValue, legacyFallReported),
         observation(freeTextState, freeTextValue, legacyFreeText),
-        medicationVerification);
+        // Rows created without a medication report carry a null verification
+        // column; the canonical default is NOT_ASSERTED (see notRecorded()).
+        medicationVerification == null ? VerificationState.NOT_ASSERTED : medicationVerification);
   }
 
   private static <T> Observation<T> observation(
       ObservationState state, T value, T legacyValue) {
+    // A null state column means the field was never recorded on this note.
+    // Map it to NOT_RECORDED instead of letting Observation.requireNonNull fail.
+    if (state == null) {
+      return new Observation<>(ObservationState.NOT_RECORDED, null, null);
+    }
     return state == ObservationState.LEGACY_AMBIGUOUS
         ? Observation.legacyAmbiguous(legacyValue)
         : new Observation<>(state, value, null);

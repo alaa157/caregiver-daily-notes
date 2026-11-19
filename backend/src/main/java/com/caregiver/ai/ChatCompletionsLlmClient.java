@@ -280,8 +280,16 @@ public class ChatCompletionsLlmClient implements LlmClient {
     Map<String, Object> root = new LinkedHashMap<>();
     root.put("model", model);
     List<Map<String, String>> messages = new ArrayList<>();
-    messages.add(Map.of("role", "system", "content", systemPrompt));
-    messages.add(Map.of("role", "user", "content", userContent));
+    // LinkedHashMap, not Map.of: message field order must be deterministic
+    // because non-OpenAI request bodies are a byte-for-byte contract.
+    Map<String, String> systemMessage = new LinkedHashMap<>();
+    systemMessage.put("role", "system");
+    systemMessage.put("content", systemPrompt);
+    messages.add(systemMessage);
+    Map<String, String> userMessage = new LinkedHashMap<>();
+    userMessage.put("role", "user");
+    userMessage.put("content", userContent);
+    messages.add(userMessage);
     root.put("messages", messages);
     if (openAiRequest) {
       root.put("max_completion_tokens", maxTokens);
