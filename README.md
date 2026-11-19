@@ -269,6 +269,7 @@ setup.sh          One-command local setup
 |---|---|
 | [`docs/testing/`](docs/testing/) | Test strategy, inventory, measured coverage, execution status |
 | [`docs/testing/defects/`](docs/testing/defects/) | Defect register — evidence, repro, fixes, verification (issues #1095–#1101) |
+| [`CHANGELOG.md`](CHANGELOG.md) | Milestones and release history |
 | [`docs/diagrams/`](docs/diagrams/) | UML set — context, architecture, sequence, activity, ERD (SVG/PNG/PDF/PlantUML) |
 | [`docs/api/daily-notes.md`](docs/api/daily-notes.md) | Notes, addenda, corrections, signals, idempotency, error codes |
 | [`docs/api/recipients.md`](docs/api/recipients.md) | Recipient lifecycle, care details, archive and restore |

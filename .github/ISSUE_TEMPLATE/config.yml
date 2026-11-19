@@ -1,0 +1,8 @@
+blank_issues_enabled: false
+contact_links:
+  - name: Testing strategy & defect process
+    url: https://github.com/alaa157/caregiver-daily-notes/blob/main/docs/testing/README.md
+    about: How defects are reported, evidenced, and verified in this project.
+  - name: DEPI — Digital Egypt Pioneers Initiative
+    url: https://depi.gov.eg/
+    about: The program this capstone belongs to (Software Testing track).

@@ -73,7 +73,7 @@ jobs:
           VERSION_CODE=$(sed -nE 's/^[[:space:]]*versionCode[[:space:]]*=[[:space:]]*([0-9]+).*/\1/p' "$GRADLE_FILE" | head -1)
           APK_SHA256=$(sha256sum "$APK" | cut -d' ' -f1)
           TAG="android-standalone-v${VERSION_NAME}-run${RUN_NUMBER}"
-          TITLE="Caregiver Daily Notes Android v${VERSION_NAME} (standalone demo run ${RUN_NUMBER})"
+          TITLE="Rafeek Android v${VERSION_NAME} (standalone demo run ${RUN_NUMBER})"
           NOTES=$(printf '%s\n' \
             'Minified standalone Android demo APK (R8 + resource shrinking). Built by GitHub Actions from the selected mobile branch; no build was performed on a developer machine.' \
             '' \
