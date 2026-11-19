@@ -6,7 +6,7 @@ skinparam defaultTextColor #1F2A2E
 skinparam fontName "IBM Plex Sans"
 skinparam fontSize 11
 skinparam shadowing false
-skinparam handwritten false
+!option handwritten false
 skinparam linetype ortho
 skinparam nodesep 30
 skinparam ranksep 40
@@ -82,7 +82,7 @@ skinparam activityDiamond {
 }
 ' ---- END SHARED STYLE ----
 
-title ERD — Caregiver Daily Notes data model
+title ERD — Rafeek data model
 
 entity ACCOUNT {
   account_id : uuid <<PK>>

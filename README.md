@@ -1,12 +1,23 @@
 # Rafeek — رفيق
 
+[![Java 21](https://img.shields.io/badge/Java_21-ED8B00?style=flat-square&logo=openjdk&logoColor=white)](https://openjdk.org/)
+[![Kotlin 2.0](https://img.shields.io/badge/Kotlin_2.0-7F52FF?style=flat-square&logo=kotlin&logoColor=white)](https://kotlinlang.org/)
+[![Spring Boot 3.3](https://img.shields.io/badge/Spring_Boot_3.3-6DB33F?style=flat-square&logo=springboot&logoColor=white)](https://spring.io/projects/spring-boot)
+[![React 18](https://img.shields.io/badge/React_18-20232A?style=flat-square&logo=react&logoColor=61DAFB)](https://react.dev/)
+[![TypeScript 5](https://img.shields.io/badge/TypeScript_5-3178C6?style=flat-square&logo=typescript&logoColor=white)](https://www.typescriptlang.org/)
+[![Jetpack Compose](https://img.shields.io/badge/Jetpack_Compose-4285F4?style=flat-square&logo=jetpackcompose&logoColor=white)](https://developer.android.com/compose)
+[![PostgreSQL](https://img.shields.io/badge/PostgreSQL-4169E1?style=flat-square&logo=postgresql&logoColor=white)](https://www.postgresql.org/)
+[![Playwright](https://img.shields.io/badge/Playwright-2EAD33?style=flat-square&logo=playwright&logoColor=white)](https://playwright.dev/)
+[![MIT License](https://img.shields.io/badge/License-MIT-285B45?style=flat-square)](LICENSE)
+[![DEPI Capstone](https://img.shields.io/badge/DEPI-Capstone_2026-285B45?style=flat-square)](https://depi.gov.eg/)
+
 ![Rafeek preview](web/public/caregiver-notes-preview.svg)
 
 A care-support system for recording structured daily observations about the people you care for, reviewing their history, and generating AI-assisted summaries and care plans from those notes.
 
 Two clients, one domain model: a **React web application** and a **native Kotlin/Compose Android app**. Both are built around the same append-only note record and the same safety rules.
 
-> **Project notice.** Rafeek is a capstone project using synthetic data only. It is not a diagnostic or medical-monitoring system, is not medical advice, and must not be used with real patient or care-recipient data.
+> **Project notice.** Rafeek is the capstone project of the [Digital Egypt Pioneers Initiative (DEPI)](https://depi.gov.eg/), Software Testing track, built with synthetic data only. It is not a diagnostic or medical-monitoring system, is not medical advice, and must not be used with real patient or care-recipient data.
 
 ---
 
@@ -25,6 +36,7 @@ Two clients, one domain model: a **React web application** and a **native Kotlin
 - [Data handling and privacy](#data-handling-and-privacy)
 - [Repository layout](#repository-layout)
 - [Documentation](#documentation)
+- [Team & acknowledgments](#team--acknowledgments)
 - [License](#license)
 - [Contributing](#contributing)
 
@@ -77,36 +89,21 @@ Captured from the running apps with synthetic data: the web client against a loc
 
 ## Architecture
 
-```
-        ┌────────────────────┐        ┌────────────────────┐
-        │    Web client      │        │  Android client    │
-        │  React + TS + Vite │        │ Kotlin + Compose   │
-        └─────────┬──────────┘        └─────────┬──────────┘
-                  │                             │
-                  │  HTTPS + JWT                │  HTTPS + JWT
-                  │                             │  (or local-only)
-                  ▼                             ▼
-        ┌──────────────────────────────────────────────────┐
-        │            Spring Boot REST API (Java 21)        │
-        │   auth · ownership · safety rules · versioning   │
-        └───────────┬──────────────────────────┬───────────┘
-                    │                          │
-                    ▼                          ▼
-        ┌────────────────────┐      ┌────────────────────────┐
-        │  PostgreSQL        │      │  LLM provider          │
-        │  (Supabase)        │      │  (caregiver's own key) │
-        └────────────────────┘      └────────────────────────┘
-```
+<p align="center">
+  <img src="docs/diagrams/architecture/02-architecture.png" alt="System architecture — web and Android clients, Spring Boot API with JWT auth and append-only notes, PostgreSQL, and caregiver-keyed model providers" width="760" />
+</p>
 
 The web client talks to the backend for everything. The Android release build is **local-first and standalone**: accounts, notes, and plans live in on-device Room databases, and no backend is required. Its AI features call the caregiver's chosen provider directly with a key held in the Android Keystore.
+
+The full UML set — [system context](docs/diagrams/context/01-context.svg), [sequence](docs/diagrams/sequence/03-sequence.svg), [activity](docs/diagrams/activity/04-activity.svg), and [entity–relationship](docs/diagrams/erd/05-erd.svg) diagrams — is in [`docs/diagrams/`](docs/diagrams/), each as SVG, PNG, PDF, and PlantUML source.
 
 ## Technology stack
 
 | Layer | Stack |
 |---|---|
-| **Backend** | Java 21, Spring Boot 3.3, Spring Security, JWT (jjwt), Spring Data JPA, Flyway, PostgreSQL, Maven, JUnit 5 |
-| **Web** | React 18, TypeScript 5, Vite 5, React Router 6, Vitest, Testing Library, Playwright, axe-core |
-| **Android** | Kotlin, Jetpack Compose, Room, DataStore, Retrofit, Gradle (AGP 8.7), minSdk 23 / target 35 |
+| **Backend** | Java 21, Spring Boot 3.3.4, Spring Security, JWT (jjwt), Spring Data JPA, Flyway, PostgreSQL, Maven, JUnit 5, JaCoCo |
+| **Web** | React 18.3, TypeScript 5.6, Vite 5.4, React Router 6.30, Vitest 2.1, Testing Library, Playwright 1.64, axe-core |
+| **Android** | Kotlin 2.0.21, Jetpack Compose (BOM 2024.10), Room, DataStore, Retrofit, kotlinx.serialization, Gradle (AGP 8.7.3), minSdk 23 / target 35 |
 | **Infrastructure** | Supabase PostgreSQL, Docker (Render runtime), GitHub Actions, GitHub Releases for APKs |
 
 ## Getting started
@@ -196,7 +193,9 @@ API_BASE_URL=https://your-backend.example npm run config:runtime
 | Android JVM unit | `cd android && ./gradlew :app:testDebugUnitTest` |
 | Android instrumentation | `cd android && ./gradlew :app:connectedDebugAndroidTest` |
 
-CI runs the frontend suite (unit, typecheck, build, Playwright), the backend suite with JaCoCo coverage, and a Docker image build on every pull request to `main`.
+The test estate spans **95 backend test classes** (JUnit 5, with JaCoCo coverage), **60 web unit-test files** (Vitest + Testing Library), **232 Playwright browser cases** across English and Arabic × four viewports with axe-core accessibility checks, **194 Android JVM tests** plus **35 instrumentation tests**, and a **22-case deterministic AI evaluation harness** whose four safety metrics are enforced at `1.0`. Defects are tracked one per issue — **542 issues closed** to date.
+
+GitHub Actions workflows in [`.github/workflows/`](.github/workflows/) cover the frontend suite (unit, typecheck, build, Playwright), the backend suite with JaCoCo coverage, a Docker image build, and Android APK releases.
 
 ## API overview
 
@@ -217,7 +216,7 @@ All endpoints require a caregiver bearer token except registration and login. Th
 | Safety | `GET /api/recipients/{recipientId}/safety-signals`, `GET/POST …/safety-acknowledgements` |
 | AI connection | `POST /api/ai/byok/connection-test` |
 
-Writes accept an optional `Idempotency-Key` header: the same key with an identical payload replays the original record, while the same key with a different payload returns `409 IDEMPOTENCY_CONFLICT`. Full request and response contracts, including error codes, are in [`docs/api/`](docs/api/).
+Writes accept an optional `Idempotency-Key` header: the same key with an identical payload replays the original record, while the same key with a different payload returns `409 IDEMPOTENCY_CONFLICT`. Detailed contracts for the notes and recipients domains — including error codes and idempotency semantics — are in [`docs/api/`](docs/api/).
 
 ## AI features and safety rules
 
@@ -230,7 +229,7 @@ Four rules constrain what the model is allowed to do:
 - **Fixed action catalog.** Plan items are selected and parameterized from a predefined catalog, with evidence cited. The model does not invent free-form medical advice.
 - **Medication hard lock.** A plan's medication list is copied from the server-owned baseline, never from model output.
 
-AI output is measured by a deterministic evaluation harness over 22 synthetic golden cases spanning English, Modern Standard Arabic, Egyptian dialect, mixed-language, short, long, messy, contradictory, irrelevant, and prompt-injection inputs. Four metrics — red-flag recall, schema validity, groundedness, and medication safety — must all equal `1.0`, and a regression fails CI. See [`docs/ai/eval-harness.md`](docs/ai/eval-harness.md).
+AI output is measured by a deterministic evaluation harness over 22 synthetic golden cases spanning English, Modern Standard Arabic, Egyptian dialect, mixed-language, short, long, messy, contradictory, irrelevant, and prompt-injection inputs. Four metrics — red-flag recall, schema validity, groundedness, and medication safety — must all equal `1.0`; the harness fails on any regression. See [`docs/ai/eval-harness.md`](docs/ai/eval-harness.md).
 
 ## Data handling and privacy
 
@@ -255,7 +254,7 @@ web/              React + TypeScript client
   src/tests/      Unit, integration, and live-workflow suites
 android/          Native Kotlin/Compose app
   app/src/main/java/com/caregiver/mobile/   core, data, presentation, ai
-docs/             API contracts, AI evaluation, design system, privacy audit, screenshots
+docs/             API contracts, AI evaluation, UML diagrams, design system, privacy audit, screenshots
 .github/          CI and Android release workflows
 setup.sh          One-command local setup
 ```
@@ -264,6 +263,7 @@ setup.sh          One-command local setup
 
 | Document | Contents |
 |---|---|
+| [`docs/diagrams/`](docs/diagrams/) | UML set — context, architecture, sequence, activity, ERD (SVG/PNG/PDF/PlantUML) |
 | [`docs/api/daily-notes.md`](docs/api/daily-notes.md) | Notes, addenda, corrections, signals, idempotency, error codes |
 | [`docs/api/recipients.md`](docs/api/recipients.md) | Recipient lifecycle, care details, archive and restore |
 | [`docs/ai/eval-harness.md`](docs/ai/eval-harness.md) | AI evaluation metrics and golden dataset |
@@ -273,12 +273,29 @@ setup.sh          One-command local setup
 | [`docs/brand/the-gather/`](docs/brand/the-gather/) | Selected brand concept — Rafeek "The Gather" mark and logo files |
 | [`android/README.md`](android/README.md) | Android build variants, local accounts, data layout |
 
+## Team & acknowledgments
+
+Rafeek was built as the capstone project of the **Software Testing track** of the [Digital Egypt Pioneers Initiative (DEPI)](https://depi.gov.eg/) — a national digital-skills program by Egypt's Ministry of Communications and Information Technology.
+
+**Supervisor:** Mina Yonan  ·  **Training partner:** [GlobalKnowledge](https://www.globalknowledge.com/en-eg)
+
+### Contributions
+
+| Member | GitHub | Contributions |
+|---|---|---|
+| **Alaa Shehata** — Project lead & maintainer | [`alaa157`](https://github.com/alaa157) | Architecture and full-stack ownership: the native Android app (Kotlin/Compose, local-first standalone release, offline demo, BYOK AI with provider and model picker, OpenRouter integration), backend features (auth, safety signals, medications, AI summaries and plans), the deterministic AI evaluation harness, cross-stack defect fixes, Rafeek branding ("The Gather"), CI and release workflows, test strategy and defect triage, documentation, UML diagrams, and repository setup. |
+| Ebrahim Ahmed | [`ebrahimahmedss47-commits`](https://github.com/ebrahimahmedss47-commits) | Backend — daily notes domain ([#47](https://github.com/alaa157/caregiver-daily-notes/pull/47), [#56](https://github.com/alaa157/caregiver-daily-notes/pull/56)): note entity and create/read API with structured observations, append-only addenda, caregiver-scoped history with date filters and stable pagination, validation with machine-readable errors and `Idempotency-Key` support, deterministic structured signals with per-field addendum overrides, contract tests, and API documentation. |
+| Mahmoud Hewidy | [`hewidyy`](https://github.com/hewidyy) | Web frontend (React + TypeScript + Vite): project foundation ([#35](https://github.com/alaa157/caregiver-daily-notes/pull/35)), caregiver authentication ([#49](https://github.com/alaa157/caregiver-daily-notes/pull/49)), recipient management ([#50](https://github.com/alaa157/caregiver-daily-notes/pull/50)), daily notes with append-only addenda ([#54](https://github.com/alaa157/caregiver-daily-notes/pull/54)), notes history and filtering ([#55](https://github.com/alaa157/caregiver-daily-notes/pull/55)), summaries and protected care-plan workflows ([#58](https://github.com/alaa157/caregiver-daily-notes/pull/58)), the accessibility, RTL and responsive quality gate ([#61](https://github.com/alaa157/caregiver-daily-notes/pull/61)), full backend integration and handoff ([#62](https://github.com/alaa157/caregiver-daily-notes/pull/62)), and later UI refreshes across workflows ([#151](https://github.com/alaa157/caregiver-daily-notes/pull/151)). |
+| Mohamed Hemdan | [`mohamed-hemdan1`](https://github.com/mohamed-hemdan1) | Backend — security and care plans (issues [#8](https://github.com/alaa157/caregiver-daily-notes/issues/8)–[#12](https://github.com/alaa157/caregiver-daily-notes/issues/12), [#45](https://github.com/alaa157/caregiver-daily-notes/pull/45)): caregiver authentication and JWT security, caregiver-owned recipient management, care-plan persistence, versioning and lifecycle (accept / edit / dismiss, active-plan uniqueness), append-only audit logging with owner-scoped reads, caregiver-role authorization for verified JWTs, module integration and security hardening, and plan/audit/ownership integration tests. |
+
+Contribution activity is public in the repository's [contributors graph](https://github.com/alaa157/caregiver-daily-notes/graphs/contributors).
+
 ## License
 
 Released under the [MIT License](LICENSE).
 
 ## Contributing
 
-Work is tracked as GitHub issues, one defect or feature per issue, each independently actionable and self-contained. Pull requests target `main` and must pass the full CI suite. Branch convention for fixes is `fix/<area>-<issue-number>-<slug>`.
+Work is tracked as GitHub issues, one defect or feature per issue, each independently actionable and self-contained. Pull requests target `main`; run the relevant suites locally (see [Testing](#testing)) before opening a PR. Branch convention for fixes is `fix/<area>-<issue-number>-<slug>`.
 
 If you find a separate problem while working, file a separate issue rather than widening the current change.
