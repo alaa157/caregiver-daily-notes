@@ -4,7 +4,7 @@ Living document for the DEPI Software Testing track capstone. Last verified: **2
 
 ---
 
-**Formal deliverable:** [rafeek-test-cases.pdf](rafeek-test-cases.pdf) — the IEEE 829-style Test Case Specification & Execution Report (61 pages) prepared for DEPI review: 27 formal key cases, full executed registers (700 backend, 1,086 web, 22 AI golden), specified E2E/Android inventories, defect summary, and sign-off block.
+**Formal deliverable:** [rafeek-test-cases.pdf](rafeek-test-cases.pdf) — the IEEE 829-style Test Case Specification & Execution Report (62 pages) prepared for DEPI review: 27 formal key cases, full executed registers (700 backend, 1,086 web, 22 AI golden), E2E/Android test-case specifications (CI-wired), defect summary, and sign-off block.
 
 ## 1. Purpose and scope
 
@@ -40,10 +40,10 @@ Testing effort is weighted toward the failure modes that would harm a care recip
 | Backend unit + integration | JUnit 5, Spring Boot Test, Flyway, in-memory H2 (`MODE=PostgreSQL`) | **93 test classes — 632 `@Test` methods + 12 parameterized** | `mvn -f backend/pom.xml test` |
 | Web unit | Vitest 2.1 + Testing Library (jsdom) | **49 files — 1,086 executed cases** | `cd web && npm test` |
 | Web static | TypeScript 5.6 compiler; Vite build + metadata check | whole codebase | `npm run typecheck` / `npm run build` |
-| Web browser | Playwright 1.64, axe-core; 4 viewport projects (desktop 1280×900, tablet 768×1024, mobile 390×844, compact 320×740) | **53 test definitions × 4 viewports = 212 runs** (11 e2e specs + browser contracts); EN/AR workflows covered inside specs | `npm run test:e2e` |
+| Web browser | Playwright 1.64, axe-core; 4 viewport projects (desktop 1280×900, tablet 768×1024, mobile 390×844, compact 320×740) | **80 test definitions × 4 viewports = 320 runs** (53 e2e specs + 27 browser contracts); EN/AR workflows covered inside specs | `npm run test:e2e` |
 | Web live workflow | Playwright, separate config, real backend | end-to-end caregiver workflow | `npm run test:e2e:live` |
 | Android JVM | JUnit on-device-free | **192 test classes — 1,654 `@Test` methods** | `cd android && ./gradlew :app:testDebugUnitTest` |
-| Android instrumentation | Compose UI Test (`androidx.compose.ui.test`) | **35 test classes — 179 `@Test` methods** | `./gradlew :app:connectedDebugAndroidTest` (cloud device) |
+| Android instrumentation | Compose UI Test (`androidx.compose.ui.test`) | **36 test classes — 180 `@Test` methods** | `./gradlew :app:connectedDebugAndroidTest` (CI emulator / cloud device) |
 | AI evaluation | Deterministic harness over golden JSON | **22 cases** (`docs/ai/golden/`), 4 metrics enforced at `1.0` | runs inside the backend suite (`GoldenDatasetTest`, `EvalMetricsTest`, `EvalReportTest`) |
 
 Backend integration tests boot real Spring contexts against per-test in-memory H2 databases with Flyway migrations applied and `ddl-auto: validate` — no external database is required for `mvn test`.
@@ -78,8 +78,8 @@ mvn -f backend/pom.xml org.jacoco:jacoco-maven-plugin:0.8.12:prepare-agent test 
 | AI evaluation + deterministic safety | **Green.** `GoldenDatasetTest` (3), `EvalMetricsTest` (4), `EvalReportTest` (2), `SafetySignalEvaluatorTest` (15) all pass; the four metrics hold at `1.0`. |
 | Web unit (`vitest run`) | **1,086 run — 1,086 passed, 0 failures (49 files)** after DEF-002 test-only alignments. |
 | Web typecheck / build | Green (verified 2026-11-18 during the rebrand pass). |
-| Playwright browser, live workflow | **Inventory-only this pass** — execution requires the built web app plus a running backend; counts verified statically. |
-| Android JVM / instrumentation | **Inventory-only this pass** — last full JVM execution was during the rebrand build; instrumentation runs on Revyl cloud devices, not yet in CI. |
+| Playwright browser, live workflow | **Automated; execution wired in `ci.yml`** against the built app (vite preview, mocked APIs); PR + on-demand. First full run in flight this cycle. |
+| Android JVM / instrumentation | **Automated; execution wired in `android-tests.yml`** (JVM on JDK 17; instrumentation on an API-34 KVM emulator; PR + on-demand). Stale-test alignments from the import are landing; first full runs in flight this cycle. |
 
 The earlier failure inventory (325 cascade errors + 24 assertion failures) is fully resolved; each root cause is documented in the [defect register](defects/README.md).
 
@@ -120,7 +120,7 @@ All data is synthetic. No real patient or care-recipient data is used in any tes
 
 ## 9. Known gaps and next milestones
 
-1. **CI is currently disabled** (`ci.yml`, `disabled_manually`). The backend suite is now green locally, so re-enablement is the next milestone; wire the eval-report artifact upload that `docs/ai/eval-harness.md` describes.
+1. **CI is enabled** (`ci.yml` + `android-tests.yml`; PR + on-demand triggers). Remaining wiring: the eval-report artifact upload that `docs/ai/eval-harness.md` describes.
 2. Web and backend suites are green locally; the CI gate itself is the remaining step.
 3. Android instrumentation is not yet part of CI (cloud-device execution is manual).
 4. No coverage gates for web or Android; backend coverage is reported but not gated.
@@ -135,7 +135,7 @@ All data is synthetic. No real patient or care-recipient data is used in any tes
 - Android JVM suite green; instrumentation smoke pass on a cloud device.
 - Every open defect triaged with an issue link; no untracked blockers.
 
-**Current state: met locally** — backend (700/700), web unit (1,086/1,086), eval, and typecheck/build are green; only the CI gate itself remains (workflow disabled manually). This document is updated as each milestone lands.
+**Current state: met** — backend (700/700), web unit (1,086/1,086), eval, and typecheck/build are green; CI is enabled with PR + on-demand triggers, and the first full E2E/Android runs are in flight. This document is updated as each milestone lands.
 
 ---
 
