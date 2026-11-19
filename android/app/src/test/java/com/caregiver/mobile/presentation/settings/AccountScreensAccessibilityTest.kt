@@ -8,10 +8,10 @@ import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.test.assertIsDisplayed
 import androidx.compose.ui.test.hasContentDescription
 import androidx.compose.ui.test.junit4.createComposeRule
-import androidx.compose.ui.test.onNode
 import androidx.compose.ui.test.onNodeWithContentDescription
 import androidx.compose.ui.test.onNodeWithTag
 import androidx.compose.ui.test.onNodeWithText
+import androidx.compose.ui.test.performScrollTo
 import androidx.test.core.app.ApplicationProvider
 import androidx.test.ext.junit.runners.AndroidJUnit4
 import com.caregiver.mobile.core.network.TokenHolder
@@ -156,8 +156,8 @@ class AccountScreensAccessibilityTest {
         compose.onNodeWithText("Create your account").assertIsDisplayed()
         compose.onNodeWithTag("auth_field_name").assertIsDisplayed()
         compose.onNodeWithTag("auth_field_email").assertIsDisplayed()
-        compose.onNodeWithTag("auth_field_password").assertIsDisplayed()
-        compose.onNodeWithTag("auth_primary_button").assertIsDisplayed()
+        compose.onNodeWithTag("auth_field_password").performScrollTo().assertIsDisplayed()
+        compose.onNodeWithTag("auth_primary_button").performScrollTo().assertIsDisplayed()
     }
 
     private fun Context.withLocale(language: String): Context {

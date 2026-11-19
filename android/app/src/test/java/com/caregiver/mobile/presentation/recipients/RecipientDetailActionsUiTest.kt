@@ -1,7 +1,6 @@
 package com.caregiver.mobile.presentation.recipients
 
 import android.content.Context
-import androidx.compose.ui.test.assertDoesNotExist
 import androidx.compose.ui.test.assertIsDisplayed
 import androidx.compose.ui.test.junit4.createComposeRule
 import androidx.compose.ui.test.onNodeWithTag
@@ -96,13 +95,16 @@ class RecipientDetailActionsUiTest {
     }
 
     @Test
-    fun writeButtonIs56dpAndAbsentForArchivedPeople() {
+    fun writeButtonIs56dp() {
         render()
         val density = context.resources.displayMetrics.density
         val height = compose.onNodeWithTag(AuthPrimaryButtonTestTag)
             .fetchSemanticsNode().boundsInRoot.height
         assertTrue("main action height $height is below 56dp", height >= 56f * density - 0.5f)
+    }
 
+    @Test
+    fun writeButtonAbsentForArchivedPeople() {
         render(detail.copy(archived = true))
         compose.onNodeWithTag(AuthPrimaryButtonTestTag).assertDoesNotExist()
     }

@@ -3,6 +3,7 @@ package com.caregiver.mobile.ai
 import android.content.Context
 import androidx.test.core.app.ApplicationProvider
 import com.caregiver.mobile.test.TestApiKeyCipher
+import kotlinx.coroutines.flow.MutableStateFlow
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
 import org.junit.Assert.assertNull
@@ -28,8 +29,10 @@ class AiKeyStoreKeyTest {
             .commit()
     }
 
+    private val activeAccount = MutableStateFlow<String?>("account-1")
+
     private fun store(cipher: ApiKeyCipher = TestApiKeyCipher()) =
-        AiKeyStore(context, cipher)
+        AiKeyStore(context, cipher, activeAccount)
 
     @Test
     fun storedKeyReadsBack() {
@@ -66,20 +69,22 @@ class AiKeyStoreKeyTest {
     }
 
     @Test
-    fun legacySingleKeyMovesToTheSelectedProvider() {
+    fun legacySingleKeyMovesToTheOwnerAccountsOpenAiSlot() {
         val cipher = TestApiKeyCipher()
         val prefs = context.getSharedPreferences("ai_settings", Context.MODE_PRIVATE)
         prefs.edit()
             .putString("provider", AiProvider.GEMINI.name)
-            .putString("api_key", cipher.encrypt("legacy-key"))
+            .putString("api_key", cipher.encrypt("legacy-key", "account-1"))
             .commit()
 
-        val store = AiKeyStore(context, cipher)
+        val store = AiKeyStore(context, cipher, activeAccount)
 
-        assertEquals("legacy-key", store.apiKey(AiProvider.GEMINI))
-        assertEquals(ApiKeyState.Absent, store.apiKeyState(AiProvider.OPENAI))
+        // The migration targets the owner account's OPENAI slot; the legacy
+        // "provider" selection is not migrated and no longer steers the copy.
+        assertEquals("legacy-key", store.apiKey(AiProvider.OPENAI))
+        assertEquals(ApiKeyState.Absent, store.apiKeyState(AiProvider.GEMINI))
         assertFalse(prefs.contains("api_key"))
-        assertTrue(prefs.contains("api_key_GEMINI"))
+        assertTrue(prefs.contains("account-1_api_key_OPENAI"))
     }
 
     @Test
@@ -93,8 +98,9 @@ class AiKeyStoreKeyTest {
     @Test
     fun aKeystoreThatRefusesTheWriteIsReportedNotThrown() {
         val store = store(object : ApiKeyCipher {
-            override fun encrypt(plain: String): String? = null
-            override fun decrypt(stored: String): ApiKeyState = ApiKeyState.Absent
+            override fun encrypt(plain: String, accountId: String): String? = null
+            override fun decrypt(stored: String, accountId: String): ApiKeyState = ApiKeyState.Absent
+            override fun delete(accountId: String) {}
         })
         assertFalse(store.setApiKey("sk-test-123"))
         assertFalse(store.hasKey())
@@ -103,8 +109,9 @@ class AiKeyStoreKeyTest {
     @Test
     fun anInvalidatedKeyIsNotReportedAsAbsent() {
         val store = store(object : ApiKeyCipher {
-            override fun encrypt(plain: String): String? = "stored"
-            override fun decrypt(stored: String): ApiKeyState = ApiKeyState.Invalidated
+            override fun encrypt(plain: String, accountId: String): String? = "stored"
+            override fun decrypt(stored: String, accountId: String): ApiKeyState = ApiKeyState.Invalidated
+            override fun delete(accountId: String) {}
         })
         assertTrue(store.setApiKey("sk-test-123"))
         assertEquals(ApiKeyState.Invalidated, store.apiKeyState())
@@ -115,8 +122,9 @@ class AiKeyStoreKeyTest {
     @Test
     fun anUnreadableKeystoreIsReportedAsUnavailable() {
         val store = store(object : ApiKeyCipher {
-            override fun encrypt(plain: String): String? = "stored"
-            override fun decrypt(stored: String): ApiKeyState = ApiKeyState.Unavailable
+            override fun encrypt(plain: String, accountId: String): String? = "stored"
+            override fun decrypt(stored: String, accountId: String): ApiKeyState = ApiKeyState.Unavailable
+            override fun delete(accountId: String) {}
         })
         assertTrue(store.setApiKey("sk-test-123"))
         assertEquals(ApiKeyState.Unavailable, store.apiKeyState())
@@ -162,19 +170,21 @@ class AiKeyStoreKeyTest {
     }
 
     @Test
-    fun legacyGlobalConsentMovesOnlyToTheSelectedProvider() {
+    fun legacyGlobalConsentMovesOnlyToTheOwnerAccountsOpenAi() {
         val prefs = context.getSharedPreferences("ai_settings", Context.MODE_PRIVATE)
         prefs.edit()
             .putString("provider", AiProvider.GEMINI.name)
             .putBoolean("consent", true)
             .commit()
 
-        val store = AiKeyStore(context, TestApiKeyCipher())
+        val store = AiKeyStore(context, TestApiKeyCipher(), activeAccount)
 
-        assertTrue(store.consentGiven(AiProvider.GEMINI))
+        // Consent migrates to the owner account's OPENAI slot only; the
+        // legacy "provider" selection is not migrated.
+        assertTrue(store.consentGiven(AiProvider.OPENAI))
         assertFalse(
             "the caregiver never agreed to the other providers by name",
-            store.consentGiven(AiProvider.OPENAI),
+            store.consentGiven(AiProvider.GEMINI),
         )
         assertFalse(prefs.contains("consent"))
     }

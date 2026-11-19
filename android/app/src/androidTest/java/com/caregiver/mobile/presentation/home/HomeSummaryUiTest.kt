@@ -2,7 +2,6 @@ package com.caregiver.mobile.presentation.home
 
 import android.content.Context
 import androidx.compose.material3.Text
-import androidx.compose.ui.test.assertDoesNotExist
 import androidx.compose.ui.test.assertIsDisplayed
 import androidx.compose.ui.test.junit4.createComposeRule
 import androidx.compose.ui.test.onAllNodesWithText
@@ -16,7 +15,6 @@ import androidx.test.core.app.ApplicationProvider
 import androidx.test.ext.junit.runners.AndroidJUnit4
 import com.caregiver.mobile.AppGraph
 import com.caregiver.mobile.core.navigation.AppDestinations
-import com.caregiver.mobile.core.navigation.AppRoutes
 import com.caregiver.mobile.core.theme.CaregiverTheme
 import com.caregiver.mobile.test.WithTestOwner
 import java.time.LocalDate
@@ -69,7 +67,7 @@ class HomeSummaryUiTest {
                     val navController = rememberNavController()
                     NavHost(navController, startDestination = "home-test") {
                         composable("home-test") { HomeScreen(graph, navController) }
-                        composable(AppRoutes.NoteEditor.base) { backStackEntry ->
+                        composable(AppDestinations.NoteEditor.base) { backStackEntry ->
                             Text("editor:" + backStackEntry.arguments?.getString("recipientId"))
                         }
                         composable(AppDestinations.AddRecipient.base) { Text("add-recipient") }

@@ -21,8 +21,8 @@ class PasswordHasherTest {
         val result = PasswordHasher(iterations = 4_096).hash("password", salt)
 
         assertEquals(
-            "615eeee652a9fe1cf9f427d6218526a937add01875d759837ac",
-            hex(result.hash),
+            "615eeee652a9fe1cf9f427d6218526a937add018079854b2aa11875d759837ac",
+            hex(Base64.getDecoder().decode(result.hash)),
         )
         assertEquals(Base64.getEncoder().encodeToString(salt), result.salt)
         assertEquals(4_096, result.iterations)

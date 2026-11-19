@@ -93,10 +93,12 @@ class NoInsecureHashComparisonTest {
             .substringBefore("}")
         assertTrue("toString must redact the hash",
             "redacted" in toStringBlock.toLowerCase())
+        // Redacted placeholders (hash=<redacted>) are safe; interpolating the
+        // actual field values is not.
         assertFalse("toString must not interpolate the raw hash field",
-            "hash=" in toStringBlock)
+            "\$hash" in toStringBlock || "\${hash" in toStringBlock)
         assertFalse("toString must not interpolate the raw salt field",
-            "salt=" in toStringBlock)
+            "\$salt" in toStringBlock || "\${salt" in toStringBlock)
     }
 
     @Test
@@ -123,18 +125,15 @@ class NoInsecureHashComparisonTest {
         val source = stripComments(hasherFile.readText())
         val requireLines = source.lines()
             .filter { "require(" in it || "IllegalArgumentException(" in it }
+        // Naming a parameter or a constant (e.g. "salt must be at least
+        // $SALT_BYTES bytes") leaks nothing; interpolating a credential value
+        // does. Match $field / ${field} at word boundaries so constant names
+        // like $SALT_BYTES are not false positives.
+        val interpolation = Regex("""\$(password|hash|salt)\b|\$\{(password|hash|salt)\b""")
         requireLines.forEach { line ->
             assertFalse(
-                "require message must not contain password",
-                "password" in line.lowercase()
-            )
-            assertFalse(
-                "require message must not contain hash",
-                "hash" in line.lowercase()
-            )
-            assertFalse(
-                "require message must not contain salt",
-                "salt" in line.lowercase()
+                "require message must not interpolate credential material: $line",
+                interpolation.containsMatchIn(line.lowercase())
             )
         }
     }

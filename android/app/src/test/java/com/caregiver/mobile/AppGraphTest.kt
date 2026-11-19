@@ -12,6 +12,7 @@ import com.caregiver.mobile.data.accounts.AccountsDatabase
 import com.caregiver.mobile.data.accounts.PerAccountDatabaseProvider
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.CompletableDeferred
+import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.test.runTest
 import org.junit.Assert.assertEquals
@@ -28,6 +29,7 @@ import org.robolectric.RobolectricTestRunner
 
 /** #602: the local graph resolves the note database per active account. */
 @RunWith(RobolectricTestRunner::class)
+@org.robolectric.annotation.Config(application = com.caregiver.mobile.test.TestGraphApplication::class)
 class AppGraphTest {
     private lateinit var context: Context
 
@@ -36,7 +38,7 @@ class AppGraphTest {
         context = ApplicationProvider.getApplicationContext()
     }
 
-    private fun accountIdFor(email: String): String =
+    private suspend fun accountIdFor(email: String): String =
         AccountsDatabase.create(context).accountDao().listAll().single { it.email == email }.id
 
     @Test

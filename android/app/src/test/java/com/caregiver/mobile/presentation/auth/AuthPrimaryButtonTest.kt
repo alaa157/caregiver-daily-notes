@@ -3,8 +3,8 @@ package com.caregiver.mobile.presentation.auth
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.width
 import androidx.compose.runtime.CompositionLocalProvider
+import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalDensity
-import androidx.compose.ui.test.assertDoesNotExist
 import androidx.compose.ui.test.assertIsDisplayed
 import androidx.compose.ui.test.assertIsEnabled
 import androidx.compose.ui.test.assertIsNotEnabled
@@ -72,6 +72,9 @@ class AuthPrimaryButtonTest {
     /**
      * #876: a fixed 56dp height cut the wrapped label off at 200% font scale.
      * Density 1 makes the measured px equal dp, so the growth check reads in dp.
+     * Robolectric's fake text measurement never soft-wraps, so the second line
+     * is forced with a hard break: the contract under test is that a multi-line
+     * label grows the button past its minimum instead of being clipped.
      */
     @Test
     fun buttonGrowsPastItsMinimumAtDoubledFontScale() {
@@ -80,7 +83,7 @@ class AuthPrimaryButtonTest {
                 CaregiverTheme {
                     Box(Modifier.width(320.dp)) {
                         AuthPrimaryButton(
-                            text = "Already have an account? Sign in",
+                            text = "Already have an account?\nSign in",
                             onClick = {},
                         )
                     }

@@ -22,10 +22,12 @@ class ColorSchemeCompletenessTest {
      * something outside this set came from an M3 default instead. White is a
      * token already (light SectionCardSurface); the dark `onError` ink is the
      * one literal the scheme functions keep deliberately, on a line the
-     * issue reserves for other work.
+     * issue reserves for other work. Black/white are also the derived accent
+     * inks: `onAccent` picks pure black on bright accents (#971), so the
+     * teal scheme's onPrimary/onPrimaryContainer are designed foregrounds.
      */
     private val allowedValues: Set<Color> = tokenValues(lightTokens) + tokenValues(darkTokens) +
-        setOf(Color(0xFF2E1412))
+        setOf(Color(0xFF2E1412), Color.Black, Color.White)
 
     private fun tokenValues(cs: CaregiverColorScheme) = setOf(
         cs.Primary,

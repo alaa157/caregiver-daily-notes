@@ -13,6 +13,7 @@ import androidx.compose.ui.test.onNodeWithContentDescription
 import androidx.compose.ui.test.onNodeWithTag
 import androidx.compose.ui.test.onNodeWithText
 import androidx.compose.ui.test.performClick
+import androidx.compose.ui.test.performScrollTo
 import androidx.compose.ui.test.performTextInput
 import androidx.test.core.app.ApplicationProvider
 import androidx.test.ext.junit.runners.AndroidJUnit4
@@ -132,7 +133,7 @@ class AddAccountFlowTest {
         )
 
         fillValidForm()
-        submitButton("Create account").performClick()
+        submitButton("Create account").performScrollTo().performClick()
         compose.waitForIdle()
 
         assertEquals(1, registerCalls)
@@ -155,7 +156,7 @@ class AddAccountFlowTest {
         )
 
         fillValidForm()
-        submitButton("Create account").performClick()
+        submitButton("Create account").performScrollTo().performClick()
         compose.waitForIdle()
 
         compose.onNodeWithText("This email is already registered").assertIsDisplayed()

@@ -44,7 +44,7 @@ class NoteEditorShellTest {
     fun progressComesFromAnsweredCountAndIsBounded() {
         assertEquals(0f, editorProgressFraction(0))
         assertEquals(1f, editorProgressFraction(EDITOR_QUESTION_COUNT))
-        assertEquals(EDITOR_QUESTION_COUNT.toFloat() / 7f, editorProgressFraction(3))
+        assertEquals(3f / EDITOR_QUESTION_COUNT, editorProgressFraction(3))
         // Defensive bounds: a bad caller can never draw past the bar.
         assertEquals(0f, editorProgressFraction(-1))
         assertEquals(1f, editorProgressFraction(99))

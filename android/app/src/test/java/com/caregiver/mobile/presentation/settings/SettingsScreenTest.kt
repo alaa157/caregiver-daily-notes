@@ -63,6 +63,7 @@ import org.junit.runner.RunWith
  * `testDebugUnitTest` without a device.
  */
 @RunWith(AndroidJUnit4::class)
+@org.robolectric.annotation.Config(application = com.caregiver.mobile.test.TestGraphApplication::class)
 class SettingsScreenTest {
 
     @get:Rule
@@ -90,7 +91,9 @@ class SettingsScreenTest {
 
     private fun renderSettings(graph: AppGraph) = renderScreen { SettingsScreen(graph, it) }
 
-    private fun renderAiSettings(uriHandler: UriHandler? = null) {
+    private fun renderAiSettings(uriHandler: UriHandler? = null, graph: AppGraph = AppGraph(context)) {
+        // One graph per test: AppGraph owns the session DataStore, and a
+        // second instance on the same file is forbidden.
         compose.setContent {
             WithTestOwner {
                 CaregiverTheme {
@@ -98,14 +101,14 @@ class SettingsScreenTest {
                     if (uriHandler == null) {
                         NavHost(nav, startDestination = "ai") {
                             composable("ai") { entry ->
-                                AiSettingsScreen(AppGraph(context), nav, entry)
+                                AiSettingsScreen(graph, nav, entry)
                             }
                         }
                     } else {
                         CompositionLocalProvider(LocalUriHandler provides uriHandler) {
                             NavHost(nav, startDestination = "ai") {
                                 composable("ai") { entry ->
-                                    AiSettingsScreen(AppGraph(context), nav, entry)
+                                    AiSettingsScreen(graph, nav, entry)
                                 }
                             }
                         }
@@ -119,7 +122,7 @@ class SettingsScreenTest {
     fun logoutRowRendersInLocalMode() {
         renderSettings(AppGraph(context))
 
-        compose.onNodeWithText("Sign out").assertIsDisplayed()
+        compose.onNodeWithText("Sign out").performScrollTo().assertIsDisplayed()
     }
 
     @Test
@@ -161,13 +164,16 @@ class SettingsScreenTest {
         // arrow wired to popBackStack; this drives it through a real
         // NavHost and proves the caller is revealed again.
         lateinit var nav: NavHostController
+        // One graph per test: the destination lambda recomposes, and a second
+        // AppGraph on the same context would reopen the session DataStore.
+        val graph = AppGraph(context)
         compose.setContent {
             WithTestOwner {
                 CaregiverTheme {
                     nav = rememberNavController()
                     NavHost(navController = nav, startDestination = "home-stub") {
                         composable("home-stub") { Text("home-stub") }
-                        composable("settings-stub") { SettingsScreen(AppGraph(context), nav) }
+                        composable("settings-stub") { SettingsScreen(graph, nav) }
                     }
                 }
             }
@@ -315,11 +321,18 @@ class SettingsScreenTest {
 
     @Test
     fun revokeConsentAsksForConfirmationAndShowsFeedback() {
+        // Consent is per-account (#613): activate an account and seed its
+        // namespaced consent flag before the screen reads it.
+        val graph = AppGraph(context)
+        kotlinx.coroutines.runBlocking {
+            graph.auth.signUp("Amina", "amina@example.com", "goodpass1")
+        }
+        val accountId = graph.activeAccountIdFlow.value!!
         context.getSharedPreferences("ai_settings", Context.MODE_PRIVATE)
             .edit()
-            .putBoolean("consent_" + AiProvider.OPENAI.name, true)
+            .putBoolean("${accountId}_consent_" + AiProvider.OPENAI.name, true)
             .commit()
-        renderAiSettings()
+        renderAiSettings(graph = graph)
 
         compose.onNodeWithText(
             context.getString(

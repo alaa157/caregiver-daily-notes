@@ -4,7 +4,7 @@ import androidx.datastore.preferences.core.PreferenceDataStoreFactory
 import androidx.room.Database
 import androidx.room.Room
 import androidx.room.RoomDatabase
-import androidx.sqlite.SQLiteConstraintException
+import android.database.sqlite.SQLiteConstraintException
 import androidx.test.core.app.ApplicationProvider
 import java.io.File
 import java.util.concurrent.Executors
@@ -26,6 +26,7 @@ import kotlinx.coroutines.flow.toList
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.test.TestScope
 import kotlinx.coroutines.test.UnconfinedTestDispatcher
+import kotlinx.coroutines.test.advanceUntilIdle
 import kotlinx.coroutines.test.runTest
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
@@ -100,8 +101,8 @@ class AccountManagerTest {
             currentIterations = currentIterations,
             performDummyHash = { _: String -> dummyHashCalls++ },
             updateCredentials = { row, fresh ->
+                rehashWrites++ // count attempts: a failed write must not fail the login
                 if (failRehashWrite) throw IllegalStateException("simulated write failure")
-                rehashWrites++
                 dao.rows[row.id] = row.copy(
                     passwordHash = fresh.hash,
                     salt = fresh.salt,
@@ -323,8 +324,10 @@ class AccountManagerTest {
         val account = result.getOrThrow()
         assertEquals("amina@example.com", account.email)
         assertEquals("Amina", account.displayName)
-        assertEquals(listOf(account.id), h.activeIds)
-        assertEquals(listOf(account.id), h.openedIds)
+        // signUp activates and opens the new account; signIn persists the
+        // active id and opens the database again for that same account.
+        assertEquals(listOf(account.id, account.id), h.activeIds)
+        assertEquals(listOf(account.id, account.id), h.openedIds)
         assertEquals(0, h.dummyHashCalls) // a real address needs no dummy work
     }
 
@@ -333,12 +336,16 @@ class AccountManagerTest {
         val h = Harness()
         assertTrue(h.manager.signUp("Amina", "amina@example.com", "goodpass1").isSuccess)
         val before = h.dao.rows.values.single()
+        // signUp already activated and opened the new account; the failed
+        // sign-in must not add any session or database activity beyond it.
+        val activeAfterSignUp = h.activeIds.toList()
+        val openedAfterSignUp = h.openedIds.toList()
 
         assertAccountError(AccountError.InvalidCredentials, h.manager.signIn("amina@example.com", "wrongpass1").exceptionOrNull())
 
         assertEquals(before, h.dao.rows.values.single())
-        assertTrue(h.activeIds.isEmpty())
-        assertTrue(h.openedIds.isEmpty())
+        assertEquals(activeAfterSignUp, h.activeIds)
+        assertEquals(openedAfterSignUp, h.openedIds)
         assertEquals(0, h.rehashWrites) // never rehash on a failed verify
         assertEquals(0, h.dummyHashCalls)
     }
@@ -590,13 +597,19 @@ class AccountManagerTest {
             var now = FIXED_NOW
             val h = Harness(clock = { now }, sessionStore = newSessionStore(file), accountsChanged = roomChanges)
             val collected = async { h.manager.listAccounts().take(4).toList() }
+            // Subscribe before mutating: changes is a replay-less shared
+            // flow, so an emission before subscription would be lost.
+            advanceUntilIdle()
 
             assertTrue(h.manager.signUp("Amina", "amina@example.com", "goodpass1").isSuccess) // insert
+            advanceUntilIdle()
             now = FIXED_NOW + 1_000
             assertTrue(h.manager.signIn("amina@example.com", "goodpass1").isSuccess) // lastUsedAt update
+            advanceUntilIdle()
             val id = h.dao.rows.values.single().id
             h.dao.deleteById(id)
             roomChanges.emit(Unit) // simulates Room invalidating the table after an external delete
+            advanceUntilIdle()
 
             val emissions = collected.await()
             assertEquals(4, emissions.size)
@@ -618,11 +631,18 @@ class AccountManagerTest {
         try {
             val h = Harness(sessionStore = newSessionStore(file), accountsChanged = roomChanges)
             val collected = async { h.manager.activeAccount.take(3).toList() }
+            // Subscribe before mutating state: the flow's first emission
+            // reflects the current (empty) session, and it must be observed.
+            advanceUntilIdle()
 
             assertTrue(h.manager.signUp("Amina", "amina@example.com", "goodpass1").isSuccess)
+            // activeAccount conflates rapid changes (transformLatest): let
+            // each emission land before mutating state again.
+            advanceUntilIdle()
             val id = h.dao.rows.values.single().id
             h.dao.deleteById(id)
             roomChanges.emit(Unit)
+            advanceUntilIdle()
 
             val emissions = collected.await()
             assertEquals(listOf(null, id, null), emissions.map { it?.id })
@@ -1255,9 +1275,16 @@ class AccountManagerTest {
                 sessionStore = store,
             )
             val collected = async { manager.activeAccount.take(3).toList() }
+            // Subscribe before mutating state: the flow's first emission
+            // reflects the current (empty) session, and it must be observed.
+            advanceUntilIdle()
             assertTrue(manager.signUp("Amina", "amina@example.com", "goodpass1").isSuccess)
+            // activeAccount conflates rapid changes (transformLatest): let
+            // each emission land before mutating state again.
+            advanceUntilIdle()
             val idA = dao.listAll().single().id
             assertTrue(manager.signUp("Nour", "nour@example.com", "goodpass1").isSuccess)
+            advanceUntilIdle()
             val idB = dao.listAll().single { it.email == "nour@example.com" }.id
 
             val emissions = collected.await()
@@ -1422,11 +1449,16 @@ class AccountManagerRoomTest {
             accountsChanged = changes,
         )
         val collected = async { manager.listAccounts().take(3).toList() }
+        // Subscribe before mutating: changes is a replay-less shared flow,
+        // so an emission before subscription would be lost.
+        advanceUntilIdle()
 
         assertTrue(manager.signUp("Amina", "amina@example.com", "goodpass1").isSuccess)
+        advanceUntilIdle()
         val id = dao.listAll().single().id
         dao.deleteById(id)
         changes.emit(Unit)
+        advanceUntilIdle()
 
         val emissions = collected.await()
         assertEquals(3, emissions.size)

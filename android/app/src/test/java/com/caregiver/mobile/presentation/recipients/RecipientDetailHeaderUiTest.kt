@@ -125,12 +125,41 @@ class RecipientDetailHeaderUiTest {
 
     @Test
     fun headerBackIsAtStartInBothDirections() {
-        render(direction = LayoutDirection.Ltr)
+        // One composition, direction flipped via state: setContent may only
+        // be called once per test.
+        val direction = androidx.compose.runtime.mutableStateOf(LayoutDirection.Ltr)
+        compose.setContent {
+            WithTestOwner {
+                CaregiverTheme {
+                    CompositionLocalProvider(LocalLayoutDirection provides direction.value) {
+                        DetailContent(
+                            detail = detail,
+                            busy = false,
+                            error = null,
+                            hasAdmin = false,
+                            deleteCounts = null,
+                            onBack = {},
+                            onEdit = {},
+                            onAddNote = {},
+                            onHistory = {},
+                            onSummary = {},
+                            onPlan = {},
+                            onArchive = {},
+                            onUnarchive = {},
+                            onRequestDelete = {},
+                            onConfirmDelete = {},
+                            onCancelDelete = {},
+                        )
+                    }
+                }
+            }
+        }
         val ltrBack = compose.onNodeWithTag("detail_header_back").getBoundsInRoot().left
         val ltrEdit = compose.onNodeWithTag("detail_header_edit").getBoundsInRoot().left
         assertTrue("LTR: back must be at the start (left) of edit", ltrBack < ltrEdit)
 
-        render(direction = LayoutDirection.Rtl)
+        direction.value = LayoutDirection.Rtl
+        compose.waitForIdle()
         val rtlBack = compose.onNodeWithTag("detail_header_back").getBoundsInRoot().left
         val rtlEdit = compose.onNodeWithTag("detail_header_edit").getBoundsInRoot().left
         assertTrue("RTL: back must be at the start (right) of edit", rtlBack > rtlEdit)

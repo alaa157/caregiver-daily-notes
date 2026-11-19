@@ -17,6 +17,7 @@ import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.test.TestScope
 import kotlinx.coroutines.test.UnconfinedTestDispatcher
+import kotlinx.coroutines.test.advanceUntilIdle
 import kotlinx.coroutines.test.runTest
 import org.junit.After
 import org.junit.Assert.assertEquals
@@ -194,10 +195,10 @@ class AuthViewModelTest {
     @Test
     fun localRegisterRequiresDisplayName() = runTest {
         var calls = 0
-        val vm = AuthViewModel(AuthMode.Register, repository, this) { _, _, _ ->
+        val vm = AuthViewModel(AuthMode.Register, repository, this, registerAccount = { _, _, _ ->
             calls++
             Result.success(account())
-        }
+        })
         vm.onEmail("a@b.c")
         vm.onPassword("Password1")
 
@@ -209,9 +210,9 @@ class AuthViewModelTest {
 
     @Test
     fun localRegisterRejectsBlankAndTooLongNames() = runTest {
-        val vm = AuthViewModel(AuthMode.Register, repository, this) { _, _, _ ->
+        val vm = AuthViewModel(AuthMode.Register, repository, this, registerAccount = { _, _, _ ->
             Result.success(account())
-        }
+        })
         vm.onEmail("a@b.c")
         vm.onPassword("Password1")
 
@@ -232,10 +233,10 @@ class AuthViewModelTest {
             com.caregiver.mobile.data.api.AuthResponse("server-token")
         }
         var received: Triple<String, String, String>? = null
-        val vm = AuthViewModel(AuthMode.Register, repository, this) { name, email, password ->
+        val vm = AuthViewModel(AuthMode.Register, repository, this, registerAccount = { name, email, password ->
             received = Triple(name, email, password)
             Result.success(account(displayName = name))
-        }
+        })
         vm.onDisplayName("  Aisha  ")
         vm.onEmail("a@b.c")
         vm.onPassword("Password1")
@@ -250,9 +251,9 @@ class AuthViewModelTest {
 
     @Test
     fun localRegisterEmailTakenMapsToDuplicateEmail() = runTest {
-        val vm = AuthViewModel(AuthMode.Register, repository, this) { _, _, _ ->
+        val vm = AuthViewModel(AuthMode.Register, repository, this, registerAccount = { _, _, _ ->
             Result.failure(AccountException(AccountError.EmailTaken))
-        }
+        })
         vm.onDisplayName("Aisha")
         vm.onEmail("a@b.c")
         vm.onPassword("Password1")
@@ -266,9 +267,9 @@ class AuthViewModelTest {
 
     @Test
     fun localRegisterWeakPasswordSurfacesPolicyErrorWithoutFormError() = runTest {
-        val vm = AuthViewModel(AuthMode.Register, repository, this) { _, _, _ ->
+        val vm = AuthViewModel(AuthMode.Register, repository, this, registerAccount = { _, _, _ ->
             Result.failure(AccountException(AccountError.WeakPassword(PasswordProblem.TooShort)))
-        }
+        })
         vm.onDisplayName("Aisha")
         vm.onEmail("a@b.c")
         vm.onPassword("short")
@@ -289,9 +290,9 @@ class AuthViewModelTest {
             PasswordProblem.MissingDigit,
             PasswordProblem.OnlyWhitespace,
         ).forEach { problem ->
-            val vm = AuthViewModel(AuthMode.Register, repository, this) { _, _, _ ->
+            val vm = AuthViewModel(AuthMode.Register, repository, this, registerAccount = { _, _, _ ->
                 Result.failure(AccountException(AccountError.WeakPassword(problem)))
-            }
+            })
             vm.onDisplayName("Aisha")
             vm.onEmail("a@b.c")
             vm.onPassword("Password1")
@@ -397,6 +398,7 @@ class AuthViewModelTest {
         vm.onPassword("whatever1")
 
         vm.demoSignIn()
+        advanceUntilIdle()
 
         assertEquals(1, demoCalls)
         assertTrue(vm.state.value.signedIn)
@@ -414,6 +416,7 @@ class AuthViewModelTest {
         })
 
         vm.demoSignIn()
+        advanceUntilIdle()
 
         assertFalse(vm.state.value.signedIn)
         assertEquals(FormError.Generic, vm.state.value.formError)

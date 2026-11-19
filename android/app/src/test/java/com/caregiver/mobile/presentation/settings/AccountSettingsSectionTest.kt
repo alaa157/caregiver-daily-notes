@@ -11,6 +11,8 @@ import androidx.compose.ui.test.junit4.createComposeRule
 import androidx.compose.ui.test.onNodeWithTag
 import androidx.compose.ui.test.onNodeWithText
 import androidx.compose.ui.test.performClick
+import androidx.compose.ui.test.performSemanticsAction
+import androidx.compose.ui.semantics.SemanticsActions
 import androidx.test.core.app.ApplicationProvider
 import androidx.test.ext.junit.runners.AndroidJUnit4
 import com.caregiver.mobile.core.theme.CaregiverTheme
@@ -94,7 +96,10 @@ class AccountSettingsSectionTest {
             )
         }
 
-        compose.onNodeWithTag("Remove account").assertIsEnabled().performClick()
+        // Invoke the row's click action directly: the last row can sit below
+        // the headless viewport's fold, where an injected touch would miss.
+        compose.onNodeWithTag("Remove account").assertIsEnabled()
+            .performSemanticsAction(SemanticsActions.OnClick)
 
         assertTrue(removed)
     }

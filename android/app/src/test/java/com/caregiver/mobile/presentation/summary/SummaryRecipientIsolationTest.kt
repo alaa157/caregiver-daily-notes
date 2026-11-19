@@ -22,6 +22,7 @@ import com.caregiver.mobile.data.api.SignalDto
 import java.io.File
 import java.time.LocalDate
 import kotlinx.coroutines.ExperimentalCoroutinesApi
+import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.test.TestScope
 import kotlinx.coroutines.test.UnconfinedTestDispatcher
@@ -115,7 +116,7 @@ class SummaryRecipientIsolationTest {
             PreferenceDataStoreFactory.create(scope = TestScope(UnconfinedTestDispatcher())) { file },
         )
         repository = AuthRepository(FakeBackendApis(FakeAuthApi()), settings, TokenHolder())
-        store = AiKeyStore(ApplicationProvider.getApplicationContext(), TestApiKeyCipher())
+        store = AiKeyStore(ApplicationProvider.getApplicationContext(), TestApiKeyCipher(), MutableStateFlow<String?>("test-account"))
         store.setProvider(AiProvider.OPENAI)
         store.setConsentGiven(AiProvider.OPENAI)
         store.setApiKey("test-key")

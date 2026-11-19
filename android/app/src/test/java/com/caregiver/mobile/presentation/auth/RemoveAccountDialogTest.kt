@@ -24,6 +24,7 @@ import org.junit.Assert.assertTrue
 import org.junit.Rule
 import org.junit.Test
 import org.junit.runner.RunWith
+import org.robolectric.annotation.Config
 
 /** Remove-account confirmation coverage for issue #611. */
 @RunWith(AndroidJUnit4::class)
@@ -134,6 +135,7 @@ class RemoveAccountDialogTest {
     }
 
     @Test
+    @Config(qualifiers = "ar")
     fun arabicDialogLocalized() {
         render("ar", onDismiss = {}, onConfirm = { Result.success(Unit) })
 

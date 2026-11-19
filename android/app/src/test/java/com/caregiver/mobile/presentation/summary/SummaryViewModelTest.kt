@@ -31,6 +31,7 @@ import java.io.IOException
 import java.time.LocalDate
 import kotlinx.coroutines.CompletableDeferred
 import kotlinx.coroutines.ExperimentalCoroutinesApi
+import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.test.TestScope
 import kotlinx.coroutines.test.UnconfinedTestDispatcher
@@ -294,7 +295,7 @@ class SummaryViewModelTest {
             it.summaryApi = summaries
         }
         val repository = AuthRepository(apis, settings(), TokenHolder())
-        val keyStore = AiKeyStore(ApplicationProvider.getApplicationContext(), TestApiKeyCipher()).also {
+        val keyStore = AiKeyStore(ApplicationProvider.getApplicationContext(), TestApiKeyCipher(), MutableStateFlow<String?>("test-account")).also {
             it.setProvider(AiProvider.OPENAI)
             it.setConsentGiven(AiProvider.OPENAI)
             it.setApiKey("test-key")
@@ -480,7 +481,7 @@ class SummaryViewModelTest {
             it.summaryApi = summaries
         }
         val repository = AuthRepository(apis, settings(), TokenHolder())
-        val store = AiKeyStore(ApplicationProvider.getApplicationContext(), TestApiKeyCipher())
+        val store = AiKeyStore(ApplicationProvider.getApplicationContext(), TestApiKeyCipher(), MutableStateFlow<String?>("test-account"))
         store.setProvider(AiProvider.OPENAI)
         store.setConsentGiven(AiProvider.OPENAI)
         store.setApiKey("test-key")
@@ -605,7 +606,7 @@ class SummaryViewModelTest {
             it.summaryApi = summaries
         }
         val repository = AuthRepository(apis, settings(), TokenHolder())
-        val store = AiKeyStore(ApplicationProvider.getApplicationContext(), TestApiKeyCipher())
+        val store = AiKeyStore(ApplicationProvider.getApplicationContext(), TestApiKeyCipher(), MutableStateFlow<String?>("test-account"))
         store.setProvider(AiProvider.OPENAI)
         store.setConsentGiven(AiProvider.OPENAI)
         store.setApiKey("test-key")
@@ -757,7 +758,7 @@ class SummaryViewModelTest {
             ),
         )
         val client = RecordingClient()
-        val keyStore = AiKeyStore(ApplicationProvider.getApplicationContext(), TestApiKeyCipher())
+        val keyStore = AiKeyStore(ApplicationProvider.getApplicationContext(), TestApiKeyCipher(), MutableStateFlow<String?>("test-account"))
         keyStore.setProvider(AiProvider.OPENAI)
         keyStore.setConsentGiven(AiProvider.OPENAI)
         keyStore.setApiKey("test-key")

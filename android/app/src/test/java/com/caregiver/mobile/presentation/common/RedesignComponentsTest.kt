@@ -35,32 +35,51 @@ class RedesignComponentsTest {
     }
 
     @Test
-    fun statusChipAlwaysShowsItsLabel() {
-        listOf("Done" to StatusChipVariant.Done, "Not yet" to StatusChipVariant.NotYet)
-            .forEach { (label, variant) ->
-                compose.setContent {
-                    CaregiverTheme {
-                        StatusChip(label = label, variant = variant)
-                    }
-                }
-
-                // Text is mandatory: state is never conveyed by colour alone.
-                compose.onNodeWithTag(StatusChipTestTag).assertIsDisplayed()
-                compose.onNodeWithText(label).assertIsDisplayed()
+    fun statusChipAlwaysShowsItsLabelDone() {
+        compose.setContent {
+            CaregiverTheme {
+                StatusChip(label = "Done", variant = StatusChipVariant.Done)
             }
+        }
+
+        // Text is mandatory: state is never conveyed by colour alone.
+        compose.onNodeWithTag(StatusChipTestTag).assertIsDisplayed()
+        compose.onNodeWithText("Done").assertIsDisplayed()
     }
 
     @Test
-    fun personAvatarShowsTheInitialAtBothSizes() {
-        listOf(PersonAvatarSize.Small, PersonAvatarSize.Large).forEach { size ->
-            compose.setContent {
-                CaregiverTheme {
-                    PersonAvatar(initial = "Layla", size = size)
-                }
+    fun statusChipAlwaysShowsItsLabelNotYet() {
+        compose.setContent {
+            CaregiverTheme {
+                StatusChip(label = "Not yet", variant = StatusChipVariant.NotYet)
             }
-
-            compose.onNodeWithTag(PersonAvatarTestTag).assertIsDisplayed()
-            compose.onNodeWithText("L").assertIsDisplayed()
         }
+
+        compose.onNodeWithTag(StatusChipTestTag).assertIsDisplayed()
+        compose.onNodeWithText("Not yet").assertIsDisplayed()
+    }
+
+    @Test
+    fun personAvatarShowsTheInitialAtSmallSize() {
+        compose.setContent {
+            CaregiverTheme {
+                PersonAvatar(initial = "Layla", size = PersonAvatarSize.Small)
+            }
+        }
+
+        compose.onNodeWithTag(PersonAvatarTestTag).assertIsDisplayed()
+        compose.onNodeWithText("L").assertIsDisplayed()
+    }
+
+    @Test
+    fun personAvatarShowsTheInitialAtLargeSize() {
+        compose.setContent {
+            CaregiverTheme {
+                PersonAvatar(initial = "Layla", size = PersonAvatarSize.Large)
+            }
+        }
+
+        compose.onNodeWithTag(PersonAvatarTestTag).assertIsDisplayed()
+        compose.onNodeWithText("L").assertIsDisplayed()
     }
 }

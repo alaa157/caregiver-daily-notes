@@ -10,6 +10,7 @@ import androidx.compose.ui.test.junit4.createComposeRule
 import androidx.compose.ui.test.onNodeWithContentDescription
 import androidx.compose.ui.test.onNodeWithTag
 import androidx.compose.ui.test.onNodeWithText
+import androidx.compose.ui.test.performScrollTo
 import androidx.test.core.app.ApplicationProvider
 import androidx.test.ext.junit.runners.AndroidJUnit4
 import com.caregiver.mobile.core.network.TokenHolder
@@ -26,6 +27,7 @@ import java.util.Locale
 import org.junit.Rule
 import org.junit.Test
 import org.junit.runner.RunWith
+import org.robolectric.annotation.Config
 
 /** Arabic/RTL coverage for the account screens added by #607-#611. */
 @RunWith(AndroidJUnit4::class)
@@ -119,12 +121,13 @@ class AccountScreensArabicTest {
         compose.onNodeWithContentDescription("رجوع").assertIsDisplayed()
         compose.onNodeWithText("الاسم").assertIsDisplayed()
         compose.onNodeWithText("البريد الإلكتروني").assertIsDisplayed()
-        compose.onNodeWithText("كلمة المرور").assertIsDisplayed()
-        compose.onNodeWithTag("auth_primary_button").assertIsDisplayed()
-        compose.onNodeWithText("إنشاء الحساب").assertIsDisplayed()
+        compose.onNodeWithText("كلمة المرور").performScrollTo().assertIsDisplayed()
+        compose.onNodeWithTag("auth_primary_button").performScrollTo().assertIsDisplayed()
+        compose.onNodeWithText("إنشاء الحساب").performScrollTo().assertIsDisplayed()
     }
 
     @Test
+    @Config(qualifiers = "ar")
     fun arabicRemoveDialogLongMixedTextDoesNotClip() {
         render("ar") {
             RemoveAccountDialog(

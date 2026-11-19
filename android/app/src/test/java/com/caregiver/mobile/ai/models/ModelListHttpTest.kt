@@ -219,13 +219,18 @@ class ModelListHttpTest {
             server.start()
             server.enqueue(
                 MockResponse()
-                    .setBodyDelay(10, TimeUnit.SECONDS)
+                    // Long enough to still be in flight when the caller
+                    // cancels at 200ms, short enough for tearDown's shutdown
+                    // to drain the dispatcher queue.
+                    .setBodyDelay(2, TimeUnit.SECONDS)
                     .setBody("""{"data":[]}"""),
             )
             val job = launch(Dispatchers.IO) {
                 ModelListHttp(OkHttpClient()).get(
                     server.url("/models").toString(),
-                    mapOf("Authorization" to "Bearer sk-test"),
+                    // A space-free header value: the helper rejects whitespace
+                    // (a Bearer prefix would fail validation before any call).
+                    mapOf("x-api-key" to "sk-test"),
                 )
             }
             delay(200)

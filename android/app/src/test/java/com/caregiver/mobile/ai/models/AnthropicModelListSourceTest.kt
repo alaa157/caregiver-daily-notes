@@ -53,7 +53,7 @@ class AnthropicModelListSourceTest {
         )
         val request = server.takeRequest()
         assertEquals("/v1/models", request.path?.substringBefore("?"))
-        assertEquals("100", request.requestUrl.queryParameter("limit"))
+        assertEquals("100", request.requestUrl!!.queryParameter("limit"))
         assertEquals("sk-key", request.getHeader("x-api-key"))
         assertEquals("2023-06-01", request.getHeader("anthropic-version"))
         assertEquals("application/json", request.getHeader("Accept"))
@@ -70,10 +70,10 @@ class AnthropicModelListSourceTest {
         assertEquals(listOf("claude-a", "claude-b"), (result as ModelListResult.Ok).models.map { it.id })
         assertEquals(2, server.requestCount)
         val first = server.takeRequest()
-        assertNull(first.requestUrl.queryParameter("after_id"))
+        assertNull(first.requestUrl!!.queryParameter("after_id"))
         val second = server.takeRequest()
-        assertEquals("100", second.requestUrl.queryParameter("limit"))
-        assertEquals("cursor-1", second.requestUrl.queryParameter("after_id"))
+        assertEquals("100", second.requestUrl!!.queryParameter("limit"))
+        assertEquals("cursor-1", second.requestUrl!!.queryParameter("after_id"))
     }
 
     @Test

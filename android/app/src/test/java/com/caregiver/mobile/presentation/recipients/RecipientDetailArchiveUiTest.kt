@@ -87,10 +87,14 @@ class RecipientDetailArchiveUiTest {
     }
 
     @Test
-    fun archivedDetailHidesPlanAction() {
+    fun archivedDetailStillShowsPlanShortcut() {
         render(archivedDetail)
 
-        compose.onNodeWithText(context.getString(R.string.detail_plan)).assertDoesNotExist()
+        // Archived records are read-only: the write action is hidden, but the
+        // shortcut grid (history/plan/summary/care details) stays available.
+        compose.onNodeWithText(context.getString(R.string.detail_plan))
+            .performScrollTo()
+            .assertIsDisplayed()
         compose.onNodeWithText(context.getString(R.string.detail_history))
             .performScrollTo()
             .assertIsDisplayed()
@@ -145,7 +149,10 @@ class RecipientDetailArchiveUiTest {
     fun unarchivedDetailShowsArchive() {
         render(activeDetail)
 
-        compose.onNodeWithText(context.getString(R.string.detail_add_note)).assertIsDisplayed()
+        // The main action is the #908 write button, below the header.
+        compose.onNodeWithText(context.getString(R.string.detail_write_today_note))
+            .performScrollTo()
+            .assertIsDisplayed()
         compose.onNodeWithText(context.getString(R.string.detail_plan))
             .performScrollTo()
             .assertIsDisplayed()
@@ -183,7 +190,7 @@ class RecipientDetailArchiveUiTest {
         compose.onNodeWithText(context.getString(R.string.detail_recent_notes))
             .performScrollTo()
             .assertIsDisplayed()
-        compose.onNodeWithText("Steady day.").assertIsDisplayed()
+        compose.onNodeWithText("Steady day.").performScrollTo().assertIsDisplayed()
         compose.onNodeWithText(context.getString(R.string.people_archived))
             .performScrollTo()
             .assertIsDisplayed()

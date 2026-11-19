@@ -28,7 +28,7 @@ import org.robolectric.annotation.Config
  * `IllegalStateException: Size(.., -16) is out of range` mid-scroll.
  */
 @RunWith(RobolectricTestRunner::class)
-@Config(qualifiers = "w411dp-h891dp-xhdpi")
+@Config(application = com.caregiver.mobile.test.TestGraphApplication::class, qualifiers = "w411dp-h891dp-xhdpi")
 class TopBarScrollRegressionTest {
 
     @get:Rule
@@ -40,6 +40,11 @@ class TopBarScrollRegressionTest {
     fun setUp() {
         val context = ApplicationProvider.getApplicationContext<Context>()
         graph = AppGraph(context)
+        // Local mode resolves the database per active account (#602): the
+        // Home feed needs a signed-in account before it can read anything.
+        kotlinx.coroutines.runBlocking {
+            graph.auth.signUp("Amina", "amina@example.com", "goodpass1")
+        }
     }
 
     @Test

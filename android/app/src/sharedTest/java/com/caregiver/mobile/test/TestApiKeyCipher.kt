@@ -13,12 +13,15 @@ import java.util.Base64
  * all, so no shipped build can end up with an unencrypted key.
  */
 class TestApiKeyCipher : ApiKeyCipher {
-    override fun encrypt(plain: String): String? =
+    override fun encrypt(plain: String, accountId: String): String? =
         Base64.getEncoder().encodeToString(plain.toByteArray(Charsets.UTF_8))
 
-    override fun decrypt(stored: String): ApiKeyState {
+    override fun decrypt(stored: String, accountId: String): ApiKeyState {
         val decoded = runCatching { Base64.getDecoder().decode(stored) }.getOrNull()
             ?: return ApiKeyState.Invalidated
         return ApiKeyState.Readable(String(decoded, Charsets.UTF_8))
     }
+
+    /** No real keystore alias exists in the JVM fake; deletion is a no-op. */
+    override fun delete(accountId: String) {}
 }

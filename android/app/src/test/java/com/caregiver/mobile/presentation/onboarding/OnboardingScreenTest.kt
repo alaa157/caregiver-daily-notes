@@ -26,6 +26,7 @@ import androidx.compose.ui.test.performClick
  * Runs on the JVM under Robolectric, same as the settings compose tests.
  */
 @RunWith(AndroidJUnit4::class)
+@org.robolectric.annotation.Config(application = com.caregiver.mobile.test.TestGraphApplication::class)
 class OnboardingScreenTest {
 
     @get:Rule
@@ -34,10 +35,13 @@ class OnboardingScreenTest {
     private val context: Context = ApplicationProvider.getApplicationContext()
 
     private fun render(onFinished: () -> Unit = {}) {
+        // One graph per test: AppGraph owns the session DataStore, and a
+        // second instance on the same file is forbidden.
+        val graph = AppGraph(context)
         compose.setContent {
             WithTestOwner {
                 CaregiverTheme {
-                    OnboardingScreen(AppGraph(context), onFinished)
+                    OnboardingScreen(graph, onFinished)
                 }
             }
         }

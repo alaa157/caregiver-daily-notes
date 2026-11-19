@@ -194,15 +194,15 @@ class PlanTransitionTest {
     }
 
     @Test
-    fun aNewVersionCannotBeSuggested() = runTest {
+    fun aReplacementSuggestionMayFollowASuggestedVersion() = runTest {
         val apis = LocalBackendApis(db)
         val plan = apis.plans().suggest(SuggestPlanRequest("r1", listOf("item1")))
-        assertEquals(
-            422,
-            illegalTransition {
-                apis.plans().appendVersion(plan.id, AppendVersionRequest(status = "Suggested"))
-            },
-        )
+        // PlanStateMachine.append: a replacement suggestion may follow a
+        // still-Suggested version; it stays on the same plan record instead
+        // of creating a duplicate.
+        val updated = apis.plans().appendVersion(plan.id, AppendVersionRequest(status = "Suggested"))
+        assertEquals(plan.id, updated.id)
+        assertEquals(mapOf(1 to "Suggested", 2 to "Suggested"), statuses(plan.id, apis))
     }
 
     @Test

@@ -4,7 +4,6 @@ import android.content.Context
 import android.content.res.Configuration
 import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.ui.platform.LocalContext
-import androidx.compose.ui.test.assertDoesNotExist
 import androidx.compose.ui.test.assertIsDisplayed
 import androidx.compose.ui.test.filterToOne
 import androidx.compose.ui.test.hasClickAction
@@ -14,6 +13,7 @@ import androidx.compose.ui.test.onNodeWithContentDescription
 import androidx.compose.ui.test.onNodeWithTag
 import androidx.compose.ui.test.onNodeWithText
 import androidx.compose.ui.test.performClick
+import androidx.compose.ui.test.performScrollTo
 import androidx.compose.ui.test.performTextInput
 import androidx.test.core.app.ApplicationProvider
 import androidx.test.ext.junit.runners.AndroidJUnit4
@@ -86,9 +86,12 @@ class ClaimExistingDataScreenTest {
         setUpRepository()
         render(registerAccount = { _, _, _ -> Result.success(owner) }, onClaimed = {})
 
-        compose.onNodeWithText("Claim your data").assertIsDisplayed()
-        compose.onNodeWithText("only this account", substring = true).assertIsDisplayed()
-        compose.onNodeWithText("Create account & claim data").assertIsDisplayed()
+        // The claim screen reuses the register form (#624), so it renders the
+        // standard register copy rather than claim-specific strings.
+        compose.onNodeWithText("Create your account").assertIsDisplayed()
+        compose.onNodeWithText("keep daily care notes in one place", substring = true)
+            .assertIsDisplayed()
+        compose.onNodeWithText("Create account").performScrollTo().assertIsDisplayed()
         compose.onNodeWithTag("auth_field_name").assertIsDisplayed()
         compose.onNodeWithTag("auth_field_email").assertIsDisplayed()
         compose.onNodeWithTag("auth_field_password").assertIsDisplayed()
@@ -102,7 +105,7 @@ class ClaimExistingDataScreenTest {
         var calls = 0
         var claimed: Account? = null
         render(
-            registerAccount = {
+            registerAccount = { _, _, _ ->
                 calls++
                 Result.failure(AccountException(AccountError.EmailTaken))
             },
@@ -110,11 +113,15 @@ class ClaimExistingDataScreenTest {
         )
 
         fillValidForm()
-        submitButton("Create account & claim data").performClick()
+        submitButton("Create account").performScrollTo().performClick()
         compose.waitForIdle()
 
-        compose.onNodeWithText("Claim your data").assertIsDisplayed()
-        compose.onNodeWithText("This email is already registered").assertIsDisplayed()
+        // Still on the claim form after the failure; the title may sit above
+        // the current scroll position, so assert presence, not visibility.
+        compose.onNodeWithText("Create your account").assertExists()
+        compose.onNodeWithText("This email is already registered")
+            .performScrollTo()
+            .assertIsDisplayed()
         assertEquals(1, calls)
         assertNull(claimed)
     }
@@ -135,7 +142,7 @@ class ClaimExistingDataScreenTest {
         )
 
         fillValidForm()
-        submitButton("Create account & claim data").performClick()
+        submitButton("Create account").performScrollTo().performClick()
         compose.waitForIdle()
 
         assertEquals(1, calls)
@@ -151,9 +158,8 @@ class ClaimExistingDataScreenTest {
             onClaimed = {},
         )
 
-        compose.onNodeWithText("استرجاع بياناتك").assertIsDisplayed()
-        compose.onNodeWithText("هذا الحساب", substring = true).assertIsDisplayed()
-        compose.onNodeWithText("إنشاء حساب واسترجاع البيانات").assertIsDisplayed()
+        compose.onNodeWithText("أنشئ حسابك").assertIsDisplayed()
+        compose.onNodeWithText("إنشاء الحساب").performScrollTo().assertIsDisplayed()
         compose.onNodeWithContentDescription("رجوع").assertDoesNotExist()
     }
 

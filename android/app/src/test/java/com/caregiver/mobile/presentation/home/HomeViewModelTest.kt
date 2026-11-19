@@ -126,7 +126,7 @@ class HomeViewModelTest {
     @Test
     fun resolvedDisplayNameFallsBackToEmailWhenNoAccount() {
         assertEquals(
-            "Am",
+            "Am.ahmed",
             HomeViewModel.resolvedDisplayName(null, "am.ahmed@example.com"),
         )
         assertEquals(

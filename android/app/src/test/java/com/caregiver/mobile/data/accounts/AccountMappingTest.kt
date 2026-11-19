@@ -15,7 +15,7 @@ class AccountMappingTest {
         id = "acc-1",
         email = "caregiver@example.com",
         displayName = "Amina",
-        passwordHash = "pbkdf2$supersecrethashvalue",
+        passwordHash = "pbkdf2\$supersecrethashvalue",
         salt = "supersaltvalue",
         kdfIterations = 100_000,
         createdAt = 1_700_000_000_000L,
@@ -42,7 +42,9 @@ class AccountMappingTest {
         val account = entity.toAccount().toString()
         assertFalse(account.contains("supersecrethashvalue"))
         assertFalse(account.contains("supersaltvalue"))
-        assertFalse(account.contains("100000"))
+        // The iteration count must not leak; check the field name, since a
+        // bare "100000" can coincidentally occur inside a timestamp.
+        assertFalse(account.contains("kdfIterations"))
     }
 
     @Test

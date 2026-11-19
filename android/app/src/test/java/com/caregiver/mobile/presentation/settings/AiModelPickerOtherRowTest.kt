@@ -6,7 +6,10 @@ import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.semantics.SemanticsActions
-import androidx.compose.ui.test.assertDoesNotExist
+import androidx.compose.ui.semantics.SemanticsProperties
+import androidx.compose.ui.semantics.getOrNull
+import androidx.compose.ui.test.SemanticsMatcher
+import androidx.compose.ui.test.assert
 import androidx.compose.ui.test.assertIsDisplayed
 import androidx.compose.ui.test.assertIsNotSelected
 import androidx.compose.ui.test.assertIsSelected
@@ -15,6 +18,7 @@ import androidx.compose.ui.test.junit4.createComposeRule
 import androidx.compose.ui.test.onNodeWithTag
 import androidx.compose.ui.test.onNodeWithText
 import androidx.compose.ui.test.performScrollTo
+import androidx.compose.ui.test.performScrollToIndex
 import androidx.compose.ui.test.performSemanticsAction
 import androidx.compose.ui.test.performTextReplacement
 import androidx.test.core.app.ApplicationProvider
@@ -73,6 +77,18 @@ class AiModelPickerOtherRowTest {
     private fun fakeModels(count: Int): List<AiModelOption> =
         (0 until count).map { AiModelOption("fake/provider-model-$it") }
 
+    /**
+     * The field's label merges into its Text semantics, so assertTextEquals
+     * would see label + value; the typed value lives in EditableText alone.
+     */
+    private fun assertEditableText(tag: String, expected: String) {
+        compose.onNodeWithTag(tag).assert(
+            SemanticsMatcher("EditableText = [$expected]") {
+                it.config.getOrNull(SemanticsProperties.EditableText)?.text == expected
+            },
+        )
+    }
+
     @Test
     fun otherRowIsVisibleWithoutScrollingWithFourHundredModels() {
         val models = fakeModels(400)
@@ -112,9 +128,7 @@ class AiModelPickerOtherRowTest {
         render(models = fakeModels(3), selectedModel = "openai/no-longer-served")
 
         compose.onNodeWithTag("model_option_other").assertIsSelected()
-        compose.onNodeWithTag("model_custom_field")
-            .assertIsDisplayed()
-            .assertTextEquals("openai/no-longer-served")
+        assertEditableText("model_custom_field", "openai/no-longer-served")
     }
 
     @Test
@@ -137,8 +151,10 @@ class AiModelPickerOtherRowTest {
         val models = fakeModels(400)
         render(models = models, selectedModel = models.first().id)
 
+        // The list is lazy: scroll by index, then the trailing static note
+        // is composed and can be scrolled to like any other node.
+        compose.onNodeWithTag("ai_model_list").performScrollToIndex(399)
         compose.onNodeWithTag("model_option_fake/provider-model-399")
-            .performScrollTo()
             .assertIsDisplayed()
         compose.onNodeWithText(context.getString(R.string.settings_ai_model_paid_note))
             .performScrollTo()

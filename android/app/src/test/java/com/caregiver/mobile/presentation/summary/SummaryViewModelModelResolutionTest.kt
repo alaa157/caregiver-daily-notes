@@ -23,6 +23,7 @@ import kotlinx.coroutines.test.TestScope
 import kotlinx.coroutines.test.UnconfinedTestDispatcher
 import kotlinx.coroutines.test.runTest
 import kotlinx.coroutines.test.advanceUntilIdle
+import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.first
 import org.junit.After
 import org.junit.Assert.assertEquals
@@ -51,7 +52,7 @@ class SummaryViewModelModelResolutionTest {
         summaries = FakeSummaryApi()
         val apis = FakeBackendApis(FakeAuthApi()).also { it.summaryApi = summaries }
         repository = AuthRepository(apis, settings, TokenHolder())
-        store = AiKeyStore(ApplicationProvider.getApplicationContext(), TestApiKeyCipher())
+        store = AiKeyStore(ApplicationProvider.getApplicationContext(), TestApiKeyCipher(), MutableStateFlow<String?>("test-account"))
         store.setProvider(AiProvider.OPENAI)
         store.setConsentGiven(AiProvider.OPENAI)
         factory = RecordingFactory()

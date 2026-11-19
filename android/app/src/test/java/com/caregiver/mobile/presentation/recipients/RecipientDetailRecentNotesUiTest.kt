@@ -1,12 +1,12 @@
 package com.caregiver.mobile.presentation.recipients
 
 import android.content.Context
-import androidx.compose.ui.test.assertDoesNotExist
 import androidx.compose.ui.test.assertIsDisplayed
 import androidx.compose.ui.test.junit4.createComposeRule
 import androidx.compose.ui.test.onNodeWithTag
 import androidx.compose.ui.test.onNodeWithText
 import androidx.compose.ui.test.performClick
+import androidx.compose.ui.test.performScrollTo
 import androidx.test.core.app.ApplicationProvider
 import androidx.test.ext.junit.runners.AndroidJUnit4
 import com.caregiver.mobile.R
@@ -92,15 +92,19 @@ class RecipientDetailRecentNotesUiTest {
             ),
         )
 
-        compose.onNodeWithText(context.getString(R.string.detail_recent_notes)).assertIsDisplayed()
-        compose.onNodeWithText(context.getString(R.string.detail_see_all)).assertIsDisplayed()
+        compose.onNodeWithText(context.getString(R.string.detail_recent_notes))
+            .performScrollTo()
+            .assertIsDisplayed()
+        compose.onNodeWithText(context.getString(R.string.detail_see_all))
+            .performScrollTo()
+            .assertIsDisplayed()
         listOf("n1", "n2", "n3").forEach {
-            compose.onNodeWithTag("detail_recent_note_$it").assertIsDisplayed()
+            compose.onNodeWithTag("detail_recent_note_$it").performScrollTo().assertIsDisplayed()
         }
         compose.onNodeWithTag("detail_recent_note_n4").assertDoesNotExist()
-        compose.onNodeWithText("First preview").assertIsDisplayed()
-        compose.onNodeWithText("Second preview").assertIsDisplayed()
-        compose.onNodeWithText("Third preview").assertIsDisplayed()
+        compose.onNodeWithText("First preview").performScrollTo().assertIsDisplayed()
+        compose.onNodeWithText("Second preview").performScrollTo().assertIsDisplayed()
+        compose.onNodeWithText("Third preview").performScrollTo().assertIsDisplayed()
     }
 
     @Test
@@ -113,8 +117,10 @@ class RecipientDetailRecentNotesUiTest {
             onSeeAll = { seeAll++ },
         )
 
-        compose.onNodeWithTag("detail_recent_note_n1").performClick()
-        compose.onNodeWithText(context.getString(R.string.detail_see_all)).performClick()
+        compose.onNodeWithTag("detail_recent_note_n1").performScrollTo().performClick()
+        compose.onNodeWithText(context.getString(R.string.detail_see_all))
+            .performScrollTo()
+            .performClick()
 
         assertEquals("n1", opened)
         assertEquals(1, seeAll)
@@ -125,8 +131,10 @@ class RecipientDetailRecentNotesUiTest {
         render()
 
         compose.onNodeWithText(context.getString(R.string.detail_recent_empty_title))
+            .performScrollTo()
             .assertIsDisplayed()
         compose.onNodeWithText(context.getString(R.string.detail_recent_empty_body))
+            .performScrollTo()
             .assertIsDisplayed()
         compose.onNodeWithTag("detail_recent_note_n1").assertDoesNotExist()
     }
@@ -137,6 +145,7 @@ class RecipientDetailRecentNotesUiTest {
         render(listOf(note("n1", "2026-10-08", longText)))
 
         val bounds = compose.onNodeWithTag("detail_recent_note_n1")
+            .performScrollTo()
             .fetchSemanticsNode().boundsInRoot
         val density = context.resources.displayMetrics.density
         assertTrue("card height ${bounds.height} grew with a 400-char preview", bounds.height < 160f * density)

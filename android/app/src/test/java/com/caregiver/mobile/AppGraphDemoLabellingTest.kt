@@ -18,6 +18,7 @@ import org.robolectric.RobolectricTestRunner
  * Room data as demo and hid sharing.
  */
 @RunWith(RobolectricTestRunner::class)
+@org.robolectric.annotation.Config(application = com.caregiver.mobile.test.TestGraphApplication::class)
 class AppGraphDemoLabellingTest {
 
     @Test

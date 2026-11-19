@@ -9,14 +9,16 @@ import org.junit.Test
 import kotlin.math.pow
 
 /**
- * Design truth: /workspaces/android_rtl.html palette.
- * Primary teal #0E6B66, ink #1F2A2E, background #F7F6F3.
+ * Design truth: the #971 shared accent table. The "teal" palette resolves to
+ * #00897B (unknown palettes still fall back to the original #0E6B66);
+ * ink #1F2A2E, background #F7F6F3.
  */
 class ThemeTest {
 
     @Test
     fun primaryMatchesDesignTeal() {
-        assertEquals(Color(0xFF0E6B66), CaregiverColors.Primary)
+        // #971: the teal key resolves to the shared accent table value.
+        assertEquals(Color(0xFF00897B), CaregiverColors.Primary)
     }
 
     @Test
@@ -53,9 +55,9 @@ class ThemeTest {
     @Test
     fun scaffoldVisibleRolesUsePaletteNotDefaults() {
         val scheme = appLightScheme(caregiverScheme(dark = false, palette = "teal"))
-        // FAB: solid teal with white content.
+        // FAB: solid teal with the derived accent ink (black on bright accents).
         assertEquals(CaregiverColors.Primary, scheme.primaryContainer)
-        assertEquals(Color.White, scheme.onPrimaryContainer)
+        assertEquals(onAccent(CaregiverColors.Primary), scheme.onPrimaryContainer)
         // Selected tab pill: neutral surface with ink content; teal accent
         // is applied at the call site.
         assertEquals(CaregiverColors.BorderSoft, scheme.secondaryContainer)
@@ -116,8 +118,8 @@ class ThemeTest {
         assertEquals(Color(0xFFE3E7EA), CaregiverColors.AuthDivider)
         assertEquals(Color(0xFFF0F3F2), CaregiverColors.AuthDisabledFill)
         assertEquals(Color(0xFFA3AEAD), CaregiverColors.AuthDisabledIcon)
-        // The primary teal is reused, never redefined.
-        assertEquals(Color(0xFF0E6B66), CaregiverColors.Primary)
+        // The primary teal is reused, never redefined (#971 accent table).
+        assertEquals(Color(0xFF00897B), CaregiverColors.Primary)
         // #982: the border is the field's only affordance in light mode.
         val light = caregiverScheme(dark = false, palette = "teal")
         assertTrue(
@@ -197,7 +199,7 @@ class ThemeTest {
             "muted on card" to (light.Muted to light.SectionCardSurface),
             "ink on page" to (light.Ink to light.AuthBackground),
             "muted on page" to (light.Muted to light.AuthBackground),
-            "white on primary" to (Color.White to light.Primary),
+            "accent ink on primary" to (onAccent(light.Primary) to light.Primary),
             "dark ink on card" to (dark.Ink to dark.SectionCardSurface),
             "dark muted on card" to (dark.Muted to dark.SectionCardSurface),
         )

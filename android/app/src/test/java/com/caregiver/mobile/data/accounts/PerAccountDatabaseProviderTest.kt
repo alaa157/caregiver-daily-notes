@@ -549,13 +549,21 @@ class AccountDataIsolationTest {
         seed(b, TAG_B)
         materialize(a)
         materialize(b)
+        // Room writes in WAL mode: checkpoint so the seeded rows live in the
+        // main database files before comparing their bytes. PRAGMA is a
+        // query, so it must go through query(), and the cursor must be read
+        // for the statement to execute.
+        a.query("PRAGMA wal_checkpoint(FULL)", null).use { it.moveToFirst() }
+        b.query("PRAGMA wal_checkpoint(FULL)", null).use { it.moveToFirst() }
         val aFile = context.getDatabasePath("${PerAccountDatabaseProvider.FILE_PREFIX}isolation-a")
         val bFile = context.getDatabasePath("${PerAccountDatabaseProvider.FILE_PREFIX}isolation-b")
         assertTrue(aFile.exists())
         assertTrue(bFile.exists())
         assertNotSame(a, b)
         assertNotEquals(aFile.path, bFile.path)
-        assertNotEquals(aFile.readBytes().contentHashCode(), bFile.readBytes().contentHashCode())
+        // Compare bytes, not 32-bit content hashes: distinct small SQLite
+        // files can collide on contentHashCode by chance.
+        assertFalse(aFile.readBytes().contentEquals(bFile.readBytes()))
     }
 
     @Test
@@ -610,7 +618,7 @@ class AccountDataIsolationTest {
         seed(a, TAG_A)
         seed(b, TAG_B)
 
-        assertEquals(emptyList(), b.savedSummaryDao().allRows().filter { it.payload == "summary $TAG_A" })
+        assertEquals(emptyList<SavedSummaryEntity>(), b.savedSummaryDao().allRows().filter { it.payload == "summary $TAG_A" })
         assertEquals(1, b.savedSummaryDao().allRows().size)
         assertEquals("summary $TAG_B", b.savedSummaryDao().allRows().single().payload)
     }
@@ -620,7 +628,7 @@ class AccountDataIsolationTest {
         seed(a, TAG_A)
         seed(b, TAG_B)
 
-        assertEquals(emptyList(), b.planDao().all().filter { it.versionsJson == "plan $TAG_A" })
+        assertEquals(emptyList<PlanEntity>(), b.planDao().all().filter { it.versionsJson == "plan $TAG_A" })
         assertEquals("plan $TAG_B", b.planDao().all().single().versionsJson)
     }
 

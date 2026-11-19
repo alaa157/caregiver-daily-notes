@@ -1,9 +1,8 @@
 package com.caregiver.mobile.presentation.settings
 
 import android.content.Context
-import androidx.compose.ui.test.assertDoesNotExist
-import androidx.compose.ui.test.assertIsDisabled
 import androidx.compose.ui.test.assertIsEnabled
+import androidx.compose.ui.test.assertIsNotEnabled
 import androidx.compose.ui.test.junit4.createComposeRule
 import androidx.compose.ui.test.onNodeWithContentDescription
 import androidx.compose.ui.test.onNodeWithTag
@@ -77,7 +76,7 @@ class AiModelPickerRetryTest {
     fun refreshIsDisabledWhileInitialLoadIsInFlight() {
         render(source = null, refreshing = true)
 
-        compose.onNodeWithTag("ai_model_refresh").assertIsDisabled()
+        compose.onNodeWithTag("ai_model_refresh").assertIsNotEnabled()
     }
 
     @Test
@@ -88,10 +87,13 @@ class AiModelPickerRetryTest {
     }
 
     @Test
-    fun refreshIsEnabledForLiveAndCached() {
+    fun refreshIsEnabledForLive() {
         render(source = ModelSource.LIVE)
         compose.onNodeWithTag("ai_model_refresh").assertIsEnabled()
+    }
 
+    @Test
+    fun refreshIsEnabledForCached() {
         render(source = ModelSource.CACHED)
         compose.onNodeWithTag("ai_model_refresh").assertIsEnabled()
     }
@@ -100,7 +102,7 @@ class AiModelPickerRetryTest {
     fun refreshIsDisabledWhileRefreshing() {
         render(source = ModelSource.LIVE, refreshing = true)
 
-        compose.onNodeWithTag("ai_model_refresh").assertIsDisabled()
+        compose.onNodeWithTag("ai_model_refresh").assertIsNotEnabled()
     }
 
     @Test

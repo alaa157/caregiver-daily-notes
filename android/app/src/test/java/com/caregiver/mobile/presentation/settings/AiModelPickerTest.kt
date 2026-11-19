@@ -2,7 +2,10 @@ package com.caregiver.mobile.presentation.settings
 
 import android.content.Context
 import androidx.compose.ui.semantics.SemanticsActions
-import androidx.compose.ui.test.assertDoesNotExist
+import androidx.compose.ui.semantics.SemanticsProperties
+import androidx.compose.ui.semantics.getOrNull
+import androidx.compose.ui.test.SemanticsMatcher
+import androidx.compose.ui.test.assert
 import androidx.compose.ui.test.assertIsDisplayed
 import androidx.compose.ui.test.assertIsNotSelected
 import androidx.compose.ui.test.assertIsSelected
@@ -11,7 +14,7 @@ import androidx.compose.ui.test.junit4.createComposeRule
 import androidx.compose.ui.test.onNodeWithTag
 import androidx.compose.ui.test.onNodeWithText
 import androidx.compose.ui.test.performClick
-import androidx.compose.ui.test.performScrollTo
+import androidx.compose.ui.test.performScrollToIndex
 import androidx.compose.ui.test.performSemanticsAction
 import androidx.compose.ui.test.performTextReplacement
 import androidx.test.core.app.ApplicationProvider
@@ -79,6 +82,18 @@ class AiModelPickerTest {
     private fun fakeModels(count: Int): List<AiModelOption> =
         (0 until count).map { AiModelOption("fake/provider-model-$it") }
 
+    /**
+     * The field's label merges into its Text semantics, so assertTextEquals
+     * would see label + value; the typed value lives in EditableText alone.
+     */
+    private fun assertEditableText(tag: String, expected: String) {
+        compose.onNodeWithTag(tag).assert(
+            SemanticsMatcher("EditableText = [$expected]") {
+                it.config.getOrNull(SemanticsProperties.EditableText)?.text == expected
+            },
+        )
+    }
+
     @Test
     fun fourHundredModelsScrollToTheLastRow() {
         val models = fakeModels(400)
@@ -86,8 +101,10 @@ class AiModelPickerTest {
 
         compose.onNodeWithTag("ai_model_count")
             .assertTextEquals(context.getString(R.string.settings_ai_models_count, 400))
+        // The list is lazy: off-screen rows are not composed, so scroll by
+        // index on the list itself instead of targeting the row node.
+        compose.onNodeWithTag("ai_model_list").performScrollToIndex(399)
         compose.onNodeWithTag("model_option_fake/provider-model-399")
-            .performScrollTo()
             .assertIsDisplayed()
     }
 
@@ -132,7 +149,7 @@ class AiModelPickerTest {
         compose.onNodeWithText(context.getString(R.string.settings_ai_models_clear_search))
             .performClick()
         compose.waitForIdle()
-        compose.onNodeWithTag("ai_model_search").assertTextEquals("")
+        assertEditableText("ai_model_search", "")
         compose.onNodeWithTag("model_option_fake/provider-model-0").assertIsDisplayed()
     }
 
@@ -162,9 +179,7 @@ class AiModelPickerTest {
         render(models = fakeModels(3), selectedModel = "openai/no-longer-served")
 
         compose.onNodeWithTag("model_option_other").assertIsSelected()
-        compose.onNodeWithTag("model_custom_field")
-            .assertIsDisplayed()
-            .assertTextEquals("openai/no-longer-served")
+        assertEditableText("model_custom_field", "openai/no-longer-served")
     }
 
     @Test
@@ -183,7 +198,7 @@ class AiModelPickerTest {
     }
 
     @Test
-    fun liveAndBundledSourcesShowTheirOwnStatus() {
+    fun liveSourceShowsItsOwnStatus() {
         render(
             models = fakeModels(2),
             selectedModel = "fake/provider-model-0",
@@ -197,7 +212,10 @@ class AiModelPickerTest {
                 "0 m",
             ),
         )
+    }
 
+    @Test
+    fun bundledSourceShowsItsOwnStatus() {
         render(
             models = fakeModels(2),
             selectedModel = "fake/provider-model-0",
