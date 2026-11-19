@@ -5,7 +5,7 @@ import { MemoryRouter, Route, Routes } from 'react-router-dom';
 import { describe, expect, it, vi } from 'vitest';
 import { App } from '../app/App';
 import { ThemeProvider } from '../app/ThemeProvider';
-import { AppShell } from '../components/AppShell';
+import { AppShell, AppLayout } from '../components/AppShell';
 import { useByok, type ByokCredentials } from '../features/ai/ByokContext';
 import { AuthProvider } from '../features/auth/AuthProvider';
 import { LoginPage } from '../features/auth/LoginPage';
@@ -58,10 +58,14 @@ function SwapCredentials({ next, label = 'swap credentials' }: { next: ByokCrede
 function show(fetcher: ReturnType<typeof vi.fn>, language = 'en', credentials: ByokCredentials | null = syntheticCredentials, extras?: ReactNode) {
   vi.stubGlobal('fetch', fetcher); localStorage.setItem('caregiver-language', language);
   sessionStorage.setItem('caregiver-auth-session-v1', JSON.stringify({ token: testToken(), baseUrl: '' }));
+  // The workspace chrome (AppLayout) owns the language toggle now; render the
+  // summary route inside it so locale switching goes through the real control.
   return render(<I18nProvider><ApiProvider config={{ apiBaseUrl: '' }}><AuthProvider><ThemeProvider><MemoryRouter initialEntries={[root]}>
     <AppShell><Routes>
       <Route element={<ProtectedRoute />}>
-        <Route path={root} element={<SeedCredentials credentials={credentials}><SummaryPage />{extras}</SeedCredentials>} />
+        <Route element={<AppLayout />}>
+          <Route path={root} element={<SeedCredentials credentials={credentials}><SummaryPage />{extras}</SeedCredentials>} />
+        </Route>
       </Route>
       <Route path="/login" element={<LoginPage />} />
     </Routes></AppShell>
@@ -293,9 +297,10 @@ describe('on-demand summary and safety workflow', () => {
   });
   it('shows a persistent disclaimer and waits for an explicit request', async () => {
     const fetcher = dataFetcher(); show(fetcher); await choose();
-    expect(screen.getByRole('complementary')).toHaveTextContent('not a diagnosis');
+    const page = screen.getByRole('region', { name: 'AI summary & safety' });
+    expect(within(page).getByRole('complementary')).toHaveTextContent('not a diagnosis');
     expect(document.title).toContain('AI summary & safety');
-    expect(posts(fetcher)).toHaveLength(0); expect(fetcher).toHaveBeenCalledTimes(1);
+    expect(posts(fetcher)).toHaveLength(0); expect(fetcher).toHaveBeenCalledTimes(2);
   });
   it.each([7, 14, 30])('requests an inclusive %s-day window only after submit', async (period) => {
     const fetcher = dataFetcher(); show(fetcher); await choose();
@@ -355,7 +360,7 @@ describe('on-demand summary and safety workflow', () => {
     await userEvent.click(screen.getByRole('button', { name: 'Generate summary' }));
 
     expect(await screen.findByRole('alert')).toHaveTextContent('AI Settings');
-    expect(fetcher.mock.calls.map(([path]) => path)).toEqual(['/api/recipients']);
+    expect(fetcher.mock.calls.map(([path]) => path)).toEqual(['/api/recipients', '/api/recipients']);
     expect(posts(fetcher)).toHaveLength(0);
   });
   it('renders the missing-credentials instruction in Arabic and keeps RTL layout', async () => {
@@ -368,7 +373,7 @@ describe('on-demand summary and safety workflow', () => {
 
     expect(await screen.findByRole('alert')).toHaveTextContent('افتح إعدادات الذكاء الاصطناعي واضبط مفتاحًا لمزوّد قبل إنشاء ملخص.');
     expect(document.documentElement).toHaveAttribute('dir', 'rtl');
-    expect(fetcher.mock.calls.map(([path]) => path)).toEqual(['/api/recipients']);
+    expect(fetcher.mock.calls.map(([path]) => path)).toEqual(['/api/recipients', '/api/recipients']);
   });
   it('sends configured in-memory credentials to BYOK and renders the parsed result', async () => {
     const fetcher = dataFetcher();
@@ -385,7 +390,7 @@ describe('on-demand summary and safety workflow', () => {
     expect(screen.getByText('Model-generated text')).toBeVisible();
     expect(screen.getByText('Educational project. Not medical advice.')).toBeVisible();
     expect(screen.getByText('HIGH')).toBeVisible();
-    expect(screen.getByRole('region', { name: 'Recorded observation counts' })).toHaveTextContent('POOR_APPETITE_COUNT');
+    expect(screen.getByRole('region', { name: 'Recorded observation counts' })).toHaveTextContent('Poor appetite days');
     expect(document.body.textContent).not.toContain(syntheticCredentials.apiKey);
     expect(JSON.stringify(localStorage)).not.toContain(syntheticCredentials.apiKey);
     expect(JSON.stringify(sessionStorage)).not.toContain(syntheticCredentials.apiKey);
@@ -517,7 +522,7 @@ describe('on-demand summary and safety workflow', () => {
     expect(screen.queryByText('Reported appetite varied. ملاحظة غير مؤكدة.')).not.toBeInTheDocument();
     expect(screen.queryByRole('blockquote')).not.toBeInTheDocument();
     expect(screen.getByRole('region', { name: 'Safety information' })).toHaveTextContent('HIGH');
-    expect(screen.getByRole('region', { name: 'Safety information' })).toHaveTextContent('RETRY_WARNING');
+    expect(screen.getByRole('region', { name: 'Safety information' })).toHaveTextContent('Warning returned with failure.');
   });
   it('shows the educational disclaimer with AI content', async () => {
     show(dataFetcher()); await generate();
@@ -535,7 +540,7 @@ describe('on-demand summary and safety workflow', () => {
     expect(within(safetySection).getByText(/evaluated independently/)).toBeVisible();
     expect(aiSection.contains(safetySection)).toBe(false);
     expect(screen.getByRole('region', { name: 'Unclear or conflicting information' })).toBeVisible();
-    expect(screen.getByRole('region', { name: 'Recorded observation counts' })).toHaveTextContent('POOR_APPETITE_COUNT');
+    expect(screen.getByRole('region', { name: 'Recorded observation counts' })).toHaveTextContent('Poor appetite days');
   });
   it('does not show AI success label for unavailable response', async () => {
     const fixture = summaryFixture();
@@ -551,7 +556,7 @@ describe('on-demand summary and safety workflow', () => {
     expect(screen.queryByText('stray unavailable model text')).not.toBeInTheDocument();
     expect(screen.queryByRole('blockquote')).not.toBeInTheDocument();
     expect(screen.getByRole('region', { name: 'Safety information' })).toHaveTextContent('HIGH');
-    expect(screen.getByRole('region', { name: 'Recorded observation counts' })).toHaveTextContent('POOR_APPETITE_COUNT');
+    expect(screen.getByRole('region', { name: 'Recorded observation counts' })).toHaveTextContent('Poor appetite days');
   });
   it('does not render unavailable reasons and preserves output for absent or unknown values', async () => {
     const renderedResults: Array<string | null> = [];
@@ -586,7 +591,7 @@ describe('on-demand summary and safety workflow', () => {
     expect(screen.queryByText('Educational project. Not medical advice.')).not.toBeInTheDocument();
     expect(screen.queryByText('partially parsed model content')).not.toBeInTheDocument();
     expect(screen.getByRole('region', { name: 'Safety information' })).toHaveTextContent('HIGH');
-    expect(screen.getByRole('region', { name: 'Recorded observation counts' })).toHaveTextContent('POOR_APPETITE_COUNT');
+    expect(screen.getByRole('region', { name: 'Recorded observation counts' })).toHaveTextContent('Poor appetite days');
   });
   it('shows the empty-observations state without calling it an AI failure in English and Arabic', async () => {
     const fixture = summaryFixture();
@@ -619,7 +624,7 @@ describe('on-demand summary and safety workflow', () => {
     expect(within(observation).getByRole('link', { name: /Source note:/ })).toHaveAttribute('href', '/app/notes/c3333333-3333-4333-8333-333333333333');
     expect(screen.getByText(summaryFixture().summary.uncertainties[0].detail)).toBeInTheDocument();
     expect(document.querySelector('script')).toBeNull(); expect(document.querySelector('img')).toBeNull();
-    expect(screen.getByRole('complementary')).toBeInTheDocument();
+    expect(within(screen.getByRole('region', { name: 'AI summary & safety' })).getByRole('complementary')).toBeInTheDocument();
     expect(document.querySelector('.summary-progress')).toHaveFocus();
   });
   it('keeps HIGH visible even when ordinary content orders it to be hidden', async () => {
@@ -640,7 +645,7 @@ describe('on-demand summary and safety workflow', () => {
     expect(await screen.findByRole('alert')).toHaveTextContent('A summary is unavailable');
     expect(posts(fetcher).filter(([path]) => path === byokSummaryPath)).toHaveLength(1);
     expect(fetcher.mock.calls.some(([path]) => path === '/api/summaries' || path === '/v3/api-docs')).toBe(false);
-    expect(screen.getByRole('complementary')).toBeInTheDocument();
+    expect(within(screen.getByRole('region', { name: 'AI summary & safety' })).getByRole('complementary')).toBeInTheDocument();
     expect(document.querySelector('.summary-progress')).toHaveFocus();
   });
   it('shows backend fallback without generated observations, retaining warnings and uncertainty', async () => {
@@ -668,7 +673,7 @@ describe('on-demand summary and safety workflow', () => {
     await userEvent.click(screen.getByRole('button', { name: 'Regenerate summary' }));
     expect(await screen.findByRole('alert')).not.toHaveTextContent('private diagnostics');
     expect(screen.getByText('HIGH')).toBeVisible(); expect(screen.getByRole('blockquote')).toBeInTheDocument();
-    expect(posts(fetcher)).toHaveLength(2); expect(screen.getByRole('complementary')).toBeInTheDocument();
+    expect(posts(fetcher)).toHaveLength(2); expect(within(screen.getByRole('region', { name: 'AI summary & safety' })).getByRole('complementary')).toBeInTheDocument();
   });
   it('renders safety provided in an HTTP failure and never clears previous urgency', async () => {
     let fail = false; const fetcher = dataFetcher((path) => path === byokSummaryPath && fail ? jsonResponse({ safety: { signals: [{ ruleId: 'NEW_RULE', severity: 'WATCH', reason: 'Another warning' }], needsDoctorBanner: false } }, 503) : undefined);
@@ -726,8 +731,10 @@ describe('on-demand summary and safety workflow', () => {
   });
   it('shows recipient-load errors and retries without starting AI requests', async () => {
     let fail = true; const fetcher = dataFetcher((path) => path === '/api/recipients' && fail ? jsonResponse({}, 500) : undefined);
-    show(fetcher); expect(await screen.findByRole('alert')).toHaveTextContent('could not be loaded'); fail = false;
-    await userEvent.click(screen.getByRole('button', { name: 'Retry' })); await choose(); expect(posts(fetcher)).toHaveLength(0);
+    show(fetcher);
+    const page = screen.getByRole('region', { name: 'AI summary & safety' });
+    expect(await within(page).findByRole('alert')).toHaveTextContent('could not be loaded'); fail = false;
+    await userEvent.click(within(page).getByRole('button', { name: 'Retry' })); await choose(); expect(posts(fetcher)).toHaveLength(0);
   });
   it('supports an empty recipient list without enabling generation', async () => {
     show(dataFetcher((path) => path === '/api/recipients' ? jsonResponse([]) : undefined));

@@ -138,6 +138,9 @@ class ControlledResizeObserver implements ResizeObserver {
 
 describe('daily-note creation and immutable corrections', () => {
   it('opens note creation from the app shell as a prefilled modal drawer and closes accessibly', async () => {
+    // Warm the lazy note-page module; otherwise its cold import outlasts the
+    // wait for the dialog to appear.
+    await import('../features/notes/NotesPages');
     renderNotes('/app', dataFetcher());
     await waitFor(() => expect(document.querySelector('.app-create-note')).not.toBeNull());
     const trigger = document.querySelector<HTMLAnchorElement>('.app-create-note');

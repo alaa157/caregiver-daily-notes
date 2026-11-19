@@ -48,7 +48,8 @@ describe('top bar selected recipient (issue #712)', () => {
     const fetcher = renderShell(`/app/notes?recipientId=${recipientFixture.id}`);
 
     await waitFor(() => expect(selectedText()).toBe(recipientFixture.name));
-    expect(recipientListCalls(fetcher)).toHaveLength(1);
+    // Shell picker + the history screen's own recipient-name lookup.
+    expect(recipientListCalls(fetcher)).toHaveLength(2);
   });
 
   it('still marks a genuinely missing selected recipient unavailable', async () => {

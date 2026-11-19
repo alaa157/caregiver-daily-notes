@@ -160,12 +160,15 @@ describe('care-plan review and authoritative backend decisions', () => {
   it('waits for explicit recipient selection, then loads only that recipient', async () => {
     const fetcher = serve(); renderPlans(fetcher, root);
     await screen.findByLabelText('Care recipient');
-    expect(fetcher).toHaveBeenCalledTimes(1);
+    // The top-bar picker reads recipients in addition to the plans screen.
+    expect(fetcher).toHaveBeenCalledTimes(2);
     await userEvent.selectOptions(screen.getByLabelText('Care recipient'), recipient.id); await loaded();
     expect(fetcher.mock.calls.every(([path, init]) => (path === '/api/recipients' || path.includes(recipient.id)) && new Headers(init.headers).has('Authorization'))).toBe(true);
     expect(document.title).toMatch(/^Care plans/);
-    expect(screen.getByRole('link', { name: 'Care plans' })).toHaveAttribute('aria-current', 'page');
-    expect(screen.getByRole('link', { name: 'History' })).not.toHaveAttribute('aria-current');
+    // Both responsive nav variants mount in jsdom; exactly one plans link is current.
+    const planLinks = screen.getAllByRole('link', { name: /plans/i });
+    expect(planLinks.filter((link) => link.getAttribute('aria-current') === 'page')).toHaveLength(1);
+    expect(screen.getAllByRole('link', { name: 'Notes' }).every((link) => !link.hasAttribute('aria-current'))).toBe(true);
   });
   it('requires BYOK credentials before plan generation', async () => {
     const fetcher = serve();
@@ -328,9 +331,9 @@ describe('care-plan review and authoritative backend decisions', () => {
   it('handles no recipients and invalid/unknown URL IDs without fetching plans', async () => {
     const fetcher = serve({ override: (url) => url.pathname === '/api/recipients' ? jsonResponse([]) : undefined });
     const view = renderPlans(fetcher); await screen.findByText('No care recipients yet');
-    expect(screen.getByRole('link', { name: 'Add care recipient' })).toBeInTheDocument(); expect(fetcher).toHaveBeenCalledTimes(1);
+    expect(screen.getByRole('link', { name: 'Add care recipient' })).toBeInTheDocument(); expect(fetcher).toHaveBeenCalledTimes(2);
     view.unmount(); const invalid = serve(); renderPlans(invalid, `${root}?recipientId=../other`);
-    await screen.findByText('Choose an available care recipient to continue.'); expect(invalid).toHaveBeenCalledTimes(1);
+    await screen.findByText('Choose an available care recipient to continue.'); expect(invalid).toHaveBeenCalledTimes(2);
   });
   it('renders separate accepted/suggested/history records and preserves mixed text and protected content', async () => {
     const fetcher = serve(); const view = renderPlans(fetcher); const section = await loaded();

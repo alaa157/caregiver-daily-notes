@@ -61,6 +61,7 @@ describe('public landing page', () => {
   });
 
   it('marks the APK download link as opening in a new tab', () => {
+    setup();
     const apkLink = screen.getByRole('link', { name: /download android apk/i });
 
     expect(apkLink).toHaveAttribute('target', '_blank');
@@ -138,7 +139,9 @@ describe('public landing page', () => {
     const menuButton = container.querySelector<HTMLButtonElement>('.menu-toggle');
     if (!menuButton) throw new Error('Landing menu button not found');
 
-    expect(screen.getByRole('button', { name: 'Open navigation' })).toBe(menuButton);
+    // The menu trigger is display:none at desktop widths, where accessible-name
+    // computation is skipped; assert the label-only contract on aria-label.
+    expect(menuButton).toHaveAttribute('aria-label', 'Open navigation');
     expect(menuButton).toHaveAttribute('aria-controls', 'main-nav');
     expect(menuButton).toHaveAttribute('aria-expanded', 'false');
     expect(menuButton.textContent).not.toMatch(/[☰×]/);
@@ -146,10 +149,10 @@ describe('public landing page', () => {
 
     fireEvent.click(menuButton);
     expect(menuButton).toHaveAttribute('aria-expanded', 'true');
-    expect(screen.getByRole('button', { name: 'Close navigation' })).toBe(menuButton);
+    expect(menuButton).toHaveAttribute('aria-label', 'Close navigation');
 
     fireEvent.click(headerToggle(container));
-    expect(screen.getByRole('button', { name: 'إغلاق قائمة التنقل' })).toBe(menuButton);
+    expect(menuButton).toHaveAttribute('aria-label', 'إغلاق قائمة التنقل');
     expect(menuButton.textContent).not.toMatch(/[☰×]/);
   });
 

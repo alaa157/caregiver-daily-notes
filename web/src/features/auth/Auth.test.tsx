@@ -84,6 +84,7 @@ describe('caregiver authentication', () => {
 
   it('does not apply the signup password minimum to login', async () => {
     fetcher.mockResolvedValue(jsonResponse({ token: testToken() }));
+    renderApp();
     await fillAndSubmit('caregiver@example.com', 'old');
     await screen.findByRole('heading', { name: 'Caregiver workspace' });
 

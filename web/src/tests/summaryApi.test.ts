@@ -50,7 +50,7 @@ describe('BYOK summary request', () => {
     const result = await createSummaryApi(createApiClient({ apiBaseUrl: '' }, fetcher)).generateByok(byokRequest);
 
     expect(result).toEqual(readSummaryResponse(summaryFixture()));
-    expect(Object.keys(result).sort()).toEqual(['invalidContent', 'safety', 'summary', 'trends']);
+    expect(Object.keys(result).sort()).toEqual(['daysWithNotes', 'invalidContent', 'periodDays', 'safety', 'summary', 'trends']);
     expect(JSON.stringify(result)).not.toContain(byokCredentials.apiKey);
   });
 

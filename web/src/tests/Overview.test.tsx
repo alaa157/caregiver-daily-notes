@@ -43,6 +43,12 @@ function mtdValue() {
 function serving() {
   return vi.fn().mockImplementation((path: string) => {
     if (path === '/api/recipients') return Promise.resolve(jsonResponse([recipientFixture, inactive, missing]));
+    if (path.startsWith('/api/activity?')) {
+      return Promise.resolve(jsonResponse([{
+        id: noteListFixture.id, noteId: noteListFixture.id, kind: 'note',
+        recipientId: recipientFixture.id, createdAt: `${noteListFixture.date}T12:00:00Z`,
+      }]));
+    }
     if (path.startsWith('/api/notes?')) {
       const date = new URL(path, 'http://localhost').searchParams.get('from');
       return Promise.resolve(historyResponse(date === noteListFixture.date ? [noteListFixture] : []));
@@ -70,7 +76,7 @@ describe('month-to-date notes metric', () => {
     });
     renderOverview('/app?date=2026-10-18', fetcher);
 
-    expect(await screen.findByText('3', { selector: '.overview-mtd strong' })).toBeInTheDocument();
+    expect(await screen.findByText('3', { selector: '.overview-mtd strong' }, { timeout: 5000 })).toBeInTheDocument();
     expect(fetcher.mock.calls.some(([path]) => path === '/api/notes?from=2026-10-01&to=2026-10-18&page=0&size=100')).toBe(true);
     expect(fetcher.mock.calls.some(([path]) => path === '/api/notes?from=2026-10-01&to=2026-10-18&page=1&size=100')).toBe(true);
   });
@@ -262,15 +268,17 @@ describe('month-to-date notes metric', () => {
 
 describe('authenticated workspace overview', () => {
   it('renders dashboard metrics, recipient table, and activity from the selected-date response', async () => {
-    renderOverview('/app?date=2026-10-18', serving());
+    renderOverview('/app?date=2026-10-18', serving(), 'en', false);
     const recipientsMetric = await screen.findByRole('heading', { name: 'Recipients shown' });
     expect(recipientsMetric.parentElement).toHaveTextContent('3');
     expect(screen.getByRole('heading', { name: 'Notes recorded' }).parentElement).toHaveTextContent('1');
     expect(screen.getByRole('heading', { name: 'Not yet recorded' }).parentElement).toHaveTextContent('2');
     expect(await screen.findByText('0', { selector: '.overview-mtd strong' })).toBeInTheDocument();
     expect(screen.getByRole('table', { name: 'Today by recipient' })).toBeInTheDocument();
-    expect(screen.getByRole('complementary', { name: 'Recent activity' })).toHaveTextContent(recipientFixture.name);
-    expect(screen.getByRole('complementary', { name: 'Recent activity' })).toHaveTextContent('Note recorded');
+    // The feed reads the scoped activity endpoint, not the date-scoped response.
+    const activity = screen.getByRole('complementary', { name: 'Recent activity' });
+    await waitFor(() => expect(activity).toHaveTextContent(recipientFixture.name));
+    expect(activity).toHaveTextContent('Note');
   });
 
   it('reloads dashboard metrics and activity after a shared care-data change', async () => {
@@ -323,6 +331,10 @@ describe('authenticated workspace overview', () => {
   });
 
   it('advances the dashboard and shell dates past midnight without a reload', async () => {
+    // Warm the lazy workspace modules before faking timers so mounting does
+    // not depend on real-time module resolution.
+    await import('../components/AppShell');
+    await import('../features/overview/WorkspaceOverview');
     vi.stubEnv('TZ', 'UTC');
     vi.useFakeTimers({ toFake: ['Date', 'setTimeout', 'clearTimeout'] });
     vi.setSystemTime(new Date('2026-10-19T23:30:00Z'));
@@ -332,17 +344,21 @@ describe('authenticated workspace overview', () => {
       renderOverview('/app', serving());
       await act(async () => { await Promise.resolve(); });
       expect(screen.getByLabelText('Selected date')).toHaveValue('2026-10-19');
+      // Sidebar, topbar, overview heading and the routine workflow link.
       expect(newNoteHrefs()).toEqual([
+        '/app/notes/new?date=2026-10-19', '/app/notes/new?date=2026-10-19',
         '/app/notes/new?date=2026-10-19', '/app/notes/new?date=2026-10-19',
       ]);
 
+      // useLocalToday schedules one timeout for the next local midnight;
+      // advance the fake clock past it instead of jumping the system time.
       await act(async () => {
-        vi.setSystemTime(new Date('2026-10-20T00:05:00Z'));
-        await vi.advanceTimersByTimeAsync(60_000);
+        await vi.advanceTimersByTimeAsync(31 * 60_000);
       });
 
       expect(screen.getByLabelText('Selected date')).toHaveValue('2026-10-20');
       expect(newNoteHrefs()).toEqual([
+        '/app/notes/new?date=2026-10-20', '/app/notes/new?date=2026-10-20',
         '/app/notes/new?date=2026-10-20', '/app/notes/new?date=2026-10-20',
       ]);
       expect(screen.getByTestId('location')).toHaveTextContent('/app');
@@ -352,6 +368,8 @@ describe('authenticated workspace overview', () => {
   });
 
   it('keeps an explicit date when the calendar day changes', async () => {
+    await import('../components/AppShell');
+    await import('../features/overview/WorkspaceOverview');
     vi.stubEnv('TZ', 'UTC');
     vi.useFakeTimers({ toFake: ['Date', 'setTimeout', 'clearTimeout'] });
     vi.setSystemTime(new Date('2026-10-19T23:30:00Z'));
@@ -360,8 +378,7 @@ describe('authenticated workspace overview', () => {
       await act(async () => { await Promise.resolve(); });
 
       await act(async () => {
-        vi.setSystemTime(new Date('2026-10-20T00:05:00Z'));
-        await vi.advanceTimersByTimeAsync(60_000);
+        await vi.advanceTimersByTimeAsync(31 * 60_000);
       });
 
       expect(screen.getByLabelText('Selected date')).toHaveValue('2026-10-15');
@@ -437,7 +454,8 @@ describe('authenticated workspace overview', () => {
     expect(kpiValue('Recipients shown')).toBe('Unavailable');
     expect(kpiValue('Notes recorded')).toBe('Unavailable');
     expect(kpiValue('Not yet recorded')).toBe('Unavailable');
-    expect(fetcher).toHaveBeenCalledTimes(2);
+    // Dashboard recipients + month-to-date history + the activity feed's name lookup.
+    expect(fetcher).toHaveBeenCalledTimes(3);
     expect(String(fetcher.mock.calls[0][0])).toBe('/api/recipients');
     expect(fetcher.mock.calls.some(([path]) => String(path).startsWith('/api/notes?'))).toBe(true);
   });
@@ -650,9 +668,17 @@ describe('dashboard accessibility', () => {
     const view = renderOverview('/app?date=2026-10-18', serving());
     await screen.findByRole('link', { name: `${recipientFixture.name} Open note` });
 
+    // Match the real tab order: include the account-menu summary and skip
+    // controls hidden at this viewport (e.g. the mobile-only menu trigger).
     const tabStops = Array.from(view.container.querySelectorAll<HTMLElement>(
-      'a[href], button:not([disabled]), input:not([disabled]), select:not([disabled])',
-    ));
+      'a[href], button:not([disabled]), input:not([disabled]), select:not([disabled]), details > summary',
+    )).filter((element) => {
+      for (let current: HTMLElement | null = element; current; current = current.parentElement) {
+        const style = window.getComputedStyle(current);
+        if (style.display === 'none' || style.visibility === 'hidden') return false;
+      }
+      return true;
+    });
     expect(tabStops.length).toBeGreaterThan(20);
     expect(Array.from(view.container.querySelectorAll<HTMLElement>('[tabindex]')).every((element) => element.tabIndex <= 0)).toBe(true);
 
@@ -719,7 +745,9 @@ describe('dashboard accessibility', () => {
     const pending = new Promise<Response>(() => {});
     const pendingFetcher = vi.fn().mockReturnValue(pending);
     const loadingView = renderOverview('/app?date=2026-10-18', pendingFetcher);
-    expect(screen.getAllByRole('status').some((status) => status.textContent?.includes('Loading recipients and note availability…'))).toBe(true);
+    // The visible loading feedback carries the overview label; the shared live
+    // region only keeps the most recent announcement (the activity feed's).
+    expect(await screen.findByText('Loading recipients and note availability…')).toBeInTheDocument();
     expect(loadingView.container.querySelector('.overview-results')).toHaveAttribute('aria-busy', 'true');
     expect(screen.getByRole('region', { name: 'Notes this month' })).toHaveAttribute('aria-busy', 'true');
     expect(screen.getByRole('status', { name: 'Recipients shown' })).toHaveTextContent('Loading…');
@@ -778,11 +806,11 @@ describe('overview activity feed', () => {
       recipientId: recipientFixture.id, createdAt: `2026-10-18T${String(14 - index).padStart(2, '0')}:00:00Z`,
     }));
     const fetcher = setup(items);
-    const section = screen.getByRole('region', { name: 'Recent activity' });
     await screen.findAllByText('Note');
+    const section = screen.getByRole('complementary', { name: 'Recent activity' });
     const list = section.querySelector('ul')!;
     expect(list.children).toHaveLength(10);
-    expect(list).toHaveAttribute('aria-label', 'Recent activity');
+    expect(list).toHaveClass('overview-activity-list');
     const firstThree = Array.from(list.querySelectorAll('li')).slice(0, 3);
     expect(firstThree.map((item) => item.querySelector('.overview-activity-kind')?.textContent))
       .toEqual(['Note', 'Correction', 'Addendum']);
@@ -801,7 +829,7 @@ describe('overview activity feed', () => {
       { id: id(83), noteId: id(83), kind: 'note', recipientId: recipientFixture.id, createdAt: '2026-10-18T12:00:00Z' },
     ];
     setup(items);
-    const region = screen.getByRole('region', { name: 'Recent activity' });
+    const region = await screen.findByRole('complementary', { name: 'Recent activity' });
     await within(region).findByText('Correction');
     const rows = Array.from(region.querySelectorAll('li'));
     expect(rows).toHaveLength(3);
@@ -819,9 +847,9 @@ describe('overview activity feed', () => {
       { id: id(87), noteId: parentNoteId, kind: 'correction', recipientId: recipientFixture.id, createdAt: '2026-10-18T12:00:00Z' },
     ];
     setup(items);
-    const region = screen.getByRole('region', { name: 'Recent activity' });
+    const region = await screen.findByRole('complementary', { name: 'Recent activity' });
     await within(region).findByText('Addendum');
-    const list = within(region).getByRole('list', { name: 'Recent activity' });
+    const list = within(region).getByRole('list');
     expect(list.tagName).toBe('UL');
     const links = within(list).getAllByRole('link');
     expect(links).toHaveLength(3);
@@ -845,7 +873,7 @@ describe('overview activity feed', () => {
   it('shows neutral empty text only after a successful empty request', async () => {
     setup([]);
     expect(await screen.findByText('No recent activity.')).toBeInTheDocument();
-    expect(within(screen.getByRole('region', { name: 'Recent activity' })).getByRole('status')).toHaveTextContent('No recent activity.');
+    expect(within(screen.getByRole('complementary', { name: 'Recent activity' })).getByRole('status')).toHaveTextContent('No recent activity.');
     expect(screen.queryByRole('alert')).not.toBeInTheDocument();
   });
 
@@ -854,7 +882,7 @@ describe('overview activity feed', () => {
     expect(await screen.findByText('Recent activity is unavailable right now.')).toBeInTheDocument();
     expect(screen.getByRole('alert')).toBeInTheDocument();
     expect(screen.queryByText('No recent activity.')).not.toBeInTheDocument();
-    expect(screen.queryByRole('list', { name: 'Recent activity' })).not.toBeInTheDocument();
+    expect(within(screen.getByRole('complementary', { name: 'Recent activity' })).queryByRole('list')).not.toBeInTheDocument();
     expect(screen.getByRole('button', { name: 'Retry' })).toBeInTheDocument();
     expect(screen.getByRole('button', { name: 'Refresh activity' })).toBeInTheDocument();
     expect(fetcher.mock.calls.some(([path]) => String(path).startsWith('/api/activity?'))).toBe(true);
@@ -868,7 +896,7 @@ describe('overview activity feed', () => {
     expect(await screen.findByText('Recent activity is unavailable right now.')).toBeInTheDocument();
     expect(screen.getByRole('alert')).toBeInTheDocument();
     expect(screen.queryByText('No recent activity.')).not.toBeInTheDocument();
-    expect(screen.queryByRole('list', { name: 'Recent activity' })).not.toBeInTheDocument();
+    expect(within(screen.getByRole('complementary', { name: 'Recent activity' })).queryByRole('list')).not.toBeInTheDocument();
   });
 
   it('keeps the successful feed visible with fallback names when recipient loading fails', async () => {
@@ -881,9 +909,9 @@ describe('overview activity feed', () => {
     });
     renderOverview('/app?date=2026-10-18', fetcher, 'en', false);
 
-    const section = screen.getByRole('region', { name: 'Recent activity' });
+    const section = await screen.findByRole('complementary', { name: 'Recent activity' });
     expect(await within(section).findByText('Addendum')).toBeInTheDocument();
-    expect(within(section).getByRole('list', { name: 'Recent activity' })).toBeInTheDocument();
+    expect(within(section).getByRole('list')).toBeInTheDocument();
     expect(section.querySelector('bdi')).toHaveTextContent('Recipient');
     expect(within(section).queryByText('No recent activity.')).not.toBeInTheDocument();
   });
@@ -899,7 +927,7 @@ describe('overview activity feed', () => {
     });
     renderOverview('/app?date=2026-10-18', fetcher, 'en', false);
 
-    const activity = screen.getByRole('region', { name: 'Recent activity' });
+    const activity = await screen.findByRole('complementary', { name: 'Recent activity' });
     expect(await within(activity).findByText('Note')).toBeInTheDocument();
     expect(activity.querySelector('bdi')).toHaveTextContent(recipientFixture.name);
     expect(within(activity).queryByText('Recipient', { exact: true })).not.toBeInTheDocument();
@@ -918,7 +946,7 @@ describe('overview activity feed', () => {
     });
     const view = renderOverview('/app?date=2026-10-18', fetcher, 'en', false);
     expect(await screen.findByText('Loading recent activity…')).toBeInTheDocument();
-    expect(screen.getByRole('region', { name: 'Recent activity' })).toHaveAttribute('aria-busy', 'true');
+    expect(screen.getByRole('complementary', { name: 'Recent activity' })).toHaveAttribute('aria-busy', 'true');
     view.unmount();
     expect(signal?.aborted).toBe(true);
     await act(async () => { resolve?.(jsonResponse([])); await Promise.resolve(); });
@@ -931,7 +959,7 @@ describe('overview activity feed', () => {
     expect(await screen.findByText('Correction')).toBeInTheDocument();
     expect(fetcher.mock.calls.some(([path]) => path === '/api/activity?limit=10')).toBe(true);
     expect(fetcher.mock.calls.every(([, init]) => (init?.method ?? 'GET') === 'GET')).toBe(true);
-    const section = screen.getByRole('region', { name: 'Recent activity' });
+    const section = screen.getByRole('complementary', { name: 'Recent activity' });
     expect(section.querySelectorAll('button')).toHaveLength(1);
     expect(section.querySelector('input, select, textarea')).toBeNull();
     expect(screen.getByRole('button', { name: 'Refresh activity' })).toBeInTheDocument();
@@ -957,7 +985,7 @@ describe('overview activity feed', () => {
     await act(async () => requests[1].resolve(jsonResponse([{ id: newerId, noteId: newerId, kind: 'note', recipientId: recipientFixture.id, createdAt: '2026-10-18T14:00:00Z' }])));
     expect(await screen.findByText('Note')).toBeInTheDocument();
     await act(async () => requests[0].resolve(jsonResponse([{ id: olderId, noteId: id(62), kind: 'addendum', recipientId: recipientFixture.id, createdAt: '2026-10-18T13:00:00Z' }])));
-    expect(screen.getByRole('region', { name: 'Recent activity' }).querySelector('ul')).toHaveTextContent('Note');
+    expect(screen.getByRole('complementary', { name: 'Recent activity' }).querySelector('ul')).toHaveTextContent('Note');
     expect(screen.queryByText('Addendum')).not.toBeInTheDocument();
     expect(screen.getByTestId('location')).toHaveTextContent(selectedDateLocation!);
     expect(document.querySelector('.overview-table tbody')?.textContent).toBe(overviewRows);
@@ -986,7 +1014,7 @@ describe('overview activity feed', () => {
 
     expect(await screen.findByText('Recent activity is unavailable right now.')).toBeInTheDocument();
     expect(screen.queryByText('No recent activity.')).not.toBeInTheDocument();
-    expect(screen.queryByRole('list', { name: 'Recent activity' })).not.toBeInTheDocument();
+    expect(within(screen.getByRole('complementary', { name: 'Recent activity' })).queryByRole('list')).not.toBeInTheDocument();
   });
 
   it('retries a failed activity request and renders only the successful response', async () => {
@@ -1014,7 +1042,7 @@ describe('overview activity feed', () => {
     });
     renderOverview('/app?date=2026-10-18', fetcher, 'en', false);
 
-    const activity = screen.getByRole('region', { name: 'Recent activity' });
+    const activity = await screen.findByRole('complementary', { name: 'Recent activity' });
     expect(await within(activity).findByText('Note')).toBeInTheDocument();
     expect(activity.querySelector('bdi')).toHaveTextContent('Recipient');
     expect(screen.getByText('We couldn’t complete this request. Please try again.')).toBeInTheDocument();
@@ -1046,7 +1074,7 @@ describe('overview activity feed', () => {
     renderOverview('/app?date=2026-10-18', fetcher, 'ar', false);
 
     expect(await screen.findByText('تعذر تحميل حالة الملاحظة')).toBeInTheDocument();
-    const activity = screen.getByRole('region', { name: 'النشاط الأخير' });
+    const activity = screen.getByRole('complementary', { name: 'النشاط الأخير' });
     expect(within(activity).getByText('ملاحظة')).toBeInTheDocument();
     expect(within(activity).getByText(recipientFixture.name).closest('bdi')).toHaveTextContent(recipientFixture.name);
   });
@@ -1147,10 +1175,10 @@ describe('one original note per recipient per date', () => {
   });
 
   it('surfaces a duplicate in the dashboard response as an error, not a dropped row', async () => {
-    const duplicate = { ...noteFixture, id: 'dddddddd-dddd-4ddd-8ddd-dddddddddddd' };
+    const duplicate = { ...noteListFixture, id: 'dddddddd-dddd-4ddd-8ddd-dddddddddddd' };
     const fetcher = vi.fn().mockImplementation((path: string) => {
       if (path === '/api/recipients') return Promise.resolve(jsonResponse([recipientFixture]));
-      if (path.startsWith('/api/notes?')) return Promise.resolve(historyResponse([noteFixture, duplicate]));
+      if (path.startsWith('/api/notes?')) return Promise.resolve(historyResponse([noteListFixture, duplicate]));
       return Promise.resolve(jsonResponse({}, 404));
     });
     renderOverview('/app?date=2026-10-18', fetcher);

@@ -34,9 +34,11 @@ describe('logout call sites', () => {
   });
 
   it('passes no click event to logout from the desktop sign-out button', async () => {
-    renderApp('/login');
+    // The shell header (with the desktop sign-out) no longer renders on auth or
+    // workspace routes; a public shell route still exposes it.
+    renderApp('/page-that-does-not-exist');
 
-    await user.click(screen.getByRole('button', { name: 'Sign out' }));
+    await user.click(await screen.findByRole('button', { name: 'Sign out' }));
 
     expect(logout).toHaveBeenCalledTimes(1);
     expect(logout).toHaveBeenCalledWith();
@@ -44,9 +46,9 @@ describe('logout call sites', () => {
 
   it('passes no click event to logout from the account menu sign-out button', async () => {
     renderApp('/app');
-    await user.click(screen.getByText('Account'));
+    await user.click(await screen.findByText('Account'));
 
-    await user.click(screen.getByRole('button', { name: 'Sign out' }));
+    await user.click(await screen.findByRole('button', { name: 'Sign out' }));
 
     expect(logout).toHaveBeenCalledTimes(1);
     expect(logout).toHaveBeenCalledWith();

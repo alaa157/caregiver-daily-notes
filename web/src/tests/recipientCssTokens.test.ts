@@ -9,11 +9,14 @@ const recipientsCss = read('web/src/features/recipients/recipients.css');
 const tokensCss = read('docs/design-system/tokens.css').replace(/\/\*[\s\S]*?\*\//g, '');
 
 const HEX = /#[0-9a-fA-F]{3,8}/g;
-/** Recorded counts for stylesheets this issue does not change; the guard stops growth. */
+/** Recorded counts for stylesheets this issue does not change; the guard stops growth.
+ * Re-recorded after the auth-screen (#959) and landing-page (#958) ports, which
+ * intentionally carry their own palette literals. */
 const baselineHexCounts: Record<string, number> = {
   'ai/ai-settings.css': 2,
-  'auth/auth.css': 11,
+  'auth/auth.css': 29,
   'history/history.css': 9,
+  'landing/landing.css': 87,
   'notes/notes.css': 51,
   'plans/plans.css': 13,
   'recipients/recipients.css': 0,
@@ -32,9 +35,16 @@ function tokenValue(blockSelector: string, token: string): string {
   const start = tokensCss.indexOf(blockSelector + ' {');
   expect(start).toBeGreaterThanOrEqual(0);
   const block = tokensCss.slice(start, tokensCss.indexOf('}', start));
-  const match = block.match(new RegExp(`${token}\\s*:\\s*(#[0-9a-fA-F]{3,8})`));
+  const match = block.match(new RegExp(`${token}\\s*:\\s*([^;]+)`));
   if (!match) throw new Error(`${token} missing in ${blockSelector}`);
-  return match[1];
+  const value = match[1].trim();
+  // Theme blocks alias the raw palette through var(--dark-…); resolve one level.
+  const reference = value.match(/^var\((--[^)]+)\)$/);
+  const hex = (reference ? tokensCss : value).match(
+    reference ? new RegExp(`${reference[1]}\\s*:\\s*(#[0-9a-fA-F]{3,8})`) : /^(#[0-9a-fA-F]{3,8})$/,
+  );
+  if (!hex) throw new Error(`${token} has no hex value in ${blockSelector}`);
+  return hex[1];
 }
 
 function luminance(hex: string): number {

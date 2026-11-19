@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { render, screen, waitFor, within } from '@testing-library/react';
+import { fireEvent, render, screen, waitFor, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { describe, expect, it, vi } from 'vitest';
 import { ApiProvider } from '../../lib/api';
@@ -189,7 +189,9 @@ describe('AI settings model picker', () => {
     renderDialog();
     await openDialog(user);
 
-    await user.click(screen.getByRole('button', { name: 'Test connection' }));
+    // The key input is `required`, so a real button click is stopped by native
+    // constraint validation; dispatch submit to exercise the guarded handler.
+    fireEvent.submit(screen.getByRole('button', { name: 'Test connection' }).closest('form')!);
 
     expect(screen.getByText('Choose a model or enter a model ID.')).toBeInTheDocument();
     expect(screen.getByRole('radiogroup', { name: 'Model' }))

@@ -27,7 +27,7 @@ const dashboardKeys = [
   'dashboard', 'dashboardTitle', 'overviewDescription', 'overviewMtdLabel',
   'overviewMtdLoading', 'overviewMtdError', 'overviewLoading', 'overviewKpisTitle',
   'overviewKpiRecipients', 'overviewKpiRecorded', 'overviewKpiNotRecorded', 'overviewKpiUnavailable',
-  'overviewRecipientStatus', 'overviewNoRecipients', 'overviewNoteRecorded', 'overviewNoNote',
+  'overviewRecipientStatus', 'overviewTodayByRecipient', 'overviewNoRecipients', 'overviewNoteRecorded', 'overviewNoNote',
   'overviewOpenNote', 'overviewRecordNote', 'overviewNoteStatusUnavailable',
   'overviewMissingIsNotNegative', 'overviewPartialData', 'overviewMoreWorkflows',
   'overviewQuickActions', 'overviewPeopleHint', 'overviewNotesHint', 'overviewHistoryHint',
@@ -112,9 +112,9 @@ describe('dashboard locale switching', () => {
     expect(screen.getByRole('heading', { name: messages.ar.overviewKpisTitle })).toBeInTheDocument();
     expect(screen.getByRole('heading', { name: messages.ar.overviewKpiRecipients })).toBeInTheDocument();
     expect(screen.getByRole('region', { name: messages.ar.overviewMtdLabel })).toBeInTheDocument();
-    expect(screen.getByRole('region', { name: messages.ar.activityFeedTitle })).toBeInTheDocument();
+    expect(screen.getByRole('complementary', { name: messages.ar.activityFeedTitle })).toBeInTheDocument();
     expect(screen.getByRole('button', { name: messages.ar.activityFeedRefresh })).toBeInTheDocument();
-    expect(screen.getByRole('heading', { name: messages.ar.overviewRecipientStatus })).toBeInTheDocument();
+    expect(screen.getByRole('heading', { name: messages.ar.overviewTodayByRecipient })).toBeInTheDocument();
     expect(screen.getByText(messages.ar.overviewNoteRecorded)).toBeInTheDocument();
     expect(screen.getByText(messages.ar.overviewOpenNote)).toBeInTheDocument();
     expect(screen.getByText(messages.ar.overviewMissingIsNotNegative)).toBeInTheDocument();
@@ -124,7 +124,7 @@ describe('dashboard locale switching', () => {
     const dashboard = document.querySelector('.workspace-overview') as HTMLElement;
     const englishCopy: string[] = [messages.en.dashboardTitle, messages.en.overviewDescription,
       messages.en.overviewKpisTitle, messages.en.overviewKpiRecipients, messages.en.overviewMtdLabel,
-      messages.en.activityFeedTitle, messages.en.activityFeedRefresh, messages.en.overviewRecipientStatus,
+      messages.en.activityFeedTitle, messages.en.activityFeedRefresh, messages.en.overviewTodayByRecipient,
       messages.en.overviewNoteRecorded, messages.en.overviewOpenNote, messages.en.overviewMissingIsNotNegative,
       messages.en.overviewQuickActions];
     for (const english of englishCopy) {
@@ -140,7 +140,7 @@ describe('dashboard locale switching', () => {
   it('renders the Arabic activity feed, KPI labels, and states' , async () => {
     renderDashboard({ language: 'ar', activity: arActivity });
     expect(await screen.findByRole('heading', { name: messages.ar.dashboardTitle })).toBeInTheDocument();
-    const activity = screen.getByRole('region', { name: messages.ar.activityFeedTitle });
+    const activity = await screen.findByRole('complementary', { name: messages.ar.activityFeedTitle });
     expect(await within(activity).findByText(messages.ar.activityKindNote)).toBeInTheDocument();
     expect(within(activity).getByRole('button', { name: messages.ar.activityFeedRefresh })).toBeInTheDocument();
     expect(screen.getByRole('heading', { name: messages.ar.overviewKpiRecorded })).toBeInTheDocument();
@@ -187,7 +187,7 @@ describe('dashboard direction', () => {
 describe('dashboard mixed-direction isolation', () => {
   it('isolates a Latin recipient name inside Arabic UI', async () => {
     renderDashboard({ language: 'ar', activity: arActivity });
-    const activity = screen.getByRole('region', { name: messages.ar.activityFeedTitle });
+    const activity = await screen.findByRole('complementary', { name: messages.ar.activityFeedTitle });
     await within(activity).findByText(messages.ar.activityKindNote);
     expect(within(activity).getByText(recipientFixture.name).closest('bdi')).toHaveTextContent(recipientFixture.name);
     const card = screen.getByRole('heading', { name: recipientFixture.name, level: 3 });
@@ -198,7 +198,7 @@ describe('dashboard mixed-direction isolation', () => {
     const arabicRecipient = { ...recipientFixture, name: 'سامر حسن', relationship: 'الأب' };
     const activity = [{ id: activityId, noteId: activityId, kind: 'note', recipientId: arabicRecipient.id, createdAt: '2026-10-18T13:00:00Z' }];
     renderDashboard({ language: 'en', recipients: [arabicRecipient], activity });
-    const feed = screen.getByRole('region', { name: messages.en.activityFeedTitle });
+    const feed = await screen.findByRole('complementary', { name: messages.en.activityFeedTitle });
     await within(feed).findByText(messages.en.activityKindNote);
     expect(within(feed).getByText('سامر حسن').closest('bdi')).toHaveTextContent('سامر حسن');
     const card = screen.getByRole('heading', { name: 'سامر حسن', level: 3 });
@@ -212,7 +212,7 @@ describe('dashboard Arabic state semantics', () => {
     expect(await screen.findByText(messages.ar.activityFeedError)).toBeInTheDocument();
     // A failed feed must never be presented as an empty feed.
     expect(screen.queryByText(messages.ar.activityFeedEmpty)).not.toBeInTheDocument();
-    expect(screen.getByRole('region', { name: messages.ar.activityFeedTitle }).querySelector('ul')).toBeNull();
+    expect(screen.getByRole('complementary', { name: messages.ar.activityFeedTitle }).querySelector('ul')).toBeNull();
     // Unavailable is its own word, distinct from the empty-state wording.
     const ar: Record<string, string> = messages.ar;
     expect(ar.activityFeedError).not.toBe(ar.activityFeedEmpty);
@@ -221,7 +221,7 @@ describe('dashboard Arabic state semantics', () => {
 
   it('shows the Arabic empty activity message only after a successful empty response', async () => {
     renderDashboard({ language: 'ar', activity: [] });
-    const activity = screen.getByRole('region', { name: messages.ar.activityFeedTitle });
+    const activity = await screen.findByRole('complementary', { name: messages.ar.activityFeedTitle });
     expect(await within(activity).findByText(messages.ar.activityFeedEmpty)).toBeInTheDocument();
     expect(screen.queryByText(messages.ar.activityFeedError)).not.toBeInTheDocument();
   });
@@ -294,7 +294,7 @@ describe('dashboard locale-sensitive formatting', () => {
 
   it('keeps activity timestamps machine-readable in ISO form in Arabic', async () => {
     renderDashboard({ language: 'ar', activity: arActivity });
-    const activity = screen.getByRole('region', { name: messages.ar.activityFeedTitle });
+    const activity = await screen.findByRole('complementary', { name: messages.ar.activityFeedTitle });
     await within(activity).findByText(messages.ar.activityKindNote);
     const time = activity.querySelector('time') as HTMLTimeElement;
     expect(time.getAttribute('datetime')).toBe('2026-10-18T13:00:00Z');
@@ -309,7 +309,7 @@ describe('dashboard locale does not change navigation', () => {
       await screen.findByRole('link', { name: new RegExp(messages[language].overviewOpenNote) });
       const hrefs = Array.from(document.querySelectorAll('.workspace-overview a[href]'))
         .map((anchor) => anchor.getAttribute('href')).sort();
-      const openNote = document.querySelector('.overview-note-status a')?.getAttribute('href');
+      const openNote = document.querySelector('.overview-table-row .overview-row-action')?.getAttribute('href');
       const location = window.location.search;
       view.unmount();
       return { hrefs, openNote, location };

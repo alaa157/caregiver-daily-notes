@@ -474,9 +474,9 @@ describe('history screen, filters and immutable records', () => {
     expect(within(table).getByText('Recipient')).toBeInTheDocument();
     expect(table).not.toHaveTextContent(recipientFixture.id);
     expect(screen.getByRole('option', { name: 'Recipient' })).toBeInTheDocument();
-    expect(screen.getByRole('alert')).toHaveTextContent('names could not be loaded');
+    expect(within(screen.getByRole('region', { name: 'Notes history' })).getByRole('alert')).toHaveTextContent('names could not be loaded');
     failed = false;
-    await userEvent.click(screen.getByRole('button', { name: 'Retry' }));
+    await userEvent.click(within(screen.getByRole('region', { name: 'Notes history' })).getByRole('button', { name: 'Retry' }));
     expect(await screen.findByRole('article', { name: recipientFixture.name })).toBeInTheDocument();
     expect(within(screen.getByRole('table')).getByText(recipientFixture.name)).toBeInTheDocument();
     expect(screen.queryByRole('option', { name: 'Recipient' })).not.toBeInTheDocument();
@@ -503,7 +503,8 @@ describe('history screen, filters and immutable records', () => {
     const card = await loaded();
     expect(document.documentElement).toHaveAttribute('dir', 'rtl');
     expect(screen.getByRole('heading', { name: 'سجل الملاحظات' })).toBeInTheDocument();
-    const recipientName = within(card).getByText(recipientFixture.name, { exact: true });
+    // The recipient name now lives in its own table cell, outside the note card.
+    const recipientName = within(card.closest('tr')!).getByText(recipientFixture.name, { exact: true });
     expect(recipientName.tagName).toBe('BDI');
     const sourceId = within(card).getByText(historyNote.id, { exact: true });
     expect(sourceId.tagName).toBe('BDI');

@@ -39,6 +39,15 @@ function renderByokDialogUnderProvider(fetcher: unknown) {
   </ByokProvider></ApiProvider></I18nProvider></StatusAnnouncerProvider>);
 }
 
+/** The model picker is a catalog radio group; custom IDs go through Other. */
+async function pickCustomModel(user: ReturnType<typeof userEvent.setup>, model: string) {
+  await user.click(screen.getByRole('radio', { name: /Other/ }));
+  await user.type(screen.getByLabelText('Model ID'), model);
+}
+async function acknowledgeDataUse(user: ReturnType<typeof userEvent.setup>) {
+  await user.click(screen.getByRole('checkbox', { name: /I understand that my care notes/ }));
+}
+
 function AuthenticatedByokProbe() {
   const { credentials, setCredentials } = useByok();
   const api = useApiClient();
@@ -61,8 +70,10 @@ function renderByokLifecycle(fetcher: unknown) {
   localStorage.clear();
   sessionStorage.clear();
   sessionStorage.setItem('caregiver-auth-session-v1', JSON.stringify({ token: testToken(), baseUrl: '' }));
+  // A non-workspace shell route: the workspace chrome keeps sign-out in the
+  // account menu (AppLayout), while the shared header exposes the desktop button.
   return render(<I18nProvider><ApiProvider config={{ apiBaseUrl: '' }}><AuthProvider>
-    <MemoryRouter initialEntries={['/app']}><ThemeProvider><AppShell><ByokLifecycleHarness /></AppShell></ThemeProvider></MemoryRouter>
+    <MemoryRouter initialEntries={['/']}><ThemeProvider><AppShell><ByokLifecycleHarness /></AppShell></ThemeProvider></MemoryRouter>
   </AuthProvider></ApiProvider></I18nProvider>);
 }
 
@@ -181,19 +192,30 @@ describe('application foundation', () => {
     expect(navigation.getByRole('link', { name: 'How it works' })).toHaveAttribute('href', '#how');
     expect(window.scrollTo).not.toHaveBeenCalled();
 
-    await user.click(screen.getAllByRole('link', { name: 'Sign in' })[0]);
+    // The shell focuses main on client-side navigation, detected through the
+    // router's history index. MemoryRouter keeps its own history, so emulate
+    // the index a BrowserRouter push would have written.
+    const previousHistoryState = window.history.state;
+    window.history.replaceState({ idx: 1 }, '');
+    try {
+      await user.click(screen.getAllByRole('link', { name: 'Sign in' })[0]);
 
-    expect(screen.getByRole('heading', { level: 1, name: 'Caregiver sign in' })).toBeInTheDocument();
-    expect(screen.getByRole('main')).toHaveFocus();
-    expect(window.scrollTo).toHaveBeenCalledTimes(1);
-    expect(window.scrollTo).toHaveBeenCalledWith(expect.objectContaining({ top: 0 }));
-    expect(document.title).toBe('Caregiver sign in · Rafeek');
+      expect(await screen.findByRole('heading', { level: 1, name: 'Caregiver sign in' })).toBeInTheDocument();
+      expect(screen.getByRole('main')).toHaveFocus();
+      expect(window.scrollTo).toHaveBeenCalledTimes(1);
+      expect(window.scrollTo).toHaveBeenCalledWith(expect.objectContaining({ top: 0 }));
+      expect(document.title).toBe('Caregiver sign in · Rafeek');
+    } finally {
+      window.history.replaceState(previousHistoryState, '');
+    }
 
     await user.click(screen.getByRole('link', { name: 'Return home' }));
 
-    expect(screen.getByRole('heading', { level: 1, name: 'The little details are the story of care.' })).toBeInTheDocument();
-    expect(screen.getByRole('main')).toHaveFocus();
-    expect(window.scrollTo).toHaveBeenCalledTimes(2);
+    expect(await screen.findByRole('heading', { level: 1, name: 'The little details are the story of care.' })).toBeInTheDocument();
+    // The landing route is self-contained now: it owns its main landmark but
+    // no longer auto-focuses it on entry (the skip link remains the focus path).
+    expect(screen.getByRole('main')).toHaveAttribute('id', 'main-content');
+    expect(window.scrollTo).toHaveBeenCalledTimes(1);
     expect(document.title).toBe('Home · Rafeek');
   });
   it('provides a focusable main landmark as the skip-link target', () => {
@@ -244,63 +266,57 @@ describe('application foundation', () => {
     expect(screen.getAllByRole('button', { name: 'التبديل إلى الإنجليزية' })[0].querySelector('span')).toHaveAttribute('lang', 'en');
   });
 
-  it('shows four authenticated workspace destinations', async () => {
+  it('shows the authenticated workspace destinations', async () => {
     const user = userEvent.setup();
     renderAuthenticatedRoute('/app', vi.fn().mockResolvedValue(jsonResponse([])));
-    const navigation = screen.getByRole('navigation', { name: 'Main navigation' });
-    const primary = within(navigation).getByRole('group', { name: 'Workspace navigation' });
+    const navigation = await screen.findByRole('navigation', { name: 'Application navigation' });
 
-    expect(within(primary).getAllByRole('link').map((link) => [link.textContent, link.getAttribute('href')])).toEqual([
-      ['Home', '/app'],
-      ['People', '/app/recipients'],
-      ['Notes', '/app/notes/new'],
-      ['History', '/app/notes'],
+    expect(within(navigation).getAllByRole('link').map((link) => [link.textContent, link.getAttribute('href')])).toEqual([
+      ['Overview', '/app'],
+      ['Recipients', '/app/recipients'],
+      ['Record a daily note', expect.stringContaining('/app/notes/new?date=')],
+      ['Notes', '/app/notes'],
+      ['Summaries', '/app/notes/summary'],
+      ['Plans', '/app/notes/plans'],
     ]);
     expect(navigation.querySelector('a[href="/"]')).toBeNull();
-    expect(within(primary).getByRole('link', { name: 'Home' })).toHaveAttribute('aria-current', 'page');
-    expect(screen.getByRole('link', { name: 'AI summary & safety' })).toHaveAttribute('href', '/app/notes/summary');
+    expect(within(navigation).getByRole('link', { name: 'Overview' })).toHaveAttribute('aria-current', 'page');
 
     await user.click(screen.getByRole('button', { name: 'التغيير إلى العربية' }));
-    const arabicPrimary = within(navigation).getByRole('group', { name: 'قائمة مساحة العمل' });
-    expect(within(arabicPrimary).getAllByRole('link').map((link) => link.textContent)).toEqual([
-      'الرئيسية', 'المستفيدون', 'الملاحظات', 'سجل الملاحظات',
+    expect(within(navigation).getAllByRole('link').map((link) => link.textContent)).toEqual([
+      'نظرة عامة', 'المستفيدون', 'تسجيل ملاحظة يومية', 'الملاحظات', 'الملخصات', 'الخطط',
     ]);
   });
 
-  it('keeps plans outside primary navigation', () => {
+  it('keeps plans and settings outside the primary workflow links', async () => {
     renderAuthenticatedRoute('/app', vi.fn().mockResolvedValue(jsonResponse([])));
-    const navigation = screen.getByRole('navigation', { name: 'Main navigation' });
-    const primary = within(navigation).getByRole('group', { name: 'Workspace navigation' });
-    const secondary = within(navigation).getByRole('group', { name: 'Additional workspace links' });
-    const plans = within(secondary).getByRole('link', { name: 'Care plans' });
-    const settings = within(secondary).getByRole('link', { name: 'Settings' });
+    const navigation = await screen.findByRole('navigation', { name: 'Application navigation' });
+    const plans = within(navigation).getByRole('link', { name: 'Plans' });
 
-    expect(within(primary).getAllByRole('link')).toHaveLength(4);
-    expect(within(primary).queryByRole('link', { name: 'Care plans' })).not.toBeInTheDocument();
     expect(plans).toHaveAttribute('href', '/app/notes/plans');
-    expect(settings).toHaveAttribute('href', '/app/settings');
-    expect(primary.contains(plans)).toBe(false);
-    expect(primary.contains(settings)).toBe(false);
+    // Settings lives in the account menu, not in the sidebar navigation.
+    expect(within(navigation).queryByRole('link', { name: 'Settings' })).not.toBeInTheDocument();
+    expect(screen.getByRole('link', { name: 'Settings' })).toHaveAttribute('href', '/app/settings');
   });
 
   it.each([
-    { path: '/app', activeLabel: 'Home' },
-    { path: '/app/recipients', activeLabel: 'People' },
-    { path: `/app/recipients/${recipientFixture.id}`, activeLabel: 'People' },
-    { path: `/app/recipients/${recipientFixture.id}/edit`, activeLabel: 'People' },
+    { path: '/app', activeLabel: 'Overview' },
+    { path: '/app/recipients', activeLabel: 'Recipients' },
+    { path: `/app/recipients/${recipientFixture.id}`, activeLabel: 'Recipients' },
+    { path: `/app/recipients/${recipientFixture.id}/edit`, activeLabel: 'Recipients' },
     { path: '/app/notes/new', activeLabel: 'Notes' },
-    { path: '/app/notes', activeLabel: 'History' },
-    { path: '/app/notes/history', activeLabel: 'History' },
-    { path: `/app/notes/${noteFixture.id}`, activeLabel: 'History' },
-    { path: `/app/notes/${noteFixture.id}/addenda/new`, activeLabel: 'History' },
-    { path: '/app/notes/summary' },
-    { path: '/app/notes/plans' },
-  ])('marks only the appropriate workspace destination active on $path', ({ path, activeLabel }) => {
+    { path: '/app/notes', activeLabel: 'Notes' },
+    { path: '/app/notes/history', activeLabel: 'Notes' },
+    { path: `/app/notes/${noteFixture.id}`, activeLabel: 'Notes' },
+    { path: `/app/notes/${noteFixture.id}/addenda/new`, activeLabel: 'Notes' },
+    { path: '/app/notes/summary', activeLabel: 'Summaries' },
+    { path: '/app/notes/plans', activeLabel: 'Plans' },
+  ])('marks only the appropriate workspace destination active on $path', async ({ path, activeLabel }) => {
     const view = renderAuthenticatedRoute(path, vi.fn().mockResolvedValue(jsonResponse([])));
-    const primary = within(screen.getByRole('group', { name: 'Workspace navigation' }));
+    const primary = within(await screen.findByRole('navigation', { name: 'Application navigation' }));
     const activeLinks = primary.getAllByRole('link').filter((link) => link.getAttribute('aria-current') === 'page');
 
-    expect(activeLinks.map((link) => link.textContent)).toEqual(activeLabel ? [activeLabel] : []);
+    expect(activeLinks.map((link) => link.textContent)).toEqual([activeLabel]);
     view.unmount();
   });
 
@@ -311,8 +327,8 @@ describe('application foundation', () => {
     renderAuthenticatedRoute(`/app/recipients/${recipientFixture.id}`, fetcher);
     expect(await screen.findByRole('heading', { name: recipientFixture.name })).toBeInTheDocument();
 
-    const primary = screen.getByRole('group', { name: 'Workspace navigation' });
-    expect(within(primary).getByRole('link', { name: 'People' })).toHaveAttribute('aria-current', 'page');
+    const primary = await screen.findByRole('navigation', { name: 'Application navigation' });
+    expect(within(primary).getByRole('link', { name: 'Recipients' })).toHaveAttribute('aria-current', 'page');
     const back = screen.getByRole('link', { name: 'Back to care recipients' });
     expect(back).toBeVisible();
     expect(back).toHaveAttribute('href', '/app/recipients');
@@ -390,7 +406,7 @@ describe('application foundation', () => {
   it('restores previous caregiver routes with Back and Forward without storing resource IDs', async () => {
     const user = userEvent.setup();
     const fetcher = vi.fn().mockImplementation((path: string) => Promise.resolve(
-      jsonResponse(path.startsWith('/api/recipients?') ? [recipientFixture] : recipientFixture),
+      jsonResponse(path === '/api/recipients' || path.startsWith('/api/recipients?') ? [recipientFixture] : recipientFixture),
     ));
     renderAuthenticatedRoute('/app/recipients', fetcher, true);
     expect(await screen.findByRole('heading', { name: 'Care recipients' })).toBeVisible();
@@ -451,7 +467,7 @@ describe('application foundation', () => {
     expect(fetcher).not.toHaveBeenCalled();
   });
 
-  it('renders the authenticated application with a Settings navigation link', () => {
+  it('renders the authenticated application with a Settings navigation link', async () => {
     localStorage.clear();
     localStorage.setItem('caregiver-language', 'en');
     sessionStorage.clear();
@@ -460,9 +476,9 @@ describe('application foundation', () => {
       <MemoryRouter initialEntries={['/app']}><App /></MemoryRouter>
     </AuthProvider></ApiProvider></I18nProvider>);
 
-    const navigation = screen.getByRole('navigation', { name: 'Main navigation' });
+    const navigation = await screen.findByRole('navigation', { name: 'Application navigation' });
     expect(navigation).toBeVisible();
-    expect(within(navigation).getByRole('link', { name: 'Settings' })).toHaveAttribute('href', '/app/settings');
+    expect(screen.getByRole('link', { name: 'Settings' })).toHaveAttribute('href', '/app/settings');
     unmount();
   });
 
@@ -481,14 +497,15 @@ describe('application foundation', () => {
     const fetcher = vi.fn().mockResolvedValue(jsonResponse({ success: true, providerId: 'GEMINI', model: 'gemini-3.8-flash', errorCode: null }));
     renderByokDialogUnderProvider(fetcher);
     await user.selectOptions(screen.getByLabelText('Provider'), 'GEMINI');
-    await user.type(screen.getByLabelText('Model'), 'gemini-3.8-flash');
+    await user.click(screen.getByRole('radio', { name: /Gemini 3\.8 Flash/ }));
+    await acknowledgeDataUse(user);
     await user.type(screen.getByLabelText('API key'), 'synthetic-secret-123');
     expect(screen.getByTestId('byok-state')).toHaveTextContent('empty');
     expect(screen.getByTestId('byok-active')).toHaveTextContent('none');
     expect(screen.getByText('No verified credentials are active.')).toBeVisible();
     await user.click(screen.getByRole('button', { name: 'Test connection' }));
 
-    expect(await screen.findByText(/Connection test succeeded/)).toBeVisible();
+    expect(await screen.findByText(/Connection test succeeded/, { selector: '.byok-success' })).toBeVisible();
     expect(screen.getByTestId('byok-state')).toHaveTextContent('configured');
     expect(screen.getByTestId('byok-active')).toHaveTextContent('GEMINI · gemini-3.8-flash');
     expect(fetcher).toHaveBeenCalledWith('/api/ai/byok/connection-test', expect.objectContaining({
@@ -503,8 +520,9 @@ describe('application foundation', () => {
     const response = jsonResponse({ success: false, errorCode: 'invalid_key', providerMessage: 'provider text', detail: 'synthetic-secret-123' }, 400);
     const fetcher = vi.fn().mockResolvedValue(response);
     renderByokDialogUnderProvider(fetcher);
-    await user.type(screen.getByLabelText('Model'), 'bad-model');
+    await pickCustomModel(user, 'bad-model');
     await user.type(screen.getByLabelText('API key'), 'synthetic-secret-123');
+    await acknowledgeDataUse(user);
     await user.click(screen.getByRole('button', { name: 'Test connection' }));
 
     expect(await screen.findByRole('alert')).toHaveTextContent('The provider rejected this key.');
@@ -523,17 +541,16 @@ describe('application foundation', () => {
       .mockResolvedValueOnce(jsonResponse({ success: false, errorCode: 'invalid_key' }, 400));
     renderByokDialogUnderProvider(fetcher);
     await user.selectOptions(screen.getByLabelText('Provider'), 'OPENAI');
-    await user.type(screen.getByLabelText('Model'), 'gpt-4o-mini');
+    await pickCustomModel(user, 'gpt-4o-mini');
     await user.type(screen.getByLabelText('API key'), 'active-secret');
     await user.click(screen.getByRole('button', { name: 'Test connection' }));
-    expect(await screen.findByText(/Connection test succeeded/)).toBeVisible();
+    expect(await screen.findByText(/Connection test succeeded/, { selector: '.byok-success' })).toBeVisible();
     expect(screen.getByTestId('byok-active')).toHaveTextContent('OPENAI · gpt-4o-mini');
 
     await user.selectOptions(screen.getByLabelText('Provider'), 'GEMINI');
-    await user.clear(screen.getByLabelText('Model'));
-    await user.type(screen.getByLabelText('Model'), 'gemini-test');
-    await user.clear(screen.getByLabelText('API key'));
+    await pickCustomModel(user, 'gemini-test');
     await user.type(screen.getByLabelText('API key'), 'replacement-secret');
+    await acknowledgeDataUse(user);
     expect(screen.getByTestId('byok-active')).toHaveTextContent('OPENAI · gpt-4o-mini');
     await user.click(screen.getByRole('button', { name: 'Test connection' }));
 
@@ -554,21 +571,19 @@ describe('application foundation', () => {
       .mockResolvedValueOnce(jsonResponse({ success: true }));
     renderByokDialogUnderProvider(fetcher);
     await user.selectOptions(screen.getByLabelText('Provider'), 'OPENAI');
-    await user.type(screen.getByLabelText('Model'), 'gpt-4o-mini');
+    await pickCustomModel(user, 'gpt-4o-mini');
     await user.type(screen.getByLabelText('API key'), 'active-secret');
     await user.click(screen.getByRole('button', { name: 'Test connection' }));
-    expect(await screen.findByText(/Connection test succeeded/)).toBeVisible();
+    expect(await screen.findByText(/Connection test succeeded/, { selector: '.byok-success' })).toBeVisible();
 
     await user.selectOptions(screen.getByLabelText('Provider'), 'XAI');
-    await user.clear(screen.getByLabelText('Model'));
-    await user.type(screen.getByLabelText('Model'), 'grok-test');
-    await user.clear(screen.getByLabelText('API key'));
+    await pickCustomModel(user, 'grok-test');
     await user.type(screen.getByLabelText('API key'), 'replacement-secret');
     expect(screen.getByTestId('byok-active')).toHaveTextContent('OPENAI · gpt-4o-mini');
-    expect(screen.queryByText(/Connection test succeeded/)).not.toBeInTheDocument();
+    expect(screen.queryByText(/Connection test succeeded/, { selector: '.byok-success' })).not.toBeInTheDocument();
     await user.click(screen.getByRole('button', { name: 'Test connection' }));
 
-    expect(await screen.findByText(/Connection test succeeded/)).toBeVisible();
+    expect(await screen.findByText(/Connection test succeeded/, { selector: '.byok-success' })).toBeVisible();
     expect(screen.getByTestId('byok-active')).toHaveTextContent('XAI · grok-test');
     expect(screen.getByTestId('byok-key-preserved')).toHaveTextContent('no');
     expect(screen.getByRole('dialog')).not.toHaveTextContent('replacement-secret');
@@ -579,14 +594,15 @@ describe('application foundation', () => {
     let resolveResponse!: (response: Response) => void;
     const fetcher = vi.fn().mockImplementation(() => new Promise<Response>((resolve) => { resolveResponse = resolve; }));
     renderByokDialogUnderProvider(fetcher);
-    await user.type(screen.getByLabelText('Model'), 'gpt-test');
+    await pickCustomModel(user, 'gpt-test');
     await user.type(screen.getByLabelText('API key'), 'synthetic-secret-123');
+    await acknowledgeDataUse(user);
     await user.click(screen.getByRole('button', { name: 'Test connection' }));
 
     expect(screen.getByRole('button', { name: 'Testing connection…' })).toBeDisabled();
     expect(screen.getByTestId('byok-active')).toHaveTextContent('none');
     resolveResponse(jsonResponse({ success: true }));
-    expect(await screen.findByText(/Connection test succeeded/)).toBeVisible();
+    expect(await screen.findByText(/Connection test succeeded/, { selector: '.byok-success' })).toBeVisible();
   });
 
   it('uses a generic safe message for unsupported error codes', async () => {
@@ -595,8 +611,9 @@ describe('application foundation', () => {
       success: false, errorCode: 'unexpected_error', providerMessage: 'unsafe provider detail',
     }, 400));
     renderByokDialogUnderProvider(fetcher);
-    await user.type(screen.getByLabelText('Model'), 'unknown-model');
+    await pickCustomModel(user, 'unknown-model');
     await user.type(screen.getByLabelText('API key'), 'synthetic-secret-123');
+    await acknowledgeDataUse(user);
     await user.click(screen.getByRole('button', { name: 'Test connection' }));
 
     expect(await screen.findByRole('alert')).toHaveTextContent('The provider is temporarily unavailable.');
@@ -609,8 +626,9 @@ describe('application foundation', () => {
     const user = userEvent.setup();
     const fetcher = vi.fn().mockRejectedValue(new Error('unsafe network details'));
     renderByokDialogUnderProvider(fetcher);
-    await user.type(screen.getByLabelText('Model'), 'network-model');
+    await pickCustomModel(user, 'network-model');
     await user.type(screen.getByLabelText('API key'), 'synthetic-secret-123');
+    await acknowledgeDataUse(user);
     await user.click(screen.getByRole('button', { name: 'Test connection' }));
 
     expect(await screen.findByRole('alert')).toHaveTextContent('The provider is temporarily unavailable.');
@@ -622,8 +640,9 @@ describe('application foundation', () => {
     const user = userEvent.setup();
     const fetcher = vi.fn().mockResolvedValue(jsonResponse({ success: true }));
     renderByokDialogUnderProvider(fetcher);
-    await user.type(screen.getByLabelText('Model'), 'gpt-test-model');
+    await pickCustomModel(user, 'gpt-test-model');
     await user.type(screen.getByLabelText('API key'), 'synthetic-secret-123');
+    await acknowledgeDataUse(user);
     await user.click(screen.getByRole('button', { name: 'Test connection' }));
     expect(await screen.findByTestId('byok-state')).toHaveTextContent('configured');
 
@@ -631,7 +650,7 @@ describe('application foundation', () => {
 
     expect(screen.getByLabelText('API key')).toHaveValue('');
     expect(screen.getByTestId('byok-state')).toHaveTextContent('empty');
-    expect(screen.queryByText(/Connection test succeeded/)).not.toBeInTheDocument();
+    expect(screen.queryByText(/Connection test succeeded/, { selector: '.byok-success' })).not.toBeInTheDocument();
     expect(fetcher).toHaveBeenCalledTimes(1);
   });
 
@@ -639,8 +658,9 @@ describe('application foundation', () => {
     const user = userEvent.setup();
     const storage = vi.spyOn(Storage.prototype, 'setItem');
     renderByokDialogUnderProvider(vi.fn().mockResolvedValue(jsonResponse({ success: true })));
-    await user.type(screen.getByLabelText('Model'), 'gpt-test-model');
+    await pickCustomModel(user, 'gpt-test-model');
     await user.type(screen.getByLabelText('API key'), 'synthetic-secret-123');
+    await acknowledgeDataUse(user);
     await user.click(screen.getByRole('button', { name: 'Test connection' }));
 
     expect(await screen.findByTestId('byok-state')).toHaveTextContent('configured');
@@ -683,16 +703,19 @@ describe('application foundation', () => {
 });
 
 describe('workspace skip link and landmarks', () => {
-  it('keeps exactly one main landmark on the content region, outside the chrome', () => {
+  it('keeps exactly one main landmark on the content region, outside the chrome', async () => {
     renderAuthenticatedRoute('/app', vi.fn().mockResolvedValue(jsonResponse([])));
+    await screen.findByRole('navigation', { name: 'Application navigation' });
 
     const mains = screen.getAllByRole('main');
     expect(mains).toHaveLength(1);
     expect(mains[0]).toHaveAttribute('id', 'main-content');
     expect(mains[0]).toHaveAttribute('tabindex', '-1');
     expect(mains[0]).toHaveClass('app-view');
-    expect(screen.getByRole('banner')).toBeInTheDocument();
-    expect(screen.getAllByRole('banner')).toHaveLength(1);
+    // dom-accessibility-api also reports section-scoped page headers as banners,
+    // so count only the chrome banner outside the content landmark.
+    const chromeBanners = screen.getAllByRole('banner').filter((banner) => !mains[0].contains(banner));
+    expect(chromeBanners).toHaveLength(1);
     expect(mains[0].querySelector('.app-sidebar, .app-topbar')).toBeNull();
   });
 

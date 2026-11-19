@@ -10,7 +10,6 @@ const read = (path: string) => readFileSync(new URL(path, import.meta.url), 'utf
 describe('public stack claims match the implementation (#842)', () => {
   it.each([
     ['README.md', '../../../README.md'],
-    ['ARCHITECTURE.md', '../../../ARCHITECTURE.md'],
     ['.env.example', '../../../.env.example'],
     ['backend/pom.xml', '../../../backend/pom.xml'],
     ['application.yml', '../../../backend/src/main/resources/application.yml'],

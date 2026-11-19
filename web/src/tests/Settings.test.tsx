@@ -81,14 +81,15 @@ describe('authenticated grouped settings page', () => {
     await user.click(await screen.findByRole('button', { name: 'AI Settings' }));
     const dialog = screen.getByRole('dialog', { name: 'AI provider settings' });
     await user.selectOptions(within(dialog).getByLabelText('Provider'), 'OPENAI');
-    await user.type(within(dialog).getByLabelText('Model'), 'gpt-test');
+    await user.click(within(dialog).getByRole('radio', { name: /Other/ }));
+    await user.type(within(dialog).getByLabelText('Model ID'), 'gpt-test');
     await user.type(within(dialog).getByLabelText('API key'), 'settings-test-secret');
     await user.click(within(dialog).getByRole('button', { name: 'Test connection' }));
     await waitFor(() => expect(within(dialog).getByRole('status')).toHaveTextContent('Connection test succeeded'));
 
     await user.click(within(dialog).getByRole('button', { name: 'Close' }));
     expect(document.body).not.toHaveTextContent('settings-test-secret');
-    await user.click(screen.getByRole('link', { name: 'Home' }));
+    await user.click(screen.getByRole('link', { name: 'Overview', hidden: true }));
     expect(await screen.findByRole('heading', { name: 'Caregiver workspace' })).toBeVisible();
     await user.click(screen.getByRole('link', { name: 'Settings' }));
     await user.click(screen.getByRole('button', { name: 'AI Settings' }));
@@ -154,21 +155,22 @@ describe('authenticated grouped settings page', () => {
   it('marks Settings navigation active and preserves workspace destinations', async () => {
     const user = userEvent.setup();
     renderSettings();
-    const navigation = screen.getByRole('navigation', { name: 'Main navigation' });
-    const settings = within(navigation).getByRole('link', { name: 'Settings' });
+    const navigation = await screen.findByRole('navigation', { name: 'Application navigation' });
+    // Settings is reachable from the account menu and marked current there.
+    const settings = screen.getByRole('link', { name: 'Settings' });
 
     expect(settings).toHaveAttribute('href', '/app/settings');
     expect(settings).toHaveAttribute('aria-current', 'page');
-    expect(within(navigation).getByRole('link', { name: 'Home' })).toHaveAttribute('href', '/app');
-    expect(within(navigation).getByRole('link', { name: 'People' })).toHaveAttribute('href', '/app/recipients');
-    expect(within(navigation).getByRole('link', { name: 'Notes' })).toHaveAttribute('href', '/app/notes/new');
-    expect(within(navigation).getByRole('link', { name: 'History' })).toHaveAttribute('href', '/app/notes');
-    expect(within(navigation).getByRole('link', { name: 'Care plans' })).toHaveAttribute('href', '/app/notes/plans');
+    expect(within(navigation).getByRole('link', { name: 'Overview' })).toHaveAttribute('href', '/app');
+    expect(within(navigation).getByRole('link', { name: 'Recipients' })).toHaveAttribute('href', '/app/recipients');
+    expect(within(navigation).getByRole('link', { name: 'Record a daily note' })).toHaveAttribute('href', expect.stringContaining('/app/notes/new?date='));
+    expect(within(navigation).getByRole('link', { name: 'Notes' })).toHaveAttribute('href', '/app/notes');
+    expect(within(navigation).getByRole('link', { name: 'Plans' })).toHaveAttribute('href', '/app/notes/plans');
     expect(document.title).toBe('Settings · Rafeek');
 
-    await user.click(within(navigation).getByRole('link', { name: 'Home' }));
+    await user.click(within(navigation).getByRole('link', { name: 'Overview' }));
     expect(await screen.findByRole('heading', { name: 'Caregiver workspace' })).toBeVisible();
-    await user.click(within(navigation).getByRole('link', { name: 'Settings' }));
+    await user.click(screen.getByRole('link', { name: 'Settings' }));
     expect(await screen.findByRole('heading', { name: 'Settings' })).toBeVisible();
   });
 });

@@ -69,12 +69,15 @@ function postedRecipient(fetcher: ReturnType<typeof vi.fn>) {
 
 describe('care recipients screens', () => {
   it('keeps recipient tabs on deep-linkable, recipient-scoped routes', async () => {
+    // Warm the lazy recipient route graph before rendering (cold transform is
+    // slower than the tab query timeout on a loaded test worker).
+    await import('../routes/RecipientsRoutes');
     const fetcher = vi.fn().mockImplementation((path: string) => {
       const url = new URL(path, 'http://localhost');
       return Promise.resolve(url.pathname === '/api/recipients'
         ? jsonResponse([recipient])
         : url.pathname === '/api/notes'
-          ? jsonResponse(historyPage([{ ...historyNote, recipientId: recipient.id }]))
+          ? jsonResponse(historyPage([{ ...historyNote, recipientId: recipient.id, date: url.searchParams.get('to') ?? historyNote.date }]))
           : jsonResponse([]));
     });
     renderRecipients(`${detail}/notes`, fetcher);
@@ -113,22 +116,24 @@ describe('care recipients screens', () => {
   });
 
   it('renders loading, owned recipients and active status without ownership internals', async () => {
-    let resolve!: (response: Response) => void;
+    const resolvers: Array<(response: Response) => void> = [];
     const fetcher = vi.fn().mockImplementation((path: string) => {
       const url = new URL(path, 'http://localhost');
       if (url.pathname === '/api/notes') return Promise.resolve(jsonResponse(historyPage([], 0, 100)));
-      return new Promise<Response>((done) => { resolve = done; });
+      // Both the list screen and the top-bar picker request the recipient list.
+      return new Promise<Response>((done) => { resolvers.push(done); });
     });
     renderRecipients(root, fetcher);
     expect(screen.getByText('Loading your care recipients…')).toBeInTheDocument();
-    resolve(jsonResponse([recipient, { ...recipient, id: 'e0000000-0000-4000-8000-000000000099', name: 'Archived Extra',
-      active: false, lifecycleStatus: 'ARCHIVED', archivedAt: '2026-10-15T10:00:00Z', archivedBy: 'b1111111-1111-4111-8111-111111111111' }]));
+    resolvers.forEach((resolve) => resolve(jsonResponse([recipient, { ...recipient, id: 'e0000000-0000-4000-8000-000000000099', name: 'Archived Extra',
+      active: false, lifecycleStatus: 'ARCHIVED', archivedAt: '2026-10-15T10:00:00Z', archivedBy: 'b1111111-1111-4111-8111-111111111111' }])));
     expect(await screen.findByRole('link', { name: recipient.name })).toHaveAttribute('href', detail);
     expect(within(screen.getByRole('group', { name: 'Filter recipients by lifecycle status' })).getByRole('button', { name: 'Active' })).toHaveAttribute('aria-pressed', 'true');
     expect(screen.queryByText('secret-owner')).not.toBeInTheDocument();
     const recipientsCall = fetcher.mock.calls.find(([path]) => new URL(path, 'http://localhost').pathname === '/api/recipients');
     expect(new Headers(recipientsCall![1].headers).get('Authorization')).toMatch(/^Bearer /);
-    expect(screen.getByRole('navigation').querySelector('[aria-current="page"]')).toHaveTextContent('People');
+    const navigation = await screen.findByRole('navigation', { name: 'Application navigation' });
+    expect(within(navigation).getByRole('link', { name: 'Recipients' })).toHaveAttribute('aria-current', 'page');
   });
 
   it('offers creation from the empty state', async () => {
@@ -148,7 +153,8 @@ describe('care recipients screens', () => {
     expect(screen.queryByRole('link', { name: recipient.name })).not.toBeInTheDocument();
     await userEvent.click(screen.getByRole('button', { name: 'Clear' }));
     expect(screen.getByRole('link', { name: recipient.name })).toBeInTheDocument();
-    expect(fetcher).toHaveBeenCalledTimes(2);
+    // The list screen and the top-bar picker each read the recipient list once.
+    expect(fetcher).toHaveBeenCalledTimes(3);
   });
 
   it('filters recipients by case-insensitive name and relationship', async () => {
@@ -278,11 +284,17 @@ describe('care recipients screens', () => {
 
   it('continues creation when the duplicate-list request fails', async () => {
     const created = { ...recipient, id: 'b2222222-2222-4222-8222-222222222222', name: 'Mona Hassan' };
+    let duplicateCheckFailed = false;
     const fetcher = vi.fn().mockImplementation((path: string, options: RequestInit = {}) => {
       if (path === '/api/recipients' && options.method === 'POST') {
         return Promise.resolve(jsonResponse({ ...created, createdAt: null, updatedAt: null }, 201));
       }
-      if (path === '/api/recipients') return Promise.reject(new TypeError('Network unavailable'));
+      if (path === '/api/recipients') {
+        // Only the duplicate check fails; the picker on the resulting detail
+        // route must still be able to load the list.
+        if (!duplicateCheckFailed) { duplicateCheckFailed = true; return Promise.reject(new TypeError('Network unavailable')); }
+        return Promise.resolve(jsonResponse([created]));
+      }
       if (path === `/api/recipients/${created.id}`) return Promise.resolve(jsonResponse(created));
       return Promise.resolve(jsonResponse([]));
     });
@@ -304,7 +316,10 @@ describe('care recipients screens', () => {
     await userEvent.click(within(warning).getByRole('button', { name: 'Create anyway' }));
 
     expect(await screen.findByText('Care recipient added.')).toBeInTheDocument();
-    expect(fetcher.mock.calls.filter(([path, options]) => path === '/api/recipients' && options.method !== 'POST')).toHaveLength(1);
+    // Exactly one list read before the POST (the later one belongs to the
+    // detail-route picker, not to a duplicate re-check).
+    const beforePost = fetcher.mock.calls.slice(0, fetcher.mock.calls.findIndex(([, options]) => options.method === 'POST'));
+    expect(beforePost.filter(([path, options]) => path === '/api/recipients' && options.method !== 'POST')).toHaveLength(1);
     expect(fetcher.mock.calls.filter(([, options]) => options.method === 'POST')).toHaveLength(1);
   });
 
@@ -420,8 +435,9 @@ describe('care recipients screens', () => {
     await userEvent.click(screen.getByRole('radio', { name: 'Father' }));
     await userEvent.click(screen.getByRole('button', { name: 'Save changes' }));
     expect(await screen.findByText('Recipient details updated.')).toBeInTheDocument();
-    expect(JSON.parse(fetcher.mock.calls[1][1].body)).toEqual({ name: updated.name, relationship: null });
-    expect(fetcher.mock.calls[1][1].method).toBe('PUT');
+    const putCall = fetcher.mock.calls.find(([, init]) => init?.method === 'PUT');
+    expect(JSON.parse(putCall![1].body)).toEqual({ name: updated.name, relationship: null });
+    expect(putCall![1].method).toBe('PUT');
     expect(await screen.findByRole('heading', { name: updated.name })).toBeInTheDocument();
   });
 
@@ -1076,7 +1092,16 @@ describe('care recipients screens', () => {
   });
 
   it('reloads an archived conflict without silently losing the entered values', async () => {
-    const fetcher = vi.fn().mockResolvedValueOnce(jsonResponse(recipient)).mockResolvedValueOnce(jsonResponse({ code: 'INACTIVE_RECIPIENT' }, 409)).mockResolvedValueOnce(jsonResponse({ ...recipient, active: false, lifecycleStatus: 'ARCHIVED', archivedAt: '2026-10-15T10:00:00Z', archivedBy: 'b1111111-1111-4111-8111-111111111111' }));
+    const archived = { ...recipient, active: false, lifecycleStatus: 'ARCHIVED' as const,
+      archivedAt: '2026-10-15T10:00:00Z', archivedBy: 'b1111111-1111-4111-8111-111111111111' };
+    let detailLoads = 0;
+    const fetcher = vi.fn().mockImplementation((path: string, init: RequestInit = {}) => {
+      const url = new URL(path, 'http://localhost');
+      if (url.pathname === '/api/recipients') return Promise.resolve(jsonResponse([recipient]));
+      if (init.method === 'PUT') return Promise.resolve(jsonResponse({ code: 'INACTIVE_RECIPIENT' }, 409));
+      detailLoads += 1;
+      return Promise.resolve(jsonResponse(detailLoads === 1 ? recipient : archived));
+    });
     renderRecipients(`${detail}/edit`, fetcher);
     const name = await screen.findByLabelText('Name');
     await userEvent.clear(name);
@@ -1106,11 +1131,19 @@ describe('care recipients screens', () => {
 
   it('shows detail loading and retries an unavailable response without exposing diagnostics', async () => {
     let resolve!: (response: Response) => void;
+    const pending = new Promise<Response>((done) => { resolve = done; });
     const archived = { ...recipient, active: false, lifecycleStatus: 'ARCHIVED' as const,
       archivedAt: '2026-10-15T10:00:00Z', archivedBy: 'b1111111-1111-4111-8111-111111111111' };
-    const fetcher = vi.fn()
-      .mockImplementationOnce(() => new Promise<Response>((done) => { resolve = done; }))
-      .mockResolvedValueOnce(jsonResponse(archived)).mockResolvedValueOnce(jsonResponse([]));
+    let detailCalls = 0;
+    const fetcher = vi.fn().mockImplementation((path: string) => {
+      const url = new URL(path, 'http://localhost');
+      if (url.pathname === '/api/recipients') return Promise.resolve(jsonResponse([recipient]));
+      if (url.pathname === `/api/recipients/${recipient.id}`) {
+        detailCalls += 1;
+        return detailCalls === 1 ? pending : Promise.resolve(jsonResponse(archived));
+      }
+      return Promise.resolve(jsonResponse([]));
+    });
     renderRecipients(detail, fetcher);
 
     expect(screen.getByText('Loading recipient details…')).toBeInTheDocument();
@@ -1120,7 +1153,8 @@ describe('care recipients screens', () => {
     await userEvent.click(screen.getByRole('button', { name: 'Retry' }));
     expect(await screen.findByRole('heading', { name: recipient.name })).toBeInTheDocument();
     expect(screen.getByText('Archived')).toBeInTheDocument();
-    expect(fetcher).toHaveBeenCalledTimes(4);
+    // Detail (failed + retried), top-bar picker, medications and safety signals.
+    expect(fetcher).toHaveBeenCalledTimes(5);
   });
 
   it('rejects malformed route IDs without calling the backend', async () => {
@@ -1144,7 +1178,8 @@ describe('care recipients screens', () => {
     await userEvent.click(within(dialog).getByRole('button', { name: 'Cancel' }));
     expect(screen.queryByRole('dialog')).not.toBeInTheDocument();
     expect(trigger).toHaveFocus();
-    expect(fetcher).toHaveBeenCalledTimes(4);
+    // Detail, top-bar picker, medications, safety signals and the today-note probe.
+    expect(fetcher).toHaveBeenCalledTimes(5);
   });
 
   it('archives the recipient through the API and makes the detail read-only', async () => {
@@ -1171,14 +1206,18 @@ describe('care recipients screens', () => {
   it('restores an archived recipient to active status', async () => {
     const archived = { ...recipient, active: false, lifecycleStatus: 'ARCHIVED' as const, archivedAt: '2026-10-15T10:00:00Z', archivedBy: 'b1111111-1111-4111-8111-111111111111' };
     const restored = { ...recipient, restoredAt: '2026-10-16T10:00:00Z', restoredBy: 'b1111111-1111-4111-8111-111111111111' };
-    const fetcher = vi.fn().mockResolvedValueOnce(jsonResponse(archived)).mockResolvedValueOnce(jsonResponse([]))
-      .mockResolvedValueOnce(jsonResponse(restored));
+    const fetcher = vi.fn().mockImplementation((path: string) => {
+      const url = new URL(path, 'http://localhost');
+      if (url.pathname === `/api/recipients/${recipient.id}/restore`) return Promise.resolve(jsonResponse(restored));
+      if (url.pathname === '/api/recipients') return Promise.resolve(jsonResponse([archived]));
+      return Promise.resolve(jsonResponse(archived));
+    });
     renderRecipients(detail, fetcher);
     await userEvent.click(await screen.findByRole('button', { name: 'Restore recipient' }));
     await userEvent.click(within(screen.getByRole('dialog')).getByRole('button', { name: 'Restore recipient' }));
     expect(await screen.findByText('Active')).toBeInTheDocument();
     expect(screen.getByText('Recipient restored to active status.')).toHaveFocus();
-    expect(fetcher.mock.calls[2][0]).toBe(`${detail.replace('/app/', '/api/')}/restore`);
+    expect(fetcher.mock.calls.some(([path]) => path === `${detail.replace('/app/', '/api/')}/restore`)).toBe(true);
   });
 
   it('keeps the archive dialog open after a failed request and allows retry', async () => {
@@ -1483,8 +1522,9 @@ describe('care recipients screens', () => {
       return new Promise<Response>((done) => { pendingResolvers.push(done); });
     });
     const loadingView = renderRecipients(detail, pending);
-    await waitFor(() => expect(pending).toHaveBeenCalledTimes(4));
-    expect(screen.getByText('Loading medication records…')).toBeInTheDocument();
+    // Detail, top-bar picker, medications, intake events and safety signals.
+    await waitFor(() => expect(pending).toHaveBeenCalledTimes(5));
+    expect(within(document.getElementById('recipient-medications')!).getByText('Loading medication records…')).toBeInTheDocument();
     pendingResolvers.forEach((done) => done(jsonResponse([])));
     expect(await screen.findByRole('heading', { name: 'Medications' })).toBeInTheDocument();
     loadingView.unmount();
@@ -1497,7 +1537,7 @@ describe('care recipients screens', () => {
     });
     const emptyView = renderRecipients(detail, emptyFetcher);
     expect(await screen.findByText('No medication records yet')).toBeInTheDocument();
-    expect(screen.getByText(/does not indicate whether medication is used/)).toBeInTheDocument();
+    expect(within(document.getElementById('recipient-medications')!).getByText(/does not indicate whether medication is used/)).toBeInTheDocument();
     emptyView.unmount();
 
     let medicationReads = 0;
@@ -1524,7 +1564,12 @@ describe('care recipients screens', () => {
     const archivedRecipient = { ...recipient, active: false, lifecycleStatus: 'ARCHIVED' as const,
       archivedAt: '2026-10-15T10:00:00Z', archivedBy: 'b1111111-1111-4111-8111-111111111111' };
     const medication = medicationFixture(recipient.id, 'Archived recipient record');
-    const fetcher = vi.fn().mockResolvedValueOnce(jsonResponse(archivedRecipient)).mockResolvedValueOnce(jsonResponse([medication]));
+    const fetcher = vi.fn().mockImplementation((path: string) => {
+      const url = new URL(path, 'http://localhost');
+      if (url.pathname === '/api/recipients') return Promise.resolve(jsonResponse([archivedRecipient]));
+      if (url.pathname === `/api/recipients/${recipient.id}/medications`) return Promise.resolve(jsonResponse([medication]));
+      return Promise.resolve(jsonResponse(archivedRecipient));
+    });
     renderRecipients(detail, fetcher);
     expect(await screen.findByText('Archived recipient record')).toBeInTheDocument();
     expect(screen.queryByRole('button', { name: 'Add medication' })).not.toBeInTheDocument();
@@ -1535,7 +1580,12 @@ describe('care recipients screens', () => {
   it('keeps legacy inactive recipients read-only for medication management', async () => {
     const legacy = { ...recipient, active: false, lifecycleStatus: 'LEGACY_INACTIVE_REVIEW' as const };
     const medication = medicationFixture(recipient.id, 'Legacy medication history');
-    const fetcher = vi.fn().mockResolvedValueOnce(jsonResponse(legacy)).mockResolvedValueOnce(jsonResponse([medication]));
+    const fetcher = vi.fn().mockImplementation((path: string) => {
+      const url = new URL(path, 'http://localhost');
+      if (url.pathname === '/api/recipients') return Promise.resolve(jsonResponse([legacy]));
+      if (url.pathname === `/api/recipients/${recipient.id}/medications`) return Promise.resolve(jsonResponse([medication]));
+      return Promise.resolve(jsonResponse(legacy));
+    });
     renderRecipients(detail, fetcher);
     expect(await screen.findByText('Legacy medication history')).toBeInTheDocument();
     expect(screen.queryByRole('button', { name: 'Add medication' })).not.toBeInTheDocument();
@@ -1560,6 +1610,7 @@ describe('care recipients screens', () => {
   it('prevents duplicate medication submissions and preserves input after failure', async () => {
     let failCreate!: (response: Response) => void;
     const fetcher = vi.fn().mockImplementation((path: string, options: RequestInit = {}) => {
+      if (path === '/api/recipients') return Promise.resolve(jsonResponse([recipient]));
       if (path === `/api/recipients/${recipient.id}`) return Promise.resolve(jsonResponse(recipient));
       if (path === `/api/recipients/${recipient.id}/medications` && options.method === 'GET') return Promise.resolve(jsonResponse([]));
       if (options.method === 'POST') return new Promise<Response>((resolve) => { failCreate = resolve; });
@@ -1585,6 +1636,7 @@ describe('care recipients screens', () => {
   it('preserves edited text after an update request fails', async () => {
     const initial = medicationFixture(recipient.id, 'Current medicine');
     const fetcher = vi.fn().mockImplementation((path: string, options: RequestInit = {}) => {
+      if (path === '/api/recipients') return Promise.resolve(jsonResponse([recipient]));
       if (path.endsWith('/intake-events')) return Promise.resolve(jsonResponse([]));
       if (path === `/api/recipients/${recipient.id}`) return Promise.resolve(jsonResponse(recipient));
       if (path === `/api/recipients/${recipient.id}/medications` && options.method === 'GET') return Promise.resolve(jsonResponse([initial]));
@@ -1635,6 +1687,7 @@ describe('care recipients screens', () => {
     const archived = { ...active, active: false };
     let medicationReads = 0;
     const fetcher = vi.fn().mockImplementation((path: string, options: RequestInit = {}) => {
+      if (path === '/api/recipients') return Promise.resolve(jsonResponse([recipient]));
       if (path.endsWith('/intake-events')) return Promise.resolve(jsonResponse([]));
       if (path === `/api/recipients/${recipient.id}`) return Promise.resolve(jsonResponse(recipient));
       if (path === `/api/recipients/${recipient.id}/medications` && options.method === 'GET') {
@@ -1682,6 +1735,7 @@ describe('care recipients screens', () => {
     const malformed = { ...medicationFixture(recipient.id, 'Malformed'), active: 'false' };
     const fetcher = vi.fn().mockImplementation((path: string) => {
       const url = new URL(path, 'http://localhost');
+      if (url.pathname === '/api/recipients') return Promise.resolve(jsonResponse([recipient]));
       if (url.pathname === `/api/recipients/${recipient.id}`) return Promise.resolve(jsonResponse(recipient));
       if (url.pathname === '/api/notes') return Promise.resolve(jsonResponse(historyPage([], 0, 100)));
       return Promise.resolve(jsonResponse([malformed]));
