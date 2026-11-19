@@ -35,7 +35,7 @@ sealed interface HttpJson {
 class ModelListHttp(
     private val client: OkHttpClient = OkHttpConfig.defaultOkHttpClient(),
 ) {
-    suspend fun get(url: String, headers: Map<String, String>): HttpJson =
+    suspend fun get(url: String, headers: Map<String, String>, bearerKey: String? = null): HttpJson =
         suspendCancellableCoroutine { continuation ->
             fun resumeOnce(result: HttpJson) {
                 if (continuation.isActive) {
@@ -76,9 +76,21 @@ class ModelListHttp(
                 resumeOnce(HttpJson.Failed("invalid_key"))
                 return@suspendCancellableCoroutine
             }
+            // Bearer-style providers pass the RAW key here: it is validated with
+            // the same character rules, and the "Bearer " prefix is assembled only
+            // at request build — the prefix must never go through the key check
+            // (its space would fail every OpenAI/xAI/OpenRouter fetch). DEF-009.
+            if (bearerKey != null &&
+                (bearerKey.isBlank() || bearerKey.any { c ->
+                    c.isWhitespace() || c.isISOControl() || c.code !in 0x21..0x7e
+                })) {
+                resumeOnce(HttpJson.Failed("invalid_key"))
+                return@suspendCancellableCoroutine
+            }
 
             val request = Request.Builder().url(url).get().apply {
                 headers.forEach { (name, value) -> header(name, value) }
+                if (bearerKey != null) header("Authorization", "Bearer $bearerKey")
             }.build()
 
             // The blocking execute() below used to keep running after the

@@ -203,7 +203,11 @@ class LegacyMigration(
 
     /** All recovery backup files, whether or not they currently exist. */
     private fun backupFiles(): List<File> =
-        listOf(PerAccountDatabaseProvider.LEGACY_DATABASE_NAME, WAL, SHM).map { suffix ->
+        // The base path already ends in the database name; suffixes mirror the
+        // creation path (File(it.path + BACKUP_SUFFIX)) and recoverIfInterrupted.
+        // Using LEGACY_DATABASE_NAME here duplicated the name and left the real
+        // main-db backup undeleted after a successful migration. DEF-010.
+        listOf("", WAL, SHM).map { suffix ->
             val base = context.getDatabasePath(PerAccountDatabaseProvider.LEGACY_DATABASE_NAME)
             File(base.path + suffix + BACKUP_SUFFIX)
         }

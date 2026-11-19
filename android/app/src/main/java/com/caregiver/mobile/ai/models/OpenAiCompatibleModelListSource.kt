@@ -68,7 +68,8 @@ class OpenAiCompatibleModelListSource(
 
         val body = when (val response = http.get(
             "$root/models",
-            mapOf("Authorization" to "Bearer $apiKey", "Accept" to "application/json"),
+            mapOf("Accept" to "application/json"),
+            bearerKey = apiKey,
         )) {
             is HttpJson.Ok -> response.body
             // The helper's reason code is already the one callers expect.
