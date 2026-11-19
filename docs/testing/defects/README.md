@@ -15,7 +15,7 @@ Defects found by the project's own testing, documented with evidence and repro. 
 | [DEF-009](def-009-bearer-model-list.md) | Major | android / AI model catalog | Bearer prefix fails the key-character check — OpenAI/xAI/OpenRouter model lists never load | fixed |
 | [DEF-010](def-010-migration-backup-cleanup.md) | Minor | android / legacy migration | Main-db migration backup never deleted (duplicated path suffix) | fixed |
 | [DEF-011](def-011-session-datastore-singleton.md) | Major | android / session store | Session DataStore lacks a singleton registry — second graph in a process crashes (136 emulator tests) | fixed |
-| [DEF-012](def-012-rebrand-a11y.md) | Major | web / landing + auth | Rebrand palette below WCAG AA contrast; brand accessible name misses visible tagline (145+28 axe violations) | fixed |
+| [DEF-012](def-012-rebrand-a11y.md) | Major | web / landing + auth | Rebrand palette below WCAG AA contrast; brand accessible name misses visible tagline (145+28 axe violations) | partial |
 
 ## Report template
 

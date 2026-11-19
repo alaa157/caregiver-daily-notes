@@ -18,6 +18,6 @@
 
 ## Verification
 
-Browser suite re-run in CI (axe scans assert zero violations on every screen/viewport).
+First re-run (CI 44600039181): the original cream/white violations cleared, but the scan exposed further surfaces — 7 distinct fg/bg pairs including the dark theme (#5b6b70 on #263b31) and tinted cards (#e9eee4, #e5e9dc, #f0e3d6), plus label-in-name mismatches beyond the brand link.
 
-**Status: fixed (verification in flight).**
+**Status: partial — first palette pass landed; the full multi-surface audit (light + dark) and remaining browser-suite alignment are tracked as follow-up.**
