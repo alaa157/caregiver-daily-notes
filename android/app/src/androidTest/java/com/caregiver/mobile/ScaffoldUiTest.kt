@@ -45,7 +45,7 @@ class ScaffoldUiTest {
     private fun setScaffold(language: String) {
         val base = ApplicationProvider.getApplicationContext<Context>()
         val localized = base.withLocale(language)
-        val graph = AppGraph(localized, forceProduction = true)
+        val graph = AppGraph(localized, forceDemo = true)
         compose.setContent {
             CompositionLocalProvider(LocalContext provides localized) {
                 WithTestOwner {

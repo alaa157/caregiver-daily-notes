@@ -46,7 +46,7 @@ class NoteEditorShellUiTest {
     @Before
     fun setUp() {
         val context = ApplicationProvider.getApplicationContext<Context>()
-        graph = AppGraph(context, forceProduction = true)
+        graph = AppGraph(context, forceDemo = true)
         // Tests share one app process; start from a clean draft each time.
         NoteDraftStore.create(context)
             .clear(NoteDraftStore.key("r1", LocalDate.now().toString()))

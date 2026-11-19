@@ -279,6 +279,12 @@ private class ActiveBackupStore(private val database: ActiveDatabase) : BackupSt
 class AppGraph(
     val context: Context,
     val forceProduction: Boolean = false,
+    /**
+     * Test seam: serve the canned [DemoBackendApis] with the server-style UI,
+     * regardless of build flags. The instrumentation suite was written against
+     * that architecture; local-first builds otherwise shadow the demo path.
+     */
+    val forceDemo: Boolean = false,
     /** UI hooks for #618/#620; the graph stays usable without them. */
     private val onResetAccountViewModels: () -> Unit = {},
     private val onNavigateHome: () -> Unit = {},
@@ -288,11 +294,11 @@ class AppGraph(
 
     /** True when this graph serves the offline demo backend. */
     private val demoBackend: Boolean
-        get() = !forceProduction && BuildConfig.DEMO_BACKEND
+        get() = forceDemo || (!forceProduction && BuildConfig.DEMO_BACKEND)
 
     /** True when running standalone with no backend. */
     val isLocalMode: Boolean
-        get() = !forceProduction && BuildConfig.LOCAL_MODE
+        get() = !forceProduction && !forceDemo && BuildConfig.LOCAL_MODE
 
     val llmClientFactory: LlmClientFactory by lazy { LlmClientFactory() }
 

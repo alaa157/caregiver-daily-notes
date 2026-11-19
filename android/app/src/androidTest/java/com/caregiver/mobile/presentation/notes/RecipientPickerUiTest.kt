@@ -61,7 +61,7 @@ class RecipientPickerUiTest {
     @Test
     fun twoActiveRecipientsShowSheetAndPickNavigatesToEditor() {
         val localized = localizedContext()
-        setApp(AppGraph(localized, forceProduction = true), localized)
+        setApp(AppGraph(localized, forceDemo = true), localized)
 
         compose.onNodeWithTag("fab_add_note").performClick()
         compose.onNodeWithText("Who is this note for?").assertIsDisplayed()
@@ -81,7 +81,7 @@ class RecipientPickerUiTest {
     @Test
     fun singleActiveRecipientSkipsSheetAndOpensEditor() {
         val localized = localizedContext()
-        val graph = AppGraph(localized, forceProduction = true)
+        val graph = AppGraph(localized, forceDemo = true)
         runBlocking {
             graph.apis.recipients().update("r2", UpdateRecipientRequest(active = false))
         }

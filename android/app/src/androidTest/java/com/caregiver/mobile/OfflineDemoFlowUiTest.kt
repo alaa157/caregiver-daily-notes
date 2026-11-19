@@ -50,6 +50,9 @@ class OfflineDemoFlowUiTest {
             // reset the shared auth/server state this flow depends on.
             graph.auth.signOut()
             graph.settings.resetBaseUrl()
+            // Shared settings survive across tests: skip onboarding so the
+            // root gate lands on the auth screen this flow starts from.
+            graph.settings.setOnboardingCompleted()
         }
     }
 
