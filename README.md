@@ -272,6 +272,7 @@ setup.sh          One-command local setup
 | Artifact | Contents |
 |---|---|
 | [**Formal Test Case Specification & Execution Report (PDF)**](docs/testing/rafeek-test-cases.pdf) | DEPI deliverable — formal key cases, executed registers, defect summary, sign-off |
+| [Presentation deck](docs/presentation/) | 10-slide Rafeek story deck (PDF + PPTX, Gamma-generated); the formal PDF above holds the current test figures |
 | [`docs/testing/`](docs/testing/) | Test strategy, inventory, measured coverage, execution status |
 | [`docs/testing/defects/`](docs/testing/defects/) | Defect register — evidence, repro, fixes, verification; each defect links to its GitHub issue |
 | [`docs/ai/eval-harness.md`](docs/ai/eval-harness.md) · [`docs/ai/golden/`](docs/ai/golden/) | AI evaluation metrics and the synthetic golden dataset |
