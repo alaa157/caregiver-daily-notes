@@ -13,6 +13,7 @@ Two clients, one domain model: a **React web application** and a **native Kotlin
 ## Contents
 
 - [What it does](#what-it-does)
+- [Screenshots](#screenshots)
 - [Design principles](#design-principles)
 - [Architecture](#architecture)
 - [Technology stack](#technology-stack)
@@ -40,6 +41,18 @@ Notes are never edited in place. Corrections are appended as **addenda** or as t
 - Review an AI-suggested care plan, then accept, edit, or dismiss it.
 - Track medications and per-dose intake events.
 - See deterministic safety signals raised by the backend, independent of any model.
+
+## Screenshots
+
+<p align="center">
+  <img src="docs/screenshots/web/en-03-home.png" alt="Web workspace — daily overview with note availability and recent activity" width="760" />
+</p>
+<p align="center">
+  <img src="docs/screenshots/android/17-home-attention.png" alt="Android home — deterministic care alert for a reported fall" width="320" />
+  <img src="docs/screenshots/android/39-home-ar.png" alt="Android home in Arabic — full RTL layout" width="320" />
+</p>
+
+Captured from the running apps with synthetic data: the web client against a local Spring Boot + PostgreSQL backend, and the Android offline demo on a cloud device. The full set — every screen in English and Arabic, desktop and mobile — is in [`docs/screenshots/`](docs/screenshots/).
 
 ## Design principles
 
@@ -233,7 +246,7 @@ web/              React + TypeScript client
   src/tests/      Unit, integration, and live-workflow suites
 android/          Native Kotlin/Compose app
   app/src/main/java/com/caregiver/mobile/   core, data, presentation, ai
-docs/             API contracts, AI evaluation, design system, privacy audit
+docs/             API contracts, AI evaluation, design system, privacy audit, screenshots
 .github/          CI and Android release workflows
 setup.sh          One-command local setup
 ```
