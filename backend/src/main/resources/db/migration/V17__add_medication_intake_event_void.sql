@@ -1,10 +1,11 @@
 -- Voiding is a correction, never a deletion: the original event stays in the
 -- audit trail with provenance. All three columns are nullable so existing rows
 -- are untouched, and a void claim always carries both actor and timestamp.
-ALTER TABLE medication_intake_events
-  ADD COLUMN voided_at TIMESTAMP WITH TIME ZONE,
-  ADD COLUMN voided_by UUID,
-  ADD COLUMN void_reason VARCHAR(500);
+-- One ALTER per column: portable across PostgreSQL and H2 (PostgreSQL mode),
+-- which rejects the repeated-ADD COLUMN form. Semantics are unchanged.
+ALTER TABLE medication_intake_events ADD COLUMN voided_at TIMESTAMP WITH TIME ZONE;
+ALTER TABLE medication_intake_events ADD COLUMN voided_by UUID;
+ALTER TABLE medication_intake_events ADD COLUMN void_reason VARCHAR(500);
 
 ALTER TABLE medication_intake_events
   ADD CONSTRAINT fk_medication_intake_events_voided_by
