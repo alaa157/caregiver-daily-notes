@@ -12,6 +12,8 @@ Defects found by the project's own testing, documented with evidence and repro. 
 | [DEF-006](def-006-plan-output-schema.md) | Major | backend / AI | Plan generation always failed: prompt never stated the schema | fixed |
 | [DEF-007](def-007-android-key-classification.md) | Major | android / AI | Corrupted/missing keys reported as "provider rejected the key" | fixed (verified) |
 | [DEF-008](def-008-setup-check-key-state.md) | Major | android / AI settings | Setup check resolves to missing_key although a key is entered | open |
+| [DEF-009](def-009-bearer-model-list.md) | Major | android / AI model catalog | Bearer prefix fails the key-character check — OpenAI/xAI/OpenRouter model lists never load | fixed |
+| [DEF-010](def-010-migration-backup-cleanup.md) | Minor | android / legacy migration | Main-db migration backup never deleted (duplicated path suffix) | fixed |
 
 ## Report template
 
