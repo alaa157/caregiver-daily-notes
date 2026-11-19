@@ -195,13 +195,13 @@ API_BASE_URL=https://your-backend.example npm run config:runtime
 | Android JVM unit | `cd android && ./gradlew :app:testDebugUnitTest` |
 | Android instrumentation | `cd android && ./gradlew :app:connectedDebugAndroidTest` |
 
-The test estate spans **93 backend test classes** (632 test methods + 12 parameterized; JUnit 5, JaCoCo), **49 web unit-test files** (1,086 cases; Vitest + Testing Library), **80 Playwright browser test definitions** (53 E2E workflows + 27 browser contracts) run across four viewports (320 runs) with axe-core accessibility checks and English/Arabic workflow coverage, **192 Android JVM test classes** (1,659 methods) plus **36 Compose UI instrumentation classes** (180 methods), and a **22-case deterministic AI evaluation harness** whose four safety metrics are enforced at `1.0`. Defects are tracked one per issue — **542 issues closed** to date.
+The test estate spans backend unit and integration suites (JUnit 5, Spring Boot Test, JaCoCo), web unit tests (Vitest + Testing Library), Playwright browser tests across desktop, tablet, mobile, and compact viewports with axe-core accessibility checks and English/Arabic workflow coverage, Android JVM and Compose UI instrumentation suites, and a deterministic AI evaluation harness whose safety metrics are enforced at `1.0`.
 
-Measured backend coverage (JaCoCo, 2026-11-19, suite green at 700/700): **93.3% lines, 76.7% branches**. The test strategy, execution status, and the defect register — eight defects found by this testing effort, each with evidence, fix, and verification — are documented in [`docs/testing/`](docs/testing/).
+The measured inventory — test totals, JaCoCo coverage, executed-versus-specified status, and the defect register with evidence, fixes, and verification — is maintained in [`docs/testing/README.md`](docs/testing/README.md) and [`docs/testing/defects/`](docs/testing/defects/), so this README does not duplicate figures that change as the estate grows. Defects are tracked one per GitHub issue.
 
-**Formal deliverable:** the [Test Case Specification & Execution Report](docs/testing/rafeek-test-cases.pdf) (PDF, 62 pages) — IEEE 829-style key cases plus the full executed registers (700 backend, 1,086 web, 22 AI golden) and the specified E2E/Android inventories, prepared for DEPI review.
+**Formal deliverable:** the [Test Case Specification & Execution Report](docs/testing/rafeek-test-cases.pdf) (PDF) — IEEE 829-style key cases plus the executed registers and the specified E2E/Android inventories, prepared for DEPI review.
 
-GitHub Actions workflows in [`.github/workflows/`](.github/workflows/) cover the frontend suite (unit, typecheck, build, Playwright), the backend suite with JaCoCo coverage, a Docker image build, Android JVM + emulator instrumentation tests (`android-tests.yml`), and Android APK releases. `ci.yml` and `android-tests.yml` are enabled and run on every pull request to main and on demand; the backend and Docker jobs are green.
+GitHub Actions workflows in [`.github/workflows/`](.github/workflows/) cover the frontend suite (unit, typecheck, build, Playwright), the backend suite with JaCoCo coverage, a Docker image build, Android JVM + emulator instrumentation tests (`android-tests.yml`), and Android APK releases. `ci.yml` and `android-tests.yml` are enabled and run on every pull request to main and on demand; live run status is in the repository's Actions tab.
 
 ## API overview
 
@@ -228,14 +228,14 @@ Writes accept an optional `Idempotency-Key` header: the same key with an identic
 
 AI is **bring-your-own-key**. The backend stores no provider credentials and has no default model. Each summary or plan request carries the caregiver's provider, model, and key; the key is used for that call only, never persisted server-side, and never logged. Supported providers are OpenAI, Gemini, xAI, and OpenRouter (all via OpenAI-compatible endpoints); the Android app additionally supports Anthropic.
 
-Four rules constrain what the model is allowed to do:
+These rules constrain what the model is allowed to do:
 
 - **Deterministic red flags.** Falls, high pain, repeated missed medication, and sustained poor appetite are computed in backend code. The model may escalate urgency but never suppress a flag.
 - **Backend-computed trends.** Period-over-period changes are calculated server-side, not inferred by the model.
 - **Fixed action catalog.** Plan items are selected and parameterized from a predefined catalog, with evidence cited. The model does not invent free-form medical advice.
 - **Medication hard lock.** A plan's medication list is copied from the server-owned baseline, never from model output.
 
-AI output is measured by a deterministic evaluation harness over 22 synthetic golden cases spanning English, Modern Standard Arabic, Egyptian dialect, mixed-language, short, long, messy, contradictory, irrelevant, and prompt-injection inputs. Four metrics — red-flag recall, schema validity, groundedness, and medication safety — must all equal `1.0`; the harness fails on any regression. See [`docs/ai/eval-harness.md`](docs/ai/eval-harness.md).
+AI output is measured by a deterministic evaluation harness over a synthetic golden dataset spanning English, Modern Standard Arabic, Egyptian dialect, mixed-language, short, long, messy, contradictory, irrelevant, and prompt-injection inputs. The metrics — red-flag recall, schema validity, groundedness, and medication safety — must all equal `1.0`; the harness fails on any regression. See [`docs/ai/eval-harness.md`](docs/ai/eval-harness.md).
 
 ## Data handling and privacy
 
@@ -252,7 +252,7 @@ There is no retention schedule, purge job, or data-export feature in the codebas
 
 ```
 backend/          Spring Boot API — auth, notes, recipients, plans, medications, safety, AI
-  src/main/resources/db/migration/   Flyway migrations V1–V17
+  src/main/resources/db/migration/   Flyway migrations
   src/main/resources/prompts/        Model prompt templates
 web/              React + TypeScript client
   src/features/   auth, notes, recipients, history, summary, plans, medications, safety, ai, settings
@@ -271,10 +271,10 @@ setup.sh          One-command local setup
 
 | Artifact | Contents |
 |---|---|
-| [**Formal Test Case Specification & Execution Report (PDF)**](docs/testing/rafeek-test-cases.pdf) | 61-page DEPI deliverable — 27 formal key cases, full executed registers, defect summary, sign-off |
+| [**Formal Test Case Specification & Execution Report (PDF)**](docs/testing/rafeek-test-cases.pdf) | DEPI deliverable — formal key cases, executed registers, defect summary, sign-off |
 | [`docs/testing/`](docs/testing/) | Test strategy, inventory, measured coverage, execution status |
-| [`docs/testing/defects/`](docs/testing/defects/) | Defect register — evidence, repro, fixes, verification (issues #1095–#1102) |
-| [`docs/ai/eval-harness.md`](docs/ai/eval-harness.md) · [`docs/ai/golden/`](docs/ai/golden/) | AI evaluation metrics and the 22-case synthetic golden dataset |
+| [`docs/testing/defects/`](docs/testing/defects/) | Defect register — evidence, repro, fixes, verification; each defect links to its GitHub issue |
+| [`docs/ai/eval-harness.md`](docs/ai/eval-harness.md) · [`docs/ai/golden/`](docs/ai/golden/) | AI evaluation metrics and the synthetic golden dataset |
 
 ### Diagrams (UML set)
 
@@ -290,8 +290,8 @@ setup.sh          One-command local setup
 
 | Gallery | Contents |
 |---|---|
-| [`docs/screenshots/web/`](docs/screenshots/web/) | 29 captures — EN desktop, AR RTL, mobile; real seeded flows |
-| [`docs/screenshots/android/`](docs/screenshots/android/) | 27 captures — onboarding, home, note editor, medications, history, settings, full AR pass |
+| [`docs/screenshots/web/`](docs/screenshots/web/) | EN desktop, AR RTL, mobile; real seeded flows |
+| [`docs/screenshots/android/`](docs/screenshots/android/) | Onboarding, home, note editor, medications, history, settings, full AR pass |
 
 ### API, design & project docs
 
