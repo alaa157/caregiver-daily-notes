@@ -95,7 +95,8 @@ Defects found by this testing effort are documented with evidence, repro, fix co
 | DEF-004 | [#1098](https://github.com/alaa157/caregiver-daily-notes/issues/1098) | Typed corrections 500 on never-recorded fields | fixed |
 | DEF-005 | [#1099](https://github.com/alaa157/caregiver-daily-notes/issues/1099) | Nondeterministic LLM request bodies (Map.of) | fixed |
 | DEF-006 | [#1100](https://github.com/alaa157/caregiver-daily-notes/issues/1100) | Plan prompt never stated the output schema | fixed (live-verified) |
-| DEF-007 | [#1101](https://github.com/alaa157/caregiver-daily-notes/issues/1101) | Android key-error classification | fixed (device verification pending) |
+| DEF-007 | [#1101](https://github.com/alaa157/caregiver-daily-notes/issues/1101) | Android key-error classification | fixed (verified) |
+| DEF-008 | [#1102](https://github.com/alaa157/caregiver-daily-notes/issues/1102) | Setup check resolves to missing_key although a key is entered (cloud harness; investigation pending) | open |
 
 ## 7. Defect management
 

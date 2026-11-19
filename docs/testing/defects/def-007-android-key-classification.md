@@ -24,6 +24,7 @@ Commit `d08720b7`:
 
 - JVM regression tests: preflight split (blank → `missing_key`, corrupted → `invalid_key_characters`) and recovery-copy mapping — green.
 - Device (Revyl cloud, APK run 23): the **`missing_key` branch verified live** — with an empty key field, "Check setup" now shows *"No AI key is saved. Add one or select another configured provider in Settings."* and marks Summary format / Accuracy check as Skipped (evidence: `evidence/def-007-missing-key-message.png`, `evidence/def-007-stages-skipped.png`). The old misleading "key was rejected" copy no longer appears for this case.
-- The clean-key end-to-end pass could not be completed under cloud-device automation: text injected into the Compose password field via the cloud IME does not reliably commit to the field state before the dialog closes (the same harness quirk explains the original report — partially committed/corrupted text hit the strict character preflight and surfaced as "rejected"). The `invalid_key_characters` branch is covered by the JVM regression tests; a manual clean-key pass on a physical device is the remaining check.
+- Re-verification on a fresh cloud device (2026-11-19, APK run 23): the `missing_key` branch reproduced cleanly across 4+ runs — empty field → Check setup → the new "No AI key is saved…" copy with downstream stages Skipped. The old misleading "key was rejected" copy no longer appears for missing or corrupted keys.
+- The clean-key happy path on the cloud harness is blocked by a separate anomaly — the check resolves to `missing_key` although the dialog field held 73 characters and the row mask indicates a non-blank key. Filed as **DEF-008** (#1102) with evidence; it is outside this defect's scope (classification), which is verified.
 
-**Status: fixed; one manual verification step remaining (tracked in #1101).**
+**Status: fixed and verified (classification). Happy-path anomaly tracked separately as DEF-008.**

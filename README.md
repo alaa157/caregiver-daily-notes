@@ -197,7 +197,7 @@ API_BASE_URL=https://your-backend.example npm run config:runtime
 
 The test estate spans **93 backend test classes** (632 test methods + 12 parameterized; JUnit 5, JaCoCo), **49 web unit-test files** (1,086 cases; Vitest + Testing Library), **53 Playwright browser test definitions** run across four viewports (212 runs) with axe-core accessibility checks and English/Arabic workflow coverage, **192 Android JVM test classes** (1,654 methods) plus **35 Compose UI instrumentation classes** (179 methods), and a **22-case deterministic AI evaluation harness** whose four safety metrics are enforced at `1.0`. Defects are tracked one per issue — **542 issues closed** to date.
 
-Measured backend coverage (JaCoCo, 2026-11-19, suite green at 700/700): **93.3% lines, 76.7% branches**. The test strategy, execution status, and the defect register — seven defects found by this testing effort, each with evidence, fix, and verification — are documented in [`docs/testing/`](docs/testing/).
+Measured backend coverage (JaCoCo, 2026-11-19, suite green at 700/700): **93.3% lines, 76.7% branches**. The test strategy, execution status, and the defect register — eight defects found by this testing effort, each with evidence, fix, and verification — are documented in [`docs/testing/`](docs/testing/).
 
 **Formal deliverable:** the [Test Case Specification & Execution Report](docs/testing/rafeek-test-cases.pdf) (PDF, 61 pages) — IEEE 829-style key cases plus the full executed registers (700 backend, 1,086 web, 22 AI golden) and the specified E2E/Android inventories, prepared for DEPI review.
 
@@ -273,7 +273,7 @@ setup.sh          One-command local setup
 |---|---|
 | [**Formal Test Case Specification & Execution Report (PDF)**](docs/testing/rafeek-test-cases.pdf) | 61-page DEPI deliverable — 27 formal key cases, full executed registers, defect summary, sign-off |
 | [`docs/testing/`](docs/testing/) | Test strategy, inventory, measured coverage, execution status |
-| [`docs/testing/defects/`](docs/testing/defects/) | Defect register — evidence, repro, fixes, verification (issues #1095–#1101) |
+| [`docs/testing/defects/`](docs/testing/defects/) | Defect register — evidence, repro, fixes, verification (issues #1095–#1102) |
 | [`docs/ai/eval-harness.md`](docs/ai/eval-harness.md) · [`docs/ai/golden/`](docs/ai/golden/) | AI evaluation metrics and the 22-case synthetic golden dataset |
 
 ### Diagrams (UML set)

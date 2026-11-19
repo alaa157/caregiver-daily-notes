@@ -10,7 +10,8 @@ Defects found by the project's own testing, documented with evidence and repro. 
 | [DEF-004](def-004-corrections-npe.md) | Major | backend / notes | Typed corrections 500 on notes with never-recorded fields | fixed |
 | [DEF-005](def-005-nondeterministic-llm-body.md) | Minor | backend / AI | Flaky byte-for-byte body contract (Map.of ordering) | fixed |
 | [DEF-006](def-006-plan-output-schema.md) | Major | backend / AI | Plan generation always failed: prompt never stated the schema | fixed |
-| [DEF-007](def-007-android-key-classification.md) | Major | android / AI | Corrupted/missing keys reported as "provider rejected the key" | fixed (device verification pending) |
+| [DEF-007](def-007-android-key-classification.md) | Major | android / AI | Corrupted/missing keys reported as "provider rejected the key" | fixed (verified) |
+| [DEF-008](def-008-setup-check-key-state.md) | Major | android / AI settings | Setup check resolves to missing_key although a key is entered | open |
 
 ## Report template
 

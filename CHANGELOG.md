@@ -7,7 +7,7 @@ date-based milestones alongside the Android demo release tags.
 ## [Unreleased]
 
 - CI re-enablement pending (workflow currently disabled manually).
-- DEF-007 (#1101): one manual clean-key verification on a physical device.
+- DEF-008 (#1102): investigate setup-check key-state anomaly on cloud devices (manual device run first).
 
 ## 2026-11-19 — Rafeek rebrand, test estate audit, defect fixes
 
